@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -14,16 +15,8 @@
 #include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
-namespace {
 
-bool is_valid_address(const FF& address)
-{
-    return FF(static_cast<uint32_t>(address)) == address;
-}
-
-} // namespace
-
-std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory) const
+std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryInterface& memory)
 {
     // We'll be filling in the event as we progress.
     AddressingEvent event;
@@ -58,7 +51,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         try {
             // Simulation and the circuit assume that the operands are valid addresses.
             // This should be guaranteed by instruction fetching and the wire format.
-            assert(is_valid_address(instruction.operands[i].as_ff()));
+            assert(FF(static_cast<uint32_t>(instruction.operands[i].as_ff())) == instruction.operands[i].as_ff());
 
             // Guarantees by this point:
             // - original operand is a valid address IF interpreted as a MemoryAddress.
@@ -84,7 +77,6 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
                 // We store the offset as an FF operand. If the circuit needs to prove overflow, it will
                 // need the full value.
                 resolution_info.after_relative = Operand::from<FF>(offset);
-                // FIXME(fcarreiro): do this range check properly calling a gadget.
                 if (!is_valid_address(offset)) {
                     // If this happens, it means that the relative computation overflowed. However both the base and
                     // operand addresses by themselves were valid.
@@ -136,6 +128,20 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         resolved_operands.push_back(info.resolved_operand);
     }
     return resolved_operands;
+}
+
+bool Addressing::is_valid_address(const FF& address)
+{
+    // Precondition: address should fit in 33 bits.
+    uint128_t address_u128 = uint128_t(address);
+    assert(address_u128 <= 0x1FFFFFFFF);
+    // This leaks circuit information.
+    // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?view#Comparison-between-range-constrained-numbers.
+    bool address_lt_32_bits = (static_cast<uint32_t>(address_u128) == address_u128);
+    uint128_t two_to_32 = uint128_t(1) << 32;
+    uint128_t result = address_lt_32_bits ? two_to_32 - address_u128 - 1 : address_u128 - two_to_32;
+    range_check.assert_range(result, 32);
+    return address_lt_32_bits;
 }
 
 } // namespace bb::avm2::simulation

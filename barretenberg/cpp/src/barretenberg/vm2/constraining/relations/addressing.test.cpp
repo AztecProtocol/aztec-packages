@@ -26,18 +26,6 @@ TEST(AddressingConstrainingTest, EmptyRow)
     check_relation<addressing>(testing::empty_trace());
 }
 
-// TODO(fcarreiro): add test from events.
-// TEST(AddressingConstrainingTest, Basic)
-// {
-//     TestTraceContainer trace({
-//         {
-//             { C::precomputed_first_row, 1 },
-//         },
-//     });
-//
-//     check_relation<addressing>(trace);
-// }
-
 /**************************************************************************************************
  *  Base Address Resolution
  **************************************************************************************************/
@@ -69,6 +57,14 @@ TEST(AddressingConstrainingTest, BaseAddressGating)
                   { C::execution_sel_op_is_relative_wire_4_, 1 }, // not an address
                   { C::execution_sel_op_is_relative_wire_5_, 0 },
                   { C::execution_sel_op_is_relative_wire_6_, 0 },
+                  // Derived.
+                  { C::execution_sel_op_is_relative_effective_0_, 1 },
+                  { C::execution_sel_op_is_relative_effective_1_, 0 },
+                  { C::execution_sel_op_is_relative_effective_2_, 1 },
+                  { C::execution_sel_op_is_relative_effective_3_, 0 },
+                  { C::execution_sel_op_is_relative_effective_4_, 0 },
+                  { C::execution_sel_op_is_relative_effective_5_, 0 },
+                  { C::execution_sel_op_is_relative_effective_6_, 0 },
                   // should be 1
                   { C::execution_sel_do_base_check, 0 },
               } });
@@ -221,6 +217,14 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
             { C::execution_sel_op_is_address_4_, 1 },
             { C::execution_sel_op_is_address_5_, 1 },
             { C::execution_sel_op_is_address_6_, 1 },
+            // Derived.
+            { C::execution_sel_op_is_relative_effective_0_, 1 },
+            { C::execution_sel_op_is_relative_effective_1_, 0 },
+            { C::execution_sel_op_is_relative_effective_2_, 1 },
+            { C::execution_sel_op_is_relative_effective_3_, 0 },
+            { C::execution_sel_op_is_relative_effective_4_, 1 },
+            { C::execution_sel_op_is_relative_effective_5_, 0 },
+            { C::execution_sel_op_is_relative_effective_6_, 1 },
             // Selectors that enable the subrelation.
             { C::execution_sel_op_is_relative_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_1_, 0 },
@@ -327,11 +331,91 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInva
                               "RELATIVE_RESOLUTION_0");
 }
 
-TEST(AddressingConstrainingTest, RelativeOverflow)
+TEST(AddressingConstrainingTest, RelativeOverflowCheck)
 {
-    // TODO(fcarreiro): add tests for relative overflow once we have the error from the range check.
-    // Pay particular attention to how sel_relative_overflow can be used (maliciously or not)
-    // to disable indirect resolution.
+    FF base_address_val = 100;
+    FF two_to_32 = FF(1ULL << 32);
+
+    TestTraceContainer trace({
+        {
+            // Derived.
+            { C::execution_sel_op_is_relative_effective_0_, 1 },
+            { C::execution_sel_op_is_relative_effective_1_, 0 },
+            { C::execution_sel_op_is_relative_effective_2_, 1 },
+            { C::execution_sel_op_is_relative_effective_3_, 0 },
+            { C::execution_sel_op_is_relative_effective_4_, 1 },
+            { C::execution_sel_op_is_relative_effective_5_, 0 },
+            { C::execution_sel_op_is_relative_effective_6_, 1 },
+            // After relative step. Base address was added when applicable.
+            { C::execution_op_after_relative_0_, FF(123) + base_address_val },
+            { C::execution_op_after_relative_1_, 456 },
+            { C::execution_op_after_relative_2_, FF(0xFFFFFFFF) + base_address_val },
+            { C::execution_op_after_relative_3_, 101112 },
+            { C::execution_op_after_relative_4_, FF(131415) + base_address_val },
+            { C::execution_op_after_relative_5_, 161718 },
+            { C::execution_op_after_relative_6_, FF(192021) + base_address_val },
+            // Overflow bits.
+            { C::execution_sel_relative_overflow_0_, 0 },
+            { C::execution_sel_relative_overflow_1_, 0 },
+            { C::execution_sel_relative_overflow_2_, 1 },
+            { C::execution_sel_relative_overflow_3_, 0 },
+            { C::execution_sel_relative_overflow_4_, 0 },
+            { C::execution_sel_relative_overflow_5_, 0 },
+            { C::execution_sel_relative_overflow_6_, 0 },
+            // Intermediary columns.
+            { C::execution_overflow_range_check_result_0_, two_to_32 - (FF(123) + base_address_val) - 1 },
+            { C::execution_overflow_range_check_result_1_, 0 }, // N/A due to not relative effective.
+            { C::execution_overflow_range_check_result_2_, (FF(0xFFFFFFFF) + base_address_val) - two_to_32 },
+            { C::execution_overflow_range_check_result_3_, 0 }, // N/A due to not relative effective.
+            { C::execution_overflow_range_check_result_4_, two_to_32 - (FF(131415) + base_address_val) - 1 },
+            { C::execution_overflow_range_check_result_5_, 0 }, // N/A due to not relative effective.
+            { C::execution_overflow_range_check_result_6_, two_to_32 - (FF(192021) + base_address_val) - 1 },
+            // Sigh...
+            { C::execution_two_to_32, two_to_32 },
+        },
+    });
+
+    check_relation<addressing>(trace,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_0,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_1,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_2,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_3,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_4,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_5,
+                               addressing::SR_RELATIVE_OVERFLOW_RESULT_6,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_0,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_2,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_4,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5,
+                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_6);
+
+    // If we swap bits it should fail.
+    trace.set(0,
+              { {
+                  { C::execution_sel_relative_overflow_0_, 1 }, // No overflow.
+                  { C::execution_sel_relative_overflow_1_, 1 }, // Wasn't relative effective.
+                  { C::execution_sel_relative_overflow_2_, 0 }, // Overflow.
+                  { C::execution_sel_relative_overflow_3_, 1 }, // Wasn't relative effective.
+                  { C::execution_sel_relative_overflow_4_, 1 }, // No overflow.
+                  { C::execution_sel_relative_overflow_5_, 1 }, // Wasn't relative effective.
+                  { C::execution_sel_relative_overflow_6_, 1 }, // No overflow.
+              } });
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_0),
+                              "RELATIVE_OVERFLOW_RESULT_0");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1),
+                              "NOT_RELATIVE_NO_OVERFLOW_1");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_2),
+                              "RELATIVE_OVERFLOW_RESULT_2");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3),
+                              "NOT_RELATIVE_NO_OVERFLOW_3");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_4),
+                              "RELATIVE_OVERFLOW_RESULT_4");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5),
+                              "NOT_RELATIVE_NO_OVERFLOW_5");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_6),
+                              "RELATIVE_OVERFLOW_RESULT_6");
 }
 
 /**************************************************************************************************

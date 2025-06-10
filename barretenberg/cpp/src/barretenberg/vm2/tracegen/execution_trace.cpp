@@ -69,6 +69,18 @@ constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
     C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
     C::execution_sel_relative_overflow_6_,
 };
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS = {
+    C::execution_sel_op_is_relative_effective_0_, C::execution_sel_op_is_relative_effective_1_,
+    C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
+    C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
+    C::execution_sel_op_is_relative_effective_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
+    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
+    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
+    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
+    C::execution_overflow_range_check_result_6_,
+};
 
 constexpr size_t TOTAL_INDIRECT_BITS = 16;
 static_assert(NUM_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
@@ -593,6 +605,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
 
     std::array<bool, NUM_OPERANDS> is_address{};
     std::array<bool, NUM_OPERANDS> should_apply_indirection{};
+    std::array<bool, NUM_OPERANDS> is_relative_effective{};
+    std::array<bool, NUM_OPERANDS> is_indirect_effective{};
     std::array<bool, NUM_OPERANDS> relative_oob{};
     std::array<FF, NUM_OPERANDS> after_relative{};
     std::array<FF, NUM_OPERANDS> resolved_operand{};
@@ -605,26 +619,33 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         bool op_is_address = i < ex_spec.num_addresses;
         relative_oob[i] = resolution_info.error.has_value() &&
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
-        bool is_indirect_effective = op_is_address && is_operand_indirect(instruction.indirect, i);
-        bool is_relative_effective = op_is_address && is_operand_relative(instruction.indirect, i);
+        is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
+        is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
         is_address[i] = op_is_address;
-        should_apply_indirection[i] = is_indirect_effective && !relative_oob[i];
+        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
         resolved_operand[i] = resolution_info.resolved_operand;
-        if (is_relative_effective) {
+        if (is_relative_effective[i]) {
             num_relative_operands++;
         }
     }
 
     // Set the operand columns.
     for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        FF relative_oob_check_diff = 0;
+        if (is_relative_effective[i]) {
+            relative_oob_check_diff =
+                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
+        }
         trace.set(row,
                   { {
                       { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
+                      { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
+                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
                       { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
                       { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
                   } });
@@ -661,8 +682,8 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
         for (size_t i = 0; i < NUM_OPERANDS; ++i) {
-            batched_tags_diff += FF(is_address[i]) * FF(should_apply_indirection[i]) * power_of_2 *
-                                 (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            batched_tags_diff +=
+                FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
         }
         batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
@@ -694,14 +715,18 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
             : 0;
 
     trace.set(row,
-              { { { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+              { {
+                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
                   { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
                   { C::execution_base_address_val, addr_event.base_address.as_ff() },
                   { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
                   { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
                   { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
                   { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
-                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 } } });
+                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
+                  { C::execution_constant_32, 32 },
+                  { C::execution_two_to_32, 1ULL << 32 },
+              } });
 }
 
 std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
@@ -721,6 +746,13 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_4_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_5_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_6_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

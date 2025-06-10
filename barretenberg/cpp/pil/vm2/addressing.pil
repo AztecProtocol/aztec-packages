@@ -87,13 +87,15 @@ pol commit sel_op_is_address[7];
 // This is because simulation only considers the bits that can be addresses, and will not
 // attempt to resolve any other even if the indirect flag says so. Therefore, in particular it
 // will never error on those operands.
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_0_ = sel_op_is_relative_wire[0] * sel_op_is_address[0];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_1_ = sel_op_is_relative_wire[1] * sel_op_is_address[1];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_2_ = sel_op_is_relative_wire[2] * sel_op_is_address[2];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_3_ = sel_op_is_relative_wire[3] * sel_op_is_address[3];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_4_ = sel_op_is_relative_wire[4] * sel_op_is_address[4];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_5_ = sel_op_is_relative_wire[5] * sel_op_is_address[5];
-pol SEL_OP_IS_RELATIVE_EFFECTIVE_6_ = sel_op_is_relative_wire[6] * sel_op_is_address[6];
+// NOTE: we could avoid this committed column if the lookups could take pol aliases.
+pol commit sel_op_is_relative_effective[7];
+sel_op_is_relative_effective[0] = sel_op_is_relative_wire[0] * sel_op_is_address[0];
+sel_op_is_relative_effective[1] = sel_op_is_relative_wire[1] * sel_op_is_address[1];
+sel_op_is_relative_effective[2] = sel_op_is_relative_wire[2] * sel_op_is_address[2];
+sel_op_is_relative_effective[3] = sel_op_is_relative_wire[3] * sel_op_is_address[3];
+sel_op_is_relative_effective[4] = sel_op_is_relative_wire[4] * sel_op_is_address[4];
+sel_op_is_relative_effective[5] = sel_op_is_relative_wire[5] * sel_op_is_address[5];
+sel_op_is_relative_effective[6] = sel_op_is_relative_wire[6] * sel_op_is_address[6];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_0_ = sel_op_is_indirect_wire[0] * sel_op_is_address[0];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_1_ = sel_op_is_indirect_wire[1] * sel_op_is_address[1];
 pol SEL_OP_IS_INDIRECT_EFFECTIVE_2_ = sel_op_is_indirect_wire[2] * sel_op_is_address[2];
@@ -115,9 +117,9 @@ pol commit base_address_tag;
 
 // If any operand requires relative resolution, we check the base address.
 pol commit sel_do_base_check;
-// We do a bit of extra work to check if the sum of SEL_OP_IS_RELATIVE_EFFECTIVE[i] is non-zero.
-pol NUM_RELATIVE_OPERANDS = SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + SEL_OP_IS_RELATIVE_EFFECTIVE_3_
-                          + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ + SEL_OP_IS_RELATIVE_EFFECTIVE_6_;
+// We do a bit of extra work to check if the sum of sel_op_is_relative_effective[i] is non-zero.
+pol NUM_RELATIVE_OPERANDS = sel_op_is_relative_effective[0] + sel_op_is_relative_effective[1] + sel_op_is_relative_effective[2] + sel_op_is_relative_effective[3]
+                          + sel_op_is_relative_effective[4] + sel_op_is_relative_effective[5] + sel_op_is_relative_effective[6];
 pol commit num_relative_operands_inv;
 // See https://hackmd.io/moq6viBpRJeLpWrHAogCZw#With-Error-Support.
 pol NUM_RELATIVE_X = NUM_RELATIVE_OPERANDS;
@@ -156,28 +158,81 @@ BASE_CHECK_X * (BASE_CHECK_E * (1 - BASE_CHECK_Y) + BASE_CHECK_Y) - 1 + BASE_CHE
 pol commit op_after_relative[7];
 // Whether relative resolution overflowed the address space.
 pol commit sel_relative_overflow[7];
+sel_relative_overflow[0] * (1 - sel_relative_overflow[0]) = 0;
+sel_relative_overflow[1] * (1 - sel_relative_overflow[1]) = 0;
+sel_relative_overflow[2] * (1 - sel_relative_overflow[2]) = 0;
+sel_relative_overflow[3] * (1 - sel_relative_overflow[3]) = 0;
+sel_relative_overflow[4] * (1 - sel_relative_overflow[4]) = 0;
+sel_relative_overflow[5] * (1 - sel_relative_overflow[5]) = 0;
+sel_relative_overflow[6] * (1 - sel_relative_overflow[6]) = 0;
+
+// If sel_op_is_relative_effective[i] is 0, then sel_relative_overflow[i] must be 0.
+#[NOT_RELATIVE_NO_OVERFLOW_0]
+sel_relative_overflow[0] * (1 - sel_op_is_relative_effective[0]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_1]
+sel_relative_overflow[1] * (1 - sel_op_is_relative_effective[1]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_2]
+sel_relative_overflow[2] * (1 - sel_op_is_relative_effective[2]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_3]
+sel_relative_overflow[3] * (1 - sel_op_is_relative_effective[3]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_4]
+sel_relative_overflow[4] * (1 - sel_op_is_relative_effective[4]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_5]
+sel_relative_overflow[5] * (1 - sel_op_is_relative_effective[5]) = 0;
+#[NOT_RELATIVE_NO_OVERFLOW_6]
+sel_relative_overflow[6] * (1 - sel_op_is_relative_effective[6]) = 0;
 
 // Note that we will not add the base address if there was a failure.
 pol RELATIVE_RESOLUTION_FILTER = (1 - sel_base_address_failure) * base_address_val;  // Alias for performance.
 #[RELATIVE_RESOLUTION_0]
-op_after_relative[0] = op[0] + SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[0] = op[0] + sel_op_is_relative_effective[0] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_1]
-op_after_relative[1] = op[1] + SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[1] = op[1] + sel_op_is_relative_effective[1] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_2]
-op_after_relative[2] = op[2] + SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[2] = op[2] + sel_op_is_relative_effective[2] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_3]
-op_after_relative[3] = op[3] + SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[3] = op[3] + sel_op_is_relative_effective[3] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_4]
-op_after_relative[4] = op[4] + SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[4] = op[4] + sel_op_is_relative_effective[4] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_5]
-op_after_relative[5] = op[5] + SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[5] = op[5] + sel_op_is_relative_effective[5] * RELATIVE_RESOLUTION_FILTER;
 #[RELATIVE_RESOLUTION_6]
-op_after_relative[6] = op[6] + SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * RELATIVE_RESOLUTION_FILTER;
+op_after_relative[6] = op[6] + sel_op_is_relative_effective[6] * RELATIVE_RESOLUTION_FILTER;
 
-// #[RELATIVE_OVERFLOW_i]
-// FIXME(fcarreiro): Constrain that sel_relative_overflow[i] == (op_after_relative[0] >= 2^32).
-// You can assume that the base address is valid for the purposes of this constraint, because in the above
-// relations the base address will not be used if there was a failure.
+// Helper columns for overflow range check.
+pol commit two_to_32;
+sel_should_resolve_address * (two_to_32 - 2**32) = 0;
+pol commit overflow_range_check_result[7];
+#[RELATIVE_OVERFLOW_RESULT_0]
+overflow_range_check_result[0] = sel_op_is_relative_effective[0] * ((1 - sel_relative_overflow[0]) * (2 * two_to_32 - 2 * op_after_relative[0] - 1) + op_after_relative[0] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_1]
+overflow_range_check_result[1] = sel_op_is_relative_effective[1] * ((1 - sel_relative_overflow[1]) * (2 * two_to_32 - 2 * op_after_relative[1] - 1) + op_after_relative[1] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_2]
+overflow_range_check_result[2] = sel_op_is_relative_effective[2] * ((1 - sel_relative_overflow[2]) * (2 * two_to_32 - 2 * op_after_relative[2] - 1) + op_after_relative[2] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_3]
+overflow_range_check_result[3] = sel_op_is_relative_effective[3] * ((1 - sel_relative_overflow[3]) * (2 * two_to_32 - 2 * op_after_relative[3] - 1) + op_after_relative[3] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_4]
+overflow_range_check_result[4] = sel_op_is_relative_effective[4] * ((1 - sel_relative_overflow[4]) * (2 * two_to_32 - 2 * op_after_relative[4] - 1) + op_after_relative[4] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_5]
+overflow_range_check_result[5] = sel_op_is_relative_effective[5] * ((1 - sel_relative_overflow[5]) * (2 * two_to_32 - 2 * op_after_relative[5] - 1) + op_after_relative[5] - two_to_32);
+#[RELATIVE_OVERFLOW_RESULT_6]
+overflow_range_check_result[6] = sel_op_is_relative_effective[6] * ((1 - sel_relative_overflow[6]) * (2 * two_to_32 - 2 * op_after_relative[6] - 1) + op_after_relative[6] - two_to_32);
+
+// Note column constant_32 is defined in other file.
+#[RELATIVE_OVERFLOW_RANGE_0]
+sel_op_is_relative_effective[0] { overflow_range_check_result[0], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_1]
+sel_op_is_relative_effective[1] { overflow_range_check_result[1], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_2]
+sel_op_is_relative_effective[2] { overflow_range_check_result[2], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_3]
+sel_op_is_relative_effective[3] { overflow_range_check_result[3], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_4]
+sel_op_is_relative_effective[4] { overflow_range_check_result[4], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_5]
+sel_op_is_relative_effective[5] { overflow_range_check_result[5], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+#[RELATIVE_OVERFLOW_RANGE_6]
+sel_op_is_relative_effective[6] { overflow_range_check_result[6], constant_32 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
 /**************************************************************************************************
  *  Indirection Resolution
