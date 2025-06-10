@@ -359,7 +359,7 @@ describe('ReqResp', () => {
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
 
-    it('should not close stream when handling a goodbye message received from peer', async () => {
+    it('should not yield any warnings when handling a goodbye message received from peer', async () => {
       nodes = await createNodes(peerScoring, 2);
       const sendingNode = nodes[0];
       const receivingNode = nodes[1];

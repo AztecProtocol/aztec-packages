@@ -689,10 +689,16 @@ export class ReqResp {
         errorStatus = e.status;
       }
 
-      const canWriteToStream = !(stream.writeStatus === 'closing' || stream.writeStatus === 'closed');
-      if (canWriteToStream) {
+      const canWriteToStream =
+        stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
+      if (!canWriteToStream) {
+        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+        return;
+      }
+
+      // Return and yield the response chunk
+      try {
         const sendErrorChunk = this.sendErrorChunk(errorStatus);
-        // Return and yield the response chunk
         await pipe(
           stream,
           async function* (_source: any) {
@@ -700,8 +706,8 @@ export class ReqResp {
           },
           stream,
         );
-      } else {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+      } catch (e: any) {
+        this.logger.warn('Error while sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
       await stream.close();
