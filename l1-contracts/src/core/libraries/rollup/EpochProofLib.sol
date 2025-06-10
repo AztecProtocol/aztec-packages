@@ -5,17 +5,16 @@ pragma solidity >=0.8.27;
 import {
   SubmitEpochRootProofArgs,
   PublicInputArgs,
-  IRollupCore
+  IRollupCore,
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 library EpochProofLib {
@@ -62,7 +61,7 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    require(verifyEpochRootProof(_args), "proof is invalid");
+    require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
     rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
@@ -221,7 +220,7 @@ library EpochProofLib {
     // at the start.
     Epoch parentEpoch = STFLib.getEpochForBlock(_start - 1);
 
-    require(startEpoch > Epoch.wrap(0) || _start == 1, "invalid first epoch proof");
+    require(startEpoch > Epoch.wrap(0) || _start == 1, Errors.Rollup__InvalidFirstEpochProof());
 
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
