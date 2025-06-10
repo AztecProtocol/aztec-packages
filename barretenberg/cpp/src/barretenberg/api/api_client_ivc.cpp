@@ -166,10 +166,17 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
+    bool verified = true;
+    for (int i = 0; i < 20; i++) {
+        info("BEFORE MSGPACK VERIFY");
+        const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+        info("AFTER MSGPACK VERIFY");
+        info("BEFORE VK VERIFY");
+        const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
+        info("AFTER MSGPACK VERIFY");
 
-    const bool verified = ClientIVC::verify(proof, vk);
+        verified = verified && ClientIVC::verify(proof, vk);
+    }
     return verified;
 }
 
