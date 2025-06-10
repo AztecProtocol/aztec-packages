@@ -95,6 +95,7 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
+        numConcurrentIVCVerifiers: 2,
       };
       localProver = await createProver(bbConfig);
     }
@@ -135,6 +136,10 @@ export class TestContext {
   public getBlockHeader(blockNumber: number): BlockHeader | undefined;
   public getBlockHeader(blockNumber = 0) {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
+  }
+
+  public setBlockHeader(header: BlockHeader, blockNumber: number) {
+    this.headers.set(blockNumber, header);
   }
 
   public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {

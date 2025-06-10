@@ -303,7 +303,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
-    this.log.info('P2P client stopped.');
+    this.log.info('P2P client stopped');
   }
 
   /** Triggers a sync to the archiver. Used for testing. */
@@ -386,7 +386,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.txPool.addTxs(filteredTxs);
     }
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}}) from peers`);
+    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;

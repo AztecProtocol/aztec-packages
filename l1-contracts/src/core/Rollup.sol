@@ -19,10 +19,11 @@ import {
   IStaking, AttesterConfig, Exit, AttesterView, Status
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
@@ -72,6 +73,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     GSE _gse,
+    IVerifier _epochProofVerifier,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
@@ -81,6 +83,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _rewardDistributor,
       _stakingAsset,
       _gse,
+      _epochProofVerifier,
       _governance,
       _genesisState,
       _config
@@ -101,7 +104,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param _flags - The flags to validate
    */
   function validateHeader(
-    bytes calldata _header,
+    ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
     Timestamp _currentTime,
@@ -110,7 +113,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   ) external override(IRollup) {
     ProposeLib.validateHeader(
       ValidateHeaderArgs({
-        header: HeaderLib.decode(_header),
+        header: _header,
         attestations: _attestations,
         digest: _digest,
         currentTime: _currentTime,
@@ -202,7 +205,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
 
-    address proposer = ValidatorSelectionLib.getProposerAt(slot, slot.epochFromSlot());
+    address proposer = ValidatorSelectionLib.getProposerAt(slot);
     require(
       proposer == msg.sender, Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
@@ -316,7 +319,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     external
     view
     override(IRollup)
-    returns (bytes32[] memory, bytes32, bytes32)
+    returns (bytes32[] memory, bytes32, bytes[] memory)
   {
     return ExtRollupLib.validateBlobs(_blobsInput, checkBlob);
   }
@@ -357,13 +360,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
   }
 
-  function getBlobPublicInputsHash(uint256 _blockNumber)
+  function getBlobCommitmentsHash(uint256 _blockNumber)
     external
     view
     override(IRollup)
     returns (bytes32)
   {
-    return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
+    return STFLib.getStorage().blocks[_blockNumber].blobCommitmentsHash;
+  }
+
+  function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].blobCommitmentsHash;
   }
 
   function getConfig(address _attester)
@@ -635,9 +643,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The address of the proposer
    */
   function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
-    Slot slot = _ts.slotFromTimestamp();
-    Epoch epochNumber = slot.epochFromSlot();
-    return ValidatorSelectionLib.getProposerAt(slot, epochNumber);
+    return ValidatorSelectionLib.getProposerAt(_ts.slotFromTimestamp());
   }
 
   /**

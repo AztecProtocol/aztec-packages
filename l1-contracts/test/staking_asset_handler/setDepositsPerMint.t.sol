@@ -51,6 +51,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
+    // Always accept the fake proofs
+    setMockZKPassportVerifier();
+
     address caller = address(0xbeefdeef);
 
     // it can add up to the deposits per mint without minting
@@ -66,14 +69,32 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
+      emit IStakingAssetHandler.AddedToQueue(validators[i], 1 + i);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i]);
+      stakingAssetHandler.addValidatorToQueue(validators[i], realProof);
+
+      // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
+      mockZKPassportVerifier.incrementUniqueIdentifier();
     }
+    assertEq(stakingAssetHandler.getQueueLength(), _depositsPerMint);
+
+    for (uint256 i = 0; i < _depositsPerMint; i++) {
+      vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
+    }
+    // Drip the queue to allow validators to join the set
+    stakingAssetHandler.dripQueue();
+    assertEq(stakingAssetHandler.getQueueLength(), 0);
 
     uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
+
+    // Added to the queue successfully
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), _depositsPerMint + 1);
+    vm.prank(caller);
+    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), realProof);
 
     // it reverts when adding one more validator
     vm.expectRevert(
@@ -81,8 +102,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
       )
     );
-    vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef));
+    stakingAssetHandler.dripQueue();
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

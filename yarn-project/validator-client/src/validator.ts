@@ -43,7 +43,7 @@ export interface Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
   attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation[] | undefined>;
@@ -163,12 +163,10 @@ export class ValidatorClient extends WithTracer implements Validator {
     const inCommittee = await this.epochCache.filterInCommittee(myAddresses);
     if (inCommittee.length > 0) {
       this.log.info(
-        `Started validator with addresses in current validator committee:
-         ${inCommittee.map(a => a.toString()).join(', ')}`,
+        `Started validator with addresses in current validator committee: ${inCommittee.map(a => a.toString()).join(', ')}`,
       );
     } else {
-      this.log.info(`Started validator with addresses:
-        ${myAddresses.map(a => a.toString()).join(', ')}`);
+      this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
     return Promise.resolve();
@@ -341,7 +339,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {

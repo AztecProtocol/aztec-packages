@@ -27,7 +27,7 @@ export interface NoteData {
   /** The storage slot of the note. */
   storageSlot: Fr;
   /** The nonce of the note. */
-  nonce: Fr;
+  noteNonce: Fr;
   /** A hash of the note. */
   noteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
@@ -261,5 +261,9 @@ export abstract class TypedOracle {
 
   getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
+  }
+
+  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainMessage'));
   }
 }

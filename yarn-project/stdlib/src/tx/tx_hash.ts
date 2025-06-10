@@ -5,6 +5,7 @@ import { schemas } from '../schemas/index.js';
 
 /**
  * A class representing hash of Aztec transaction.
+ * @dev Computed by hashing the public inputs of the private kernel tail circuit (see Tx::getTxHash function).
  */
 export class TxHash {
   constructor(

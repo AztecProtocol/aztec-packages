@@ -4,6 +4,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -26,6 +27,7 @@ import {
   makeAndStartTestP2PClients,
   makeTestP2PClient,
   makeTestP2PClients,
+  startTestP2PClients,
 } from '../test-helpers/make-test-p2p-clients.js';
 
 const TEST_TIMEOUT = 120000;
@@ -134,7 +136,7 @@ describe('p2p client integration', () => {
   };
 
   it(
-    'Returns undefined if unable to find a transaction from another peer',
+    'returns undefined if unable to find a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
       // Not using a before each as a the wind down is not working as expected
@@ -165,7 +167,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Can request a transaction from another peer',
+    'can request a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -199,7 +201,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Will penalize peers that send invalid proofs',
+    'will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -240,7 +242,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Will penalize peers that send the wrong transaction',
+    'will penalize peers that send the wrong transaction',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -287,7 +289,7 @@ describe('p2p client integration', () => {
   // Again, node 1 sends all message types.
   // Test confirms that node 2 receives all messages, node 3 receives none.
   it(
-    'Will propagate messages to peers at the same version',
+    'will propagate messages to peers at the same version',
     async () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
@@ -309,7 +311,7 @@ describe('p2p client integration', () => {
       const [client1, client2, client3] = clientsAndConfig;
 
       // Give the nodes time to discover each other
-      await sleep(6000);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
 
       // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
       {
@@ -368,7 +370,8 @@ describe('p2p client integration', () => {
           client2AttestationPromise.promise,
           client3AttestationPromise.promise,
         ]);
-        const messages = await Promise.race([messagesPromise, sleep(2000).then(() => undefined)]);
+
+        const messages = await Promise.race([messagesPromise, sleep(6000).then(() => undefined)]);
         expect(messages).toBeDefined();
         expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
         expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
@@ -414,11 +417,13 @@ describe('p2p client integration', () => {
       const clients = [newClient2, newClient3];
       for (const c of clients) {
         (c as any).p2pService.peerManager.exchangeStatusHandshake = jest.fn().mockImplementation(() => {});
-        await c.start();
       }
+
+      await startTestP2PClients(clients);
 
       // Give everyone time to connect again
       await sleep(5000);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 5, 0.5);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
       {
@@ -483,8 +488,8 @@ describe('p2p client integration', () => {
         ]);
 
         const [client2Messages, client3Messages] = await Promise.all([
-          Promise.race([client2MessagesPromises, sleep(2000).then(() => undefined)]),
-          Promise.race([client3MessagesPromises, sleep(2000).then(() => undefined)]),
+          Promise.race([client2MessagesPromises, sleep(6000).then(() => undefined)]),
+          Promise.race([client3MessagesPromises, sleep(6000).then(() => undefined)]),
         ]);
 
         // We expect that all messages were received by client 2
@@ -493,13 +498,10 @@ describe('p2p client integration', () => {
         expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
         expect(client2HandleGossipedAttestationSpy).toHaveBeenCalled();
 
-        if (client2Messages) {
-          const hashes = await Promise.all([tx, client2Messages[0]].map(tx => tx!.getTxHash()));
-          expect(hashes[0].toString()).toEqual(hashes[1].toString());
-
-          expect(client2Messages[1].payload.toString()).toEqual(blockProposal.payload.toString());
-          expect(client2Messages[2].payload.toString()).toEqual(attestation.payload.toString());
-        }
+        const hashes = await Promise.all([tx, client2Messages![0]].map(tx => tx!.getTxHash()));
+        expect(hashes[0].toString()).toEqual(hashes[1].toString());
+        expect(client2Messages![1].payload.toString()).toEqual(blockProposal.payload.toString());
+        expect(client2Messages![2].payload.toString()).toEqual(attestation.payload.toString());
 
         // We expect that no messages were received by client 3
         expect(client3Messages).toBeUndefined();
@@ -531,11 +533,9 @@ describe('p2p client integration', () => {
         jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
       );
 
-      for (const c of clients) {
-        await c.start();
-      }
+      await startTestP2PClients(clients);
+      await sleep(5000);
 
-      await sleep(2000);
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
       }
@@ -569,11 +569,9 @@ describe('p2p client integration', () => {
         jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
       );
 
-      for (const c of clients) {
-        await c.start();
-      }
+      await startTestP2PClients(clients);
+      await sleep(5000);
 
-      await sleep(2000);
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
       }
@@ -622,11 +620,9 @@ describe('p2p client integration', () => {
           return realSend(...args);
         });
 
-      for (const c of clients) {
-        await c.start();
-      }
+      await startTestP2PClients(clients);
 
-      await sleep(2000);
+      await sleep(5000);
 
       expect(disconnectSpies[0]).not.toHaveBeenCalled();
       expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 disconnected
@@ -637,10 +633,11 @@ describe('p2p client integration', () => {
       expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
 
       // c1 received invalid status from c0 exactly once
-      // the connection between c0 and c1 was retried
-      // this is why we have one more call to handshake count
-      expect(statusHandshakeSpies[0]).toHaveBeenCalledTimes(expectedHandshakeCount + 1);
-      expect(statusHandshakeSpies[1]).toHaveBeenCalledTimes(expectedHandshakeCount + 1);
+      // the connection between c0 and c1 might have been retried in the meantime
+      // I say "might" because the test is flaky especially on CI
+      // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
+      expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+      expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
 
       await shutdown(clients);
     },

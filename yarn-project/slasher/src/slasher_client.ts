@@ -21,19 +21,19 @@ import {
 } from 'viem';
 
 import {
-  Offence,
+  Offense,
   type SlasherConfig,
   WANT_TO_SLASH_EVENT,
   type WantToSlashArgs,
   type Watcher,
-  bigIntToOffence,
+  bigIntToOffense,
 } from './config.js';
 
 type MonitoredSlashPayload = {
   payloadAddress: EthAddress;
   validators: readonly EthAddress[];
   amounts: readonly bigint[];
-  offenses: readonly Offence[];
+  offenses: readonly Offense[];
   observedAtSeconds: number;
   totalAmount: bigint;
 };
@@ -45,9 +45,9 @@ type MonitoredSlashPayload = {
  *
  * How it works:
  *
- * The constructor accepts instances of Watcher classes that correspond to specific offences. These "watchers" do two things:
- * - watch for their offence conditions and emit an event when they are detected
- * - confirm/deny whether they agree with a proposed offence
+ * The constructor accepts instances of Watcher classes that correspond to specific offenses. These "watchers" do two things:
+ * - watch for their offense conditions and emit an event when they are detected
+ * - confirm/deny whether they agree with a proposed offense
  *
  * The SlasherClient class is responsible for:
  * - listening for events from the watchers and creating a corresponding payload
@@ -87,6 +87,7 @@ export class SlasherClient {
       abi: SlashFactoryAbi,
       client: l1TxUtils.client,
     });
+
     return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
@@ -102,7 +103,7 @@ export class SlasherClient {
 
   //////////////////// Public methods ////////////////////
 
-  public async start() {
+  public start() {
     this.log.info('Starting Slasher client...');
 
     // detect when new payloads are created
@@ -117,9 +118,6 @@ export class SlasherClient {
     // start each watcher, who will signal the slasher client when they want to slash
     const wantToSlashCb = this.wantToSlash.bind(this);
     for (const watcher of this.watchers) {
-      if (watcher.start) {
-        await watcher.start();
-      }
       watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
       this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
     }
@@ -129,15 +127,10 @@ export class SlasherClient {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public async stop() {
+  public stop() {
     this.log.debug('Stopping Slasher client...');
     for (const cb of this.unwatchCallbacks) {
       cb();
-    }
-    for (const watcher of this.watchers) {
-      if (watcher.stop) {
-        await watcher.stop();
-      }
     }
     this.log.info('Slasher client stopped.');
   }
@@ -187,7 +180,7 @@ export class SlasherClient {
     }
 
     const selectedPayload = this.monitoredPayloads[0];
-    this.log.info('selectedPayload', selectedPayload);
+    this.log.info(`Selected slash payload at ${selectedPayload.payloadAddress}`, selectedPayload);
 
     return Promise.resolve(selectedPayload.payloadAddress);
   }
@@ -247,7 +240,7 @@ export class SlasherClient {
           payloadAddress: address.toString(),
           validators: sortedArgs.map(a => a.validator.toString()),
           amounts: sortedArgs.map(a => a.amount),
-          offences: sortedArgs.map(a => BigInt(a.offense)),
+          offenses: sortedArgs.map(a => BigInt(a.offense)),
         });
         if (!payload) {
           this.log.error('Invalid payload', { address, salt });
@@ -316,14 +309,14 @@ export class SlasherClient {
   private slashPayloadToMonitoredPayload(
     payload: GetContractEventsReturnType<typeof SlashFactoryAbi, 'SlashPayloadCreated'>[number]['args'],
   ): MonitoredSlashPayload | undefined {
-    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offences) {
+    if (!payload.payloadAddress || !payload.validators || !payload.amounts || !payload.offenses) {
       return undefined;
     }
     return {
       payloadAddress: EthAddress.fromString(payload.payloadAddress),
       validators: payload.validators.map(EthAddress.fromString),
       amounts: payload.amounts,
-      offenses: payload.offences.map(offense => bigIntToOffence(offense)),
+      offenses: payload.offenses.map(offense => bigIntToOffense(offense)),
       observedAtSeconds: this.dateProvider.now() / 1000,
       totalAmount: payload.amounts.reduce((acc, amount) => acc + amount, BigInt(0)),
     };
