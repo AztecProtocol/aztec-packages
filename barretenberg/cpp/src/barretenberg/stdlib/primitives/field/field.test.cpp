@@ -832,31 +832,22 @@ template <typename Builder> class stdlib_field : public testing::Test {
         using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
 
         // check that constraints are satisfied for a variety of inputs
-        [[maybe_unused]] auto run_success_test = [&]() {
+        auto run_success_test = [&](size_t num_bits) {
             Builder builder = Builder();
 
-            constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-            const fr p_lo = modulus_minus_one.slice(0, 130);
+            uint256_t random_val(engine.get_random_uint256());
+            // For big values (num_bits>=254), ensure that they can't overflow by shifting by 4 bits.
+            uint256_t scalar_raw = (num_bits < 254) ? random_val >> (256 - num_bits) : random_val >> 4;
+            field_ct a = witness_ct(&builder, scalar_raw);
+            std::vector<bool_ct> c = a.decompose_into_bits(num_bits);
+            uint256_t bit_sum = 0;
+            for (size_t i = 0; i < c.size(); i++) {
+                uint256_t scaling_factor_value(uint256_t(1) << i);
+                bit_sum += fr(c[i].get_value()) * scaling_factor_value;
+            }
+            EXPECT_EQ(bit_sum, scalar_raw);
 
-            std::vector<fr> test_elements = { bb::fr::random_element(),
-                                              0,
-                                              -1,
-                                              fr(static_cast<uint256_t>(engine.get_random_uint8())),
-                                              fr((static_cast<uint256_t>(1) << 130) + 1 + p_lo) };
-
-            for (auto a_expected : test_elements) {
-                field_ct a = witness_ct(&builder, a_expected);
-                std::vector<bool_ct> c = a.decompose_into_bits();
-                fr bit_sum = 0;
-                for (size_t i = 0; i < c.size(); i++) {
-                    fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(i));
-                    bit_sum += (fr(c[i].get_value()) * scaling_factor_value);
-                }
-                EXPECT_EQ(bit_sum, a_expected);
-            };
-
-            bool verified = CircuitChecker::check(builder);
-            ASSERT_TRUE(verified);
+            ASSERT_TRUE(CircuitChecker::check(builder));
         };
 
         // Now try to supply unintended witness values and test for failure.
@@ -882,15 +873,17 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             fr a_expected = 0;
             field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(witness_supplier);
+            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
 
             bool verified = CircuitChecker::check(builder);
-            info(builder.err());
             ASSERT_FALSE(verified);
             EXPECT_TRUE(err_msg == builder.err());
         };
 
-        // run_success_test();
+        for (size_t idx = 1; idx <= 256; idx++) {
+            run_success_test(idx);
+        }
+
         run_failure_test(supply_modulus_bits, "field_t: bit decomposition fails: y_hi is too large.");
         run_failure_test(supply_half_modulus_bits, "field_t: bit decomposition_fails: copy constraint");
     }
@@ -1161,12 +1154,10 @@ template <typename Builder> class stdlib_field : public testing::Test {
             EXPECT_TRUE(constant_sum.is_constant());
         }
         // Test edge cases
-        // 1. Accumulating an empty vector should not be possible
+        // 1. Accumulating an empty vector should lead to constant zero.
         std::vector<field_ct> empty_input;
-        field_ct result;
-#ifndef NDEBUG
-        EXPECT_DEATH(result = field_ct::accumulate(empty_input), "Trying to accumulate the entries of an empty vector");
-#endif
+        field_ct result(field_ct::accumulate(empty_input));
+        EXPECT_TRUE(result.is_constant() && result.get_value() == bb::fr::zero());
         // 2. Check that the result of accumulating a single witness summand is correct and normalized.
         Builder builder = Builder();
         field_ct single_summand = witness_ct(&builder, bb::fr::random_element());
@@ -1473,7 +1464,7 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 }
 TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::is_zero();
+    TestFixture::test_is_zero();
 }
 TYPED_TEST(stdlib_field, madd)
 {

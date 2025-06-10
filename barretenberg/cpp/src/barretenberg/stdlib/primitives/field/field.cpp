@@ -1064,7 +1064,9 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const std::vector<field_t>& input)
 {
-    ASSERT(!input.empty(), "Trying to accumulate the entries of an empty vector");
+    if (input.empty()) {
+        return field_t(bb::fr::zero());
+    }
 
     if (input.size() == 1) {
         return input[0].normalize();
@@ -1269,16 +1271,17 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  */
 template <typename Builder>
 std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
-    const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
+    size_t num_bits, const std::function<witness_t<Builder>(Builder*, uint64_t, uint256_t)> get_bit) const
 {
-    static constexpr size_t num_bits = 256;
-    ASSERT(num_bits == 256);
-    static constexpr size_t midpoint = num_bits / 2 - 1;
+    static constexpr size_t max_num_bits = 256;
+    ASSERT(num_bits <= max_num_bits);
+    const size_t midpoint = max_num_bits / 2;
     std::vector<bool_t<Builder>> result(num_bits);
 
+    std::vector<field_t> accumulator_lo;
+    std::vector<field_t> accumulator_hi;
+
     const uint256_t val_u256 = static_cast<uint256_t>(get_value());
-    field_t sum(bb::fr::zero());
-    field_t shifted_high_limb; // =: sum_hi, needed to compute sum_lo
     for (size_t i = 0; i < num_bits; ++i) {
         // Create a witness `bool_t` bit
         bool_t bit = get_bit(context, num_bits - 1 - i, val_u256);
@@ -1286,39 +1289,45 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         result[num_bits - 1 - i] = bit;
         const field_t scaling_factor(uint256_t(1) << (num_bits - 1 - i));
 
-        sum += scaling_factor * bit;
+        field_t summand = scaling_factor * bit;
 
-        if (i == midpoint) {
-            shifted_high_limb = sum;
+        if (num_bits - 1 - midpoint >= i) {
+            accumulator_hi.push_back(summand);
+        } else {
+            accumulator_lo.push_back(summand);
         }
     }
 
-    assert_equal(sum,
+    field_t sum_hi_shift = field_t::accumulate(accumulator_hi); // =: sum_hi, needed to compute sum_lo
+    field_t sum_lo = field_t::accumulate(accumulator_lo);
+    assert_equal(sum_lo + sum_hi_shift,
                  "field_t: bit decomposition_fails: copy constraint"); // `this` and `sum` are both normalized here.
     // The value can be larger than the modulus, hence we must enforce unique representation
     static constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-    // Split r-1 into limbs
-    //      r - 1 = p_lo + 2**128 * p_hi
-    static constexpr fr p_lo = modulus_minus_one.slice(0, 128);
-    static constexpr fr p_hi = modulus_minus_one.slice(128, 256);
+    static constexpr size_t num_bits_modulus_minus_one = modulus_minus_one.get_msb();
+    if (num_bits >= num_bits_modulus_minus_one) {
+        // Split r - 1 into limbs
+        //      r - 1 = p_lo + 2**128 * p_hi
+        static constexpr fr p_lo = modulus_minus_one.slice(0, midpoint);
+        static constexpr fr p_hi = modulus_minus_one.slice(midpoint, max_num_bits);
 
-    // `shift` is used to shift high limbs. It also represents a borrowed bit.
-    static constexpr fr shift = fr(uint256_t(1) << 128);
+        // `shift` is used to shift high limbs. It also represents a borrowed bit.
+        static constexpr fr shift = fr(uint256_t(1) << midpoint);
 
-    const field_t y_lo = (-sum).add_two(p_lo + shift, shifted_high_limb);
+        const field_t y_lo = -sum_lo + (p_lo + shift);
 
-    // Ensure that y_lo is "non-negative"
-    auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
-    zeros.assert_is_zero("field_t: bit decomposition_fails: high limb non-zero");
+        // Ensure that y_lo is "non-negative"
+        auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(midpoint, midpoint);
+        zeros.assert_is_zero("field_t: bit decomposition_fails: high limb non-zero");
 
-    // Ensure that y_hi is "non-negative"
-    const field_t y_borrow = -(y_lo_hi - 1);
-    // If a carry was necessary, subtract that carry from p_hi
-    // y_hi = (p_hi - y_borrow) - sum_hi
-    const field_t y_hi = (-(shifted_high_limb / shift)).add_two(p_hi, -y_borrow);
-    // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
-    y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
-
+        // Ensure that y_hi is "non-negative"
+        const field_t y_borrow = -(y_lo_hi - 1);
+        // If a carry was necessary, subtract that carry from p_hi
+        // y_hi = (p_hi - y_borrow) - sum_hi
+        const field_t y_hi = (-(sum_hi_shift / shift)).add_two(p_hi, -y_borrow);
+        // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
+        y_hi.create_range_constraint(midpoint, "field_t: bit decomposition fails: y_hi is too large.");
+    }
     return result;
 }
 
