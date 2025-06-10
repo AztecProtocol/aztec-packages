@@ -26,6 +26,7 @@ export class PendingTaggedLog {
     return [...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS), ...this.context.toFields()];
   }
 }
+
 /**
  * Helper function to serialize a bounded vector according to Noir's BoundedVec format
  * @param values - The values to serialize
