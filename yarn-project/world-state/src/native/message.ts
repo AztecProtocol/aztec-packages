@@ -380,7 +380,6 @@ interface BatchInsertResponse {
   }>;
   sorted_leaves: ReadonlyArray<[SerializedLeafValue, UInt32]>;
   subtree_path: Tuple<Buffer, number>;
-  duration: number;
 }
 
 interface SequentialInsertRequest extends WithTreeId, WithForkId, WithLeaves {}
