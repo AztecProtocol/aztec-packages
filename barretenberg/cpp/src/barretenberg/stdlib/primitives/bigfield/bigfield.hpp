@@ -929,6 +929,9 @@ template <typename Builder, typename T> class bigfield {
                                                                const std::vector<uint1024_t>& remainders_max = {
                                                                    DEFAULT_MAXIMUM_REMAINDER });
 
+    static std::pair<uint512_t, std::array<uint256_t, NUM_LIMBS>> get_multiple_of_modulus_for_subtracting(
+        const bigfield& to_subtract);
+
     /**
      * @brief Evaluate a multiply add identity with several added elements and several remainders
      *
