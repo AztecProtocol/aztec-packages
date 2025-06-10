@@ -757,9 +757,9 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur
                 // Note: not as fast! use unsafe version if you know all input base points are linearly independent
                 if (handle_edge_cases) {
-                    small_pippenger_low_memory_with_transformed_scalars(msm_data);
+                    msm_result = small_pippenger_low_memory_with_transformed_scalars(msm_data);
                 } else {
-                    pippenger_low_memory_with_transformed_scalars(msm_data);
+                    msm_result = pippenger_low_memory_with_transformed_scalars(msm_data);
                 }
                 msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
             }
@@ -767,8 +767,8 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     });
 
     // Accumulate results. This part needs to be single threaded, but amount of work done here should be small
-    // TODO(@zac-williamson) check this? E.g. if we are doing a 2^16 MSM with 256 threads this single-threaded part will
-    // be painful.
+    // TODO(@zac-williamson) check this? E.g. if we are doing a 2^16 MSM with 256 threads this single-threaded part
+    // will be painful.
     std::vector<Element> results(num_msms);
     for (Element& ele : results) {
         ele.self_set_infinity();
@@ -814,10 +814,9 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     }
     BB_ASSERT_GTE(points.size(), _scalars.start_index + _scalars.size());
 
-    // unfortnately we need to remove const on this data type to prevent duplicating _scalars (which is typically large)
-    // We need to convert `_scalars` out of montgomery form for the MSM.
-    // We then convert the scalars back into Montgomery form at the end of the algorithm.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    // unfortnately we need to remove const on this data type to prevent duplicating _scalars (which is typically
+    // large) We need to convert `_scalars` out of montgomery form for the MSM. We then convert the scalars back
+    // into Montgomery form at the end of the algorithm. NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     ScalarField* scalars = const_cast<ScalarField*>(&_scalars[_scalars.start_index]);
 
     std::vector<std::span<const AffineElement>> pp{ points.subspan(_scalars.start_index) };

@@ -43,6 +43,9 @@ template <typename Curve> class MSM {
         std::span<uint64_t> point_schedule;
     };
 
+    /**
+     * @brief Temp data structure, one created per thread!
+     */
     struct BucketAccumulators {
         std::vector<AffineElement> buckets;
         BitVector bucket_exists;
@@ -62,16 +65,21 @@ template <typename Curve> class MSM {
             , bucket_exists(num_buckets)
         {}
     };
+    /**
+     * @brief Temp data structure, one created per thread!
+     */
     struct AffineAdditionData {
         static constexpr size_t BATCH_SIZE = 2048;
+        // when adding affine points, we have an edge case where the number of points in the batch can overflow by 2
+        static constexpr size_t BATCH_OVERFLOW_SIZE = 2;
         std::vector<AffineElement> points_to_add;
         std::vector<BaseField> scalar_scratch_space;
         std::vector<uint64_t> addition_result_bucket_destinations;
 
         AffineAdditionData()
-            : points_to_add(BATCH_SIZE + 1)
-            , scalar_scratch_space(BATCH_SIZE + 1)
-            , addition_result_bucket_destinations((BATCH_SIZE / 2) + 1)
+            : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
+            , scalar_scratch_space(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
+            , addition_result_bucket_destinations(((BATCH_SIZE + BATCH_OVERFLOW_SIZE) / 2))
         {}
     };
     static size_t get_num_rounds(size_t num_points)
@@ -125,11 +133,11 @@ template <typename Curve> class MSM {
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators)
     {
         auto& buckets = bucket_accumulators.buckets;
-
+        BB_ASSERT_GT(buckets.size(), static_cast<size_t>(0));
         int starting_index = static_cast<int>(buckets.size() - 1);
         Element prefix_sum;
         bool found_start = false;
-        while (!found_start && starting_index >= 0) {
+        while (!found_start && starting_index > 0) {
             const size_t idx = static_cast<size_t>(starting_index);
             if (bucket_accumulators.bucket_exists.get(idx)) {
 

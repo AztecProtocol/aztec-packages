@@ -75,6 +75,9 @@ size_t process_buckets_count_zero_entries(uint64_t* wnaf_entries,
                                           const size_t num_entries,
                                           const uint32_t num_bits) noexcept
 {
+    if (num_entries == 0) {
+        return 0;
+    }
     const uint32_t bits_per_round = 8;
     const uint32_t base = num_bits & 7;
     const uint32_t total_bits = (base == 0) ? num_bits : num_bits - base + 8;

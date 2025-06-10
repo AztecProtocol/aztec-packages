@@ -264,7 +264,7 @@ TYPED_TEST(ScalarMultiplicationTests, PippengerSmall)
     expected = expected.normalize();
 
     Element result = scalar_multiplication::pippenger<Curve>({ 0, { scalars, /*size*/ num_points } },
-                                                             { points, /*size*/ num_points * 2 });
+                                                             { points, /*size*/ num_points });
     result = result.normalize();
 
     aligned_free(scalars);
