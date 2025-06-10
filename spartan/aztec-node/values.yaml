@@ -3,45 +3,22 @@ nameOverride: ""
 # -- Overrides the chart computed fullname
 fullnameOverride: ""
 
-# -- Image to use for the container
-image:
-  # -- Image repository
-  repository: aztecprotocol/aztec
-  # -- Image tag
-  tag: alpha-testnet
-  # -- Container pull policy
-  pullPolicy: IfNotPresent
-
 # -- Pod management policy
 podManagementPolicy: Parallel
 
-# -- Network name - this is a predefined network - alpha-testnet, devnet
-network:
-
-# -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
-customNetwork:
-  l1ChainId:
-  registryContractAddress:
-  slashFactoryAddress:
-  feeAssetHandlerContractAddress:
-
-# Which rollup contract we want to follow from the registry
-rollupVersion: "canonical"
-
-# -- Use host network - this will disable nodePort service and use host networking instead
-hostNetwork: false
-
-# -- Aztec node configuration
-node:
-  # -- Number of replicas
-  replicas: 1
-  # -- Log level - info, verbose, debug, trace
-  logLevel: "info"
-
-  l1Publisher:
-    privateKeys: []
-    mnemonic:
-    mnemonicStartIndex:
+# global config for all Aztec nodes in an instalation
+global:
+  # Which rollup contract we want to follow from the registry
+  aztecRollupVersion: "canonical"
+  # -- Network name - this is a predefined network - alpha-testnet, devnet
+  aztecNetwork: ""
+  # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
+  customAztecNetwork:
+    enabled: false
+    l1ChainId:
+    registryContractAddress:
+    slashFactoryAddress:
+    feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration
   # -- Ethereum hosts - comma separated list of hosts (geth, reth are currently supported)
@@ -54,49 +31,80 @@ node:
   ## Example: "X-API-KEY"
   l1ConsensusHostApiKeyHeaders: []
 
-  preStartScript: ""
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # -- Collector endpoint - e.g. http://localhost:4318
+  otelCollectorEndpoint: ""
+  # -- Use GCP logging
+  useGcloudLogging: false
+
+# -- Use host network - this will disable nodePort service and use host networking instead
+hostNetwork: false
+
+# -- Number of replicas
+replicaCount: 1
+
+statefulSet:
+  enabled: false
+  volumeClaimTemplates: []
+  # Example:
+  # volumeClaimTemplates:
+  #   - metadata:
+  #       name: data
+  #     spec:
+  #       accessModes: ["ReadWriteOnce"]
+  #       resources:
+  #         requests:
+  #           storage: 10Gi
+
+affinity: null
+tolerations: []
+
+# -- Aztec node configuration
+node:
+  # -- Log level - info, verbose, debug, trace
+  logLevel: "info"
+
+  preStartScript: null
 
   startCmd:
     - --node
     - --archiver
 
-  remoteUrl:
-    archiver:
-    proverBroker:
-    proverCoordinationNodes: []
-    blobSink:
+  env: {}
+
+  envFrom:
+    configMapEnabled: false
+    secretEnabled: false
+
+  configMap:
+    envEnabled: false
+    scriptsEnabled: false
+
+  secret:
+    envEnabled: false
+    filesEnabled: false
 
   # the address that will receive block or proof rewards
   coinbase:
 
-  # -- Sentinel configuration - gathers slashing information
-  sentinel:
-    enabled: false
-
-  # -- Metrics configuration
-  metrics:
-    # -- Exclude metrics - comma separated list of metrics to exclude
-    otelExcludeMetrics: ""
-    # -- Collector endpoint - e.g. http://localhost:4318
-    otelCollectorEndpoint: ""
-    # -- Use GCP logging
-    useGcloudLogging: false
+  # -- Exclude metrics - comma separated list of metrics to exclude
+  otelExcludeMetrics: ""
 
   storage:
     # -- Data directory
     dataDirectory: /data
-    # -- Data store map size (kB)
-    dataStoreMapSize:
-    # -- World state map size (kB)
-    worldStateMapSize:
-    # -- P2P storage map size (kB)
-    p2pStorageMapSize:
-    # -- Archive storage map size (kB)
-    archiveStorageMapSize:
+    # -- Data store map size in kB. (per database)
+    dataStoreMapSize: "134217728" # 128 GB
+    # -- World state map size in kB (per merkle tree)
+    worldStateMapSize: "134217728" # 128 GB
 
   nodeJsOptions:
-      - --no-warnings
-      - --max-old-space-size=4096
+    - --no-warnings
+    - --max-old-space-size=4096
 
   startupProbe:
     # -- Period seconds
@@ -110,17 +118,6 @@ persistence:
   enabled: false
   # -- Use an existing PVC
   existingClaim: null
-  # -- AccessModes
-  accessModes:
-  - ReadWriteOnce
-  # -- Requested size
-  size: 100Gi
-  # -- Use a specific storage class
-  storageClassName: null
-  # -- Annotations for volume claim template
-  annotations: {}
-  # -- Selector for volume claim template
-  selector: {}
 
 # -- Update strategy for the statefulset
 updateStrategy:
