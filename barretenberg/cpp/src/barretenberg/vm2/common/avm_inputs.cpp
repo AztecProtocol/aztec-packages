@@ -166,7 +166,7 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
         gasSettings.maxPriorityFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX);
 
     // Effective gas fees
-    set_gas_fees_in_cols(effectiveGasFees, cols, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX);
+    set_gas_fees_in_cols(effectiveGasFees, cols, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX);
 
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;

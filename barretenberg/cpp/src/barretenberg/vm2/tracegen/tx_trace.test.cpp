@@ -33,13 +33,16 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
     auto contract_address = FF::random_element();
     auto calldata_hash = FF::random_element();
 
-    simulation::TxEvent tx_event = {
+    simulation::TxStartupEvent startup_event = {
+        .tx_gas_limit = { 1000, 2000 },
+        .private_gas_used = { 500, 1000 },
+        .tree_state = {},
+    };
+
+    simulation::TxPhaseEvent tx_event = {
         .phase = TransactionPhase::SETUP,
         .prev_tree_state = {},
         .next_tree_state = {},
-        .prev_gas_used = {},
-        .gas_used = {},
-        .gas_limit = {},
         .reverted = false,
         .event =
             simulation::EnqueuedCallEvent{
@@ -47,11 +50,14 @@ TEST(TxTraceGenTest, EnqueuedCallEvent)
                 .contract_address = contract_address,
                 .is_static = false,
                 .calldata_hash = calldata_hash,
+                .prev_gas_used = {},
+                .gas_used = {},
+                .gas_limit = {},
                 .success = true,
             },
     };
 
-    builder.process({ tx_event }, trace);
+    builder.process({ startup_event, tx_event }, trace);
     auto rows = trace.as_rows();
     ASSERT_EQ(rows.size(), 11); // 10 tx trace rows + 1 precomputed row
     EXPECT_THAT(

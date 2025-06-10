@@ -240,8 +240,8 @@ struct lookup_tx_read_effective_fee_public_inputs_settings_ {
     static constexpr Column INVERSES = Column::lookup_tx_read_effective_fee_public_inputs_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::tx_read_pi_offset,
-        ColumnAndShifts::tx_effective_fee_per_l2_gas,
-        ColumnAndShifts::tx_effective_fee_per_da_gas
+        ColumnAndShifts::tx_effective_fee_per_da_gas,
+        ColumnAndShifts::tx_effective_fee_per_l2_gas
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
@@ -321,5 +321,31 @@ using lookup_tx_write_fee_public_inputs_settings = lookup_settings<lookup_tx_wri
 template <typename FF_>
 using lookup_tx_write_fee_public_inputs_relation =
     lookup_relation_base<FF_, lookup_tx_write_fee_public_inputs_settings>;
+
+/////////////////// lookup_tx_write_end_gas_used_public_inputs ///////////////////
+
+struct lookup_tx_write_end_gas_used_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_END_GAS_USED_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_collect_fee;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_write_end_gas_used_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_write_end_gas_used_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_end_gas_used_pi_offset,
+        ColumnAndShifts::tx_prev_da_gas_used,
+        ColumnAndShifts::tx_prev_l2_gas_used
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+    };
+};
+
+using lookup_tx_write_end_gas_used_public_inputs_settings =
+    lookup_settings<lookup_tx_write_end_gas_used_public_inputs_settings_>;
+template <typename FF_>
+using lookup_tx_write_end_gas_used_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_tx_write_end_gas_used_public_inputs_settings>;
 
 } // namespace bb::avm2

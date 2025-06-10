@@ -221,9 +221,8 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
           { C::tx_is_padded, 1 },
           { C::tx_is_collect_fee, 1 },
-          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
-          { C::tx_sel_read_phase_length, 0 },
-          { C::tx_read_pi_length_offset, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX },
+          { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX },
+          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
     });

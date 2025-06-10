@@ -160,14 +160,6 @@ namespace tx;
     pol commit next_l2_gas_used_sent_to_enqueued_call;
     pol commit next_da_gas_used_sent_to_enqueued_call;
 
-    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
-    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
-    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
-    // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
-    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
-
     // TODO: Constrain the evolution of the gas limits in the trace
 
     // Public Call Requests are dispatch to the execution trace
@@ -345,8 +337,8 @@ namespace tx;
     #[READ_EFFECTIVE_FEE_PUBLIC_INPUTS]
     is_collect_fee {
         read_pi_offset,
-        effective_fee_per_l2_gas,
-        effective_fee_per_da_gas
+        effective_fee_per_da_gas,
+        effective_fee_per_l2_gas
     } in
     public_inputs.sel {
         precomputed.clk,
@@ -383,15 +375,46 @@ namespace tx;
     // TODO: Use gadget to update the tree with fee_payer_balance - fee
 
     #[WRITE_FEE_PUBLIC_INPUTS]
-    is_collect_fee { write_pi_offset, fee } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+    is_collect_fee { write_pi_offset, fee }
+    in public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
+
+    pol commit end_gas_used_pi_offset;
+
+    #[WRITE_END_GAS_USED_PUBLIC_INPUTS]
+    is_collect_fee {
+        end_gas_used_pi_offset,
+        prev_da_gas_used,
+        prev_l2_gas_used
+    } in
+    public_inputs.sel {
+        precomputed.clk,
+        public_inputs.cols[0],
+        public_inputs.cols[1]
+    };
 
     // Gas Info
+    // TODO: Constrain first row read from PI
     pol commit prev_l2_gas_used;
     pol commit prev_da_gas_used;
 
     pol commit next_l2_gas_used;
     pol commit next_da_gas_used;
 
+    // prev_gas_used_sent_to_enqueued_call = is_teardown_phase ? 0 : prev_gas_used
+    is_public_call_request * ((0 - prev_l2_gas_used) * is_teardown_phase + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    is_public_call_request * ((0 - prev_da_gas_used) * is_teardown_phase + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    // next_gas_used = is_teardown_gas_phase ? prev_gas_used : next_gas_used_sent_to_enqueued_call
+    // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose: we don't care about gas usage in teardown
+    is_public_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    is_public_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown_phase + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+
+    // Collect fee is currently the last phase, so we don't need to propagate gas used further.
+    #[PROPAGATE_L2_GAS_USED]
+    sel * (1 - is_collect_fee) * (next_l2_gas_used - prev_l2_gas_used') = 0;
+    #[PROPAGATE_DA_GAS_USED]
+    sel * (1 - is_collect_fee) * (next_da_gas_used - prev_da_gas_used') = 0;
+
+    // TODO: Constrain evolution: Needs to be read from PI on the first row, then teardown can update
     pol commit l2_gas_limit;
     pol commit da_gas_limit;
+
