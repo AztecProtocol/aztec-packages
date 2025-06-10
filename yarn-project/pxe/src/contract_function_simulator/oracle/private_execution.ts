@@ -31,6 +31,11 @@ import type { PrivateExecutionOracle } from './private_execution_oracle.js';
 
 /**
  * Execute a private function and return the execution result.
+ * This does not execute any kernel circuits; only the user functions.
+ *
+ * If this private function execution results in any nested private function calls,
+ * those nested calls are made via oracle calls to the `callPrivateFunction` oracle,
+ * which in turn makes corresponding further calls to this function.
  */
 export async function executePrivateFunction(
   simulator: CircuitSimulator,
@@ -81,7 +86,7 @@ export async function executePrivateFunction(
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
-  const nestedExecutions = privateExecutionOracle.getNestedExecutions();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
   let timerSubtractionList = nestedExecutions;
   let witgenTime = duration;
@@ -103,7 +108,7 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    nestedExecutions,
+    nestedExecutionResults,
     contractClassLogs,
     {
       timings: {

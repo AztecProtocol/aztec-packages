@@ -411,7 +411,7 @@ describe('Private Execution test suite', () => {
         functionName: 'constructor',
         contractAddress: instance.address,
       });
-      const result = executionResult.entrypoint.nestedExecutions[0];
+      const result = executionResult.entrypoint.nestedExecutionResults[0];
 
       expect(result.newNotes).toHaveLength(1);
       const newNote = result.newNotes[0];
@@ -579,10 +579,10 @@ describe('Private Execution test suite', () => {
 
       // First fetch of the function artifact is the parent contract
       expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([childAddress, childSelector]);
-      expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([new Fr(privateIncrement)]);
+      expect(result.nestedExecutionResults).toHaveLength(1);
+      expect(result.nestedExecutionResults[0].returnValues).toEqual([new Fr(privateIncrement)]);
       expect(result.publicInputs.privateCallRequests[0].callContext).toEqual(
-        result.nestedExecutions[0].publicInputs.callContext,
+        result.nestedExecutionResults[0].publicInputs.callContext,
       );
     });
   });
@@ -634,8 +634,8 @@ describe('Private Execution test suite', () => {
 
       expect(result.returnValues).toEqual([argsHash]);
       expect(executionDataProvider.getFunctionArtifact.mock.calls[1]).toEqual([testAddress, testCodeGenSelector]);
-      expect(result.nestedExecutions).toHaveLength(1);
-      expect(result.nestedExecutions[0].returnValues).toEqual([argsHash]);
+      expect(result.nestedExecutionResults).toHaveLength(1);
+      expect(result.nestedExecutionResults[0].returnValues).toEqual([argsHash]);
     });
   });
 
@@ -1055,8 +1055,8 @@ describe('Private Execution test suite', () => {
         contractAddress: contractAddress,
       });
 
-      const execInsert = result.nestedExecutions[0];
-      const execGetThenNullify = result.nestedExecutions[1];
+      const execInsert = result.nestedExecutionResults[0];
+      const execGetThenNullify = result.nestedExecutionResults[1];
 
       const storageSlot = await deriveStorageSlotInMap(
         PendingNoteHashesContractArtifact.storageLayout['balances'].slot,

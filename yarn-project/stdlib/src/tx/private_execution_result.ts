@@ -132,7 +132,7 @@ export class PrivateCallExecutionResult {
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
     /** The nested executions. */
-    public nestedExecutions: PrivateCallExecutionResult[],
+    public nestedExecutionResults: PrivateCallExecutionResult[],
     /**
      * Contract class logs emitted during execution of this function call.
      * Note: We only need to collect the ContractClassLogFields as preimages for the tx.
@@ -153,7 +153,7 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
+        nestedExecutionResults: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
       .transform(PrivateCallExecutionResult.from);
@@ -169,7 +169,7 @@ export class PrivateCallExecutionResult {
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
-      fields.nestedExecutions,
+      fields.nestedExecutionResults,
       fields.contractClassLogs,
     );
   }
@@ -194,7 +194,7 @@ export function collectNoteHashLeafIndexMap(execResult: PrivateExecutionResult) 
   const accum: Map<bigint, bigint> = new Map();
   const collectNoteHashLeafIndexMapRecursive = (callResult: PrivateCallExecutionResult, accum: Map<bigint, bigint>) => {
     callResult.noteHashLeafIndexMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutions.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
+    callResult.nestedExecutionResults.forEach(nested => collectNoteHashLeafIndexMapRecursive(nested, accum));
   };
   collectNoteHashLeafIndexMapRecursive(execResult.entrypoint, accum);
   return accum;
@@ -207,7 +207,7 @@ export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionR
     accum: Map<number, number>,
   ) => {
     callResult.noteHashNullifierCounterMap.forEach((value, key) => accum.set(key, value));
-    callResult.nestedExecutions.forEach(nested => collectNoteHashNullifierCounterMapRecursive(nested, accum));
+    callResult.nestedExecutionResults.forEach(nested => collectNoteHashNullifierCounterMapRecursive(nested, accum));
   };
   collectNoteHashNullifierCounterMapRecursive(execResult.entrypoint, accum);
   return accum;
@@ -219,7 +219,7 @@ export function collectNoteHashNullifierCounterMap(execResult: PrivateExecutionR
  * @returns All contract class logs.
  */
 function collectContractClassLogs(execResult: PrivateCallExecutionResult): CountedContractClassLog[] {
-  return [execResult.contractClassLogs, ...execResult.nestedExecutions.flatMap(collectContractClassLogs)].flat();
+  return [execResult.contractClassLogs, ...execResult.nestedExecutionResults.flatMap(collectContractClassLogs)].flat();
 }
 
 /**
@@ -235,7 +235,7 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
   const collectFinalMinRevertibleSideEffectCounterRecursive = (callResult: PrivateCallExecutionResult): number => {
-    return callResult.nestedExecutions.reduce((counter, exec) => {
+    return callResult.nestedExecutionResults.reduce((counter, exec) => {
       const nestedCounter = collectFinalMinRevertibleSideEffectCounterRecursive(exec);
       return nestedCounter ? nestedCounter : counter;
     }, callResult.publicInputs.minRevertibleSideEffectCounter.toNumber());
@@ -250,7 +250,9 @@ export function collectNested<T>(
   const thisExecutionReads = executionStack.flatMap(extractExecutionItems);
 
   return thisExecutionReads.concat(
-    executionStack.flatMap(({ nestedExecutions }) => collectNested(nestedExecutions, extractExecutionItems)),
+    executionStack.flatMap(({ nestedExecutionResults }) =>
+      collectNested(nestedExecutionResults, extractExecutionItems),
+    ),
   );
 }
 

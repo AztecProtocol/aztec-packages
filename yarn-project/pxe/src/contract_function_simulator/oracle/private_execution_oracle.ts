@@ -58,7 +58,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private nestedExecutions: PrivateCallExecutionResult[] = [];
+  private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   constructor(
     private readonly argsHash: Fr,
@@ -141,8 +141,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * Return the nested execution results during this execution.
    */
-  public getNestedExecutions() {
-    return this.nestedExecutions;
+  public getNestedExecutionResults() {
+    return this.nestedExecutionResults;
   }
 
   /**
@@ -417,7 +417,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       this.#checkValidStaticCall(childExecutionResult);
     }
 
-    this.nestedExecutions.push(childExecutionResult);
+    this.nestedExecutionResults.push(childExecutionResult);
 
     const publicInputs = childExecutionResult.publicInputs;
 
