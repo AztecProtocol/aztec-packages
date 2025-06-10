@@ -58,7 +58,7 @@ interface IStakingAssetHandler {
   error NoNullifier();
 
   function addValidatorToQueue(address _attester, address _proposer, ProofVerificationParams memory _params) external;
-  function reenterExitedValidator(address _attester) external;
+  function reenterExitedValidator(address _attester, address _proposer) external;
   function dripQueue() external;
 
   // Admin methods
@@ -166,9 +166,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
       STAKING_ASSET.mint(address(this), depositAmount);
 
-      _triggerDeposit(rollup, depositAmount, _attester);
+      _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
-      _validatePassportProof(_attester, _params);
+      _validatePassportProof(_attester, _proposer, _params);
     }
   }
 
@@ -178,7 +178,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function reenterExitedValidator(address _attester) external override(IStakingAssetHandler) {
+  function reenterExitedValidator(address _attester, address _proposer) external override(IStakingAssetHandler) {
     // Validator must not be in the queue
     require(!entryQueue.isInQueue(_attester), InDepositQueue());
 
@@ -187,7 +187,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
     require(nullifiers[nullifier] != false, NoNullifier());
 
-    _addToQueue(_attester);
+    _addToQueue(_attester, _proposer);
   }
 
   function dripQueue() external override(IStakingAssetHandler) {
@@ -216,8 +216,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     uint256 depositsToMake = (queueLength < mintsAvailable) ? queueLength : mintsAvailable;
 
     for (uint256 i = 0; i < depositsToMake; ++i) {
-      address attester = entryQueue.dequeue();
-      _triggerDeposit(rollup, depositAmount, attester);
+      (address attester, address proposer) = entryQueue.dequeue();
+      _triggerDeposit(rollup, depositAmount, attester, proposer);
     }
   }
 
@@ -297,7 +297,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - The validator's attester address
    * @param _params - ZKPassport proof params
    */
-  function _validatePassportProof(address _attester, ProofVerificationParams calldata _params)
+  function _validatePassportProof(address _attester, address _proposer, ProofVerificationParams calldata _params)
     internal
   {
     // Must NOT be using dev mode - https://docs.zkpassport.id/getting-started/dev-mode
@@ -329,7 +329,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     nullifiers[nullifier] = true;
     attesterToNullifier[_attester] = nullifier;
 
-    _addToQueue(_attester);
+    _addToQueue(_attester, _proposer);
   }
 
   /**
@@ -337,10 +337,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator attester address to add to the queue
    */
-  function _addToQueue(address _attester) internal {
+  function _addToQueue(address _attester, address _proposer) internal {
     // Add validator into the entry queue
-    uint256 queueLocation = entryQueue.enqueue(_attester);
-    emit AddedToQueue(_attester, queueLocation);
+    uint256 queueLocation = entryQueue.enqueue(_attester, _proposer);
+    emit AddedToQueue(_attester, _proposer, queueLocation);
   }
 
   /**
@@ -352,15 +352,18 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _depositAmount - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester) internal {
+  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester, address _proposer) internal {
+    IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
+    uint256 depositAmount = rollup.getMinimumStake();
+
     // If the attester is currently exiting, we finalize the exit for them.
-    if (_rollup.getExit(_attester).exists) {
+    if (_rollup.getInfo(_attester).status == Status.EXITING) {
       _rollup.finaliseWithdraw(_attester);
     }
 
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
-    try _rollup.deposit(_attester, withdrawer, true) {
-      emit ValidatorAdded(address(_rollup), _attester, withdrawer);
+    try _rollup.deposit(_attester, _proposer, withdrawer, depositAmount) {
+      emit ValidatorAdded(address(_rollup), _attester, _proposer, withdrawer);
     } catch {
       // Allow the deposit call to fail silently e.g. when the attester has already been added
     }

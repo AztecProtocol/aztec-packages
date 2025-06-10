@@ -40,11 +40,12 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setCorrectSubScope();
 
     address attester = address(1);
+    address proposer = address(1);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(attester, proposer, 1);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
   }
 
   function test_WhenScopeIsValidAndSubscopeIsInvalid() external {
@@ -54,10 +55,11 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setIncorrectSubScope();
 
     address attester = address(1);
+    address proposer = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
   }
 
   function test_WhenScopeIsInvalidButSubscopeIsValid() external {
@@ -67,10 +69,11 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setCorrectSubScope();
 
     address attester = address(1);
+    address proposer = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
   }
 
   function test_WhenScopeIsInvalidAndSubscopeIsInvalid() external {
@@ -80,9 +83,10 @@ contract ScopeTest is StakingAssetHandlerBase {
     _setIncorrectSubScope();
 
     address attester = address(1);
+    address proposer = address(1);
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
   }
 }

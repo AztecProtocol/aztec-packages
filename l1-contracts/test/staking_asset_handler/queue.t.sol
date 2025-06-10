@@ -13,11 +13,11 @@ contract Wrapper {
     queue.init();
   }
 
-  function enqueue(address _attester) public {
-    queue.enqueue(_attester);
+  function enqueue(address _attester, address _proposer) public {
+    queue.enqueue(_attester, _proposer);
   }
 
-  function dequeue() public returns (address) {
+  function dequeue() public returns (address, address) {
     return queue.dequeue();
   }
 
@@ -46,10 +46,10 @@ contract QueueTest is Test {
     external
   {
     // it reverts
-    queue.enqueue(_attester);
+    queue.enqueue(_attester, _proposer);
 
     vm.expectRevert(abi.encodeWithSelector(QueueLib.AlreadySeen.selector, _attester, _proposer));
-    queue.enqueue(_attester);
+    queue.enqueue(_attester, _proposer);
   }
 
   function test_WhenEnqueuingValidators(uint8 _validatorsToAdd) external {
@@ -58,15 +58,16 @@ contract QueueTest is Test {
 
     // Add them all
     for (uint256 i = 1; i < _validatorsToAdd; ++i) {
-      queue.enqueue(address(uint160(i)));
+      queue.enqueue(address(uint160(i)), address(uint160(i + 1)));
       assertEq(queue.length(), i);
     }
 
     // dequeue them all
     for (uint256 i = 1; i < _validatorsToAdd; ++i) {
-      address attester = queue.dequeue();
+      (address attester, address proposer) = queue.dequeue();
       // First come first served
       assertEq(attester, address(uint160(i)));
+      assertEq(proposer, address(uint160(i+ 1)));
 
       assertEq(queue.length(), _validatorsToAdd - i - 1);
     }

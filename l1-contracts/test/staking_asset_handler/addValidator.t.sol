@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
-import {AttesterView, Exit, Status} from "@aztec/core/interfaces/IStaking.sol";
-import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {Exit, Status, ValidatorInfo} from "@aztec/core/interfaces/IStaking.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IStakingCore, IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
@@ -76,7 +77,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
 
@@ -108,7 +109,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
 
@@ -143,7 +144,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     _;
   }
 
-  function test_WhenUserIsNew(address _caller, address _attester)
+  function test_WhenUserIsNew(address _caller, address _attester, address _proposer)
     external
     whenCallerIsNotUnhinged(_caller)
     givenBalanceGEDepositAmount
@@ -158,7 +159,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
     stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
 
@@ -178,7 +179,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }
 
-  function test_WhenPassportProofHasBeenUsed(address _caller, address _attester)
+  function test_WhenPassportProofHasBeenUsed(address _caller, address _attester, address _proposer)
     external
     whenCallerIsNotUnhinged(_caller)
     givenBalanceGEDepositAmount
@@ -187,16 +188,16 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it reverts
     vm.assume(
       _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _caller != unhinged
+        && _caller != unhinged && _proposer != address(0)
     );
 
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
 
     uint256 uniqueIdentifierLocation = proof.publicInputs.length - 16 - 1;
     vm.expectRevert(
@@ -206,10 +207,10 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     // Call from somebody else
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
   }
 
-  function test_WhenPassportProofIsInDevMode(address _caller, address _attester)
+  function test_WhenPassportProofIsInDevMode(address _caller, address _attester, address _proposer)
     external
     whenCallerIsNotUnhinged(_caller)
     givenBalanceGEDepositAmount
@@ -220,14 +221,14 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.assume(
       _attester != address(0) && _caller != address(this) && _attester != address(this)
-        && _attester != unhinged
+        && _attester != unhinged && _proposer != address(this)
     );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
   }
 
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
@@ -248,12 +249,13 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(attester, proof);
+    stakingAssetHandler.addValidatorToQueue(attester, attester, proof);
   }
 
   function test_GivenTheDepositCallFails(
     address _caller,
     address _attester,
+    address _proposer,
     address _secondAttester,
     address _thirdAttester
   ) external whenCallerIsNotUnhinged(_caller) {
@@ -280,58 +282,62 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
 
     // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     // later we will mock that this deposit call fails, with a swapped attester
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_secondAttester, 2);
+    emit IStakingAssetHandler.AddedToQueue(_secondAttester, _proposer, 2);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_secondAttester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_secondAttester, _proposer, realProof);
 
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(_thirdAttester, 3);
+    emit IStakingAssetHandler.AddedToQueue(_thirdAttester, _proposer, 3);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_thirdAttester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_thirdAttester, _proposer, realProof);
 
     // Expected successful events
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * _depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _thirdAttester, WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _thirdAttester, _proposer, WITHDRAWER);
+
+    IStaking rollup = IStaking(address(IRegistry(registry).getCanonicalRollup()));
+    uint256 depositAmount = rollup.getMinimumStake();
 
     // Mock that the second add validator call will fail
     vm.mockCallRevert(
       address(staking),
-      abi.encodeWithSelector(IStakingCore.deposit.selector, _secondAttester, WITHDRAWER, true),
+      abi.encodeWithSelector(IStakingCore.deposit.selector, _secondAttester, _proposer, WITHDRAWER, depositAmount),
       bytes(string(""))
     );
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
 
-    AttesterView memory attesterView = staking.getAttesterView(_attester);
-    assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    ValidatorInfo memory attesterView = staking.getInfo(_attester);
+    assertEq(attesterView.withdrawer, WITHDRAWER);
+    assertEq(attesterView.proposer, _proposer);
+    assertEq(attesterView.stake, MINIMUM_STAKE);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
 
     // Check that the _secondAttester is not added
-    AttesterView memory secondAttesterView = staking.getAttesterView(_secondAttester);
+    ValidatorInfo memory secondAttesterView = staking.getInfo(_secondAttester);
     assertTrue(secondAttesterView.status == Status.NONE);
 
     // Check that the _thirdAttester is added
-    AttesterView memory thirdAttesterView = staking.getAttesterView(_thirdAttester);
-    assertEq(thirdAttesterView.config.withdrawer, WITHDRAWER);
-    assertEq(thirdAttesterView.effectiveBalance, MINIMUM_STAKE);
+    ValidatorInfo memory thirdAttesterView = staking.getInfo(_thirdAttester);
+    assertEq(thirdAttesterView.withdrawer, WITHDRAWER);
+    assertEq(thirdAttesterView.stake, MINIMUM_STAKE);
     assertTrue(thirdAttesterView.status == Status.VALIDATING);
   }
 }

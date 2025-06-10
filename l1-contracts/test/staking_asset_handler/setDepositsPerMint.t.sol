@@ -80,7 +80,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
+      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], validators[i], WITHDRAWER);
     }
     // Drip the queue to allow validators to join the set
     stakingAssetHandler.dripQueue();
@@ -92,9 +92,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     // Added to the queue successfully
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), _depositsPerMint + 1);
+    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), address(0xbeefdeef), _depositsPerMint + 1);
     vm.prank(caller);
-    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), realProof);
+    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), address(0xbeefdeef), realProof);
 
     // it reverts when adding one more validator
     vm.expectRevert(

@@ -18,16 +18,16 @@ contract BindTest is StakingAssetHandlerBase {
     enableBindCheck();
   }
 
-  function test_WhenUsingTheBoundAddress() external {
+  function test_WhenUsingTheBoundAddress(address _proposer) external {
     // it emits {AddedToQueue} event
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(BOUND_ADDRESS, 1);
+    emit IStakingAssetHandler.AddedToQueue(BOUND_ADDRESS, _proposer, 1);
     vm.prank(BOUND_ADDRESS);
-    stakingAssetHandler.addValidatorToQueue(BOUND_ADDRESS, realProof);
+    stakingAssetHandler.addValidatorToQueue(BOUND_ADDRESS, _proposer, realProof);
   }
 
-  function test_WhenNotUsingTheBoundAddress(address _attester) external {
+  function test_WhenNotUsingTheBoundAddress(address _attester, address _proposer) external {
     // it reverts
 
     vm.assume(_attester != BOUND_ADDRESS && _attester != address(this));
@@ -38,6 +38,6 @@ contract BindTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(_attester);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
   }
 }

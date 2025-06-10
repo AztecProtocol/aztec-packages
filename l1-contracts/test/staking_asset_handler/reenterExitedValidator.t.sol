@@ -20,7 +20,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.expectRevert(
       abi.encodeWithSelector(IStakingAssetHandler.AttesterDoesNotExist.selector, _attester)
     );
-    stakingAssetHandler.reenterExitedValidator(_attester);
+    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
   }
 
   function test_WhenAttesterHasProvidedAValidDeposit(
@@ -38,10 +38,11 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.assume(_attester != address(0) && _proposer != address(0) && _caller != address(this));
 
     // 1. Perform a valid deposit
+    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
 
-    emit IStakingAssetHandler.AddedToQueue(_attester, 0);
     stakingAssetHandler.dripQueue();
 
     // 2. Exit the validator
@@ -53,11 +54,11 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 3. Reenter the validator
     vm.prank(_caller);
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
-    stakingAssetHandler.reenterExitedValidator(_attester);
+    emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
+    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
 
     vm.prank(_caller);
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     stakingAssetHandler.dripQueue();
   }
 
@@ -69,11 +70,11 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 1. Perform adding to queue
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
 
     // 2. Reenter the validator should revert
     vm.prank(_caller);
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InDepositQueue.selector));
-    stakingAssetHandler.reenterExitedValidator(_attester);
+    stakingAssetHandler.reenterExitedValidator(_attester, _proposer);
   }
 }
