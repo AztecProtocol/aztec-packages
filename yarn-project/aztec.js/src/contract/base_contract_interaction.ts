@@ -81,11 +81,11 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}): SentTx {
     // docs:end:send
-    const promise = (async () => {
+    const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(txProvingResult.toTx());
-    })();
-    return new SentTx(this.wallet, promise);
+    };
+    return new SentTx(this.wallet, sendTx);
   }
 
   // docs:start:estimateGas
