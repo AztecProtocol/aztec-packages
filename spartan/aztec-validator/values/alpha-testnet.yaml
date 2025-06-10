@@ -1,0 +1,44 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: "alpha-testnet"
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: latest
+    pullPolicy: Always
+
+validator:
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+
+  node:
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+
+  persistence.enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 128Gi
+
