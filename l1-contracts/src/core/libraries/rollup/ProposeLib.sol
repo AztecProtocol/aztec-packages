@@ -8,7 +8,6 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
