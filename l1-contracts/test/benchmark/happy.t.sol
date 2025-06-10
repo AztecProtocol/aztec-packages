@@ -218,12 +218,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
+    address coinbase = proposer != address(0) ? proposer : address(bytes20("MONEY MAKER"));
 
     // Updating the header with important information!
     header.lastArchiveRoot = archiveRoot;
     header.slotNumber = slotNumber;
     header.timestamp = ts;
-    header.coinbase = proposer;
+    header.coinbase = coinbase;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaBaseFee;
     header.totalManaUsed = manaSpent;

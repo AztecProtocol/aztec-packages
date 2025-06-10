@@ -749,6 +749,31 @@ contract RollupTest is RollupBase {
     rollup.propose(args, attestations, new bytes(144));
   }
 
+  function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
+    DecoderBase.Data memory data = load("empty_block_1").block;
+    ProposedHeader memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes32[] memory txHashes = new bytes32[](0);
+
+    Timestamp realTs = header.timestamp;
+
+    vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
+
+    // Tweak the coinbase.
+    header.coinbase = address(0);
+
+    skipBlobCheck(address(rollup));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      txHashes: txHashes
+    });
+    rollup.propose(args, attestations, new bytes(144));
+  }
+
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
     _proposeBlock("empty_block_1", 1);
     DecoderBase.Data memory data = load("empty_block_1").block;
