@@ -31,8 +31,8 @@ contract MoveTest is StakingBase {
     // on either rollup.
     uint256 n = 101;
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE * n);
-    stakingAsset.approve(address(oldRollup), MINIMUM_STAKE * n);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT * n);
+    stakingAsset.approve(address(oldRollup), DEPOSIT_AMOUNT * n);
 
     for (uint256 i = 0; i < n; i++) {
       bool onCanonical = i % 2 == 0;
@@ -123,7 +123,7 @@ contract MoveTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, DEPOSIT_AMOUNT);
     newRollup.finaliseWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
@@ -132,6 +132,6 @@ contract MoveTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(newRollup)), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), DEPOSIT_AMOUNT);
   }
 }
