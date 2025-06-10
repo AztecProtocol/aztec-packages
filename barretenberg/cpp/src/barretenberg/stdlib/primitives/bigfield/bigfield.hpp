@@ -568,6 +568,16 @@ template <typename Builder, typename T> class bigfield {
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
+
+    /**
+     * @brief Create an element which is equal to either this or other based on the predicate
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param other The other bigfield element
+     * @param predicate Predicate controlling the result (0 for this, 1 for the other)
+     * @return Resulting element
+     */
     bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
     static bigfield conditional_assign(const bool_t<Builder>& predicate, const bigfield& lhs, const bigfield& rhs)
     {
