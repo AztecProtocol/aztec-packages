@@ -12,16 +12,18 @@ use crate::messages::{
 
 use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
-/// Processes a private log's ciphertext by decrypting it and then searching the plaintext for private notes or partial
-/// notes.
+/// Processes a message that can contain notes, partial notes, or events.
 ///
-/// Private notes result in nonce discovery being performed prior to delivery, which requires knowledge of the
-/// transaction hash in which the notes would've been created (typically the same transaction in which the log was
-/// emitted), along with the list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier`
-/// function.
+/// Notes result in nonce discovery being performed prior to delivery, which requires knowledge of the transaction hash
+/// in which the notes would've been created (typically the same transaction in which the log was emitted), along with
+/// the list of unique note hashes in said transaction and the `compute_note_hash_and_nullifier` function. Once
+/// discovered, the notes are enqueued for validation.
 ///
 /// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
 /// search for the note's completion public log.
+///
+/// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
+/// enqueueing the event data and commitment for validation.
 pub(crate) unconstrained fn process_message<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
