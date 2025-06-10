@@ -189,7 +189,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
-            ex_event.resolved_operands = resolved_operands;
 
             //// Temporality group 4+ starts (to be defined) ////
 
@@ -274,7 +273,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     inputs = {};
     output = TaggedValue::from<FF>(0);
 
-    debug("Dispatching opcode: ", opcode);
+    debug("Dispatching opcode: ", opcode, " (", static_cast<uint32_t>(opcode), ")");
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
