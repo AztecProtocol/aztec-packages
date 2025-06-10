@@ -170,7 +170,8 @@ export class BLS12Point {
    * @returns The point fields.
    */
   toBN254Fields() {
-    return [new Fr(this.compress().subarray(0, 31)), new Fr(this.compress().subarray(31, 48))];
+    const compressed = this.compress();
+    return [new Fr(compressed.subarray(0, 31)), new Fr(compressed.subarray(31, 48))];
   }
 
   /**

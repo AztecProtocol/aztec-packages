@@ -1,6 +1,6 @@
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
-import { poseidon2Hash, randomBigInt, sha256ToField } from '@aztec/foundation/crypto';
+import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -8,7 +8,7 @@ import cKzg from 'c-kzg';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { BatchedBlob, Blob } from './index.js';
+import { BatchedBlob, BatchedBlobAccumulator, Blob } from './index.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
 const trustedSetup = JSON.parse(
@@ -30,7 +30,7 @@ try {
   }
 }
 
-describe('blob', () => {
+describe('Blob Batching', () => {
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
     const blobItems: Fr[] = Array(size).fill(new Fr(size + 1));
     const ourBlob = await Blob.fromFields(blobItems);
@@ -173,7 +173,7 @@ describe('blob', () => {
   ])('should construct and verify a batch of blobs over %p blocks', async blocks => {
     const items = new Array(FIELD_ELEMENTS_PER_BLOB * blocks * BLOBS_PER_BLOCK)
       .fill(Fr.ZERO)
-      .map((_, i) => new Fr(BigInt(i) + randomBigInt(120n)));
+      .map((_, i) => new Fr(i + randomInt(120)));
 
     const blobs = [];
     for (let i = 0; i < blocks; i++) {
@@ -184,5 +184,25 @@ describe('blob', () => {
     }
     // BatchedBlob.batch() performs a verification check:
     await BatchedBlob.batch(blobs);
+  });
+});
+
+describe('BatchedBlobAccumulator', () => {
+  let acc: BatchedBlobAccumulator;
+  let blobs: Blob[];
+
+  beforeAll(async () => {
+    const items = new Array(FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK)
+      .fill(Fr.ZERO)
+      .map((_, i) => new Fr(i + randomInt(120)));
+    blobs = await Blob.getBlobsPerBlock(items);
+    acc = await BatchedBlob.newAccumulator(blobs);
+  });
+
+  it('clones correctly', async () => {
+    const clone = acc.clone();
+    expect(acc).toEqual(clone);
+    const modified = await clone.accumulate(blobs[0]);
+    expect(acc).not.toEqual(modified);
   });
 });

@@ -50,14 +50,14 @@ describe('BlobAccumulatorPublicInputs', () => {
   it('serializes to buffer and deserializes it back', () => {
     const buffer = blobPI.toBuffer();
     const res = BlobAccumulatorPublicInputs.fromBuffer(buffer);
-    expect(res.equals(blobPI)).toBeTruthy();
+    expect(res).toEqual(blobPI);
   });
 
   it('serializes to fields and deserializes it back', () => {
     const fields = blobPI.toFields();
     expect(fields.length).toEqual(BLOB_ACCUMULATOR_PUBLIC_INPUTS);
     const res = BlobAccumulatorPublicInputs.fromFields(fields);
-    expect(res.equals(blobPI)).toBeTruthy();
+    expect(res).toEqual(blobPI);
   });
 });
 

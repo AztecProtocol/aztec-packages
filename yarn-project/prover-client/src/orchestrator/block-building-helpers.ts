@@ -385,8 +385,8 @@ export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
   return sha256Trunc(serializeToBuffer(blobHashes));
 }
 
-// Note: we may be able to use the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts, but
-// having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
+// Note: tested against the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts.
+// Having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
 // getBlobsPerBlock() works on empty input.
 export async function getEmptyBlockBlobsHash(): Promise<Buffer> {
   const blobHash = serializeToBuffer((await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash()));

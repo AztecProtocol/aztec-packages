@@ -288,7 +288,7 @@ export class BatchedBlobAccumulator {
    */
   async accumulateBlobs(blobs: Blob[]) {
     // Initialise the acc to iterate over:
-    let acc: BatchedBlobAccumulator = Object.create(this);
+    let acc: BatchedBlobAccumulator = this.clone();
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);
     }
@@ -338,6 +338,19 @@ export class BatchedBlobAccumulator {
       this.qAcc.isZero() &&
       this.gammaAcc.isZero() &&
       this.gammaPow.isZero()
+    );
+  }
+
+  clone() {
+    return new BatchedBlobAccumulator(
+      Fr.fromBuffer(this.blobCommitmentsHashAcc.toBuffer()),
+      Fr.fromBuffer(this.zAcc.toBuffer()),
+      BLS12Fr.fromBuffer(this.yAcc.toBuffer()),
+      BLS12Point.fromBuffer(this.cAcc.toBuffer()),
+      BLS12Point.fromBuffer(this.qAcc.toBuffer()),
+      Fr.fromBuffer(this.gammaAcc.toBuffer()),
+      BLS12Fr.fromBuffer(this.gammaPow.toBuffer()),
+      FinalBlobBatchingChallenges.fromBuffer(this.finalBlobChallenges.toBuffer()),
     );
   }
 }

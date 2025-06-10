@@ -2,7 +2,7 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { buildBlobHints } from './block-building-helpers.js';
+import { buildBlobHints, getEmptyBlockBlobsHash } from './block-building-helpers.js';
 
 function fieldArrToStr(arr: Fr[]) {
   return `[${arr.map(f => (f.isZero() ? '0' : f.toString())).join(', ')}]`;
@@ -18,6 +18,7 @@ describe('buildBlobHints', () => {
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toEqual(BLS12Point.COMPRESSED_ZERO.toString('hex'));
 
+    expect(await getEmptyBlockBlobsHash()).toEqual(blobsHash.toBuffer());
     const blobsHashStr = blobsHash.toString();
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9"`);
 
