@@ -10,13 +10,13 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
 
 using ::bb::avm2::testing::InstructionBuilder;
-using ::bb::avm2::testing::OperandBuilder;
 using enum ::bb::avm2::WireOpCode;
 using ::testing::ElementsAre;
 using ::testing::ReturnRef;
@@ -28,7 +28,11 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+
+    // No calls to range checks.
+    StrictMock<MockRangeCheck> range_check;
+
+    Addressing addressing(instruction_info_db, range_check, event_emitter);
 
     {
         const auto instr = InstructionBuilder(SET_8)
@@ -75,7 +79,8 @@ TEST(AvmSimulationAddressingTest, RelativeAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+    StrictMock<MockRangeCheck> range_check;
+    Addressing addressing(instruction_info_db, range_check, event_emitter);
 
     // For relative addressing, we need a base address other than 0
     // Base pointer at address 100
@@ -95,6 +100,9 @@ TEST(AvmSimulationAddressingTest, RelativeAddressing)
 
     StrictMock<MockMemory> memory;
     EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(base_addr));
+    // Range check calls. This leaks information from the circuit.
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 110 - 1, /*num_bits=*/32));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 130 - 1, /*num_bits=*/32));
 
     const auto operands = addressing.resolve(instr, memory);
 
@@ -112,7 +120,9 @@ TEST(AvmSimulationAddressingTest, IndirectAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+    // No calls to range checks.
+    StrictMock<MockRangeCheck> range_check;
+    Addressing addressing(instruction_info_db, range_check, event_emitter);
 
     // Set up the ADD_8 instruction with indirect addressing
     const auto instr = InstructionBuilder(ADD_8)
@@ -149,7 +159,8 @@ TEST(AvmSimulationAddressingTest, IndirectAndRelativeAddressing)
 {
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
-    Addressing addressing(instruction_info_db, event_emitter);
+    StrictMock<MockRangeCheck> range_check;
+    Addressing addressing(instruction_info_db, range_check, event_emitter);
 
     // Base address is 100
     MemoryValue base_addr = MemoryValue::from<uint32_t>(100);
@@ -176,6 +187,9 @@ TEST(AvmSimulationAddressingTest, IndirectAndRelativeAddressing)
     // Address 10 contains value 60
     MemoryValue addr_10_value = MemoryValue::from<uint32_t>(60);
     EXPECT_CALL(memory, get(10)).WillOnce(ReturnRef(addr_10_value));
+    // Range check calls. This leaks information from the circuit.
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 105 - 1, /*num_bits=*/32));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 115 - 1, /*num_bits=*/32));
 
     const auto operands = addressing.resolve(instr, memory);
 

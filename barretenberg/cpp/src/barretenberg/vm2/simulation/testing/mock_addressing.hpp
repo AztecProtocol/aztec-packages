@@ -20,7 +20,7 @@ class MockAddressing : public AddressingInterface {
     MockAddressing();
     ~MockAddressing() override;
 
-    MOCK_METHOD(std::vector<Operand>, resolve, (const Instruction&, MemoryInterface& memory), (const override));
+    MOCK_METHOD(std::vector<Operand>, resolve, (const Instruction&, MemoryInterface& memory), (override));
 };
 
 } // namespace bb::avm2::simulation
