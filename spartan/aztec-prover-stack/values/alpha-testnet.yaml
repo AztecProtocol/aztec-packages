@@ -1,0 +1,85 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: "alpha-testnet"
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+  aztecImage:
+    repository: aztecprotocol/aztec
+    tag: latest
+    pullPolicy: Always
+
+node:
+  node:
+    resources:
+      requests:
+        cpu: "3"
+        memory: "12Gi"
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - node
+          topologyKey: "kubernetes.io/hostname"
+          namespaceSelector: {}
+
+  persistence.enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 128Gi
+
+broker:
+  persistence.enabled: true
+  statefulSet:
+    volumeClaimTemplates:
+      - metadata:
+          name: data
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 32Gi
+  node:
+    resources:
+      requests:
+        # should land on a 2-core node
+        cpu: "1.6"
+        memory: "5Gi"
+
+agent:
+  replicaCount: 16
+
+  node:
+    env:
+      HARDWARE_CONCURRENCY: "15"
+    resources:
+      requests:
+        memory: "64Gi"
+        cpu: "15"
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: cloud.google.com/gke-spot
+            operator: Exists
+
+  tolerations:
+    - key: "cloud.google.com/gke-spot"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
