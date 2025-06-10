@@ -8,6 +8,7 @@ import {
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 
@@ -87,6 +88,7 @@ export class SlasherClient {
       abi: SlashFactoryAbi,
       client: l1TxUtils.client,
     });
+
     return new SlasherClient(config, slashFactoryContract, slashingProposer, l1TxUtils, watchers, dateProvider);
   }
 
@@ -102,7 +104,7 @@ export class SlasherClient {
 
   //////////////////// Public methods ////////////////////
 
-  public async start() {
+  public start() {
     this.log.info('Starting Slasher client...');
 
     // detect when new payloads are created
@@ -117,9 +119,6 @@ export class SlasherClient {
     // start each watcher, who will signal the slasher client when they want to slash
     const wantToSlashCb = this.wantToSlash.bind(this);
     for (const watcher of this.watchers) {
-      if (watcher.start) {
-        await watcher.start();
-      }
       watcher.on(WANT_TO_SLASH_EVENT, wantToSlashCb);
       this.unwatchCallbacks.push(() => watcher.removeListener(WANT_TO_SLASH_EVENT, wantToSlashCb));
     }
@@ -134,11 +133,13 @@ export class SlasherClient {
     for (const cb of this.unwatchCallbacks) {
       cb();
     }
-    for (const watcher of this.watchers) {
-      if (watcher.stop) {
-        await watcher.stop();
-      }
-    }
+    // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
+    // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
+    // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
+    // is already stopped. We add a sleep here to give the uninstallation some time to complete, but the proper fix is for
+    // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
+    // See https://github.com/wevm/viem/issues/3714.
+    await sleep(2000);
     this.log.info('Slasher client stopped.');
   }
 

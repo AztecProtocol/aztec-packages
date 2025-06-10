@@ -22,6 +22,7 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
     [],
     [],
     [],
+    [],
   );
 }
 

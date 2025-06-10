@@ -46,7 +46,7 @@ export class BlockHeader {
   }
 
   static getFields(fields: FieldsOf<BlockHeader>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.lastArchive,
       fields.contentCommitment,
@@ -124,7 +124,7 @@ export class BlockHeader {
 
   static empty(fields: Partial<FieldsOf<BlockHeader>> = {}): BlockHeader {
     return BlockHeader.from({
-      lastArchive: AppendOnlyTreeSnapshot.zero(),
+      lastArchive: AppendOnlyTreeSnapshot.empty(),
       contentCommitment: ContentCommitment.empty(),
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
@@ -136,7 +136,7 @@ export class BlockHeader {
 
   isEmpty(): boolean {
     return (
-      this.lastArchive.isZero() &&
+      this.lastArchive.isEmpty() &&
       this.contentCommitment.isEmpty() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&

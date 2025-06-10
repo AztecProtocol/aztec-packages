@@ -4,6 +4,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -135,7 +136,7 @@ describe('p2p client integration', () => {
   };
 
   it(
-    'Returns undefined if unable to find a transaction from another peer',
+    'returns undefined if unable to find a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
       // Not using a before each as a the wind down is not working as expected
@@ -166,7 +167,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Can request a transaction from another peer',
+    'can request a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -200,7 +201,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Will penalize peers that send invalid proofs',
+    'will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -241,7 +242,7 @@ describe('p2p client integration', () => {
   );
 
   it(
-    'Will penalize peers that send the wrong transaction',
+    'will penalize peers that send the wrong transaction',
     async () => {
       // We want to create a set of nodes and request transaction from them
       clients = (
@@ -288,7 +289,7 @@ describe('p2p client integration', () => {
   // Again, node 1 sends all message types.
   // Test confirms that node 2 receives all messages, node 3 receives none.
   it(
-    'Will propagate messages to peers at the same version',
+    'will propagate messages to peers at the same version',
     async () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
@@ -310,7 +311,7 @@ describe('p2p client integration', () => {
       const [client1, client2, client3] = clientsAndConfig;
 
       // Give the nodes time to discover each other
-      await sleep(6000);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
 
       // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
       {
@@ -369,7 +370,8 @@ describe('p2p client integration', () => {
           client2AttestationPromise.promise,
           client3AttestationPromise.promise,
         ]);
-        const messages = await Promise.race([messagesPromise, sleep(2000).then(() => undefined)]);
+
+        const messages = await Promise.race([messagesPromise, sleep(6000).then(() => undefined)]);
         expect(messages).toBeDefined();
         expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
         expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
@@ -421,6 +423,7 @@ describe('p2p client integration', () => {
 
       // Give everyone time to connect again
       await sleep(5000);
+      await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 5, 0.5);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
       {
@@ -485,8 +488,8 @@ describe('p2p client integration', () => {
         ]);
 
         const [client2Messages, client3Messages] = await Promise.all([
-          Promise.race([client2MessagesPromises, sleep(2000).then(() => undefined)]),
-          Promise.race([client3MessagesPromises, sleep(2000).then(() => undefined)]),
+          Promise.race([client2MessagesPromises, sleep(6000).then(() => undefined)]),
+          Promise.race([client3MessagesPromises, sleep(6000).then(() => undefined)]),
         ]);
 
         // We expect that all messages were received by client 2
@@ -495,13 +498,10 @@ describe('p2p client integration', () => {
         expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
         expect(client2HandleGossipedAttestationSpy).toHaveBeenCalled();
 
-        if (client2Messages) {
-          const hashes = await Promise.all([tx, client2Messages[0]].map(tx => tx!.getTxHash()));
-          expect(hashes[0].toString()).toEqual(hashes[1].toString());
-
-          expect(client2Messages[1].payload.toString()).toEqual(blockProposal.payload.toString());
-          expect(client2Messages[2].payload.toString()).toEqual(attestation.payload.toString());
-        }
+        const hashes = await Promise.all([tx, client2Messages![0]].map(tx => tx!.getTxHash()));
+        expect(hashes[0].toString()).toEqual(hashes[1].toString());
+        expect(client2Messages![1].payload.toString()).toEqual(blockProposal.payload.toString());
+        expect(client2Messages![2].payload.toString()).toEqual(attestation.payload.toString());
 
         // We expect that no messages were received by client 3
         expect(client3Messages).toBeUndefined();

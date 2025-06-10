@@ -199,7 +199,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 {
-    ClientIVC::MergeProof merge_proof = create_dummy_merge_proof();
+    Goblin::MergeProof merge_proof = create_dummy_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
 }
 
