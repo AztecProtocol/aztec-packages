@@ -720,6 +720,10 @@ export class Sequencer {
   }
 
   get coinbase(): EthAddress {
+    if (this._coinbase.isZero()) {
+      this.log.debug(`Coinbase is zero, using publisher sender address`, this.publisher.getSenderAddress());
+      return this.publisher.getSenderAddress();
+    }
     return this._coinbase;
   }
 
