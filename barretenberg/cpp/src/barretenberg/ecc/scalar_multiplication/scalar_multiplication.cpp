@@ -184,8 +184,8 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
     size_t hi_slice_bits = target_slice_size - lo_slice_bits;
     BB_ASSERT_LT(start_limb, static_cast<size_t>(4));
     BB_ASSERT_LT(end_limb, static_cast<size_t>(4));
-    size_t lo_slice = (scalar.data[start_limb] >> lo_slice_offset) & ((1 << lo_slice_bits) - 1);
-    size_t hi_slice = (scalar.data[end_limb] & ((1 << hi_slice_bits) - 1));
+    size_t lo_slice = (scalar.data[start_limb] >> lo_slice_offset) & ((static_cast<size_t>(1) << lo_slice_bits) - 1);
+    size_t hi_slice = (scalar.data[end_limb] & ((static_cast<size_t>(1) << hi_slice_bits) - 1));
 
     uint32_t lo = static_cast<uint32_t>(lo_slice);
     uint32_t hi = static_cast<uint32_t>(hi_slice);
