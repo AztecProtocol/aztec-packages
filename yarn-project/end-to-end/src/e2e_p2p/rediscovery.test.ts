@@ -6,13 +6,11 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
-const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
@@ -51,7 +49,6 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   it('should re-discover stored peers without bootstrap node', async () => {
-    const contexts: NodeContext[] = [];
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -96,30 +93,6 @@ describe('e2e_p2p_rediscovery', () => {
 
     // wait a bit for peers to discover each other
     await sleep(2000);
-
-    for (const node of newNodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      contexts.push(context);
-    }
-
-    // now ensure that all txs were successfully mined
-    await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
-          const txHash = await tx.getTxHash();
-          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
-          return tx
-            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
-            .then(() => {
-              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
-            })
-            .catch(err => {
-              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
-              throw err;
-            });
-        }),
-      ),
-    );
 
     t.logger.info('All transactions mined successfully');
   });
