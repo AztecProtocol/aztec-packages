@@ -66,6 +66,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "koa": "^2.16.1",
