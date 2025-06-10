@@ -48,7 +48,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
     assertTrue(attesterView.status == Status.VALIDATING);
   }
 
@@ -110,7 +110,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     stakingAssetHandler.addValidatorToQueue(_attester, realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
@@ -118,7 +118,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -162,7 +162,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     stakingAssetHandler.addValidatorToQueue(_attester, proof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
@@ -170,7 +170,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -300,7 +300,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     // Expected successful events
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * _depositsPerMint);
+    emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * _depositsPerMint);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
@@ -317,7 +317,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertEq(attesterView.effectiveBalance, MINIMUM_STAKE);
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
     assertTrue(attesterView.status == Status.VALIDATING);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
@@ -329,7 +329,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // Check that the _thirdAttester is added
     AttesterView memory thirdAttesterView = staking.getAttesterView(_thirdAttester);
     assertEq(thirdAttesterView.config.withdrawer, WITHDRAWER);
-    assertEq(thirdAttesterView.effectiveBalance, MINIMUM_STAKE);
+    assertEq(thirdAttesterView.effectiveBalance, DEPOSIT_AMOUNT);
     assertTrue(thirdAttesterView.status == Status.VALIDATING);
   }
 }

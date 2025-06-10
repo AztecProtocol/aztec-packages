@@ -167,7 +167,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
+    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
     multiAdder.addValidators(initialValidators);
 
     _;
