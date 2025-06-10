@@ -113,8 +113,7 @@ describe('SlasherClient', () => {
   });
 
   afterAll(async () => {
-    slasherClient.stop();
-    await sleep(500); // let the calls to uninstall the filters resolve
+    await slasherClient.stop();
     await anvil.stop().catch(logger.error);
   });
 
