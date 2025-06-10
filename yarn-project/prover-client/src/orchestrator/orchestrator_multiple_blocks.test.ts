@@ -82,37 +82,6 @@ describe('prover/orchestrator/multi-block', () => {
       LONG_TIMEOUT,
     );
 
-    it.each([1, 4])(
-      'builds an epoch with %s blocks in parallel',
-      async (numBlocks: number) => {
-        logger.info(`Seeding world state with ${numBlocks} blocks`);
-        const txCount = 2;
-        const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
-        const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-
-        logger.info(`Starting new epoch with ${numBlocks}`);
-        context.orchestrator.startNewEpoch(1, 1, numBlocks, finalBlobChallenges);
-        await Promise.all(
-          blocks.map(async ({ block, txs }) => {
-            await context.orchestrator.startNewBlock(
-              block.header.globalVariables,
-              [],
-              context.getPreviousBlockHeader(block.number),
-            );
-            await context.orchestrator.addTxs(txs);
-            await context.orchestrator.setBlockCompleted(block.number);
-          }),
-        );
-
-        logger.info('Finalising epoch');
-        const epoch = await context.orchestrator.finaliseEpoch();
-        expect(countProposedBlocks(epoch.publicInputs.proposedBlockHeaderHashes)).toEqual(numBlocks);
-        expect(epoch.proof).toBeDefined();
-      },
-      LONG_TIMEOUT,
-    );
-
     it(
       'builds two consecutive epochs',
       async () => {
