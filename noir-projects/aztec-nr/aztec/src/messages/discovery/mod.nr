@@ -1,16 +1,21 @@
-use protocol_types::{address::AztecAddress, debug_log::debug_log};
+use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
 pub mod private_events;
-pub mod private_logs;
 pub mod private_notes;
+pub mod process_message;
 
-use crate::messages::{
-    discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
-    processing::{
-        get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes_and_events,
+use crate::{
+    messages::{
+        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message},
+        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        processing::{
+            get_private_logs, pending_tagged_log::PendingTaggedLog,
+            validate_enqueued_notes_and_events,
+        },
     },
+    utils::array,
 };
 
 pub struct NoteHashAndNullifier {
@@ -72,8 +77,22 @@ pub unconstrained fn discover_new_messages<Env>(
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     let mut logs = get_private_logs(contract_address);
-    logs.for_each(|i, log: PendingTaggedLog| {
-        process_private_log(contract_address, compute_note_hash_and_nullifier, log);
+    logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
+        debug_log_format(
+            "Processing log with tag {0}",
+            [pending_tagged_log.log.get(0)],
+        );
+
+        // We decrypt the log and then process the message contained in it.
+        let ciphertext = array::subbvec(pending_tagged_log.log, 1); // The tag is ignored for now.
+        let message = AES128::decrypt_log(ciphertext, pending_tagged_log.context.recipient);
+
+        process_message(
+            contract_address,
+            compute_note_hash_and_nullifier,
+            message,
+            pending_tagged_log.context,
+        );
         logs.remove(i);
     });
 

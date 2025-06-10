@@ -5,12 +5,12 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 
 /**
- * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
- * inserts found private logs. A TS version of `pending_tagged_log.nr`.
+ * Additional information needed to process a message. A TS version of `message_context.nr`.
+ * @dev Note that this class is not really necessary in TS and we could just have a PendingTaggedLog class containing
+ * the fields directly. However, we have it here for consistency with the Noir version.
  */
-export class PendingTaggedLog {
+class MessageContext {
   constructor(
-    public log: Fr[],
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
@@ -19,12 +19,33 @@ export class PendingTaggedLog {
 
   toFields(): Fr[] {
     return [
-      ...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS),
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
       this.recipient.toField(),
     ];
+  }
+}
+
+/**
+ * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
+ * inserts found private logs. A TS version of `pending_tagged_log.nr`.
+ */
+export class PendingTaggedLog {
+  private context: MessageContext;
+
+  constructor(
+    public log: Fr[],
+    txHash: TxHash,
+    uniqueNoteHashesInTx: Fr[],
+    firstNullifierInTx: Fr,
+    recipient: AztecAddress,
+  ) {
+    this.context = new MessageContext(txHash, uniqueNoteHashesInTx, firstNullifierInTx, recipient);
+  }
+
+  toFields(): Fr[] {
+    return [...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS), ...this.context.toFields()];
   }
 }
 
