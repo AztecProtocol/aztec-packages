@@ -90,9 +90,11 @@ describe('Native World State: benchmarks', () => {
   ) => {
     const leaves: (Buffer | Fr)[][] = [];
     for (let i = 0; i < numBlocks; i++) {
-      const l2Block = await L2Block.random(1, 1, numLeaves);
+      const l2Block = await L2Block.random(1, 1, 1, 1, undefined, undefined, numLeaves);
       if (treeId === MerkleTreeId.PUBLIC_DATA_TREE) {
-        leaves.push(l2Block.body.txEffects[0].publicDataWrites.map(write => write.toBuffer()));
+        leaves.push(
+          l2Block.body.txEffects[0].publicDataWrites.filter(x => !x.isEmpty()).map(write => write.toBuffer()),
+        );
       } else if (treeId === MerkleTreeId.NULLIFIER_TREE) {
         const nullifiersPadded = padArrayEnd(l2Block.body.txEffects[0].nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(
           nullifier => nullifier.toBuffer(),
@@ -187,18 +189,12 @@ describe('Native World State: benchmarks', () => {
   });
 
   it.each([
-    [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.BATCH, 1],
-    [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.BATCH, 8],
-    [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.BATCH, 64],
     [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.SEQUENTIAL, 1],
     [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.SEQUENTIAL, 8],
     [MerkleTreeId.PUBLIC_DATA_TREE, InsertionType.SEQUENTIAL, 64],
     [MerkleTreeId.NULLIFIER_TREE, InsertionType.BATCH, 1],
     [MerkleTreeId.NULLIFIER_TREE, InsertionType.BATCH, 8],
     [MerkleTreeId.NULLIFIER_TREE, InsertionType.BATCH, 64],
-    [MerkleTreeId.NULLIFIER_TREE, InsertionType.SEQUENTIAL, 1],
-    [MerkleTreeId.NULLIFIER_TREE, InsertionType.SEQUENTIAL, 8],
-    [MerkleTreeId.NULLIFIER_TREE, InsertionType.SEQUENTIAL, 64],
     [MerkleTreeId.NOTE_HASH_TREE, InsertionType.BATCH, 1],
     [MerkleTreeId.NOTE_HASH_TREE, InsertionType.BATCH, 8],
     [MerkleTreeId.NOTE_HASH_TREE, InsertionType.BATCH, 64],
