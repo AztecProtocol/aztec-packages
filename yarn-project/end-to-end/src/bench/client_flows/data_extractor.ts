@@ -23,7 +23,7 @@ async function createProver(config: NativeProverConfig = {}, log: Logger) {
     const bbConfig = config as Required<NativeProverConfig>;
     return {
       prover: await BBNativePrivateKernelProver.new(
-        { bbSkipCleanup: false, numConcurrentIVCVerifiers: 1, ...bbConfig },
+        { bbSkipCleanup: false, numConcurrentIVCVerifiers: 1, bbIVCConcurrency: 1, ...bbConfig },
         simulator,
         log,
       ),
