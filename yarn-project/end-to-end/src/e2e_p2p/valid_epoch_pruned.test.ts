@@ -32,7 +32,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 100n ** 18n;
   const aztecSlotDuration = 12;
 
   beforeEach(async () => {
@@ -49,8 +48,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
-        slashPrunePenalty: slashingAmount,
-        slashPruneMaxPenalty: slashingAmount,
       },
     });
 
@@ -80,6 +77,10 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
+    const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
+    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
 

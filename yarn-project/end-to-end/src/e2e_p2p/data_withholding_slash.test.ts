@@ -41,7 +41,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 90n ** 18n;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
   // and have the nodes get recreated, prior to the reorg.
   const aztecSlotDuration = 20;
@@ -60,8 +59,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
         aztecProofSubmissionWindow: 1,
         slashingQuorum,
         slashingRoundSize,
-        slashPrunePenalty: slashingAmount,
-        slashPruneMaxPenalty: slashingAmount,
         minTxsPerBlock: 0,
       },
     });
@@ -95,6 +92,10 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // Send tx
     await t.sendDummyTx();
 
+    const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    t.ctx.aztecNodeConfig.slashPruneEnabled = true;
+    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashPruneMaxPenalty = slashingAmount;
     t.ctx.aztecNodeConfig.validatorReexecute = false;
     t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
 
