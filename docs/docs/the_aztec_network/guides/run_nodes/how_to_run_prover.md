@@ -68,69 +68,52 @@ Executes the actual proof jobs. Agents are stateless, fetch work from the broker
 name: aztec-prover
 services:
   prover-node:
-    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-node
-      - --archiver
-      - --network
-      - alpha-testnet
+    image: aztecprotocol/aztec:latest # Always refer to the docs to check that you're using the correct image.
     depends_on:
       broker:
         condition: service_started
-        required: true
     environment:
-      # PROVER_COORDINATION_NODE_URL: "http://:8080" # this can point to your own validator - using this replaces the need for the prover node to be on the P2P network and uses your validator as a sentry node of some sort.
-      # P2P_ENABLED: "false" # Switch to false if you provide a PROVER_COORDINATION_NODE_URL
-      DATA_DIRECTORY: /data
-      DATA_STORE_MAP_SIZE_KB: "134217728"
-      ETHEREUM_HOSTS: # EL RPC endpoint
-      L1_CONSENSUS_HOST_URLS: # CL RPC endpoint
-      LOG_LEVEL: info
-      PROVER_BROKER_HOST: http://broker:8080
-      PROVER_PUBLISHER_PRIVATE_KEY: # The node needs to publish proofs to L1. Replace with your private key
+#     - PROVER_COORDINATION_NODE_URL= # this can point to your own validator - using this replaces the need for the prover node to be on the P2P network and uses your validator as a sentry node of some sort. ("http://:8080")
+#     - P2P_ENABLED=false # Switch to false if you provide a PROVER_COORDINATION_NODE_URL
+      - DATA_DIRECTORY=/data-prover
+      - DATA_STORE_MAP_SIZE_KB=134217728
+      - ETHEREUM_HOSTS= # EL RPC endpoint
+      - L1_CONSENSUS_HOST_URLS= # CL RPC endpoint
+      - LOG_LEVEL=info
+      - PROVER_BROKER_HOST=http://broker:8080
+      - PROVER_PUBLISHER_PRIVATE_KEY= # The node needs to publish proofs to L1. Replace with your private key
+      - P2P_IP= # Your Host IP
     ports:
       - "8080:8080"
       - "40400:40400"
       - "40400:40400/udp"
     volumes:
-      - /home/my-node/node:/data # Local directory
+      - ./data-prover:/data-prover # Local directory
+    restart: unless-stopped
+    entrypoint: >
+      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet --archiver --prover-node'
 
   agent:
-    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-agent
-      - --network
-      - alpha-testnet
+    image: aztecprotocol/aztec:latest # Always refer to the docs to check that you're using the correct image.
     environment:
-      PROVER_AGENT_COUNT: "1"
-      PROVER_AGENT_POLL_INTERVAL_MS: "10000" # Just to reduce the log spamming if you're using debug logging.
-      PROVER_BROKER_HOST: http://broker:8080
-      PROVER_ID: # this should be the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node.
+      - PROVER_AGENT_COUNT=1
+      - PROVER_AGENT_POLL_INTERVAL_MS=10000 # Just to reduce the log spamming if you're using debug logging.
+      - PROVER_BROKER_HOST=http://broker:8080
+      - PROVER_ID= # this should be the address corresponding to the PROVER_PUBLISHER_PRIVATE_KEY you set on the node.
     pull_policy: always
     restart: unless-stopped
+    entrypoint: >
+      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet --prover-agent'
 
   broker:
-    image: aztecprotocol/aztec:alpha-testnet # Always refer to the docs to check that you're using the correct image.
-    command:
-      - node
-      - --no-warnings
-      - /usr/src/yarn-project/aztec/dest/bin/index.js
-      - start
-      - --prover-broker
-      - --network
-      - alpha-testnet
+    image: aztecprotocol/aztec:latest # Always refer to the docs to check that you're using the correct image.
     environment:
-      DATA_DIRECTORY: /data
-      ETHEREUM_HOSTS: # Your EL RPC endpoint
-      LOG_LEVEL: info
+      - ETHEREUM_HOSTS= # Your EL RPC endpoint
+      - DATA_DIRECTORY=/data-broker
+      - LOG_LEVEL=info
     volumes:
-      - /home/my-node/node:/data # Local directory
+      - ./data-broker:/data-broker # Local directory
+    restart: unless-stopped
+    entrypoint: >
+      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet --prover-broker'
 ```
