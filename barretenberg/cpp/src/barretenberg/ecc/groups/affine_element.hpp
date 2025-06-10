@@ -177,6 +177,8 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     }
     Fq x;
     Fq y;
+
+    // Note: only applicable to field-templated curves (i.e. not something like G2).
     struct MsgpackRawAffineElement {
         uint256_t x{};
         uint256_t y{};
