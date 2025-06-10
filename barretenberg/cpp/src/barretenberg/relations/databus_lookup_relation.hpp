@@ -148,6 +148,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto is_read_gate = get_read_selector<Accumulator, bus_idx>(in); // is this a read gate
         const auto read_tag_m =
             CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
+        // we have to check that read_tag_m is a boolean value
+
         const Accumulator read_tag(read_tag_m);
         return is_read_gate + read_tag - (is_read_gate * read_tag);
     }
@@ -299,6 +301,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 2
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
 
+        const auto read_tag_m =
+            CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
+        // check that read_tag_m is a boolean value
+
         // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = 2 * bus_idx;
         constexpr size_t subrel_idx_2 = 2 * bus_idx + 1;
@@ -310,6 +316,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis.
         Accumulator tmp = read_selector * write_term;
+
         tmp -= Accumulator(read_counts_m) * read_term;
         tmp *= inverses;
         std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (5)
