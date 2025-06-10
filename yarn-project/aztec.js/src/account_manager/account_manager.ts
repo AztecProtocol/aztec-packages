@@ -222,29 +222,30 @@ export class AccountManager {
    */
   public deploy(opts?: DeployAccountOptions): DeployAccountSentTx {
     let deployMethod: DeployMethod;
-    const sentTx = this.getDeployMethod(opts?.deployWallet)
-      .then(method => {
-        deployMethod = method;
-        if (!opts?.deployWallet && opts?.fee) {
-          return this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
-        }
-      })
-      .then(maybeWrappedPaymentMethod => {
-        let fee = opts?.fee;
-        if (maybeWrappedPaymentMethod) {
-          fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
-        }
-        return deployMethod.send({
-          contractAddressSalt: new Fr(this.salt),
-          skipClassRegistration: opts?.skipClassRegistration ?? true,
-          skipPublicDeployment: opts?.skipPublicDeployment ?? true,
-          skipInitialization: opts?.skipInitialization ?? false,
-          universalDeploy: true,
-          fee,
-        });
-      })
-      .then(tx => tx.getTxHash());
-    return new DeployAccountSentTx(this.pxe, sentTx, this.getWallet());
+    const sendTx = () =>
+      this.getDeployMethod(opts?.deployWallet)
+        .then(method => {
+          deployMethod = method;
+          if (!opts?.deployWallet && opts?.fee) {
+            return this.getSelfPaymentMethod(opts?.fee?.paymentMethod);
+          }
+        })
+        .then(maybeWrappedPaymentMethod => {
+          let fee = opts?.fee;
+          if (maybeWrappedPaymentMethod) {
+            fee = { ...opts?.fee, paymentMethod: maybeWrappedPaymentMethod };
+          }
+          return deployMethod.send({
+            contractAddressSalt: new Fr(this.salt),
+            skipClassRegistration: opts?.skipClassRegistration ?? true,
+            skipPublicDeployment: opts?.skipPublicDeployment ?? true,
+            skipInitialization: opts?.skipInitialization ?? false,
+            universalDeploy: true,
+            fee,
+          });
+        })
+        .then(tx => tx.getTxHash());
+    return new DeployAccountSentTx(this.pxe, sendTx, this.getWallet());
   }
 
   /**
