@@ -341,6 +341,8 @@ export class PXEService implements PXE {
     };
   }
 
+  // Executes the entrypoint private function, as well as all nested private
+  // functions that might arise.
   async #executePrivate(
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
@@ -848,6 +850,8 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
+
+        // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,
@@ -855,6 +859,7 @@ export class PXEService implements PXE {
           scopes,
         );
 
+        // Kernel logic, plus proving of all private functions and kernels.
         const { publicInputs, executionSteps } = await this.#prove(
           txRequest,
           this.proofCreator,

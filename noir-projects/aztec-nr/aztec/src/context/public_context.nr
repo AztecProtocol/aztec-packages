@@ -7,6 +7,7 @@ use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_U32_VALUE;
 use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField};
 
+#[derive(Eq)]
 pub struct PublicContext {
     pub args_hash: Option<Field>,
     pub compute_args_hash: fn() -> Field,

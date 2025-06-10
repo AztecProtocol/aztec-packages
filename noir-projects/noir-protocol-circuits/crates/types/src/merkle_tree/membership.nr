@@ -6,6 +6,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct MembershipWitness<let N: u32> {
     pub leaf_index: Field,
     pub sibling_path: [Field; N],

@@ -102,6 +102,10 @@ export class ContractFunctionSimulator {
     const setupTime = simulatorSetupTimer.ms();
 
     try {
+      // Note: any nested private function calls are made recursively within this
+      // function call. So this execution result is the result of executing _all_
+      // private functions of this tx (the results of those executions are contained
+      // within executionResult.nestedExecutionResults).
       const executionResult = await executePrivateFunction(
         this.simulator,
         context,
@@ -131,6 +135,9 @@ export class ContractFunctionSimulator {
         executionResult.profileResult.timings.witgen += setupTime + teardownTime;
       }
 
+      // Not to be confused with a PrivateCallExecutionResult. This is a superset
+      // of the PrivateCallExecutionResult, containing also firstNullifierHint
+      // and publicFunctionsCalldata.
       return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));

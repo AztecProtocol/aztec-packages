@@ -17,7 +17,7 @@ use crate::{
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
-    utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
+    utils::field::{field_from_bytes, field_from_bytes_32_trunc},
 };
 use std::embedded_curve_ops::EmbeddedCurveScalar;
 
@@ -232,7 +232,7 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(inputs: [Field; N], separato
 where
     T: ToField,
 {
-    let inputs_with_separator = array_concat([separator.to_field()], inputs);
+    let inputs_with_separator = [separator.to_field()].concat(inputs);
     poseidon2_hash(inputs_with_separator)
 }
 

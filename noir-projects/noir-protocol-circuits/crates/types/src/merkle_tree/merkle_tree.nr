@@ -1,5 +1,6 @@
 use crate::{hash::merkle_hash, traits::Empty};
 
+#[derive(Eq)]
 pub struct MerkleTree<let N: u32> {
     pub leaves: [Field; N],
     pub nodes: [Field; N],

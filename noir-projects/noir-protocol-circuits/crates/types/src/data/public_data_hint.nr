@@ -5,6 +5,7 @@ use crate::{
     traits::Empty,
 };
 
+#[derive(Eq)]
 pub struct PublicDataHint {
     pub leaf_slot: Field,
     pub value: Field,

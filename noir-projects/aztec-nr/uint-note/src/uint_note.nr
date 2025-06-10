@@ -14,7 +14,6 @@ use dep::aztec::{
         },
         hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
-        utils::arrays::array_concat,
     },
 };
 
@@ -181,7 +180,7 @@ impl UintPartialNotePrivateContent {
     fn compute_partial_commitment(self, storage_slot: Field) -> Field {
         // Here we commit to all private values, including the storage slot.
         poseidon2_hash_with_separator(
-            array_concat(self.pack(), [storage_slot]),
+            self.pack().concat([storage_slot]),
             GENERATOR_INDEX__NOTE_HASH,
         )
     }
@@ -299,7 +298,7 @@ impl PartialUintNote {
     ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
         let note_completion_log = self.compute_note_completion_log(value);
         let padding = [0; PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_COMPLETION_LOG_LENGTH];
-        array_concat(note_completion_log, padding)
+        note_completion_log.concat(padding)
     }
 
     fn compute_complete_note_hash(self, value: u128) -> Field {
@@ -331,11 +330,7 @@ mod test {
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
-        protocol_types::{
-            address::AztecAddress,
-            traits::{FromField, Packable},
-            utils::arrays::array_concat,
-        },
+        protocol_types::{address::AztecAddress, traits::{FromField, Packable}},
         utils::array::subarray,
     };
 
@@ -395,9 +390,6 @@ mod test {
         let public_log_without_tag: [_; 1] =
             subarray(partial_note.compute_note_completion_log(value), 1);
 
-        assert_eq(
-            array_concat(private_log_without_public_tag, public_log_without_tag),
-            note.pack(),
-        );
+        assert_eq(private_log_without_public_tag.concat(public_log_without_tag), note.pack());
     }
 }

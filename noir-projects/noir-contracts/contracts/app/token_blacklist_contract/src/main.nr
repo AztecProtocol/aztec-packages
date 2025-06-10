@@ -45,9 +45,7 @@ pub contract TokenBlacklist {
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,
         transparent_note::TransparentNote,
     };
-    use aztec::protocol_types::{
-        constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
-    };
+    use aztec::protocol_types::{constants::MAX_NOTE_HASHES_PER_TX, traits::Packable};
 
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;

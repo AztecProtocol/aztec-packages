@@ -5,7 +5,6 @@ use dep::aztec::{
         constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
         hash::poseidon2_hash_with_separator,
         traits::Packable,
-        utils::arrays::array_concat,
     },
 };
 use dep::std::mem::zeroed;
@@ -23,7 +22,7 @@ pub struct TransparentNote {
 
 impl NoteHash for TransparentNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
-        let inputs = array_concat(self.pack(), [storage_slot]);
+        let inputs = self.pack().concat([storage_slot]);
         poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 

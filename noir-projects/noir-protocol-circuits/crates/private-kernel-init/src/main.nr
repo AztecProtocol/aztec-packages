@@ -4,6 +4,9 @@ use types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
 use types::abis::private_kernel::private_call_data::PrivateCallDataWithoutPublicInputs;
 use types::transaction::tx_request::TxRequest;
 
+/**
+ * @param first_nullifier_hint: 0 if there is no nullifier yet; otherwise it's a claim on whatever has been pushed as the 0th nullifier already by some private call.
+ */
 fn main(
     tx_request: TxRequest,
     vk_tree_root: Field,

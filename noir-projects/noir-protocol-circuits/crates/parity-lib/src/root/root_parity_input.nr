@@ -10,6 +10,7 @@ use dep::types::{
     traits::{Empty, Serialize},
 };
 
+#[derive(Eq)]
 pub struct RootParityInput {
     pub proof: RecursiveProof,
     pub verification_key: HonkVerificationKey,
