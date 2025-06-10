@@ -30,4 +30,16 @@ impl ReturnsHash {
 
         Deserialize::deserialize(preimage)
     }
+
+    pub fn get_preimage_and_assert_empty<T, let N: u32>(self) -> T
+    where
+        T: Deserialize<N>,
+    {
+        // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
+        let preimage: [Field; N] = unsafe { execution_cache::load(self.hash) };
+        assert_eq(self.hash, hash_args_array(preimage));
+        assert_eq(self.hash, 0);
+
+        Deserialize::deserialize(preimage)
+    }
 }
