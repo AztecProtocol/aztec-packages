@@ -198,7 +198,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    testERC20.mint(address(multiAdder), rollup.getMinimumStake() * validators.length);
+    testERC20.mint(address(multiAdder), rollup.getDepositAmount() * validators.length);
     multiAdder.addValidators(validators);
   }
 }

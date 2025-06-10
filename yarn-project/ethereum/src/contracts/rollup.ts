@@ -171,6 +171,11 @@ export class RollupContract {
   }
 
   @memoize
+  getDepositAmount() {
+    return this.rollup.read.getDepositAmount();
+  }
+
+  @memoize
   getManaTarget() {
     return this.rollup.read.getManaTarget();
   }

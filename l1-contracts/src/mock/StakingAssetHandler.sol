@@ -161,7 +161,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
       IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-      uint256 depositAmount = rollup.getMinimumStake();
+      uint256 depositAmount = rollup.getDepositAmount();
 
       STAKING_ASSET.mint(address(this), depositAmount);
 
@@ -191,7 +191,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function dripQueue() external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
+    uint256 depositAmount = rollup.getDepositAmount();
     uint256 balance = STAKING_ASSET.balanceOf(address(this));
 
     // If we do not have enough balance, check if we can refill the quota
