@@ -217,6 +217,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
+        // TODO(dbanks12): fix phase. Should come from TX execution and be forwarded to nested calls.
+        ex_event.after_context_event.phase = TransactionPhase::APP_LOGIC;
         events.emit(std::move(ex_event));
 
         // If the context has halted, we need to exit the external call.

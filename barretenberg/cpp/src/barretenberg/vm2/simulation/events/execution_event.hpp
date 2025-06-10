@@ -43,6 +43,17 @@ struct ExecutionEvent {
     ContextEvent after_context_event;
 
     GasEvent gas_event;
+
+    // function to determine whether the event was a context "failure"
+    bool is_failure() const
+    {
+        // WARNING: it is important that we check for error first here because
+        // if instruction fetching fails, we cannot do `wire_instruction.get_exec_opcode()`
+        return error != ExecutionError::NONE || wire_instruction.get_exec_opcode() == ExecutionOpCode::REVERT;
+    }
+
+    // function to determine whether the event represents a context "exit"
+    bool is_exit() const { return is_failure() || wire_instruction.get_exec_opcode() == ExecutionOpCode::RETURN; }
 };
 
 } // namespace bb::avm2::simulation

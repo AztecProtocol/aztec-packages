@@ -22,6 +22,7 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
+include "execution_discard.pil";
 include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
