@@ -29,6 +29,30 @@ library BlobLib {
   }
 
   /**
+   * @notice  Get the blob hash
+   *
+   * @dev     If we are in a foundry test, we use the cheatcode to get the blob hashes
+   *          Otherwise, we use the `blobhash` function in assembly
+   *
+   * @return blobHash - The blob hash
+   */
+  function getBlobHash(uint256 _index) internal view returns (bytes32 blobHash) {
+    if (VM_ADDRESS.code.length > 0) {
+      // We know that this one is ABHORRENT. But it should not exists, and only will
+      // be hit in testing.
+      bytes32[] memory blobHashes = Vm(VM_ADDRESS).getBlobhashes();
+      if (_index < blobHashes.length) {
+        return blobHashes[_index];
+      }
+      return bytes32(0);
+    }
+
+    assembly {
+      blobHash := blobhash(_index)
+    }
+  }
+
+  /**
    * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
    * @notice  We assume that this propose transaction contains only Aztec blobs
    * Input bytes:
@@ -67,9 +91,7 @@ library BlobLib {
 
       bytes32 blobHashCheck = calculateBlobHash(blobCommitments[i]);
       if (_checkBlob) {
-        assembly {
-          blobHash := blobhash(i)
-        }
+        blobHash = getBlobHash(i);
         // The below check ensures that our injected blobCommitments indeed match the real
         // blobs submitted with this block. They are then used in the blobCommitmentsHash (see below).
         require(blobHash == blobHashCheck, Errors.Rollup__InvalidBlobHash(blobHash, blobHashCheck));
@@ -80,9 +102,7 @@ library BlobLib {
     }
     // Ensure no non-Aztec blobs have been emitted in this tx:
     for (uint256 i = numBlobs; i < MAX_BLOBS_PER_BLOCK; i++) {
-      assembly {
-        blobHash := blobhash(i)
-      }
+      blobHash = getBlobHash(i);
       require(blobHash == 0, Errors.Rollup__InvalidBlobHash(blobHash, 0));
     }
     // Hash the EVM blob hashes for the block header
