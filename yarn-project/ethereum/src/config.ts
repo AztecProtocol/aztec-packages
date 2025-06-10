@@ -60,6 +60,18 @@ export const DefaultL1ContractsConfig = {
   provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
 
+// Making a default config here as we are only using it thought the deployment
+// and do not expect to be using different setups, so having environment variables
+// for it seems overkill
+export const DefaultRewardConfig = {
+  sequencerBps: 5000,
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
