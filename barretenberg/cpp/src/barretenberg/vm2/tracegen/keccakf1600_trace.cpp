@@ -436,27 +436,28 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
     for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
         const auto row = start_row + static_cast<uint32_t>(i);
 
-        trace.set(row,
-                  { {
-                      { C::keccak_memory_sel, 1 },
-                      { C::keccak_memory_ctr, i + 1 },
-                      { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
-                      { C::keccak_memory_ctr_min_state_size_inv,
-                        i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i) - AVM_KECCAKF1600_STATE_SIZE + 1).invert() },
-                      { C::keccak_memory_start, i == 0 ? 1 : 0 },
-                      { C::keccak_memory_last, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
-                      { C::keccak_memory_rw, rw ? 1 : 0 },
-                      { C::keccak_memory_addr, addr + i },
-                      { C::keccak_memory_space_id, event.space_id },
-                      { C::keccak_memory_val, values[i] },
-                      { C::keccak_memory_tag, static_cast<uint8_t>(tags[i]) },
-                      { C::keccak_memory_tag_min_u64_inv,
-                        single_tag_errors[i]
-                            ? (FF(static_cast<uint8_t>(tags[i])) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert()
-                            : 1 },
-                      { C::keccak_memory_single_tag_error, single_tag_errors[i] ? 1 : 0 },
-                      { C::keccak_memory_tag_error, tag_errors[i] ? 1 : 0 },
-                  } });
+        trace.set(
+            row,
+            { {
+                { C::keccak_memory_sel, 1 },
+                { C::keccak_memory_ctr, i + 1 },
+                { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
+                { C::keccak_memory_ctr_min_state_size_inv,
+                  i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i) - FF(AVM_KECCAKF1600_STATE_SIZE + 1)).invert() },
+                { C::keccak_memory_start, i == 0 ? 1 : 0 },
+                { C::keccak_memory_last, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
+                { C::keccak_memory_rw, rw ? 1 : 0 },
+                { C::keccak_memory_addr, addr + i },
+                { C::keccak_memory_space_id, event.space_id },
+                { C::keccak_memory_val, values[i] },
+                { C::keccak_memory_tag, static_cast<uint8_t>(tags[i]) },
+                { C::keccak_memory_tag_min_u64_inv,
+                  single_tag_errors[i]
+                      ? (FF(static_cast<uint8_t>(tags[i])) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert()
+                      : 1 },
+                { C::keccak_memory_single_tag_error, single_tag_errors[i] ? 1 : 0 },
+                { C::keccak_memory_tag_error, tag_errors[i] ? 1 : 0 },
+            } });
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
         for (size_t j = i; j < AVM_KECCAKF1600_STATE_SIZE; j++) {
