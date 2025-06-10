@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -21,10 +22,7 @@ using ::bb::avm2::testing::InstructionBuilder;
 using enum ::bb::avm2::WireOpCode;
 
 using ::testing::AllOf;
-using ::testing::Contains;
-using ::testing::Field;
-
-using R = TestTraceContainer::Row;
+using ::testing::ElementsAre;
 
 // Helper functions for creating common execution events
 
@@ -125,20 +123,24 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
 
     // todo: Test doesnt check the other register fields are zeroed out.
     EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_sel_alu, 1)),
-                      Contains(Field(&R::execution_register_0_, 5)),
-                      Contains(Field(&R::execution_register_1_, 3)),
-                      Contains(Field(&R::execution_register_2_, 8)),
-                      Contains(Field(&R::execution_mem_tag_0_, /*U16=*/3)),
-                      Contains(Field(&R::execution_mem_tag_1_, /*U16=*/3)),
-                      Contains(Field(&R::execution_mem_tag_2_, /*U16=*/3)),
-                      Contains(Field(&R::execution_mem_op_0_, 1)),
-                      Contains(Field(&R::execution_mem_op_1_, 1)),
-                      Contains(Field(&R::execution_mem_op_2_, 1)),
-                      Contains(Field(&R::execution_rw_0_, 0)),
-                      Contains(Field(&R::execution_rw_1_, 0)),
-                      Contains(Field(&R::execution_rw_2_, 1))));
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // First real row
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_alu, 1),
+                          ROW_FIELD_EQ(execution_register_0_, 5),
+                          ROW_FIELD_EQ(execution_register_1_, 3),
+                          ROW_FIELD_EQ(execution_register_2_, 8),
+                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U16=*/3),
+                          ROW_FIELD_EQ(execution_mem_tag_1_, /*U16=*/3),
+                          ROW_FIELD_EQ(execution_mem_tag_2_, /*U16=*/3),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_2_, 1),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_1_, 0),
+                          ROW_FIELD_EQ(execution_rw_2_, 1))));
 }
 
 TEST(ExecutionTraceGenTest, Call)
@@ -156,11 +158,15 @@ TEST(ExecutionTraceGenTest, Call)
                                 .build();
 
     Gas allocated_gas = { .l2Gas = 100, .daGas = 200 };
+    Gas gas_limit = { .l2Gas = 1000, .daGas = 2000 };
+    Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
+    Gas gas_left = gas_limit - gas_used;
+
     simulation::ExecutionEvent ex_event = {
         .wire_instruction = call_instr,
         .inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
-                    /*contract_address=*/MemoryValue::from<uint32_t>(0xdeadbeef) },
+                    /*contract_address=*/MemoryValue::from<FF>(0xdeadbeef) },
         .next_context_id = 2,
         .addressing_event = { .instruction = call_instr,
                               .resolution_info = {
@@ -180,43 +186,43 @@ TEST(ExecutionTraceGenTest, Call)
         .after_context_event = {
             .id = 1,
             .contract_addr = 0xdeadbeef,
+            .gas_used = gas_used,
+            .gas_limit = gas_limit,
         },
     };
-
-    Gas gas_limit = { .l2Gas = 1000, .daGas = 2000 };
-    Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
-    Gas gas_left = gas_limit - gas_used;
-    ex_event.after_context_event.gas_limit = gas_limit;
-    ex_event.after_context_event.gas_used = gas_used;
 
     builder.process({ ex_event }, trace);
     EXPECT_THAT(
         trace.as_rows(),
-        AllOf(Contains(Field(&R::execution_sel, 1)),
-              Contains(Field(&R::execution_sel_call, 1)),
-              Contains(Field(&R::execution_sel_enter_call, 1)),
-              Contains(Field(&R::execution_rop_3_, 10)),
-              Contains(Field(&R::execution_rop_4_, 20)),
-              Contains(Field(&R::execution_register_0_, allocated_gas.l2Gas)),
-              Contains(Field(&R::execution_register_1_, allocated_gas.daGas)),
-              Contains(Field(&R::execution_register_2_, 0xdeadbeef)),
-              Contains(Field(&R::execution_mem_tag_0_, /*U32=*/4)),
-              Contains(Field(&R::execution_mem_tag_1_, /*U32=*/4)),
-              Contains(Field(&R::execution_mem_tag_2_, /*FF=*/0)),
-              Contains(Field(&R::execution_mem_op_0_, 1)),
-              Contains(Field(&R::execution_mem_op_1_, 1)),
-              Contains(Field(&R::execution_mem_op_2_, 1)),
-              Contains(Field(&R::execution_rw_0_, 0)),
-              Contains(Field(&R::execution_rw_1_, 0)),
-              Contains(Field(&R::execution_rw_2_, 0)),
-              Contains(Field(&R::execution_is_static, 0)),
-              Contains(Field(&R::execution_context_id, 1)),
-              Contains(Field(&R::execution_next_context_id, 2)),
-              Contains(Field(&R::execution_constant_32, 32)),
-              Contains(Field(&R::execution_call_is_l2_gas_allocated_lt_left, true)),
-              Contains(Field(&R::execution_call_allocated_left_l2_cmp_diff, gas_left.l2Gas - allocated_gas.l2Gas - 1)),
-              Contains(Field(&R::execution_call_is_da_gas_allocated_lt_left, false)),
-              Contains(Field(&R::execution_call_allocated_left_da_cmp_diff, allocated_gas.daGas - gas_left.daGas))));
+        ElementsAre(
+            // First row is empty
+            AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+            // First real row
+            AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                  ROW_FIELD_EQ(execution_sel_call, 1),
+                  ROW_FIELD_EQ(execution_sel_enter_call, 1),
+                  ROW_FIELD_EQ(execution_rop_3_, 10),
+                  ROW_FIELD_EQ(execution_rop_4_, 20),
+                  ROW_FIELD_EQ(execution_register_0_, allocated_gas.l2Gas),
+                  ROW_FIELD_EQ(execution_register_1_, allocated_gas.daGas),
+                  ROW_FIELD_EQ(execution_register_2_, 0xdeadbeef),
+                  ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
+                  ROW_FIELD_EQ(execution_mem_tag_1_, /*U32=*/4),
+                  ROW_FIELD_EQ(execution_mem_tag_2_, /*FF=*/0),
+                  ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                  ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                  ROW_FIELD_EQ(execution_mem_op_2_, 1),
+                  ROW_FIELD_EQ(execution_rw_0_, 0),
+                  ROW_FIELD_EQ(execution_rw_1_, 0),
+                  ROW_FIELD_EQ(execution_rw_2_, 0),
+                  ROW_FIELD_EQ(execution_is_static, 0),
+                  ROW_FIELD_EQ(execution_context_id, 1),
+                  ROW_FIELD_EQ(execution_next_context_id, 2),
+                  ROW_FIELD_EQ(execution_constant_32, 32),
+                  ROW_FIELD_EQ(execution_call_is_l2_gas_allocated_lt_left, true),
+                  ROW_FIELD_EQ(execution_call_allocated_left_l2_cmp_diff, gas_left.l2Gas - allocated_gas.l2Gas - 1),
+                  ROW_FIELD_EQ(execution_call_is_da_gas_allocated_lt_left, false),
+                  ROW_FIELD_EQ(execution_call_allocated_left_da_cmp_diff, allocated_gas.daGas - gas_left.daGas))));
 }
 
 TEST(ExecutionTraceGenTest, Return)
@@ -248,18 +254,22 @@ TEST(ExecutionTraceGenTest, Return)
 
     builder.process({ ex_event }, trace);
     EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_sel, 1)),
-                      Contains(Field(&R::execution_sel_return, 1)),
-                      Contains(Field(&R::execution_sel_exit_call, 1)),
-                      Contains(Field(&R::execution_rop_0_, 4)),
-                      Contains(Field(&R::execution_rop_1_, 5)),
-                      Contains(Field(&R::execution_register_0_, 2)), /*rd_size*/
-                      Contains(Field(&R::execution_mem_tag_0_, /*U32=*/4)),
-                      Contains(Field(&R::execution_mem_op_0_, 1)),
-                      Contains(Field(&R::execution_rw_0_, 0)),
-                      Contains(Field(&R::execution_is_static, 0)),
-                      Contains(Field(&R::execution_context_id, 1)),
-                      Contains(Field(&R::execution_next_context_id, 2))));
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // First real row
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_return, 1),
+                          ROW_FIELD_EQ(execution_sel_exit_call, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 4),
+                          ROW_FIELD_EQ(execution_rop_1_, 5),
+                          ROW_FIELD_EQ(execution_register_0_, 2), /*rd_size*/
+                          ROW_FIELD_EQ(execution_mem_tag_0_, /*U32=*/4),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_is_static, 0),
+                          ROW_FIELD_EQ(execution_context_id, 1),
+                          ROW_FIELD_EQ(execution_next_context_id, 2))));
 }
 
 TEST(ExecutionTraceGenTest, Gas)
@@ -305,24 +315,29 @@ TEST(ExecutionTraceGenTest, Gas)
     builder.process({ ex_event }, trace);
 
     EXPECT_THAT(trace.as_rows(),
-                AllOf(Contains(Field(&R::execution_opcode_gas, 100)),
-                      Contains(Field(&R::execution_addressing_gas, 50)),
-                      Contains(Field(&R::execution_base_da_gas, 5000)),
-                      Contains(Field(&R::execution_out_of_gas_base_l2, false)),
-                      Contains(Field(&R::execution_out_of_gas_base_da, false)),
-                      Contains(Field(&R::execution_out_of_gas_base, false)),
-                      Contains(Field(&R::execution_prev_l2_gas_used, 100000)),
-                      Contains(Field(&R::execution_prev_da_gas_used, 70000)),
-                      Contains(Field(&R::execution_should_run_dyn_gas_check, true)),
-                      Contains(Field(&R::execution_dynamic_l2_gas_factor, 2)),
-                      Contains(Field(&R::execution_dynamic_da_gas_factor, 1)),
-                      Contains(Field(&R::execution_dynamic_l2_gas, 5000)),
-                      Contains(Field(&R::execution_dynamic_da_gas, 9000)),
-                      Contains(Field(&R::execution_out_of_gas_dynamic_l2, true)),
-                      Contains(Field(&R::execution_out_of_gas_dynamic_da, false)),
-                      Contains(Field(&R::execution_out_of_gas_dynamic, true)),
-                      Contains(Field(&R::execution_limit_used_l2_cmp_diff, 0)),
-                      Contains(Field(&R::execution_limit_used_da_cmp_diff, 16000))));
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // First real row
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_opcode_gas, 100),
+                          ROW_FIELD_EQ(execution_addressing_gas, 50),
+                          ROW_FIELD_EQ(execution_base_da_gas, 5000),
+                          ROW_FIELD_EQ(execution_out_of_gas_base_l2, false),
+                          ROW_FIELD_EQ(execution_out_of_gas_base_da, false),
+                          ROW_FIELD_EQ(execution_out_of_gas_base, false),
+                          ROW_FIELD_EQ(execution_prev_l2_gas_used, 100000),
+                          ROW_FIELD_EQ(execution_prev_da_gas_used, 70000),
+                          ROW_FIELD_EQ(execution_should_run_dyn_gas_check, true),
+                          ROW_FIELD_EQ(execution_dynamic_l2_gas_factor, 2),
+                          ROW_FIELD_EQ(execution_dynamic_da_gas_factor, 1),
+                          ROW_FIELD_EQ(execution_dynamic_l2_gas, 5000),
+                          ROW_FIELD_EQ(execution_dynamic_da_gas, 9000),
+                          ROW_FIELD_EQ(execution_out_of_gas_dynamic_l2, true),
+                          ROW_FIELD_EQ(execution_out_of_gas_dynamic_da, false),
+                          ROW_FIELD_EQ(execution_out_of_gas_dynamic, true),
+                          ROW_FIELD_EQ(execution_limit_used_l2_cmp_diff, 0),
+                          ROW_FIELD_EQ(execution_limit_used_da_cmp_diff, 16000))));
 }
 
 TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
