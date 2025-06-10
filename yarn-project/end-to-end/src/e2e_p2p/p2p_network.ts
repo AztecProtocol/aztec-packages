@@ -114,7 +114,9 @@ export class P2PNetworkTest {
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         initialValidators: [],
-        mockZkPassportVerifier,
+        zkPassportArgs: {
+          mockZkPassportVerifier,
+        },
       },
     );
   }
