@@ -13,9 +13,10 @@ template <typename FF_> class addressingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 43> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                                                                            5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3 };
+    static constexpr std::array<size_t, 72> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 3
+    };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -32,20 +33,6 @@ template <typename FF_> class addressingImpl {
         using C = ColumnAndShifts;
 
         const auto constants_MEM_TAG_U32 = FF(4);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ =
-            in.get(C::execution_sel_op_is_relative_wire_0_) * in.get(C::execution_sel_op_is_address_0_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ =
-            in.get(C::execution_sel_op_is_relative_wire_1_) * in.get(C::execution_sel_op_is_address_1_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_ =
-            in.get(C::execution_sel_op_is_relative_wire_2_) * in.get(C::execution_sel_op_is_address_2_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_ =
-            in.get(C::execution_sel_op_is_relative_wire_3_) * in.get(C::execution_sel_op_is_address_3_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_ =
-            in.get(C::execution_sel_op_is_relative_wire_4_) * in.get(C::execution_sel_op_is_address_4_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_ =
-            in.get(C::execution_sel_op_is_relative_wire_5_) * in.get(C::execution_sel_op_is_address_5_);
-        const auto execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_ =
-            in.get(C::execution_sel_op_is_relative_wire_6_) * in.get(C::execution_sel_op_is_address_6_);
         const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_0_ =
             in.get(C::execution_sel_op_is_indirect_wire_0_) * in.get(C::execution_sel_op_is_address_0_);
         const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_1_ =
@@ -60,11 +47,13 @@ template <typename FF_> class addressingImpl {
             in.get(C::execution_sel_op_is_indirect_wire_5_) * in.get(C::execution_sel_op_is_address_5_);
         const auto execution_SEL_OP_IS_INDIRECT_EFFECTIVE_6_ =
             in.get(C::execution_sel_op_is_indirect_wire_6_) * in.get(C::execution_sel_op_is_address_6_);
-        const auto execution_NUM_RELATIVE_OPERANDS =
-            execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ +
-            execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_ +
-            execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_ + execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_ +
-            execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_;
+        const auto execution_NUM_RELATIVE_OPERANDS = in.get(C::execution_sel_op_is_relative_effective_0_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_1_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_2_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_3_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_4_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_5_) +
+                                                     in.get(C::execution_sel_op_is_relative_effective_6_);
         const auto execution_NUM_RELATIVE_X = execution_NUM_RELATIVE_OPERANDS;
         const auto execution_NUM_RELATIVE_Y = in.get(C::execution_num_relative_operands_inv);
         const auto execution_NUM_RELATIVE_E = (FF(1) - in.get(C::execution_sel_do_base_check));
@@ -246,210 +235,455 @@ template <typename FF_> class addressingImpl {
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // NUM_RELATIVE_INV_CHECK
+        {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_0_) -
+                        in.get(C::execution_sel_op_is_relative_wire_0_) * in.get(C::execution_sel_op_is_address_0_));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_1_) -
+                        in.get(C::execution_sel_op_is_relative_wire_1_) * in.get(C::execution_sel_op_is_address_1_));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_2_) -
+                        in.get(C::execution_sel_op_is_relative_wire_2_) * in.get(C::execution_sel_op_is_address_2_));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_3_) -
+                        in.get(C::execution_sel_op_is_relative_wire_3_) * in.get(C::execution_sel_op_is_address_3_));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_4_) -
+                        in.get(C::execution_sel_op_is_relative_wire_4_) * in.get(C::execution_sel_op_is_address_4_));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_5_) -
+                        in.get(C::execution_sel_op_is_relative_wire_5_) * in.get(C::execution_sel_op_is_address_5_));
+            tmp *= scaling_factor;
+            std::get<22>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_op_is_relative_effective_6_) -
+                        in.get(C::execution_sel_op_is_relative_wire_6_) * in.get(C::execution_sel_op_is_address_6_));
+            tmp *= scaling_factor;
+            std::get<23>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NUM_RELATIVE_INV_CHECK
+            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp = ((execution_NUM_RELATIVE_X * (execution_NUM_RELATIVE_E * (FF(1) - execution_NUM_RELATIVE_Y) +
                                                      execution_NUM_RELATIVE_Y) -
                          FF(1)) +
                         execution_NUM_RELATIVE_E);
             tmp *= scaling_factor;
-            std::get<17>(evals) += typename Accumulator::View(tmp);
+            std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         { // BASE_ADDRESS_CHECK
-            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
             auto tmp = ((execution_BASE_CHECK_X *
                              (execution_BASE_CHECK_E * (FF(1) - execution_BASE_CHECK_Y) + execution_BASE_CHECK_Y) -
                          FF(1)) +
                         execution_BASE_CHECK_E);
             tmp *= scaling_factor;
-            std::get<18>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_0
-            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_0_) -
-                        (in.get(C::execution_op_0_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_0_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_1
-            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_1_) -
-                        (in.get(C::execution_op_1_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_1_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<20>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_2
-            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_2_) -
-                        (in.get(C::execution_op_2_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_2_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<21>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_3
-            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_3_) -
-                        (in.get(C::execution_op_3_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_3_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<22>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_4
-            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_4_) -
-                        (in.get(C::execution_op_4_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_4_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<23>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_5
-            using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_5_) -
-                        (in.get(C::execution_op_5_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_5_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
-            std::get<24>(evals) += typename Accumulator::View(tmp);
-        }
-        { // RELATIVE_RESOLUTION_6
-            using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_op_after_relative_6_) -
-                        (in.get(C::execution_op_6_) +
-                         execution_SEL_OP_IS_RELATIVE_EFFECTIVE_6_ * execution_RELATIVE_RESOLUTION_FILTER));
-            tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        { // INDIRECT_GATING_0
+        {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_0_) * (FF(1) - in.get(C::execution_sel_relative_overflow_0_));
+            tmp *= scaling_factor;
+            std::get<26>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_1_) * (FF(1) - in.get(C::execution_sel_relative_overflow_1_));
+            tmp *= scaling_factor;
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_2_) * (FF(1) - in.get(C::execution_sel_relative_overflow_2_));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_3_) * (FF(1) - in.get(C::execution_sel_relative_overflow_3_));
+            tmp *= scaling_factor;
+            std::get<29>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_4_) * (FF(1) - in.get(C::execution_sel_relative_overflow_4_));
+            tmp *= scaling_factor;
+            std::get<30>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_5_) * (FF(1) - in.get(C::execution_sel_relative_overflow_5_));
+            tmp *= scaling_factor;
+            std::get<31>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_relative_overflow_6_) * (FF(1) - in.get(C::execution_sel_relative_overflow_6_));
+            tmp *= scaling_factor;
+            std::get<32>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_0
+            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_0_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_0_));
+            tmp *= scaling_factor;
+            std::get<33>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_1
+            using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_1_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_1_));
+            tmp *= scaling_factor;
+            std::get<34>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_2
+            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_2_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_2_));
+            tmp *= scaling_factor;
+            std::get<35>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_3
+            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_3_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_3_));
+            tmp *= scaling_factor;
+            std::get<36>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_4
+            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_4_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_4_));
+            tmp *= scaling_factor;
+            std::get<37>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_5
+            using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_5_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_5_));
+            tmp *= scaling_factor;
+            std::get<38>(evals) += typename Accumulator::View(tmp);
+        }
+        { // NOT_RELATIVE_NO_OVERFLOW_6
+            using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_relative_overflow_6_) *
+                       (FF(1) - in.get(C::execution_sel_op_is_relative_effective_6_));
+            tmp *= scaling_factor;
+            std::get<39>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_0
+            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_0_) -
+                        (in.get(C::execution_op_0_) +
+                         in.get(C::execution_sel_op_is_relative_effective_0_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<40>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_1
+            using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_1_) -
+                        (in.get(C::execution_op_1_) +
+                         in.get(C::execution_sel_op_is_relative_effective_1_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<41>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_2
+            using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_2_) -
+                        (in.get(C::execution_op_2_) +
+                         in.get(C::execution_sel_op_is_relative_effective_2_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<42>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_3
+            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_3_) -
+                        (in.get(C::execution_op_3_) +
+                         in.get(C::execution_sel_op_is_relative_effective_3_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<43>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_4
+            using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_4_) -
+                        (in.get(C::execution_op_4_) +
+                         in.get(C::execution_sel_op_is_relative_effective_4_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<44>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_5
+            using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_5_) -
+                        (in.get(C::execution_op_5_) +
+                         in.get(C::execution_sel_op_is_relative_effective_5_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<45>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_RESOLUTION_6
+            using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_op_after_relative_6_) -
+                        (in.get(C::execution_op_6_) +
+                         in.get(C::execution_sel_op_is_relative_effective_6_) * execution_RELATIVE_RESOLUTION_FILTER));
+            tmp *= scaling_factor;
+            std::get<46>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_should_resolve_address) * (in.get(C::execution_two_to_32) - FF(4294967296UL));
+            tmp *= scaling_factor;
+            std::get<47>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_0
+            using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_0_) -
+                        in.get(C::execution_sel_op_is_relative_effective_0_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_0_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_0_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_0_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<48>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_1
+            using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_1_) -
+                        in.get(C::execution_sel_op_is_relative_effective_1_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_1_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_1_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_1_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<49>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_2
+            using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_2_) -
+                        in.get(C::execution_sel_op_is_relative_effective_2_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_2_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_2_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_2_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<50>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_3
+            using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_3_) -
+                        in.get(C::execution_sel_op_is_relative_effective_3_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_3_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_3_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_3_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<51>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_4
+            using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_4_) -
+                        in.get(C::execution_sel_op_is_relative_effective_4_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_4_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_4_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_4_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<52>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_5
+            using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_5_) -
+                        in.get(C::execution_sel_op_is_relative_effective_5_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_5_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_5_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_5_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<53>(evals) += typename Accumulator::View(tmp);
+        }
+        { // RELATIVE_OVERFLOW_RESULT_6
+            using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_overflow_range_check_result_6_) -
+                        in.get(C::execution_sel_op_is_relative_effective_6_) *
+                            (((FF(1) - in.get(C::execution_sel_relative_overflow_6_)) *
+                                  ((FF(2) * in.get(C::execution_two_to_32) -
+                                    FF(2) * in.get(C::execution_op_after_relative_6_)) -
+                                   FF(1)) +
+                              in.get(C::execution_op_after_relative_6_)) -
+                             in.get(C::execution_two_to_32)));
+            tmp *= scaling_factor;
+            std::get<54>(evals) += typename Accumulator::View(tmp);
+        }
+        { // INDIRECT_GATING_0
+            using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_0_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_0_ * (FF(1) - in.get(C::execution_sel_relative_overflow_0_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<26>(evals) += typename Accumulator::View(tmp);
+            std::get<55>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_1
-            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_1_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_1_ * (FF(1) - in.get(C::execution_sel_relative_overflow_1_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<27>(evals) += typename Accumulator::View(tmp);
+            std::get<56>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_2
-            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_2_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_2_ * (FF(1) - in.get(C::execution_sel_relative_overflow_2_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<28>(evals) += typename Accumulator::View(tmp);
+            std::get<57>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_3
-            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_3_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_3_ * (FF(1) - in.get(C::execution_sel_relative_overflow_3_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<29>(evals) += typename Accumulator::View(tmp);
+            std::get<58>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_4
-            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_4_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_4_ * (FF(1) - in.get(C::execution_sel_relative_overflow_4_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<30>(evals) += typename Accumulator::View(tmp);
+            std::get<59>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_5
-            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_5_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_5_ * (FF(1) - in.get(C::execution_sel_relative_overflow_5_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<31>(evals) += typename Accumulator::View(tmp);
+            std::get<60>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_GATING_6
-            using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
             auto tmp =
                 (in.get(C::execution_sel_should_apply_indirection_6_) -
                  execution_SEL_OP_IS_INDIRECT_EFFECTIVE_6_ * (FF(1) - in.get(C::execution_sel_relative_overflow_6_)) *
                      (FF(1) - in.get(C::execution_sel_base_address_failure)));
             tmp *= scaling_factor;
-            std::get<32>(evals) += typename Accumulator::View(tmp);
+            std::get<61>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_0
-            using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_0_)) *
                        (in.get(C::execution_rop_0_) - in.get(C::execution_op_after_relative_0_));
             tmp *= scaling_factor;
-            std::get<33>(evals) += typename Accumulator::View(tmp);
+            std::get<62>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_1
-            using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_1_)) *
                        (in.get(C::execution_rop_1_) - in.get(C::execution_op_after_relative_1_));
             tmp *= scaling_factor;
-            std::get<34>(evals) += typename Accumulator::View(tmp);
+            std::get<63>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_2
-            using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_2_)) *
                        (in.get(C::execution_rop_2_) - in.get(C::execution_op_after_relative_2_));
             tmp *= scaling_factor;
-            std::get<35>(evals) += typename Accumulator::View(tmp);
+            std::get<64>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_3
-            using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_3_)) *
                        (in.get(C::execution_rop_3_) - in.get(C::execution_op_after_relative_3_));
             tmp *= scaling_factor;
-            std::get<36>(evals) += typename Accumulator::View(tmp);
+            std::get<65>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_4
-            using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_4_)) *
                        (in.get(C::execution_rop_4_) - in.get(C::execution_op_after_relative_4_));
             tmp *= scaling_factor;
-            std::get<37>(evals) += typename Accumulator::View(tmp);
+            std::get<66>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_5
-            using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_5_)) *
                        (in.get(C::execution_rop_5_) - in.get(C::execution_op_after_relative_5_));
             tmp *= scaling_factor;
-            std::get<38>(evals) += typename Accumulator::View(tmp);
+            std::get<67>(evals) += typename Accumulator::View(tmp);
         }
         { // INDIRECT_PROPAGATION_6
-            using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::execution_sel_should_apply_indirection_6_)) *
                        (in.get(C::execution_rop_6_) - in.get(C::execution_op_after_relative_6_));
             tmp *= scaling_factor;
-            std::get<39>(evals) += typename Accumulator::View(tmp);
+            std::get<68>(evals) += typename Accumulator::View(tmp);
         }
         { // BATCHED_TAGS_DIFF_CHECK
-            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
             auto tmp = execution_BATCHED_TAGS_DIFF_EQ;
             tmp *= scaling_factor;
-            std::get<40>(evals) += typename Accumulator::View(tmp);
+            std::get<69>(evals) += typename Accumulator::View(tmp);
         }
         { // ADDRESSING_COLLECTION_INV_CHECK
-            using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
             auto tmp = execution_ADDRESSING_COLLECTION_EQ;
             tmp *= scaling_factor;
-            std::get<41>(evals) += typename Accumulator::View(tmp);
+            std::get<70>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
             auto tmp =
                 (FF(1) - in.get(C::execution_sel_should_resolve_address)) * in.get(C::execution_sel_addressing_error);
             tmp *= scaling_factor;
-            std::get<42>(evals) += typename Accumulator::View(tmp);
+            std::get<71>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -463,55 +697,83 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
         switch (index) {
         case 16:
             return "INDIRECT_RECONSTRUCTION";
-        case 17:
-            return "NUM_RELATIVE_INV_CHECK";
-        case 18:
-            return "BASE_ADDRESS_CHECK";
-        case 19:
-            return "RELATIVE_RESOLUTION_0";
-        case 20:
-            return "RELATIVE_RESOLUTION_1";
-        case 21:
-            return "RELATIVE_RESOLUTION_2";
-        case 22:
-            return "RELATIVE_RESOLUTION_3";
-        case 23:
-            return "RELATIVE_RESOLUTION_4";
         case 24:
-            return "RELATIVE_RESOLUTION_5";
+            return "NUM_RELATIVE_INV_CHECK";
         case 25:
-            return "RELATIVE_RESOLUTION_6";
-        case 26:
-            return "INDIRECT_GATING_0";
-        case 27:
-            return "INDIRECT_GATING_1";
-        case 28:
-            return "INDIRECT_GATING_2";
-        case 29:
-            return "INDIRECT_GATING_3";
-        case 30:
-            return "INDIRECT_GATING_4";
-        case 31:
-            return "INDIRECT_GATING_5";
-        case 32:
-            return "INDIRECT_GATING_6";
+            return "BASE_ADDRESS_CHECK";
         case 33:
-            return "INDIRECT_PROPAGATION_0";
+            return "NOT_RELATIVE_NO_OVERFLOW_0";
         case 34:
-            return "INDIRECT_PROPAGATION_1";
+            return "NOT_RELATIVE_NO_OVERFLOW_1";
         case 35:
-            return "INDIRECT_PROPAGATION_2";
+            return "NOT_RELATIVE_NO_OVERFLOW_2";
         case 36:
-            return "INDIRECT_PROPAGATION_3";
+            return "NOT_RELATIVE_NO_OVERFLOW_3";
         case 37:
-            return "INDIRECT_PROPAGATION_4";
+            return "NOT_RELATIVE_NO_OVERFLOW_4";
         case 38:
-            return "INDIRECT_PROPAGATION_5";
+            return "NOT_RELATIVE_NO_OVERFLOW_5";
         case 39:
-            return "INDIRECT_PROPAGATION_6";
+            return "NOT_RELATIVE_NO_OVERFLOW_6";
         case 40:
-            return "BATCHED_TAGS_DIFF_CHECK";
+            return "RELATIVE_RESOLUTION_0";
         case 41:
+            return "RELATIVE_RESOLUTION_1";
+        case 42:
+            return "RELATIVE_RESOLUTION_2";
+        case 43:
+            return "RELATIVE_RESOLUTION_3";
+        case 44:
+            return "RELATIVE_RESOLUTION_4";
+        case 45:
+            return "RELATIVE_RESOLUTION_5";
+        case 46:
+            return "RELATIVE_RESOLUTION_6";
+        case 48:
+            return "RELATIVE_OVERFLOW_RESULT_0";
+        case 49:
+            return "RELATIVE_OVERFLOW_RESULT_1";
+        case 50:
+            return "RELATIVE_OVERFLOW_RESULT_2";
+        case 51:
+            return "RELATIVE_OVERFLOW_RESULT_3";
+        case 52:
+            return "RELATIVE_OVERFLOW_RESULT_4";
+        case 53:
+            return "RELATIVE_OVERFLOW_RESULT_5";
+        case 54:
+            return "RELATIVE_OVERFLOW_RESULT_6";
+        case 55:
+            return "INDIRECT_GATING_0";
+        case 56:
+            return "INDIRECT_GATING_1";
+        case 57:
+            return "INDIRECT_GATING_2";
+        case 58:
+            return "INDIRECT_GATING_3";
+        case 59:
+            return "INDIRECT_GATING_4";
+        case 60:
+            return "INDIRECT_GATING_5";
+        case 61:
+            return "INDIRECT_GATING_6";
+        case 62:
+            return "INDIRECT_PROPAGATION_0";
+        case 63:
+            return "INDIRECT_PROPAGATION_1";
+        case 64:
+            return "INDIRECT_PROPAGATION_2";
+        case 65:
+            return "INDIRECT_PROPAGATION_3";
+        case 66:
+            return "INDIRECT_PROPAGATION_4";
+        case 67:
+            return "INDIRECT_PROPAGATION_5";
+        case 68:
+            return "INDIRECT_PROPAGATION_6";
+        case 69:
+            return "BATCHED_TAGS_DIFF_CHECK";
+        case 70:
             return "ADDRESSING_COLLECTION_INV_CHECK";
         }
         return std::to_string(index);
@@ -519,31 +781,45 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
 
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
-    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 17;
-    static constexpr size_t SR_BASE_ADDRESS_CHECK = 18;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 19;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 20;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 21;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 22;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 23;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 24;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 25;
-    static constexpr size_t SR_INDIRECT_GATING_0 = 26;
-    static constexpr size_t SR_INDIRECT_GATING_1 = 27;
-    static constexpr size_t SR_INDIRECT_GATING_2 = 28;
-    static constexpr size_t SR_INDIRECT_GATING_3 = 29;
-    static constexpr size_t SR_INDIRECT_GATING_4 = 30;
-    static constexpr size_t SR_INDIRECT_GATING_5 = 31;
-    static constexpr size_t SR_INDIRECT_GATING_6 = 32;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 33;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 34;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 35;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 36;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 37;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_5 = 38;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 39;
-    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 40;
-    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 41;
+    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 24;
+    static constexpr size_t SR_BASE_ADDRESS_CHECK = 25;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_0 = 33;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_1 = 34;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_2 = 35;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_3 = 36;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_4 = 37;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_5 = 38;
+    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_6 = 39;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 40;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 41;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 42;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 43;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 44;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 45;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 46;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_0 = 48;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_1 = 49;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_2 = 50;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_3 = 51;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_4 = 52;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_5 = 53;
+    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_6 = 54;
+    static constexpr size_t SR_INDIRECT_GATING_0 = 55;
+    static constexpr size_t SR_INDIRECT_GATING_1 = 56;
+    static constexpr size_t SR_INDIRECT_GATING_2 = 57;
+    static constexpr size_t SR_INDIRECT_GATING_3 = 58;
+    static constexpr size_t SR_INDIRECT_GATING_4 = 59;
+    static constexpr size_t SR_INDIRECT_GATING_5 = 60;
+    static constexpr size_t SR_INDIRECT_GATING_6 = 61;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 62;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 63;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 64;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 65;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 66;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_5 = 67;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 68;
+    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 69;
+    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 70;
 };
 
 } // namespace bb::avm2
