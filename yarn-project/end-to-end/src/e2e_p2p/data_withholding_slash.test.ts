@@ -41,7 +41,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 10n ** 18n;
+  const slashingAmount = 90n ** 18n;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
   // and have the nodes get recreated, prior to the reorg.
   const aztecSlotDuration = 20;

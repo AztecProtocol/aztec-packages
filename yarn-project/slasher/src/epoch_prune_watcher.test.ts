@@ -156,6 +156,7 @@ describe('EpochPruneWatcher', () => {
       type: L2BlockSourceEvents.L2PruneDetected,
     });
 
+    // Just need to yield to the event loop to clear our synchronous promises
     await sleep(0);
 
     expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
@@ -209,6 +210,7 @@ describe('EpochPruneWatcher', () => {
       type: L2BlockSourceEvents.L2PruneDetected,
     });
 
+    // Just need to yield to the event loop to clear our synchronous promises
     await sleep(0);
 
     expect(emitSpy).not.toHaveBeenCalled();

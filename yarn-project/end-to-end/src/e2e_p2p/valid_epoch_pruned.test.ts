@@ -32,7 +32,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
   const slashingQuorum = 3;
   const slashingRoundSize = 5;
-  const slashingAmount = 10n ** 18n;
+  const slashingAmount = 100n ** 18n;
   const aztecSlotDuration = 12;
 
   beforeEach(async () => {

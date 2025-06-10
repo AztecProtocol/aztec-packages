@@ -93,7 +93,24 @@ export class TxCollector implements ITxCollector {
 
     // Now get the txs we need, either from the pool or the p2p network
     const txHashes: TxHash[] = proposal.payload.txHashes;
-    return this.collectTransactions(txHashes, peerWhoSentTheProposal);
+    const { txs, missing } = await this.collectTransactions(txHashes, peerWhoSentTheProposal);
+
+    this.instrumentation.incMissingTxs(missing?.length ?? 0);
+
+    const txsFromP2P = txHashes.length - txTakenFromProposal - txsInMempool - (missing?.length ?? 0);
+    this.instrumentation.incTxsFromP2P(txsFromP2P);
+
+    this.log.info(`Retrieved ${txs.length}/${txHashes.length} txs for block proposal`, {
+      blockNumber: proposal.blockNumber.toNumber(),
+      slotNumber: proposal.slotNumber.toNumber(),
+      totalTxsInProposal: txHashes.length,
+      txsFromProposal: txTakenFromProposal,
+      txsFromMempool: txsInMempool,
+      txsFromP2P,
+      missingTxs: missing?.length ?? 0,
+    });
+
+    return { txs, missing };
   }
 
   async collectTransactions(
@@ -108,23 +125,10 @@ export class TxCollector implements ITxCollector {
     const missingTxs = compactArray(
       maybeRetrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)),
     );
-    this.instrumentation.incMissingTxs(missingTxs.length);
-
-    const txsFromP2P = txHashes.length - txTakenFromProposal - txsInMempool - missingTxs.length;
-    this.instrumentation.incTxsFromP2P(txsFromP2P);
 
     // if we found all txs, this is a noop. If we didn't find all txs then tell the validator to skip attestations because missingTxs.length > 0
     const retrievedTxs = compactArray(maybeRetrievedTxs);
 
-    this.log.info(`Retrieved ${retrievedTxs.length}/${txHashes.length} txs for block proposal`, {
-      blockNumber: proposal.blockNumber.toNumber(),
-      slotNumber: proposal.slotNumber.toNumber(),
-      totalTxsInProposal: txHashes.length,
-      txsFromProposal: txTakenFromProposal,
-      txsFromMempool: txsInMempool,
-      txsFromP2P,
-      missingTxs: missingTxs.length,
-    });
     return { txs: retrievedTxs, missing: missingTxs };
   }
 }
