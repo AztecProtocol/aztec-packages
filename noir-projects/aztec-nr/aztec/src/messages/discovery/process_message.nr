@@ -24,7 +24,7 @@ use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_for
 ///
 /// Events are processed by computing an event commitment from the serialized event data and its randomness field, then
 /// enqueueing the event data and commitment for validation.
-pub(crate) unconstrained fn process_message<Env>(
+pub unconstrained fn do_process_message<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
     message: BoundedVec<Field, MAX_MESSAGE_LEN>,

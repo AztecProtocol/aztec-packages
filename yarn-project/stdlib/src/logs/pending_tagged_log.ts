@@ -1,31 +1,9 @@
-import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
-
-/**
- * Additional information needed to process a message. A TS version of `message_context.nr`.
- * @dev Note that this class is not really necessary in TS and we could just have a PendingTaggedLog class containing
- * the fields directly. However, we have it here for consistency with the Noir version.
- */
-class MessageContext {
-  constructor(
-    public txHash: TxHash,
-    public uniqueNoteHashesInTx: Fr[],
-    public firstNullifierInTx: Fr,
-    public recipient: AztecAddress,
-  ) {}
-
-  toFields(): Fr[] {
-    return [
-      this.txHash.hash,
-      ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
-      this.firstNullifierInTx,
-      this.recipient.toField(),
-    ];
-  }
-}
+import { MessageContext } from './message_context.js';
 
 /**
  * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle

@@ -8,7 +8,7 @@ pub mod process_message;
 
 use crate::{
     messages::{
-        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::process_message},
+        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::do_process_message},
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         processing::{
             get_private_logs, pending_tagged_log::PendingTaggedLog,
@@ -87,7 +87,7 @@ pub unconstrained fn discover_new_messages<Env>(
         let ciphertext = array::subbvec(pending_tagged_log.log, 1); // The tag is ignored for now.
         let message = AES128::decrypt_log(ciphertext, pending_tagged_log.context.recipient);
 
-        process_message(
+        do_process_message(
             contract_address,
             compute_note_hash_and_nullifier,
             message,

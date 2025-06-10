@@ -428,33 +428,6 @@ pub contract Test {
         storage.note_in_private_immutable.initialize(note).discard();
     }
 
-    #[utility]
-    unconstrained fn deliver_note(
-        contract_address: AztecAddress,
-        value: Field,
-        tx_hash: Field,
-        unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-        first_nullifier_in_tx: Field,
-        recipient: AztecAddress,
-    ) {
-        let note = TestNote::new(value);
-        let storage_slot = Test::storage_layout().note_in_private_immutable.slot;
-        let note_type_id = TestNote::get_id();
-        let log_payload = BoundedVec::from_array(note.pack());
-
-        attempt_note_discovery(
-            contract_address,
-            tx_hash,
-            unique_note_hashes_in_tx,
-            first_nullifier_in_tx,
-            recipient,
-            _compute_note_hash_and_nullifier,
-            storage_slot,
-            note_type_id,
-            log_payload,
-        );
-    }
-
     #[private]
     fn assert_private_global_vars(chain_id: Field, version: Field) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
