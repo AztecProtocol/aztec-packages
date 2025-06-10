@@ -625,4 +625,33 @@ constexpr uint256_t uint256_t::operator<<(const uint256_t& other) const
     return result;
 }
 
+// For serialization
+void uint256_t::msgpack_pack(auto& packer) const
+{
+    // The data is then converted to big endian format using htonll, which stands for "host to network long
+    // long". This is necessary because the data will be written to a raw msgpack buffer, which requires big
+    // endian format.
+    uint64_t bin_data[4] = { htonll(data[3]), htonll(data[2]), htonll(data[1]), htonll(data[0]) };
+
+    // The packer is then used to write the binary data to the buffer, just like in read() and write() methods.
+    packer.pack_bin(sizeof(bin_data));
+    packer.pack_bin_body((const char*)bin_data, sizeof(bin_data)); // NOLINT
+}
+
+// For serialization
+void uint256_t::msgpack_unpack(auto o)
+{
+    // The binary data is first extracted from the msgpack object.
+    std::array<uint8_t, sizeof(data)> raw_data = o;
+
+    // The binary data is then read as big endian uint64_t's. This is done by casting the raw data to uint64_t*
+    // and then using ntohll ("network to host long long") to correct the endianness to the host's endianness.
+    uint64_t* cast_data = (uint64_t*)&raw_data[0]; // NOLINT
+    uint64_t reversed[] = { ntohll(cast_data[3]), ntohll(cast_data[2]), ntohll(cast_data[1]), ntohll(cast_data[0]) };
+
+    // The corrected data is then copied back into the uint256_t's data array.
+    for (int i = 0; i < 4; i++) {
+        data[i] = reversed[i];
+    }
+}
 } // namespace bb::numeric
