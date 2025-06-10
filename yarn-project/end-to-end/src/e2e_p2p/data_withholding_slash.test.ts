@@ -88,9 +88,12 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const { rollup, slashingProposer, slashFactory } = await t.getContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
-    // Send tx
-    await t.sendDummyTx();
+    {
+      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
+      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
+      // Send tx
+      await t.sendDummyTx();
+    }
 
     const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
     t.ctx.aztecNodeConfig.slashPruneEnabled = true;
@@ -126,9 +129,16 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // the proof submission window is 1,
     // and the aztec slot duration is 20,
     // we have ~20 seconds to do this.
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
-    // Send L1 tx
-    await t.sendDummyTx();
+    {
+      const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(8n);
+      t.ctx.dateProvider.setTime(Number(newTime * 1000n));
+      // Send L1 tx
+      await t.sendDummyTx();
+    }
+
+    // Sleep for a slot to allow the *previous* epoch to be pruned.
+    // and to make sure that the contract deployment is *not* pruned.
+    await sleep(aztecSlotDuration * 1000);
 
     // Send Aztec txs
     t.logger.info('Setup account');
