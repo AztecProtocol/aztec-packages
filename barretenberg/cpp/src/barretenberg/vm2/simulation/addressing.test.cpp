@@ -29,7 +29,6 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
     InstructionInfoDB instruction_info_db;
     NoopEventEmitter<AddressingEvent> event_emitter;
     Addressing addressing(instruction_info_db, event_emitter);
-    MemoryValue zero_u32 = MemoryValue::from<uint32_t>(0);
 
     {
         const auto instr = InstructionBuilder(SET_8)
@@ -41,8 +40,8 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
                                .operand<uint8_t>(1)
                                .build();
 
+        // No calls to get the base address.
         StrictMock<MockMemory> memory;
-        EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // call to get the base address.
 
         const auto operands = addressing.resolve(instr, memory);
         EXPECT_THAT(operands,
@@ -64,8 +63,8 @@ TEST(AvmSimulationAddressingTest, AllDirectAndNonRelative)
                                .operand<uint16_t>(3)
                                .build();
 
+        // No calls to get the base address.
         StrictMock<MockMemory> memory;
-        EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // call to get the base address.
 
         const auto operands = addressing.resolve(instr, memory);
         EXPECT_THAT(operands, ElementsAre(from<MemoryAddress>(1), from<MemoryAddress>(2), from<MemoryAddress>(3)));
@@ -115,9 +114,6 @@ TEST(AvmSimulationAddressingTest, IndirectAddressing)
     NoopEventEmitter<AddressingEvent> event_emitter;
     Addressing addressing(instruction_info_db, event_emitter);
 
-    // For indirect addressing, memory locations contain the actual addresses
-    MemoryValue zero_u32 = MemoryValue::from<uint32_t>(0);
-
     // Set up the ADD_8 instruction with indirect addressing
     const auto instr = InstructionBuilder(ADD_8)
                            // aOffset - address 5 contains the actual address
@@ -131,7 +127,6 @@ TEST(AvmSimulationAddressingTest, IndirectAddressing)
                            .build();
 
     StrictMock<MockMemory> memory;
-    EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(zero_u32)); // Base address
     MemoryValue addr_5_value = MemoryValue::from<uint32_t>(50);
     EXPECT_CALL(memory, get(5)).WillOnce(ReturnRef(addr_5_value));
     MemoryValue addr_15_value = MemoryValue::from<uint32_t>(60);
