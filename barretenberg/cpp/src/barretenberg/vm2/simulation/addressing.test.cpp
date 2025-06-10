@@ -101,8 +101,8 @@ TEST(AvmSimulationAddressingTest, RelativeAddressing)
     StrictMock<MockMemory> memory;
     EXPECT_CALL(memory, get(0)).WillOnce(ReturnRef(base_addr));
     // Range check calls. This leaks information from the circuit.
-    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 110 - 1, /*num_bits=*/33));
-    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 130 - 1, /*num_bits=*/33));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 110 - 1, /*num_bits=*/32));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 130 - 1, /*num_bits=*/32));
 
     const auto operands = addressing.resolve(instr, memory);
 
@@ -188,8 +188,8 @@ TEST(AvmSimulationAddressingTest, IndirectAndRelativeAddressing)
     MemoryValue addr_10_value = MemoryValue::from<uint32_t>(60);
     EXPECT_CALL(memory, get(10)).WillOnce(ReturnRef(addr_10_value));
     // Range check calls. This leaks information from the circuit.
-    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 105 - 1, /*num_bits=*/33));
-    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 115 - 1, /*num_bits=*/33));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 105 - 1, /*num_bits=*/32));
+    EXPECT_CALL(range_check, assert_range((1ULL << 32) - 115 - 1, /*num_bits=*/32));
 
     const auto operands = addressing.resolve(instr, memory);
 
