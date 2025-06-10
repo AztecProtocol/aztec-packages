@@ -50,12 +50,17 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       zkPassportVerifier,
       new address[](0),
       CORRECT_SCOPE,
-      CORRECT_SUBSCOPE
+      CORRECT_SUBSCOPE,
+      true
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
   }
 
   function setMockZKPassportVerifier() internal {
     stakingAssetHandler.setZKPassportVerifier(address(mockZKPassportVerifier));
+  }
+
+  function enableBindCheck() internal {
+    stakingAssetHandler.setSkipBindCheck(false);
   }
 }

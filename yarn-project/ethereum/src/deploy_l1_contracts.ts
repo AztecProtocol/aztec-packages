@@ -437,6 +437,7 @@ export const deploySharedContracts = async (
         // Scopes
         scope,
         subscope,
+        args.zkPassportArgs?.mockZkPassportVerifier ?? false, // skip Address Bind check - needed for testing without generating proofs
       ]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
