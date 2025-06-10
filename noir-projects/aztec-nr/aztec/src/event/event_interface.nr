@@ -1,6 +1,10 @@
 use crate::{
     context::{PrivateContext, PublicContext},
-    messages::logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
+    messages::logs::{
+        event::{to_encrypted_private_event_message, to_event_message},
+        utils::prefix_with_tag,
+    },
+    oracle::offchain_message::emit_offchain_message,
     utils::remove_constraints::remove_constraints_if,
 };
 use dep::protocol_types::{
@@ -71,6 +75,33 @@ where
     context.push_nullifier(event_commitment);
 
     context.emit_private_log(log_content, log_content.len());
+}
+
+/// Emits an event as an offchain message. Similar to private log emission but uses offchain message mechanism instead
+/// and the message is not encrypted.
+pub fn emit_event_as_offchain_message<Event, let N: u32>(
+    event: Event,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+)
+where
+    Event: EventInterface + Serialize<N>,
+{
+    let (message_content, randomness) = to_event_message(event);
+
+    // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
+    // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
+    // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
+    // nullifier can be computed.
+    // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
+    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let event_commitment = poseidon2_hash_with_separator(
+        serialized_event_with_randomness,
+        GENERATOR_INDEX__EVENT_COMMITMENT,
+    );
+    context.push_nullifier(event_commitment);
+
+    emit_offchain_message(message_content, recipient);
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)

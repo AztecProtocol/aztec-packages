@@ -4,11 +4,19 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainMessage {
     use aztec::{
-        macros::functions::{private, utility},
+        event::event_interface::emit_event_as_offchain_message,
+        macros::{events::event, functions::{private, utility}},
         oracle::offchain_message::emit_offchain_message,
         prelude::AztecAddress,
         protocol_types::traits::Serialize,
     };
+
+    #[event]
+    struct TestEvent {
+        pub a: u64,
+        pub b: u64,
+        pub c: u64,
+    }
 
     #[derive(Serialize)]
     pub struct MessagePayload {
@@ -35,5 +43,14 @@ contract OffchainMessage {
     #[utility]
     unconstrained fn emitting_offchain_message_from_utility_reverts() {
         emit_offchain_message([0; 5], AztecAddress::zero());
+    }
+
+    #[private]
+    fn emit_event_as_offchain_message_for_msg_sender() {
+        emit_event_as_offchain_message(
+            TestEvent { a: 1, b: 2, c: 3 },
+            &mut context,
+            context.msg_sender(),
+        );
     }
 }

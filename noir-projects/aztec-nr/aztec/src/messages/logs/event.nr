@@ -1,7 +1,7 @@
 use crate::{
     event::event_interface::EventInterface,
     messages::{
-        encoding::encode_message,
+        encoding::{encode_message, MAX_MESSAGE_LEN},
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
@@ -16,10 +16,7 @@ use protocol_types::{
 
 /// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
 /// of the event and then encrypting them for `recipient`.
-pub fn to_encrypted_private_event_message<Event, let N: u32>(
-    event: Event,
-    recipient: AztecAddress,
-) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
+pub fn to_event_message<Event, let N: u32>(event: Event) -> ([Field; N + 2], Field)
 where
     Event: EventInterface + Serialize<N>,
 {
@@ -41,6 +38,20 @@ where
         Event::get_event_type_id().to_field() as u64,
         serialized_event_with_randomness,
     );
+
+    (plaintext, randomness)
+}
+
+/// Creates an encrypted private event message (i.e. one of type `PRIVATE_EVENT_MSG_TYPE_ID`) by encoding the contents
+/// of the event and then encrypting them for `recipient`.
+pub fn to_encrypted_private_event_message<Event, let N: u32>(
+    event: Event,
+    recipient: AztecAddress,
+) -> ([Field; PRIVATE_LOG_CIPHERTEXT_LEN], Field)
+where
+    Event: EventInterface + Serialize<N>,
+{
+    let (plaintext, randomness) = to_event_message(event);
 
     (AES128::encrypt_log(plaintext, recipient), randomness)
 }
