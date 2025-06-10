@@ -140,8 +140,8 @@ case ${1:-} in
         export PORTS_TO_EXPOSE=""
       fi
 
-      DOCKER_RESTART_POLICY="no"
-      DOCKER_PULL_POLICY="always"
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
