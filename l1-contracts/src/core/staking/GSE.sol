@@ -23,7 +23,7 @@ struct AttesterConfig {
 
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
-  mapping(address attester => AttesterConfig) configOf;
+  mapping(address attester => AttesterConfig config) configOf;
   bool exists;
 }
 
@@ -109,7 +109,7 @@ contract GSECore is IGSECore, Ownable {
   IERC20 public immutable STAKING_ASSET;
 
   Checkpoints.Trace224 internal canonical;
-  mapping(address instance => InstanceStaking) internal instances;
+  mapping(address instanceAddress => InstanceStaking instance) internal instances;
   DelegationData internal delegation;
   Governance internal governance;
 

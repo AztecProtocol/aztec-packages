@@ -81,6 +81,7 @@ library Errors {
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
   error Rollup__RewardsNotClaimable();
+  error Rollup__InvalidFirstEpochProof();
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247

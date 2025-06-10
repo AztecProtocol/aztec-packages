@@ -87,8 +87,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   ZKPassportVerifier public zkPassportVerifier;
 
   bool internal skipBindCheck;
-
-  mapping(address => bool) public isUnhinged;
+  mapping(address attester => bool isUnhinged) public isUnhinged;
   mapping(bytes32 nullifier => bool exists) public nullifiers;
   mapping(address attester => bytes32 nullifier) public attesterToNullifier;
 
