@@ -806,10 +806,10 @@ describe('Archiver', () => {
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
 async function makeRollupTx(l2Block: L2Block) {
-  const header = toHex(l2Block.header.toPropose().toBuffer());
+  const header = l2Block.header.toPropose().toViem();
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const stateReference = toHex(l2Block.header.state.toBuffer());
+  const stateReference = l2Block.header.state.toViem();
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',

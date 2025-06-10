@@ -41,6 +41,45 @@ export type EpochProofPublicInputArgs = {
   proverId: `0x${string}`;
 };
 
+export type ViemHeader = {
+  lastArchiveRoot: `0x${string}`;
+  contentCommitment: ViemContentCommitment;
+  slotNumber: bigint;
+  timestamp: bigint;
+  coinbase: `0x${string}`;
+  feeRecipient: `0x${string}`;
+  gasFees: ViemGasFees;
+  totalManaUsed: bigint;
+};
+
+export type ViemContentCommitment = {
+  numTxs: bigint;
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
+  outHash: `0x${string}`;
+};
+
+export type ViemGasFees = {
+  feePerDaGas: bigint;
+  feePerL2Gas: bigint;
+};
+
+export type ViemStateReference = {
+  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
+  partialStateReference: ViemPartialStateReference;
+};
+
+export type ViemPartialStateReference = {
+  noteHashTree: ViemAppendOnlyTreeSnapshot;
+  nullifierTree: ViemAppendOnlyTreeSnapshot;
+  publicDataTree: ViemAppendOnlyTreeSnapshot;
+};
+
+export type ViemAppendOnlyTreeSnapshot = {
+  root: `0x${string}`;
+  nextAvailableLeafIndex: number;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -329,7 +368,7 @@ export class RollupContract {
 
   public async validateHeader(
     args: readonly [
-      `0x${string}`,
+      ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
@@ -456,8 +495,12 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getBlobCommitmentsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  }
+
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {
