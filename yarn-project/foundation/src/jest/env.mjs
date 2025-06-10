@@ -1,7 +1,7 @@
 import { TestEnvironment } from 'jest-environment-node';
 
 // What errors should be ignored in after hooks
-const IgnoredErrors = ['HttpRequestError', 'CodeError'];
+const IgnoredErrors = ['HttpRequestError'];
 
 /** Custom Jest environment that ignores any whitelisted unhandled rejections that occur during `after` hooks */
 export default class CustomEnvironment extends TestEnvironment {
