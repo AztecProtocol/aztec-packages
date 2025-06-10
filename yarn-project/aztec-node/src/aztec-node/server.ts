@@ -589,7 +589,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await this.txQueue.end();
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
-    this.slasherClient?.stop();
+    await tryStop(this.slasherClient);
     await tryStop(this.proofVerifier);
     await tryStop(this.sequencer);
     await tryStop(this.p2pClient);

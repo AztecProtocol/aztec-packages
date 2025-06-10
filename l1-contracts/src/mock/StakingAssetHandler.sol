@@ -32,7 +32,7 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
-  event AddedToQueue(address indexed _attester);
+  event AddedToQueue(address indexed _attester, uint256 _position);
   event ValidatorAdded(address indexed _rollup, address indexed _attester, address _withdrawer);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
@@ -47,6 +47,7 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
+  error InvalidScope();
   error SybilDetected(bytes32 _nullifier);
   error InDepositQueue();
   error AttesterDoesNotExist(address _attester);
@@ -69,6 +70,8 @@ interface IStakingAssetHandler {
 
   // View
   function getQueueLength() external view returns (uint256);
+  function getFrontOfQueue() external view returns (uint256);
+  function getEndOfQueue() external view returns (uint256);
   function getRollup() external view returns (address);
 }
 
@@ -103,7 +106,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     uint256 _mintInterval,
     uint256 _depositsPerMint,
     ZKPassportVerifier _zkPassportVerifier,
-    address[] memory _unhinged
+    address[] memory _unhinged,
+    string memory _scope,
+    string memory _subscope
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
 
@@ -129,8 +134,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     zkPassportVerifier = _zkPassportVerifier;
     emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
 
-    validScope = "sequencer.alpha-testnet.aztec.network";
-    validSubscope = "personhood";
+    validScope = _scope;
+    validSubscope = _subscope;
 
     entryQueue.init();
   }
@@ -264,6 +269,14 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return entryQueue.length();
   }
 
+  function getFrontOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
+    return entryQueue.getFirst();
+  }
+
+  function getEndOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
+    return entryQueue.getLast();
+  }
+
   /**
    * Validate an attester's zk passport proof
    *
@@ -282,9 +295,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
-    // TODO(md): re-enforce this flow, it may change underfoot
-    // Note: below appears to be checked within verifyProof
-    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
+    // Note: below is checked from user input with proof in verify proof, however, we check here again to enforce scoping
+    require(
+      zkPassportVerifier.verifyScopes(_params.publicInputs, validScope, validSubscope),
+      InvalidScope()
+    );
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
@@ -300,8 +315,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    */
   function _addToQueue(address _attester) internal {
     // Add validator into the entry queue
-    entryQueue.enqueue(_attester);
-    emit AddedToQueue(_attester);
+    uint256 queueLocation = entryQueue.enqueue(_attester);
+    emit AddedToQueue(_attester, queueLocation);
   }
 
   /**
