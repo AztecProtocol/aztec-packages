@@ -65,6 +65,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   afterEach(async () => {
+    await context.cheatCodes.eth.setIntervalMining(0);
     await test.teardown();
   });
 
@@ -106,33 +107,37 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await newNode.stop();
   });
 
-  it('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
-    // Wait until we have proven something and the nodes have caught up
-    logger.warn(`Waiting for initial proof to land`);
-    const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
-    await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
+  it,
+    only(
+      'does not prune if a second proof lands within the submission window after the first one is reorged out',
+      async () => {
+        // Wait until we have proven something and the nodes have caught up
+        logger.warn(`Waiting for initial proof to land`);
+        const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
+        await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
 
-    // Remove the proof from L1 but do not change the block number
-    await context.cheatCodes.eth.reorgWithReplacement(1);
-    await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
+        // Remove the proof from L1 but do not change the block number
+        await context.cheatCodes.eth.reorgWithReplacement(1);
+        await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toEqual(0);
 
-    // Create another prover node so it submits a proof
-    await test.createProverNode();
+        // Create another prover node so it submits a proof
+        await test.createProverNode();
 
-    // Wait until the end of the proof submission window for the first epoch
-    await test.waitUntilEndOfProofSubmissionWindow(0);
+        // Wait until the end of the proof submission window for the first epoch
+        await test.waitUntilEndOfProofSubmissionWindow(0);
 
-    // And expect that the other node has submitted a proof
-    await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toBeGreaterThanOrEqual(1);
+        // And expect that the other node has submitted a proof
+        await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toBeGreaterThanOrEqual(1);
 
-    // Check that the node has followed along
-    logger.warn(`Testing old node`);
-    const currentBlock = monitor.l2BlockNumber;
-    expect(await node.getProvenBlockNumber()).toBeGreaterThanOrEqual(1);
-    expect(await node.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
+        // Check that the node has followed along
+        logger.warn(`Testing old node`);
+        const currentBlock = monitor.l2BlockNumber;
+        expect(await node.getProvenBlockNumber()).toBeGreaterThanOrEqual(1);
+        expect(await node.getBlockNumber()).toBeWithin(currentBlock - 1, currentBlock + 1);
 
-    logger.warn(`Test succeeded`);
-  });
+        logger.warn(`Test succeeded`);
+      },
+    );
 
   it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
     // Next proof shall not land
@@ -262,7 +267,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
     // Send 3 messages and wait for archiver sync
     logger.warn(`Sending 3 cross chain messages`);
-    const msgs = await timesAsync(3, sendMessage);
+    const msgs = await timesAsync(3, async (i: number) => {
+      logger.warn(`Sending message ${i + 1}`);
+      return await sendMessage();
+    });
     logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
 
     await retryUntil(
