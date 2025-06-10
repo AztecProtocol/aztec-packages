@@ -33,7 +33,9 @@ fs_permissions = [
   {access = "read", path = "./test/fixtures/fee_data_points.json"},
   {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_proof.hex"},
   {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_committed_inputs.hex"},
-  {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json"}
+  {access = "read", path = "./test/staking_asset_handler/zkpassport/fixtures/valid_public_inputs.json"},
+  {access = "read", path = "./test/fixtures/boosted_rewards/shares.json"},
+  {access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json"}
 ]
 
 no_match_contract="(ScreamAndShoutTest|UniswapPortalTest)"
