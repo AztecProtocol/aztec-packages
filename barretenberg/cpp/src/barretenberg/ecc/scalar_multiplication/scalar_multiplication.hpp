@@ -74,13 +74,23 @@ template <typename Curve> class MSM {
             , addition_result_bucket_destinations((BATCH_SIZE / 2) + 1)
         {}
     };
+    static size_t get_num_rounds(size_t num_points)
+    {
+        const size_t bits_per_slice = get_optimal_log_num_buckets(num_points);
+        const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+        return num_rounds;
+    }
+    static void add_affine_points(AffineElement* points,
+                                  const size_t num_points,
+                                  typename Curve::BaseField* scratch_space);
+
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                 std::vector<uint32_t>& consolidated_indices);
 
     static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices);
     static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size);
-    static constexpr size_t get_optimal_log_num_buckets(const size_t num_points);
+    static size_t get_optimal_log_num_buckets(const size_t num_points);
     static bool use_affine_trick(const size_t num_points, const size_t num_buckets);
 
     static AffineElement small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data);

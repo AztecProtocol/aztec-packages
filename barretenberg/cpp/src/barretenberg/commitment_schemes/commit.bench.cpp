@@ -137,7 +137,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
     }
 
     for (auto _ : state) {
-        key->commit_sparse(polynomial);
+        key->commit(polynomial);
     }
 }
 
@@ -169,7 +169,7 @@ template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchma
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key->commit_sparse(polynomial);
+        key->commit(polynomial);
     }
 }
 

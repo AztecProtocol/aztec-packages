@@ -201,7 +201,7 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
  * @param num_points
  * @return constexpr size_t
  */
-template <typename Curve> constexpr size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points)
+template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points)
 {
     // We do 2 group operations per bucket, and they are full 3D Jacobian adds which are ~2x more than an affine add
     constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 4;
@@ -292,9 +292,9 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
  * We can re-arrange the Pippenger algorithm to get this property, but it's...complicated
  **/
 template <typename Curve>
-void add_affine_points(typename Curve::AffineElement* points,
-                       const size_t num_points,
-                       typename Curve::BaseField* scratch_space)
+void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
+                                   const size_t num_points,
+                                   typename Curve::BaseField* scratch_space)
 {
     using Fq = typename Curve::BaseField;
     Fq batch_inversion_accumulator = Fq::one();
@@ -642,7 +642,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     // compute `num_affine_points_to_add` independent additions using the Affine trick
     size_t num_affine_points_to_add = affine_input_it;
     if (num_affine_points_to_add >= 2) {
-        add_affine_points<Curve>(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
+        add_affine_points(&affine_addition_scratch_space[0], num_affine_points_to_add, &scalar_scratch_space[0]);
     }
     // `add_affine_points` stores the result in the top-half of the used scratch space
     G1* affine_output = &affine_addition_scratch_space[0] + (num_affine_points_to_add / 2);
