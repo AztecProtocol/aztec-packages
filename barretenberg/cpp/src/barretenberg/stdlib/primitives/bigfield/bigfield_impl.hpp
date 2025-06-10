@@ -521,23 +521,6 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
         return operator+(bigfield(ctx, uint256_t(neg_right.lo)));
     }
 
-    /**
-     * Plookup bigfield subtractoin
-     *
-     * We have a special addition gate we can toggle, that will compute: (w_1 + w_4 - w_4_omega + q_arith = 0)
-     * This is in addition to the regular addition gate
-     *
-     * We can arrange our wires in memory like this:
-     *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | b.p | a.0 | b.0 | c.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | a.p | a.1 | b.1 | c.0 | (a.1 - b.1 - c.1 = 0)
-     *   | a.2 | b.2 | c.2 | c.1 | (a.2 - b.2 - c.2 = 0)
-     *   | a.3 | b.3 | c.3 | --- | (a.3 - b.3 - c.3 = 0)
-     *
-     **/
-
     bigfield result(ctx);
 
     uint512_t constant_to_add = 0;
