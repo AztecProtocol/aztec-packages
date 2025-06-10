@@ -28,6 +28,7 @@ names:
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
+  - nico: &nico "U06D2QSLY10"
 
 tests:
   # barretenberg
@@ -49,6 +50,10 @@ tests:
       - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "RuntimeError: Out of bounds memory access"
+    owners:
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "call_indirect to a null table entry"
     owners:
       - *adam
 
@@ -139,12 +144,6 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  # http://ci.aztec-labs.com/7a5104e136578d64
-  # The "loop that wastes 5m" thing.
-  - regex: "src/e2e_fees/failures"
-    error_regex: "Exceeded timeout"
-    owners:
-      - *palla
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
@@ -177,21 +176,8 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_block_building"
-    error_regex: "Could not retrieve body for block"
-    owners:
-      - *palla
   - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
-    owners:
-      - *palla
-  - regex: "src/e2e_sequencer_config"
-    error_regex: "Anvil failed to stop in time"
-    owners:
-      - *palla
-  # http://ci.aztec-labs.com/2322cdddbb351b34
-  - regex: "src/e2e_fees/public_payments.test.ts"
-    error_regex: "Exceeded timeout"
     owners:
       - *palla
   # http://ci.aztec-labs.com/f2007345762c50a8
@@ -243,6 +229,10 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ethereum/src/eth_cheat_codes.test.ts"
+    error_regex: "Nonce too high"
+    owners:
+      - *palla
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
@@ -272,7 +262,7 @@ tests:
 
   # boxes
   - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
-    error_regex: "Error: Timed out \\d*ms waiting for expect\\(locator\\)"
+    error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
     owners:
       - *saleel
 

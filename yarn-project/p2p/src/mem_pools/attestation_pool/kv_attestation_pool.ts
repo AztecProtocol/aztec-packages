@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
-import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -12,7 +12,6 @@ export class KvAttestationPool implements AttestationPool {
   private metrics: PoolInstrumentation<BlockAttestation>;
 
   private attestations: AztecAsyncMap<string, Buffer>;
-  private attestationCount: AztecAsyncSingleton<number>;
   private proposalsForSlot: AztecAsyncMultiMap<string, string>;
   private attestationsForProposal: AztecAsyncMultiMap<string, string>;
 
@@ -22,7 +21,6 @@ export class KvAttestationPool implements AttestationPool {
     private log = createLogger('aztec:attestation_pool'),
   ) {
     this.attestations = store.openMap('attestations');
-    this.attestationCount = store.openSingleton('attestations_count');
     this.proposalsForSlot = store.openMultiMap('proposals_for_slot');
     this.attestationsForProposal = store.openMultiMap('attestations_for_proposal');
 
@@ -31,7 +29,7 @@ export class KvAttestationPool implements AttestationPool {
 
   private poolStats: PoolStatsCallback = async () => {
     return {
-      itemCount: (await this.attestationCount.getAsync()) ?? 0,
+      itemCount: await this.attestations.sizeAsync(),
     };
   };
 
@@ -80,8 +78,6 @@ export class KvAttestationPool implements AttestationPool {
           proposalId,
         });
       }
-
-      await this.incAttestionCount(attestations.length);
     });
   }
 
@@ -145,7 +141,6 @@ export class KvAttestationPool implements AttestationPool {
       }
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
-      await this.incAttestionCount(-1 * numberOfAttestations);
     });
   }
 
@@ -166,13 +161,11 @@ export class KvAttestationPool implements AttestationPool {
       await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
 
       this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-      await this.incAttestionCount(-1 * numberOfAttestations);
     });
   }
 
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     await this.store.transactionAsync(async () => {
-      let deletionCount = 0;
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
@@ -180,7 +173,6 @@ export class KvAttestationPool implements AttestationPool {
         const key = this.getAttestationKey(slotNumber, proposalId, address);
 
         if (await this.attestations.hasAsync(key)) {
-          deletionCount++;
           await this.attestations.delete(key);
         }
 
@@ -191,15 +183,6 @@ export class KvAttestationPool implements AttestationPool {
 
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
-
-      await this.incAttestionCount(-1 * deletionCount);
-    });
-  }
-
-  private incAttestionCount(delta: number): Promise<void> {
-    return this.store.transactionAsync(async () => {
-      const count = (await this.attestationCount.getAsync()) ?? 0;
-      await this.attestationCount.set(count + delta);
     });
   }
 }
