@@ -46,11 +46,7 @@ contract OffchainMessage {
     }
 
     #[private]
-    fn emit_event_as_offchain_message_for_msg_sender() {
-        emit_event_as_offchain_message(
-            TestEvent { a: 1, b: 2, c: 3 },
-            &mut context,
-            context.msg_sender(),
-        );
+    fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
+        emit_event_as_offchain_message(TestEvent { a, b, c }, &mut context, context.msg_sender());
     }
 }

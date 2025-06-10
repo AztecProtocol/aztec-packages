@@ -1,5 +1,6 @@
-import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.js';
-import { OffchainMessageContract } from '@aztec/noir-test-contracts.js/OffchainMessage';
+import { type AccountWalletWithSecretKey, AztecAddress, Fr, PXE } from '@aztec/aztec.js';
+import { OffchainMessageContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainMessage';
+import { MessageContext } from '@aztec/stdlib/logs';
 
 import { jest } from '@jest/globals';
 
@@ -10,6 +11,7 @@ const TIMEOUT = 120_000;
 describe('e2e_offchain_message', () => {
   let contract1: OffchainMessageContract;
   let contract2: OffchainMessageContract;
+  let pxe: PXE;
 
   jest.setTimeout(TIMEOUT);
 
@@ -17,7 +19,7 @@ describe('e2e_offchain_message', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallets } = await setup(1));
+    ({ teardown, wallets, pxe } = await setup(1));
     // TODO(benesjan): The following results in one of the txs being dropped. There seems to be an issue in Aztec.js
     // deployments.
     // [contract1, contract2] = await Promise.all([
@@ -42,6 +44,11 @@ describe('e2e_offchain_message', () => {
       len: arr.length,
       storage: arr.concat(new Array(maxLen - arr.length).fill(paddingMessagePayload)),
     };
+  }
+
+  // TODO: To be nuked soon.
+  function toBoundedVecOfFields(arr: Fr[], maxLen: number) {
+    return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
   }
 
   it('should emit offchain message', async () => {
@@ -80,5 +87,41 @@ describe('e2e_offchain_message', () => {
     await expect(contract1.methods.emitting_offchain_message_from_utility_reverts().simulate()).rejects.toThrow(
       'Cannot emit offchain message from a utility function',
     );
+  });
+
+  it('should emit event as offchain message and process it', async () => {
+    const [a, b, c] = [1n, 2n, 3n];
+    const provenTx = await contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c).prove();
+    const { txHash, blockNumber } = await provenTx.send().wait();
+
+    const offchainMessages = provenTx.offchainMessages;
+    expect(offchainMessages).toHaveLength(1);
+    const offchainMessage = offchainMessages[0];
+
+    const txEffect = (await pxe.getTxEffect(txHash))!.data;
+    // Recipient was set to message sender inside the `emit_event_as_offchain_message_for_msg_sender` function
+    const recipient = wallets[0].getAddress();
+    const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
+
+    // Process the message
+    await contract1.methods
+      .process_message(toBoundedVecOfFields(offchainMessage.message, 14), messageContext.toNoirStruct())
+      .simulate();
+
+    // Get the event from PXE
+    const events = await pxe.getPrivateEvents<TestEvent>(
+      contract1.address,
+      OffchainMessageContract.events.TestEvent,
+      blockNumber!,
+      1,
+      [recipient],
+    );
+
+    expect(events.length).toBe(1);
+    expect(events[0]).toEqual({
+      a,
+      b,
+      c,
+    });
   });
 });
