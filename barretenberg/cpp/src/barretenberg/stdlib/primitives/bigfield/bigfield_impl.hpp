@@ -1664,15 +1664,6 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     return result;
 }
 
-/**
- * @brief Create an element which is equal to either this or other based on the predicate
- *
- * @tparam Builder
- * @tparam T
- * @param other The other bigfield element
- * @param predicate Predicate controlling the result (0 for this, 1 for the other)
- * @return Resulting element
- */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& other,
                                                               const bool_t<Builder>& predicate) const
@@ -1685,17 +1676,23 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
     }
     Builder* ctx = context ? context : (other.context ? other.context : predicate.context);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14657): use field_t::conditional_assign method
-    field_t binary_limb_0 = static_cast<field_t<Builder>>(predicate).madd(
-        other.binary_basis_limbs[0].element - binary_basis_limbs[0].element, binary_basis_limbs[0].element);
-    field_t binary_limb_1 = static_cast<field_t<Builder>>(predicate).madd(
-        other.binary_basis_limbs[1].element - binary_basis_limbs[1].element, binary_basis_limbs[1].element);
-    field_t binary_limb_2 = static_cast<field_t<Builder>>(predicate).madd(
-        other.binary_basis_limbs[2].element - binary_basis_limbs[2].element, binary_basis_limbs[2].element);
-    field_t binary_limb_3 = static_cast<field_t<Builder>>(predicate).madd(
-        other.binary_basis_limbs[3].element - binary_basis_limbs[3].element, binary_basis_limbs[3].element);
-    field_t prime_limb =
-        static_cast<field_t<Builder>>(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
+    // For each limb, we must select:
+    // `this` is predicate == 0
+    // `other` is predicate == 1
+    //
+    // The conditional assign in field works as follows: conditional_assign(predicate, lhs, rhs)
+    // predicate == 0 ==> lhs
+    // predicate == 1 ==> rhs
+    //
+    field_ct binary_limb_0 =
+        field_ct::conditional_assign(predicate, other.binary_basis_limbs[0].element, binary_basis_limbs[0].element);
+    field_ct binary_limb_1 =
+        field_ct::conditional_assign(predicate, other.binary_basis_limbs[1].element, binary_basis_limbs[1].element);
+    field_ct binary_limb_2 =
+        field_ct::conditional_assign(predicate, other.binary_basis_limbs[2].element, binary_basis_limbs[2].element);
+    field_ct binary_limb_3 =
+        field_ct::conditional_assign(predicate, other.binary_basis_limbs[3].element, binary_basis_limbs[3].element);
+    field_ct prime_limb = field_ct::conditional_assign(predicate, other.prime_basis_limb, prime_basis_limb);
 
     bigfield result(ctx);
     // the maximum of the maximal values of elements is large enough
