@@ -502,7 +502,7 @@ export async function verifyClientIvcProof(
   proofPath: string,
   keyPath: string,
   log: LogFn,
-  concurrency: number,
+  concurrency = 1,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
