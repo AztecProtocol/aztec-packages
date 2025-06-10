@@ -51,7 +51,7 @@ export class MessageContext {
  * @param values - The values to serialize
  * @param maxLength - The maximum length of the bounded vector
  * @returns The serialized bounded vector as Fr[]
- * TODO(benesjan): Copied over from pending_tagged_log.ts. Remove once we have a shared utils file.
+ * @dev Copied over from pending_tagged_log.ts.
  */
 function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
   const lengthDiff = maxLength - values.length;
