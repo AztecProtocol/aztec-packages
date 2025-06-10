@@ -27,10 +27,8 @@ export class ProvenTx extends Tx {
    * Sends the transaction to the network via the provided wallet.
    */
   public send(): SentTx {
-    const promise = (() => {
-      return this.wallet.sendTx(this.getPlainDataTx());
-    })();
+    const sendTx = () => this.wallet.sendTx(this.getPlainDataTx());
 
-    return new SentTx(this.wallet, promise);
+    return new SentTx(this.wallet, sendTx);
   }
 }
