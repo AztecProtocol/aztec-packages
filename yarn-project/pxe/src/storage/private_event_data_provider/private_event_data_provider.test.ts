@@ -249,7 +249,7 @@ describe('PrivateEventDataProvider', () => {
         eventSelector,
         msgContent2,
         TxHash.random(),
-        1,
+        1, // eventCommitmentIndex
         200,
       );
 
@@ -259,7 +259,7 @@ describe('PrivateEventDataProvider', () => {
         eventSelector,
         msgContent1,
         TxHash.random(),
-        0,
+        0, // eventCommitmentIndex
         100,
       );
 
@@ -269,7 +269,7 @@ describe('PrivateEventDataProvider', () => {
         eventSelector,
         msgContent3,
         TxHash.random(),
-        2,
+        2, // eventCommitmentIndex
         300,
       );
 
