@@ -26,8 +26,6 @@ describe('EventValidationRequest', () => {
       5, // event_commitment
       6, // tx_hash
       7, // recipient
-      8, // log_index_in_tx
-      9, // tx_index_in_block
     ].map(n => new Fr(n));
 
     const request = EventValidationRequest.fromFields(serialized);
@@ -38,7 +36,5 @@ describe('EventValidationRequest', () => {
     expect(request.eventCommitment).toEqual(new Fr(5));
     expect(request.txHash).toEqual(TxHash.fromBigInt(6n));
     expect(request.recipient).toEqual(AztecAddress.fromBigInt(7n));
-    expect(request.logIndexInTx).toEqual(8);
-    expect(request.txIndexInBlock).toEqual(9);
   });
 });
