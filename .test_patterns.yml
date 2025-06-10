@@ -276,7 +276,7 @@ tests:
       - *esau
 
   # boxes
-  - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
+  - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
     owners:
       - *saleel
