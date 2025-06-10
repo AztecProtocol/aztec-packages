@@ -110,7 +110,7 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
  *
  * @return std::vector<FF>
  */
-std::vector<AvmFlavor::VerificationKey::FF> AvmFlavor::VerificationKey::to_field_elements() const
+std::vector<AvmFlavor::FF> AvmFlavor::VerificationKey::to_field_elements() const
 {
     std::vector<FF> elements = { FF(circuit_size), FF(num_public_inputs) };
 

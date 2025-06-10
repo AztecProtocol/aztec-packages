@@ -115,7 +115,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
      * circuits.
      */
     class VerificationKey
-        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
