@@ -55,7 +55,8 @@ contract StakingAssetHandlerScript is Test {
       zkPassportVerifier,
       isUnhinged,
       SCOPE,
-      SUBSCOPE
+      SUBSCOPE,
+      false // DO NOT: skip bind check
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
     vm.stopBroadcast();
