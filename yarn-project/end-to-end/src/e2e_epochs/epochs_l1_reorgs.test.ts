@@ -107,7 +107,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await newNode.stop();
   });
 
-  it.only('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
+  it('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
     // Wait until we have proven something and the nodes have caught up
     logger.warn(`Waiting for initial proof to land`);
     const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
