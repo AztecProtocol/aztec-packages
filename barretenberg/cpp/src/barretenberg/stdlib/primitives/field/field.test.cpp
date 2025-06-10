@@ -695,7 +695,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct d(witness_ct(&builder, fr::random_element()));
 
         std::array<field_ct, 4> table = field_ct::preprocess_two_bit_table(a, b, c, d);
-        info(builder.get_estimated_num_finalized_gates());
+
         bool_ct zero(witness_ct(&builder, false));
         bool_ct one(witness_ct(&builder, true));
 
@@ -1465,6 +1465,10 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 TYPED_TEST(stdlib_field, test_is_zero)
 {
     TestFixture::test_is_zero();
+}
+TYPED_TEST(stdlib_field, test_fix_witness)
+{
+    TestFixture::test_fix_witness();
 }
 TYPED_TEST(stdlib_field, madd)
 {
