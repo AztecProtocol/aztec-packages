@@ -228,7 +228,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
 
     await sleep(config.slashPayloadTtlSeconds * 1000 + 100);
 
@@ -248,7 +248,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
 
     slasherClient.clearMonitoredPayloads();
     expect(slasherClient.getMonitoredPayloads()).toEqual([]);
@@ -272,7 +272,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
 
     const slot2 = BigInt(Math.floor(Math.random() * 1000000));
     const payload2 = await slasherClient.getSlashPayload(slot2);
@@ -310,7 +310,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
 
     const payloadActions = slasherClient.getMonitoredPayloads();
     expect(payloadActions.length).toBe(1);
@@ -342,7 +342,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
     slasherClient.clearMonitoredPayloads();
 
     dummyWatcher.triggerSlash([
@@ -353,7 +353,7 @@ describe('SlasherClient', () => {
       },
     ]);
 
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
 
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
@@ -372,16 +372,59 @@ describe('SlasherClient', () => {
     await sleep(ethereumSlotDuration * 3 * 1000);
 
     // now ensure that we only have one payload in monitored
-    await awaitNonEmptyMonitoredPayloads(slasherClient);
+    await awaitMonitoredPayloads(slasherClient);
     expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
     expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
     expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
     expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
   });
 
-  function awaitNonEmptyMonitoredPayloads(slasherClient: SlasherClient) {
+  it('handles multiple payloads with the same validator but different offenses', async () => {
+    const validator = EthAddress.random();
+    expect(slasherClient.getMonitoredPayloads()).toEqual([]);
+
+    dummyWatcher.triggerSlash([
+      {
+        validator,
+        amount: depositAmount - 1n,
+        offense: Offense.UNKNOWN,
+      },
+    ]);
+    await awaitMonitoredPayloads(slasherClient, 1);
+
+    dummyWatcher.triggerSlash([
+      {
+        validator,
+        amount: depositAmount,
+        offense: Offense.UNKNOWN,
+      },
+    ]);
+    await awaitMonitoredPayloads(slasherClient, 2);
+
+    expect(slasherClient.getMonitoredPayloads().length).toEqual(2);
+    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
+    expect(slasherClient.getMonitoredPayloads()[1].validators).toEqual([validator]);
+    expect(slasherClient.getMonitoredPayloads()[1].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[1].offenses).toEqual([Offense.UNKNOWN]);
+
+    const firstPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
+    expect(firstPayload).toBeDefined();
+    slasherClient.proposalExecuted({ round: 0n, proposal: firstPayload!.toString() });
+
+    const secondPayload = await slasherClient.getSlashPayload(await rollup.getSlotNumber());
+    expect(secondPayload).toBeDefined();
+
+    expect(slasherClient.getMonitoredPayloads().length).toEqual(1);
+    expect(slasherClient.getMonitoredPayloads()[0].validators).toEqual([validator]);
+    expect(slasherClient.getMonitoredPayloads()[0].amounts).toEqual([depositAmount - 1n]);
+    expect(slasherClient.getMonitoredPayloads()[0].offenses).toEqual([Offense.UNKNOWN]);
+  });
+
+  function awaitMonitoredPayloads(slasherClient: SlasherClient, minimumPayloads = 1) {
     return retryUntil(
-      () => slasherClient.getMonitoredPayloads().length > 0,
+      () => slasherClient.getMonitoredPayloads().length >= minimumPayloads,
       'has monitored payload',
       ethereumSlotDuration * 3,
       0.1,

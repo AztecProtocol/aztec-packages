@@ -215,7 +215,7 @@ export class SlasherClient {
    *
    * Removes the first matching payload from the list of monitored payloads.
    *
-   * Bound to the slashing proposer contract's listenToProposalExecuted method in the constructor.
+   * Bound to the slashing proposer contract's listenToProposalExecuted method in `.start()`.
    *
    * @param {round: bigint; proposal: `0x${string}`} param0
    */
@@ -290,6 +290,7 @@ export class SlasherClient {
         if (!added) {
           this.log.warn('Failed to add monitored payload that we created');
         } else {
+          this.sortMonitoredPayloads();
           this.log.info('Added monitored payload that we created');
         }
       })
