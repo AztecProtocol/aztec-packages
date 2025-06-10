@@ -326,7 +326,7 @@ export class Sequencer {
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       new Fr(newBlockNumber),
-      this._coinbase,
+      this.coinbase,
       this._feeRecipient,
       slot,
     );
