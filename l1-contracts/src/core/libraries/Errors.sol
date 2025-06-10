@@ -40,7 +40,6 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
-  error Outbox__InvalidPathLength(uint256 expected, uint256 actual); // 0x481bcd9c
   error Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber); // 0x3eccfd3e
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4

@@ -58,7 +58,7 @@ export class BlockProvingState {
   public spongeBlobState: SpongeBlob | undefined;
   public startBlobAccumulator: BatchedBlobAccumulator | undefined;
   public endBlobAccumulator: BatchedBlobAccumulator | undefined;
-  public blobsHash: Buffer | undefined;
+  public blobsHash: Fr | undefined;
   public totalNumTxs: number;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
@@ -233,7 +233,7 @@ export class BlockProvingState {
 
     const previousRollupData = await Promise.all(nonEmptyProofs.map(p => this.#getPreviousRollupData(p!)));
     const blobData = await this.#getBlockRootRollupBlobData();
-    this.blobsHash = blobData.blobsHash.toBuffer();
+    this.blobsHash = blobData.blobsHash;
 
     if (previousRollupData.length === 1) {
       return {
@@ -329,7 +329,7 @@ export class BlockProvingState {
     if (!this.blobsHash) {
       this.blobsHash = (
         await buildBlobHints(this.txs.map(txProvingState => txProvingState.processedTx.txEffect))
-      ).blobsHash.toBuffer();
+      ).blobsHash;
     }
 
     return buildHeaderFromCircuitOutputs(
