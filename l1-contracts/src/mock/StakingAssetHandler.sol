@@ -8,6 +8,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
+
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
@@ -29,7 +30,6 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  * @dev Only the owner can grant and revoke the `isUnhinged` role, and perform other administrative tasks
  *      such as setting the REGISTRY address, mint interval, deposits per mint, and withdrawer.
  */
-
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event AddedToQueue(address indexed _attester, address _proposer, uint256 _position);
@@ -42,6 +42,7 @@ interface IStakingAssetHandler {
   event ZKPassportVerifierUpdated(address indexed _verifier);
   event ScopeUpdated(string newScope);
   event SubScopeUpdated(string newSubScope);
+  event SkipBindCheckUpdated(bool _skipBindCheck);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -50,6 +51,7 @@ interface IStakingAssetHandler {
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
   error InvalidScope();
+  error ProofNotBoundToAddress(address _expected, address _received);
   error SybilDetected(bytes32 _nullifier);
   error InDepositQueue();
   error AttesterDoesNotExist(address _attester);
@@ -68,6 +70,7 @@ interface IStakingAssetHandler {
   function setZKPassportVerifier(address _address) external;
   function setScope(string memory _scope) external;
   function setSubscope(string memory _subscope) external;
+  function setSkipBindCheck(bool _skipBindCheck) external;
 
   // View
   function getQueueLength() external view returns (uint256);
@@ -83,6 +86,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   IRegistry public immutable REGISTRY;
 
   ZKPassportVerifier public zkPassportVerifier;
+
+  bool internal skipBindCheck;
 
   mapping(address => bool) public isUnhinged;
   mapping(bytes32 nullifier => bool exists) public nullifiers;
@@ -109,7 +114,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     ZKPassportVerifier _zkPassportVerifier,
     address[] memory _unhinged,
     string memory _scope,
-    string memory _subscope
+    string memory _subscope,
+    bool _skipBindCheck
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
 
@@ -137,6 +143,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     validScope = _scope;
     validSubscope = _subscope;
+
+    skipBindCheck = _skipBindCheck;
 
     entryQueue.init();
   }
@@ -262,6 +270,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit UnhingedRemoved(_address);
   }
 
+  function setSkipBindCheck(bool _skipBindCheck) external override(IStakingAssetHandler) onlyOwner {
+    skipBindCheck = _skipBindCheck;
+    emit SkipBindCheckUpdated(_skipBindCheck);
+  }
+
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
   }
@@ -301,6 +314,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       zkPassportVerifier.verifyScopes(_params.publicInputs, validScope, validSubscope),
       InvalidScope()
     );
+
+    if (!skipBindCheck) {
+      bytes memory data =
+        zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
+      // Use the getBoundData function to get the formatted data
+      // which includes the user's address and any custom data
+      (address boundAddress,) = zkPassportVerifier.getBoundData(data);
+      // Make sure the bound user address is the same as the _attester
+      require(boundAddress == _attester, ProofNotBoundToAddress(boundAddress, _attester));
+    }
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
