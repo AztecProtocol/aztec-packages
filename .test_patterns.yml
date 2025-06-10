@@ -266,6 +266,16 @@ tests:
     owners:
       - *saleel
 
+  - regex: "run_compose_test vite-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
     owners:
