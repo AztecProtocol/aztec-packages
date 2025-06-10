@@ -24,6 +24,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_private_state = generate_sync_private_state();
+    let process_message = generate_process_message();
 
     quote {
         $note_exports
@@ -31,6 +32,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
         $sync_private_state
+        $process_message
     }
 }
 
@@ -276,6 +278,29 @@ comptime fn generate_sync_private_state() -> Quoted {
     quote {
         #[$utility]
         unconstrained fn sync_private_state() {
+        }
+    }
+}
+
+comptime fn generate_process_message() -> Quoted {
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
+
+    quote {
+        #[$utility]
+        unconstrained fn process_message(
+            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_context: aztec::messages::processing::message_context::MessageContext,
+        ) {
+            aztec::messages::discovery::process_message::do_process_message(
+                context.this_address(),
+                _compute_note_hash_and_nullifier,
+                message_ciphertext,
+                message_context,
+            );
         }
     }
 }
