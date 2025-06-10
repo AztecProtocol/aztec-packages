@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
+import { Offense, type SlasherConfig, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { Gas } from '@aztec/stdlib/gas';
 import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
@@ -22,7 +23,8 @@ import { AttestationTimeoutError, InvalidValidatorPrivateKeyError } from './erro
 import { ValidatorClient } from './validator.js';
 
 describe('ValidatorClient', () => {
-  let config: ValidatorClientConfig;
+  let config: ValidatorClientConfig &
+    Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let blockSource: MockProxy<L2BlockSource>;
@@ -54,6 +56,9 @@ describe('ValidatorClient', () => {
       disableValidator: false,
       validatorReexecute: false,
       validatorReexecuteDeadlineMs: 6000,
+      slashInvalidBlockEnabled: true,
+      slashInvalidBlockPenalty: 1n,
+      slashInvalidBlockMaxPenalty: 100n,
     };
     validatorClient = ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider);
   });
@@ -205,6 +210,84 @@ describe('ValidatorClient', () => {
 
       const attestations = await validatorClient.attestToProposal(proposal, sender);
       expect(attestations?.length).toBeGreaterThan(0);
+    });
+
+    it('should not attest to proposal if roots do not match, and should emit WANT_TO_SLASH_EVENT', async () => {
+      // Block builder returns a block with a different root
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+      (validatorClient as any).config.validatorReexecute = true;
+      blockBuilder.buildBlock.mockImplementation(() =>
+        Promise.resolve({
+          publicProcessorDuration: 0,
+          numTxs: proposal.payload.txHashes.length,
+          blockBuildingTimer: new Timer(),
+          failedTxs: [],
+          publicGas: Gas.empty(),
+          numMsgs: 0,
+          usedTxs: [],
+          block: {
+            body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
+            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber.toNumber()),
+          } as L2Block,
+        }),
+      );
+
+      // We should not attest to the proposal
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+
+      // We should emit WANT_TO_SLASH_EVENT
+      const proposer = proposal.getSender();
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        {
+          validator: proposer,
+          amount: config.slashInvalidBlockPenalty,
+          offense: Offense.INVALID_BLOCK,
+        },
+      ]);
+
+      // We "remember" that we want to slash this person, up to the max penalty...
+      await expect(
+        validatorClient.shouldSlash({
+          validator: proposer,
+          amount: config.slashInvalidBlockMaxPenalty,
+          offense: Offense.INVALID_BLOCK,
+        }),
+      ).resolves.toBe(true);
+
+      // ...but no more than that
+      await expect(
+        validatorClient.shouldSlash({
+          validator: proposer,
+          amount: config.slashInvalidBlockMaxPenalty + 1n,
+          offense: Offense.INVALID_BLOCK,
+        }),
+      ).resolves.toBe(false);
+    });
+    it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
+      validatorClient.configureSlashing({ slashInvalidBlockEnabled: false });
+
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+      (validatorClient as any).config.validatorReexecute = true;
+      blockBuilder.buildBlock.mockImplementation(() =>
+        Promise.resolve({
+          publicProcessorDuration: 0,
+          numTxs: proposal.payload.txHashes.length,
+          blockBuildingTimer: new Timer(),
+          failedTxs: [],
+          publicGas: Gas.empty(),
+          numMsgs: 0,
+          usedTxs: [],
+          block: {
+            body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
+            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber.toNumber()),
+          } as L2Block,
+        }),
+      );
+
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeUndefined();
+      expect(emitSpy).not.toHaveBeenCalled();
     });
 
     it('should request txs if missing for attesting', async () => {

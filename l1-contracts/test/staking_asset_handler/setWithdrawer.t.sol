@@ -36,8 +36,6 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
   function test_WhenOwnerCallsAddValidatorAfterSettingTheWithdrawer(address _newWithdrawer)
     external
   {
-    vm.assume(_newWithdrawer != address(0));
-
     // it uses the new withdrawer
     vm.assume(_newWithdrawer != address(0));
 

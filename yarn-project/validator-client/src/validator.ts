@@ -10,18 +10,27 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import {
+  Offense,
+  type SlasherConfig,
+  WANT_TO_SLASH_EVENT,
+  type WantToSlashArgs,
+  type Watcher,
+  type WatcherEmitter,
+} from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
-import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
+
+import { EventEmitter } from 'events';
 
 import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
-  BlockBuilderNotProvidedError,
   InvalidValidatorPrivateKeyError,
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -31,6 +40,10 @@ import {
 import type { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
+
+// We maintain a set of proposers who have proposed invalid blocks.
+// Just cap the set to avoid unbounded growth.
+const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 
 export interface Validator {
   start(): Promise<void>;
@@ -55,7 +68,8 @@ export interface Validator {
 /**
  * Validator Client
  */
-export class ValidatorClient extends WithTracer implements Validator {
+export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) implements Validator, Watcher {
+  public readonly tracer: Tracer;
   private validationService: ValidationService;
   private metrics: ValidatorMetrics;
 
@@ -68,6 +82,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   private blockProposalValidator: BlockProposalValidator;
   private txCollector: TxCollector;
+  private proposersOfInvalidBlocks: Set<EthAddress> = new Set();
 
   constructor(
     private blockBuilder: IFullNodeBlockBuilder,
@@ -75,13 +90,14 @@ export class ValidatorClient extends WithTracer implements Validator {
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private blockSource: L2BlockSource,
-    private config: ValidatorClientConfig,
+    private config: ValidatorClientConfig &
+      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('validator'),
   ) {
-    // Instantiate tracer
-    super(telemetry, 'Validator');
+    super();
+    this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
     this.validationService = new ValidationService(keyStore);
@@ -121,7 +137,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   static new(
-    config: ValidatorClientConfig,
+    config: ValidatorClientConfig &
+      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
     blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
@@ -152,6 +169,17 @@ export class ValidatorClient extends WithTracer implements Validator {
 
   public getValidatorAddresses() {
     return this.keyStore.getAddresses();
+  }
+
+  public configureSlashing(
+    config: Partial<
+      Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>
+    >,
+  ) {
+    this.config.slashInvalidBlockEnabled = config.slashInvalidBlockEnabled ?? this.config.slashInvalidBlockEnabled;
+    this.config.slashInvalidBlockPenalty = config.slashInvalidBlockPenalty ?? this.config.slashInvalidBlockPenalty;
+    this.config.slashInvalidBlockMaxPenalty =
+      config.slashInvalidBlockMaxPenalty ?? this.config.slashInvalidBlockMaxPenalty;
   }
 
   public async start() {
@@ -253,7 +281,13 @@ export class ValidatorClient extends WithTracer implements Validator {
       this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
-        await this.reExecuteTransactions(proposal, txs);
+        await this.reExecuteTransactions(proposal, txs).catch(error => {
+          if (error instanceof ReExStateMismatchError) {
+            this.log.warn(`Re-execution state mismatch, slashing invalid block`, proposalInfo);
+            this.slashInvalidBlock(proposal);
+          }
+          throw error;
+        });
       }
     } catch (error: any) {
       this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
@@ -292,11 +326,6 @@ export class ValidatorClient extends WithTracer implements Validator {
       throw new TransactionsNotAvailableError(missingTxHashes);
     }
 
-    // Assertion: This check will fail if re-execution is not enabled
-    if (this.blockBuilder === undefined) {
-      throw new BlockBuilderNotProvidedError();
-    }
-
     // Use the sequencer's block building logic to re-execute the transactions
     const stopTimer = this.metrics.reExecutionTimer();
     const config = this.blockBuilder.getConfig();
@@ -331,6 +360,49 @@ export class ValidatorClient extends WithTracer implements Validator {
       this.metrics.recordFailedReexecution(proposal);
       throw new ReExStateMismatchError();
     }
+  }
+
+  private slashInvalidBlock(proposal: BlockProposal) {
+    if (!this.config.slashInvalidBlockEnabled) {
+      return;
+    }
+
+    const proposer = proposal.getSender();
+
+    // Trim the set if it's too big.
+    if (this.proposersOfInvalidBlocks.size > MAX_PROPOSERS_OF_INVALID_BLOCKS) {
+      // remove oldest proposer. `values` is guaranteed to be in insertion order.
+      this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
+    }
+
+    this.proposersOfInvalidBlocks.add(proposer);
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashInvalidBlockPenalty,
+        offense: Offense.INVALID_BLOCK,
+      },
+    ]);
+  }
+
+  /**
+   * Ask this client if we should slash the validator specified in the args.
+   * @param args - The validator/amount/offence triple to check
+   * @returns True if this validator client re-executed a proposal and found it invalid.
+   *
+   * NOTE: this will return true even if the validator proposed the invalid block a "long" time ago.
+   * Thus, the onus is on the caller to ensure we aren't digging to far in the past.
+   *
+   * That is fine though, since the only caller is the slasher client, and it is designed to call
+   * `shouldSlash` on each of its watchers "very close" to the point in time when the slashable offence occurred;
+   * i.e. either we just created the slashing payload, or someone else did and we saw the event on L1.
+   */
+  public shouldSlash(args: WantToSlashArgs): Promise<boolean> {
+    // note we don't check the offence here: we know this person is bad and we're willing to slash up to the max penalty.
+    return Promise.resolve(
+      args.amount <= this.config.slashInvalidBlockMaxPenalty && this.proposersOfInvalidBlocks.has(args.validator),
+    );
   }
 
   async createBlockProposal(

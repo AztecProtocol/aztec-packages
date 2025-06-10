@@ -81,7 +81,7 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
+  local foundry_version="nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       encourage_dev_container

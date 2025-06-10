@@ -114,7 +114,9 @@ export class P2PNetworkTest {
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         initialValidators: [],
-        mockZkPassportVerifier,
+        zkPassportArgs: {
+          mockZkPassportVerifier,
+        },
       },
     );
   }
@@ -227,7 +229,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.minimumStake * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfNodes);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),

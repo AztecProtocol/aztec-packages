@@ -15,7 +15,17 @@ contract ConstructorTest is StakingAssetHandlerBase {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
     new StakingAssetHandler(
-      address(this), address(0), registry, address(0), 0, 0, zkPassportVerifier, new address[](0)
+      address(this),
+      address(0),
+      registry,
+      address(0),
+      0,
+      0,
+      zkPassportVerifier,
+      new address[](0),
+      CORRECT_SCOPE,
+      CORRECT_SUBSCOPE,
+      false
     );
   }
 
@@ -25,7 +35,10 @@ contract ConstructorTest is StakingAssetHandlerBase {
     address _withdrawer,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
-    uint256 _unhingedCount
+    uint256 _unhingedCount,
+    string memory _scope,
+    string memory _subscope,
+    bool _skipBindCheck
   ) external {
     vm.assume(_owner != address(0));
 
@@ -70,7 +83,10 @@ contract ConstructorTest is StakingAssetHandlerBase {
       _mintInterval,
       _depositsPerMint,
       zkPassportVerifier,
-      unhinged
+      unhinged,
+      _scope,
+      _subscope,
+      _skipBindCheck
     );
     assertEq(stakingAssetHandler.owner(), _owner);
     assertEq(address(stakingAssetHandler.STAKING_ASSET()), _stakingAsset);

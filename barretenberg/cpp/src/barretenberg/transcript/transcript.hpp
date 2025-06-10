@@ -243,7 +243,6 @@ template <typename TranscriptParams> class BaseTranscript {
         Fr new_challenge = TranscriptParams::hash(full_buffer);
         std::array<Fr, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
-        ASSERT(num_challenges <= 2);
         previous_challenge = new_challenge;
         return new_challenges;
     };

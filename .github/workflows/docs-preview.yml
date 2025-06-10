@@ -41,7 +41,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
+          version: nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
 
       - name: Configure Git
         run: |
