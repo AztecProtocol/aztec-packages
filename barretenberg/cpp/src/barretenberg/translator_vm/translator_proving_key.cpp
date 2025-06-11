@@ -162,6 +162,52 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
 }
 
+// We b
+void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
+{
+    auto interleaved = proving_key->polynomials.get_interleaved();
+    auto ordered = proving_key->polynomials.get_ordered_range_constraints();
+    const size_t num_ordered_polynomials = ordered.size();
+    // const size_t total_number_of_random_values =
+    //     NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t total_num_random_values =
+        NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
+    // nit check we don't go above
+    const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
+    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK* Flavor::NUM_INTERLEAVED_WIRES* Flavor::INTERLEAVING_GROUP_SIZE>
+        random_values = {};
+    size_t idx = 0;
+    info("dyadic circuit size: ", dyadic_circuit_size);
+    info(interleaved[0].end_index());
+    for (auto poly : interleaved) {
+        for (size_t i = dyadic_circuit_size_without_masking; i < poly.end_index(); i++) {
+            random_values[idx] = poly.at(i);
+            idx++;
+        }
+    }
+
+    size_t end = dyadic_circuit_size_without_masking + num_random_values_per_ordered;
+
+    for (size_t i = 0; i < ordered.size(); i++) {
+        size_t index_into_random = i * num_random_values_per_ordered;
+        auto& current_ordered = ordered[i];
+        for (size_t j = dyadic_circuit_size_without_masking; j < end; j++) {
+            current_ordered.at(j) = random_values[index_into_random];
+            index_into_random++;
+        }
+    }
+
+    size_t index_into_random = ordered.size() * num_random_values_per_ordered;
+
+    auto& last_ordered = ordered[ordered.size() - 1];
+    for (size_t i = end; i < end + remaining_random_values; i++) {
+        last_ordered.at(i) = random_values[index_into_random];
+        index_into_random++;
+    }
+}
+
 /**
  * @brief Set all the precomputed lagrange polynomials used in Translator relations.
  *
