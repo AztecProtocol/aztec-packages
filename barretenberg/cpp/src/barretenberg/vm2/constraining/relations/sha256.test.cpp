@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
@@ -24,11 +25,13 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
 using simulation::MemoryStore;
+using simulation::MockExecutionIdManager;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -54,9 +57,11 @@ TEST(Sha256ConstrainingTest, Basic)
     MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -89,9 +94,11 @@ TEST(Sha256ConstrainingTest, Interaction)
     MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
