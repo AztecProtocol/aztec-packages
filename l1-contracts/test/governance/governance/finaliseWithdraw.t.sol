@@ -141,7 +141,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
       DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(i);
 
       uint256 upper = i + 1 == withdrawalCount
-        ? type(uint256).max
+        ? type(uint64).max
         : Timestamp.unwrap(governance.getWithdrawal(i + 1).unlocksAt);
       uint256 time = bound(_timejumps2[i], Timestamp.unwrap(withdrawal.unlocksAt), upper);
 

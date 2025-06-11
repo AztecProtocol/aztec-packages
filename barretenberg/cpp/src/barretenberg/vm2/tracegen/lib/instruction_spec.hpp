@@ -39,9 +39,9 @@ class RegisterMemInfo {
     RegisterMemInfo& has_outputs(uint16_t num_outputs);
 
     // Given a register index, returns if the register is active for this instruction
-    bool is_active(uint8_t index) const;
+    bool is_active(size_t index) const;
     // Given a register index, returns if the register is used for writing to memory
-    bool is_write(uint8_t index) const;
+    bool is_write(size_t index) const;
 
   private:
     uint16_t encoded_register_info = 0;

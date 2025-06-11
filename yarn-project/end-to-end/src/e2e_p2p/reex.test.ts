@@ -1,10 +1,11 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import type { BlockBuilder } from '@aztec/sequencer-client';
+import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorClient } from '@aztec/validator-client';
-import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -147,14 +148,14 @@ describe('e2e_p2p_reex', () => {
       node: AztecNodeService,
       stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      const processorFactory: PublicProcessorFactory = (node as any).sequencer.sequencer.publicProcessorFactory;
-      const originalCreate = processorFactory.create.bind(processorFactory);
+      const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+      const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
       jest
-        .spyOn(processorFactory, 'create')
-        .mockImplementation((...args: Parameters<PublicProcessorFactory['create']>) => {
-          const processor = originalCreate(...args);
+        .spyOn(blockBuilder, 'makeBlockBuilderDeps')
+        .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
+          const deps = await originalCreateDeps(...args);
           t.logger.warn('Creating mocked processor factory');
-          const simulator: PublicTxSimulator = (processor as any).publicTxSimulator;
+          const simulator: PublicTxSimulator = (deps.processor as any).publicTxSimulator;
           const originalSimulate = simulator.simulate.bind(simulator);
           // We only stub the simulate method if it's NOT the first time we see the tx
           // so the proposer works fine, but we cause the failure in the validators.
@@ -169,7 +170,7 @@ describe('e2e_p2p_reex', () => {
               return originalSimulate(tx);
             }
           });
-          return processor;
+          return deps;
         });
     };
 

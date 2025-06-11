@@ -113,7 +113,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
 template <class DeciderProvingKeys>
-FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
+void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
     const DeciderProvingKeys& keys,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
@@ -122,56 +122,56 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
 
-    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    std::shared_ptr<DeciderProvingKey> accumulator = keys[0];
+    std::shared_ptr<DeciderProvingKey> incoming = keys[1];
+    accumulator->is_accumulator = true;
 
-    FoldingResult<Flavor> result{ .accumulator = keys[0], .proof = std::move(transcript->proof_data) };
-    result.accumulator->is_accumulator = true;
+    // At this point the virtual sizes of the polynomials should already agree
+    BB_ASSERT_EQ(accumulator->proving_key.polynomials.w_l.virtual_size(),
+                 incoming->proving_key.polynomials.w_l.virtual_size());
+
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
     // Compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
         PGInternal::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
-    result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
-                                     vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
+    accumulator->target_sum = perturbator_evaluation * lagranges[0] +
+                              vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
     // Check whether the incoming key has a larger trace overflow than the accumulator. If so, the memory structure of
     // the accumulator polynomials will not be sufficient to contain the contribution from the incoming polynomials. The
     // solution is to simply reverse the order or the terms in the linear combination by swapping the polynomials and
     // the lagrange coefficients between the accumulator and the incoming key.
-    if (keys[1]->overflow_size > result.accumulator->overflow_size) {
-        ASSERT(DeciderProvingKeys::NUM == 2); // this mechanism is not supported for the folding of multiple keys
-        // DEBUG: At this point the virtual sizes of the polynomials should already agree
-        BB_ASSERT_EQ(result.accumulator->proving_key.polynomials.w_l.virtual_size(),
-                     keys[1]->proving_key.polynomials.w_l.virtual_size());
-        std::swap(result.accumulator->proving_key.polynomials, keys[1]->proving_key.polynomials); // swap the polys
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1417): make this swapping logic more robust.
+    if (incoming->overflow_size > accumulator->overflow_size) {
+        std::swap(accumulator->proving_key.polynomials, incoming->proving_key.polynomials);   // swap the polys
+        std::swap(accumulator->proving_key.circuit_size, incoming->proving_key.circuit_size); // swap circuit size
+        std::swap(accumulator->proving_key.log_circuit_size, incoming->proving_key.log_circuit_size);
         std::swap(lagranges[0], lagranges[1]); // swap the lagrange coefficients so the sum is unchanged
-        std::swap(result.accumulator->proving_key.circuit_size, keys[1]->proving_key.circuit_size); // swap circuit size
-        std::swap(result.accumulator->proving_key.log_circuit_size, keys[1]->proving_key.log_circuit_size);
+        std::swap(accumulator->overflow_size, incoming->overflow_size);             // swap overflow size
+        std::swap(accumulator->dyadic_circuit_size, incoming->dyadic_circuit_size); // swap dyadic size
     }
 
     // Fold the proving key polynomials
-    for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
+    for (auto& poly : accumulator->proving_key.polynomials.get_unshifted()) {
         poly *= lagranges[0];
     }
-    for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
-        for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
-                                                  keys[key_idx]->proving_key.polynomials.get_unshifted())) {
-            acc_poly.add_scaled(key_poly, lagranges[key_idx]);
-        }
+    for (auto [acc_poly, key_poly] : zip_view(accumulator->proving_key.polynomials.get_unshifted(),
+                                              incoming->proving_key.polynomials.get_unshifted())) {
+        acc_poly.add_scaled(key_poly, lagranges[1]);
     }
 
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
-    for (auto [folded_alpha, key_alpha] : zip_view(result.accumulator->alphas, alphas)) {
+    for (auto [folded_alpha, key_alpha] : zip_view(accumulator->alphas, alphas)) {
         folded_alpha = key_alpha.evaluate(combiner_challenge);
     }
 
     // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
-    for (auto [univariate, value] : zip_view(univariate_relation_parameters.get_to_fold(),
-                                             result.accumulator->relation_parameters.get_to_fold())) {
+    for (auto [univariate, value] :
+         zip_view(univariate_relation_parameters.get_to_fold(), accumulator->relation_parameters.get_to_fold())) {
         value = univariate.evaluate(combiner_challenge);
     }
-
-    return result;
 }
 
 template <class DeciderProvingKeys>
@@ -207,10 +207,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
         combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
     vinfo("combiner quotient round");
 
-    const FoldingResult<Flavor> result = update_target_sum_and_fold(
-        keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
+    update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
     vinfo("folded");
 
-    return result;
+    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = std::move(transcript->proof_data) };
 }
 } // namespace bb

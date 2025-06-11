@@ -6,7 +6,6 @@ import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
-import pidusage from 'pidusage';
 
 import type { UltraHonkFlavor } from '../honk.js';
 
@@ -96,23 +95,11 @@ export function executeBB(
 
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      pidusage(bb.pid!, (err, stats) => {
-        if (err) {
-          logger(message);
-        } else {
-          logger(`${message} (mem: ${(stats.memory / 1024 / 1024).toFixed(2)}MiB)`);
-        }
-      });
+      logger(message);
     });
     bb.stderr.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
-      pidusage(bb.pid!, (err, stats) => {
-        if (err) {
-          logger(message);
-        } else {
-          logger(`${message} (mem: ${(stats.memory / 1024 / 1024).toFixed(2)}MiB)`);
-        }
-      });
+      logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
       if (timeoutId) {
@@ -407,7 +394,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const args = checkCircuitOnly ? ['--avm-inputs', avmInputsPath] : ['--avm-inputs', avmInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {

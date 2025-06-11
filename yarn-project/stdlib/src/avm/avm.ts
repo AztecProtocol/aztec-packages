@@ -5,9 +5,12 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
+import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { PublicKeys } from '../keys/public_keys.js';
+import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
@@ -410,15 +413,16 @@ export class AvmTxHint {
     public readonly hash: string,
     public readonly globalVariables: GlobalVariables,
     public readonly gasSettings: GasSettings,
+    public readonly effectiveGasFees: GasFees,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
-      // TODO: add as needed.
+      l2ToL1Messages: ScopedL2ToL1Message[];
     },
     public readonly revertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
-      // TODO: add as needed.
+      l2ToL1Messages: ScopedL2ToL1Message[];
     },
     public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
     public readonly appLogicEnqueuedCalls: AvmEnqueuedCallHint[],
@@ -433,6 +437,10 @@ export class AvmTxHint {
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
     const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
+    const effectiveGasFees = computeEffectiveGasFees(
+      tx.data.constants.historicalHeader.globalVariables.gasFees,
+      gasSettings,
+    );
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = await tx.getTxHash();
@@ -441,13 +449,16 @@ export class AvmTxHint {
       txHash.hash.toString(),
       tx.data.constants.historicalHeader.globalVariables,
       gasSettings,
+      effectiveGasFees,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+        l2ToL1Messages: tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs.filter(x => !x.isEmpty()),
       },
       {
         noteHashes: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+        l2ToL1Messages: tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs.filter(x => !x.isEmpty()),
       },
       setupCallRequests.map(
         call =>
@@ -484,8 +495,9 @@ export class AvmTxHint {
       '',
       GlobalVariables.empty(),
       GasSettings.empty(),
-      { noteHashes: [], nullifiers: [] },
-      { noteHashes: [], nullifiers: [] },
+      GasFees.empty(),
+      { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
+      { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
       [],
       null,
@@ -499,13 +511,16 @@ export class AvmTxHint {
         hash: z.string(),
         globalVariables: GlobalVariables.schema,
         gasSettings: GasSettings.schema,
+        effectiveGasFees: GasFees.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
+          l2ToL1Messages: ScopedL2ToL1Message.schema.array(),
         }),
         revertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
+          l2ToL1Messages: ScopedL2ToL1Message.schema.array(),
         }),
         setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
@@ -517,6 +532,7 @@ export class AvmTxHint {
           hash,
           globalVariables,
           gasSettings,
+          effectiveGasFees,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -528,6 +544,7 @@ export class AvmTxHint {
             hash,
             globalVariables,
             gasSettings,
+            effectiveGasFees,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,

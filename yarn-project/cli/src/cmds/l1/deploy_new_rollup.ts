@@ -19,6 +19,7 @@ export async function deployNewRollup(
   sponsoredFPC: boolean,
   json: boolean,
   initialValidators: Operator[],
+  realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -41,6 +42,7 @@ export async function deployNewRollup(
     genesisArchiveRoot,
     fundingNeeded,
     config,
+    realVerifier,
     debugLogger,
   );
 

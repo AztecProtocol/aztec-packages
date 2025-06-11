@@ -13,8 +13,8 @@ template <typename FF_> class eccImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5,
-                                                                            3, 5, 3, 6, 5, 6, 8, 8, 3 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 5, 3,
+                                                                            5, 3, 6, 5, 6, 6, 6, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -42,8 +42,6 @@ template <typename FF_> class eccImpl {
         const auto ecc_COMPUTED_R_Y =
             (in.get(C::ecc_lambda) * (in.get(C::ecc_p_x) - in.get(C::ecc_r_x)) - in.get(C::ecc_p_y));
         const auto ecc_EITHER_INF = ((in.get(C::ecc_p_is_inf) + in.get(C::ecc_q_is_inf)) - FF(2) * ecc_BOTH_INF);
-        const auto ecc_USE_COMPUTED_RESULT =
-            (FF(1) - in.get(C::ecc_p_is_inf)) * (FF(1) - in.get(C::ecc_q_is_inf)) * (FF(1) - ecc_INFINITY_PRED);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -148,31 +146,39 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        { // OUTPUT_X_COORD
+        {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::ecc_use_computed_result) - in.get(C::ecc_sel) * (FF(1) - in.get(C::ecc_p_is_inf)) *
+                                                                 (FF(1) - in.get(C::ecc_q_is_inf)) *
+                                                                 (FF(1) - ecc_INFINITY_PRED));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += typename Accumulator::View(tmp);
+        }
+        { // OUTPUT_X_COORD
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = in.get(C::ecc_sel) *
                        (((in.get(C::ecc_r_x) - ecc_EITHER_INF * (in.get(C::ecc_p_is_inf) * in.get(C::ecc_q_x) +
                                                                  in.get(C::ecc_q_is_inf) * in.get(C::ecc_p_x))) -
                          in.get(C::ecc_result_infinity) * ecc_INFINITY_X) -
-                        ecc_USE_COMPUTED_RESULT * ecc_COMPUTED_R_X);
+                        in.get(C::ecc_use_computed_result) * ecc_COMPUTED_R_X);
             tmp *= scaling_factor;
-            std::get<15>(evals) += typename Accumulator::View(tmp);
+            std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         { // OUTPUT_Y_COORD
-            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = in.get(C::ecc_sel) *
                        (((in.get(C::ecc_r_y) - ecc_EITHER_INF * (in.get(C::ecc_p_is_inf) * in.get(C::ecc_q_y) +
                                                                  in.get(C::ecc_q_is_inf) * in.get(C::ecc_p_y))) -
                          in.get(C::ecc_result_infinity) * ecc_INFINITY_Y) -
-                        ecc_USE_COMPUTED_RESULT * ecc_COMPUTED_R_Y);
-            tmp *= scaling_factor;
-            std::get<16>(evals) += typename Accumulator::View(tmp);
-        }
-        { // OUTPUT_INF_FLAG
-            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::ecc_sel) * (in.get(C::ecc_r_is_inf) - in.get(C::ecc_result_infinity));
+                        in.get(C::ecc_use_computed_result) * ecc_COMPUTED_R_Y);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        { // OUTPUT_INF_FLAG
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = in.get(C::ecc_sel) * (in.get(C::ecc_r_is_inf) - in.get(C::ecc_result_infinity));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -190,11 +196,11 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
             return "INFINITY_RESULT";
         case 14:
             return "COMPUTED_LAMBDA";
-        case 15:
-            return "OUTPUT_X_COORD";
         case 16:
-            return "OUTPUT_Y_COORD";
+            return "OUTPUT_X_COORD";
         case 17:
+            return "OUTPUT_Y_COORD";
+        case 18:
             return "OUTPUT_INF_FLAG";
         }
         return std::to_string(index);
@@ -204,9 +210,9 @@ template <typename FF> class ecc : public Relation<eccImpl<FF>> {
     static constexpr size_t SR_DOUBLE_PRED = 11;
     static constexpr size_t SR_INFINITY_RESULT = 12;
     static constexpr size_t SR_COMPUTED_LAMBDA = 14;
-    static constexpr size_t SR_OUTPUT_X_COORD = 15;
-    static constexpr size_t SR_OUTPUT_Y_COORD = 16;
-    static constexpr size_t SR_OUTPUT_INF_FLAG = 17;
+    static constexpr size_t SR_OUTPUT_X_COORD = 16;
+    static constexpr size_t SR_OUTPUT_Y_COORD = 17;
+    static constexpr size_t SR_OUTPUT_INF_FLAG = 18;
 };
 
 } // namespace bb::avm2

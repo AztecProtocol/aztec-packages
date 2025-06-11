@@ -1,5 +1,5 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
   type ARCHIVE_HEIGHT,
@@ -11,8 +11,10 @@ import {
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
+  type ExtendedViemWalletClient,
   type L1ContractAddresses,
   RegistryContract,
+  RollupContract,
   createEthereumChain,
   createExtendedL1Client,
 } from '@aztec/ethereum';
@@ -26,11 +28,11 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import { type P2P, TxCollector, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
+  BlockBuilder,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
@@ -94,7 +96,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, getContract, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -124,7 +126,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
+    protected readonly slasherClient: SlasherClient | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
+    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -198,20 +202,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
-    const l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
-    const l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+      rollupContract.getL1GenesisTime(),
+      rollupContract.getSlotDuration(),
+      rollupContract.getVersion(),
+    ] as const);
 
-    const rollup = getContract({
-      address: l1ContractsAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    config.rollupVersion ??= Number(rollupVersionFromRollup);
 
-    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
-
-    config.rollupVersion ??= rollupVersionFromRollup;
-
-    if (config.rollupVersion !== rollupVersionFromRollup) {
+    if (config.rollupVersion !== Number(rollupVersionFromRollup)) {
       log.warn(
         `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
       );
@@ -229,10 +229,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
@@ -254,48 +255,97 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
+    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+
+    const blockBuilder = new BlockBuilder(
+      {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupVersion: config.rollupVersion,
+        l1ChainId: config.l1ChainId,
+        txPublicSetupAllowList: config.txPublicSetupAllowList,
+      },
+      archiver,
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel) {
+    if (validatorsSentinel && config.slashInactivityEnabled) {
       watchers.push(validatorsSentinel);
     }
-    const epochPruneWatcher = new EpochPruneWatcher(archiver, epochCache, config.slashPrunePenalty);
-    watchers.push(epochPruneWatcher);
 
-    const slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
-    await slasherClient.start();
-
+    let epochPruneWatcher: EpochPruneWatcher | undefined;
+    if (config.slashPruneEnabled) {
+      const txCollector = new TxCollector(p2pClient);
+      epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        epochCache,
+        txCollector,
+        blockBuilder,
+        config.slashPrunePenalty,
+        config.slashPruneMaxPenalty,
+      );
+      await epochPruneWatcher.start();
+      watchers.push(epochPruneWatcher);
+    }
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
       dateProvider,
       epochCache,
+      blockBuilder,
       blockSource: archiver,
     });
 
+    if (validatorClient) {
+      watchers.push(validatorClient);
+    }
+
     log.verbose(`All Aztec Node subsystems synced`);
 
-    // now create the sequencer
-    const sequencer = config.disableValidator
-      ? undefined
-      : await SequencerClient.new(config, {
-          // if deps were provided, they should override the defaults,
-          // or things that we created in this function
-          ...deps,
-          epochCache,
-          l1TxUtils,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          contractDataSource: archiver,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobSinkClient,
-        });
+    let sequencer: SequencerClient | undefined;
+    let slasherClient: SlasherClient | undefined;
+    let l1TxUtils: L1TxUtilsWithBlobs | undefined;
+    let l1Client: ExtendedViemWalletClient | undefined;
+
+    if (config.publisherPrivateKey) {
+      // we can still run a slasher client if a private key is provided
+      l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+      l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient.start();
+    }
+
+    // Validator enabled, create/start relevant service
+    if (!config.disableValidator) {
+      // This shouldn't happen, validators need a publisher private key.
+      if (!config.publisherPrivateKey) {
+        throw new Error('A publisher private key is required to run a validator');
+      }
+
+      sequencer = await SequencerClient.new(config, {
+        // if deps were provided, they should override the defaults,
+        // or things that we created in this function
+        ...deps,
+        epochCache,
+        l1TxUtils,
+        validatorClient,
+        p2pClient,
+        worldStateSynchronizer,
+        slasherClient: slasherClient!,
+        blockBuilder,
+        l2BlockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        telemetry,
+        dateProvider,
+        blobSinkClient,
+      });
+    }
 
     return new AztecNodeService(
       config,
@@ -306,7 +356,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       worldStateSynchronizer,
       sequencer,
+      slasherClient,
       validatorsSentinel,
+      epochPruneWatcher,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
@@ -543,15 +595,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to stop the aztec node.
    */
   public async stop() {
-    this.log.info(`Stopping`);
+    this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
-    // await this.validatorsSentinel?.stop(); <- The slasher client will stop this
-    await this.sequencer?.stop();
-    await this.p2pClient.stop();
-    await this.worldStateSynchronizer.stop();
+    await tryStop(this.validatorsSentinel);
+    await tryStop(this.epochPruneWatcher);
+    await tryStop(this.slasherClient);
+    await tryStop(this.proofVerifier);
+    await tryStop(this.sequencer);
+    await tryStop(this.p2pClient);
+    await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
-    await this.telemetry.stop();
-    this.log.info(`Stopped`);
+    await tryStop(this.telemetry);
+    this.log.info(`Stopped Aztec Node`);
   }
 
   /**
@@ -939,7 +994,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const [processedTx] = processedTxs;
       return new PublicSimulationOutput(
         processedTx.revertReason,
-        processedTx.constants,
+        processedTx.globalVariables,
         processedTx.txEffect,
         returns,
         processedTx.gasUsed,
@@ -970,7 +1025,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    await this.sequencer?.updateSequencerConfig(config);
+    this.sequencer?.updateSequencerConfig(config);
+    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {

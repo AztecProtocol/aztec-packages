@@ -163,7 +163,7 @@ export class Tx extends Gossipable {
 
   /**
    * Gets either revertible or non revertible contract class logs emitted by this tx.
-   * @param revertible - true for revertible only logs, false for non reverible only logs.
+   * @param revertible - true for revertible only logs, false for non revertible only logs.
    * @returns The requested logs.
    */
   getSplitContractClassLogs(revertible: boolean): ContractClassLog[] {

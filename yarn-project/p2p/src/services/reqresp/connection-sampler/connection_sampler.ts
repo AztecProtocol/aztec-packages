@@ -1,3 +1,4 @@
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
@@ -52,7 +53,7 @@ export class ConnectionSampler {
     clearInterval(this.cleanupInterval);
 
     for (const attempt of this.dialAttempts) {
-      attempt.abort();
+      attempt.abort(new AbortError('Connection sampler stopped'));
     }
     this.dialAttempts = [];
     await this.dialQueue.end();
@@ -137,9 +138,10 @@ export class ConnectionSampler {
    * Samples a batch of unique peers from the libp2p node, prioritizing peers without active connections
    *
    * @param numberToSample - The number of peers to sample
+   * @param excluding - The peers to exclude from the sampling
    * @returns Array of unique sampled peers, prioritizing those without active connections
    */
-  samplePeersBatch(numberToSample: number): PeerId[] {
+  samplePeersBatch(numberToSample: number, excluding?: Map<string, boolean>): PeerId[] {
     const peers = this.libp2p.getPeers();
     this.logger.debug('Sampling peers batch', { numberToSample, peers });
 
@@ -149,7 +151,7 @@ export class ConnectionSampler {
     const batch: PeerId[] = [];
     const withActiveConnections: Set<PeerId> = new Set();
     for (let i = 0; i < numberToSample; i++) {
-      const { peer, sampledPeers } = this.getPeerFromList(peers, undefined);
+      const { peer, sampledPeers } = this.getPeerFromList(peers, excluding);
       if (peer) {
         batch.push(peer);
       }
@@ -185,6 +187,7 @@ export class ConnectionSampler {
    *
    * @param peerId - The peer id
    * @param protocol - The protocol
+   * @param timeout - Abort connection if it takes too long
    * @returns The stream
    */
   async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
@@ -196,7 +199,7 @@ export class ConnectionSampler {
     this.dialAttempts.push(abortController);
     let timeoutHandle: NodeJS.Timeout | undefined;
     if (timeout) {
-      timeoutHandle = setTimeout(() => abortController.abort(), timeout);
+      timeoutHandle = setTimeout(() => abortController.abort(new TimeoutError('Dial protocol timeout')), timeout);
     }
 
     try {

@@ -403,12 +403,12 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_fee_per_l2_gas() -> Field {
+    fn get_fee_per_l2_gas() -> u128 {
         context.fee_per_l2_gas()
     }
 
     #[public]
-    fn get_fee_per_da_gas() -> Field {
+    fn get_fee_per_da_gas() -> u128 {
         context.fee_per_da_gas()
     }
 

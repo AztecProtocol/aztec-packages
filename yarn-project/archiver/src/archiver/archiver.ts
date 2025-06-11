@@ -391,15 +391,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
       const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
+      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
+
+      const blocks = await this.getBlocks(Number(provenBlockNumber) + 1, Number(blocksToUnwind));
+
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
-        blockNumber: pruneFrom,
-        slotNumber: pruneFromSlotNumber,
         epochNumber: pruneFromEpochNumber,
+        blocks,
       });
 
-      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.debug(
         `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
       );
@@ -907,20 +909,20 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return l1BlockNumber;
   }
 
-  public getL1Timestamp(): bigint {
+  public getL1Timestamp(): Promise<bigint> {
     const l1Timestamp = this.l1Timestamp;
     if (!l1Timestamp) {
       throw new Error('L1 timestamp not yet available. Complete an initial sync first.');
     }
-    return l1Timestamp;
+    return Promise.resolve(l1Timestamp);
   }
 
-  public getL2SlotNumber(): Promise<bigint> {
-    return Promise.resolve(getSlotAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  public async getL2SlotNumber(): Promise<bigint> {
+    return getSlotAtTimestamp(await this.getL1Timestamp(), this.l1constants);
   }
 
-  public getL2EpochNumber(): Promise<bigint> {
-    return Promise.resolve(getEpochNumberAtTimestamp(this.getL1Timestamp(), this.l1constants));
+  public async getL2EpochNumber(): Promise<bigint> {
+    return getEpochNumberAtTimestamp(await this.getL1Timestamp(), this.l1constants);
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {

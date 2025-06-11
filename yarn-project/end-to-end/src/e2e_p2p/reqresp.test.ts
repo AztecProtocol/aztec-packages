@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, sleep } from '@aztec/aztec.js';
+import { SentTx, Tx, createLogger, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 
@@ -50,6 +50,8 @@ describe('e2e_p2p_reqresp_tx', () => {
     }
   });
 
+  const getNodePort = (nodeIndex: number) => BOOT_NODE_UDP_PORT + 1 + nodeIndex;
+
   it('should produce an attestation by requesting tx data over the p2p network', async () => {
     /**
      * Birds eye overview of the test
@@ -96,16 +98,21 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
-    t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip}`);
-    t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
+    t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip.map(getNodePort)}`);
+    t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes.map(getNodePort)}`);
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
-      jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
-        .mockImplementation(() => Promise.resolve());
+      const logger = createLogger(`p2p:${getNodePort(nodeIndex)}`);
+      jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation((async (
+        payloadData: Buffer,
+      ) => {
+        const txHash = await Tx.fromBuffer(payloadData).getTxHash();
+        logger.info(`Skipping storage of gossiped transaction ${txHash.toString()}`);
+        return Promise.resolve();
+      }) as any);
     }
 
     // We send the tx to the proposer nodes directly, ignoring the pxe and node in each context
@@ -115,7 +122,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       c.txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, tx.getTxHash());
+        return new SentTx(node, () => tx.getTxHash());
       }),
     );
 

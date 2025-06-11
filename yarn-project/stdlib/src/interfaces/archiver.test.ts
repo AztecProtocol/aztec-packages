@@ -240,6 +240,11 @@ describe('ArchiverApiSchema', () => {
   it('syncImmediate', async () => {
     await context.client.syncImmediate();
   });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toBe(1n);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
@@ -389,5 +394,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+  getL1Timestamp(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
 }

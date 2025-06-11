@@ -93,8 +93,8 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
  * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
  * - Proof length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
  * - ultra_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, various main.nr files of programs
- * with recursive verification circuits
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
  * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
 TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
@@ -112,6 +112,26 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
         expected_proof_length += IPA_CLAIM_SIZE;
     }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
+}
+
+/**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - ultra_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
+ */
+TYPED_TEST(UltraHonkTests, UltraVKSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**

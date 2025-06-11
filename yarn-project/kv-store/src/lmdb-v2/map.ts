@@ -62,6 +62,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
     return execInReadTx(this.store, async tx => !!(await tx.get(serializeKey(this.prefix, key))));
   }
 
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntries(minKey(this.prefix), maxKey(this.prefix), false));
+  }
+
   /**
    * Iterates over the map's key-value entries in the key's natural order
    * @param range - The range of keys to iterate over

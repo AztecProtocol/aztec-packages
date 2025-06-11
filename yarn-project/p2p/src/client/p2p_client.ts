@@ -24,13 +24,15 @@ import {
 } from '@aztec/telemetry-client';
 
 import type { ENR } from '@chainsafe/enr';
+import type { PeerId } from '@libp2p/interface';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
-import type { P2PService } from '../services/service.js';
+import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
+import { TxCollector } from '../services/tx_collector.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
 
 /**
@@ -87,6 +89,15 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.txPool = mempools.txPool;
     this.attestationPool = mempools.attestationPool!;
 
+    // Default to collecting all txs when we see a valid proposal
+    // This can be overridden by the validator client to attest, and it will call collectForBlockProposal on its own
+    const txCollector = new TxCollector(this, this.log);
+    this.registerBlockProposalHandler(async (block, sender) => {
+      this.log.debug(`Received block proposal from ${sender.toString()}`);
+      await txCollector.collectForBlockProposal(block, sender);
+      return undefined;
+    });
+
     // REFACTOR: Try replacing these with an L2TipsStore
     this.synchedBlockHashes = store.openMap('p2p_pool_block_hashes');
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
@@ -111,11 +122,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.synchedBlockHashes.getAsync(number);
   }
 
-  public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
-    if (typeof config.maxTxPoolSize === 'number' && this.config.maxTxPoolSize !== config.maxTxPoolSize) {
-      await this.txPool.setMaxTxPoolSize(config.maxTxPoolSize);
-      this.config.maxTxPoolSize = config.maxTxPoolSize;
-    }
+  public updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
+    this.txPool.updateConfig(config);
+    return Promise.resolve();
   }
 
   public async getL2Tips(): Promise<L2Tips> {
@@ -294,7 +303,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
-    this.log.info('P2P client stopped.');
+    this.log.info('P2P client stopped');
   }
 
   /** Triggers a sync to the archiver. Used for testing. */
@@ -328,9 +337,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(
-    handler: (block: BlockProposal) => Promise<BlockAttestation[] | undefined>,
-  ): void {
+  public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
@@ -359,7 +366,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Uses the batched Request Response protocol to request a set of transactions from the network.
    */
-  public async requestTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  public async requestTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
     const timeoutMs = 8000; // Longer timeout for now
     const maxPeers = Math.min(Math.ceil(txHashes.length / 3), 10);
     const maxRetryAttempts = 10; // Keep retrying within the timeout
@@ -367,6 +374,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const txs = await this.p2pService.sendBatchRequest(
       ReqRespSubProtocol.TX,
       txHashes,
+      pinnedPeerId,
       timeoutMs,
       maxPeers,
       maxRetryAttempts,
@@ -378,7 +386,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       await this.txPool.addTxs(filteredTxs);
     }
     const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
-    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}}) from peers`);
+    this.log.debug(`Requested txs ${txHashesStr} (${filteredTxs.length} / ${txHashes.length}) from peers`);
 
     // We return all transactions, even the not found ones to the caller, such they can handle missing items themselves.
     return txs;
@@ -434,7 +442,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   /**
    * Returns transactions in the transaction pool by hash.
    * @param txHashes - Hashes of the transactions to look for.
-   * @returns The txs found, not necessarily on the same order as the hashes.
+   * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     return this.txPool.getTxsByHash(txHashes);
@@ -464,7 +472,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param txHashes - Hashes of the transactions to look for.
    * @returns The txs found, or undefined if not found in the order requested.
    */
-  async getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+  async getTxsByHash(txHashes: TxHash[], pinnedPeerId: PeerId | undefined): Promise<(Tx | undefined)[]> {
     const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
     const missingTxHashes = txs
       .map((tx, index) => [tx, index] as const)
@@ -475,7 +483,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return txs as Tx[];
     }
 
-    const missingTxs = await this.requestTxsByHash(missingTxHashes);
+    const missingTxs = await this.requestTxsByHash(missingTxHashes, pinnedPeerId);
     const fetchedMissingTxs = missingTxs.filter((tx): tx is Tx => !!tx);
 
     // TODO: optimize
@@ -517,17 +525,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    await this.addTxs([tx]);
-    await this.p2pService.propagate(tx);
+    const addedCount = await this.addTxsToPool([tx]);
+    const txAddedSuccessfully = addedCount === 1;
+    if (txAddedSuccessfully) {
+      await this.p2pService.propagate(tx);
+    }
   }
 
   /**
    * Adds transactions to the pool. Does not send to peers or validate the txs.
    * @param txs - The transactions.
    **/
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxsToPool(txs: Tx[]): Promise<number> {
     this.#assertIsReady();
-    await this.txPool.addTxs(txs);
+    return await this.txPool.addTxs(txs);
   }
 
   /**
@@ -680,7 +691,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
           `Requesting ${missingTxHashes.length} missing txs from peers for ${unprovenBlocks.length} unproven mined blocks`,
           { missingTxHashes, unprovenBlockNumbers: unprovenBlocks.map(block => block.number) },
         );
-        await this.requestTxsByHash(missingTxHashes);
+        await this.requestTxsByHash(missingTxHashes, undefined);
       }
     } catch (err) {
       this.log.error(`Error requesting missing txs from unproven blocks`, err, {

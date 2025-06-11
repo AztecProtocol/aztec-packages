@@ -39,10 +39,11 @@ contract Governance is IGovernance {
 
   DepositControl internal depositControl;
 
-  mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
-  mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
-  mapping(address => User) internal users;
-  mapping(uint256 withdrawalId => DataStructures.Withdrawal) internal withdrawals;
+  mapping(uint256 proposalId => DataStructures.Proposal proposal) internal proposals;
+  mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot ballot)) public
+    ballots;
+  mapping(address userAddress => User user) internal users;
+  mapping(uint256 withdrawalId => DataStructures.Withdrawal withdrawal) internal withdrawals;
 
   DataStructures.Configuration internal configuration;
   User internal total;
@@ -158,7 +159,7 @@ contract Governance is IGovernance {
     ASSET.safeTransfer(withdrawal.recipient, withdrawal.amount);
   }
 
-  function propose(IPayload _proposal) external override(IGovernance) returns (bool) {
+  function propose(IPayload _proposal) external override(IGovernance) returns (uint256) {
     require(
       msg.sender == governanceProposer,
       Errors.Governance__CallerNotGovernanceProposer(msg.sender, governanceProposer)
@@ -178,12 +179,12 @@ contract Governance is IGovernance {
    *
    * @param _proposal The proposal to propose
    * @param _to The address to send the lock to
-   * @return True if the proposal was proposed
+   * @return The id of the proposal
    */
   function proposeWithLock(IPayload _proposal, address _to)
     external
     override(IGovernance)
-    returns (bool)
+    returns (uint256)
   {
     uint256 availablePower = users[msg.sender].powerNow();
     uint256 amount = configuration.proposeConfig.lockAmount;
@@ -396,7 +397,7 @@ contract Governance is IGovernance {
     return withdrawalId;
   }
 
-  function _propose(IPayload _proposal, address _proposer) internal returns (bool) {
+  function _propose(IPayload _proposal, address _proposer) internal returns (uint256) {
     uint256 proposalId = proposalCount++;
 
     proposals[proposalId] = DataStructures.Proposal({
@@ -410,6 +411,6 @@ contract Governance is IGovernance {
 
     emit Proposed(proposalId, address(_proposal));
 
-    return true;
+    return proposalId;
   }
 }

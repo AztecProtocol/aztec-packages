@@ -85,16 +85,24 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     Governance gov = store.gse.getGovernance();
 
-    // We need to check if we made the proposal. We are assuming an honest gov, because if dishonest
-    // this vote don't matter anyway.
-    // We must be the current canonical instance. Because we only want to vote on our own proposals.
-    address govProposer = gov.governanceProposer();
+    // We will vote if:
+    // 1. We are the canonical instance as seen be my the governance proposer
+    // 2. We are the actor that was canonical when the proposal was made in the governance proposer
+    // 3. The proposer in the governance is the governance proposer.
+    // This means that if we only vote if canonical and on our own proposals (assuming that the governance
+    // proposer don't lie to us).
+
+    GovernanceProposer govProposer = GovernanceProposer(gov.governanceProposer());
+    require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
+    address proposalProposer = govProposer.getProposalProposer(_proposalId);
     require(
-      address(this) == GovernanceProposer(govProposer).getInstance(),
-      Errors.Staking__NotCanonical(address(this))
+      address(this) == proposalProposer,
+      Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
     );
     DataStructures.Proposal memory proposal = gov.getProposal(_proposalId);
-    require(proposal.proposer == govProposer, Errors.Staking__NotOurProposal(_proposalId));
+    require(
+      proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
+    );
 
     Timestamp ts = proposal.pendingThroughMemory();
 
@@ -179,7 +187,7 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.MINIMUM_DEPOSIT();
+    uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.stakingAsset.approve(address(store.gse), amount);

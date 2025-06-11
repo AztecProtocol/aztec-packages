@@ -4,6 +4,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+fi
+
 function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
@@ -107,6 +111,12 @@ function test_cmds {
   # kv-store: Uses mocha so will need different treatment.
   # noir-bb-bench: A slow pain. Figure out later.
   for test in !(end-to-end|kv-store|noir-bb-bench|aztec)/src/**/*.test.ts; do
+    # If DISABLE_AZTEC_VM, filter out avm_proving_tests/*.test.ts and avm_integration.test.ts
+    # Also must filter out rollup_ivc_integration.test.ts as it includes AVM proving.
+    if [[ "${DISABLE_AZTEC_VM:-0}" -eq 1 && "$test" =~ (avm_proving_tests|avm_integration|rollup_ivc_integration) ]]; then
+      continue
+    fi
+
     local prefix=$hash
     local cmd_env=""
 
@@ -118,14 +128,15 @@ function test_cmds {
     # Boost some tests resources.
     if [[ "$test" =~ testbench ]]; then
       prefix+=":CPUS=10:MEM=16g"
-    fi
-    if [[ "$test" =~ ^ivc-integration/ ]]; then
+    elif [[ "$test" =~ ^ivc-integration/ ]]; then
       prefix+=":CPUS=8"
     fi
 
     # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"
+    elif [[ "$test" =~ e2e_p2p ]]; then
+      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
     fi
 
     # Enable real proofs in prover-client integration tests only on CI full.
@@ -145,7 +156,7 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" != "next" ]; then
+  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
   fi
 }

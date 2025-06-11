@@ -140,7 +140,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       metadata: {
         stage: 3, // aztec::note::note_metadata::NoteStage::SETTLED
         // eslint-disable-next-line camelcase
-        maybe_nonce: uniqueNote.nonce,
+        maybe_note_nonce: uniqueNote.noteNonce,
       },
     };
   };

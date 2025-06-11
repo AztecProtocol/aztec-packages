@@ -11,7 +11,7 @@ import {EthValue} from "@aztec/core/interfaces/IRollup.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
-
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Test} from "forge-std/Test.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
@@ -226,6 +226,7 @@ contract RollupBuilder is Test {
       config.rewardDistributor,
       config.testERC20,
       config.gse,
+      new MockVerifier(),
       address(this),
       config.genesisState,
       config.rollupConfigInput

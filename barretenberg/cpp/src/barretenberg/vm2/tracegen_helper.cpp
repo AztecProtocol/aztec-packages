@@ -34,6 +34,7 @@
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
+#include "barretenberg/vm2/tracegen/tx_trace.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2 {
@@ -74,6 +75,7 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
                            precomputed_builder.process_memory_tag_range(trace));
             AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/phase_table", precomputed_builder.process_phase_table(trace));
         },
     };
 }
@@ -173,6 +175,19 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
 {
     TraceContainer trace;
 
+    fill_trace_columns(trace, std::move(events), public_inputs);
+    fill_trace_interactions(trace);
+
+    check_interactions(trace);
+    print_trace_stats(trace);
+
+    return trace;
+}
+
+void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
+                                           EventsContainer&& events,
+                                           const PublicInputs& public_inputs)
+{
     // We process the events in parallel. Ideally the jobs should access disjoint column sets.
     {
         auto jobs = concatenate(
@@ -182,6 +197,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
             build_public_inputs_columns_jobs(trace, public_inputs),
             // Subtrace jobs.
             std::vector<std::function<void()>>{
+                [&]() {
+                    TxTraceBuilder tx_builder;
+                    AVM_TRACK_TIME("tracegen/tx", tx_builder.process(events.tx, trace));
+                    clear_events(events.tx);
+                },
                 [&]() {
                     ExecutionTraceBuilder exec_builder;
                     AVM_TRACK_TIME("tracegen/execution", exec_builder.process(events.execution, trace));
@@ -229,8 +249,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
                     clear_events(events.instruction_fetching);
                 },
                 [&]() {
-                    Sha256TraceBuilder sha256_builder(trace);
-                    AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
+                    Sha256TraceBuilder sha256_builder;
+                    AVM_TRACK_TIME("tracegen/sha256_compression",
+                                   sha256_builder.process(events.sha256_compression, trace));
                     clear_events(events.sha256_compression);
                 },
                 [&]() {
@@ -303,10 +324,14 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
+}
 
+void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
+{
     // Now we can compute lookups and permutations.
     {
-        auto jobs_interactions = concatenate_jobs(Poseidon2TraceBuilder::lookup_jobs(),
+        auto jobs_interactions = concatenate_jobs(TxTraceBuilder::lookup_jobs(),
+                                                  Poseidon2TraceBuilder::lookup_jobs(),
                                                   RangeCheckTraceBuilder::lookup_jobs(),
                                                   BitwiseTraceBuilder::lookup_jobs(),
                                                   Sha256TraceBuilder::lookup_jobs(),
@@ -326,10 +351,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events, const
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
     }
-
-    check_interactions(trace);
-    print_trace_stats(trace);
-    return trace;
 }
 
 TraceContainer AvmTraceGenHelper::generate_precomputed_columns()

@@ -15,12 +15,19 @@
 
 namespace bb::avm2::simulation {
 
+// Possible mutually exclusive execution errors.
+enum class ExecutionError {
+    NONE,
+    INSTRUCTION_FETCHING,
+    ADDRESSING,
+    GAS,
+    DISPATCHING,
+};
+
 struct ExecutionEvent {
-    bool error = false;
+    ExecutionError error = ExecutionError::NONE;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
-    ExecutionOpCode opcode;
-    std::vector<Operand> resolved_operands;
 
     // Inputs and Outputs for a gadget/subtrace used when allocating registers in the execution trace.
     std::vector<TaggedValue> inputs;
@@ -35,6 +42,17 @@ struct ExecutionEvent {
     ContextEvent after_context_event;
 
     GasEvent gas_event;
+
+    // function to determine whether the event was a context "failure"
+    bool is_failure() const
+    {
+        // WARNING: it is important that we check for error first here because
+        // if instruction fetching fails, we cannot do `wire_instruction.get_exec_opcode()`
+        return error != ExecutionError::NONE || wire_instruction.get_exec_opcode() == ExecutionOpCode::REVERT;
+    }
+
+    // function to determine whether the event represents a context "exit"
+    bool is_exit() const { return is_failure() || wire_instruction.get_exec_opcode() == ExecutionOpCode::RETURN; }
 };
 
 } // namespace bb::avm2::simulation

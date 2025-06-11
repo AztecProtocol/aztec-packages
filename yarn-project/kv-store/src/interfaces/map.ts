@@ -32,6 +32,12 @@ export interface AztecMap<K extends Key, V extends Value> extends AztecBaseMap<K
   get(key: K): V | undefined;
 
   /**
+   * Gets the current size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
+
+  /**
    * Checks if a key exists in the map.
    * @param key - The key to check
    * @returns True if the key exists, false otherwise
@@ -96,4 +102,10 @@ export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBase
    * @param range - The range of keys to iterate over
    */
   keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
+
+  /**
+   * Gets the current size of the map.
+   * @returns The size of the map
+   */
+  sizeAsync(): Promise<number>;
 }

@@ -40,8 +40,9 @@ import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * New notes created during this execution.
-   * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in the ExecutionNoteCache and the final proof data.
-   * But we still include those notes in the execution result because their commitments are still in the public inputs of this execution.
+   * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in
+   * the ExecutionNoteCache and the final proof data. But we still include those notes in the execution result because
+   * their commitments are still in the public inputs of this execution.
    * This information is only for references (currently used for tests), and is not used for any sort of constrains.
    * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
@@ -58,6 +59,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
+  private offchainMessages: { message: Fr[]; recipient: AztecAddress }[] = [];
   private nestedExecutions: PrivateCallExecutionResult[] = [];
 
   constructor(
@@ -136,6 +138,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    */
   public getContractClassLogs() {
     return this.contractClassLogs;
+  }
+
+  /**
+   * Return the offchain messages emitted during this execution.
+   */
+  public getOffchainMessages() {
+    return this.offchainMessages;
   }
 
   /**
@@ -231,7 +240,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     this.log.debug(
       `Returning ${notes.length} notes for ${this.callContext.contractAddress} at ${storageSlot}: ${notes
-        .map(n => `${n.nonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
+        .map(n => `${n.noteNonce.toString()}:[${n.note.items.map(i => i.toString()).join(',')}]`)
         .join(', ')}`,
     );
 
@@ -239,7 +248,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       notes.map(async n => {
         if (n.index !== undefined) {
           const siloedNoteHash = await siloNoteHash(n.contractAddress, n.noteHash);
-          const uniqueNoteHash = await computeUniqueNoteHash(n.nonce, siloedNoteHash);
+          const uniqueNoteHash = await computeUniqueNoteHash(n.noteNonce, siloedNoteHash);
 
           return { hash: uniqueNoteHash, index: n.index };
         }
@@ -284,7 +293,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
       {
         contractAddress: this.callContext.contractAddress,
         storageSlot,
-        nonce: Fr.ZERO, // Nonce cannot be known during private execution.
+        noteNonce: Fr.ZERO, // Nonce cannot be known during private execution.
         note,
         siloedNullifier: undefined, // Siloed nullifier cannot be known for newly created note.
         noteHash,
@@ -514,5 +523,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
+  }
+
+  public override emitOffchainMessage(message: Fr[], recipient: AztecAddress): Promise<void> {
+    this.offchainMessages.push({ message, recipient });
+    return Promise.resolve();
   }
 }

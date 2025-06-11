@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 
-import { type Hex, createPublicClient, fallback, http, parseTransaction } from 'viem';
+import { type Hex, createPublicClient, fallback, http } from 'viem';
 
 import type { ViemPublicClient } from './types.js';
 
@@ -30,7 +30,7 @@ export class EthCheatCodes {
 
   async rpcCall(method: string, params: any[]) {
     const paramsString = jsonStringify(params);
-    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
     return (await this.publicClient.transport.request({
       method,
       params,
@@ -337,12 +337,6 @@ export class EthCheatCodes {
     newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
   ): Promise<void> {
     this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
-    for (const tx of newBlocks.flat()) {
-      const isBlobTx = typeof tx === 'string' ? parseTransaction(tx).type === 'eip4844' : 'blobVersionedHashes' in tx;
-      if (isBlobTx) {
-        throw new Error(`Anvil does not support blob transactions in anvil_reorg`);
-      }
-    }
     try {
       await this.rpcCall('anvil_reorg', [
         depth,
@@ -352,5 +346,9 @@ export class EthCheatCodes {
       throw new Error(`Error reorging: ${err}`);
     }
     this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
+  }
+
+  public traceTransaction(txHash: Hex): Promise<any> {
+    return this.rpcCall('trace_transaction', [txHash]);
   }
 }
