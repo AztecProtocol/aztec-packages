@@ -128,12 +128,11 @@ pol NUM_RELATIVE_E = 1 - sel_do_base_check;
 #[NUM_RELATIVE_INV_CHECK]
 NUM_RELATIVE_X * (NUM_RELATIVE_E * (1 - NUM_RELATIVE_Y) + NUM_RELATIVE_Y) - 1 + NUM_RELATIVE_E = 0;
 
-// TODO: complete this lookup once we get memory done. In particular, clk and space id.
 // FIXME: this should eventually be a permutation.
 #[BASE_ADDRESS_FROM_MEMORY]
-sel_do_base_check { /*address=*/precomputed.zero, /*value=*/base_address_val, /*tag=*/base_address_tag, /*rw=*/precomputed.zero/*(read)*/ }
+sel_do_base_check { precomputed.clk, context_id, /*address=*/precomputed.zero, /*value=*/base_address_val, /*tag=*/base_address_tag, /*rw=*/precomputed.zero/*(read)*/ }
 in
-memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
 // This error will be true iff the base address is not valid AND we did actually check it.
 pol commit sel_base_address_failure;
@@ -264,19 +263,26 @@ pol commit rop_tag[7];
 // TODO: complete these lookups once we get memory done. In particular, clk and space id.
 // FIXME: these should eventually be permutations.
 #[INDIRECT_FROM_MEMORY_0]
-sel_should_apply_indirection[0] { /*address=*/op_after_relative[0], /*value=*/rop[0], /*tag=*/rop_tag[0], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[0] { precomputed.clk, context_id, /*address=*/op_after_relative[0], /*value=*/rop[0], /*tag=*/rop_tag[0], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_1]
-sel_should_apply_indirection[1] { /*address=*/op_after_relative[1], /*value=*/rop[1], /*tag=*/rop_tag[1], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[1] { precomputed.clk, context_id, /*address=*/op_after_relative[1], /*value=*/rop[1], /*tag=*/rop_tag[1], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_2]
-sel_should_apply_indirection[2] { /*address=*/op_after_relative[2], /*value=*/rop[2], /*tag=*/rop_tag[2], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[2] { precomputed.clk, context_id, /*address=*/op_after_relative[2], /*value=*/rop[2], /*tag=*/rop_tag[2], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_3]
-sel_should_apply_indirection[3] { /*address=*/op_after_relative[3], /*value=*/rop[3], /*tag=*/rop_tag[3], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[3] { precomputed.clk, context_id, /*address=*/op_after_relative[3], /*value=*/rop[3], /*tag=*/rop_tag[3], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_4]
-sel_should_apply_indirection[4] { /*address=*/op_after_relative[4], /*value=*/rop[4], /*tag=*/rop_tag[4], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[4] { precomputed.clk, context_id, /*address=*/op_after_relative[4], /*value=*/rop[4], /*tag=*/rop_tag[4], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_5]
-sel_should_apply_indirection[5] { /*address=*/op_after_relative[5], /*value=*/rop[5], /*tag=*/rop_tag[5], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[5] { precomputed.clk, context_id, /*address=*/op_after_relative[5], /*value=*/rop[5], /*tag=*/rop_tag[5], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 #[INDIRECT_FROM_MEMORY_6]
-sel_should_apply_indirection[6] { /*address=*/op_after_relative[6], /*value=*/rop[6], /*tag=*/rop_tag[6], /*rw=*/precomputed.zero/*(read)*/ } in memory.sel { memory.address, memory.value, memory.tag, memory.rw };
+sel_should_apply_indirection[6] { precomputed.clk, context_id, /*address=*/op_after_relative[6], /*value=*/rop[6], /*tag=*/rop_tag[6], /*rw=*/precomputed.zero/*(read)*/ }
+in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 
 // Otherwise, if indirection is not applied , we propagate the operands from the previous step.
 #[INDIRECT_PROPAGATION_0]
