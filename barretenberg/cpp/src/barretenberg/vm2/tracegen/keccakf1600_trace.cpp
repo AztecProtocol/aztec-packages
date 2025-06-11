@@ -766,7 +766,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilde
         // Memory slices permutations
         std::make_unique<PermutationBuilder<perm_keccakf1600_read_to_slice_settings>>(),
         std::make_unique<PermutationBuilder<perm_keccakf1600_write_to_slice_settings>>(),
-
+        // Range check for slice memory ranges.
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_src_abs_diff_positive_settings>>(),
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_dst_abs_diff_positive_settings>>(),
         // Keccak slice memory to memory sub-trace
         std::make_unique<LookupIntoDynamicTableSequential<lookup_keccak_memory_slice_to_mem_settings>>());
 };
