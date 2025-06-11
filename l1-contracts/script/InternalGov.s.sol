@@ -21,6 +21,7 @@ import {FeeAssetHandler} from "../src/mock/FeeAssetHandler.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 
 contract GovScript is Test {
   using ProposalLib for DataStructures.Proposal;
@@ -79,7 +80,7 @@ contract GovScript is Test {
     emit log_named_uint(
       "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
     );
-    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getMinimumStake(), 18);
+    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getDepositAmount(), 18);
 
     emit log_named_address("# Governance", address(governance));
     DataStructures.Configuration memory config = governance.getConfiguration();
@@ -299,7 +300,7 @@ contract GovScript is Test {
 
     vm.startBroadcast(ME);
     RegisterNewRollupVersionPayload payload =
-      new RegisterNewRollupVersionPayload(registry, _instance);
+      new RegisterNewRollupVersionPayload(registry, IInstance(_instance));
     vm.stopBroadcast();
 
     lookAtPayload(address(payload));

@@ -6,7 +6,6 @@ import {
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
   NewGovernanceProposerPayloadBytecode,
-  TestERC20Abi as StakingAssetAbi,
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -50,6 +49,8 @@ describe('e2e_p2p_governance_proposer', () => {
         listenAddress: '127.0.0.1',
         governanceProposerQuorum: 6,
         governanceProposerRoundSize: 10,
+        depositAmount: 10n ** 22n,
+        minimumStake: 5n ** 22n,
       },
     });
 
@@ -92,6 +93,8 @@ describe('e2e_p2p_governance_proposer', () => {
       t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
     );
 
+    const gseAddress = await rollup.getGSE();
+
     const waitL1Block = async () => {
       await l1TxUtils.sendAndMonitorTransaction({
         to: emperor.address,
@@ -108,7 +111,7 @@ describe('e2e_p2p_governance_proposer', () => {
       t.ctx.deployL1ContractsValues.l1Client,
       NewGovernanceProposerPayloadAbi,
       NewGovernanceProposerPayloadBytecode,
-      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()],
+      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress],
     );
 
     t.logger.info(`Deployed new payload at ${newPayloadAddress}`);
@@ -184,20 +187,6 @@ describe('e2e_p2p_governance_proposer', () => {
     await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash });
     t.logger.info(`Executed proposal ${govData.round}`);
 
-    const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
-      abi: StakingAssetAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
-    });
-
-    t.logger.info(`Minting tokens`);
-
-    await token.write.mint([emperor.address, 10000n * 10n ** 18n], { account: emperor });
-    await token.write.approve([governance.address, 10000n * 10n ** 18n], { account: emperor });
-    const depositTx = await governance.write.deposit([emperor.address, 10000n * 10n ** 18n], { account: emperor });
-    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: depositTx });
-    t.logger.info(`Deposited tokens`);
-
     const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
@@ -207,10 +196,13 @@ describe('e2e_p2p_governance_proposer', () => {
     await waitL1Block();
 
     t.logger.info(`Voting`);
-    const voteTx = await governance.write.vote([0n, 10000n * 10n ** 18n, true], { account: emperor });
-    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: voteTx });
+    const voteTx = await rollup.vote(l1TxUtils, 0n);
+    expect(voteTx.receipt?.status).toBe('success');
     t.logger.info(`Voted`);
 
+    const proposalState = await governance.read.getProposal([0n]);
+    t.logger.info(`Proposal state`, proposalState);
+    400000000000000000000;
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
     t.logger.info(`Warping to ${timeToExecutable}`);
     await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));

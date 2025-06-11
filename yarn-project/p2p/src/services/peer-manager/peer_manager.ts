@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
@@ -13,6 +13,7 @@ import { PeerEvent } from '../../types/index.js';
 import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
+import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
 import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
@@ -63,6 +64,8 @@ export class PeerManager {
     private logger = createLogger('p2p:peer-manager'),
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
+    private readonly worldStateSynchronizer: WorldStateSynchronizer,
+    private readonly protocolVersion: string,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -153,7 +156,7 @@ export class PeerManager {
   }
 
   /**
-   * Simply logs the type of connected peer.
+   * Performs Status Handshake with a connected peer.
    * @param e - The connected peer event.
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
@@ -163,6 +166,7 @@ export class PeerManager {
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
     }
+    void this.exchangeStatusHandshake(peerId);
   }
 
   /**
@@ -611,6 +615,50 @@ export class PeerManager {
       if (peersToDelete <= 0) {
         break;
       }
+    }
+  }
+
+  /**
+   * Performs status Handshake with the Peer
+   * The way the protocol is designed is that each peer will call this method on newly established p2p connection.
+   * Both peers request Status message and both peers perform validation of the received Status message.
+   * If this validation fails on any end that peer will initiate disconnect.
+   *  Note: It's important for both peers to request and perform Status validation,
+   *  Because one of the peers can be _bad peer_ and this peer can simply skip the check.
+   *  If we don't implement validation on both ends the _bad peer_ remains connected.
+   * @param: peerId The Id of the peer to request the Status from.
+   * */
+  private async exchangeStatusHandshake(peerId: PeerId) {
+    const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+    const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+
+    //Note: Technically we don't have to send out status to peer as well, but we do.
+    //It will be easier to update protocol in the future this way if need be.
+    const { status, data } = await this.reqresp.sendRequestToPeer(
+      peerId,
+      ReqRespSubProtocol.STATUS,
+      ourStatus.toBuffer(),
+    );
+    if (status !== ReqRespStatus.SUCCESS) {
+      //TODO: maybe hard ban these peers in the future.
+      //We could allow this to happen up to N times, and then hard ban?
+      //Hard ban: Disallow connection via e.g. libp2p's Gater
+      this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, { peerId });
+      await this.disconnectPeer(peerId);
+    }
+
+    try {
+      const peerStatusMessage = StatusMessage.fromBuffer(data);
+      if (!ourStatus.validate(peerStatusMessage)) {
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake`, { peerId });
+        await this.disconnectPeer(peerId);
+      }
+    } catch (err: any) {
+      //TODO: maybe hard ban these peers in the future
+      this.logger.warn(`Disconnecting peer ${peerId} who sent invalid status message: ${err.message ?? err}`, {
+        peerId,
+      });
+      await this.disconnectPeer(peerId);
     }
   }
 

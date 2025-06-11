@@ -42,11 +42,15 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
     // VerificationKey from UltraFlavor can be used
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 2. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
         {
@@ -56,12 +60,45 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             if (proving_key.commitment_key == nullptr) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
+
+            return elements;
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
         // up.
         VerificationKey(const uint64_t circuit_size,

@@ -1,11 +1,17 @@
 import type { LogFn } from '@aztec/foundation/log';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats, SimulationTimings } from '@aztec/stdlib/tx';
 
 import { format } from 'util';
 
+const FN_NAME_PADDING = 50;
+const COLUMN_MIN_WIDTH = 13;
+const COLUMN_MAX_WIDTH = 15;
+
+const ORACLE_NAME_PADDING = 50;
+
 export function printProfileResult(
-  timings: ProvingTimings | SimulationTimings,
+  stats: ProvingStats | SimulationStats,
   log: LogFn,
   executionSteps?: PrivateExecutionStep[],
 ) {
@@ -13,16 +19,27 @@ export function printProfileResult(
   log(
     format(
       '  ',
-      'Function name'.padEnd(50),
-      'Time'.padStart(13).padEnd(15),
-      executionSteps ? 'Gates'.padStart(13).padEnd(15) : '',
-      executionSteps ? 'Subtotal'.padStart(13).padEnd(15) : '',
+      'Function name'.padEnd(FN_NAME_PADDING),
+      'Time'.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+      executionSteps ? 'Gates'.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH) : '',
+      executionSteps ? 'Subtotal'.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH) : '',
     ),
   );
-  log(format(''.padEnd(50 + 15 + 15 + (executionSteps ? 15 + 15 : 0), '-')));
+  log(
+    format(
+      ''.padEnd(
+        FN_NAME_PADDING +
+          COLUMN_MAX_WIDTH +
+          COLUMN_MAX_WIDTH +
+          (executionSteps ? COLUMN_MAX_WIDTH + COLUMN_MAX_WIDTH : 0),
+        '-',
+      ),
+    ),
+  );
   let acc = 0;
   let biggest: PrivateExecutionStep | undefined = executionSteps?.[0];
 
+  const timings = stats.timings;
   timings.perFunction.forEach((fn, i) => {
     const currentExecutionStep = executionSteps?.[i];
     if (currentExecutionStep && biggest && currentExecutionStep.gateCount! > biggest.gateCount!) {
@@ -32,13 +49,37 @@ export function printProfileResult(
 
     log(
       format(
-        '  ',
-        fn.functionName.padEnd(50),
-        `${fn.time.toFixed(2)}ms`.padStart(13).padEnd(15),
-        currentExecutionStep ? currentExecutionStep.gateCount!.toLocaleString().padStart(13).padEnd(15) : '',
-        currentExecutionStep ? acc.toLocaleString().padStart(15) : '',
+        ' - ',
+        fn.functionName.padEnd(FN_NAME_PADDING),
+        `${fn.time.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+        currentExecutionStep
+          ? currentExecutionStep.gateCount!.toLocaleString().padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH)
+          : '',
+        currentExecutionStep ? acc.toLocaleString().padStart(COLUMN_MAX_WIDTH) : '',
       ),
     );
+    if (fn.oracles) {
+      log('');
+      for (const [oracleName, { times }] of Object.entries(fn.oracles)) {
+        const calls = times.length;
+        const min = Math.min(...times);
+        const max = Math.max(...times);
+        const total = times.reduce((acc, time) => acc + time, 0);
+        const avg = total / calls;
+        log(
+          format(
+            '    ',
+            oracleName.padEnd(ORACLE_NAME_PADDING),
+            `${calls} calls`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+            `${total.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+            `min: ${min.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+            `avg: ${avg.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+            `max: ${max.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          ),
+        );
+      }
+    }
+    log('');
   });
 
   if (biggest) {
@@ -51,35 +92,64 @@ export function printProfileResult(
     );
   }
 
+  if (stats.nodeRPCCalls) {
+    log(format('\nRPC calls:\n'));
+    for (const [method, { times }] of Object.entries(stats.nodeRPCCalls)) {
+      const calls = times.length;
+      const total = times.reduce((acc, time) => acc + time, 0);
+      const avg = total / calls;
+      const min = Math.min(...times);
+      const max = Math.max(...times);
+      log(
+        format(
+          method.padEnd(ORACLE_NAME_PADDING),
+          `${calls} calls`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `${total.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `min: ${min.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `avg: ${avg.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+          `max: ${max.toFixed(2)}ms`.padStart(COLUMN_MIN_WIDTH).padEnd(COLUMN_MAX_WIDTH),
+        ),
+      );
+    }
+  }
+
   log(format('\nSync time:'.padEnd(25), `${timings.sync?.toFixed(2)}ms`.padStart(16)));
   log(
     format(
       'Private simulation time:'.padEnd(25),
-      `${timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2)}ms`.padStart(15),
+      `${timings.perFunction.reduce((acc, { time }) => acc + time, 0).toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
     ),
   );
   if ((timings as ProvingTimings).proving) {
-    log(format('Proving time:'.padEnd(25), `${(timings as ProvingTimings).proving?.toFixed(2)}ms`.padStart(15)));
+    log(
+      format(
+        'Proving time:'.padEnd(25),
+        `${(timings as ProvingTimings).proving?.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
+      ),
+    );
   }
   if ((timings as SimulationTimings).publicSimulation) {
     log(
       format(
         'Public simulation time:'.padEnd(25),
-        `${(timings as SimulationTimings).publicSimulation?.toFixed(2)}ms`.padStart(15),
+        `${(timings as SimulationTimings).publicSimulation?.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
       ),
     );
   }
 
   if ((timings as SimulationTimings).validation) {
     log(
-      format('Validation time:'.padEnd(25), `${(timings as SimulationTimings).validation?.toFixed(2)}ms`.padStart(15)),
+      format(
+        'Validation time:'.padEnd(25),
+        `${(timings as SimulationTimings).validation?.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
+      ),
     );
   }
 
   log(
     format(
       'Total time:'.padEnd(25),
-      `${timings.total.toFixed(2)}ms`.padStart(15),
+      `${timings.total.toFixed(2)}ms`.padStart(COLUMN_MAX_WIDTH),
       `(${timings.unaccounted.toFixed(2)}ms unaccounted)`,
     ),
   );

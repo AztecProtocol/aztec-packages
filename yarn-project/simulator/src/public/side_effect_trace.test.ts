@@ -45,12 +45,14 @@ describe('Public Side Effect Trace', () => {
   });
 
   it('Should trace storage writes', async () => {
+    expect(trace.isStorageCold(address, slot)).toBe(true);
     await trace.tracePublicStorageWrite(address, slot, value, false);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
     const leafSlot = await computePublicDataTreeLeafSlot(address, slot);
     const expected = [new PublicDataUpdateRequest(leafSlot, value, startCounter /*contractAddress*/)];
     expect(trace.getSideEffects().publicDataWrites).toEqual(expected);
+    expect(trace.isStorageCold(address, slot)).toBe(false);
   });
 
   it('Should trace note hashes', () => {
@@ -73,7 +75,7 @@ describe('Public Side Effect Trace', () => {
     trace.traceNewL2ToL1Message(address, recipient, content);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content, 0).scope(address)];
+    const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content).scope(address)];
     expect(trace.getSideEffects().l2ToL1Msgs).toEqual(expected);
   });
 
@@ -227,6 +229,8 @@ describe('Public Side Effect Trace', () => {
 
       // parent trace adopts nested call's counter
       expect(trace.getCounter()).toBe(testCounter);
+      // parent trace adopts nested call's writtenPublicDataSlots
+      expect(trace.isStorageCold(address, slot)).toBe(false);
 
       // parent absorbs child's side effects
       const parentSideEffects = trace.getSideEffects();

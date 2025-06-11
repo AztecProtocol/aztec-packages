@@ -2,13 +2,12 @@
 pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
-import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
@@ -70,7 +69,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
         / validatorSelection.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
@@ -256,25 +255,6 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     governanceProposer.executeProposal(1);
   }
 
-  function test_GivenGovernanceCallReturnFalse(uint256 _yeas)
-    external
-    givenCanonicalInstanceHoldCode
-    whenRoundInPast
-    whenRoundInRecentPast
-    givenRoundNotExecutedBefore
-    givenLeaderIsNotAddress0
-    givenSufficientYea(_yeas)
-  {
-    // it revert
-    FalsyGovernance falsy = new FalsyGovernance();
-    vm.etch(address(governance), address(falsy).code);
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GovernanceProposer__FailedToPropose.selector, proposal)
-    );
-    governanceProposer.executeProposal(1);
-  }
-
   function test_GivenGovernanceCallFails(uint256 _yeas)
     external
     givenCanonicalInstanceHoldCode
@@ -305,10 +285,11 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // it emits {ProposalExecuted} event
     // it return true
     vm.expectEmit(true, true, true, true, address(governanceProposer));
-    emit IGovernanceProposer.ProposalExecuted(proposal, 1);
+    emit IEmpire.ProposalExecuted(proposal, 1);
     assertTrue(governanceProposer.executeProposal(1));
     (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
     assertTrue(executed);
     assertEq(address(leader), address(proposal));
+    assertEq(governanceProposer.getProposalProposer(0), address(validatorSelection));
   }
 }

@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
@@ -66,7 +67,7 @@ template <class Flavor> class TraceToPolynomials {
             {
                 PROFILE_THIS_NAME("copy cycle initialization");
 
-                copy_cycles.resize(builder.variables.size());
+                copy_cycles.resize(builder.get_num_variables());
             }
         }
     };

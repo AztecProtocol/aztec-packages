@@ -3,9 +3,9 @@ import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import type { TxPool } from './tx_pool.js';
+import type { TxPool, TxPoolOptions } from './tx_pool.js';
 
 /**
  * In-memory implementation of the Transaction Pool.
@@ -31,8 +31,17 @@ export class InMemoryTxPool implements TxPool {
     this.txs = new Map<bigint, Tx>();
     this.minedTxs = new Map();
     this.pendingTxs = new Set();
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, this.countTx);
   }
+
+  private countTx: PoolStatsCallback = () => {
+    return Promise.resolve({
+      itemCount: {
+        mined: this.minedTxs.size,
+        pending: this.pendingTxs.size,
+      },
+    });
+  };
 
   public isEmpty(): Promise<boolean> {
     return Promise.resolve(this.txs.size === 0);
@@ -44,8 +53,6 @@ export class InMemoryTxPool implements TxPool {
       this.minedTxs.set(key, blockNumber);
       this.pendingTxs.delete(key);
     }
-    this.metrics.recordRemovedObjects(txHashes.length, 'pending');
-    this.metrics.recordAddedObjects(txHashes.length, 'mined');
     return Promise.resolve();
   }
 
@@ -55,22 +62,14 @@ export class InMemoryTxPool implements TxPool {
     }
 
     const keys = txHashes.map(x => x.toBigInt());
-    let deleted = 0;
-    let added = 0;
     for (const key of keys) {
-      if (this.minedTxs.delete(key)) {
-        deleted++;
-      }
+      this.minedTxs.delete(key);
 
       // only add back to the pending set if we have the tx object
       if (this.txs.has(key)) {
-        added++;
         this.pendingTxs.add(key);
       }
     }
-
-    this.metrics.recordRemovedObjects(deleted, 'mined');
-    this.metrics.recordAddedObjects(added, 'pending');
 
     return Promise.resolve();
   }
@@ -130,7 +129,7 @@ export class InMemoryTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<void> {
+  public async addTxs(txs: Tx[]): Promise<number> {
     let pending = 0;
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
@@ -147,9 +146,7 @@ export class InMemoryTxPool implements TxPool {
         this.pendingTxs.add(key);
       }
     }
-
-    this.metrics.recordAddedObjects(pending, 'pending');
-    return;
+    return pending;
   }
 
   /**
@@ -158,18 +155,12 @@ export class InMemoryTxPool implements TxPool {
    * @returns The number of transactions that was deleted from the pool.
    */
   public deleteTxs(txHashes: TxHash[]): Promise<void> {
-    let deletedMined = 0;
-    let deletedPending = 0;
-
     for (const txHash of txHashes) {
       const key = txHash.toBigInt();
       this.txs.delete(key);
-      deletedPending += this.pendingTxs.delete(key) ? 1 : 0;
-      deletedMined += this.minedTxs.delete(key) ? 1 : 0;
+      this.pendingTxs.delete(key);
+      this.minedTxs.delete(key);
     }
-
-    this.metrics.recordRemovedObjects(deletedPending, 'pending');
-    this.metrics.recordRemovedObjects(deletedMined, 'mined');
 
     return Promise.resolve();
   }
@@ -190,9 +181,7 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(Array.from(this.txs.keys()).map(x => TxHash.fromBigInt(x)));
   }
 
-  setMaxTxPoolSize(_maxSizeBytes: number | undefined): Promise<void> {
-    return Promise.resolve();
-  }
+  updateConfig(_config: TxPoolOptions): void {}
 
   markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
     return Promise.resolve();

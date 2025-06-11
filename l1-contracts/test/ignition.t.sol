@@ -24,6 +24,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {TimeCheater} from "./staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -42,6 +43,7 @@ contract IgnitionTest is RollupBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   RewardDistributor internal rewardDistributor;
+  TimeCheater internal timeCheater;
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
@@ -54,6 +56,7 @@ contract IgnitionTest is RollupBase {
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+    timeCheater = new TimeCheater(address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION);
   }
 
   /**
@@ -62,8 +65,9 @@ contract IgnitionTest is RollupBase {
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
+      Slot slotNumber = full.block.header.slotNumber;
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 

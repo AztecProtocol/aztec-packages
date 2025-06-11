@@ -20,6 +20,8 @@ import {
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { InboxAbi, UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts.js/Uniswap';
+import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
+import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
@@ -241,13 +243,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPrivateLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPrivateContent,
-      ]);
+      const swapPrivateLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPrivateContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -256,13 +258,13 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       // ensure that user's funds were burnt
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
@@ -277,15 +279,22 @@ export const uniswapL1L2TestSuite = (
       const daiL1BalanceOfPortalBeforeSwap = await daiCrossChainHarness.getL1BalanceOf(
         daiCrossChainHarness.tokenPortalAddress,
       );
-
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         l2UniswapInteractionReceipt.blockNumber!,
         swapPrivateLeaf,
       );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         l2UniswapInteractionReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(l2UniswapInteractionReceipt.blockNumber!),
@@ -829,13 +838,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPrivateLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPrivateContent,
-      ]);
+      const swapPrivateLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPrivateContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -844,22 +853,26 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
-      const [swapPrivateL2MessageIndex, swapPrivateSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
-        withdrawReceipt.blockNumber!,
-        swapPrivateLeaf,
-      );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPrivateLeaf);
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPrivateL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPrivateSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(withdrawReceipt.blockNumber!),
@@ -959,13 +972,13 @@ export const uniswapL1L2TestSuite = (
         ownerEthAddress.toBuffer32(),
       ]);
 
-      const swapPublicLeaf = sha256ToField([
-        uniswapL2Contract.address,
-        new Fr(version), // aztec version
-        EthAddress.fromString(uniswapPortal.address).toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        swapPublicContent,
-      ]);
+      const swapPublicLeaf = computeL2ToL1MessageHash({
+        l2Sender: uniswapL2Contract.address,
+        l1Recipient: EthAddress.fromString(uniswapPortal.address),
+        content: swapPublicContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
       const withdrawContent = sha256ToField([
         Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
@@ -974,22 +987,26 @@ export const uniswapL1L2TestSuite = (
         uniswapPortalAddress.toBuffer32(),
       ]);
 
-      const withdrawLeaf = sha256ToField([
-        wethCrossChainHarness.l2Bridge.address,
-        new Fr(version), // aztec version
-        wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
-        new Fr(l1Client.chain.id), // chain id
-        withdrawContent,
-      ]);
+      const withdrawLeaf = computeL2ToL1MessageHash({
+        l2Sender: wethCrossChainHarness.l2Bridge.address,
+        l1Recipient: wethCrossChainHarness.tokenPortalAddress,
+        content: withdrawContent,
+        rollupVersion: new Fr(version),
+        chainId: new Fr(l1Client.chain.id),
+      });
 
-      const [swapPublicL2MessageIndex, swapPublicSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
-        withdrawReceipt.blockNumber!,
-        swapPublicLeaf,
-      );
-      const [withdrawL2MessageIndex, withdrawSiblingPath] = await aztecNode.getL2ToL1MessageMembershipWitness(
+      const swapResult = await computeL2ToL1MembershipWitness(aztecNode, withdrawReceipt.blockNumber!, swapPublicLeaf);
+      const withdrawResult = await computeL2ToL1MembershipWitness(
+        aztecNode,
         withdrawReceipt.blockNumber!,
         withdrawLeaf,
       );
+
+      const swapPublicL2MessageIndex = swapResult!.l2MessageIndex;
+      const swapPublicSiblingPath = swapResult!.siblingPath;
+
+      const withdrawL2MessageIndex = withdrawResult!.l2MessageIndex;
+      const withdrawSiblingPath = withdrawResult!.siblingPath;
 
       const withdrawMessageMetadata = {
         _l2BlockNumber: BigInt(withdrawReceipt.blockNumber!),

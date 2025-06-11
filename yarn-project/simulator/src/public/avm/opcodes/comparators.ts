@@ -9,7 +9,9 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);

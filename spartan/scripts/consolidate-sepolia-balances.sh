@@ -26,11 +26,19 @@ if ! command -v cast &>/dev/null; then
     $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
 fi
 
+# Install bc if needed
+if ! command -v bc &>/dev/null; then
+  echo "Installing bc..."
+  apt-get update && apt-get install -y bc
+fi
+
 # Get values from the values file
 value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 
-# Get the number of replicas for each service
-num_validators=$(./read_value.sh "validator.replicas" $value_yamls)
+num_validator_nodes=$(./read_value.sh "validator.replicas" $value_yamls)
+validators_per_node=$(./read_value.sh "validator.keysPerNode" $value_yamls)
+num_validators=$((num_validator_nodes * validators_per_node))
+
 num_provers=$(./read_value.sh "proverNode.replicas" $value_yamls)
 
 # Get the key index start values
@@ -67,6 +75,7 @@ if [ "$bot_enabled" = "true" ]; then
 fi
 
 echo "Checking balances for ${#indices_to_check[@]} accounts..."
+echo "Total validators: $num_validators ($num_validator_nodes nodes with $validators_per_node validators each)"
 
 # For each index in our list
 for i in "${indices_to_check[@]}"; do
@@ -82,10 +91,10 @@ for i in "${indices_to_check[@]}"; do
     gas_price=$((gas_price * 120 / 100)) # Add 20% to gas price
     gas_cost=$((21000 * gas_price))
 
-    # Calculate amount to send (balance - gas cost)
-    send_amount=$((balance - gas_cost))
+    # Calculate amount to send (balance - gas cost) using bc for arbitrary precision
+    send_amount=$(echo "$balance - $gas_cost" | bc)
 
-    if [ "$send_amount" -gt "0" ]; then
+    if [ "$(echo "$send_amount > 0" | bc)" -eq 1 ]; then
       echo "Sending $send_amount wei from $address (index $i) to $funding_address"
       cast send --private-key "$private_key" --rpc-url "$ETHEREUM_RPC_URL" "$funding_address" \
         --value "$send_amount" --gas-price "$gas_price" --async

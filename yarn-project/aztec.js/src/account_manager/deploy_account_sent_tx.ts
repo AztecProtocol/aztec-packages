@@ -17,10 +17,10 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
 export class DeployAccountSentTx extends SentTx {
   constructor(
     pxeOrNode: AztecNode | PXE,
-    txHashPromise: Promise<TxHash>,
+    sendTx: () => Promise<TxHash>,
     private getWalletPromise: Promise<Wallet>,
   ) {
-    super(pxeOrNode, txHashPromise);
+    super(pxeOrNode, sendTx);
   }
 
   /**

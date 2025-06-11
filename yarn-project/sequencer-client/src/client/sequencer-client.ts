@@ -14,12 +14,10 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
-import { LightweightBlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { SlasherClient } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -28,7 +26,6 @@ import type { SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { SequencerPublisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
-import type { SlasherClient } from '../slasher/index.js';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -46,7 +43,6 @@ export class SequencerClient {
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
    * @param prover - An instance of a block prover
-   * @param simulationProvider - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(
@@ -56,7 +52,7 @@ export class SequencerClient {
       p2pClient: P2P;
       worldStateSynchronizer: WorldStateSynchronizer;
       slasherClient: SlasherClient;
-      contractDataSource: ContractDataSource;
+      blockBuilder: IFullNodeBlockBuilder;
       l2BlockSource: L2BlockSource;
       l1ToL2MessageSource: L1ToL2MessageSource;
       telemetry: TelemetryClient;
@@ -72,7 +68,7 @@ export class SequencerClient {
       p2pClient,
       worldStateSynchronizer,
       slasherClient,
-      contractDataSource,
+      blockBuilder,
       l2BlockSource,
       l1ToL2MessageSource,
       telemetry: telemetryClient,
@@ -94,12 +90,7 @@ export class SequencerClient {
             config.customForwarderContractAddress.toString(),
             config.l1Contracts.rollupAddress.toString(),
           )
-        : await ForwarderContract.create(
-            l1Client.account.address,
-            l1Client,
-            log,
-            config.l1Contracts.rollupAddress.toString(),
-          );
+        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -137,8 +128,6 @@ export class SequencerClient {
       });
     const globalsBuilder = new GlobalVariableBuilder(config);
 
-    const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, deps.dateProvider, telemetryClient);
-
     const ethereumSlotDuration = config.ethereumSlotDuration;
 
     const rollupManaLimit = Number(await rollupContract.getManaLimit());
@@ -172,18 +161,16 @@ export class SequencerClient {
       p2pClient,
       worldStateSynchronizer,
       slasherClient,
-      new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
-      publicProcessorFactory,
-      contractDataSource,
+      blockBuilder,
       l1Constants,
       deps.dateProvider,
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
     await validatorClient?.start();
-    await sequencer.start();
+    sequencer.start();
     return new SequencerClient(sequencer);
   }
 
@@ -214,6 +201,10 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
+  public getSequencer(): Sequencer {
+    return this.sequencer;
+  }
+
   get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
@@ -226,8 +217,8 @@ export class SequencerClient {
     return this.sequencer.getForwarderAddress();
   }
 
-  get validatorAddress(): EthAddress | undefined {
-    return this.sequencer.getValidatorAddress();
+  get validatorAddresses(): EthAddress[] | undefined {
+    return this.sequencer.getValidatorAddresses();
   }
 
   get maxL2BlockGas(): number | undefined {

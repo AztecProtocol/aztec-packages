@@ -13,7 +13,6 @@
  * simplify the codebase.
  */
 
-#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
@@ -56,7 +55,6 @@ template <class Curve> class CommitmentKey {
     }
 
   public:
-    std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
@@ -70,8 +68,7 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        : crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_crs(get_num_needed_srs_points(num_points)))
+        : srs(srs::get_crs_factory<Curve>()->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
     /**
@@ -87,6 +84,14 @@ template <class Curve> class CommitmentKey {
         // The pippenger algo has been refactored and this is no longer an issue
         PROFILE_THIS_NAME("commit");
         std::span<const G1> point_table = srs->get_monomial_points();
+        size_t consumed_srs = polynomial.start_index + polynomial.size();
+        if (consumed_srs > srs->get_monomial_size()) {
+            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
+                                  consumed_srs,
+                                  " points with an SRS of size ",
+                                  srs->get_monomial_size()));
+        }
+
         DEBUG_LOG_ALL(polynomial.span);
         G1 r = scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
         Commitment point(r);

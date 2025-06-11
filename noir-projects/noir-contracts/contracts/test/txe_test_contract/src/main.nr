@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract TXETest {
-    use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
+    use aztec::macros::{functions::{initializer, private, public, utility, view}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
@@ -105,8 +105,67 @@ pub contract TXETest {
         TXETest::at(other_counter).increment(owner, sender).call(&mut context);
     }
 
+    #[private]
+    fn private_call(n: Field) -> Field {
+        n
+    }
+
+    #[private]
+    fn private_void_call(n: Field) {
+        let _ = n;
+    }
+
+    #[private]
+    #[view]
+    fn private_static_call(n: Field) -> Field {
+        n
+    }
+
+    #[private]
+    #[view]
+    fn private_static_void_call(n: Field) {
+        let _ = n;
+    }
+
+    #[public]
+    fn public_call(n: Field) -> Field {
+        n
+    }
+
+    #[public]
+    fn public_void_call(n: Field) {
+        let _ = n;
+    }
+
+    #[public]
+    #[view]
+    fn public_static_call(n: Field) -> Field {
+        n
+    }
+
+    #[public]
+    #[view]
+    fn public_static_void_call(n: Field) {
+        let _ = n;
+    }
+
+    #[utility]
+    unconstrained fn utility_simulate(n: Field) -> pub Field {
+        n
+    }
+
+    #[utility]
+    unconstrained fn utility_void_simulate(n: Field) {
+        let _ = n;
+    }
+
     #[public]
     fn emit_in_public(n: Field) {
         context.push_note_hash(n);
+    }
+
+    #[public]
+    fn return_public(n: Field) -> Field {
+        n
     }
 }

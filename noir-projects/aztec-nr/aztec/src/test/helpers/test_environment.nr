@@ -6,8 +6,18 @@ use dep::protocol_types::{
 };
 
 use crate::context::{
-    call_interfaces::CallInterface, PrivateCallInterface, PrivateContext, PrivateVoidCallInterface,
-    PublicContext, ReturnsHash, UtilityCallInterface, UtilityContext,
+    call_interfaces::{
+        CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+    },
+    PrivateCallInterface,
+    PrivateContext,
+    PrivateVoidCallInterface,
+    PublicCallInterface,
+    PublicContext,
+    PublicVoidCallInterface,
+    ReturnsHash,
+    UtilityCallInterface,
+    UtilityContext,
 };
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
@@ -18,6 +28,7 @@ use crate::oracle::{
     execution_cache,
     notes::notify_created_note,
 };
+use super::cheatcodes::public_call_new_flow;
 
 pub struct TestEnvironment {}
 
@@ -205,7 +216,7 @@ impl TestEnvironment {
     pub unconstrained fn call_private<T, let N: u32, let M: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateCallInterface<M, T>,
+        call_interface: PrivateCallInterface<M, T, N>,
     ) -> CallResult<T>
     where
         T: Deserialize<N>,
@@ -226,10 +237,10 @@ impl TestEnvironment {
         CallResult { return_value: returns, tx_hash }
     }
 
-    pub unconstrained fn call_private_void<let M: u32>(
+    pub unconstrained fn call_private_void<let M: u32, T, let N: u32>(
         _self: Self,
         from: AztecAddress,
-        call_interface: PrivateVoidCallInterface<M>,
+        call_interface: PrivateVoidCallInterface<M, T, N>,
     ) -> CallResult<()> {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -251,7 +262,7 @@ impl TestEnvironment {
 
     pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
+        call_interface: UtilityCallInterface<M, T, N>,
     ) -> T
     where
         T: Deserialize<N>,
@@ -272,7 +283,7 @@ impl TestEnvironment {
 
     pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
         _self: Self,
-        call_interface: UtilityCallInterface<M, T>,
+        call_interface: UtilityCallInterface<M, T, N>,
     ) {
         let args = call_interface.get_args();
         let args_hash = hash_args(args);
@@ -285,6 +296,86 @@ impl TestEnvironment {
         );
 
         ReturnsHash::new(returns_hash).assert_empty();
+    }
+
+    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicCallInterface<M, T, N>,
+    ) -> CallResult<T>
+    where
+        T: Deserialize<N>,
+    {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn call_public_void<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicVoidCallInterface<M, T, N>,
+    ) -> CallResult<()> {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+
+        CallResult { return_value: (), tx_hash }
+    }
+
+    pub unconstrained fn call_private_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPrivateCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn simulate_utility_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        call_interface: X,
+    ) -> T
+    where
+        X: TXEUtilityCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let returns = call_interface.call_with_txe();
+
+        returns
+    }
+
+    pub unconstrained fn call_public_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPublicCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

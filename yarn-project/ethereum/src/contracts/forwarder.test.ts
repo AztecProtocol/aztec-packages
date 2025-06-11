@@ -50,16 +50,12 @@ describe('Forwarder', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;
 
-    forwarder = await ForwarderContract.create(
-      privateKey.address,
-      l1Client,
-      logger,
-      deployed.l1ContractAddresses.rollupAddress.toString(),
-    );
+    forwarder = await ForwarderContract.create(l1Client, logger, deployed.l1ContractAddresses.rollupAddress.toString());
 
     l1TxUtils = new L1TxUtils(l1Client, logger);
 
@@ -127,10 +123,5 @@ describe('Forwarder', () => {
     expect(err).toBeDefined();
     expect(err).toBeInstanceOf(FormattedViemError);
     expect(err.message).toMatch(/GovernanceProposer__OnlyProposerCanVote/);
-  });
-
-  it('gets expected address', () => {
-    const expected = ForwarderContract.expectedAddress('0x8048539a57619864fdcAE35282731809CD1f5E8D');
-    expect(expected).toBe('0xEB416A0f18CEf8Ce5C9dd4BceF4BeFfb771703c6');
   });
 });

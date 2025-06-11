@@ -81,9 +81,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const { fee: userFee, txNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
+    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -214,9 +214,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
-    const txHashPromise = super.send(options).getTxHash();
+    const sendTx = () => super.send(options).getTxHash();
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
-    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, () => this.getInstance(options));
+    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
   }
 
   /**
@@ -247,10 +247,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const txProvingResult = await this.proveInternal(options);
     return new DeployProvenTx(
       this.wallet,
-      txProvingResult.toTx(),
+      txProvingResult,
       this.postDeployCtor,
       () => this.getInstance(options),
-      txProvingResult.timings,
+      txProvingResult.stats,
     );
   }
 

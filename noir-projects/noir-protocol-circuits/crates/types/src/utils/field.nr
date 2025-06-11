@@ -34,6 +34,18 @@ pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
     low + high * v
 }
 
+// TODO: This currently only exists to aid point compression in compress_to_blob_commitment().
+// Once compression is part of BigCurve it can either be removed or optimised to be used elsewhere.
+pub fn byte_to_bits_be(byte: u8) -> [u1; 8] {
+    let mut mut_byte = byte;
+    let mut bits: [u1; 8] = [0; 8];
+    for i in 0..8 {
+        bits[7 - i] = (mut_byte & 1) as u1;
+        mut_byte >>= 1;
+    }
+    bits
+}
+
 // TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
 pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
     lhs.lt(rhs)

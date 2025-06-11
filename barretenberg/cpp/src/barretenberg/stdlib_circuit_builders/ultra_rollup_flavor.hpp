@@ -34,15 +34,18 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
+
         virtual ~VerificationKey() = default;
         PublicComponentKey ipa_claim_public_input_key;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         /**
@@ -70,6 +73,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
+
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
 
             return elements;
         }

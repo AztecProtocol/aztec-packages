@@ -8,13 +8,12 @@ export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-# Mostly arbitrary set that touches lots of the code.
-declare -A asan_tests=(
-  ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-  ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-  ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
-  ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-)
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+  # Make sure the different envs don't read from each other's caches.
+  export hash="$hash-no-avm"
+fi
+
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -42,17 +41,18 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  cmake --fresh --preset "$preset"
+  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
+  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
   cmake --build --preset "$preset" "$@"
 }
 
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-native-$hash.zst; then
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    cache_upload barretenberg-native-$hash.zst build/bin
+    cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
 }
 
@@ -61,9 +61,10 @@ function build_asan_fast {
   set -eu
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
-    build_preset asan-fast --target "${!asan_tests[@]}"
+    local bins="commitment_schemes_recursion_tests client_ivc_tests ultra_honk_tests dsl_tests"
+    build_preset asan-fast --target $bins
     # We upload only the binaries specified in --target in build-asan-fast/bin
-    echo cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " "${!asan_tests[@]}")
+    cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
   fi
 }
 
@@ -107,12 +108,7 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      # We only want to sanity check that we haven't broken wasm ecc ops in merge queue.
-      build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
-    else
-      build_preset wasm-threads
-    fi
+    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -125,7 +121,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  cmake --preset gcc -DSYNTAX_ONLY=1
+  cmake --preset gcc -DSYNTAX_ONLY=1 -DDISABLE_AZTEC_VM=ON
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
@@ -187,7 +183,8 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build
+  # E.g. build, build-debug or build-coverage
+  cd $(scripts/native-preset-build-dir)
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -204,9 +201,17 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
-  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+
+  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+    # Mostly arbitrary set that touches lots of the code.
+    declare -A asan_tests=(
+      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
+      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
@@ -304,7 +309,14 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
-    ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh | STRICT_SCHEDULING=1 parallelise
+    function ivc_bench_cmds {
+      if [ "${NO_WASM:-}" == "1" ]; then
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      else
+        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
+      fi
+    }
+    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

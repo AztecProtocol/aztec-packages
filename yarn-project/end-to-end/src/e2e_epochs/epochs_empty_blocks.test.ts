@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 15);
 
 describe('e2e_epochs/epochs_empty_blocks', () => {
   let context: EndToEndContext;
@@ -30,7 +30,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   });
 
   it('submits proof even if there are no txs to build a block', async () => {
-    await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+    context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
     // Sleep to make sure any pending blocks are published
@@ -54,23 +54,29 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
       await test.waitUntilEpochStarts(epochNumber + 1);
       const epochTargetBlockNumber = Number(await rollup.getBlockNumber());
       logger.info(`Epoch ${epochNumber} ended with PENDING block number ${epochTargetBlockNumber}`);
-      await test.waitUntilL2BlockNumber(epochTargetBlockNumber);
+      await test.waitUntilL2BlockNumber(
+        epochTargetBlockNumber,
+        test.L2_SLOT_DURATION_IN_S * (epochTargetBlockNumber + 4),
+      );
       provenBlockNumber = epochTargetBlockNumber;
       logger.info(
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
-      expect(Number(await rollup.getProvenBlockNumber())).toBe(provenBlockNumber);
+      expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 
       // Verify the state syncs
-      await test.waitForNodeToSync(provenBlockNumber, 'finalised');
+      await test.waitForNodeToSync(provenBlockNumber, 'proven');
       await test.verifyHistoricBlock(provenBlockNumber, true);
-      const expectedOldestHistoricBlock = provenBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1;
+
+      // right now finalisation means a block is two L2 epochs deep. If this rule changes then we need this test needs to be updated
+      const finalizedBlockNumber = Math.max(provenBlockNumber - context.config.aztecEpochDuration * 2, 0);
+      const expectedOldestHistoricBlock = Math.max(finalizedBlockNumber - WORLD_STATE_BLOCK_HISTORY + 1, 1);
       const expectedBlockRemoved = expectedOldestHistoricBlock - 1;
       await test.waitForNodeToSync(expectedOldestHistoricBlock, 'historic');
-      await test.verifyHistoricBlock(Math.max(expectedOldestHistoricBlock, 1), true);
+      await test.verifyHistoricBlock(expectedOldestHistoricBlock, true);
       if (expectedBlockRemoved > 0) {
         await test.verifyHistoricBlock(expectedBlockRemoved, false);
       }

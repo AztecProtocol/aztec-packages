@@ -1,6 +1,5 @@
 #pragma once
 
-#include "gmock/gmock.h"
 #include <cstdint>
 #include <memory>
 
@@ -49,6 +48,14 @@ class MockContext : public ContextInterface {
 
     MOCK_METHOD(bool, get_last_success, (), (const, override));
     MOCK_METHOD(void, set_last_success, (bool success), (override));
+
+    MOCK_METHOD(Gas, get_gas_used, (), (const, override));
+    MOCK_METHOD(Gas, get_gas_limit, (), (const, override));
+    MOCK_METHOD(void, set_gas_used, (Gas gas_used), (override));
+    MOCK_METHOD(Gas, get_parent_gas_used, (), (const, override));
+    MOCK_METHOD(Gas, get_parent_gas_limit, (), (const, override));
+
+    MOCK_METHOD(Gas, gas_left, (), (const, override));
 
     // Event Emitting
     MOCK_METHOD(ContextEvent, serialize_context_event, (), (override));

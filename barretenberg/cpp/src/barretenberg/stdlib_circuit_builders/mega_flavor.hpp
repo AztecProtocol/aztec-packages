@@ -440,18 +440,24 @@ class MegaFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
-     * TODO(// TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Clean up the constructors here and
-     * ensure the pcs_verification_key is initialized everywhere it needs to be.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
+            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
+            /* 4. is_kernel bool */ (1 * num_frs_fr) +
+            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const VerificationKey& vk) = default;
@@ -508,6 +514,10 @@ class MegaFlavor {
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
+
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
 
             return elements;
         }
@@ -623,17 +633,6 @@ class MegaFlavor {
                        lagrange_last,
                        lagrange_ecc_op,
                        databus_id);
-
-        // Compute a hash of the full contents of the verification key
-        uint256_t hash() const
-        {
-            std::vector<uint8_t> buffer;
-            for (const FF& field : this->to_field_elements()) {
-                std::vector<uint8_t> field_bytes = field.to_buffer();
-                buffer.insert(buffer.end(), field_bytes.begin(), field_bytes.end());
-            }
-            return from_buffer<uint256_t>(crypto::sha256(buffer));
-        }
     };
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.

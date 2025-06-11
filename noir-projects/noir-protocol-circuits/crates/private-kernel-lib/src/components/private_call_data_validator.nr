@@ -93,7 +93,13 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<let N: u32>(
+    pub fn validate_proof(self, is_first_app: bool) {
+        if !std::runtime::is_unconstrained() {
+            self.data.verify(is_first_app);
+        }
+    }
+
+    pub fn validate_data<let N: u32>(
         self,
         accumulated_note_hashes: [ScopedNoteHash; N],
         protocol_contract_tree_root: Field,
@@ -153,6 +159,10 @@ impl PrivateCallDataValidator {
             public_inputs.call_context,
             "call_context does not match call request",
         );
+        // If you get this error, you've most likely made a mistake in serialization of the contract function
+        // arguments. Thoroughly check that the implementations of Serialize and Deserialize of all the function
+        // arguments follow Noir's intrinsic serialization rules (i.e. the order in the serialized array has to
+        // match the order of the struct fields in the struct body).
         assert_eq(
             request.args_hash,
             public_inputs.args_hash,

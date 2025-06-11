@@ -11,6 +11,7 @@ import type { SequencerPublisher } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
@@ -153,9 +154,9 @@ export class EpochsTestContext {
   }
 
   public async teardown() {
-    this.monitor.stop();
-    await Promise.all(this.proverNodes.map(node => node.stop()));
-    await Promise.all(this.nodes.map(node => node.stop()));
+    await this.monitor.stop();
+    await Promise.all(this.proverNodes.map(node => tryStop(node, this.logger)));
+    await Promise.all(this.nodes.map(node => tryStop(node, this.logger)));
     await this.context.teardown();
   }
 
@@ -232,13 +233,19 @@ export class EpochsTestContext {
   }
 
   /** Waits for the aztec node to sync to the target block number. */
-  public async waitForNodeToSync(blockNumber: number, type: 'finalised' | 'historic') {
+  public async waitForNodeToSync(blockNumber: number, type: 'proven' | 'finalised' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
     let synched = false;
     while (!synched) {
       await sleep(waitTime);
-      const syncState = await this.context.aztecNode.getWorldStateSyncStatus();
-      if (type === 'finalised') {
+      const [syncState, tips] = await Promise.all([
+        this.context.aztecNode.getWorldStateSyncStatus(),
+        await this.context.aztecNode.getL2Tips(),
+      ]);
+      this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
+      if (type === 'proven') {
+        synched = tips.proven.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+      } else if (type === 'finalised') {
         synched = syncState.finalisedBlockNumber >= blockNumber;
       } else {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;

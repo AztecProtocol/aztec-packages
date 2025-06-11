@@ -20,8 +20,11 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
@@ -37,6 +40,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 needed;
     address proposer;
     bool shouldRevert;
+    bool provideEmptyAttestations;
+    uint256 attestationsCount;
+    ProposePayload proposePayload;
   }
 
   SlashFactory internal slashFactory;
@@ -50,8 +56,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
   Signature internal emptySignature;
   TimeCheater internal timeCheater;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
-  mapping(address proposer => uint256 privateKey) internal proposerPrivateKeys;
-  mapping(address proposer => address attester) internal proposerToAttester;
   mapping(address => bool) internal _seenValidators;
   mapping(address => bool) internal _seenCommittee;
 
@@ -62,9 +66,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime =
-        full.block.decodedHeader.timestamp - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+      Slot slotNumber = full.block.header.slotNumber;
+      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp)
+        - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
@@ -90,9 +94,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
 
-    if (_validatorCount > 0) {
+    if (initialValidators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
+      testERC20.mint(address(multiAdder), rollup.getDepositAmount() * initialValidators.length);
       multiAdder.addValidators(initialValidators);
     }
 
@@ -115,29 +119,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
     uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", _keySalt)));
     address attester = vm.addr(attesterPrivateKey);
     attesterPrivateKeys[attester] = attesterPrivateKey;
-    uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", _keySalt)));
-    address proposer = vm.addr(proposerPrivateKey);
-    proposerPrivateKeys[proposer] = proposerPrivateKey;
-    proposerToAttester[proposer] = attester;
 
-    return CheatDepositArgs({
-      attester: attester,
-      proposer: proposer,
-      withdrawer: address(this),
-      amount: TestConstants.AZTEC_MINIMUM_STAKE
-    });
-  }
-
-  function createSignature(address _signer, bytes32 _digest)
-    internal
-    view
-    returns (Signature memory)
-  {
-    uint256 privateKey = attesterPrivateKeys[_signer];
-
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-
-    return Signature({isEmpty: false, v: v, r: r, s: s});
+    return CheatDepositArgs({attester: attester, withdrawer: address(this)});
   }
 }

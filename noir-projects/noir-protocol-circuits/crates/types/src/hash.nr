@@ -1,7 +1,6 @@
 use crate::{
     abis::{
         contract_class_function_leaf_preimage::ContractClassFunctionLeafPreimage,
-        contract_class_log::ContractClassLog,
         function_selector::FunctionSelector,
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
@@ -15,11 +14,12 @@ use crate::{
         GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
     },
     merkle_tree::root::root_from_sibling_path,
-    messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
+    messaging::l2_to_l1_message::L2ToL1Message,
     poseidon2::Poseidon2Sponge,
     traits::{FromField, Hash, ToField},
     utils::{arrays::array_concat, field::{field_from_bytes, field_from_bytes_32_trunc}},
 };
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = sha256::digest(bytes_to_hash);
@@ -52,9 +52,18 @@ pub fn compute_note_hash_nonce(first_nullifier_in_tx: Field, note_index_in_tx: u
     )
 }
 
-pub fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
-    let inputs = [nonce, siloed_note_hash];
+pub fn compute_unique_note_hash(note_nonce: Field, siloed_note_hash: Field) -> Field {
+    let inputs = [note_nonce, siloed_note_hash];
     poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__UNIQUE_NOTE_HASH)
+}
+
+pub fn compute_nonce_and_unique_note_hash(
+    siloed_note_hash: Field,
+    first_nullifier: Field,
+    note_index_in_tx: u32,
+) -> Field {
+    let note_nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
+    compute_unique_note_hash(note_nonce, siloed_note_hash)
 }
 
 pub fn compute_siloed_note_hash(app: AztecAddress, note_hash: Field) -> Field {
@@ -73,8 +82,7 @@ pub fn compute_unique_siloed_note_hash(
     if siloed_note_hash == 0 {
         0
     } else {
-        let nonce = compute_note_hash_nonce(first_nullifier, note_index_in_tx);
-        compute_unique_note_hash(nonce, siloed_note_hash)
+        compute_nonce_and_unique_note_hash(siloed_note_hash, first_nullifier, note_index_in_tx)
     }
 }
 
@@ -117,28 +125,19 @@ pub fn silo_private_log(private_log: Scoped<PrivateLogData>) -> PrivateLog {
     }
 }
 
-pub fn compute_siloed_contract_class_log_field(
-    contract_address: AztecAddress,
-    first_field: Field,
-) -> Field {
-    poseidon2_hash([contract_address.to_field(), first_field])
-}
-
-pub fn silo_contract_class_log(contract_class_log: ContractClassLog) -> ContractClassLog {
-    if contract_class_log.contract_address.is_zero() {
-        contract_class_log
-    } else {
-        let mut log = contract_class_log;
-        log.log.fields[0] = compute_siloed_contract_class_log_field(
-            contract_class_log.contract_address,
-            log.log.fields[0],
-        );
-        log
-    }
-}
-
 pub fn compute_contract_class_log_hash(log: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]) -> Field {
     poseidon2_hash(log)
+}
+
+pub fn compute_app_secret_key(
+    master_secret_key: EmbeddedCurveScalar,
+    app_address: AztecAddress,
+    app_secret_generator: Field,
+) -> Field {
+    poseidon2_hash_with_separator(
+        [master_secret_key.hi, master_secret_key.lo, app_address.to_field()],
+        app_secret_generator,
+    )
 }
 
 pub fn merkle_hash(left: Field, right: Field) -> Field {
@@ -152,23 +151,30 @@ pub fn compute_l2_to_l1_hash(
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
-    let mut bytes: [u8; 160] = std::mem::zeroed();
+    let contract_address_bytes: [u8; 32] = contract_address.to_field().to_be_bytes();
+    let recipient_bytes: [u8; 20] = recipient.to_be_bytes();
+    let content_bytes: [u8; 32] = content.to_be_bytes();
+    let rollup_version_id_bytes: [u8; 32] = rollup_version_id.to_be_bytes();
+    let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
 
-    let inputs =
-        [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
-    for i in 0..5 {
-        // TODO are bytes be in fr.to_buffer() ?
-        let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
-        for j in 0..32 {
-            bytes[32 * i + j] = item_bytes[j];
-        }
+    let mut bytes: [u8; 148] = std::mem::zeroed();
+    for i in 0..32 {
+        bytes[i] = contract_address_bytes[i];
+        bytes[i + 32] = rollup_version_id_bytes[i];
+        // 64 - 84 are for recipient.
+        bytes[i + 84] = chain_id_bytes[i];
+        bytes[i + 116] = content_bytes[i];
+    }
+
+    for i in 0..20 {
+        bytes[64 + i] = recipient_bytes[i];
     }
 
     sha256_to_field(bytes)
 }
 
 pub fn silo_l2_to_l1_message(
-    msg: ScopedL2ToL1Message,
+    msg: Scoped<L2ToL1Message>,
     rollup_version_id: Field,
     chain_id: Field,
 ) -> Field {
@@ -177,8 +183,8 @@ pub fn silo_l2_to_l1_message(
     } else {
         compute_l2_to_l1_hash(
             msg.contract_address,
-            msg.message.recipient,
-            msg.message.content,
+            msg.inner.recipient,
+            msg.inner.content,
             rollup_version_id,
             chain_id,
         )
@@ -423,6 +429,27 @@ where
     sponge.squeeze()
 }
 
+// This function is  unconstrained because it is intended to be used in unconstrained context only as
+// in constrained contexts it would be too inefficient.
+pub unconstrained fn poseidon2_hash_with_separator_bounded_vec<let N: u32, T>(
+    inputs: BoundedVec<Field, N>,
+    separator: T,
+) -> Field
+where
+    T: ToField,
+{
+    let in_len = inputs.len() + 1;
+    let iv: Field = (in_len as Field) * TWO_POW_64;
+    let mut sponge = Poseidon2Sponge::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs.get(i));
+    }
+
+    sponge.squeeze()
+}
+
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     let mut fields = [0; (N + 30) / 31];
@@ -526,7 +553,7 @@ fn compute_l2_l1_hash() {
     // All zeroes
     let hash_result =
         compute_l2_to_l1_hash(AztecAddress::from_field(0), EthAddress::zero(), 0, 0, 0);
-    assert(hash_result == 0xb393978842a0fa3d3e1470196f098f473f9678e72463cb65ec4ab5581856c2);
+    assert(hash_result == 0x3b18c58c739716e76429634a61375c45b3b5cd470c22ab6d3e14cee23dd992);
 
     // Non-zero case
     let hash_result = compute_l2_to_l1_hash(
@@ -536,7 +563,7 @@ fn compute_l2_l1_hash() {
         2,
         4,
     );
-    assert(hash_result == 0x3f88c1044a05e5340ed20466276500f6d45ca5603913b9091e957161734e16);
+    assert(hash_result == 0xaab2a5828156782b12a1dc6f336e2bc627eb1b9514b02d511f66296990c050);
 }
 
 #[test]
@@ -545,16 +572,30 @@ fn silo_l2_to_l1_message_matches_typescript() {
     let chainId = 5;
 
     let hash = silo_l2_to_l1_message(
-        ScopedL2ToL1Message {
-            message: L2ToL1Message { recipient: EthAddress::from_field(1), content: 2, counter: 0 },
-            contract_address: AztecAddress::from_field(3),
-        },
+        L2ToL1Message { recipient: EthAddress::from_field(1), content: 2 }.scope(
+            AztecAddress::from_field(3),
+        ),
         version,
         chainId,
     );
 
-    // The following value was generated by `l2_to_l1_message.test.ts`
-    let hash_from_typescript = 0x00c6155d69febb9d5039b374dd4f77bf57b7c881709aa524a18acaa0bd57476a;
+    // The following value was generated by `yarn-project/stdlib/src/hash/hash.test.ts`
+    let hash_from_typescript = 0x0081edf209e087ad31b3fd24263698723d57190bd1d6e9fe056fc0c0a68ee661;
 
     assert_eq(hash, hash_from_typescript);
+}
+
+#[test]
+unconstrained fn poseidon2_hash_with_separator_bounded_vec_matches_non_bounded_vec_version() {
+    let inputs = BoundedVec::<Field, 4>::from_array([1, 2, 3]);
+    let separator = 42;
+
+    // Hash using bounded vec version
+    let bounded_result = poseidon2_hash_with_separator_bounded_vec(inputs, separator);
+
+    // Hash using regular version
+    let regular_result = poseidon2_hash_with_separator([1, 2, 3], separator);
+
+    // Results should match
+    assert_eq(bounded_result, regular_result);
 }
