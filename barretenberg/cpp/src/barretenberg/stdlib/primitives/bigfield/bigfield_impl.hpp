@@ -1527,14 +1527,14 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     // = predicate * (limb_i - 2 * value) + value
     bb::fr two(2);
 
-    field_t limb_0 = static_cast<field_t<Builder>>(predicate).madd(
-        -(binary_basis_limbs[0].element * two) + bb::fr(to_add_limbs[0]), binary_basis_limbs[0].element);
-    field_t limb_1 = static_cast<field_t<Builder>>(predicate).madd(
-        -(binary_basis_limbs[1].element * two) + bb::fr(to_add_limbs[1]), binary_basis_limbs[1].element);
-    field_t limb_2 = static_cast<field_t<Builder>>(predicate).madd(
-        -(binary_basis_limbs[2].element * two) + bb::fr(to_add_limbs[2]), binary_basis_limbs[2].element);
-    field_t limb_3 = static_cast<field_t<Builder>>(predicate).madd(
-        -(binary_basis_limbs[3].element * two) + bb::fr(to_add_limbs[3]), binary_basis_limbs[3].element);
+    field_t limb_0 = field_t<Builder>::conditional_assign(
+        predicate, bb::fr(to_add_limbs[0]) - (binary_basis_limbs[0].element * two), binary_basis_limbs[0].element);
+    field_t limb_1 = field_t<Builder>::conditional_assign(
+        predicate, bb::fr(to_add_limbs[1]) - (binary_basis_limbs[1].element * two), binary_basis_limbs[1].element);
+    field_t limb_2 = field_t<Builder>::conditional_assign(
+        predicate, bb::fr(to_add_limbs[2]) - (binary_basis_limbs[2].element * two), binary_basis_limbs[2].element);
+    field_t limb_3 = field_t<Builder>::conditional_assign(
+        predicate, bb::fr(to_add_limbs[3]) - (binary_basis_limbs[3].element * two), binary_basis_limbs[3].element);
 
     uint256_t max_limb_0 =
         binary_basis_limbs[0].maximum_value > to_add_limbs[0] ? binary_basis_limbs[0].maximum_value : to_add_limbs[0];
