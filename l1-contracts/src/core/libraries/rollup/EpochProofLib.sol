@@ -6,46 +6,22 @@ import {
   SubmitEpochRootProofArgs,
   PublicInputArgs,
   IRollupCore,
-  EpochRewards,
-  SubEpochRewards
+  RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib,
-  FeeLib,
-  FeeStore
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 library EpochProofLib {
-  using SafeERC20 for IERC20;
-
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
   using FeeHeaderLib for CompressedFeeHeader;
-
-  struct Values {
-    address sequencer;
-    uint256 proverFee;
-    uint256 sequencerFee;
-    uint256 sequencerBlockReward;
-    uint256 manaUsed;
-  }
-
-  struct Totals {
-    uint256 feesToClaim;
-    uint256 totalBurn;
-  }
 
   // This is a temporary struct to avoid stack too deep errors
   struct BlobVarsTemp {
@@ -53,10 +29,6 @@ library EpochProofLib {
     uint256 offset;
     uint256 i;
   }
-
-  // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
-  // such as sacrificial hearts, during rituals performed within temples.
-  address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
   /**
    * @notice  Submit a proof for an epoch in the pending chain
@@ -89,12 +61,12 @@ library EpochProofLib {
 
     Epoch endEpoch = assertAcceptable(_args.start, _args.end);
 
-    require(verifyEpochRootProof(_args), "proof is invalid");
+    require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
     rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
 
-    handleRewardsAndFees(_args, endEpoch);
+    RewardLib.handleRewardsAndFees(_args, endEpoch);
 
     emit IRollupCore.L2ProofVerified(_args.end, _args.args.proverId);
   }
@@ -229,77 +201,6 @@ library EpochProofLib {
     return publicInputs;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) private {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    bool isRewardDistributorCanonical =
-      address(this) == rollupStore.config.rewardDistributor.canonicalRollup();
-
-    uint256 length = _args.end - _args.start + 1;
-    EpochRewards storage $er = rollupStore.epochRewards[_endEpoch];
-    SubEpochRewards storage $sr = $er.subEpoch[length];
-
-    {
-      address prover = _args.args.proverId;
-      require(
-        !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
-      );
-      $sr.hasSubmitted[prover] = true;
-    }
-    $sr.summedCount += 1;
-
-    if (length > $er.longestProvenLength) {
-      Values memory v;
-      Totals memory t;
-
-      {
-        uint256 added = length - $er.longestProvenLength;
-        uint256 blockRewardsAvailable = isRewardDistributorCanonical
-          ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
-          : 0;
-        uint256 sequencerShare = blockRewardsAvailable / 2;
-        v.sequencerBlockReward = sequencerShare / added;
-
-        $er.rewards += (blockRewardsAvailable - sequencerShare);
-      }
-
-      FeeStore storage feeStore = FeeLib.getStorage();
-
-      for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
-
-        v.manaUsed = feeHeader.getManaUsed();
-
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
-        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
-
-        t.feesToClaim += fee;
-        t.totalBurn += burn;
-
-        // Compute the proving fee in the fee asset
-        v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee;
-
-        v.sequencerFee = fee - burn - v.proverFee;
-
-        {
-          v.sequencer = fieldToAddress(_args.fees[i * 2]);
-          rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
-        }
-      }
-
-      $er.longestProvenLength = length;
-
-      if (t.feesToClaim > 0) {
-        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
-      }
-
-      if (t.totalBurn > 0) {
-        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
-      }
-    }
-  }
-
   function assertAcceptable(uint256 _start, uint256 _end) private view returns (Epoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -319,7 +220,7 @@ library EpochProofLib {
     // at the start.
     Epoch parentEpoch = STFLib.getEpochForBlock(_start - 1);
 
-    require(startEpoch > Epoch.wrap(0) || _start == 1, "invalid first epoch proof");
+    require(startEpoch > Epoch.wrap(0) || _start == 1, Errors.Rollup__InvalidFirstEpochProof());
 
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
@@ -377,9 +278,5 @@ library EpochProofLib {
 
   function addressToField(address _a) private pure returns (bytes32) {
     return bytes32(uint256(uint160(_a)));
-  }
-
-  function fieldToAddress(bytes32 _f) private pure returns (address) {
-    return address(uint160(uint256(_f)));
   }
 }

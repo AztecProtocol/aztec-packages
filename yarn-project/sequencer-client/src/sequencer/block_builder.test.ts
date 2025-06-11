@@ -11,7 +11,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockOptions,
   type PublicProcessorValidator,
   WorldStateRunningState,
   type WorldStateSynchronizer,
@@ -71,7 +70,7 @@ describe('BlockBuilder', () => {
   };
 
   class TestBlockBuilder extends FullNodeBlockBuilder {
-    public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _opts: BuildBlockOptions) {
+    public override makeBlockBuilderDeps(_globalVariables: GlobalVariables) {
       return Promise.resolve({
         publicProcessorDBFork: fork,
         processor: publicProcessor,
@@ -92,7 +91,7 @@ describe('BlockBuilder', () => {
       new Fr(version),
       new Fr(newBlockNumber),
       new Fr(newSlotNumber),
-      Fr.ZERO,
+      /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
       gasFees,

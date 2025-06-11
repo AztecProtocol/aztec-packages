@@ -185,37 +185,6 @@ export function truncateAndPad(buf: Buffer): Buffer {
   return Buffer.concat([Buffer.alloc(1), buf.subarray(0, 31)]);
 }
 
-/**
- * Stores 248 bits of information in 1 field.
- * @param buf - 32 or 31 bytes of data
- * @returns 1 field element
- */
-export function toTruncField(buf: Buffer): Fr {
-  if (buf.length !== 32 && buf.length !== 31) {
-    throw new Error('Buffer must be 31 or 32 bytes');
-  }
-  if ((buf.length == 32 && buf[0] == 0) || buf.length == 31) {
-    return Fr.fromBuffer(buf);
-  } else {
-    // Note: safer to NOT truncate here, all inputs are expected to be truncated
-    // from Noir or L1 Contracts or Class.hash() methods
-    throw new Error(`Number ${toBigInt(buf)} does not fit in 31 byte truncated buffer`);
-  }
-}
-
-/**
- * Reconstructs the original 31 bytes of data from 1 truncated field element.
- * @param field - field element
- * @returns 31 bytes of data as a Buffer
- */
-export function fromTruncField(field: Fr): Buffer {
-  const buffer = field.toBuffer();
-  if (buffer[0] != 0) {
-    throw new Error(`Number ${field} does not fit in 31 byte truncated buffer`);
-  }
-  return buffer;
-}
-
 export function fromFieldsTuple(fields: Tuple<Fr, 2>): Buffer {
   return from2Fields(fields[0], fields[1]);
 }

@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -34,7 +34,12 @@ import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
-import { accumulateBlobs, buildBlobHints, buildHeaderFromCircuitOutputs } from './block-building-helpers.js';
+import {
+  accumulateBlobs,
+  buildBlobHints,
+  buildHeaderFromCircuitOutputs,
+  getEmptyBlockBlobsHash,
+} from './block-building-helpers.js';
 import type { EpochProvingState } from './epoch-proving-state.js';
 import type { TxProvingState } from './tx-proving-state.js';
 
@@ -58,7 +63,7 @@ export class BlockProvingState {
   public spongeBlobState: SpongeBlob | undefined;
   public startBlobAccumulator: BatchedBlobAccumulator | undefined;
   public endBlobAccumulator: BatchedBlobAccumulator | undefined;
-  public blobsHash: Buffer | undefined;
+  public blobsHash: Fr | undefined;
   public totalNumTxs: number;
   private txs: TxProvingState[] = [];
   public error: string | undefined;
@@ -221,6 +226,8 @@ export class BlockProvingState {
         protocolContractTreeRoot,
       });
 
+      this.blobsHash = await getEmptyBlockBlobsHash();
+
       return {
         rollupType: 'empty-block-root-rollup' satisfies CircuitName,
         inputs: EmptyBlockRootRollupInputs.from({
@@ -233,7 +240,7 @@ export class BlockProvingState {
 
     const previousRollupData = await Promise.all(nonEmptyProofs.map(p => this.#getPreviousRollupData(p!)));
     const blobData = await this.#getBlockRootRollupBlobData();
-    this.blobsHash = blobData.blobsHash.toBuffer();
+    this.blobsHash = blobData.blobsHash;
 
     if (previousRollupData.length === 1) {
       return {
@@ -272,7 +279,7 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader,
-      startBlobAccumulator: this.endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.endBlobAccumulator),
       finalBlobChallenges: this.endBlobAccumulator.finalBlobChallenges,
       proverId,
     });
@@ -325,18 +332,11 @@ export class BlockProvingState {
     }
     const endState = new StateReference(this.l1ToL2MessageTreeSnapshotAfterInsertion, endPartialState);
 
-    // TODO(MW): cleanup
-    if (!this.blobsHash) {
-      this.blobsHash = (
-        await buildBlobHints(this.txs.map(txProvingState => txProvingState.processedTx.txEffect))
-      ).blobsHash.toBuffer();
-    }
-
     return buildHeaderFromCircuitOutputs(
       previousRollupData.map(d => d.baseOrMergeRollupPublicInputs),
       this.rootParityProvingOutput!.inputs,
       this.blockRootProvingOutput!.inputs,
-      this.blobsHash,
+      this.blobsHash!,
       endState,
     );
   }
@@ -382,7 +382,7 @@ export class BlockProvingState {
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
       newArchiveSiblingPath: this.newArchiveSiblingPath,
       previousBlockHeader: this.previousBlockHeader,
-      startBlobAccumulator: this.startBlobAccumulator!.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.startBlobAccumulator!),
       finalBlobChallenges: this.startBlobAccumulator!.finalBlobChallenges,
       proverId,
     });

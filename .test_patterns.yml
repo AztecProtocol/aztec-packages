@@ -255,6 +255,10 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
 
   # boxes
   - regex: "vanilla-all-browsers box boxes"
@@ -269,6 +273,11 @@ tests:
 
   - regex: "run_compose_test react-[a-z]* box boxes"
     error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "toBeVisible" # http://ci.aztec-labs.com/b7b10b95167d5ed6
     owners:
       - *saleel
 
