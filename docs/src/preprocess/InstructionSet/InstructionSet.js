@@ -24,7 +24,7 @@ const TOPICS_IN_SECTIONS = [
 ];
 
 const IN_TAG_DESCRIPTION =
-  "The [tag/size](./memory-model#tags-and-tagged-memory) to check inputs against and tag the destination with.";
+  "The [tag/size](../memory-model.mdx#tags-and-tagged-memory) to check inputs against and tag the destination with.";
 const IN_TAG_DESCRIPTION_NO_FIELD =
   IN_TAG_DESCRIPTION + " `field` type is NOT supported for this instruction.";
 const INDIRECT_FLAG_DESCRIPTION =
@@ -53,7 +53,7 @@ const CALL_INSTRUCTION_ARGS = [
   }
 ];
 const CALL_INSTRUCTION_DETAILS = `
-    ["Nested contract calls"](./nested-calls) provides a full explanation of this
+    ["Nested contract calls"](../nested-calls.mdx) provides a full explanation of this
     instruction along with the shorthand used in the expression above.
     The explanation includes details on charging gas for nested calls,
     nested context derivation, world state, and updating the parent context
@@ -583,11 +583,11 @@ T[bOffset] == u8
         description:
           "memory offset specifying where to store operation's result",
       },
-      { name: "dstTag", description: "The [tag/type](./memory-model#tags-and-tagged-memory) to tag the destination with." },
+      { name: "dstTag", description: "The [tag/type](../memory-model.md#tags-and-tagged-memory) to tag the destination with." },
     ],
     Expression: "`M[dstOffset] = cast<dstTag>(M[srcOffset])`",
     Summary: "Type cast",
-    Details: "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](./memory-model#cast-and-tag-conversions) for more details.",
+    Details: "Cast a word in memory based on the `dstTag` specified in the bytecode. Truncates (`M[dstOffset] = M[aOffset] mod 2^dstsize`) when casting to a smaller type, left-zero-pads when casting to a larger type. See [here](../memory-model.md#cast-and-tag-conversions) for more details.",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = dstTag`",
     "Gas cost": [
@@ -834,7 +834,7 @@ context.machineState.pc = loc
       {
         name: "inTag",
         description:
-          "The [type/size](./memory-model#tags-and-tagged-memory) to cast `value` to and to tag the destination with.",
+          "The [type/size](../memory-model.md#tags-and-tagged-memory) to cast `value` to and to tag the destination with.",
       },
       {
         name: "value",
@@ -1264,7 +1264,7 @@ context.contractCallResults.output = M[retOffset:retOffset+retSize]
 halt
 `,
     Summary: "Halt execution within this context (without revert), optionally returning some data",
-    Details: 'Return control flow to the calling context/contract. Caller will accept World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
+    Details: 'Return control flow to the calling context/contract. Caller will accept World State modifications. See ["Halting"](../execution.md#halting) to learn more. See ["Nested contract calls"](../nested-calls.mdx) to see how the caller updates its context after the nested call halts.',
     "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
     "Gas cost": [
@@ -1299,7 +1299,7 @@ halt
     Summary:
       "Halt execution within this context as `reverted`, optionally returning some data",
     Details:
-      'Return control flow to the calling context/contract. Caller will reject World State modifications. See ["Halting"](./execution#halting) to learn more. See ["Nested contract calls"](./nested-calls) to see how the caller updates its context after the nested call halts.',
+      'Return control flow to the calling context/contract. Caller will reject World State modifications. See ["Halting"](../execution.md#halting) to learn more. See ["Nested contract calls"](../nested-calls.mdx) to see how the caller updates its context after the nested call halts.',
     "Tag checks": "`T[returnSizeOffset] == u32`",
     "Tag updates": "",
     "Gas cost": [

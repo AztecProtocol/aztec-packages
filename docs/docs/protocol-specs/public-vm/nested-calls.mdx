@@ -5,7 +5,6 @@ A **nested contract call** occurs _during_ AVM execution and is triggered by a *
 A nested contract call performs the following operations:
 
 1. [Charge gas](#gas-cost-of-call-instruction) for the nested call
-1. [Trace the nested contract call](#tracing-nested-contract-calls)
 1. [Derive the **nested context**](#context-initialization-for-nested-calls) from the calling context and the call instruction
 1. Initiate [AVM execution](./execution) within the nested context until a halt is reached
 1. [Update the **calling context**](#updating-the-calling-context-after-nested-call-halts) after the nested call halts
@@ -20,30 +19,12 @@ l2GasCost = min(M[instr.args.gasOffset], context.machineState.l2GasLeft);
 daGasCost = min(M[instr.args.gasOffset + 1], context.machineState.daGasLeft);
 
 chargeGas(context, l2GasCost, daGasCost);
-traceNestedCall(context, instr.args.addrOffset);
 nestedContext = deriveContext(context, instr.args, isStaticCall);
 execute(nestedContext);
 updateContextAfterNestedCall(context, instr.args, nestedContext);
 ```
 
 These call instructions share the same argument definitions: `gasOffset`, `addrOffset`, `argsOffset`, `argsSize`, `retOffset`, `retSize`, and `successOffset` (defined in the [instruction set](./instruction-set)). These arguments will be referred to via those keywords below, and will often be used in conjunction with the `M[offset]` syntax which is shorthand for `context.machineState.memory[offset]`.
-
-## Tracing nested contract calls
-
-Before nested execution begins, the contract call is traced.
-
-```jsx
-traceNestedCall(context, addrOffset)
-// which is shorthand for
-context.worldStateAccessTrace.contractCalls.append(
-    TracedContractCall {
-        callPointer: context.worldStateAccessTrace.contractCalls.length + 1,
-        address: M[addrOffset],
-        counter: ++context.worldStateAccessTrace.accessCounter,
-        endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
-    }
-)
-```
 
 ## Context initialization for nested calls
 
@@ -86,7 +67,7 @@ Execution (and the `execution` shorthand above) is detailed in ["Execution, Gas,
 
 ## Updating the calling context after nested call halts
 
-After the nested call halts, the calling context is updated. The call's success is extracted, unused gas is refunded, output data can be copied to the caller's memory, world state and accrued substate are conditionally accepted, and the world state trace is updated. The following shorthand is used to refer to this process in the ["Instruction Set"](./instruction-set):
+After the nested call halts, the calling context is updated. The call's success is extracted, unused gas is refunded, output data can be copied to the caller's memory, and world state and accrued substate are conditionally accepted. The following shorthand is used to refer to this process in the ["Instruction Set"](./instruction-set):
 
 ```jsx
 updateContextAfterNestedCall(context, instr.args, nestedContext);
@@ -121,25 +102,3 @@ if !nestedContext.results.reverted:
     context.accruedSubstate.append(nestedContext.accruedSubstate)
 ```
 
-### Accepting nested call's World State access trace
-
-If the nested call reverted, the caller initializes the "end-lifetime" of all world state accesses made within the nested call.
-
-```jsx
-if nestedContext.results.reverted:
-    // process all traces (this is shorthand)
-    for trace in nestedContext.worldStateAccessTrace:
-        for access in trace:
-            if access.callPointer >= nestedContext.environment.callPointer:
-                // don't override end-lifetime already set by a deeper nested call
-                if access.endLifetime == 0:
-                    access.endLifetime = nestedContext.worldStateAccessTrace.accessCounter
-```
-
-> A world state access that was made in a deeper nested _reverted_ context will already have its end-lifetime initialized. The caller does _not_ overwrite this access' end-lifetime here as it already has a narrower lifetime.
-
-Regardless of whether the nested call reverted, the caller accepts its updated world state access trace (with updated end-lifetimes).
-
-```jsx
-context.worldStateAccessTrace = nestedContext.worldStateAccessTrace;
-```
