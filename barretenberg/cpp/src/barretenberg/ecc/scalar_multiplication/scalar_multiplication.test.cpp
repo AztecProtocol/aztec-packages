@@ -182,8 +182,8 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatch)
     // std::cout << "computing expected" << std::endl;
     for (size_t i = 0; i < total_points; ++i) {
         uint64_t bucket = input_point_schedule[i] & 0xFFFFFFFF;
-        EXPECT_LT(bucket, num_buckets);
-        expected_buckets[bucket] += TestFixture::generators[i];
+        EXPECT_LT(static_cast<size_t>(bucket), num_buckets);
+        expected_buckets[static_cast<size_t>(bucket)] += TestFixture::generators[i];
     }
     for (size_t i = 0; i < num_buckets; ++i) {
         if (!expected_buckets[i].is_point_at_infinity()) {
@@ -193,8 +193,6 @@ TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatch)
             EXPECT_FALSE(bucket_data.bucket_exists.get(i));
         }
     }
-
-    // how do I test more thoroughly?
 }
 
 TYPED_TEST(ScalarMultiplicationTest, ConsumePointBatchAndAccumulate)
