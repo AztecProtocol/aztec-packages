@@ -71,9 +71,15 @@ comptime fn create_stub_base(
     // Example of what the fold(...) below will generate for `target_address` and `fee_juice_limit_per_tx` function
     // parameters:
     // ```
-    // let mut serialized_args =  &[];
-    // serialized_args = serialized_args.append(aztec::protocol_types::traits::Serialize::serialize(target_address));
-    // serialized_args = serialized_args.push_back(fee_juice_limit_per_tx as Field);
+    // let mut serialized_args =  [0;2];
+    // let mut serialized_args_index = 0;
+    // let target_address_serialized = aztec::protocol_types::traits::Serialize::serialize(target_address)
+    // for i in 0..target_address_serialized.len() {
+    //    serialized_args[serialized_args_index] = target_address_serialized[i];
+    //    serialized_args_index += 1;
+    // }
+    // serialized_args[serialized_args_index] = fee_juice_limit_per_tx as Field
+    // serialized_args_index += 1;
     // ```
     let serialized_args_array_construction = fn_parameters.fold(
         quote {
