@@ -12,6 +12,8 @@ This page outlines Aztec's fundamental technical concepts. It is recommended to 
 
 Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution.
 
+<Image img={require("@site/static/img/Aztec_overview.png")} />
+
 ## High level view
 
 <Image img={require("@site/static/img/aztec-high-level.png")} />
