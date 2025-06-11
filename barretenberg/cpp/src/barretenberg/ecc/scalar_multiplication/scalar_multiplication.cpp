@@ -28,7 +28,7 @@ namespace bb::scalar_multiplication {
  */
 template <typename Curve>
 void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
-                                                                 std::vector<uint32_t>& consolidated_indices)
+                                                                 std::vector<uint32_t>& consolidated_indices) noexcept
 {
     const size_t num_cpus = get_num_cpus();
 
@@ -90,7 +90,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
  */
 template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
-    std::vector<std::span<ScalarField>>& scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices)
+    std::vector<std::span<ScalarField>>& scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
 
     const size_t num_msms = scalars.size();
@@ -170,7 +170,9 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
  * @return uint32_t
  */
 template <typename Curve>
-uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar, size_t round, size_t slice_size)
+uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
+                                      size_t round,
+                                      size_t slice_size) noexcept
 {
     size_t hi_bit = NUM_BITS_IN_FIELD - (round * slice_size);
     // todo remove
@@ -199,10 +201,10 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
  * @param num_points
  * @return constexpr size_t
  */
-template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points)
+template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points) noexcept
 {
     // We do 2 group operations per bucket, and they are full 3D Jacobian adds which are ~2x more than an affine add
-    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 3;
+    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 4;
     size_t cached_cost = static_cast<size_t>(-1);
     size_t target_bit_slice = 0;
     for (size_t bit_slice = 1; bit_slice < 20; ++bit_slice) {
@@ -228,11 +230,12 @@ template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const s
  * @return true
  * @return false
  */
-template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_points, const size_t num_buckets)
+template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept
 {
     if (num_points < 128) {
         return false;
     }
+
     // Affine trick requires log(N) modular inversions per Pippenger round.
     // It saves NUM_POINTS * COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION field muls
     // It also saves NUM_BUCKETS * EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1 field muls
@@ -243,7 +246,7 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
     // We use 4-bit windows = ((NUM_BITS_IN_FIELD + 3) / 4) multiplications
     // Computing 4-bit window table requires 14 muls
     constexpr size_t COST_OF_INVERSION = NUM_BITS_IN_FIELD + ((NUM_BITS_IN_FIELD + 3) / 4) + 14;
-    constexpr size_t COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION = 5;
+    constexpr size_t COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION = 6;
     constexpr size_t EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1 = 5;
 
     double num_points_f = static_cast<double>(num_points);
@@ -292,7 +295,7 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
 template <typename Curve>
 void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
                                    const size_t num_points,
-                                   typename Curve::BaseField* scratch_space)
+                                   typename Curve::BaseField* scratch_space) noexcept
 {
     using Fq = typename Curve::BaseField;
     Fq batch_inversion_accumulator = Fq::one();
@@ -340,7 +343,8 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
  * @return Curve::AffineElement
  */
 template <typename Curve>
-typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data)
+typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(
+    MSMData& msm_data) noexcept
 {
     std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
     const size_t size = nonzero_scalar_indices.size();
@@ -365,7 +369,7 @@ typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transf
  * @return Curve::AffineElement
  */
 template <typename Curve>
-typename Curve::AffineElement MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data)
+typename Curve::AffineElement MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
 {
     const size_t msm_size = msm_data.scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(msm_size);
@@ -403,7 +407,7 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
                                                                    const size_t round_index,
                                                                    MSM<Curve>::JacobianBucketAccumulators& bucket_data,
                                                                    typename Curve::Element previous_round_output,
-                                                                   const size_t bits_per_slice)
+                                                                   const size_t bits_per_slice) noexcept
 {
     std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
     std::span<const ScalarField>& scalars = msm_data.scalars;
@@ -460,7 +464,7 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
                                                              MSM<Curve>::AffineAdditionData& affine_data,
                                                              MSM<Curve>::BucketAccumulators& bucket_data,
                                                              typename Curve::Element previous_round_output,
-                                                             const size_t bits_per_slice)
+                                                             const size_t bits_per_slice) noexcept
 {
     std::span<const uint32_t>& scalar_indices = msm_data.scalar_indices;
     std::span<const ScalarField>& scalars = msm_data.scalars;
@@ -524,7 +528,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
                                         MSM<Curve>::AffineAdditionData& affine_data,
                                         MSM<Curve>::BucketAccumulators& bucket_data,
                                         size_t num_input_points_processed,
-                                        size_t num_queued_affine_points)
+                                        size_t num_queued_affine_points) noexcept
 {
 
     size_t point_it = num_input_points_processed;
@@ -727,7 +731,7 @@ template <typename Curve>
 std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::vector<std::span<const typename Curve::AffineElement>>& points,
     std::vector<std::span<ScalarField>>& scalars,
-    bool handle_edge_cases)
+    bool handle_edge_cases) noexcept
 {
     ASSERT(points.size() == scalars.size());
     const size_t num_msms = points.size();
@@ -805,7 +809,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 template <typename Curve>
 typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::AffineElement> points,
                                               PolynomialSpan<const ScalarField> _scalars,
-                                              bool handle_edge_cases)
+                                              bool handle_edge_cases) noexcept
 {
     if (_scalars.size() == 0) {
         return Curve::Group::affine_point_at_infinity;
@@ -826,21 +830,21 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
-                                  [[maybe_unused]] bool handle_edge_cases)
+                                  [[maybe_unused]] bool handle_edge_cases) noexcept
 {
     return MSM<Curve>::msm(points, scalars, handle_edge_cases);
 }
 
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
-                                         std::span<const typename Curve::AffineElement> points)
+                                         std::span<const typename Curve::AffineElement> points) noexcept
 {
     return MSM<Curve>::msm(points, scalars, false);
 }
 
 template curve::Grumpkin::Element pippenger<curve::Grumpkin>(PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
                                                              std::span<const curve::Grumpkin::AffineElement> points,
-                                                             bool handle_edge_cases = true);
+                                                             bool handle_edge_cases = true) noexcept;
 
 template curve::Grumpkin::Element pippenger_unsafe<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars, std::span<const curve::Grumpkin::AffineElement> points);

@@ -50,7 +50,7 @@ template <typename Curve> class MSM {
         std::vector<AffineElement> buckets;
         BitVector bucket_exists;
 
-        BucketAccumulators(size_t num_buckets)
+        BucketAccumulators(size_t num_buckets) noexcept
             : buckets(num_buckets)
             , bucket_exists(num_buckets)
         {}
@@ -60,7 +60,7 @@ template <typename Curve> class MSM {
         std::vector<Element> buckets;
         BitVector bucket_exists;
 
-        JacobianBucketAccumulators(size_t num_buckets)
+        JacobianBucketAccumulators(size_t num_buckets) noexcept
             : buckets(num_buckets)
             , bucket_exists(num_buckets)
         {}
@@ -76,13 +76,13 @@ template <typename Curve> class MSM {
         std::vector<BaseField> scalar_scratch_space;
         std::vector<uint64_t> addition_result_bucket_destinations;
 
-        AffineAdditionData()
+        AffineAdditionData() noexcept
             : points_to_add(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
             , scalar_scratch_space(BATCH_SIZE + BATCH_OVERFLOW_SIZE)
             , addition_result_bucket_destinations(((BATCH_SIZE + BATCH_OVERFLOW_SIZE) / 2))
         {}
     };
-    static size_t get_num_rounds(size_t num_points)
+    static size_t get_num_rounds(size_t num_points) noexcept
     {
         const size_t bits_per_slice = get_optimal_log_num_buckets(num_points);
         const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
@@ -90,47 +90,46 @@ template <typename Curve> class MSM {
     }
     static void add_affine_points(AffineElement* points,
                                   const size_t num_points,
-                                  typename Curve::BaseField* scratch_space);
-
+                                  typename Curve::BaseField* scratch_space) noexcept;
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
-                                                                std::vector<uint32_t>& consolidated_indices);
+                                                                std::vector<uint32_t>& consolidated_indices) noexcept;
 
     static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
-                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices);
-    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size);
-    static size_t get_optimal_log_num_buckets(const size_t num_points);
-    static bool use_affine_trick(const size_t num_points, const size_t num_buckets);
+                                                       std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
+    static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size) noexcept;
+    static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
+    static bool use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept;
 
-    static AffineElement small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data);
-    static AffineElement pippenger_low_memory_with_transformed_scalars(MSMData& msm_data);
+    static AffineElement small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
+    static AffineElement pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
     static Element evaluate_small_pippenger_round(MSMData& msm_data,
                                                   const size_t round_index,
                                                   JacobianBucketAccumulators& bucket_data,
                                                   Element previous_round_output,
-                                                  const size_t bits_per_slice);
+                                                  const size_t bits_per_slice) noexcept;
 
     static Element evaluate_pippenger_round(MSMData& msm_data,
                                             const size_t round_index,
                                             AffineAdditionData& affine_data,
                                             BucketAccumulators& bucket_data,
                                             Element previous_round_output,
-                                            const size_t bits_per_slice);
+                                            const size_t bits_per_slice) noexcept;
 
     static void consume_point_schedule(std::span<const uint64_t> point_schedule,
                                        std::span<const AffineElement> points,
                                        AffineAdditionData& affine_data,
                                        BucketAccumulators& bucket_data,
                                        size_t num_input_points_processed,
-                                       size_t num_queued_affine_points);
+                                       size_t num_queued_affine_points) noexcept;
 
     static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
                                                              std::vector<std::span<ScalarField>>& scalars,
-                                                             bool handle_edge_cases = true);
+                                                             bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> _scalars,
-                             bool handle_edge_cases = true);
+                             bool handle_edge_cases = false) noexcept;
 
-    template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators)
+    template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
     {
         auto& buckets = bucket_accumulators.buckets;
         BB_ASSERT_GT(buckets.size(), static_cast<size_t>(0));
@@ -176,10 +175,10 @@ template <typename Curve> class MSM {
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
-                                  bool handle_edge_cases = true);
+                                  bool handle_edge_cases = true) noexcept;
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::ScalarField> scalars,
-                                         std::span<const typename Curve::AffineElement> points);
+                                         std::span<const typename Curve::AffineElement> points) noexcept;
 
 extern template class MSM<curve::Grumpkin>;
 extern template class MSM<curve::BN254>;
