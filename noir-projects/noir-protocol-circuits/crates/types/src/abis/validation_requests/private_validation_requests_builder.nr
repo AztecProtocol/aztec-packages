@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-        max_block_number::MaxBlockNumber,
+        include_by_timestamp::IncludeByTimestamp,
         read_request::ScopedReadRequest,
         validation_requests::{
             private_validation_requests::PrivateValidationRequests,
@@ -16,7 +16,7 @@ use crate::{
 };
 
 pub struct PrivateValidationRequestsBuilder {
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -37,14 +37,14 @@ impl PrivateValidationRequestsBuilder {
     }
 
     pub fn for_rollup(self) -> RollupValidationRequests {
-        RollupValidationRequests { max_block_number: self.max_block_number }
+        RollupValidationRequests { include_by_timestamp: self.include_by_timestamp }
     }
 }
 
 impl Empty for PrivateValidationRequestsBuilder {
     fn empty() -> Self {
         PrivateValidationRequestsBuilder {
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),

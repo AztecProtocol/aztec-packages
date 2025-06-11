@@ -4,7 +4,7 @@ use crate::test::utils;
 use dep::aztec::prelude::AztecAddress;
 use dep::aztec::protocol_types::traits::FromField;
 
-global CHANGE_AUTHORIZED_DELAY_BLOCKS: u32 = 5;
+global CHANGE_AUTHORIZED_DELAY: u32 = 5;
 
 // TODO (#8588): These were ported over directly from e2e tests. Refactor these in the correct TXe style.
 #[test]
@@ -49,7 +49,7 @@ unconstrained fn main() {
         env.impersonate(to_authorize);
 
         // We advance block by 4, because the delay is 5, and we initially advanced block by one after setting the value. See below comment for explanation.
-        env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
+        env.advance_block_by(CHANGE_AUTHORIZED_DELAY - 1);
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, to_authorize);
 
@@ -109,7 +109,7 @@ unconstrained fn main() {
         env.impersonate(to_authorize);
 
         // We advance the block by 4 again like above
-        env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
+        env.advance_block_by(CHANGE_AUTHORIZED_DELAY - 1);
         let authorized = Auth::at(auth_contract_address).get_authorized().view(&mut env.public());
         assert_eq(authorized, other);
 

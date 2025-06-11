@@ -198,12 +198,12 @@ where
         // earlier than what we'd expect if we only considered the current delay.
         let effective_minimum_delay =
             delay_change.get_effective_minimum_delay_at(historical_block_number);
-        let block_horizon =
-            value_change.get_block_horizon(historical_block_number, effective_minimum_delay);
+        let timestamp_horizon =
+            value_change.get_timestamp_horizon(historical_block_number, effective_minimum_delay);
 
-        // We prevent this transaction from being included in any block after the block horizon, ensuring that the
+        // We prevent this transaction from being included in any block after the timestamp horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
-        self.context.set_tx_max_block_number(block_horizon);
+        self.context.set_include_by_timestamp(timestamp_horizon);
         value_change.get_current_at(historical_block_number)
     }
 
