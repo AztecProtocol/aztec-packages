@@ -32,17 +32,18 @@ function run_proof_generation {
   local ipa_accumulation_flag=""
 
   cd ./acir_tests/assert_statement
-  local not_zk="--not_zk"
+  local disable_zk="--disable_zk"
 
   # Adjust settings based on program type
   if [[ $program == *"rollup"* ]]; then
       adjustment=26
       ipa_accumulation_flag="--ipa_accumulation"
   fi
+  # If the test program has zk in it's name would like to use the zk prover, so we empty the flag in this case.
   if [[ $program == *"zk"* ]]; then
-    not_zk=""
+    disable_zk=""
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $not_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk --init_kzg_accumulator $ipa_accumulation_flag --output_format fields --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -171,11 +172,11 @@ function test_cmds {
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify NOT_ZK=true $run_test double_verify_honk_proof"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify NOT_ZK=true $run_test assert_statement"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
 
   # prove and verify using bb.js classes
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"

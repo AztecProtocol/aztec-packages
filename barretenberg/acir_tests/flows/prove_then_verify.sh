@@ -22,7 +22,7 @@ case ${SYS:-} in
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
-    [ "${NOT_ZK:-false}" = "true" ] && FLAGS+=" --not_zk"
+    [ "${DISABLE_ZK:-false}" = "true" ] && FLAGS+=" --disable_zk"
 
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT
