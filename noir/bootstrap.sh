@@ -25,7 +25,7 @@ export RUSTFLAGS="-Dwarnings"
 # Update the noir-repo and compute hashes.
 function noir_sync {
   # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
-  denoise "scripts/sync.sh init && scripts/sync.sh update" >&2
+  dump_fail "scripts/sync.sh init && scripts/sync.sh update" >&2
 }
 
 # Calculate the content hash for caching, taking into account that `noir-repo`
@@ -64,7 +64,7 @@ function noir_content_hash {
   fi
 }
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   noir_sync
   export NOIR_HASH=$(noir_content_hash)
 fi
@@ -128,21 +128,23 @@ function build_packages {
     noir-repo/tooling/noirc_abi_wasm/web
 }
 
-# Export functions that can be called from `parallel` in `build`,
-# and all the functions they can call as well.
-export -f build_native build_packages noir_content_hash
+function install_deps {
+  set -euo pipefail
+  # TODO: Move to build image?
+  ./noir-repo/.github/scripts/wasm-bindgen-install.sh
+  if ! command -v cargo-binstall &>/dev/null; then
+    curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
+  fi
+  if ! command -v cargo-nextest &>/dev/null; then
+    cargo-binstall cargo-nextest --version 0.9.67 -y --secure
+  fi
+}
+
+export -f build_native build_packages noir_content_hash install_deps
 
 function build {
   echo_header "noir build"
-  # TODO: Move to build image?
-  denoise ./noir-repo/.github/scripts/wasm-bindgen-install.sh
-  if ! command -v cargo-binstall &>/dev/null; then
-    denoise "curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash"
-  fi
-  if ! command -v cargo-nextest &>/dev/null; then
-    denoise "cargo-binstall cargo-nextest --version 0.9.67 -y --secure"
-  fi
-
+  denoise "retry install_deps"
   parallel --tag --line-buffer --halt now,fail=1 denoise ::: build_native build_packages
   # if [ -x ./scripts/fix_incremental_ts.sh ]; then
   #   ./scripts/fix_incremental_ts.sh
@@ -158,7 +160,9 @@ function test {
 function test_cmds {
   local test_hash=$NOIR_HASH
   cd noir-repo
-  cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
+
+  NOIR_TEST_FILTER="not (package(noir_ast_fuzzer_fuzz) or package(noir_ast_fuzzer))"
+  cargo nextest list --workspace --locked --release -Tjson-pretty -E "$NOIR_TEST_FILTER" 2>/dev/null | \
       jq -r '
         .["rust-suites"][] |
         .testcases as $tests |
@@ -203,7 +207,7 @@ function release {
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
-    deploy_npm $dist_tag $version
+    retry "deploy_npm $dist_tag $version"
     cd ..
   done
 }
@@ -220,6 +224,10 @@ function bump_noir_repo_ref {
   git fetch --depth 1 origin $branch || true
   git checkout --track origin/$branch || git checkout $branch || git checkout -b $branch
   scripts/sync.sh write-noir-repo-ref $ref
+
+  # Build nargo and run formatter on `noir-projects`
+  build_native
+  ../noir-projects/bootstrap.sh format
   git add .
   git commit -m "chore: Update noir-repo-ref to $ref" || true
   do_or_dryrun git push --set-upstream origin $branch

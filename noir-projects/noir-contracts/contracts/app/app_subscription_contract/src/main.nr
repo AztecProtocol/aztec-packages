@@ -84,7 +84,7 @@ pub contract AppSubscription {
     #[private]
     fn subscribe(
         subscriber: AztecAddress,
-        nonce: Field,
+        authwit_nonce: Field,
         expiry_block_number: Field,
         tx_count: Field,
     ) {
@@ -97,7 +97,7 @@ pub contract AppSubscription {
                 context.msg_sender(),
                 config.subscription_recipient_address,
                 config.subscription_price,
-                nonce,
+                authwit_nonce,
             )
             .call(&mut context);
 

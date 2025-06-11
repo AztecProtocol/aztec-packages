@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <tuple>
@@ -13,21 +14,10 @@ namespace bb::{{snakeCase root_name}} {
 {{#each lookups as |current_lookup|}}{{#with current_lookup}}
 /////////////////// {{lookup_name}} ///////////////////
 
-class {{lookup_name}}_settings {
-  public:
+struct {{lookup_name}}_settings_ {
     static constexpr std::string_view NAME = "{{shoutySnakeCase lookup_name}}";
     static constexpr std::string_view RELATION_NAME = "{{relation_name}}";
-
-    static constexpr size_t READ_TERMS = {{read_terms}};
-    static constexpr size_t WRITE_TERMS = {{write_terms}};
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = {{read_term_types}};
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = {{write_term_types}};
     static constexpr size_t LOOKUP_TUPLE_SIZE = {{lookup_tuple_size}};
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = {{inverse_degree}};
-    static constexpr size_t READ_TERM_DEGREE = {{read_term_degree}};
-    static constexpr size_t WRITE_TERM_DEGREE = {{write_term_degree}};
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::{{lhs_selector}};
     static constexpr Column DST_SELECTOR = Column::{{rhs_selector}};
     static constexpr Column COUNTS = Column::{{counts_col}};
@@ -42,70 +32,10 @@ class {{lookup_name}}_settings {
         ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
         {{/each}}
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._{{lhs_selector}}() == 1 || in._{{rhs_selector}}() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._{{lhs_selector}}());
-        const auto is_table_entry = View(in._{{rhs_selector}}());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(
-            in._{{inverses_col}}(),
-            in._{{counts_col}}(),
-            in._{{lhs_selector}}(),
-            in._{{rhs_selector}}(),
-            {{#each lhs_cols as |col|}}
-            in._{{col}}(),
-            {{/each}}
-            {{#each rhs_cols as |col|}}
-            in._{{col}}(){{#unless @last}},{{/unless}}
-            {{/each}}
-        );
-    }
 };
 
-template <typename FF_> class {{lookup_name}}_relation : public GenericLookupRelation<{{lookup_name}}_settings, FF_> {
-    public:
-        using Settings = {{lookup_name}}_settings;
-        static constexpr std::string_view NAME = {{lookup_name}}_settings::NAME;
-        static constexpr std::string_view RELATION_NAME = {{lookup_name}}_settings::RELATION_NAME;
-
-        {{! TODO: This is a safe skippable condition, but there might be a better one. --}}
-        template <typename AllEntities> inline static bool skip(const AllEntities& in)
-        {
-            return in.{{inverses_col}}.is_zero();
-        }
-
-        static std::string get_subrelation_label(size_t index) {
-            {{! from generic_lookup_relation.hpp }}
-            if (index == 0) {
-                return "INVERSES_ARE_CORRECT";
-            } else if (index == 1) {
-                return "ACCUMULATION_IS_CORRECT";
-            }
-            return std::to_string(index);
-        }
-};
+using {{lookup_name}}_settings = lookup_settings<{{lookup_name}}_settings_>;
+template <typename FF_> using {{lookup_name}}_relation = lookup_relation_base<FF_, {{lookup_name}}_settings>;
 
 {{/with}}{{/each}}
 } // namespace bb::{{snakeCase root_name}}

@@ -21,8 +21,8 @@ import {
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
 import { writeTestData } from '@aztec/foundation/testing/files';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -185,10 +185,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('calls a public function with no init check on the deployed instance', async () => {
           const whom = await AztecAddress.random();
-          await contract.methods
-            .increment_public_value_no_init_check(whom, 10)
-            .send({ skipPublicSimulation: true })
-            .wait();
+          await contract.methods.increment_public_value_no_init_check(whom, 10).send().wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
         });
@@ -197,7 +194,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .increment_public_value(whom, 10)
-            .send({ skipPublicSimulation: true })
+            .send()
             .wait({ dontThrowOnRevert: true });
           expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
@@ -207,7 +204,7 @@ describe('e2e_deploy_contract contract class registration', () => {
 
         it('refuses to initialize the instance with wrong args via a private function', async () => {
           await expect(
-            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).prove(),
+            contract.methods.constructor(await AztecAddress.random(), await AztecAddress.random(), 43).simulate(),
           ).rejects.toThrow(/initialization hash does not match/i);
         });
 
@@ -217,7 +214,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .send()
             .wait();
           const whom = await AztecAddress.random();
-          await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+          await contract.methods.increment_public_value(whom, 10).send().wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
         });
@@ -226,7 +223,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await expect(
             contract.methods
               .constructor(...initArgs)
-              .send({ skipPublicSimulation: true })
+              .send()
               .wait(),
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5818): Make these a fixed error after transition.
           ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
@@ -247,7 +244,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const whom = await AztecAddress.random();
           const receipt = await contract.methods
             .public_constructor(whom, ignoredArg, 43)
-            .send({ skipPublicSimulation: true })
+            .send()
             .wait({ dontThrowOnRevert: true });
           expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
           expect(await contract.methods.get_public_value(whom).simulate()).toEqual(0n);
@@ -259,7 +256,7 @@ describe('e2e_deploy_contract contract class registration', () => {
             .send()
             .wait();
           const whom = await AztecAddress.random();
-          await contract.methods.increment_public_value(whom, 10).send({ skipPublicSimulation: true }).wait();
+          await contract.methods.increment_public_value(whom, 10).send().wait();
           const stored = await contract.methods.get_public_value(whom).simulate();
           expect(stored).toEqual(10n);
         });
@@ -268,7 +265,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           await expect(
             contract.methods
               .public_constructor(...initArgs)
-              .send({ skipPublicSimulation: true })
+              .send()
               .wait(),
           ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
         });
@@ -295,14 +292,14 @@ describe('e2e_deploy_contract contract class registration', () => {
       const sender = whom;
       const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, sender, 42] });
       // Confirm that the tx reverts with the expected message
-      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).send().wait()).rejects.toThrow(
+      await expect(instance.methods.increment_public_value_no_init_check(whom, 10).simulate()).rejects.toThrow(
         /No bytecode/,
       );
       // This time, don't throw on revert and confirm that the tx is included
       // despite reverting in app logic because of the call to a non-existent contract
       const tx = await instance.methods
         .increment_public_value_no_init_check(whom, 10)
-        .send({ skipPublicSimulation: true })
+        .send()
         .wait({ dontThrowOnRevert: true });
       expect(tx.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
     });

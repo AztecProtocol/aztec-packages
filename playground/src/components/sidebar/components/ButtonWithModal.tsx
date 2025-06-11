@@ -24,24 +24,22 @@ const popupAnimation = keyframes`
 
 // Styles for the container
 const containerStyle = css({
-  position: 'relative',
-  width: '100%',
-  marginBottom: '15px',
+  // position: 'relative',
+  // width: '100%',
+  // marginBottom: '15px',
   transition: 'transform 0.3s ease',
 });
 
 // Styles for the button
 const buttonStyle = css({
-  height: '56px',
-  borderRadius: '12px',
+  height: '48px',
+  borderRadius: '8px',
   backgroundColor: '#CDD1D5',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '12px 24px',
-  fontFamily: "'Inter', sans-serif",
-  fontWeight: 600,
-  fontSize: '15px',
+  padding: '12px 16px',
+  fontSize: '16px',
   lineHeight: '15px',
   color: '#000000',
   cursor: 'pointer',
@@ -64,9 +62,9 @@ const activeButtonStyle = css({
 
 // Styles for the modal content wrapper
 const modalStyle = css({
-  position: 'relative',
-  left: '0',
-  right: '0',
+  position: 'absolute',
+  // top: '0',
+  // right: '0',
   marginTop: '5px',
   backgroundColor: '#F5F5F5',
   borderRadius: '10px',

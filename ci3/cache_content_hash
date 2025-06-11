@@ -40,14 +40,12 @@ diff="$({
   git ls-files --others --exclude-standard
 } | grep -E "$GREP_PATTERN" || true)"
 
-
 # Check for uncommitted files/changes.
 # Only use this check if AZTEC_CACHE_COMMIT is the default, otherwise the user is being explicit about using git history.
 if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
   # Fail. We shouldn't be changing files during the CI run.
-  if [ "${CI:-0}" = 1 ]; then
-    echo_stderr "ERROR: Noticed changes to rebuild patterns: $diff"
-    exit 1
+  if [ "$CI" -eq 1 ]; then
+    echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
   fi
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"

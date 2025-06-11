@@ -17,12 +17,13 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { L2Block } from '@aztec/stdlib/block';
+import { L2Block, Signature } from '@aztec/stdlib/block';
+import type { ProposedBlockHeader } from '@aztec/stdlib/tx';
 
 import express, { json } from 'express';
 import type { Server } from 'http';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type GetTransactionReceiptReturnType, type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisher, VoteType } from './sequencer-publisher.js';
@@ -44,7 +45,7 @@ describe('SequencerPublisher', () => {
   let proposeTxReceipt: GetTransactionReceiptReturnType;
   let l2Block: L2Block;
 
-  let header: Buffer;
+  let header: ProposedBlockHeader;
   let archive: Buffer;
   let blockHash: Buffer;
 
@@ -62,7 +63,7 @@ describe('SequencerPublisher', () => {
 
     l2Block = await L2Block.random(42);
 
-    header = l2Block.header.toBuffer();
+    header = l2Block.header.toPropose();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
 
@@ -113,6 +114,7 @@ describe('SequencerPublisher', () => {
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
+    epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
 
     publisher = new SequencerPublisher(config, {
       blobSinkClient,
@@ -134,12 +136,17 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    (l1TxUtils as any).client = {
+      account: {
+        address: '0x1234567890123456789012345678901234567890',
+      },
+    };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
 
     l2Block = await L2Block.random(42, undefined, undefined, undefined, undefined, Number(currentL2Slot));
 
-    header = l2Block.header.toBuffer();
+    header = l2Block.header.toPropose();
     archive = l2Block.archive.root.toBuffer();
     blockHash = (await l2Block.header.hash()).toBuffer();
   });
@@ -188,22 +195,27 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);
 
     expect(await publisher.enqueueProposeL2Block(l2Block)).toEqual(true);
     const govPayload = EthAddress.random();
+    const voteSig = Signature.random();
     publisher.setGovernancePayload(govPayload);
     governanceProposerContract.getRoundInfo.mockResolvedValue({
       lastVote: 1n,
       leader: govPayload.toString(),
       executed: false,
     });
-    governanceProposerContract.createVoteRequest.mockReturnValue({
+    governanceProposerContract.createVoteRequestWithSignature.mockResolvedValue({
       to: mockGovernanceProposerAddress,
-      data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'voteWithSig',
+        args: [govPayload.toString(), voteSig.toViemSignature()],
+      }),
     });
     rollup.getProposerAt.mockResolvedValueOnce(mockForwarderAddress);
     expect(await publisher.enqueueCastVote(2n, 1n, VoteType.GOVERNANCE)).toEqual(true);
@@ -211,13 +223,14 @@ describe('SequencerPublisher', () => {
 
     await publisher.sendRequests();
     expect(forwarder.forward).toHaveBeenCalledTimes(1);
-    const blobInput = Blob.getEthBlobEvaluationInputs(expectedBlobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(expectedBlobs);
 
     const args = [
       {
-        header: `0x${header.toString('hex')}`,
-        archive: `0x${archive.toString('hex')}`,
-        blockHash: `0x${blockHash.toString('hex')}`,
+        header: header.toViem(),
+        archive: toHex(archive),
+        stateReference: l2Block.header.state.toViem(),
+        blockHash: toHex(blockHash),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
@@ -234,7 +247,11 @@ describe('SequencerPublisher', () => {
         },
         {
           to: mockGovernanceProposerAddress,
-          data: encodeFunctionData({ abi: EmpireBaseAbi, functionName: 'vote', args: [govPayload.toString()] }),
+          data: encodeFunctionData({
+            abi: EmpireBaseAbi,
+            functionName: 'voteWithSig',
+            args: [govPayload.toString(), voteSig.toViemSignature()],
+          }),
         },
       ],
       l1TxUtils,
@@ -305,10 +322,6 @@ describe('SequencerPublisher', () => {
   });
 
   it('does not send requests if no valid requests are found', async () => {
-    const epochCache = (publisher as any).epochCache as MockProxy<EpochCache>;
-
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
-
     publisher.addRequest({
       action: 'propose',
       request: {

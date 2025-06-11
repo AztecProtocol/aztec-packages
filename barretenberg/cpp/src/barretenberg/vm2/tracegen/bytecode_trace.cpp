@@ -354,14 +354,13 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
                       { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
                       { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-                      { C::instr_fetching_sel_op_dc_17, op_dc_selectors.at(17) },
 
                       // Parsing errors
                       { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_parsing_err, event.error.has_value() ? 1 : 0 },
+                      { C::instr_fetching_sel_parsing_err, event.error.has_value() ? 1 : 0 },
 
                       // selector for lookups
                       { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },

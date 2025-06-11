@@ -6,6 +6,7 @@ if [ -n "$REGISTRY_CONTRACT_ADDRESS" ] && [ -n "$BOOTSTRAP_NODES" ]; then
   cat <<EOF >/shared/contracts/contracts.env
 export BOOTSTRAP_NODES=$BOOTSTRAP_NODES
 export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
+export PROVER_COORDINATION_NODE_URLS=$2
 EOF
   cat /shared/contracts/contracts.env
   exit 0
@@ -29,6 +30,7 @@ registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{
 cat <<EOF >/shared/contracts/contracts.env
 export BOOTSTRAP_NODES=$boot_node_enr
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
+export PROVER_COORDINATION_NODE_URLS=$2
 EOF
 
 cat /shared/contracts/contracts.env

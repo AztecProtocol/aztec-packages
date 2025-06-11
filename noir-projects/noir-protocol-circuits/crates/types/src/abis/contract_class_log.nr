@@ -1,10 +1,10 @@
 use crate::{
-    abis::log::Log, address::AztecAddress, constants::CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
+    abis::log::Log, address::AztecAddress, constants::CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
     traits::Empty,
 };
 
 pub struct ContractClassLog {
-    pub log: Log<CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS>,
+    pub log: Log<CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
     pub contract_address: AztecAddress,
 }
 

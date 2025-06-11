@@ -32,6 +32,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         `Fetching ${args[0]}`,
         makeBackoff([1, 1, 3]),
         this.log,
@@ -136,7 +137,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       this.log.error('Failed to send blobs to blob sink', { status: res.status });
       return false;
-    } catch (err) {
+    } catch {
       this.log.warn(`Blob sink url configured, but unable to send blobs`, {
         blobSinkUrl: this.config.blobSinkUrl,
         blockHash,

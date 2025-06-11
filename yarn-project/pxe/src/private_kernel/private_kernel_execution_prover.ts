@@ -1,8 +1,6 @@
-import { VK_TREE_HEIGHT } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { assertLength } from '@aztec/foundation/serialize';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -12,6 +10,7 @@ import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
 import { hashVK } from '@aztec/stdlib/hash';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  PaddedSideEffectAmounts,
   PrivateCallData,
   type PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
@@ -33,7 +32,7 @@ import {
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
-import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/build_private_kernel_reset_private_inputs.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
@@ -115,15 +114,19 @@ export class PrivateKernelExecutionProver {
           validationRequestsSplitCounter,
         );
         while (resetBuilder.needsReset()) {
+          const witgenTimer = new Timer();
           const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
-          output = simulate
-            ? await this.proofCreator.simulateReset(privateInputs)
-            : await this.proofCreator.generateResetOutput(privateInputs);
+          output = generateWitnesses
+            ? await this.proofCreator.generateResetOutput(privateInputs)
+            : await this.proofCreator.simulateReset(privateInputs);
           executionSteps.push({
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
             vk: output.verificationKey.keyAsBytes,
+            timings: {
+              witgen: witgenTimer.ms(),
+            },
           });
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -148,11 +151,17 @@ export class PrivateKernelExecutionProver {
         bytecode: currentExecution.acir,
         witness: currentExecution.partialWitness,
         vk: currentExecution.vk,
+        timings: {
+          witgen: currentExecution.profileResult?.timings.witgen ?? 0,
+          oracles: currentExecution.profileResult?.timings.oracles,
+        },
       });
 
       const privateCallData = await this.createPrivateCallData(currentExecution);
 
       if (firstIteration) {
+        const witgenTimer = new Timer();
+
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
           getVKTreeRoot(),
@@ -176,21 +185,24 @@ export class PrivateKernelExecutionProver {
           bytecode: output.bytecode,
           witness: output.outputWitness,
           vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       } else {
+        const witgenTimer = new Timer();
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
           output.verificationKey.keyAsFields,
         );
-        const previousKernelData = new PrivateKernelData(
-          output.publicInputs,
+        const vkData = new VkData(
           output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
-          assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+          previousVkMembershipWitness.siblingPath,
         );
+        const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
         const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
 
         pushTestData('private-kernel-inputs-inner', proofInput);
-
         output = generateWitnesses
           ? await this.proofCreator.generateInnerOutput(proofInput)
           : await this.proofCreator.simulateInner(proofInput);
@@ -200,6 +212,9 @@ export class PrivateKernelExecutionProver {
           bytecode: output.bytecode,
           witness: output.outputWitness,
           vk: output.verificationKey.keyAsBytes,
+          timings: {
+            witgen: witgenTimer.ms(),
+          },
         });
       }
       firstIteration = false;
@@ -213,6 +228,7 @@ export class PrivateKernelExecutionProver {
       validationRequestsSplitCounter,
     );
     while (resetBuilder.needsReset()) {
+      const witgenTimer = new Timer();
       const privateInputs = await resetBuilder.build(this.oracle, noteHashLeafIndexMap);
       output = generateWitnesses
         ? await this.proofCreator.generateResetOutput(privateInputs)
@@ -223,6 +239,9 @@ export class PrivateKernelExecutionProver {
         bytecode: output.bytecode,
         witness: output.outputWitness,
         vk: output.verificationKey.keyAsBytes,
+        timings: {
+          witgen: witgenTimer.ms(),
+        },
       });
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -241,21 +260,24 @@ export class PrivateKernelExecutionProver {
     }
     // Private tail.
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey.keyAsFields);
-    const previousKernelData = new PrivateKernelData(
-      output.publicInputs,
+    const vkData = new VkData(
       output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
-      assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
+      previousVkMembershipWitness.siblingPath,
     );
+    const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
 
     this.log.debug(
       `Calling private kernel tail with hwm ${previousKernelData.publicInputs.minRevertibleSideEffectCounter}`,
     );
 
-    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData);
+    // TODO: Enable padding when we have a better what are the final amounts we should pad to.
+    const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
+    const privateInputs = new PrivateKernelTailCircuitPrivateInputs(previousKernelData, paddedSideEffectAmounts);
 
     pushTestData('private-kernel-inputs-ordering', privateInputs);
 
+    const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
       ? await this.proofCreator.generateTailOutput(privateInputs)
       : await this.proofCreator.simulateTail(privateInputs);
@@ -265,12 +287,17 @@ export class PrivateKernelExecutionProver {
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
       vk: tailOutput.verificationKey.keyAsBytes,
+      timings: {
+        witgen: witgenTimer.ms(),
+      },
     });
 
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
+        const gateCountTimer = new Timer();
         const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
         entry.gateCount = gateCount;
+        entry.timings.gateCount = gateCountTimer.ms();
       }
     }
     if (profileMode === 'gates') {
@@ -287,8 +314,11 @@ export class PrivateKernelExecutionProver {
 
     let clientIvcProof: ClientIvcProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
+    let provingTime;
     if (!skipProofGeneration) {
+      const provingTimer = new Timer();
       clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      provingTime = provingTimer.ms();
     } else {
       clientIvcProof = ClientIvcProof.random();
     }
@@ -298,6 +328,7 @@ export class PrivateKernelExecutionProver {
       executionSteps,
       clientIvcProof,
       vk: tailOutput.verificationKey.keyAsBytes,
+      timings: provingTime ? { proving: provingTime } : undefined,
     };
   }
 

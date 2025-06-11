@@ -19,13 +19,18 @@ export type RequestMethodOptions = {
  * Represents options for calling a (constrained) function in a contract.
  */
 export type SendMethodOptions = RequestMethodOptions & {
-  /** Wether to skip the simulation of the public part of the transaction. */
-  skipPublicSimulation?: boolean;
   /** The fee options for the transaction. */
   fee?: UserFeeOptions;
-  /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
-  nonce?: Fr;
-  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
+  /**
+   * A nonce to inject into the app payload of the transaction. When used with cancellable=true, this nonce will be
+   * used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce
+   * but higher fee. The nullifier ensures only one transaction can succeed.
+   */
+  txNonce?: Fr;
+  /**
+   * Whether the transaction can be cancelled by submitting a new transaction with the same txNonce but
+   * higher fee.
+   */
   cancellable?: boolean;
 };
 
@@ -36,7 +41,7 @@ export type SendMethodOptions = RequestMethodOptions & {
  */
 export type SimulateMethodOptions = Pick<
   SendMethodOptions,
-  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
+  'authWitnesses' | 'capsules' | 'fee' | 'txNonce' | 'cancellable'
 > & {
   /** The sender's Aztec address. */
   from?: AztecAddress;
@@ -44,6 +49,9 @@ export type SimulateMethodOptions = Pick<
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
+  /** Whether to include performance statistics (e.g. timing information of the different circuits and oracles) in
+   * the simulation result, instead of just the return value of the function */
+  includeStats?: boolean;
 };
 
 /**
@@ -52,4 +60,6 @@ export type SimulateMethodOptions = Pick<
 export type ProfileMethodOptions = SimulateMethodOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
+  /** Whether to generate a ClientIVC proof or not */
+  skipProofGeneration?: boolean;
 };

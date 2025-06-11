@@ -1,6 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -9,6 +8,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { CommitteeAttestation } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -99,7 +99,7 @@ describe('ArchiverApiSchema', () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
-    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
@@ -240,6 +240,11 @@ describe('ArchiverApiSchema', () => {
   it('syncImmediate', async () => {
     await context.client.syncImmediate();
   });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toBe(1n);
+  });
 });
 
 class MockArchiver implements ArchiverApi {
@@ -266,14 +271,14 @@ class MockArchiver implements ArchiverApi {
   getBlockHeader(_number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(BlockHeader.empty());
   }
-  async getBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<L2Block[]> {
+  async getBlocks(from: number, _limit: number, _proven?: boolean): Promise<L2Block[]> {
     return [await L2Block.random(from)];
   }
-  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean | undefined): Promise<PublishedL2Block[]> {
+  async getPublishedBlocks(from: number, _limit: number, _proven?: boolean): Promise<PublishedL2Block[]> {
     return [
       {
         block: await L2Block.random(from),
-        signatures: [Signature.random()],
+        attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
       },
     ];
@@ -389,5 +394,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+  getL1Timestamp(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
 }

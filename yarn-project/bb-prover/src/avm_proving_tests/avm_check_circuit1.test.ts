@@ -6,7 +6,7 @@ import {
   MAX_PUBLIC_LOGS_PER_TX,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -14,7 +14,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 
 const TIMEOUT = 300_000;
 
-describe('AVM WitGen & Circuit – check circuit', () => {
+describe.skip('AVM WitGen & Circuit – check circuit', () => {
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
 

@@ -23,7 +23,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-
+import {RollupBuilder} from "./builder/RollupBuilder.sol";
+import {TimeCheater} from "./staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -42,6 +43,7 @@ contract IgnitionTest is RollupBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   RewardDistributor internal rewardDistributor;
+  TimeCheater internal timeCheater;
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
@@ -54,6 +56,7 @@ contract IgnitionTest is RollupBase {
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+    timeCheater = new TimeCheater(address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION);
   }
 
   /**
@@ -61,42 +64,23 @@ contract IgnitionTest is RollupBase {
    */
   modifier setUpFor(string memory _name) {
     {
-      testERC20 = new TestERC20("test", "TEST", address(this));
-
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
+      Slot slotNumber = full.block.header.slotNumber;
       uint256 initialTime =
-        full.block.decodedHeader.globalVariables.timestamp - slotNumber * SLOT_DURATION;
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this), testERC20);
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(0);
+    builder.deploy();
 
-    RollupConfigInput memory rollupConfigInput = TestConstants.getRollupConfigInput();
-
-    /* -------------------------------------------------------------------------- */
-    /*                          SET MANA TARGET TO 0!                             */
-    /* -------------------------------------------------------------------------- */
-    rollupConfigInput.manaTarget = 0;
-
-    rollup = IInstance(
-      address(
-        new Rollup(
-          testERC20,
-          rewardDistributor,
-          testERC20,
-          address(this),
-          TestConstants.getGenesisState(),
-          rollupConfigInput
-        )
-      )
-    );
+    rollup = IInstance(address(builder.getConfig().rollup));
+    testERC20 = builder.getConfig().testERC20;
+    registry = builder.getConfig().registry;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
     rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
-
-    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }

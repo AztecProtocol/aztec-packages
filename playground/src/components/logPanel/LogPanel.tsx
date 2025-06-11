@@ -2,16 +2,17 @@ import { css, Global } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import { useContext } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import Fab from '@mui/material/Fab';
+import ExpandCircleDownIcon from '@mui/icons-material/ExpandCircleDown';
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Typography from '@mui/material/Typography';
-import ArticleIcon from '@mui/icons-material/Article';
+import CloseButton from '@mui/icons-material/Close';
 import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
 import DownloadIcon from '@mui/icons-material/Download';
+import Tooltip from '@mui/material/Tooltip';
+import { ButtonGroup } from '@mui/material';
 
 const Root = styled('div')(({ theme }) => ({
-  height: '100%',
   ...theme.applyStyles('dark', {
     backgroundColor: theme.palette.background.default,
   }),
@@ -72,19 +73,14 @@ const drawerBleeding = 56;
 export function LogPanel() {
   const { logs, logsOpen, totalLogCount, setLogsOpen } = useContext(AztecContext);
 
-  const toggleDrawer = (newOpen: boolean) => () => {
-    setLogsOpen(newOpen);
-  };
-
   const downloadLogs = () => {
     const element = document.createElement('a');
     const file = new Blob(
       [
         logs
           .map(log => {
-            return `${new Date(log.timestamp).toISOString()} [${log.type.toUpperCase()}] ${log.prefix} ${
-              log.message
-            } ${safeStringify(log.data)}`;
+            return `${new Date(log.timestamp).toISOString()} [${log.type.toUpperCase()}] ${log.prefix} ${log.message
+              } ${safeStringify(log.data)}`;
           })
           .join('\n'),
       ],
@@ -108,11 +104,25 @@ export function LogPanel() {
             },
           }}
         />
+        {!logsOpen && (
+          <Tooltip title="Open logs">
+            <IconButton
+              sx={{
+                position: 'fixed',
+                bottom: '0.5rem',
+                right: '0.5rem',
+                zIndex: 10000
+              }}
+              onClick={() => setLogsOpen(true)}>
+              <ExpandCircleDownIcon sx={{ transform: 'rotate(180deg)' }} />
+            </IconButton>
+          </Tooltip>
+        )}
         <SwipeableDrawer
           anchor="bottom"
           open={logsOpen}
-          onClose={toggleDrawer(false)}
-          onOpen={toggleDrawer(true)}
+          onClose={() => setLogsOpen(false)}
+          onOpen={() => setLogsOpen(true)}
           swipeAreaWidth={drawerBleeding}
           disableSwipeToOpen={false}
           ModalProps={{
@@ -137,9 +147,18 @@ export function LogPanel() {
             <Typography sx={{ p: 2, color: 'text.secondary' }}>{totalLogCount}&nbsp;logs</Typography>
             <div style={{ flexGrow: 1, margin: 'auto' }} />
             {logsOpen && (
-              <IconButton css={[{ marginRight: '0.5rem' }]} onClick={() => downloadLogs()}>
-                <DownloadIcon />
-              </IconButton>
+              <ButtonGroup>
+                <Tooltip title="Download logs">
+                  <IconButton onClick={() => downloadLogs()} >
+                    <DownloadIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Close logs">
+                  <IconButton onClick={() => setLogsOpen(false)}  sx={{ marginRight: '0.5rem' }}>
+                    <CloseButton />
+                  </IconButton>
+                </Tooltip>
+              </ButtonGroup>
             )}
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
@@ -165,20 +184,6 @@ export function LogPanel() {
           </StyledBox>
         </SwipeableDrawer>
       </Root>
-      <Fab
-        sx={{
-          position: 'absolute',
-          bottom: '5rem',
-          right: '1rem',
-          '@media (width <= 800px)': {
-            visibility: 'hidden',
-          },
-        }}
-        color="secondary"
-        onClick={toggleDrawer(true)}
-      >
-        <ArticleIcon />
-      </Fab>
     </>
   );
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_vector.hpp"
@@ -81,6 +87,19 @@ class MegaFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    // Proof length formula
+    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
+        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
+        /* 2. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
+        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
+        /* 3. NUM_ALL_ENTITIES sumcheck evaluations */ (NUM_ALL_ENTITIES * num_frs_fr) +
+        /* 4. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */ ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
+        /* 5. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */ (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
+        /* 6. Shplonk Q commitment */ (num_frs_comm) +
+        /* 7. KZG W commitment */ (num_frs_comm);
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
@@ -421,18 +440,24 @@ class MegaFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
-     * TODO(// TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Clean up the constructors here and
-     * ensure the pcs_verification_key is initialized everywhere it needs to be.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
+        // Serialized Verification Key length in fields
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
+            /* 2. Pairing point PI start index */ (1 * num_frs_fr) +
+            /* 3. Databus commitments PI start index */ (2 * num_frs_fr) +
+            /* 4. is_kernel bool */ (1 * num_frs_fr) +
+            /* 5. NUM_PRECOMPUTED_ENTITIES commitments */ (NUM_PRECOMPUTED_ENTITIES * num_frs_comm);
+
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const VerificationKey& vk) = default;
@@ -443,9 +468,7 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
-            this->contains_pairing_point_accumulator = proving_key.contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                proving_key.pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             // Databus commitment propagation data
             this->databus_propagation_data = proving_key.databus_propagation_data;
@@ -480,8 +503,7 @@ class MegaFlavor {
             serialize_to_field_buffer(this->circuit_size, elements);
             serialize_to_field_buffer(this->num_public_inputs, elements);
             serialize_to_field_buffer(this->pub_inputs_offset, elements);
-            serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
-            serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
+            serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
 
             serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
                                       elements);
@@ -493,6 +515,10 @@ class MegaFlavor {
                 serialize_to_field_buffer(commitment, elements);
             }
 
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
+
             return elements;
         }
 
@@ -501,8 +527,7 @@ class MegaFlavor {
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
-                        const bool contains_pairing_point_accumulator,
-                        const PairingPointAccumulatorPubInputIndices& pairing_point_accumulator_public_input_indices,
+                        const PublicComponentKey& pairing_inputs_public_input_key,
                         const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
@@ -539,8 +564,7 @@ class MegaFlavor {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
             this->pub_inputs_offset = pub_inputs_offset;
-            this->contains_pairing_point_accumulator = contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices = pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = pairing_inputs_public_input_key;
             this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
@@ -577,8 +601,7 @@ class MegaFlavor {
                        log_circuit_size,
                        num_public_inputs,
                        pub_inputs_offset,
-                       contains_pairing_point_accumulator,
-                       pairing_point_accumulator_public_input_indices,
+                       pairing_inputs_public_input_key,
                        databus_propagation_data,
                        q_m,
                        q_c,
@@ -752,160 +775,7 @@ class MegaFlavor {
     // Specialize for Mega (general case used in MegaRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 
-    /**
-     * @brief Derived class that defines proof structure for Mega proofs, as well as supporting functions.
-     * Note: Made generic for use in MegaRecursive.
-     */
-    class Transcript : public NativeTranscript {
-      public:
-        std::vector<FF> public_inputs;
-        Commitment w_l_comm;
-        Commitment w_r_comm;
-        Commitment w_o_comm;
-        Commitment ecc_op_wire_1_comm;
-        Commitment ecc_op_wire_2_comm;
-        Commitment ecc_op_wire_3_comm;
-        Commitment ecc_op_wire_4_comm;
-        Commitment calldata_comm;
-        Commitment calldata_read_counts_comm;
-        Commitment calldata_read_tags_comm;
-        Commitment calldata_inverses_comm;
-        Commitment secondary_calldata_comm;
-        Commitment secondary_calldata_read_counts_comm;
-        Commitment secondary_calldata_read_tags_comm;
-        Commitment secondary_calldata_inverses_comm;
-        Commitment return_data_comm;
-        Commitment return_data_read_counts_comm;
-        Commitment return_data_read_tags_comm;
-        Commitment return_data_inverses_comm;
-        Commitment w_4_comm;
-        Commitment z_perm_comm;
-        Commitment lookup_inverses_comm;
-        Commitment lookup_read_counts_comm;
-        Commitment lookup_read_tags_comm;
-        std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> sumcheck_univariates;
-        std::array<FF, NUM_ALL_ENTITIES> sumcheck_evaluations;
-        std::vector<Commitment> gemini_fold_comms;
-        std::vector<FF> gemini_fold_evals;
-        Commitment shplonk_q_comm;
-        Commitment kzg_w_comm;
-
-        Transcript() = default;
-
-        Transcript(const HonkProof& proof)
-            : NativeTranscript(proof)
-        {}
-
-        static std::shared_ptr<Transcript> prover_init_empty()
-        {
-            auto transcript = std::make_shared<Transcript>();
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript->send_to_verifier("Init", init);
-            return transcript;
-        };
-
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
-        {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
-            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<uint32_t>("Init");
-            return verifier_transcript;
-        };
-
-        void deserialize_full_transcript(size_t public_input_size)
-        {
-            // take current proof and put them into the struct
-            size_t num_frs_read = 0;
-            for (size_t i = 0; i < public_input_size; ++i) {
-                public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            w_l_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_r_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_o_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_1_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_2_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_3_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            ecc_op_wire_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            secondary_calldata_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            return_data_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_counts_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_read_tags_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            w_4_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            lookup_inverses_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            z_perm_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                sumcheck_univariates.push_back(
-                    deserialize_from_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(proof_data,
-                                                                                                 num_frs_read));
-            }
-            sumcheck_evaluations = deserialize_from_buffer<std::array<FF, NUM_ALL_ENTITIES>>(proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
-            }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
-            }
-            shplonk_q_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-
-            kzg_w_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
-        }
-
-        void serialize_full_transcript()
-        {
-            size_t old_proof_length = proof_data.size();
-            proof_data.clear();
-            for (const auto& public_input : public_inputs) {
-                serialize_to_buffer(public_input, proof_data);
-            }
-            serialize_to_buffer(w_l_comm, proof_data);
-            serialize_to_buffer(w_r_comm, proof_data);
-            serialize_to_buffer(w_o_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_1_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_2_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_3_comm, proof_data);
-            serialize_to_buffer(ecc_op_wire_4_comm, proof_data);
-            serialize_to_buffer(calldata_comm, proof_data);
-            serialize_to_buffer(calldata_read_counts_comm, proof_data);
-            serialize_to_buffer(calldata_read_tags_comm, proof_data);
-            serialize_to_buffer(calldata_inverses_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_read_tags_comm, proof_data);
-            serialize_to_buffer(secondary_calldata_inverses_comm, proof_data);
-            serialize_to_buffer(return_data_comm, proof_data);
-            serialize_to_buffer(return_data_read_counts_comm, proof_data);
-            serialize_to_buffer(return_data_read_tags_comm, proof_data);
-            serialize_to_buffer(return_data_inverses_comm, proof_data);
-            serialize_to_buffer(lookup_read_counts_comm, proof_data);
-            serialize_to_buffer(lookup_read_tags_comm, proof_data);
-            serialize_to_buffer(w_4_comm, proof_data);
-            serialize_to_buffer(lookup_inverses_comm, proof_data);
-            serialize_to_buffer(z_perm_comm, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(sumcheck_univariates[i], proof_data);
-            }
-            serialize_to_buffer(sumcheck_evaluations, proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                serialize_to_buffer(gemini_fold_comms[i], proof_data);
-            }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                serialize_to_buffer(gemini_fold_evals[i], proof_data);
-            }
-            serialize_to_buffer(shplonk_q_comm, proof_data);
-            serialize_to_buffer(kzg_w_comm, proof_data);
-
-            ASSERT(proof_data.size() == old_proof_length);
-        }
-    };
+    using Transcript = NativeTranscript;
 };
 
 } // namespace bb

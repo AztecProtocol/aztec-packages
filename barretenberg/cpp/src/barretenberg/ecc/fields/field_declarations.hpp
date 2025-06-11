@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
@@ -58,6 +64,10 @@ template <class Params_> struct alignas(32) field {
     {
         self_to_montgomery_form();
     }
+
+    constexpr field(const uint128_t& input) noexcept
+        : field(uint256_t::from_uint128(input))
+    {}
 
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
     constexpr field(const unsigned long input) noexcept

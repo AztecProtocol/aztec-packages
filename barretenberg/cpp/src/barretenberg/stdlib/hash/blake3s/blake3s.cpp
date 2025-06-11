@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "blake3s.hpp"
 #include "../blake2s/blake_util.hpp"
 #include "barretenberg/stdlib/primitives/uint/uint.hpp"
@@ -240,6 +246,8 @@ using namespace blake3_internal;
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
 {
+    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+
     if constexpr (HasPlookup<Builder>) {
         return blake3s_plookup::blake3s<Builder>(input);
     }
@@ -253,7 +261,6 @@ template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder
     return result;
 }
 
-template byte_array<bb::StandardCircuitBuilder> blake3s(const byte_array<bb::StandardCircuitBuilder>& input);
 template byte_array<bb::UltraCircuitBuilder> blake3s(const byte_array<bb::UltraCircuitBuilder>& input);
 template byte_array<bb::MegaCircuitBuilder> blake3s(const byte_array<bb::MegaCircuitBuilder>& input);
 } // namespace bb::stdlib

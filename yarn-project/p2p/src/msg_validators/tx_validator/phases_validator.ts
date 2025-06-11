@@ -16,7 +16,11 @@ export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
   private contractsDB: PublicContractsDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
+  constructor(
+    contracts: ContractDataSource,
+    private setupAllowList: AllowedElement[],
+    private blockNumber: number,
+  ) {
     this.contractsDB = new PublicContractsDB(contracts);
   }
 
@@ -37,7 +41,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
-          this.#log.warn(
+          this.#log.verbose(
             `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
               setupFn.request.contractAddress
             }:${setupFn.functionSelector}`,

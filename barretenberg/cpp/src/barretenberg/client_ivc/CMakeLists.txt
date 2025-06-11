@@ -1,1 +1,1 @@
-barretenberg_module(client_ivc stdlib_protogalaxy_verifier stdlib_goblin_verifier dsl)
+barretenberg_module(client_ivc stdlib_protogalaxy_verifier dsl libdeflate::libdeflate_static)

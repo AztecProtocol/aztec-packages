@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# This script is used to find the binary directory for a given CMake preset.
+# It reads the CMakepresets.json file and traverses the inheritance tree to find the binary directory.
+
+set -euo pipefail
+cd $(dirname $0)
+
+preset=${NATIVE_PRESET:-clang16-assert}
+
+declare -A preset_to_dir preset_to_inherits
+
+# Read a map of name => inherits, name => binaryDir
+while IFS=$'\t' read -r name inherits binaryDir; do
+  preset_to_inherits["$name"]="$inherits"
+  preset_to_dir["$name"]="$binaryDir"
+done < <(
+  jq -r '
+    .configurePresets[]?
+    | [
+        .name,
+        .inherits // "",
+        .binaryDir // ""
+      ]
+    | @tsv
+  ' ../CMakePresets.json
+)
+
+function get_binary_dir {
+  local name="$1"
+  if [[ -n "${preset_to_dir[$name]:-}" ]]; then
+   echo "${preset_to_dir[$name]}"
+   return
+  fi
+  for parent in ${preset_to_inherits[$name]}; do
+    result="$(get_binary_dir "$parent")"
+    if [[ -n "$result" ]]; then
+      preset_to_dir["$name"]="$result"
+      echo "$result"
+      return
+    fi
+  done
+  echo_stderr "Error: Couldn't find build directory for preset '$name'."
+  exit 1
+}
+
+get_binary_dir "$preset"

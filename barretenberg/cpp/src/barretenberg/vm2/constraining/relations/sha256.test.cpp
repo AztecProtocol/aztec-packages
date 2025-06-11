@@ -28,9 +28,7 @@ using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
-using simulation::Memory;
-using simulation::MemoryEvent;
-using simulation::NoopEventEmitter;
+using simulation::MemoryStore;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -53,8 +51,7 @@ TEST(Sha256ConstrainingTest, EmptyRow)
 // TOOD: Replace this with a hardcoded test vector and write a negative test
 TEST(Sha256ConstrainingTest, Basic)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -79,18 +76,17 @@ TEST(Sha256ConstrainingTest, Basic)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
     TestTraceContainer trace;
     trace.set(C::precomputed_first_row, 0, 1);
-    tracegen::Sha256TraceBuilder builder(trace);
+    tracegen::Sha256TraceBuilder builder;
 
     const auto sha256_event_container = sha256_event_emitter.dump_events();
-    builder.process(sha256_event_container);
+    builder.process(sha256_event_container, trace);
 
     check_relation<sha256>(trace);
 }
 
 TEST(Sha256ConstrainingTest, Interaction)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 
@@ -113,13 +109,13 @@ TEST(Sha256ConstrainingTest, Interaction)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
 
     TestTraceContainer trace;
-    tracegen::Sha256TraceBuilder builder(trace);
+    tracegen::Sha256TraceBuilder builder;
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     // Build just enough clk rows for the lookup
     precomputed_builder.process_misc(trace, 65);
     precomputed_builder.process_sha256_round_constants(trace);
 
-    builder.process(sha256_event_emitter.get_events());
+    builder.process(sha256_event_emitter.get_events(), trace);
     LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
 
     check_relation<sha256>(trace);

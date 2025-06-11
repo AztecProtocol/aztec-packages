@@ -1,12 +1,13 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -20,7 +21,7 @@ using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**
@@ -146,6 +147,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         },
         false);
 
+    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 
@@ -175,7 +177,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    auto sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
+    auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript);
     RelationSeparator verifier_alphas;
     for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
         verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
@@ -186,8 +188,12 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         verifier_gate_challenges[idx] =
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    auto verifier_output =
-        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges);
+    std::array<FF, CONST_PROOF_SIZE_LOG_N> padding_indicator_array;
+    for (size_t idx = 0; idx < padding_indicator_array.size(); idx++) {
+        padding_indicator_array[idx] = (idx < log_circuit_size) ? FF{ 1 } : FF{ 0 };
+    }
+    auto verifier_output = sumcheck_verifier.verify(
+        decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

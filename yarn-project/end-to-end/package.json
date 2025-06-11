@@ -46,6 +46,7 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
@@ -53,6 +54,7 @@
     "@aztec/pxe": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/validator-client": "workspace:^",
@@ -67,7 +69,7 @@
     "@types/koa": "^2.15.0",
     "@types/koa-static": "^4.0.2",
     "@types/lodash.every": "^4.6.7",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "@viem/anvil": "^0.0.9",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
@@ -90,7 +92,7 @@
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tslib": "^2.4.0",
-    "typescript": "^5.0.4",
+    "typescript": "^5.3.3",
     "util": "^0.12.5",
     "viem": "2.23.7",
     "zod": "^3.23.8"
@@ -106,7 +108,7 @@
     "jest-extended": "^4.0.2",
     "js-yaml": "^4.1.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -115,7 +117,7 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   },
   "jest": {
     "slowTestThreshold": 300,
@@ -153,6 +155,7 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
-    ]
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs"
   }
 }

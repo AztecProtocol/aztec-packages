@@ -3,31 +3,75 @@ title: Glossary
 tags: [protocol, glossary]
 ---
 
+import { Glossary } from '@site/src/components/Snippets/glossary_snippets';
+
+### Aztec
+
+<Glossary.Tools.aztec />
+
+Full reference [here](./developers/reference/environment_reference/cli_reference).
+
+### Aztec Wallet
+
+<Glossary.Tools.aztec_wallet />
+
+Full reference [here](./developers/reference/environment_reference/cli_wallet_reference).
+
 ### `aztec-nargo`
 
-The command line tool used to compile Aztec contracts. It gets its name from the Noir compiler, `nargo`. `aztec-nargo` is really just a specific version of `nargo`. You can read more about `nargo` [here](#nargo).
+<Glossary.Tools.aztec_nargo />
+
+You can read more about `nargo` [here](#nargo).
+
+### `aztec-up`
+
+<Glossary.Tools.aztec_up />
+
+### Aztec.js
+
+<Glossary.Libs.aztec_js />
+
+Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec.js).
 
 ### Aztec.nr
 
-A [Noir](https://noir-lang.org) framework for writing smart contracts on Aztec.
+<Glossary.Libs.aztec_nr />
 
 Read more and review the source code [here](https://aztec.nr).
 
 ### Barretenberg
 
-Aztec's cryptography back-end. Refer to the graphic at the top of [this page](https://medium.com/aztec-protocol/explaining-the-network-in-aztec-network-166862b3ef7d) to see how it fits in the Aztec architecture.
+<Glossary.Barretenberg />
 
-Barretenberg's source code can be found [here](https://github.com/AztecProtocol/barretenberg).
+### bb / bb.js
+
+`bb` (CLI) and its corresponding `bb.js` (node module) are tools that prove and verify circuits. It also has helpful functions such as: writing solidity verifier contracts, checking a witness, and viewing a circuit's gate count.
 
 ### `nargo`
 
-With `nargo`, you can start new projects, compile, execute, prove, verify, test, generate solidity contracts, and do pretty much all that is available in Noir.
+With `nargo`, you can start new projects, compile, execute, and test your Noir programs.
 
 You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/installation/) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
 ### Noir
 
-Noir is a Domain Specific Language for SNARK proving systems. It is used for writing smart contracts in Aztec because private functions on Aztec are implemented as SNARKs to support privacy-preserving operations.
+<Glossary.Noir />
+
+### Noir Language Server
+
+The Noir Language Server can be used in vscode to facilitate writing programs in Noir by providing syntax highlighting, circuit introspection and an execution interface. The Noir LSP addon allows the dev to choose their tool, nargo or aztec-nargo, when writing a pure Noir program or an Aztec smart contract.
+
+You can find more info about the LSP [in the Noir docs](https://noir-lang.org/docs/tooling/language_server).
+
+### Node
+
+<Glossary.AztecNode />
+
+To run your own node see [here](./the_aztec_network/guides/run_nodes/index.md).
+
+### Note
+
+In Aztec, a Note is encrypted information stored by nodes in the network. Data in a note (once decrypted) may represent some variable's state at a point in time.
 
 ### Provers
 
@@ -35,11 +79,15 @@ Aztec will be launched with a fully permissionless proving network that anyone c
 
 How this works will be discussed via a future RFP process on Discourse, similarly to the Sequencer RFP.
 
-### Private Execution Environment
+### Private Execution Environment (PXE)
 
-The Private eXecution Environment (PXE) is a client-side library for the execution of private operations. The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
+<Glossary.PXE />
 
 Read more [here](./aztec/concepts/pxe/index.md).
+
+### Sandbox
+
+<Glossary.AztecSandbox />
 
 ### Sequencer
 
@@ -66,6 +114,10 @@ Previously in [Aztec Connect](https://medium.com/aztec-protocol/sunsetting-aztec
 Programs that run on the Aztec network are called smart contracts, similar to [programs](https://ethereum.org/en/developers/docs/smart-contracts/) that run on Ethereum.
 
 However, these will be written in the [Noir](https://noir-lang.org/index.html) programming language, and may optionally include private state and private functions.
+
+### Testing eXecution Environment (TXE)
+
+<Glossary.TXE />
 
 ### Proving Key
 

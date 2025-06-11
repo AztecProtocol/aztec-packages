@@ -15,11 +15,7 @@ using namespace bb;
  */
 class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
@@ -36,7 +32,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -59,7 +55,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -86,7 +82,7 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     size_t NUM_CIRCUITS = 6;
 
@@ -119,7 +115,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  */
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 

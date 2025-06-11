@@ -1,10 +1,11 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import type { BlockBuilder } from '@aztec/sequencer-client';
+import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorClient } from '@aztec/validator-client';
-import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -18,7 +19,7 @@ import { submitComplexTxsTo } from './shared.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 1;
-const BASE_BOOT_NODE_UDP_PORT = 40000;
+const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 
 describe('e2e_p2p_reex', () => {
@@ -39,6 +40,7 @@ describe('e2e_p2p_reex', () => {
         enforceTimeTable: true,
         txTimeoutMs: 30_000,
         listenAddress: '127.0.0.1',
+        aztecProofSubmissionWindow: 640,
       },
     });
 
@@ -87,7 +89,7 @@ describe('e2e_p2p_reex', () => {
     // into the validator nodes to cause them to fail in different ways.
     t.logger.info('Submitting txs');
     txs = await submitComplexTxsTo(t.logger, t.spamContract!, NUM_TXS_PER_NODE, { callPublic: true });
-  });
+  }, 360 * 1000);
 
   afterAll(async () => {
     // shutdown all nodes.
@@ -130,10 +132,9 @@ describe('e2e_p2p_reex', () => {
         // Abusing javascript to access the nodes signing key
         const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
         const newProposal = new BlockProposal(
+          proposal.blockNumber,
           proposal.payload,
-          await signer.signMessage(
-            await getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal),
-          ),
+          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
         );
 
         return (node as any).p2pClient.p2pService.propagate(newProposal);
@@ -147,14 +148,14 @@ describe('e2e_p2p_reex', () => {
       node: AztecNodeService,
       stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
     ) => {
-      const processorFactory: PublicProcessorFactory = (node as any).sequencer.sequencer.publicProcessorFactory;
-      const originalCreate = processorFactory.create.bind(processorFactory);
+      const blockBuilder: BlockBuilder = (node as any).sequencer.sequencer.blockBuilder;
+      const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
       jest
-        .spyOn(processorFactory, 'create')
-        .mockImplementation((...args: Parameters<PublicProcessorFactory['create']>) => {
-          const processor = originalCreate(...args);
+        .spyOn(blockBuilder, 'makeBlockBuilderDeps')
+        .mockImplementation(async (...args: Parameters<BlockBuilder['makeBlockBuilderDeps']>) => {
+          const deps = await originalCreateDeps(...args);
           t.logger.warn('Creating mocked processor factory');
-          const simulator: PublicTxSimulator = (processor as any).publicTxSimulator;
+          const simulator: PublicTxSimulator = (deps.processor as any).publicTxSimulator;
           const originalSimulate = simulator.simulate.bind(simulator);
           // We only stub the simulate method if it's NOT the first time we see the tx
           // so the proposer works fine, but we cause the failure in the validators.
@@ -169,7 +170,7 @@ describe('e2e_p2p_reex', () => {
               return originalSimulate(tx);
             }
           });
-          return processor;
+          return deps;
         });
     };
 

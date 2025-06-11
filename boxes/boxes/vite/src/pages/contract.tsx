@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Contract, FunctionType } from "@aztec/aztec.js";
 import { useNumber } from "../hooks/useNumber";
 
-const IGNORE_FUNCTIONS = ["constructor", "sync_notes"];
+const IGNORE_FUNCTIONS = ["constructor", "sync_private_state"];
 
 export function ContractComponent({ contract }: { contract: Contract }) {
   const [showInput, setShowInput] = useState(true);

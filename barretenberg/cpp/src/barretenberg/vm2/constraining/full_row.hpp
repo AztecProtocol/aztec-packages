@@ -1,26 +1,39 @@
 #pragma once
 
+#include <cstdint>
+
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
+namespace tracegen {
+// Forward declaration.
+class TraceContainer;
+} // namespace tracegen
 
-template <typename FF_> struct AvmFullRow {
-    using FF = FF_;
-
+// A bulky full row, mostly for testing purposes.
+struct AvmFullRow {
+    using DataType = FF;
     FF AVM2_ALL_ENTITIES;
 
-    // Risky but oh so efficient.
-    FF& get_column(ColumnAndShifts col)
-    {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
-        return reinterpret_cast<FF*>(this)[static_cast<size_t>(col)];
-    }
+    FF& get(ColumnAndShifts col);
+    const FF& get(ColumnAndShifts col) const;
+};
 
-    const FF& get_column(ColumnAndShifts col) const
-    {
-        static_assert(sizeof(*this) == sizeof(FF) * static_cast<size_t>(ColumnAndShifts::SENTINEL_DO_NOT_USE));
-        return reinterpret_cast<const FF*>(this)[static_cast<size_t>(col)];
-    }
+// A full row made up of references to fields.
+// Currently only used in tracegen tests via trace.as_rows().
+// Getters are not supported (however, they could be added).
+struct AvmFullRowConstRef {
+    using DataType = const FF;
+    const FF& AVM2_ALL_ENTITIES;
+};
+
+// A cheap proxy for a full row, which holds just a reference to a trace.
+struct AvmFullRowProxy {
+    const FF& get(ColumnAndShifts col) const;
+    uint32_t row_index;
+    const tracegen::TraceContainer& trace;
 };
 
 } // namespace bb::avm2

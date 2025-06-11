@@ -34,7 +34,7 @@ contract ProposeTest is GovernanceBase {
     emit IGovernance.Proposed(proposalId, _proposal);
 
     vm.prank(address(governanceProposer));
-    assertTrue(governance.propose(IPayload(_proposal)));
+    governance.propose(IPayload(_proposal));
 
     DataStructures.Proposal memory proposal = governance.getProposal(proposalId);
     assertEq(proposal.config.executionDelay, config.executionDelay);
@@ -45,7 +45,7 @@ contract ProposeTest is GovernanceBase {
     assertEq(proposal.config.votingDelay, config.votingDelay);
     assertEq(proposal.config.votingDuration, config.votingDuration);
     assertEq(proposal.creation, Timestamp.wrap(block.timestamp));
-    assertEq(proposal.governanceProposer, address(governanceProposer));
+    assertEq(proposal.proposer, address(governanceProposer));
     assertEq(proposal.summedBallot.nea, 0);
     assertEq(proposal.summedBallot.yea, 0);
     assertTrue(proposal.state == DataStructures.ProposalState.Pending);

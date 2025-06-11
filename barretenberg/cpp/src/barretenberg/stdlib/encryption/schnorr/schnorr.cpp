@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "schnorr.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -34,7 +40,7 @@ schnorr_signature_bits<C> schnorr_convert_signature(C* context, const crypto::sc
  *          e' = hash(([s]g + [e]pub).x | message)
           and return e'.
  *
- * @details UltraPlonk: ~5018 gates, excluding gates required to init the UltraPlonk range check
+ * @details Ultra: ~5018 gates, excluding gates required to init the Ultra range check
  * (~1,169k for fixed/variable_base_mul, ~4k for blake2s) for a string of length = 34.
  */
 template <typename C>
@@ -96,14 +102,12 @@ bool_t<C> schnorr_signature_verification_result(const byte_array<C>& message,
         const byte_array<circuit_type>&,                                                                               \
         const cycle_group<circuit_type>&,                                                                              \
         const schnorr_signature_bits<circuit_type>&)
-VERIFY_SIGNATURE_INTERNAL(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE_INTERNAL(bb::UltraCircuitBuilder);
 VERIFY_SIGNATURE_INTERNAL(bb::MegaCircuitBuilder);
 #define VERIFY_SIGNATURE(circuit_type)                                                                                 \
     template void schnorr_verify_signature<circuit_type>(const byte_array<circuit_type>&,                              \
                                                          const cycle_group<circuit_type>&,                             \
                                                          const schnorr_signature_bits<circuit_type>&)
-VERIFY_SIGNATURE(bb::StandardCircuitBuilder);
 VERIFY_SIGNATURE(bb::UltraCircuitBuilder);
 VERIFY_SIGNATURE(bb::MegaCircuitBuilder);
 #define SIGNATURE_VERIFICATION_RESULT(circuit_type)                                                                    \
@@ -111,13 +115,11 @@ VERIFY_SIGNATURE(bb::MegaCircuitBuilder);
         const byte_array<circuit_type>&,                                                                               \
         const cycle_group<circuit_type>&,                                                                              \
         const schnorr_signature_bits<circuit_type>&)
-SIGNATURE_VERIFICATION_RESULT(bb::StandardCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::UltraCircuitBuilder);
 SIGNATURE_VERIFICATION_RESULT(bb::MegaCircuitBuilder);
 #define CONVERT_SIGNATURE(circuit_type)                                                                                \
     template schnorr_signature_bits<circuit_type> schnorr_convert_signature<circuit_type>(                             \
         circuit_type*, const crypto::schnorr_signature&)
-CONVERT_SIGNATURE(bb::StandardCircuitBuilder);
 CONVERT_SIGNATURE(bb::UltraCircuitBuilder);
 CONVERT_SIGNATURE(bb::MegaCircuitBuilder);
 } // namespace bb::stdlib

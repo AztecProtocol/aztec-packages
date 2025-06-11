@@ -1,12 +1,21 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <cstdint>
 namespace bb {
 
 // We assume all kernels have space for two return data commitments on their public inputs
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = 16;
+constexpr uint32_t NUM_DATABUS_COMMITMENTS = 2;
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENT_SIZE = 8;
+constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * NUM_DATABUS_COMMITMENTS;
 
 /**
  * @brief A DataBus column
@@ -80,16 +89,16 @@ struct DatabusPropagationData {
     bool operator==(const DatabusPropagationData&) const = default;
 
     // Keys indicating the location of databus return data commitments in the public inputs
-    PublicComponentKey app_return_data_commitment_pub_input_key;
     PublicComponentKey kernel_return_data_commitment_pub_input_key;
+    PublicComponentKey app_return_data_commitment_pub_input_key;
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
 
     friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
     {
-        os << data.app_return_data_commitment_pub_input_key.start_idx << ",\n"
-           << data.kernel_return_data_commitment_pub_input_key.start_idx << ",\n"
+        os << data.kernel_return_data_commitment_pub_input_key.start_idx << ",\n"
+           << data.app_return_data_commitment_pub_input_key.start_idx << ",\n"
            << data.is_kernel << "\n";
         return os;
     };
@@ -98,14 +107,16 @@ struct DatabusPropagationData {
     static DatabusPropagationData kernel_default()
     {
         DatabusPropagationData data;
-        // Kernel return data is the first public input, followed by app return data
-        data.kernel_return_data_commitment_pub_input_key.start_idx = 0;
-        data.app_return_data_commitment_pub_input_key.start_idx = 8;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1371): Cleanup these numbers up.
+        // Kernel return data is the first public input after pairing point object, followed by app return data
+        data.kernel_return_data_commitment_pub_input_key.start_idx = PAIRING_POINTS_SIZE;
+        data.app_return_data_commitment_pub_input_key.start_idx =
+            PAIRING_POINTS_SIZE + PROPAGATED_DATABUS_COMMITMENT_SIZE;
         data.is_kernel = true;
         return data;
     }
 
-    MSGPACK_FIELDS(app_return_data_commitment_pub_input_key, kernel_return_data_commitment_pub_input_key, is_kernel);
+    MSGPACK_FIELDS(kernel_return_data_commitment_pub_input_key, app_return_data_commitment_pub_input_key, is_kernel);
 };
 
 } // namespace bb

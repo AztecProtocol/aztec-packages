@@ -31,6 +31,12 @@ export function describeAztecMultiMap(
         : await (sut as AztecAsyncMultiMap<any, any>).getAsync(key);
     }
 
+    async function size(sut: AztecAsyncMultiMap<any, any> | AztecMultiMap<any, any> = multiMap) {
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecMultiMap<any, any>).size()
+        : await (sut as AztecAsyncMultiMap<any, any>).sizeAsync();
+    }
+
     async function entries() {
       return isSyncStore(store) && !forceAsync
         ? await toArray((multiMap as AztecMultiMap<any, any>).entries())
@@ -81,6 +87,16 @@ export function describeAztecMultiMap(
       expect(await get('baz')).to.equal('qux');
     });
 
+    it('should be able to get size of the map', async () => {
+      await multiMap.set('foo', 'bar');
+      expect(await size()).to.equal(1);
+      await multiMap.set('baz', 'qux');
+      expect(await size()).to.equal(2);
+
+      await multiMap.delete('foo');
+      expect(await size()).to.equal(1);
+    });
+
     it('should be able to iterate over entries when there are no keys', async () => {
       expect(await entries()).to.deep.equal([]);
     });
@@ -124,12 +140,88 @@ export function describeAztecMultiMap(
     });
 
     it('should be able to delete individual values for a single key', async () => {
-      await multiMap.set('foo', 'bar');
-      await multiMap.set('foo', 'baz');
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
 
+      await multiMap.deleteValue('foo', '2');
+
+      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+    });
+
+    it('should be able to get size of the map with duplicate keys', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+      expect(await size()).to.equal(3);
+
+      await multiMap.set('bar', '1');
+      await multiMap.set('bar', '2');
+      await multiMap.set('bar', '3');
+      expect(await size()).to.equal(6);
+
+      await multiMap.deleteValue('foo', '2');
+      expect(await size()).to.equal(5);
+    });
+
+    it('should be able to delete the last and first values for a key', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+
+      await multiMap.deleteValue('foo', '1');
+
+      expect(await getValues('foo')).to.deep.equal(['2', '3']);
+
+      await multiMap.deleteValue('foo', '3');
+
+      expect(await getValues('foo')).to.deep.equal(['2']);
+    });
+
+    it('should be able to fully clear a key', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+
+      await multiMap.deleteValue('foo', '1');
+      await multiMap.deleteValue('foo', '3');
+      await multiMap.deleteValue('foo', '2');
+
+      expect(await getValues('foo')).to.deep.equal([]);
+    });
+
+    it('should be able to insert after deletion', async () => {
+      await multiMap.set('foo', '1');
+      await multiMap.set('foo', '2');
+      await multiMap.set('foo', '3');
+
+      await multiMap.deleteValue('foo', '2');
+      await multiMap.set('foo', 'bar');
+
+      expect(await getValues('foo')).to.deep.equal(['1', '3', 'bar']);
+
+      // Delete the just-added entry
       await multiMap.deleteValue('foo', 'bar');
 
-      expect(await getValues('foo')).to.deep.equal(['baz']);
+      expect(await getValues('foo')).to.deep.equal(['1', '3']);
+
+      // Reinsert the initially deleted key
+      await multiMap.set('foo', '2');
+
+      // LMDB and IndexedDB behave differently here, the former ordering by value and the latter by insertion. This is
+      // fine because there is no expectation for values in a multimap to be ordered.
+      const values = (await getValues('foo')).sort((a, b) => a.localeCompare(b));
+      expect(values).to.deep.equal(['1', '2', '3']);
+
+      // Fully clear the key
+      await multiMap.deleteValue('foo', '1');
+      await multiMap.deleteValue('foo', '3');
+      await multiMap.deleteValue('foo', '2');
+
+      // Insert some more
+      await multiMap.set('foo', 'baz');
+      await multiMap.set('foo', 'qux');
+      expect(await getValues('foo')).to.deep.equal(['baz', 'qux']);
     });
 
     it('supports range queries', async () => {

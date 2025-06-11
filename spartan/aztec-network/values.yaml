@@ -17,7 +17,11 @@ network:
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
 
-  mempoolLimitBytes: 100000000 # approx 100MB
+  mempoolLimitBytes: "100000000" # approx 100MB
+
+blobs:
+  remoteBlobSinkUrl: ""
+  remoteBlobSinkEnabled: false
 
 storage:
   localSsd: false
@@ -150,6 +154,7 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
+  keysPerNode: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -211,6 +216,7 @@ proverNode:
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  failedEpochStore: ""
   l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""
@@ -355,6 +361,6 @@ faucet:
   service:
     nodePort: 8085
   apiServerPort: 8086
-  accountIndex: 0
+  addressIndex: 0
   l1Assets: ""
   logLevel: ""

@@ -133,8 +133,8 @@ mod tests {
             next_index: 0,
         };
 
-        let with_hash_hint = SharedMutableValues::new(
-            ScheduledValueChange::<ContractClassId>::empty(),
+        let with_hash_hint = SharedMutableValues::<ContractClassId, 0>::new(
+            ScheduledValueChange::empty(),
             ScheduledDelayChange::empty(),
         );
 
@@ -216,8 +216,8 @@ mod tests {
             BlockHeader::empty(),
             27,
             AztecAddress::from_field(42),
-            SharedMutableValues::new(
-                ScheduledValueChange::<ContractClassId>::empty(),
+            SharedMutableValues::<ContractClassId, 0>::new(
+                ScheduledValueChange::empty(),
                 ScheduledDelayChange::empty(),
             ),
             MembershipWitness { leaf_index: 80, sibling_path: std::mem::zeroed() },
@@ -252,8 +252,8 @@ mod tests {
             historical_header,
             with_hash_storage_slot,
             contract_address,
-            SharedMutableValues::new(
-                ScheduledValueChange::<ContractClassId>::empty(),
+            SharedMutableValues::<ContractClassId, 0>::new(
+                ScheduledValueChange::empty(),
                 ScheduledDelayChange::empty(),
             ),
             witness,
@@ -286,7 +286,7 @@ mod tests {
             next_index: 0,
         };
         // Expected to be empty, it's not
-        let value_hint = SharedMutableValues::new(
+        let value_hint = SharedMutableValues::<ContractClassId, 0>::new(
             ScheduledValueChange::new(
                 ContractClassId::from_field(0),
                 ContractClassId::from_field(96),

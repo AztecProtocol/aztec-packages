@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -106,7 +112,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
      * This differs from Mega in how we construct the commitments.
      */
     class VerificationKey
-        : public VerificationKey_<FF, MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public StdlibVerificationKey_<BuilderType, FF, MegaFlavor::PrecomputedEntities<Commitment>> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof
         DatabusPropagationData databus_propagation_data;
@@ -125,9 +131,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
-            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
-            this->pairing_point_accumulator_public_input_indices =
-                native_key->pairing_point_accumulator_public_input_indices;
+            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->databus_propagation_data = native_key->databus_propagation_data;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
@@ -153,12 +157,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value()));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->contains_pairing_point_accumulator =
-                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
-                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            }
+            this->pairing_inputs_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
@@ -174,6 +175,88 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             if (num_frs_read != elements.size()) {
                 info("Warning: Invalid buffer length in VerificationKey constuctor from fields!");
                 ASSERT(false);
+            }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements. Overrides the base class definition to include
+         * databus_propagation_data.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            using namespace bb::stdlib::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            CircuitBuilder* builder = this->circuit_size.context;
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(pairing_points_start_idx, elements);
+
+            FF app_return_data_commitment_start_idx(
+                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
+            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(app_return_data_commitment_start_idx, elements);
+
+            FF kernel_return_data_commitment_start_idx(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
+            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(kernel_return_data_commitment_start_idx, elements);
+
+            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
+            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
+            serialize_to_field_buffer(databus_is_kernel_start_idx, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
+         * implementation to include the databus propagation data.
+         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        template <typename Transcript>
+        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            CircuitBuilder* builder = this->circuit_size.context;
+            pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+            FF app_return_data_commitment_start_idx(
+                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
+            app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", app_return_data_commitment_start_idx);
+            FF kernel_return_data_commitment_start_idx(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
+            kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", kernel_return_data_commitment_start_idx);
+            FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
+            databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", databus_is_kernel_start_idx);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
             }
         }
 

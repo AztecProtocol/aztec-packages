@@ -1,4 +1,3 @@
-import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -21,6 +20,7 @@ export class L2Block {
     public header: BlockHeader,
     /** L2 block body. */
     public body: Body,
+    private blockHash: Fr | undefined = undefined,
   ) {}
 
   static get schema() {
@@ -85,14 +85,15 @@ export class L2Block {
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
-    inHash: Buffer | undefined = undefined,
+    inHash: Fr | undefined = undefined,
     slotNumber: number | undefined = undefined,
+    maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
-    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall);
+    const body = await Body.random(txsPerBlock, numPublicCallsPerTx, numPublicLogsPerCall, maxEffects);
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeHeader(0, txsPerBlock, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
+      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
       body,
     );
   }
@@ -102,78 +103,22 @@ export class L2Block {
    * @returns The L2 block.
    */
   static empty(): L2Block {
-    return new L2Block(AppendOnlyTreeSnapshot.zero(), BlockHeader.empty(), Body.empty());
+    return new L2Block(AppendOnlyTreeSnapshot.empty(), BlockHeader.empty(), Body.empty());
   }
 
   get number(): number {
-    return Number(this.header.globalVariables.blockNumber.toBigInt());
+    return this.header.getBlockNumber();
   }
 
   /**
    * Returns the block's hash (hash of block header).
    * @returns The block's hash.
    */
-  public hash(): Promise<Fr> {
-    return this.header.hash();
-  }
-
-  /**
-   * Computes the public inputs hash for the L2 block.
-   * The same output as the hash of RootRollupPublicInputs.
-   * TODO(Miranda): Check where/if this is used (v diff now with epochs and blobs)
-   * @returns The public input hash for the L2 block as a field element.
-   */
-  // TODO(#4844)
-  getPublicInputsHash(): Fr {
-    const preimage = [
-      this.header.globalVariables,
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot / commitments,
-      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
-      this.header.lastArchive,
-      this.header.state.partial.noteHashTree,
-      this.header.state.partial.nullifierTree,
-      this.header.state.partial.publicDataTree,
-      this.header.state.l1ToL2MessageTree,
-      this.archive,
-    ];
-
-    return sha256ToField(preimage);
-  }
-
-  /**
-   * Computes the start state hash (should equal contract data before block).
-   * @returns The start state hash for the L2 block.
-   */
-  // TODO(#4844)
-  getStartStateHash() {
-    const inputValue = serializeToBuffer(
-      new Fr(Number(this.header.globalVariables.blockNumber.toBigInt()) - 1),
-      AppendOnlyTreeSnapshot.zero(), // this.startNoteHashTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startNullifierTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startPublicDataTreeSnapshot,
-      AppendOnlyTreeSnapshot.zero(), // this.startL1ToL2MessageTreeSnapshot,
-      this.header.lastArchive,
-    );
-    return sha256(inputValue);
-  }
-
-  /**
-   * Computes the end state hash (should equal contract data after block).
-   * @returns The end state hash for the L2 block.
-   */
-  // TODO(#4844)
-  getEndStateHash() {
-    const inputValue = serializeToBuffer(
-      this.header.globalVariables.blockNumber,
-      this.header.state.partial.noteHashTree,
-      this.header.state.partial.nullifierTree,
-      this.header.state.partial.publicDataTree,
-      this.header.state.l1ToL2MessageTree,
-      this.archive,
-    );
-    return sha256(inputValue);
+  public async hash(): Promise<Fr> {
+    if (this.blockHash === undefined) {
+      this.blockHash = await this.header.hash();
+    }
+    return this.blockHash;
   }
 
   /**
@@ -190,7 +135,7 @@ export class L2Block {
       ),
       contractClassLogSize: this.body.txEffects.reduce(
         (totalLogSize, txEffect) =>
-          totalLogSize + txEffect.contractClassLogs.reduce((logSize, log) => logSize + log.getEmittedLength(), 0),
+          totalLogSize + txEffect.contractClassLogs.reduce((acc, log) => acc + log.emittedLength, 0),
         0,
       ),
     };

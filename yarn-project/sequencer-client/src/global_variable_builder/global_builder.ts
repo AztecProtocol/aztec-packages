@@ -20,10 +20,15 @@ import { createPublicClient, fallback, http } from 'viem';
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
+  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
+  private currentL1BlockNumber: bigint | undefined = undefined;
 
-  private rollupContract: RollupContract;
-  private publicClient: ViemPublicClient;
-  private ethereumSlotDuration: number;
+  private readonly rollupContract: RollupContract;
+  private readonly publicClient: ViemPublicClient;
+  private readonly ethereumSlotDuration: number;
+
+  private chainId?: Fr;
+  private version?: Fr;
 
   constructor(config: L1ReaderConfig & Pick<L1ContractsConfig, 'ethereumSlotDuration'>) {
     const { l1RpcUrls, l1ChainId: chainId, l1Contracts } = config;
@@ -43,9 +48,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
 
   /**
    * Computes the "current" base fees, e.g., the price that you currently should pay to get include in the next block
-   * @returns Base fees for the expected next block
+   * @returns Base fees for the next block
    */
-  public async getCurrentBaseFees(): Promise<GasFees> {
+  private async computeCurrentBaseFees(): Promise<GasFees> {
     // Since this might be called in the middle of a slot where a block might have been published,
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
@@ -55,7 +60,29 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    return new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
+  }
+
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    // Get the current block number
+    const blockNumber = await this.publicClient.getBlockNumber();
+
+    // If the L1 block number has changed then chain a new promise to get the current base fees
+    if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
+      this.currentL1BlockNumber = blockNumber;
+      this.currentBaseFees = this.currentBaseFees.then(() => this.computeCurrentBaseFees());
+    }
+    return this.currentBaseFees;
+  }
+
+  public async getGlobalConstantVariables(): Promise<Pick<GlobalVariables, 'chainId' | 'version'>> {
+    if (!this.chainId) {
+      this.chainId = new Fr(this.publicClient.chain.id);
+    }
+    if (!this.version) {
+      this.version = new Fr(await this.rollupContract.getVersion());
+    }
+    return { chainId: this.chainId, version: this.version };
   }
 
   /**
@@ -72,8 +99,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.getVersion());
-    const chainId = new Fr(this.publicClient.chain.id);
+    const { chainId, version } = await this.getGlobalConstantVariables();
 
     if (slotNumber === undefined) {
       const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
@@ -86,7 +112,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const timestampFr = new Fr(timestamp);
 
     // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
-    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    const gasFees = new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
 
     const globalVariables = new GlobalVariables(
       chainId,

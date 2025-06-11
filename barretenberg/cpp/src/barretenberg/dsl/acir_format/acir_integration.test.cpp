@@ -1,10 +1,12 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
+#include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -47,7 +49,8 @@ class AcirIntegrationTest : public ::testing::Test {
     static acir_format::AcirProgram get_program_data_from_test_file(const std::string& test_program_name)
     {
         auto program_stack = get_program_stack_data_from_test_file(test_program_name);
-        ASSERT(program_stack.size() == 1); // Otherwise this method will not return full stack data
+        BB_ASSERT_EQ(program_stack.size(),
+                     static_cast<size_t>(1)); // Otherwise this method will not return full stack data
 
         return program_stack.back();
     }
@@ -71,26 +74,6 @@ class AcirIntegrationTest : public ::testing::Test {
         // Verify Honk proof
         auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
-        return verifier.verify_proof(proof);
-    }
-
-    template <class Flavor> bool prove_and_verify_plonk(Flavor::CircuitBuilder& builder)
-    {
-        plonk::UltraComposer composer;
-
-        auto prover = composer.create_prover(builder);
-#ifdef LOG_SIZES
-        // builder.blocks.summarize();
-        // info("num gates          = ", builder.get_estimated_num_finalized_gates());
-        // info("total circuit size = ", builder.get_estimated_total_circuit_size());
-#endif
-        auto proof = prover.construct_proof();
-#ifdef LOG_SIZES
-        // info("circuit size       = ", prover.circuit_size);
-        // info("log circuit size   = ", numeric::get_msb(prover.circuit_size));
-#endif
-        // Verify Plonk proof
-        auto verifier = composer.create_verifier(builder);
         return verifier.verify_proof(proof);
     }
 
@@ -124,24 +107,19 @@ class AcirIntegrationTest : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 class AcirIntegrationSingleTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {};
 
 class AcirIntegrationFoldingTest : public AcirIntegrationTest, public testing::WithParamInterface<std::string> {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 {
     using Flavor = UltraFlavor;
-    // using Flavor = bb::plonk::flavor::Ultra;
     using Builder = Flavor::CircuitBuilder;
 
     std::string test_name = GetParam();
@@ -152,11 +130,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
     Builder builder = acir_format::create_circuit<Builder>(acir_program);
 
     // Construct and verify Honk proof
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        EXPECT_TRUE(prove_and_verify_plonk<Flavor>(builder));
-    } else {
-        EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
-    }
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(builder));
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
@@ -430,9 +404,9 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
     const auto& secondary_calldata = builder.get_secondary_calldata();
     const auto& return_data = builder.get_return_data();
 
-    ASSERT(calldata.size() == 4);
-    ASSERT(secondary_calldata.size() == 3);
-    ASSERT(return_data.size() == 4);
+    BB_ASSERT_EQ(calldata.size(), static_cast<size_t>(4));
+    BB_ASSERT_EQ(secondary_calldata.size(), static_cast<size_t>(3));
+    BB_ASSERT_EQ(return_data.size(), static_cast<size_t>(4));
 
     // Check that return data was computed from the two calldata inputs as expected
     ASSERT_EQ(builder.get_variable(calldata[0]) + builder.get_variable(secondary_calldata[0]),
@@ -515,4 +489,79 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export DOWNLOAD_ONLY=1
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    ClientIVC::Proof proof = ivc->prove();
+
+    EXPECT_TRUE(ivc->verify(proof));
+}
+
+/**
+ * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * witness are identical to those computed with the genuine provided witness.
+ */
+TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
+{
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+
+    uint256_t recomputed_vk_hash{ 0 };
+    uint256_t computed_vk_hash{ 0 };
+
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+
+    for (auto [program_in, precomputed_vk, function_name] :
+         zip_view(steps.folding_stack, steps.precomputed_vks, steps.function_names)) {
+
+        // Compute the VK using the program constraints but no witness (i.e. mimic the "dummy witness" case)
+        {
+            auto program = program_in;
+            program.witness = {}; // erase the witness to mimmic the "dummy witness" case
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
+
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            recomputed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+        }
+
+        // Compute the verification key using the genuine witness
+        {
+            auto program = program_in;
+            auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+            const acir_format::ProgramMetadata metadata{
+                .ivc = ivc_constraints.empty() ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+            };
+
+            auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+            computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
+        }
+
+        // Check that the hashes computed from the dummy witness VK and the genuine witness VK are equal
+        EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
+        // Check that the VK hashes match the hash of the precomputed VK contained in the msgpack inputs
+        EXPECT_EQ(computed_vk_hash, precomputed_vk->hash());
+    }
+}
 #endif

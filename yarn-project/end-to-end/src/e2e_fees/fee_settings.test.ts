@@ -7,7 +7,7 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { Fr } from '@aztec/foundation/fields';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 
@@ -52,7 +52,7 @@ describe('e2e_fees fee settings', () => {
             baseFeesBefore: before.toInspect(),
             baseFeesAfter: after.toInspect(),
           });
-          return after.feePerL2Gas.toBigInt() > before.feePerL2Gas.toBigInt();
+          return after.feePerL2Gas > before.feePerL2Gas;
         },
         'L2 base fee increase',
         5,

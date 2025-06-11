@@ -5,20 +5,24 @@ pragma solidity >=0.8.27;
 // solhint-disable-next-line no-unused-import
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
 struct TimeStorage {
-  uint256 genesisTime;
-  uint256 slotDuration; // Number of seconds in a slot
-  uint256 epochDuration; // Number of slots in an epoch
+  uint128 genesisTime;
+  uint32 slotDuration; // Number of seconds in a slot
+  uint32 epochDuration; // Number of slots in an epoch
 }
 
 library TimeLib {
+  using SafeCast for uint256;
+
   bytes32 private constant TIME_STORAGE_POSITION = keccak256("aztec.time.storage");
 
   function initialize(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration) internal {
     TimeStorage storage store = getStorage();
-    store.genesisTime = _genesisTime;
-    store.slotDuration = _slotDuration;
-    store.epochDuration = _epochDuration;
+    store.genesisTime = _genesisTime.toUint128();
+    store.slotDuration = _slotDuration.toUint32();
+    store.epochDuration = _epochDuration.toUint32();
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {
@@ -45,6 +49,7 @@ library TimeLib {
 
   function epochFromTimestamp(Timestamp _a) internal view returns (Epoch) {
     TimeStorage storage store = getStorage();
+
     return Epoch.wrap(
       (Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration)
     );
@@ -52,6 +57,11 @@ library TimeLib {
 
   function epochFromSlot(Slot _a) internal view returns (Epoch) {
     return Epoch.wrap(Slot.unwrap(_a) / getStorage().epochDuration);
+  }
+
+  function getEpochDurationInSeconds() internal view returns (uint256) {
+    TimeStorage storage store = getStorage();
+    return store.epochDuration * store.slotDuration;
   }
 
   function getStorage() internal pure returns (TimeStorage storage storageStruct) {

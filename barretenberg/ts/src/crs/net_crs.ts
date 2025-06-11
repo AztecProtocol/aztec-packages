@@ -78,7 +78,7 @@ export class NetCrs {
     const g1End = this.numPoints * 64 - 1;
     return await retry(
       () =>
-        fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat', {
+        fetch('https://crs.aztec.network/g1.dat', {
           headers: {
             Range: `bytes=0-${g1End}`,
           },
@@ -94,7 +94,7 @@ export class NetCrs {
   private async fetchG2Data(): Promise<Response> {
     return await retry(
       () =>
-        fetch('https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat', {
+        fetch('https://crs.aztec.network/g2.dat', {
           cache: 'force-cache',
         }),
       makeBackoff([5, 5, 5]),
@@ -152,12 +152,11 @@ export class NetGrumpkinCrs {
       return new Response(new Uint8Array([]));
     }
 
-    const g1Start = 28;
-    const g1End = g1Start + (this.numPoints * 64 - 1);
+    const g1End = this.numPoints * 64 - 1;
 
-    return await fetch('https://aztec-ignition.s3.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat', {
+    return await fetch('https://crs.aztec.network/grumpkin_g1.dat', {
       headers: {
-        Range: `bytes=${g1Start}-${g1End}`,
+        Range: `bytes=0-${g1End}`,
       },
       cache: 'force-cache',
     });

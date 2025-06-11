@@ -28,13 +28,18 @@ const IN_TAG_DESCRIPTION =
 const IN_TAG_DESCRIPTION_NO_FIELD =
   IN_TAG_DESCRIPTION + " `field` type is NOT supported for this instruction.";
 const INDIRECT_FLAG_DESCRIPTION =
-  "Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
+  "Toggles whether each memory-offset argument is a relative and/or indirect offset. *[THIS IS OUTDATED - SEE TS SIMULATOR]* Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.";
 
 const CALL_INSTRUCTION_ARGS = [
   {
-    name: "gasOffset",
+    name: "l2GasOffset",
     description:
-      "offset to two words containing `{l2GasLeft, daGasLeft}`: amount of gas to provide to the callee",
+      "memory offset to amount of L2 gas to provide to the callee",
+  },
+  {
+    name: "daGasOffset",
+    description:
+      "memory offset to amount of DA gas to provide to the callee",
   },
   { name: "addrOffset", description: "address of the contract to call" },
   {
@@ -45,13 +50,7 @@ const CALL_INSTRUCTION_ARGS = [
     name: "argsSizeOffset",
     description:
       "memory offset for the number of words to pass via callee's calldata",
-  },
-  {
-    name: "successOffset",
-    description:
-      "destination memory offset specifying where to store the call's success (0: failure, 1: success)",
-    type: "u1",
-  },
+  }
 ];
 const CALL_INSTRUCTION_DETAILS = `
     ["Nested contract calls"](./nested-calls) provides a full explanation of this

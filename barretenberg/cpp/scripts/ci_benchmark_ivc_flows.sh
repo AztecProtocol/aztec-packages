@@ -13,14 +13,9 @@ benchmark_output="$2"
 
 echo_header "bb ivc flow bench"
 
-export HARDWARE_CONCURRENCY=16
-export IGNITION_CRS_PATH=./srs_db/ignition
-export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
-export native_preset=${NATIVE_PRESET:-clang16-assert}
-export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
-
-mkdir -p bench-out
-rm -rf bench-out/ivc-*
+export HARDWARE_CONCURRENCY=${CPUS:-8}
+# E.g. build, build-debug or build-coverage
+export native_build_dir=$(scripts/native-preset-build-dir)
 
 function verify_ivc_flow {
   local flow="$1"
@@ -74,20 +69,17 @@ function run_bb_cli_bench {
 function client_ivc_flow {
   set -eu
   local runtime="$1"
-  local flow="$2"
-  local flow_folder="$input_folder/$flow"
+  local flow_folder="$2"
+  local flow="$(basename $flow_folder)"
   local start=$(date +%s%N)
 
-  local output="bench-out/ivc-$flow-$runtime"
+  local name_path="app-proving/$flow/$runtime"
+  local output="bench-out/$name_path"
   rm -rf "$output"
   mkdir -p "$output"
-  export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
+  export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc"
-
-  if [ -f "$output/op-counts.json" ]; then
-    scripts/google-bench/summarize-op-counts "$output/op-counts.json"
-  fi
+  run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
@@ -98,54 +90,22 @@ function client_ivc_flow {
   dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
 
-  local runtime_suffix=""
-  [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
-
-  cat > "$output/benchmarks.json" <<EOF
+  cat > "$output/benchmarks.bench.json" <<EOF
+[
   {
-    "benchmarks": [
-    {
-      "name": "$flow-ivc-proof$runtime_suffix",
-      "time_unit": "ms",
-      "real_time": ${elapsed_ms}
-    },
-    {
-      "name": "$flow-ivc-proof$runtime_suffix-memory",
-      "time_unit": "MB",
-      "real_time": ${memory_taken_mb}
-    }
-    ]
+    "name": "$name_path/seconds",
+    "unit": "ms",
+    "value": ${elapsed_ms}
+  },
+  {
+    "name": "$name_path/memory",
+    "unit": "MB",
+    "value": ${memory_taken_mb}
   }
+]
 EOF
 }
 
-function run_benchmark {
-  set -eu
-  local start_core=$(( ($1 - 1) * HARDWARE_CONCURRENCY ))
-  local end_core=$(( start_core + (HARDWARE_CONCURRENCY - 1) ))
-  echo taskset -c $start_core-$end_core bash -c "$2"
-  taskset -c $start_core-$end_core bash -c "$2"
-}
+export -f verify_ivc_flow run_bb_cli_bench
 
-export -f verify_ivc_flow client_ivc_flow run_bb_cli_bench run_benchmark
-
-# TODO this does not work with smaller core counts - we will soon have a benchmark-wide mechanism for this.
-num_cpus=$(get_num_cpus)
-jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-
-# Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
-if [ -n "${IVC_BENCH:-}" ]; then
-  # If IVC_BENCH is set, run only that benchmark.
-  run_benchmark 1 "client_ivc_flow native $IVC_BENCH"
-  run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
-else
-  for runtime in native wasm; do
-    parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow '$runtime' {}"' ::: $(ls "$input_folder")
-  done
-fi
-
-mkdir -p "$benchmark_output"
-
-../scripts/combine_benchmarks.py \
-  ./bench-out/*/benchmarks.json \
-  > $benchmark_output/ivc-bench.json
+client_ivc_flow $1 $2

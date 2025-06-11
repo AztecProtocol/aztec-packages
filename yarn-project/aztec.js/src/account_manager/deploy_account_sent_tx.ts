@@ -15,8 +15,12 @@ export type DeployAccountTxReceipt = FieldsOf<TxReceipt> & {
  * A deployment transaction for an account contract sent to the network, extending SentTx with methods to get the resulting wallet.
  */
 export class DeployAccountSentTx extends SentTx {
-  constructor(pxeOrNode: AztecNode | PXE, txHashPromise: Promise<TxHash>, private getWalletPromise: Promise<Wallet>) {
-    super(pxeOrNode, txHashPromise);
+  constructor(
+    pxeOrNode: AztecNode | PXE,
+    sendTx: () => Promise<TxHash>,
+    private getWalletPromise: Promise<Wallet>,
+  ) {
+    super(pxeOrNode, sendTx);
   }
 
   /**

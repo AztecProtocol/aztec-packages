@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
@@ -18,8 +19,7 @@ using ::testing::StrictMock;
 
 TEST(Sha256CompressionSimulationTest, Sha256Compression)
 {
-    NoopEventEmitter<MemoryEvent> emitter;
-    Memory mem(/*space_id=*/0, emitter);
+    MemoryStore mem;
     StrictMock<MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
 

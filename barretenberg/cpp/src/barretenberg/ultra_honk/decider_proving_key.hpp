@@ -1,12 +1,18 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/composer/composer_lib.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/composer/composer_lib.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
@@ -26,7 +32,7 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -158,25 +164,78 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
                                                  circuit,
                                                  dyadic_circuit_size);
         }
+        { // Public inputs handling
+            // Construct the public inputs array
+            for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
+                size_t idx = i + proving_key.pub_inputs_offset;
+                proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
+            }
 
-        // Construct the public inputs array
-        for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
-            size_t idx = i + proving_key.pub_inputs_offset;
-            proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
-        }
+            // Set the pairing point accumulator indices. This should exist for all flavors.
+            ASSERT(circuit.pairing_inputs_public_input_key.is_set() &&
+                   "Honk circuit must output a pairing point accumulator. If this is a test, you might need to add a \
+                   default one through a method in PairingPoints.");
+            proving_key.pairing_inputs_public_input_key = circuit.pairing_inputs_public_input_key;
 
-        if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
-            proving_key.ipa_claim_public_input_indices = circuit.ipa_claim_public_input_indices;
-            proving_key.contains_ipa_claim = circuit.contains_ipa_claim;
-            proving_key.ipa_proof = circuit.ipa_proof;
-        }
-        // Set the pairing point accumulator indices
-        proving_key.pairing_point_accumulator_public_input_indices =
-            circuit.pairing_point_accumulator_public_input_indices;
-        proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
+            if constexpr (HasIPAAccumulator<Flavor>) { // Set the IPA claim indices
+                ASSERT(circuit.ipa_claim_public_input_key.is_set() && "Rollup Honk circuit must output a IPA claim.");
+                ASSERT(circuit.ipa_proof.size() &&
+                       "Rollup Honk circuit must produce an IPA proof to go with its claim.");
+                proving_key.ipa_claim_public_input_key = circuit.ipa_claim_public_input_key;
+                proving_key.ipa_proof = circuit.ipa_proof;
+            }
 
-        if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
-            proving_key.databus_propagation_data = circuit.databus_propagation_data;
+            if constexpr (HasDataBus<Flavor>) { // Set databus commitment propagation data
+                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
+                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
+                             "Mega circuit must output databus commitments.");
+                BB_ASSERT_EQ(circuit.databus_propagation_data.is_kernel,
+                             circuit.databus_propagation_data.app_return_data_commitment_pub_input_key.is_set(),
+                             "Mega circuit must output databus commitments.");
+
+                proving_key.databus_propagation_data = circuit.databus_propagation_data;
+            }
+
+            // Based on the flavor, we can check the locations of each backend-added public input object.
+            if constexpr (HasIPAAccumulator<Flavor>) { // for Rollup flavors, we expect the public inputs to be:
+                                                       // [user-public-inputs][pairing-point-object][ipa-claim]
+                BB_ASSERT_EQ(proving_key.ipa_claim_public_input_key.start_idx,
+                             proving_key.num_public_inputs - IPA_CLAIM_SIZE,
+                             "IPA Claim must be the last IPA_CLAIM_SIZE public inputs.");
+                BB_ASSERT_EQ(
+                    proving_key.pairing_inputs_public_input_key.start_idx,
+                    proving_key.num_public_inputs - IPA_CLAIM_SIZE - PAIRING_POINTS_SIZE,
+                    "Pairing point accumulator must be the second to last public input object before the IPA claim.");
+            } else if constexpr (IsUltraHonk<Flavor>) { // for Ultra flavors, we expect the public inputs to be:
+                                                        // [user-public-inputs][pairing-point-object]
+                BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                             proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
+                             "Pairing point accumulator must be the last public input object.");
+            } else if constexpr (IsMegaFlavor<Flavor>) { // for Mega flavors, we expect the public inputs to be:
+                                                         // [user-public-inputs][pairing-point-object][databus-comms]
+                if (proving_key.databus_propagation_data.is_kernel) {
+
+                    BB_ASSERT_EQ(
+                        proving_key.databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
+                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENT_SIZE,
+                        "Databus commitments must be the second to last public input object.");
+                    BB_ASSERT_EQ(
+                        proving_key.databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx,
+                        proving_key.num_public_inputs - PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                        "Databus commitments must be the last public input object.");
+                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE -
+                                     PROPAGATED_DATABUS_COMMITMENTS_SIZE,
+                                 "Pairing point accumulator must be the second to last public input object.");
+                } else {
+                    BB_ASSERT_EQ(proving_key.pairing_inputs_public_input_key.start_idx,
+                                 proving_key.num_public_inputs - PAIRING_POINTS_SIZE,
+                                 "Pairing point accumulator must be the last public input object.");
+                }
+            } else {
+                // static_assert(false);
+                ASSERT(false && "Dealing with unexpected flavor.");
+            }
         }
         auto end = std::chrono::steady_clock::now();
         auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

@@ -15,7 +15,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
 {

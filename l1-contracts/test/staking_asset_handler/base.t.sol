@@ -3,39 +3,42 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
 
-import {StakingCheater} from "./../staking/StakingCheater.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {StakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {ZKPassportBase} from "./zkpassport/ZKPassportBase.sol";
+
 // solhint-disable comprehensive-interface
 
-contract StakingAssetHandlerBase is TestBase {
-  StakingCheater internal staking;
+contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
+  IStaking internal staking;
   TestERC20 internal stakingAsset;
   Registry internal registry;
   StakingAssetHandler internal stakingAssetHandler;
-
-  uint256 internal constant MINIMUM_STAKE = 100e18;
 
   address internal constant PROPOSER = address(bytes20("PROPOSER"));
   address internal constant ATTESTER = address(bytes20("ATTESTER"));
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
+  bytes internal EMPTY_PROOF = bytes(string(""));
+  bytes32[] internal EMPTY_PUBLIC_INPUTS = new bytes32[](0);
+
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
 
   function setUp() public virtual {
-    stakingAsset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this));
 
-    // We are just using the staking asset for rewards as well here as we don't care about the rewards
-    // in these tests.
-    registry = new Registry(address(this), stakingAsset);
+    builder.deploy();
 
-    staking = new StakingCheater(stakingAsset, MINIMUM_STAKE, 1, 1);
-
-    registry.addRollup(IRollup(address(staking)));
+    stakingAsset = builder.getConfig().testERC20;
+    registry = builder.getConfig().registry;
+    DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
+    staking = IStaking(address(builder.getConfig().rollup));
 
     stakingAssetHandler = new StakingAssetHandler(
       address(this),
@@ -44,8 +47,20 @@ contract StakingAssetHandlerBase is TestBase {
       WITHDRAWER,
       mintInterval,
       depositsPerMint,
-      new address[](0)
+      zkPassportVerifier,
+      new address[](0),
+      CORRECT_SCOPE,
+      CORRECT_SUBSCOPE,
+      true
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
+  }
+
+  function setMockZKPassportVerifier() internal {
+    stakingAssetHandler.setZKPassportVerifier(address(mockZKPassportVerifier));
+  }
+
+  function enableBindCheck() internal {
+    stakingAssetHandler.setSkipBindCheck(false);
   }
 }

@@ -24,10 +24,10 @@ import {
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
-import { LogHash } from '../kernel/log_hash.js';
+import { CountedLogHash } from '../kernel/log_hash.js';
 import { PrivateCallRequest } from '../kernel/private_call_request.js';
 import { PrivateLogData } from '../kernel/private_log_data.js';
-import { L2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';
@@ -105,7 +105,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public l2ToL1Msgs: Tuple<L2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: Tuple<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Logs emitted in this function call.
      */
@@ -113,7 +113,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * Hash of the contract class logs emitted in this function call.
      */
-    public contractClassLogsHashes: Tuple<LogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogsHashes: Tuple<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -167,9 +167,9 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -194,9 +194,9 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
       reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
+      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
       reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash),
+      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -224,9 +224,9 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
       makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
       PublicCallRequest.empty(),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
+      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message.empty),
       makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, LogHash.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),

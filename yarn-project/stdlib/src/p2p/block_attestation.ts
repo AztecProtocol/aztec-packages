@@ -2,7 +2,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import type { ZodFor } from '../schemas/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
-import { TopicType, createTopicString } from './topic_type.js';
+import { TopicType } from './topic_type.js';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -26,11 +26,14 @@ export class BlockAttestationHash extends Buffer32 {
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
-  static override p2pTopic = createTopicString(TopicType.block_attestation);
+  static override p2pTopic = TopicType.block_attestation;
 
   private sender: EthAddress | undefined;
 
   constructor(
+    /** The block number of the attestation. */
+    public readonly blockNumber: Fr,
+
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
 
@@ -43,13 +46,14 @@ export class BlockAttestation extends Gossipable {
   static get schema(): ZodFor<BlockAttestation> {
     return z
       .object({
+        blockNumber: Fr.schema,
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
       })
-      .transform(obj => new BlockAttestation(obj.payload, obj.signature));
+      .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature));
   }
 
-  override p2pMessageIdentifier(): Promise<Buffer32> {
+  override generateP2PMessageIdentifier(): Promise<Buffer32> {
     return Promise.resolve(new BlockAttestationHash(keccak256(this.signature.toBuffer())));
   }
 
@@ -58,11 +62,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   get slotNumber(): Fr {
-    return this.payload.header.globalVariables.slotNumber;
-  }
-
-  get blockNumber(): Fr {
-    return this.payload.header.globalVariables.blockNumber;
+    return this.payload.header.slotNumber;
   }
 
   /**Get sender
@@ -70,13 +70,10 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  async getSender(): Promise<EthAddress> {
+  getSender(): EthAddress {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = await getHashedSignaturePayloadEthSignedMessage(
-        this.payload,
-        SignatureDomainSeparator.blockAttestation,
-      );
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockAttestation);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
@@ -84,24 +81,28 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
-  getPayload(): Promise<Buffer> {
+  getPayload(): Buffer {
     return this.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.payload, this.signature]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockAttestation(
+      reader.readObject(Fr),
+      reader.readObject(ConsensusPayload),
+      reader.readObject(Signature),
+    );
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(ConsensusPayload.empty(), Signature.empty());
+    return new BlockAttestation(Fr.ZERO, ConsensusPayload.empty(), Signature.empty());
   }
 
   getSize(): number {
-    return this.payload.getSize() + this.signature.getSize();
+    return this.blockNumber.size + this.payload.getSize() + this.signature.getSize();
   }
 }

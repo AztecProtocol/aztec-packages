@@ -40,7 +40,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: 1e9, l2GasLimit: 1e9, skipPublicSimulation: true });
+      bot.updateConfig({ daGasLimit: 1e9, l2GasLimit: 1e9 });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();

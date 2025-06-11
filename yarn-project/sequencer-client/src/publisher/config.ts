@@ -50,7 +50,7 @@ export const getTxSenderConfigMappings: (
     description: 'The private key to be used by the publisher.',
     parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
     defaultValue: NULL_KEY,
-    fallback: ['VALIDATOR_PRIVATE_KEY'],
+    // fallback: ['VALIDATOR_PRIVATE_KEY'],
   },
 });
 

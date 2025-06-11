@@ -90,6 +90,8 @@ spec:
           env:
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: VALIDATORS_PER_NODE
+              value: {{ .Values.validator.keysPerNode | quote }}
             - name: MNEMONIC
               value: {{ .Values.aztec.l1DeploymentMnemonic }}
 
@@ -179,10 +181,13 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
-            {{- if .Values.blobSink.enabled }}
+          {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
-            {{- end }}
+          {{- else if .Values.blobs.remoteBlobSinkEnabled }}
+            - name: BLOB_SINK_URL
+              value: "{{ .Values.blobs.remoteBlobSinkUrl }}"
+          {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}

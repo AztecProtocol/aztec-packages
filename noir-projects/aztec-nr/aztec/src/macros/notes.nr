@@ -156,13 +156,13 @@ comptime fn generate_note_properties(s: TypeDefinition) -> Quoted {
     let note_fields = s.fields_as_written();
 
     let properties_types = note_fields
-        .map(|(name, _): (Quoted, Type)| quote { pub $name: $property_selector_type })
+        .map(|(name, _, _)| quote { pub $name: $property_selector_type })
         .join(quote {,});
 
     // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
     for i in 0..note_fields.len() {
-        let (name, _) = note_fields[i];
+        let (name, _, _) = note_fields[i];
         properties_list = properties_list.push_back(
             quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } },
         );
@@ -276,13 +276,13 @@ comptime fn index_note_fields(
     let mut indexed_nullable_fields = &[];
     let mut counter: u32 = 0;
     for field in s.fields_as_written() {
-        let (name, typ) = field;
+        let (name, typ, _) = field;
         if nullable_fields.all(|field| field != name) {
             indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
         } else {
             indexed_nullable_fields = indexed_nullable_fields.push_back((name, typ, counter));
         }
-        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, &[], true);
+        let (serialization_fields, _) = generate_serialize_to_fields(name, typ, true);
         // Each struct member can occupy multiple fields so we need to increment the counter accordingly
         counter += serialization_fields.len();
     }
@@ -393,7 +393,7 @@ comptime fn assert_has_owner(note: TypeDefinition) {
     let fields = note.fields_as_written();
     let mut has_owner = false;
     for i in 0..fields.len() {
-        let (field_name, _) = fields[i];
+        let (field_name, _, _) = fields[i];
         if field_name == quote { owner } {
             has_owner = true;
             break;

@@ -15,9 +15,14 @@ export class AvmExecutionEnvironment {
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly calldata: Fr[],
+    public readonly clientInitiatedSimulation: boolean = false,
   ) {}
 
-  private deriveEnvironmentForNestedCallInternal(targetAddress: AztecAddress, calldata: Fr[], isStaticCall: boolean) {
+  private deriveEnvironmentForNestedCallInternal(
+    targetAddress: AztecAddress,
+    calldata: Fr[],
+    isStaticCall: boolean,
+  ): AvmExecutionEnvironment {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
       /*sender=*/ this.address,
@@ -26,6 +31,7 @@ export class AvmExecutionEnvironment {
       this.globals,
       isStaticCall,
       calldata,
+      /*clientInitiatedSimulation=*/ this.clientInitiatedSimulation,
     );
   }
 

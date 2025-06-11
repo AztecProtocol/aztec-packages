@@ -5,7 +5,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
 
 /**
- * Represents a pending tagged log as it is stored in the pending tagged log array to which the syncNotes oracle
+ * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
  * inserts found private logs. A TS version of `pending_tagged_log.nr`.
  */
 export class PendingTaggedLog {
@@ -15,8 +15,6 @@ export class PendingTaggedLog {
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
     public recipient: AztecAddress,
-    public logIndexInTx: number,
-    public txIndexInBlock: number,
   ) {}
 
   toFields(): Fr[] {
@@ -26,8 +24,6 @@ export class PendingTaggedLog {
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
       this.recipient.toField(),
-      new Fr(this.logIndexInTx),
-      new Fr(this.txIndexInBlock),
     ];
   }
 }

@@ -24,7 +24,8 @@ library STFLib {
 
     rollupStore.blocks[0] = BlockLog({
       archive: _genesisState.genesisArchiveRoot,
-      blockHash: _genesisState.genesisBlockHash,
+      headerHash: 0,
+      blobCommitmentsHash: 0,
       slotNumber: Slot.wrap(0)
     });
   }

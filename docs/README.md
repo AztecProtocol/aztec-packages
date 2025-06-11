@@ -20,6 +20,34 @@ Here are the most relevant files you should be aware of:
 
 The .md files in the `docs/` directory are the docs. See the [Docusaurus website](https://docusaurus.io/docs/docs-introduction) for the full documentation on how to create docs and to manage the metadata.
 
+## Versioning
+
+Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
+
+When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `alpha-testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the `Next` version, updating the files in `versioned_docs/version-alpha-testnet` folder will update the `alpha-testnet` version, and updating the files in the `versioned_docs/version-v0.86.0` folder will update the `versioned_docs/v0.86.0` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+
+The way docs builds work is the following:
+
+- CI runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
+- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
+- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
+
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+
+```bash
+COMMIT_TAG=v0.84.0 yarn build
+```
+
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+
+### How do I change the versions that show in the website
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+## Releases
+
+A new docs site is published on every merge to the master branch.
+
 ### Installation
 
 To install the dependencies and dev dependencies, run:
@@ -149,30 +177,6 @@ Alternatively, you can also use the `AztecPackagesVersion()` js function, which 
 import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
-
-## Versioning
-
-Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not: it allows you to hot-fix previous versions.
-
-The way docs builds work is the following:
-
-- [This Github Action](../.github/workflows/docs-deploy.yml) runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
-- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
-- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
-
-The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
-
-```bash
-COMMIT_TAG=v0.84.0 yarn build
-```
-
-### How do I change the versions that show in the website
-
-When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
-
-## Releases
-
-A new docs site is published on every merge to the master branch, if there are any changes in the docs folder. You can also manually trigger a new deployment by running the `docs-deploy` workflow in the [Github Actions tab](https://github.com/AztecProtocol/aztec-packages/actions/workflows/docs-deploy.yml). This can be triggered from a branch and does not have to wait for a PR to be merged, although merging a PR is recommended.
 
 ## Viewing (outdated) protocol specs
 

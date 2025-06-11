@@ -11,9 +11,9 @@ use dep::aztec::protocol_types::traits::{FromField, ToField};
 #[note]
 #[derive(Eq)]
 pub struct EcdsaPublicKeyNote {
-    x: [u8; 32],
-    y: [u8; 32],
-    owner: AztecAddress,
+    pub x: [u8; 32],
+    pub y: [u8; 32],
+    pub owner: AztecAddress,
 }
 
 impl EcdsaPublicKeyNote {

@@ -1,3 +1,4 @@
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
@@ -17,7 +18,7 @@ export class RandomSampler {
 }
 
 /**
- * A class that samples peers from the libp2p node and returns a peer that we don't already have a connection open to.
+ * A class that samples peers from the libp2p node and returns a peer that we don't already have a reqresp connection open to.
  * If we already have a connection open, we try to sample a different peer.
  * We do this MAX_SAMPLE_ATTEMPTS times, if we still don't find a peer we just go for it.
  *
@@ -26,7 +27,7 @@ export class RandomSampler {
 export class ConnectionSampler {
   private readonly logger = createLogger('p2p:reqresp:connection-sampler');
   private cleanupInterval: NodeJS.Timeout;
-  private abortController: AbortController = new AbortController();
+  private dialAttempts: AbortController[] = [];
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
   private readonly streams: Map<string, StreamAndPeerId> = new Map();
@@ -51,7 +52,10 @@ export class ConnectionSampler {
     this.logger.info('Stopping connection sampler');
     clearInterval(this.cleanupInterval);
 
-    this.abortController.abort();
+    for (const attempt of this.dialAttempts) {
+      attempt.abort(new AbortError('Connection sampler stopped'));
+    }
+    this.dialAttempts = [];
     await this.dialQueue.end();
 
     // Close all active streams
@@ -69,70 +73,111 @@ export class ConnectionSampler {
   getPeer(excluding?: Map<string, boolean>): PeerId | undefined {
     // In libp2p getPeers performs a shallow copy, so this array can be sliced from safetly
     const peers = this.libp2p.getPeers();
+    const { peer } = this.getPeerFromList(peers, excluding);
+    return peer;
+  }
 
+  /**
+   * Samples a peer from a list of peers, excluding those that have active (reqresp) connections or are in the exclusion list
+   *
+   * @param peers - The list of peers to sample from
+   * @param excluding - The peers to exclude from the sampling
+   * @returns - A peer from the list, or undefined if no peers are available,
+   *          - a boolean indicating if the peer has active connections, and
+   *          - all sampled peers - to enable optional resampling
+   *
+   * @dev The provided list peers, should be mutated by this function. This allows batch sampling
+   *      to be performed without making extra copies of the list.
+   */
+  getPeerFromList(
+    peers: PeerId[],
+    excluding?: Map<string, boolean>,
+  ): {
+    peer: PeerId | undefined;
+    sampledPeers: PeerId[];
+  } {
     if (peers.length === 0) {
-      return undefined;
+      return { peer: undefined, sampledPeers: [] };
     }
 
-    let randomIndex = this.sampler.random(peers.length);
-    let attempts = 0;
+    const sampledPeers: PeerId[] = [];
+    // Try to find a peer that has no active connections and is not in the exclusion list
+    for (let attempts = 0; attempts < MAX_SAMPLE_ATTEMPTS && peers.length > 0; attempts++) {
+      const randomIndex = this.sampler.random(peers.length);
+      const peer = peers[randomIndex];
+      const hasActiveConnections = (this.activeConnectionsCount.get(peer) ?? 0) > 0;
+      const isExcluded = excluding?.get(peer.toString()) ?? false;
 
-    // Keep sampling while:
-    // - we haven't exceeded max attempts AND
-    // - either the peer has active connections OR is in the exclusion list
-    while (
-      attempts < MAX_SAMPLE_ATTEMPTS &&
-      ((this.activeConnectionsCount.get(peers[randomIndex]) ?? 0) > 0 ||
-        (excluding?.get(peers[randomIndex]?.toString()) ?? false))
-    ) {
+      // Remove this peer from consideration
       peers.splice(randomIndex, 1);
-      randomIndex = this.sampler.random(peers.length);
-      attempts++;
+
+      // If peer is suitable (no active connections and not excluded), return it
+      if (!hasActiveConnections && !isExcluded) {
+        this.logger.trace('Sampled peer', {
+          attempts,
+          peer,
+        });
+        return { peer, sampledPeers };
+      }
+
+      // Keep track of peers that have active reqresp channels, batch sampling will use these to resample
+      sampledPeers.push(peer);
     }
 
-    this.logger.trace(`Sampled peer in ${attempts} attempts`, {
-      attempts,
-      peer: peers[randomIndex]?.toString(),
+    // If we've exhausted our attempts or peers list is empty, return the last peer if available
+    const lastPeer = peers.length > 0 ? peers[this.sampler.random(peers.length)] : undefined;
+
+    this.logger.trace('Sampled peer', {
+      attempts: MAX_SAMPLE_ATTEMPTS,
+      peer: lastPeer?.toString(),
     });
-    return peers[randomIndex];
+    return { peer: lastPeer, sampledPeers };
   }
 
   /**
    * Samples a batch of unique peers from the libp2p node, prioritizing peers without active connections
    *
    * @param numberToSample - The number of peers to sample
+   * @param excluding - The peers to exclude from the sampling
    * @returns Array of unique sampled peers, prioritizing those without active connections
    */
-  samplePeersBatch(numberToSample: number): PeerId[] {
+  samplePeersBatch(numberToSample: number, excluding?: Map<string, boolean>): PeerId[] {
     const peers = this.libp2p.getPeers();
-    const sampledPeers: PeerId[] = [];
-    const peersWithConnections: PeerId[] = []; // Hold onto peers with active connections incase we need to sample more
+    this.logger.debug('Sampling peers batch', { numberToSample, peers });
 
-    for (const peer of peers) {
-      const activeConnections = this.activeConnectionsCount.get(peer) ?? 0;
-      if (activeConnections === 0) {
-        if (sampledPeers.push(peer) === numberToSample) {
-          return sampledPeers;
-        }
-      } else {
-        peersWithConnections.push(peer);
+    // Only sample as many peers as we have available
+    numberToSample = Math.min(numberToSample, peers.length);
+
+    const batch: PeerId[] = [];
+    const withActiveConnections: Set<PeerId> = new Set();
+    for (let i = 0; i < numberToSample; i++) {
+      const { peer, sampledPeers } = this.getPeerFromList(peers, excluding);
+      if (peer) {
+        batch.push(peer);
+      }
+      if (sampledPeers.length > 0) {
+        sampledPeers.forEach(peer => withActiveConnections.add(peer));
       }
     }
+    const lengthWithoutConnections = batch.length;
 
     // If we still need more peers, sample from those with connections
-    while (sampledPeers.length < numberToSample && peersWithConnections.length > 0) {
-      const randomIndex = this.sampler.random(peersWithConnections.length);
-      const [peer] = peersWithConnections.splice(randomIndex, 1);
-      sampledPeers.push(peer);
+    while (batch.length < numberToSample && withActiveConnections.size > 0) {
+      const randomIndex = this.sampler.random(withActiveConnections.size);
+
+      const peer = Array.from(withActiveConnections)[randomIndex];
+      withActiveConnections.delete(peer);
+      batch.push(peer);
     }
 
-    this.logger.trace(`Batch sampled ${sampledPeers.length} unique peers`, {
-      peers: sampledPeers,
-      withoutConnections: sampledPeers.length - peersWithConnections.length,
-      withConnections: peersWithConnections.length,
+    this.logger.trace('Batch sampled peers', {
+      length: batch.length,
+      peers: batch,
+      withoutConnections: lengthWithoutConnections,
+      withConnections: numberToSample - lengthWithoutConnections,
     });
 
-    return sampledPeers;
+    return batch;
   }
 
   // Set of passthrough functions to keep track of active connections
@@ -142,25 +187,47 @@ export class ConnectionSampler {
    *
    * @param peerId - The peer id
    * @param protocol - The protocol
+   * @param timeout - Abort connection if it takes too long
    * @returns The stream
    */
-  async dialProtocol(peerId: PeerId, protocol: string): Promise<Stream> {
+  async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
     // Dialling at the same time can cause race conditions where two different streams
     // end up with the same id, hence a serial queue
-    const stream = await this.dialQueue.put(() =>
-      this.libp2p.dialProtocol(peerId, protocol, { signal: this.abortController.signal }),
-    );
+    this.logger.debug(`Dial queue length: ${this.dialQueue.length()}`);
 
-    this.streams.set(stream.id, { stream, peerId });
-    const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
-    this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
+    const abortController = new AbortController();
+    this.dialAttempts.push(abortController);
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    if (timeout) {
+      timeoutHandle = setTimeout(() => abortController.abort(new TimeoutError('Dial protocol timeout')), timeout);
+    }
 
-    this.logger.trace(`Dialed protocol ${protocol} with peer ${peerId.toString()}`, {
-      streamId: stream.id,
-      peerId: peerId.toString(),
-      activeConnectionsCount: updatedActiveConnectionsCount,
-    });
-    return stream;
+    try {
+      const stream = await this.dialQueue.put(() =>
+        this.libp2p.dialProtocol(peerId, protocol, { signal: abortController.signal }),
+      );
+
+      this.streams.set(stream.id, { stream, peerId });
+      const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
+      this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
+
+      this.logger.trace('Dialed protocol', {
+        streamId: stream.id,
+        protocol,
+        peerId: peerId.toString(),
+        activeConnectionsCount: updatedActiveConnectionsCount,
+      });
+      return stream;
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+
+      const idx = this.dialAttempts.indexOf(abortController);
+      if (idx > -1) {
+        this.dialAttempts.splice(idx, 1);
+      }
+    }
   }
 
   /**
@@ -172,7 +239,7 @@ export class ConnectionSampler {
     try {
       const streamAndPeerId = this.streams.get(streamId);
       if (!streamAndPeerId) {
-        this.logger.warn(`Stream ${streamId} not found`);
+        this.logger.debug(`Stream ${streamId} not found`);
         return;
       }
 
@@ -181,14 +248,18 @@ export class ConnectionSampler {
       const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 1) - 1;
       this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
 
-      this.logger.trace(`Closing connection to peer ${peerId.toString()}`, {
+      this.logger.trace('Closing connection', {
         streamId,
         peerId: peerId.toString(),
         protocol: stream.protocol,
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
 
-      await stream?.close();
+      //NOTE: All other status codes indicate closed stream.
+      //Either graceful close (closed/closing) or forced close (aborted/reset)
+      if (stream.status === 'open') {
+        await stream?.close();
+      }
     } catch (error) {
       this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
     } finally {
@@ -207,7 +278,7 @@ export class ConnectionSampler {
         // Check if we have lost track of accounting
         if (this.activeConnectionsCount.get(peerId) === 0) {
           await this.close(streamId);
-          this.logger.debug(`Cleaned up stale connection ${streamId} to peer ${peerId.toString()}`);
+          this.logger.debug('Cleaned up stale connection', { streamId, peerId: peerId.toString() });
         }
       } catch (error) {
         this.logger.error(`Error cleaning up stale connection ${streamId}`, { error });

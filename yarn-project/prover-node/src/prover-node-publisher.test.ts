@@ -1,3 +1,4 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -135,8 +136,9 @@ describe('prover-node-publisher', () => {
       // Return the requested block
       rollup.getBlock.mockImplementation((blockNumber: bigint) =>
         Promise.resolve({
-          blockHash: blocks[Number(blockNumber) - 1].endBlockHash.toString(),
-          archive: blocks[Number(blockNumber) - 1].endArchive.root.toString(),
+          archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
+          headerHash: '0x', // unused,
+          blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
       );
@@ -144,10 +146,16 @@ describe('prover-node-publisher', () => {
       // We have built a rollup proof of the range fromBlock - toBlock
       // so we need to set our archives and hashes accordingly
       const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousBlockHash = blocks[fromBlock - 2]?.endBlockHash ?? Fr.ZERO;
-      ourPublicInputs.previousArchive = blocks[fromBlock - 2]?.endArchive ?? Fr.ZERO;
-      ourPublicInputs.endBlockHash = blocks[toBlock - 1]?.endBlockHash ?? Fr.ZERO;
-      ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
+      ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
+      ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
+
+      const ourBatchedBlob = new BatchedBlob(
+        ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+        ourPublicInputs.blobPublicInputs.z,
+        ourPublicInputs.blobPublicInputs.y,
+        ourPublicInputs.blobPublicInputs.c,
+        ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+      );
 
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields();
@@ -160,6 +168,7 @@ describe('prover-node-publisher', () => {
           toBlock,
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
+          batchedBlobInputs: ourBatchedBlob,
         })
         .then(() => 'Success')
         .catch(error => error.message);

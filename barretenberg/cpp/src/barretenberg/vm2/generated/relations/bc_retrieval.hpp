@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -16,36 +17,38 @@ template <typename FF_> class bc_retrievalImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.bc_retrieval_sel).is_zero();
+        using C = ColumnAndShifts;
+        return (in.get(C::bc_retrieval_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
+
         const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
         const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_retrieval_sel * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
-                                                    new_term.bc_retrieval_outer_nullifier_domain_separator);
+            auto tmp = in.get(C::bc_retrieval_sel) * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
+                                                      in.get(C::bc_retrieval_outer_nullifier_domain_separator));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_retrieval_sel *
-                       (constants_DEPLOYER_CONTRACT_ADDRESS - new_term.bc_retrieval_deployer_protocol_contract_address);
+            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (new_term.bc_retrieval_sel - new_term.bc_retrieval_sel);
+            auto tmp = (in.get(C::bc_retrieval_sel) - in.get(C::bc_retrieval_sel));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }

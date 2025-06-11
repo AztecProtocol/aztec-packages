@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "acir_to_constraint_buf.hpp"
 
 #include <cstddef>
@@ -10,8 +16,8 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace acir_format {
@@ -28,7 +34,7 @@ using namespace bb;
  *       make a decision and commit to it.
  */
 template <typename T>
-T deserialize_any_format(std::vector<uint8_t> const& buf,
+T deserialize_any_format(std::vector<uint8_t>&& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
                          std::function<T(std::vector<uint8_t>)> decode_bincode)
 {
@@ -44,7 +50,7 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
     // returns true for a `bincode` encoded program, and we have to check
     // whether the value parsed is plausible.
 
-    if (buf.size() > 0) {
+    if (!buf.empty()) {
         // Once we remove support for legacy bincode format, we should expect to always
         // have a format marker corresponding to acir::serialization::Format::Msgpack,
         // but until then a match could be pure coincidence.
@@ -70,17 +76,17 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
         // from it, so let's just acknowledge that for now we don't want to
         // exercise this code path and treat the whole data as bincode.
     }
-    return decode_bincode(buf);
+    return decode_bincode(std::move(buf));
 }
 
 /**
  * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
  * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
  */
-Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
+Acir::Program deserialize_program(std::vector<uint8_t>&& buf)
 {
     return deserialize_any_format<Acir::Program>(
-        buf,
+        std::move(buf),
         [](auto o) -> Acir::Program {
             Acir::Program program;
             try {
@@ -101,10 +107,10 @@ Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
 /**
  * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
  */
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
+Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t>&& buf)
 {
     return deserialize_any_format<Witnesses::WitnessStack>(
-        buf,
+        std::move(buf),
         [](auto o) {
             Witnesses::WitnessStack witness_stack;
             try {
@@ -594,8 +600,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .iv = transform::map(arg.iv, [](auto& e) { return parse_input(e); }),
-                    .key = transform::map(arg.key, [](auto& e) { return parse_input(e); }),
+                    .iv = transform::map(*arg.iv, [](auto& e) { return parse_input(e); }),
+                    .key = transform::map(*arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = transform::map(arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.aes128_constraints.back().outputs) {
@@ -604,9 +610,9 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Sha256Compression>) {
                 af.sha256_compression.push_back(Sha256Compression{
-                    .inputs = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .hash_values = transform::map(arg.hash_values, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .inputs = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .hash_values = transform::map(*arg.hash_values, [](auto& e) { return parse_input(e); }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.sha256_compression.back().result) {
                     af.constrained_witness.insert(output);
@@ -621,7 +627,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = e.num_bits,
                                                  };
                                              }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.blake2s_constraints.back().result) {
                     af.constrained_witness.insert(output);
@@ -636,7 +642,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                                                      .num_bits = e.num_bits,
                                                  };
                                              }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.blake3_constraints.back().result) {
                     af.constrained_witness.insert(output);
@@ -645,13 +651,13 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
                     .hashed_message =
-                        transform::map(arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
-                        transform::map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
-                        transform::map(arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
-                        transform::map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                 });
                 af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
@@ -659,14 +665,14 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
                     .hashed_message =
-                        transform::map(arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_x_indices =
-                        transform::map(arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_x, [](auto& e) { return get_witness_from_function_input(e); }),
                     .pub_y_indices =
-                        transform::map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                     .signature =
-                        transform::map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
+                        transform::map(*arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
@@ -674,21 +680,21 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
                     .points = transform::map(arg.points, [](auto& e) { return parse_input(e); }),
                     .scalars = transform::map(arg.scalars, [](auto& e) { return parse_input(e); }),
-                    .out_point_x = arg.outputs[0].value,
-                    .out_point_y = arg.outputs[1].value,
-                    .out_point_is_infinite = arg.outputs[2].value,
+                    .out_point_x = (*arg.outputs)[0].value,
+                    .out_point_y = (*arg.outputs)[1].value,
+                    .out_point_is_infinite = (*arg.outputs)[2].value,
                 });
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_x);
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_y);
                 af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_is_infinite);
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EmbeddedCurveAdd>) {
-                auto input_1_x = parse_input(arg.input1[0]);
-                auto input_1_y = parse_input(arg.input1[1]);
-                auto input_1_infinite = parse_input(arg.input1[2]);
-                auto input_2_x = parse_input(arg.input2[0]);
-                auto input_2_y = parse_input(arg.input2[1]);
-                auto input_2_infinite = parse_input(arg.input2[2]);
+                auto input_1_x = parse_input((*arg.input1)[0]);
+                auto input_1_y = parse_input((*arg.input1)[1]);
+                auto input_1_infinite = parse_input((*arg.input1)[2]);
+                auto input_2_x = parse_input((*arg.input2)[0]);
+                auto input_2_y = parse_input((*arg.input2)[1]);
+                auto input_2_infinite = parse_input((*arg.input2)[2]);
 
                 af.ec_add_constraints.push_back(EcAdd{
                     .input1_x = input_1_x,
@@ -697,9 +703,9 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     .input2_x = input_2_x,
                     .input2_y = input_2_y,
                     .input2_infinite = input_2_infinite,
-                    .result_x = arg.outputs[0].value,
-                    .result_y = arg.outputs[1].value,
-                    .result_infinite = arg.outputs[2].value,
+                    .result_x = (*arg.outputs)[0].value,
+                    .result_y = (*arg.outputs)[1].value,
+                    .result_infinite = (*arg.outputs)[2].value,
                 });
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_x);
                 af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
@@ -707,8 +713,8 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
-                    .state = transform::map(arg.inputs, [](auto& e) { return parse_input(e); }),
-                    .result = transform::map(arg.outputs, [](auto& e) { return e.value; }),
+                    .state = transform::map(*arg.inputs, [](auto& e) { return parse_input(e); }),
+                    .result = transform::map(*arg.outputs, [](auto& e) { return e.value; }),
                 });
                 for (auto& output : af.keccak_permutations.back().result) {
                     af.constrained_witness.insert(output);
@@ -732,10 +738,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
 
                 // Add the recursion constraint to the appropriate container based on proof type
                 switch (c.proof_type) {
-                case PLONK:
-                    af.recursion_constraints.push_back(c);
-                    af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                    break;
+                case HONK_ZK:
                 case HONK:
                 case ROLLUP_HONK:
                 case ROOT_ROLLUP_HONK:
@@ -920,12 +923,12 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit)
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
     // to work with a single ACIR function
-    auto program = deserialize_program(buf);
+    auto program = deserialize_program(std::move(buf));
     auto circuit = program.functions[0];
 
     return circuit_serde_to_acir_format(circuit);
@@ -957,20 +960,20 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
     return wv;
 }
 
-WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
+WitnessVector witness_buf_to_witness_data(std::vector<uint8_t>&& buf)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `witness_buf_to_witness_stack` once Honk fully supports all ACIR test flows. For now the backend still
     // expects to work with the stop of the `WitnessStack`.
-    auto witness_stack = deserialize_witness_stack(buf);
+    auto witness_stack = deserialize_witness_stack(std::move(buf));
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t>&& buf)
 {
-    auto program = deserialize_program(buf);
+    auto program = deserialize_program(std::move(buf));
 
     std::vector<AcirFormat> constraint_systems;
     constraint_systems.reserve(program.functions.size());
@@ -981,9 +984,9 @@ std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& b
     return constraint_systems;
 }
 
-WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
+WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t>&& buf)
 {
-    auto witness_stack = deserialize_witness_stack(buf);
+    auto witness_stack = deserialize_witness_stack(std::move(buf));
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
@@ -996,7 +999,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
 {
     vinfo("in get_acir_program_stack; witness path is ", witness_path);
     std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
-    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(bytecode);
+    std::vector<AcirFormat> constraint_systems = program_buf_to_acir_format(std::move(bytecode));
     WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
             info("producing a stack of empties");
@@ -1005,7 +1008,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path, std::s
             return stack_of_empties;
         }
         std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-        return witness_buf_to_witness_stack(witness_data);
+        return witness_buf_to_witness_stack(std::move(witness_data));
     }();
 
     return { std::move(constraint_systems), std::move(witness_stack) };

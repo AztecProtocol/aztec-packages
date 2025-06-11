@@ -11,12 +11,10 @@ pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
     // as the note type ids of current notes might have changed.
 
-    use dep::aztec::messages::logs::{
-        event::encode_and_encrypt_event_unconstrained, note::encode_and_encrypt_note,
-    };
+    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
     use dep::aztec::prelude::{
         AztecAddress, EthAddress, FunctionSelector, Map, NoteGetterOptions, NoteViewerOptions,
-        PrivateImmutable, PrivateSet, PublicImmutable, SharedMutable,
+        PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, SharedMutable,
     };
 
     use dep::aztec::protocol_types::{
@@ -34,7 +32,7 @@ pub contract Test {
 
     use dep::aztec::{
         deploy::deploy_contract as aztec_deploy_contract,
-        event::event_interface::EventInterface,
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         hash::{ArgsHasher, pedersen_hash},
         history::note_inclusion::ProveNoteInclusion,
         macros::{
@@ -62,7 +60,6 @@ pub contract Test {
     use address_note::address_note::AddressNote;
     use value_note::value_note::ValueNote;
 
-    #[derive(Serialize)]
     #[event]
     struct ExampleEvent {
         value0: Field,
@@ -87,13 +84,17 @@ pub contract Test {
     // test function must also be updated accordingly.
     #[storage]
     struct Storage<Context> {
-        example_constant: PrivateImmutable<TestNote, Context>,
-        example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-        example_set: PrivateSet<AddressNote, Context>,
-        example_struct: PrivateImmutable<ExampleStruct, Context>,
-        example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-        example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-        another_example_struct: PrivateImmutable<ExampleStruct, Context>,
+        note_in_private_immutable: PrivateImmutable<TestNote, Context>,
+        struct_in_private_immutable: PrivateImmutable<ExampleStruct, Context>,
+        note_in_private_mutable: PrivateMutable<TestNote, Context>,
+        struct_in_private_mutable: PrivateMutable<ExampleStruct, Context>,
+        note_in_private_set: PrivateSet<AddressNote, Context>,
+        struct_in_private_set: PrivateSet<ExampleStruct, Context>,
+        note_in_public_immutable: PublicImmutable<TestNote, Context>,
+        struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
+        struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+        struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+        dummy_variable: PrivateImmutable<TestNote, Context>,
     }
 
     #[initializer]
@@ -140,12 +141,6 @@ pub contract Test {
         sender: AztecAddress,
         storage_slot: Field,
     ) {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let note = ValueNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(encode_and_encrypt_note(
             &mut context,
@@ -157,12 +152,6 @@ pub contract Test {
 
     #[private]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -178,12 +167,6 @@ pub contract Test {
 
     #[private]
     fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [Field; 2] {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -197,12 +180,6 @@ pub contract Test {
 
     #[utility]
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -218,12 +195,6 @@ pub contract Test {
         storage_slot: Field,
         active_or_nullified: bool,
     ) -> [Field; 2] {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -236,12 +207,6 @@ pub contract Test {
 
     #[private]
     fn call_destroy_note(storage_slot: Field) {
-        assert(
-            storage_slot
-                != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
-            "this storage slot is reserved for example_constant",
-        );
-
         let options = NoteGetterOptions::new();
         let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
             get_notes(&mut context, storage_slot, options);
@@ -363,7 +328,13 @@ pub contract Test {
             value4: fields[4],
         };
 
-        event.emit(encode_and_encrypt_event_unconstrained(&mut context, owner, sender));
+        emit_event_in_private_log(
+            event,
+            &mut context,
+            sender,
+            owner,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
 
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
@@ -374,7 +345,7 @@ pub contract Test {
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
-            context.emit_private_log(leaky_log);
+            context.emit_private_log(leaky_log, 5);
         }
     }
 
@@ -454,7 +425,7 @@ pub contract Test {
         // function. Note that we can only do this because the note contains no contract-generated values (e.g.
         // randomness), if it did then we'd need to extract those out of the contract so that the app can get them (e.g.
         // via capsules).
-        storage.example_constant.initialize(note).discard();
+        storage.note_in_private_immutable.initialize(note).discard();
     }
 
     #[utility]
@@ -467,7 +438,7 @@ pub contract Test {
         recipient: AztecAddress,
     ) {
         let note = TestNote::new(value);
-        let storage_slot = Test::storage_layout().example_constant.slot;
+        let storage_slot = Test::storage_layout().note_in_private_immutable.slot;
         let note_type_id = TestNote::get_id();
         let log_payload = BoundedVec::from_array(note.pack());
 
@@ -496,8 +467,8 @@ pub contract Test {
         version: Field,
         block_number: Field,
         timestamp: u64,
-        fee_per_da_gas: Field,
-        fee_per_l2_gas: Field,
+        fee_per_da_gas: u128,
+        fee_per_l2_gas: u128,
     ) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
@@ -525,7 +496,7 @@ pub contract Test {
 
     #[utility]
     unconstrained fn get_constant() -> Field {
-        let constant = storage.example_constant.view_note();
+        let constant = storage.note_in_private_immutable.view_note();
         constant.get_value()
     }
 

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
@@ -34,7 +40,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
   public:
     using NativeFlavor = MegaZKFlavor;
 
-    // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`

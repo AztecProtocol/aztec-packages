@@ -31,12 +31,11 @@ export class SafeJsonRpcServer {
   private httpServer?: http.Server;
 
   constructor(
-    /** The proxy object to delegate requests to. */
+    /** The proxy object to delegate requests to */
     private readonly proxy: Proxy,
-    /**
-     *  Return an HTTP 200 status code on errors, but include an error object
-     *  as per the JSON RPC spec
-     */
+    /** Maximum batch size for batched rpc requests */
+    private maxBatchSize: number = 100,
+    /** Return an HTTP 200 status code on errors, but include an error object as per the JSON RPC spec */
     private http200OnError = false,
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
@@ -63,20 +62,13 @@ export class SafeJsonRpcServer {
         await next();
       } catch (err: any) {
         const method = (ctx.request.body as any)?.method ?? 'unknown';
-        this.log.warn(`Error in JSON RPC server call ${method}: ${inspect(err)}`);
-        if (err instanceof SyntaxError) {
+        this.log.warn(`Uncaught error in JSON RPC server call ${method}: ${inspect(err)}`);
+        if (err && 'name' in err && err.name === 'BadRequestError') {
+          ctx.status = 400;
+          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Bad request: ${err.message}` } };
+        } else if (err && err instanceof SyntaxError) {
           ctx.status = 400;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32700, message: `Parse error: ${err.message}` } };
-        } else if (err instanceof ZodError) {
-          const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
-          ctx.status = 400;
-          ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32701, message } };
-        } else if (this.http200OnError) {
-          ctx.body = {
-            jsonrpc: '2.0',
-            id: null,
-            error: { code: err.code || -32600, data: err.data, message: err.message },
-          };
         } else {
           ctx.status = 500;
           ctx.body = { jsonrpc: '2.0', id: null, error: { code: -32600, message: err.message ?? 'Internal error' } };
@@ -124,21 +116,87 @@ export class SafeJsonRpcServer {
     const router = new Router({ prefix });
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
-      const { params = [], jsonrpc, id, method } = ctx.request.body as any;
-      // Fail if not a registered function in the proxy
-      if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
-        ctx.status = 400;
-        const code = -32601;
-        const message = `Method not found: ${method}`;
-        ctx.body = { jsonrpc, id, error: { code, message } };
+      if (Array.isArray(ctx.request.body)) {
+        if (ctx.request.body.length > this.maxBatchSize) {
+          ctx.status = this.http200OnError ? 200 : 400;
+          ctx.body = {
+            jsonrpc: '2.0',
+            error: {
+              code: -32600,
+              message: `Batch request exceeds maximum allowed size of ${this.maxBatchSize}`,
+            },
+            id: null,
+          };
+          return;
+        }
+        const resp = await this.processBatch(ctx.request.body);
+        if (Array.isArray(resp)) {
+          ctx.status = 200;
+          ctx.body = resp;
+        } else {
+          ctx.status = this.http200OnError ? 200 : 400;
+          ctx.body = resp;
+        }
       } else {
-        ctx.status = 200;
-        const result = await this.proxy.call(method, params);
-        ctx.body = { jsonrpc, id, result };
+        const resp = await this.processRequest(ctx.request.body);
+        if ('error' in resp) {
+          ctx.status = this.http200OnError ? 200 : 400;
+        }
+
+        ctx.body = resp;
       }
     });
 
     return router;
+  }
+
+  private async processBatch(requests: any[]) {
+    if (requests.length === 0) {
+      return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
+    }
+    const results = await Promise.allSettled(requests.map(req => this.processRequest(req)));
+    return results.map(res => {
+      if (res.status === 'fulfilled') {
+        return res.value;
+      }
+
+      this.log.warn(`Uncaught error executing request in batch: ${res.reason}.`);
+      return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
+    });
+  }
+
+  private async processRequest(request: any) {
+    if (!request || typeof request !== 'object') {
+      return { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null };
+    }
+
+    const { params = [], jsonrpc, id, method } = request;
+    // Fail if not a registered function in the proxy
+    if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
+      return { jsonrpc, id, error: { code: -32601, message: `Method not found: ${method}` } };
+    } else {
+      try {
+        const result = await this.proxy.call(method, params);
+        return { jsonrpc, id, result };
+      } catch (err: any) {
+        if (err && err instanceof ZodError) {
+          const message = err.issues.map(e => `${e.message} (${e.path.join('.')})`).join('. ') || 'Validation error';
+          return { jsonrpc: '2.0', id, error: { code: -32701, message } };
+        } else if (err) {
+          return {
+            jsonrpc,
+            id,
+            error: { code: -32702, data: err.data, message: err.message },
+          };
+        } else {
+          return {
+            jsonrpc,
+            id,
+            error: { code: -32702, message: 'Error executing request' },
+          };
+        }
+      }
+    }
   }
 
   /**
@@ -201,7 +259,10 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
   private log = createLogger('json-rpc:proxy');
   private schema: ApiSchema;
 
-  constructor(private handler: T, schema: ApiSchemaFor<T>) {
+  constructor(
+    private handler: T,
+    schema: ApiSchemaFor<T>,
+  ) {
     this.schema = schema;
   }
 
@@ -265,7 +326,10 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   return async () => {
     try {
       const results = await Promise.all(
-        Object.entries(namedHandlers).map(([name, [, , healthCheck]]) => [name, healthCheck ? healthCheck() : true]),
+        Object.entries(namedHandlers).map(async ([name, [, , healthCheck]]) => [
+          name,
+          healthCheck ? await healthCheck() : true,
+        ]),
       );
       const failed = results.filter(([_, result]) => !result);
       if (failed.length > 0) {
@@ -281,10 +345,12 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
 }
 
 export type SafeJsonRpcServerOptions = {
-  http200OnError: boolean;
+  http200OnError?: boolean;
   healthCheck?: StatusCheckFn;
   log?: Logger;
   middlewares?: Application.Middleware[];
+  /** Maximum allowed batch size before we reject with error */
+  maxBatchSize?: number;
 };
 
 /**
@@ -294,24 +360,22 @@ export type SafeJsonRpcServerOptions = {
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  options: Partial<Omit<SafeJsonRpcServerOptions, 'healthcheck'>> = {
-    log: createLogger('json-rpc:server'),
-  },
+  options: Omit<SafeJsonRpcServerOptions, 'healthcheck'> = {},
 ): SafeJsonRpcServer {
-  const { middlewares, http200OnError, log } = options;
+  const { middlewares, http200OnError, log, maxBatchSize } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log);
+  return new SafeJsonRpcServer(proxy, maxBatchSize, http200OnError, healthCheck, middlewares, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: Partial<SafeJsonRpcServerOptions> = {},
+  options: SafeJsonRpcServerOptions = {},
 ) {
-  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares } = options;
+  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares, maxBatchSize } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log);
+  return new SafeJsonRpcServer(proxy, maxBatchSize, http200OnError, healthCheck, extraMiddlewares, log);
 }
 
 /**
@@ -326,7 +390,7 @@ export function createStatusRouter(getCurrentStatus: StatusCheckFn, apiPrefix = 
     let ok: boolean;
     try {
       ok = (await getCurrentStatus()) === true;
-    } catch (err) {
+    } catch {
       ok = false;
     }
 

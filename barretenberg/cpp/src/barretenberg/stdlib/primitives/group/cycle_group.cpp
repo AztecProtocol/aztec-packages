@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "../field/field.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -153,6 +159,7 @@ cycle_group<Builder> cycle_group<Builder>::from_witness(Builder* _context, const
     result._is_constant = false;
     result._is_standard = true;
     result.validate_is_on_curve();
+    result.set_free_witness_tag();
     return result;
 }
 
@@ -190,6 +197,7 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
     result._is_standard = true;
+    result.unset_free_witness_tag();
     return result;
 }
 
@@ -676,6 +684,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
@@ -745,6 +755,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     } else {
         lambda =
             field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        // We need to manually propagate the origin tag
+        lambda.set_origin_tag(OriginTag(x_diff.get_origin_tag(), y1.get_origin_tag(), y2.get_origin_tag()));
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
 
@@ -854,6 +866,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = value_u256.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness_tag();
+    hi.set_free_witness_tag();
     return cycle_scalar(lo, hi);
 }
 
@@ -876,6 +890,8 @@ typename cycle_group<Builder>::cycle_scalar cycle_group<Builder>::cycle_scalar::
     const uint256_t hi_v = bitstring.slice(LO_BITS, HI_BITS);
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
+    lo.set_free_witness_tag();
+    hi.set_free_witness_tag();
     cycle_scalar result{ lo, hi, num_bits, true, false };
     return result;
 }
@@ -1010,6 +1026,10 @@ template <typename Builder> cycle_group<Builder>::cycle_scalar::cycle_scalar(Big
         // Step 3: instantiate both slices as witnesses and validate their sum equals limb1
         field_t limb_1_lo = field_t::from_witness(ctx, limb_1_lo_v);
         field_t limb_1_hi = field_t::from_witness(ctx, limb_1_hi_v);
+
+        // We need to propagate the origin tag to the chunks of limb1
+        limb_1_lo.set_origin_tag(limb1.get_origin_tag());
+        limb_1_hi.set_origin_tag(limb1.get_origin_tag());
         limb1.assert_equal(limb_1_hi * limb_1_hi_multiplicand + limb_1_lo);
 
         // Step 4: apply range constraints to validate both slices represent the expected contributions to *this.lo and
@@ -1066,6 +1086,8 @@ template <typename Builder> void cycle_group<Builder>::cycle_scalar::validate_sc
 
         // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
         if (!lo.is_constant()) {
+            // We need to manually propagate the origin tag
+            borrow.set_origin_tag(lo.get_origin_tag());
             if constexpr (IS_ULTRA) {
                 get_context()->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
@@ -1281,7 +1303,7 @@ cycle_group<Builder>::straus_lookup_table::straus_lookup_table(Builder* context,
     // if the input point is constant, it is cheaper to fix the point as a witness and then derive the table, than it is
     // to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate, and fixing x/y coords
     // to be constant = 2 gates)
-    if (modded_base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
+    if (base_point.is_constant() && !base_point.is_point_at_infinity().get_value()) {
         modded_base_point = cycle_group::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
@@ -1498,7 +1520,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // populate the set of points we are going to add into our accumulator, *before* we do any ECC operations
     // this way we are able to fuse mutliple ecc add / ecc double operations and reduce total gate count.
-    // (ecc add/ecc double gates normally cost 2 UltraPlonk gates. However if we chain add->add, add->double,
+    // (ecc add/ecc double gates normally cost 2 Ultra gates. However if we chain add->add, add->double,
     // double->add, double->double, they only cost one)
     std::vector<cycle_group> points_to_add;
     for (size_t i = 0; i < num_rounds; ++i) {
@@ -1590,8 +1612,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     OriginTag tag{};
     for (size_t i = 0; i < num_points; ++i) {
-        // Merge all tags of scalars (we don't have to account for CircuitSimulator in cycle_group yet, because it
-        // breaks)
+        // Merge all tags of scalars
         tag = OriginTag(tag, scalars[i].get_origin_tag());
         std::optional<std::array<MultiTableId, 2>> table_id =
             plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
@@ -1996,9 +2017,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
     throw_or_abort("Implementation under construction...");
 }
 
-template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
-template class cycle_group<bb::CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

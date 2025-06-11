@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
+#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
@@ -19,7 +20,8 @@ std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmA
     // Generate trace.
     info("Generating trace...");
     AvmTraceGenHelper tracegen_helper;
-    auto trace = AVM_TRACK_TIME_V("tracegen/all", tracegen_helper.generate_trace(std::move(events)));
+    auto trace =
+        AVM_TRACK_TIME_V("tracegen/all", tracegen_helper.generate_trace(std::move(events), inputs.publicInputs));
 
     // Prove.
     info("Proving...");
@@ -38,9 +40,20 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
     auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate());
 
     // Generate trace.
+    // In contrast to proving, we do this step by step since it's usually more useful to debug
+    // before trying to run the interaction builders.
     info("Generating trace...");
     AvmTraceGenHelper tracegen_helper;
-    auto trace = AVM_TRACK_TIME_V("tracegen/all", tracegen_helper.generate_trace(std::move(events)));
+    tracegen::TraceContainer trace;
+    tracegen_helper.fill_trace_columns(trace, std::move(events), inputs.publicInputs);
+
+    // Go into interactive debug mode if requested.
+    if (getenv("AVM_DEBUG") != nullptr) {
+        InteractiveDebugger debugger(trace);
+        debugger.run();
+    }
+
+    tracegen_helper.fill_trace_interactions(trace);
 
     // Check circuit.
     info("Checking circuit...");

@@ -122,7 +122,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     // optional parameters
     size_t map_size_index = 5;
     if (info.Length() > map_size_index) {
-        if (info[4].IsObject()) {
+        if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
 
             for (auto tree_id : tree_ids) {
@@ -189,6 +189,10 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _dispatcher.register_target(
         WorldStateMessageType::FIND_LEAF_INDICES,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_leaf_indices(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::FIND_SIBLING_PATHS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return find_sibling_paths(obj, buffer); });
 
     _dispatcher.register_target(
         WorldStateMessageType::FIND_LOW_LEAF,
@@ -258,6 +262,14 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     _dispatcher.register_target(
         WorldStateMessageType::REVERT_CHECKPOINT,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_checkpoint(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::COMMIT_ALL_CHECKPOINTS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return commit_all_checkpoints(obj, buffer); });
+
+    _dispatcher.register_target(
+        WorldStateMessageType::REVERT_ALL_CHECKPOINTS,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return revert_all_checkpoints(obj, buffer); });
 
     _dispatcher.register_target(
         WorldStateMessageType::COPY_STORES,
@@ -494,6 +506,47 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<FindLeafIndicesResponse> resp_msg(
         WorldStateMessageType::FIND_LEAF_INDICES, header, response);
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<TreeIdAndRevisionRequest> request;
+    obj.convert(request);
+
+    FindLeafPathsResponse response;
+
+    switch (request.value.treeId) {
+    case MerkleTreeId::NOTE_HASH_TREE:
+    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+    case MerkleTreeId::ARCHIVE: {
+        TypedMessage<FindLeafPathsRequest<bb::fr>> r1;
+        obj.convert(r1);
+        _ws->find_sibling_paths<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaves, response.paths);
+        break;
+    }
+
+    case MerkleTreeId::PUBLIC_DATA_TREE: {
+        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
+        obj.convert(r2);
+        _ws->find_sibling_paths<PublicDataLeafValue>(
+            request.value.revision, request.value.treeId, r2.value.leaves, response.paths);
+        break;
+    }
+    case MerkleTreeId::NULLIFIER_TREE: {
+        TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
+        obj.convert(r3);
+        _ws->find_sibling_paths<NullifierLeafValue>(
+            request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
+        break;
+    }
+    }
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<FindLeafPathsResponse> resp_msg(
+        WorldStateMessageType::FIND_SIBLING_PATHS, header, response);
     msgpack::pack(buffer, resp_msg);
 
     return true;
@@ -809,6 +862,34 @@ bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_CHECKPOINT, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::commit_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->commit_all_checkpoints(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_ALL_CHECKPOINTS, header, {});
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateWrapper::revert_all_checkpoints(msgpack::object& obj, msgpack::sbuffer& buffer)
+{
+    TypedMessage<ForkIdOnlyRequest> request;
+    obj.convert(request);
+
+    _ws->revert_all_checkpoints(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_ALL_CHECKPOINTS, header, {});
     msgpack::pack(buffer, resp_msg);
 
     return true;

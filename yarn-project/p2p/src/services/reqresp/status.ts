@@ -5,6 +5,7 @@ export enum ReqRespStatus {
   SUCCESS = 0,
   RATE_LIMIT_EXCEEDED = 1,
   BADLY_FORMED_REQUEST = 2,
+  FAILURE = 126,
   UNKNOWN = 127,
 }
 
@@ -53,6 +54,8 @@ export function prettyPrintReqRespStatus(status: ReqRespStatus) {
       return 'RATE_LIMIT_EXCEEDED';
     case ReqRespStatus.BADLY_FORMED_REQUEST:
       return 'BADLY_FORMED_REQUEST';
+    case ReqRespStatus.FAILURE:
+      return 'FAILURE';
     case ReqRespStatus.UNKNOWN:
       return 'UNKNOWN';
   }

@@ -28,12 +28,20 @@ function test_cmds {
 
 function release {
   echo_header "playground release"
-  if [ $(dist_tag) != "latest" ]; then
-    # TODO attach to github release
-    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME
-  else
-    do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/
-  fi
+
+  do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$(dist_tag) --quiet
+  do_or_dryrun aws s3 sync ./dist s3://play.aztec.network/$REF_NAME --quiet
+
+  # We want the root to redirect to the latest master version.
+  echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=/latest"></head></html>' | \
+    do_or_dryrun aws s3 cp - s3://play.aztec.network/index.html --content-type text/html
+
+  invalidate_cloudfront
+}
+
+function invalidate_cloudfront {
+  local id=$(cd terraform && terraform init &>/dev/null && terraform output -raw cloudfront_distribution_id)
+  do_or_dryrun aws cloudfront create-invalidation --distribution-id $id --paths "/*"
 }
 
 case "$cmd" in
@@ -47,7 +55,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test|test_cmds|release)
+  test|test_cmds|release|invalidate_cloudfront)
     $cmd
     ;;
   "hash")

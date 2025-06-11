@@ -39,35 +39,35 @@ describe('e2e_blacklist_token_contract mint', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
-          asset.withWallet(wallets[1]).methods.mint_public(wallets[0].getAddress(), amount).prove(),
+          asset.withWallet(wallets[1]).methods.mint_public(wallets[0].getAddress(), amount).simulate(),
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
       // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
       it.skip('mint >u128 tokens to overflow', async () => {
         const amount = 2n ** 128n; // u128::max() + 1;
-        await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
+        await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).simulate()).rejects.toThrow(
           BITSIZE_TOO_BIG_ERROR,
         );
       });
 
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(wallets[0].getAddress());
-        await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
+        await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).simulate()).rejects.toThrow(
           U128_OVERFLOW_ERROR,
         );
       });
 
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(wallets[0].getAddress());
-        await expect(asset.methods.mint_public(wallets[1].getAddress(), amount).prove()).rejects.toThrow(
+        await expect(asset.methods.mint_public(wallets[1].getAddress(), amount).simulate()).rejects.toThrow(
           U128_OVERFLOW_ERROR,
         );
       });
 
       it('mint to blacklisted entity', async () => {
         await expect(
-          asset.withWallet(wallets[1]).methods.mint_public(blacklisted.getAddress(), 1n).prove(),
+          asset.withWallet(wallets[1]).methods.mint_public(blacklisted.getAddress(), 1n).simulate(),
         ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient/);
       });
     });
@@ -94,7 +94,7 @@ describe('e2e_blacklist_token_contract mint', () => {
 
         tokenSim.mintPrivate(wallets[0].getAddress(), amount);
         // Trigger a note sync
-        await asset.methods.sync_notes().simulate();
+        await asset.methods.sync_private_state().simulate();
         // 1 note should have been created containing `amount` of tokens
         const visibleNotes = await pxe.getNotes({ txHash: receiptClaim.txHash });
         expect(visibleNotes.length).toBe(1);
@@ -111,12 +111,12 @@ describe('e2e_blacklist_token_contract mint', () => {
         await t.addPendingShieldNoteToPXE(asset, wallets[1].getAddress(), amount, secretHash, txHash);
 
         await expect(
-          asset.withWallet(wallets[1]).methods.redeem_shield(wallets[1].getAddress(), amount, secret).prove(),
-        ).rejects.toThrow(`Assertion failed: note not popped 'notes.len() == 1'`);
+          asset.withWallet(wallets[1]).methods.redeem_shield(wallets[1].getAddress(), amount, secret).simulate(),
+        ).rejects.toThrow(`Assertion failed: note not popped`);
       });
 
       it('mint_private as non-minter', async () => {
-        await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).prove()).rejects.toThrow(
+        await expect(asset.withWallet(wallets[1]).methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(
           'Assertion failed: caller is not minter',
         );
       });
@@ -124,23 +124,23 @@ describe('e2e_blacklist_token_contract mint', () => {
       // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
       it.skip('mint >u128 tokens to overflow', async () => {
         const amount = 2n ** 128n; // u128::max() + 1;
-        await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
+        await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
       });
 
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPrivate(wallets[0].getAddress());
         expect(amount).toBeLessThan(2n ** 128n);
-        await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
+        await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.totalSupply;
-        await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(U128_OVERFLOW_ERROR);
+        await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
       it('mint and try to redeem at blacklist', async () => {
-        await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).prove()).rejects.toThrow(
-          /Assertion failed: Blacklisted: Recipient .*/,
+        await expect(asset.methods.redeem_shield(blacklisted.getAddress(), amount, secret).simulate()).rejects.toThrow(
+          'Assertion failed: Blacklisted: Recipient',
         );
       });
     });

@@ -22,7 +22,7 @@ test_compilation_failure() {
     echo "Testing compilation failure for: $contract_dir"
 
     # Try to compile the contract
-    if cd "$contract_dir" && $NARGO compile 2>/dev/null; then
+    if cd "$contract_dir" && $NARGO compile --pedantic-solving 2>/dev/null; then
         echo -e "${RED}❌ Test failed: Compilation succeeded when it should have failed for $contract_dir${NC}"
         cd - > /dev/null
         return 1

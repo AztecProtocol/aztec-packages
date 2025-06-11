@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../constants"
+    },
+    {
       "path": "../epoch-cache"
     },
     {
@@ -17,6 +20,9 @@
     },
     {
       "path": "../p2p"
+    },
+    {
+      "path": "../slasher"
     },
     {
       "path": "../stdlib"

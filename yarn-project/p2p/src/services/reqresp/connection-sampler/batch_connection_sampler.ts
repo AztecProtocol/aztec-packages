@@ -22,7 +22,12 @@ export class BatchConnectionSampler {
   private readonly batch: PeerId[] = [];
   private readonly requestsPerPeer: number;
 
-  constructor(private readonly connectionSampler: ConnectionSampler, batchSize: number, maxPeers: number) {
+  constructor(
+    private readonly connectionSampler: ConnectionSampler,
+    batchSize: number,
+    maxPeers: number,
+    exclude?: PeerId[],
+  ) {
     if (maxPeers <= 0) {
       throw new Error('Max peers cannot be 0');
     }
@@ -34,7 +39,8 @@ export class BatchConnectionSampler {
     this.requestsPerPeer = Math.max(1, Math.floor(batchSize / maxPeers));
 
     // Sample initial peers
-    this.batch = this.connectionSampler.samplePeersBatch(maxPeers);
+    const excluding = exclude && new Map(exclude.map(peerId => [peerId.toString(), true] as const));
+    this.batch = this.connectionSampler.samplePeersBatch(maxPeers, excluding);
   }
 
   /**
@@ -66,15 +72,15 @@ export class BatchConnectionSampler {
     }
 
     const excluding = new Map([[peerId.toString(), true]]);
-    const newPeer = this.connectionSampler.getPeer(excluding);
+    const newPeer = this.connectionSampler.getPeer(excluding); // Q: Shouldn't we accumulate all excluded peers? Otherwise the sampler could return us a previously excluded peer?
 
     if (newPeer) {
       this.batch[index] = newPeer;
-      this.logger.trace(`Replaced peer ${peerId} with ${newPeer}`, { peerId, newPeer });
+      this.logger.trace('Replaced peer', { peerId, newPeer });
     } else {
       // If we couldn't get a replacement, remove the peer and compact the array
       this.batch.splice(index, 1);
-      this.logger.trace(`Removed peer ${peerId}`, { peerId });
+      this.logger.trace('Removed peer', { peerId });
     }
   }
 

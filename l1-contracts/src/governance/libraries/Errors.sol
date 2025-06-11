@@ -27,6 +27,7 @@ library Errors {
   error Governance__ProposalDoesNotExists(uint256 proposalId);
   error Governance__ProposalAlreadyDropped();
   error Governance__ProposalCannotBeDropped();
+  error Governance__DepositNotAllowed();
 
   error Governance__UserLib__NotInPast();
 
@@ -57,6 +58,7 @@ library Errors {
   error GovernanceProposer__ProposalHaveNoCode(IPayload proposal); // 0xb69440a1
   error GovernanceProposer__ProposalTooOld(uint256 roundNumber, uint256 currentRoundNumber); // 0xc3d7aa4f
   error GovernanceProposer__VoteAlreadyCastForSlot(Slot slot); // 0x3a6150ca
+  error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
 

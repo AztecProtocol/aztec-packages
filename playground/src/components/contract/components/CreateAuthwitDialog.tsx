@@ -17,14 +17,12 @@ import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { formatFrAsString } from '../../../utils/conversion';
 import { css } from '@emotion/react';
 import { AztecAddressTypeLike } from '../../../utils/types';
+import { Box, DialogActions, DialogContent, DialogContentText } from '@mui/material';
 
 const fixedText = css({
-  fontSize: '0.8rem',
+  fontSize: '1rem',
   fontStyle: 'italic',
-  color: 'rgba(0, 0, 0, 0.75)',
-  fontWeight: 200,
-  margin: 0,
-  padding: 0,
+  fontWeight: 'light',
 });
 
 const authwitData = css({
@@ -33,10 +31,6 @@ const authwitData = css({
   margin: 0,
 });
 
-const authwitContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-});
 
 interface CreateAuthwitDialogProps {
   open: boolean;
@@ -93,7 +87,10 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create authwit</DialogTitle>
-      <div css={dialogBody}>
+
+      <DialogContent css={dialogBody}>
+        <DialogContentText>{INFO_TEXT.AUTHWITS}</DialogContentText>
+
         <FormGroup css={form}>
           <FunctionParameter
             required
@@ -104,20 +101,8 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             }}
             onParameterChange={setCaller}
           ></FunctionParameter>
-          <div css={authwitContainer}>
-            <Typography css={fixedText}>Allow </Typography>{' '}
-            <Typography css={authwitData}>{caller !== '' ? formatFrAsString(caller) : '<caller>'}</Typography>
-            <Typography css={fixedText}>to call</Typography>
-            <Typography css={authwitData}>
-              {fnName}(
-              {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
-            </Typography>
-            <Typography css={fixedText}>on contract</Typography>
-            <Typography css={authwitData}>
-              {contract.artifact.name}@{formatFrAsString(contract.address.toString())}
-            </Typography>
-          </div>
-          <InfoText>{INFO_TEXT.AUTHWITS}</InfoText>
+          <InfoText>The contract address that is being authorized to call this function</InfoText>
+
           {isPrivate ? (
             <FormControl>
               <TextField
@@ -136,29 +121,54 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
           )}
         </FormGroup>
-        <div css={{ flexGrow: 1, margin: 'auto' }}></div>
-        {!error ? (
-          creating ? (
-            <div css={progressIndicator}>
-              <Typography variant="body2" sx={{ mr: 1 }}>
-                Creating authwitness...
-              </Typography>
-              <CircularProgress size={20} />
-            </div>
+
+        <Box css={{ marginTop: '1rem' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>Allow </Typography>{' '}
+            <Typography css={authwitData}>{caller !== '' ? formatFrAsString(caller) : '<caller>'}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>to call</Typography>
+            <Typography css={authwitData}>
+            {fnName}(
+            {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
+            <Typography css={fixedText}>on contract</Typography>
+            <Typography css={authwitData}>
+              {contract.artifact.name}@{formatFrAsString(contract.address.toString())}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        <DialogActions>
+          {!error ? (
+            creating ? (
+              <div css={progressIndicator}>
+                <Typography variant="body2" sx={{ mr: 1 }}>
+                  Creating authwit...
+                </Typography>
+                <CircularProgress size={20} />
+              </div>
+            ) : (
+              <Button disabled={alias === '' || creating} onClick={createAuthwit}>
+                Create
+              </Button>
+            )
           ) : (
-            <Button disabled={alias === '' || creating} onClick={createAuthwit}>
-              Create
-            </Button>
-          )
-        ) : (
-          <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
-            An error occurred: {error}
-          </Typography>
-        )}
-        <Button color="error" onClick={handleClose}>
-          Cancel
-        </Button>
-      </div>
+            <Typography variant="body2" sx={{ mr: 1 }} color="warning.main">
+              An error occurred: {error}
+            </Typography>
+          )}
+          <Button color="error" onClick={handleClose}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </DialogContent>
+
     </Dialog>
   );
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_edgecase_handling.hpp"
@@ -7,9 +13,7 @@ namespace bb::stdlib::element_default {
 /**
  * @brief Multiscalar multiplication that utilizes 4-bit wNAF lookup tables.
  * @details This is more efficient than points-as-linear-combinations lookup tables, if the number of points is 3 or
- * fewer. Only works for Plookup (otherwise falls back on batch_mul)!
- * @todo : TODO(https://github.com/AztecProtocol/barretenberg/issues/1001) when we nuke standard and turbo plonk we
- * should remove the fallback batch mul method!
+ * fewer.
  */
 template <typename C, class Fq, class Fr, class G>
 template <size_t max_num_bits>
@@ -18,15 +22,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
 {
     constexpr size_t WNAF_SIZE = 4;
     ASSERT(_points.size() == _scalars.size());
-    if constexpr (!HasPlookup<C>) {
-        return batch_mul(_points, _scalars, max_num_bits);
-    }
 
     const auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
 
-    std::vector<four_bit_table_plookup<>> point_tables;
+    std::vector<four_bit_table_plookup> point_tables;
     for (const auto& point : points) {
-        point_tables.emplace_back(four_bit_table_plookup<>(point));
+        point_tables.emplace_back(four_bit_table_plookup(point));
     }
 
     std::vector<std::vector<field_t<C>>> wnaf_entries;

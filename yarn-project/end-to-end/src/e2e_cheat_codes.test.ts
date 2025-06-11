@@ -1,6 +1,6 @@
 import { type AztecAddress, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
-import { EthCheatCodes, type ViemPublicClient, type ViemWalletClient, createL1Clients } from '@aztec/ethereum';
+import { EthCheatCodes, type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -17,8 +17,7 @@ describe('e2e_cheat_codes', () => {
   describe('L1 cheatcodes', () => {
     let ethCheatCodes: EthCheatCodes;
 
-    let walletClient: ViemWalletClient;
-    let publicClient: ViemPublicClient;
+    let l1Client: ExtendedViemWalletClient;
 
     let anvil: Anvil;
 
@@ -27,7 +26,7 @@ describe('e2e_cheat_codes', () => {
       anvil = res.anvil;
       ethCheatCodes = new EthCheatCodes([res.rpcUrl]);
       const account = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
-      ({ walletClient, publicClient } = createL1Clients([res.rpcUrl], account, foundry));
+      l1Client = createExtendedL1Client([res.rpcUrl], account, foundry);
     });
 
     afterEach(async () => await anvil?.stop().catch(err => getLogger().error(err)));
@@ -96,35 +95,35 @@ describe('e2e_cheat_codes', () => {
     it('impersonate', async () => {
       // we will transfer 1 eth to a random address. Then impersonate the address to be able to send funds
       // without impersonation we wouldn't be able to send funds.
-      const myAddress = (await walletClient.getAddresses())[0];
+      const myAddress = (await l1Client.getAddresses())[0];
       const randomAddress = EthAddress.random().toString();
-      const tx1Hash = await walletClient.sendTransaction({
+      const tx1Hash = await l1Client.sendTransaction({
         account: myAddress,
         to: randomAddress,
         value: parseEther('1'),
       });
-      await publicClient.waitForTransactionReceipt({ hash: tx1Hash });
-      const beforeBalance = await publicClient.getBalance({ address: randomAddress });
+      await l1Client.waitForTransactionReceipt({ hash: tx1Hash });
+      const beforeBalance = await l1Client.getBalance({ address: randomAddress });
 
       // impersonate random address
       await ethCheatCodes.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      const tx2Hash = await walletClient.sendTransaction({
+      const tx2Hash = await l1Client.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      const txReceipt = await publicClient.waitForTransactionReceipt({ hash: tx2Hash });
+      const txReceipt = await l1Client.waitForTransactionReceipt({ hash: tx2Hash });
       const feePaid = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
-      expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
+      expect(await l1Client.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
       await ethCheatCodes.stopImpersonating(EthAddress.fromString(randomAddress));
 
       // making calls from random address should not be successful
       try {
-        await walletClient.sendTransaction({
+        await l1Client.sendTransaction({
           account: randomAddress,
           to: myAddress,
           value: 0n,
@@ -183,7 +182,7 @@ describe('e2e_cheat_codes', () => {
       const mintAmount = 100n;
 
       await mintTokensToPrivate(token, wallet, admin, mintAmount);
-      await token.methods.sync_notes().simulate();
+      await token.methods.sync_private_state().simulate();
 
       const balancesAdminSlot = await cc.aztec.computeSlotInMap(TokenContract.storage.balances.slot, admin);
 

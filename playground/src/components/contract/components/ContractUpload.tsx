@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
 import { AztecContext } from '../../../aztecEnv';
+import Box from '@mui/material/Box';
+import { VERSION } from '../../../utils/constants';
 
 const dropZoneContainer = css({
   display: 'flex',
@@ -27,9 +29,9 @@ const uploadIcon = css({
 });
 
 export function ContractUpload() {
-  const { setCurrentContractArtifact } = useContext(AztecContext);
+  const { setCurrentContractArtifact, network } = useContext(AztecContext);
 
-  const { getRootProps, getInputProps } = useDropzone({
+  const { getRootProps, getInputProps, } = useDropzone({
     onDrop: async files => {
       const file = files[0];
       const reader = new FileReader();
@@ -43,6 +45,7 @@ export function ContractUpload() {
       'application/json': ['.json'],
     },
     multiple: false,
+    noDragEventsBubbling: true,
   });
 
   return (
@@ -54,9 +57,31 @@ export function ContractUpload() {
           Upload Contract JSON Artifact
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
-          The contract artifact should be a JSON file exported from your Noir/Aztec project
-        </Typography>
+
+
+        <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px', my: 3 }}>
+          <Box>
+            <a href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract" target="_blank" rel="noopener noreferrer">Learn</a>
+            <span> to write your own Aztec smart contracts and upload them here when ready.</span>
+          </Box>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              1. Install Aztec CLI by running `aztec-up {network.version || VERSION}`
+              <br />
+              2. Run `aztec-nargo compile` in your project directory
+              <br />
+              3. Look for `{'<your-project-name>'}.json` file in the ./target directory
+            </Typography>
+          </Box>
+        </Box>
+
         <Button
           variant="contained"
           color="primary"

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <utility>
@@ -16,8 +22,8 @@ namespace bb::crypto {
  * @tparam Hash function used to derive the Fiat-Shamir challenge
  */
 template <typename G1, typename Hash> struct SchnorrProofOfPossession {
-    using Fq = typename G1::coordinate_field;
-    using Fr = typename G1::subgroup_field;
+    using Fq = typename G1::Fq;
+    using Fr = typename G1::Fr;
     using affine_element = typename G1::affine_element;
     using element = typename G1::element;
     using key_pair = crypto::schnorr_key_pair<Fr, G1>;

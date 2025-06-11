@@ -128,17 +128,17 @@ export class WalletDB {
   async storeTx(
     {
       txHash,
-      nonce,
+      txNonce,
       cancellable,
       gasSettings,
-    }: { txHash: TxHash; nonce: Fr; cancellable: boolean; gasSettings: GasSettings },
+    }: { txHash: TxHash; txNonce: Fr; cancellable: boolean; gasSettings: GasSettings },
     log: LogFn,
     alias?: string,
   ) {
     if (alias) {
       await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
     }
-    await this.#transactions.set(`${txHash.toString()}:nonce`, nonce.toBuffer());
+    await this.#transactions.set(`${txHash.toString()}:txNonce`, txNonce.toBuffer());
     await this.#transactions.set(`${txHash.toString()}:cancellable`, Buffer.from(cancellable ? 'true' : 'false'));
     await this.#transactions.set(`${txHash.toString()}:gasSettings`, gasSettings.toBuffer());
     await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
@@ -148,22 +148,22 @@ export class WalletDB {
   }
 
   async retrieveTxData(txHash: TxHash) {
-    const nonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:nonce`);
-    if (!nonceBuffer) {
+    const txNonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:txNonce`);
+    if (!txNonceBuffer) {
       throw new Error(
-        `Could not find ${txHash.toString()}:nonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
+        `Could not find ${txHash.toString()}:txNonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
       );
     }
-    const nonce = Fr.fromBuffer(nonceBuffer);
+    const txNonce = Fr.fromBuffer(txNonceBuffer);
     const cancellable = (await this.#transactions.getAsync(`${txHash.toString()}:cancellable`))!.toString() === 'true';
     const gasBuffer = (await this.#transactions.getAsync(`${txHash.toString()}:gasSettings`))!;
-    return { txHash, nonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
+    return { txHash, txNonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
   tryRetrieveAlias(arg: string) {
     try {
       return this.retrieveAliasFromCache(arg);
-    } catch (e) {
+    } catch {
       return arg;
     }
   }

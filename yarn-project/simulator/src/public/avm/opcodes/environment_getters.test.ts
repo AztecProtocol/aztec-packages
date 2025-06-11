@@ -18,10 +18,8 @@ describe('Environment getters', () => {
   const version = Fr.random();
   const blockNumber = Fr.random();
   const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
-  const feePerDaGas = Fr.random();
-  const feePerL2Gas = Fr.random();
   const isStaticCall = true;
-  const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+  const gasFees = GasFees.random();
   const globals = initGlobalVariables({
     chainId,
     version,
@@ -54,8 +52,8 @@ describe('Environment getters', () => {
       GetEnvVar.wireFormat16,
     );
 
-    expect(GetEnvVar.as(GetEnvVar.wireFormat16).deserialize(buf)).toEqual(instr);
-    expect(instr.serialize()).toEqual(buf);
+    expect(GetEnvVar.as(GetEnvVar.wireFormat16).fromBuffer(buf)).toEqual(instr);
+    expect(instr.toBuffer()).toEqual(buf);
   });
 
   describe.each([
@@ -66,8 +64,8 @@ describe('Environment getters', () => {
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
     [EnvironmentVariable.TIMESTAMP, timestamp.toField(), TypeTag.UINT64],
-    [EnvironmentVariable.FEEPERDAGAS, feePerDaGas.toField()],
-    [EnvironmentVariable.FEEPERL2GAS, feePerL2Gas.toField()],
+    [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {

@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/op_count.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
 
@@ -12,7 +18,7 @@ namespace bb {
  * @tparam Flavor
  * @return OinkProverOutput<Flavor>
  */
-template <IsUltraFlavor Flavor> HonkProof OinkProver<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 {
     if (proving_key->proving_key.commitment_key == nullptr) {
         proving_key->proving_key.commitment_key =
@@ -71,18 +77,32 @@ template <IsUltraFlavor Flavor> HonkProof OinkProver<Flavor>::prove()
  * @brief Add circuit size, public input size, and public inputs to transcript
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
-    const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
-    const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
+    if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
+        // super inefficient
+        info("WARNING: We are temporarily regressing prover speed by computing the verification key in the prover. "
+             "This will be fixed in a followup PR.");
+        typename Flavor::VerificationKey vkey(proving_key->proving_key);
 
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
+        std::vector<FF> vkey_fields = vkey.to_field_elements();
+        for (const FF& vkey_field : vkey_fields) {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
+        }
+        auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
+        vinfo("vkey hash in Oink prover: ", vkey_hash);
+    } else {
+        const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
+        const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
+        const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
 
-    ASSERT(proving_key->proving_key.num_public_inputs == proving_key->proving_key.public_inputs.size());
+        transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+        transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
+        transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
+    }
+    BB_ASSERT_EQ(proving_key->proving_key.num_public_inputs, proving_key->proving_key.public_inputs.size());
 
     for (size_t i = 0; i < proving_key->proving_key.num_public_inputs; ++i) {
         auto public_input_i = proving_key->proving_key.public_inputs[i];
@@ -95,7 +115,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
  * only commited to after adding memory records. In the Goblin Flavor, we also commit to the ECC OP wires and the
  * DataBus columns.
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
@@ -139,7 +159,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
  * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
@@ -175,7 +195,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
  * @brief Compute log derivative inverse polynomial and its commitment, if required
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
@@ -209,7 +229,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  * @brief Compute permutation and lookup grand product polynomials and their commitments
  *
  */
-template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_grand_product_computation_round");
     // Compute the permutation grand product polynomial
@@ -226,7 +246,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
     }
 }
 
-template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
 {
     PROFILE_THIS_NAME("OinkProver::generate_alphas_round");
     RelationSeparator alphas;
@@ -245,7 +265,7 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
  * @param label
  * @param type
  */
-template <IsUltraFlavor Flavor>
+template <IsUltraOrMegaHonk Flavor>
 void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
                                                       const std::string& label,
                                                       const CommitmentKey::CommitType type)
@@ -266,9 +286,11 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 template class OinkProver<UltraFlavor>;
 template class OinkProver<UltraZKFlavor>;
 template class OinkProver<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class OinkProver<UltraStarknetFlavor>;
-template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraStarknetZKFlavor>;
+#endif
+template class OinkProver<UltraKeccakZKFlavor>;
 template class OinkProver<UltraRollupFlavor>;
 template class OinkProver<MegaFlavor>;
 template class OinkProver<MegaZKFlavor>;

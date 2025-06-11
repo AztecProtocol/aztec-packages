@@ -7,13 +7,13 @@ import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 40400;
+const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
@@ -29,7 +29,7 @@ describe('e2e_p2p_rediscovery', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG,
+        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
     });
@@ -42,6 +42,7 @@ describe('e2e_p2p_rediscovery', () => {
   });
 
   afterEach(async () => {
+    t.logger.info('Stopping nodes and cleaning up data directories');
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
@@ -102,14 +103,24 @@ describe('e2e_p2p_rediscovery', () => {
     }
 
     // now ensure that all txs were successfully mined
-
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          const txHash = await tx.getTxHash();
+          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
+          return tx
+            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
+            .then(() => {
+              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
+            })
+            .catch(err => {
+              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
+              throw err;
+            });
         }),
       ),
     );
+
+    t.logger.info('All transactions mined successfully');
   });
 });

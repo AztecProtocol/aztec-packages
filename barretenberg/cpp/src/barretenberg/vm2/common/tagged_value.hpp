@@ -6,19 +6,20 @@
 #include <variant>
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 
 namespace bb::avm2 {
 
 enum class ValueTag {
-    FF,
-    U1,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
+    FF = MEM_TAG_FF,
+    U1 = MEM_TAG_U1,
+    U8 = MEM_TAG_U8,
+    U16 = MEM_TAG_U16,
+    U32 = MEM_TAG_U32,
+    U64 = MEM_TAG_U64,
+    U128 = MEM_TAG_U128,
     MAX = U128,
 };
 
@@ -40,6 +41,8 @@ template <typename T> ValueTag tag_for_type()
         return ValueTag::U128;
     }
 }
+
+uint8_t get_tag_bits(ValueTag tag);
 
 class TaggedValue {
   public:

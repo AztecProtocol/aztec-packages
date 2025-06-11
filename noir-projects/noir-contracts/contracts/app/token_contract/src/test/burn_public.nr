@@ -35,7 +35,7 @@ unconstrained fn burn_public_on_behalf_of_other() {
     utils::check_public_balance(token_contract_address, owner, mint_amount - burn_amount);
 }
 
-#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow 'self - other'")]
+#[test(should_fail_with = "Assertion failed: attempt to subtract with overflow")]
 unconstrained fn burn_public_failure_more_than_balance() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
@@ -46,7 +46,7 @@ unconstrained fn burn_public_failure_more_than_balance() {
     Token::at(token_contract_address).burn_public(owner, burn_amount, 0).call(&mut env.public());
 }
 
-#[test(should_fail_with = "invalid nonce")]
+#[test(should_fail_with = "invalid authwit nonce")]
 unconstrained fn burn_public_failure_on_behalf_of_self_non_zero_nonce() {
     let (env, token_contract_address, owner, _, mint_amount) =
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);

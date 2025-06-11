@@ -3,9 +3,7 @@ import { AztecClientBackend } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-
 /* eslint-disable camelcase */
-import createDebug from 'debug';
 import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -38,8 +36,6 @@ import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from
 
 const logger = createLogger('ivc-integration:test:wasm');
 
-createDebug.enable('*');
-
 jest.setTimeout(120_000);
 
 describe('Client IVC Integration', () => {
@@ -50,7 +46,7 @@ describe('Client IVC Integration', () => {
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
-    const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, , vks] = await generate3FunctionTestingIVCStack();
 
     // We use the bb binary for verification / writing out the VK
     const bbBinaryPath = path.join(
@@ -60,7 +56,7 @@ describe('Client IVC Integration', () => {
     );
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     const tasks = [
-      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger),
+      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger),
       proveClientIVCWasm(bytecodes, witnessStack),
     ];
     const [_, wasmProof] = await Promise.all(tasks);

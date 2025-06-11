@@ -55,7 +55,7 @@ const themeOptions: ThemeOptions & { cssVariables: boolean } = {
             color: 'rgba(0, 0, 0, 0.38)',
           },
           '&:hover': {
-            backgroundColor: '#BCC0C4',
+            backgroundColor: '#ffffff',
           },
         },
         containedPrimary: {
@@ -86,7 +86,7 @@ export const globalStyle = css({
     display: 'flex',
     minWidth: '100vw',
     minHeight: '100vh',
-    background: 'linear-gradient(180deg, #9894FF 0%, #CDD1D5 100%)',
+    background: 'linear-gradient(180deg, #9894FF 0%,rgb(210, 205, 213) 100%) fixed',
     fontFamily: '"Space Grotesk", "Roboto", "Helvetica", "Arial", sans-serif',
   },
 

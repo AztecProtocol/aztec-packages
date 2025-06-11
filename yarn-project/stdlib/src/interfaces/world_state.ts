@@ -1,3 +1,5 @@
+import type { PromiseWithResolvers } from '@aztec/foundation/promise';
+
 import { z } from 'zod';
 
 import type { SnapshotDataKeys } from '../snapshots/types.js';
@@ -52,7 +54,7 @@ export interface ForkMerkleTreeOperations {
 /** Defines the interface for a world state synchronizer. */
 export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
   /** Starts the synchronizer. */
-  start(): void;
+  start(): Promise<void | PromiseWithResolvers<void>>;
 
   /** Returns the current status of the synchronizer. */
   status(): Promise<WorldStateSynchronizerStatus>;
@@ -76,6 +78,9 @@ export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
 
   /** Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data. */
   getCommitted(): MerkleTreeReadOperations;
+
+  /** Deletes the db */
+  clear(): Promise<void>;
 }
 
 export const WorldStateSyncStatusSchema = z.object({

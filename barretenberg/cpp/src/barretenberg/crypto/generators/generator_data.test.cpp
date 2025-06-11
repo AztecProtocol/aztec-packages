@@ -8,7 +8,7 @@ namespace bb::crypto {
 
 TEST(GeneratorContext, DeriveDefaultGenerators)
 {
-    auto default_generators = generator_data<curve::Grumpkin>::make_precomputed_generators();
+    auto default_generators = generator_data<curve::Grumpkin>::precomputed_generators;
     std::vector<grumpkin::g1::affine_element> expected_default_generators;
 
     expected_default_generators.emplace_back(grumpkin::g1::affine_element(

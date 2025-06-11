@@ -1,5 +1,5 @@
 import { type AztecAddress, Fr, generateClaimSecret } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
@@ -63,7 +63,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   );
 
   const sendL2Message = async (message: { recipient: AztecAddress; content: Fr; secretHash: Fr }) => {
-    const [msgHash, globalLeafIndex] = await sendL1ToL2Message(message, crossChainTestHarness);
+    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
     await crossChainTestHarness.makeMessageConsumable(msgHash);
     return [msgHash, globalLeafIndex];
   };

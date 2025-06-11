@@ -28,7 +28,7 @@ type AttributeNames = ValuesOf<typeof Attributes>;
 
 /**
  * This is a set of attributes that could lead to high cardinality in the metrics.
- * If you find youself wanting to capture this data in a metric consider if it makes sense to capture
+ * If you find yourself wanting to capture this data in a metric consider if it makes sense to capture
  * as the metric value instead of an attribute or consider logging instead.
  *
  * Think twice before removing an attribute from this list.
@@ -193,7 +193,7 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
       // run originalMethod wrapped in an active span
       // "active" means the span will be alive for the duration of the function execution
       // and if any other spans are started during the execution of originalMethod, they will be children of this span
-      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v18.x/docs/api/async_context.html
+      // behind the scenes this uses AsyncLocalStorage https://nodejs.org/dist/latest-v22.x/docs/api/async_context.html
       return this.tracer.startActiveSpan(name, async (span: Span) => {
         span.setAttributes(currentAttrs ?? {});
 

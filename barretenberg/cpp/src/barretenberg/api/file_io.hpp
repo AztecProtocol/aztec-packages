@@ -2,6 +2,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
 #include <cstdint>
+#include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <ios>
@@ -76,9 +77,10 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
     } else {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
-            THROW std::runtime_error("Failed to open data file for writing: " + filename);
+            THROW std::runtime_error("Failed to open data file for writing: " + filename + " (" + strerror(errno) +
+                                     ")");
         }
-        file.write((char*)data.data(), static_cast<std::streamsize>(data.size()));
+        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         file.close();
     }
 }

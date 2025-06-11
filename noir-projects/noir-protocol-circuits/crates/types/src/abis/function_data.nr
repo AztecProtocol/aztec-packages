@@ -28,7 +28,7 @@ impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn deserialize(serialized: [Field; FUNCTION_DATA_LENGTH]) -> Self {
         Self {
             selector: FunctionSelector::from_field(serialized[0]),
-            is_private: serialized[1] as bool,
+            is_private: serialized[1] != 0,
         }
     }
 }

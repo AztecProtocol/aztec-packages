@@ -54,6 +54,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       globals,
       /*doMerkleOperations=*/ true,
       /*skipFeeEnforcement=*/ false,
+      /*clientInitiatedSimulation=*/ true,
       this.metrics,
     );
   }
@@ -107,8 +108,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     await this.setFeePayerBalance(feePayer);
 
-    const txLabelWithCount = `${txLabel}.${this.txCount - 1}`;
-    const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}.${txLabelWithCount}` : txLabelWithCount;
+    const txLabelWithCount = `${txLabel}/${this.txCount - 1}`;
+    const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}/${txLabelWithCount}` : txLabelWithCount;
 
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
 

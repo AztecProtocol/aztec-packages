@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -27,6 +28,7 @@ enum WorldStateMessageType {
 
     FIND_LEAF_INDICES,
     FIND_LOW_LEAF,
+    FIND_SIBLING_PATHS,
 
     APPEND_LEAVES,
     BATCH_INSERT,
@@ -51,6 +53,8 @@ enum WorldStateMessageType {
     CREATE_CHECKPOINT,
     COMMIT_CHECKPOINT,
     REVERT_CHECKPOINT,
+    COMMIT_ALL_CHECKPOINTS,
+    REVERT_ALL_CHECKPOINTS,
 
     COPY_STORES,
 
@@ -167,6 +171,18 @@ template <typename T> struct FindLeafIndicesRequest {
 struct FindLeafIndicesResponse {
     std::vector<std::optional<index_t>> indices;
     MSGPACK_FIELDS(indices);
+};
+
+template <typename T> struct FindLeafPathsRequest {
+    MerkleTreeId treeId;
+    WorldStateRevision revision;
+    std::vector<T> leaves;
+    MSGPACK_FIELDS(treeId, revision, leaves);
+};
+
+struct FindLeafPathsResponse {
+    std::vector<std::optional<fr_sibling_path>> paths;
+    MSGPACK_FIELDS(paths);
 };
 
 struct FindLowLeafRequest {

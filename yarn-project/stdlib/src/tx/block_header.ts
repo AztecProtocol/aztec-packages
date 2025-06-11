@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
+import { ProposedBlockHeader } from './proposed_block_header.js';
 import { StateReference } from './state_reference.js';
 
 /** A header of an L2 block. */
@@ -45,7 +46,7 @@ export class BlockHeader {
   }
 
   static getFields(fields: FieldsOf<BlockHeader>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.lastArchive,
       fields.contentCommitment,
@@ -62,6 +63,10 @@ export class BlockHeader {
 
   getSlot() {
     return this.globalVariables.slotNumber.toBigInt();
+  }
+
+  getBlockNumber() {
+    return this.globalVariables.blockNumber.toNumber();
   }
 
   getSize() {
@@ -119,7 +124,7 @@ export class BlockHeader {
 
   static empty(fields: Partial<FieldsOf<BlockHeader>> = {}): BlockHeader {
     return BlockHeader.from({
-      lastArchive: AppendOnlyTreeSnapshot.zero(),
+      lastArchive: AppendOnlyTreeSnapshot.empty(),
       contentCommitment: ContentCommitment.empty(),
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
@@ -131,7 +136,7 @@ export class BlockHeader {
 
   isEmpty(): boolean {
     return (
-      this.lastArchive.isZero() &&
+      this.lastArchive.isEmpty() &&
       this.contentCommitment.isEmpty() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&
@@ -156,6 +161,19 @@ export class BlockHeader {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
   }
 
+  toPropose(): ProposedBlockHeader {
+    return new ProposedBlockHeader(
+      this.lastArchive.root,
+      this.contentCommitment,
+      this.globalVariables.slotNumber,
+      this.globalVariables.timestamp.toBigInt(),
+      this.globalVariables.coinbase,
+      this.globalVariables.feeRecipient,
+      this.globalVariables.gasFees,
+      this.totalManaUsed,
+    );
+  }
+
   toInspect() {
     return {
       lastArchive: this.lastArchive.root.toString(),
@@ -170,10 +188,9 @@ export class BlockHeader {
   [inspect.custom]() {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},
-  contentCommitment.numTxs: ${this.contentCommitment.numTxs.toNumber()},
-  contentCommitment.blobsHash: ${this.contentCommitment.blobsHash.toString('hex')},
-  contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
-  contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
+  contentCommitment.blobsHash: ${inspect(this.contentCommitment.blobsHash)},
+  contentCommitment.inHash: ${inspect(this.contentCommitment.inHash)},
+  contentCommitment.outHash: ${inspect(this.contentCommitment.outHash)},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},
   state.noteHashTree: ${inspect(this.state.partial.noteHashTree)},
   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},

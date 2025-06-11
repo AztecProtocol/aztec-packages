@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "./translator_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
@@ -57,7 +63,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
@@ -79,6 +85,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    op_queue_commitments = { commitments.op, commitments.x_lo_y_hi, commitments.x_hi_z_1, commitments.y_lo_z_2 };
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -91,7 +98,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    Sumcheck sumcheck(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, transcript);
+    Sumcheck sumcheck(transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -102,7 +109,10 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
+    std::array<FF, TranslatorFlavor::CONST_TRANSLATOR_LOG_N> padding_indicator_array;
+    std::ranges::fill(padding_indicator_array, FF{ 1 });
+
+    auto sumcheck_output = sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_output.verified) {
@@ -122,7 +132,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
@@ -136,7 +146,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     VerifierCommitmentKey pcs_vkey{};
     auto verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
-
     return verified && consistency_checked;
 }
 
@@ -176,4 +185,36 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     return is_value_reconstructed;
 }
 
+/**
+ * @brief Checks that translator and merge protocol operate on the same EccOpQueue data.
+ *
+ * @details The final merge verifier receives commitments to 4 polynomials whose coefficients are the values of the full
+ * op queue (referred to as the ultra ops table in the merge protocol). These have to match the EccOpQueue commitments
+ * received by the translator verifier, representing 4 wires in its circuit, to ensure the two Goblin components,
+ * both operating on the UltraOp version of the op queue, actually use the same data.
+ */
+bool TranslatorVerifier::verify_consistency_with_final_merge(const std::array<Commitment, 4> merge_commitments)
+{
+    if (op_queue_commitments[0] != merge_commitments[0]) {
+        info("Consistency check failed: op commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[1] != merge_commitments[1]) {
+        info("Consistency check failed: x_lo_y_hi commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[2] != merge_commitments[2]) {
+        info("Consistency check failed: x_hi_z_1 commitment mismatch");
+        return false;
+    }
+
+    if (op_queue_commitments[3] != merge_commitments[3]) {
+        info("Consistency check failed: y_lo_z_2 commitment mismatch");
+        return false;
+    }
+
+    return true;
+}
 } // namespace bb

@@ -1,4 +1,6 @@
+import { Blob } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
@@ -6,6 +8,7 @@ import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { ExtendedViemWalletClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
@@ -17,11 +20,13 @@ describe('tx_delayer', () => {
   let account: PrivateKeyAccount;
   let client: ExtendedViemWalletClient;
   let delayer: Delayer;
+  let cheatCodes: EthCheatCodes;
 
   const ETHEREUM_SLOT_DURATION = 2;
 
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
+    cheatCodes = new EthCheatCodes([rpcUrl]);
     logger = createLogger('ethereum:test:tx_delayer');
   });
 
@@ -94,6 +99,61 @@ describe('tx_delayer', () => {
     logger.info(`Delayed tx sent. Awaiting receipt.`);
     const delayedTxReceipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
     expect(delayedTxReceipt.blockNumber).toEqual(blockNumber + 3n);
+  }, 20000);
+
+  it('cancels a tx and sends it later manually', async () => {
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+    delayer.cancelNextTx();
+    logger.info(`Cancelling next tx`);
+
+    const delayedTxHash = await client.sendTransaction({ to: account.address });
+    await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
+
+    logger.info(`Delayed tx sent. Waiting for one block to pass.`);
+    await retryUntil(() => client.getBlockNumber({ cacheTime: 0 }).then(b => b === blockNumber + 1n), 'block', 20, 0.1);
+    await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
+
+    logger.info(`Manually resending tx.`);
+    const [tx] = delayer.getCancelledTxs();
+    const txHash = await client.sendRawTransaction({ serializedTransaction: tx });
+    expect(txHash).toEqual(delayedTxHash);
+    await client.waitForTransactionReceipt({ hash: delayedTxHash });
+  }, 20000);
+
+  it('cancels a tx with blobs and sends it later manually', async () => {
+    const blockNumber = await client.getBlockNumber({ cacheTime: 0 });
+    const blobs = [new Uint8Array(131072).fill(1)];
+    const kzg = Blob.getViemKzgInstance();
+    const maxFeePerBlobGas = BigInt(1e10);
+    const nonce = await client.getTransactionCount({ address: account.address });
+    const txRequest = { to: account.address, blobs, kzg, maxFeePerBlobGas, nonce };
+
+    // We first disable mining and check the txHash as returned by anvil
+    logger.info(`Sending initial tx not to be mined`);
+    await cheatCodes.setIntervalMining(0);
+    const expectedTxHash = await client.sendTransaction(txRequest);
+    await cheatCodes.dropTransaction(expectedTxHash);
+    await cheatCodes.setIntervalMining(ETHEREUM_SLOT_DURATION);
+    await expect(client.getTransactionReceipt({ hash: expectedTxHash })).rejects.toThrow(receiptNotFound);
+
+    // And then try the delayer flow, checking we produced the correct txHash
+    logger.info(`Cancelling next tx`);
+    delayer.cancelNextTx();
+
+    const delayedTxHash = await client.sendTransaction(txRequest);
+    expect(delayedTxHash).toEqual(expectedTxHash);
+    await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
+
+    logger.info(`Delayed tx sent. Waiting for one block to pass.`);
+    await retryUntil(() => client.getBlockNumber({ cacheTime: 0 }).then(b => b === blockNumber + 1n), 'block', 20, 0.1);
+    await expect(client.getTransactionReceipt({ hash: delayedTxHash })).rejects.toThrow(receiptNotFound);
+
+    logger.info(`Manually resending tx`);
+    const [tx] = delayer.getCancelledTxs();
+    const txHash = await client.sendRawTransaction({ serializedTransaction: tx });
+    expect(txHash).toEqual(delayedTxHash);
+    const receipt = await client.waitForTransactionReceipt({ hash: delayedTxHash });
+    expect(receipt.blobGasUsed).toBeGreaterThan(0n);
   }, 20000);
 
   afterAll(async () => {

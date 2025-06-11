@@ -9,6 +9,21 @@ AMI=$4
 
 cd $(dirname $0)
 
+function cleanup {
+  local code=$1
+  if [ -n "${SIR:-}" ]; then
+      >&2 echo "Cancelling spot request $SIR..."
+      aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR > /dev/null
+  fi
+  if [ -n "${IID:-}" ]; then
+    >&2 echo "Terminating instance $IID..."
+    aws ec2 terminate-instances --instance-ids "$IID" > /dev/null
+  fi
+  exit $code
+}
+trap 'cleanup 130' SIGINT
+trap 'cleanup 143' SIGTERM
+
 export AWS_DEFAULT_REGION=us-east-2
 
 launch_spec=$(cat <<EOF

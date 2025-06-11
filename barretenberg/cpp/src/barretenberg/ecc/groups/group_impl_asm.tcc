@@ -7,11 +7,11 @@
 
 namespace bb {
 // copies src into dest. n.b. both src and dest must be aligned on 32 byte boundaries
-// template <typename coordinate_field, typename subgroup_field, typename GroupParams>
-// inline void group<coordinate_field, subgroup_field, GroupParams>::copy(const affine_element* src, affine_element*
+// template <typename Fq, typename Fr, typename Params>
+// inline void group<Fq, Fr, Params>::copy(const affine_element* src, affine_element*
 // dest)
 // {
-//     if constexpr (GroupParams::small_elements) {
+//     if constexpr (Params::small_elements) {
 // #if defined __AVX__ && defined USE_AVX
 //         ASSERT((((uintptr_t)src & 0x1f) == 0));
 //         ASSERT((((uintptr_t)dest & 0x1f) == 0));
@@ -31,10 +31,10 @@ namespace bb {
 // }
 
 // // copies src into dest. n.b. both src and dest must be aligned on 32 byte boundaries
-// template <typename coordinate_field, typename subgroup_field, typename GroupParams>
-// inline void group<coordinate_field, subgroup_field, GroupParams>::copy(const element* src, element* dest)
+// template <typename Fq, typename Fr, typename Params>
+// inline void group<Fq, Fr, Params>::copy(const element* src, element* dest)
 // {
-//     if constexpr (GroupParams::small_elements) {
+//     if constexpr (Params::small_elements) {
 // #if defined __AVX__ && defined USE_AVX
 //         ASSERT((((uintptr_t)src & 0x1f) == 0));
 //         ASSERT((((uintptr_t)dest & 0x1f) == 0));
@@ -57,19 +57,19 @@ namespace bb {
 
 // copies src into dest, inverting y-coordinate if 'predicate' is true
 // n.b. requires src and dest to be aligned on 32 byte boundary
-template <typename coordinate_field, typename subgroup_field, typename GroupParams>
-inline void group<coordinate_field, subgroup_field, GroupParams>::conditional_negate_affine(const affine_element* src,
-                                                                                            affine_element* dest,
-                                                                                            uint64_t predicate)
+template <typename Fq, typename Fr, typename Params>
+inline void group<Fq, Fr, Params>::conditional_negate_affine(const affine_element* src,
+                                                             affine_element* dest,
+                                                             uint64_t predicate)
 {
-    constexpr uint256_t twice_modulus = coordinate_field::modulus + coordinate_field::modulus;
+    constexpr uint256_t twice_modulus = Fq::modulus + Fq::modulus;
 
     constexpr uint64_t twice_modulus_0 = twice_modulus.data[0];
     constexpr uint64_t twice_modulus_1 = twice_modulus.data[1];
     constexpr uint64_t twice_modulus_2 = twice_modulus.data[2];
     constexpr uint64_t twice_modulus_3 = twice_modulus.data[3];
 
-    if constexpr (GroupParams::small_elements) {
+    if constexpr (Params::small_elements) {
 #if defined __AVX__ && defined USE_AVX
         ASSERT((((uintptr_t)src & 0x1f) == 0));
         ASSERT((((uintptr_t)dest & 0x1f) == 0));
@@ -149,7 +149,7 @@ inline void group<coordinate_field, subgroup_field, GroupParams>::conditional_ne
 #endif
     } else {
         if (predicate) { // NOLINT
-            coordinate_field::__copy(src->x, dest->x);
+            Fq::__copy(src->x, dest->x);
             dest->y = -src->y;
         } else {
             copy_affine(*src, *dest);

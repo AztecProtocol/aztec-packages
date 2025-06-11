@@ -1,8 +1,13 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "trace_to_polynomials.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
-#include "barretenberg/flavor/plonk_flavors.hpp"
-#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
@@ -22,10 +27,10 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
-    if constexpr (IsUltraFlavor<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
-    if constexpr (IsUltraPlonkOrHonk<Flavor>) {
+    if constexpr (IsUltraOrMegaHonk<Flavor>) {
 
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
@@ -52,7 +57,7 @@ template <class Flavor>
 void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
                                                                    Builder& builder,
                                                                    typename Flavor::ProvingKey& proving_key)
-    requires IsUltraPlonkOrHonk<Flavor>
+    requires IsUltraOrMegaHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
@@ -83,7 +88,7 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
+        if constexpr (IsUltraOrMegaHonk<Flavor>) { // Mega and Ultra
             PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
                 proving_key.active_region_data.add_range(offset, offset + block.size());
@@ -159,13 +164,13 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 template class TraceToPolynomials<UltraStarknetFlavor>;
-template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraStarknetZKFlavor>;
+#endif
+template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;
-template class TraceToPolynomials<plonk::flavor::Standard>;
-template class TraceToPolynomials<plonk::flavor::Ultra>;
 
 } // namespace bb

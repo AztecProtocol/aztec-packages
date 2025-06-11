@@ -1,10 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <barretenberg/common/container.hpp>
 #include <cstdint>
@@ -38,7 +44,7 @@ class ProofSurgeon {
 
         // Get public inputs by cutting them out of the proof
         size_t num_public_inputs_to_extract =
-            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINTS_SIZE;
         if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }

@@ -12,7 +12,7 @@ import {
   createCompatibleClient,
   retryUntil,
 } from '@aztec/aztec.js';
-import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -105,10 +105,10 @@ async function bridgeL1FeeJuice(
 ) {
   const { l1ChainId } = await pxe.getNodeInfo();
   const chain = createEthereumChain(l1RpcUrls, l1ChainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
+  const l1Client = createExtendedL1Client(chain.rpcUrls, mnemonicOrPrivateKey, chain.chainInfo);
 
   // docs:start:bridge_fee_juice
-  const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, log);
+  const portal = await L1FeeJuicePortalManager.new(pxe, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
   // docs:end:bridge_fee_juice
 
@@ -170,9 +170,12 @@ export async function performTransfers({
   for (let i = 0; i < rounds; i++) {
     const interactions = await Promise.all(
       testWallets.wallets.map(async w =>
-        (
-          await TokenContract.at(testWallets.tokenAddress, w)
-        ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
+        (await TokenContract.at(testWallets.tokenAddress, w)).methods.transfer_in_public(
+          w.getAddress(),
+          recipient,
+          transferAmount,
+          0,
+        ),
       ),
     );
 

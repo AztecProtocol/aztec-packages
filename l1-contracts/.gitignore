@@ -31,3 +31,5 @@ gas_report.diff
 
 gas_benchmark.new.*
 gas_benchmark.diff
+
+/bench-out

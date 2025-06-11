@@ -283,12 +283,13 @@ describe('e2e_sandbox_example', () => {
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
     const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe);
 
+    // docs:start:transaction_with_payment_method
     const receiptForBob = await bananaCoin
       .withWallet(bobWallet)
       .methods.transfer(alice, amountTransferToAlice)
       .send({ fee: { paymentMethod: sponsoredPaymentMethod } })
       .wait();
-
+    // docs:end:transaction_with_payment_method
     // Check the balances
     const aliceNewBalance = await bananaCoin.methods.balance_of_private(alice).simulate();
     logger.info(`Alice's new balance: ${aliceNewBalance}`);

@@ -2,7 +2,6 @@ import type { Hex } from 'viem';
 import { z } from 'zod';
 
 export interface PostBlobSidecarRequest {
-  // eslint-disable-next-line camelcase
   block_id: string;
   blobs: Array<{
     index: number;

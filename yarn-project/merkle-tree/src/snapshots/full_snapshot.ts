@@ -23,7 +23,11 @@ export class FullTreeSnapshotBuilder<T extends Bufferable>
   extends BaseFullTreeSnapshotBuilder<TreeBase<T>, TreeSnapshot<T>>
   implements TreeSnapshotBuilder<TreeSnapshot<T>>
 {
-  constructor(db: AztecKVStore, tree: TreeBase<T>, private deserializer: FromBuffer<T>) {
+  constructor(
+    db: AztecKVStore,
+    tree: TreeBase<T>,
+    private deserializer: FromBuffer<T>,
+  ) {
     super(db, tree);
   }
 

@@ -40,7 +40,10 @@
       "path": "../stdlib"
     },
     {
-      "path": "../noir-contracts.js"
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-test-contracts.js"
     }
   ],
   "include": ["src"]

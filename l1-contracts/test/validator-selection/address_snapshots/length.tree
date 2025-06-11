@@ -1,0 +1,8 @@
+LengthTest
+├── when no validators are registered
+│   └── it returns 0
+├── when adding validators
+│   └── it increases the length
+└── when removing validators
+    ├── it decreases the length
+    └── it maintains historical values correctly

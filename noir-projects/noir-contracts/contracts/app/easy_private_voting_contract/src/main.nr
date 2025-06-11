@@ -1,5 +1,5 @@
-// docs:start:declaration
 mod test;
+// docs:start:declaration
 use dep::aztec::macros::aztec;
 
 #[aztec]

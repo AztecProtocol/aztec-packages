@@ -1,9 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -28,11 +34,18 @@ void TranslatorProver::execute_preamble_round()
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
+    const size_t RESULT_ROW = Flavor::RESULT_ROW;
     const auto accumulated_result =
-        BF(uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[1]) +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[1]) * SHIFT +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
+        BF(uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) * SHIFT +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) * SHIFTx2 +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) * SHIFTx3);
+
+    relation_parameters.accumulated_result = { key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
+
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -86,11 +99,6 @@ void TranslatorProver::execute_grand_product_computation_round()
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
                                                uint_evaluation_input };
-
-    relation_parameters.accumulated_result = { key->proving_key->polynomials.accumulators_binary_limbs_0[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_1[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_2[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_3[1] };
 
     std::vector<uint256_t> uint_batching_challenge_powers;
     auto batching_challenge_v = key->batching_challenge_v;

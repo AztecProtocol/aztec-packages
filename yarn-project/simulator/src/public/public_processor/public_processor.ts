@@ -2,7 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
@@ -10,7 +10,11 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type {
+  MerkleTreeWriteOperations,
+  PublicProcessorLimits,
+  PublicProcessorValidator,
+} from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type FailedTx,
@@ -35,6 +39,7 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
+import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**
@@ -43,7 +48,7 @@ import { PublicProcessorMetrics } from './public_processor_metrics.js';
 export class PublicProcessorFactory {
   constructor(
     private contractDataSource: ContractDataSource,
-    private dateProvider: DateProvider,
+    private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {}
 
@@ -58,19 +63,23 @@ export class PublicProcessorFactory {
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean = false,
   ): PublicProcessor {
     const contractsDB = new PublicContractsDB(this.contractDataSource);
+
+    const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(
-      merkleTree,
+      guardedFork,
       contractsDB,
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
     );
 
     return new PublicProcessor(
       globalVariables,
-      merkleTree,
+      guardedFork,
       contractsDB,
       publicTxSimulator,
       this.dateProvider,
@@ -84,6 +93,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
+    clientInitiatedSimulation: boolean,
   ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       merkleTree,
@@ -91,6 +101,7 @@ export class PublicProcessorFactory {
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
+      clientInitiatedSimulation,
       this.telemetryClient,
     );
   }
@@ -112,7 +123,7 @@ export class PublicProcessor implements Traceable {
 
   constructor(
     protected globalVariables: GlobalVariables,
-    private merkleTree: MerkleTreeWriteOperations,
+    private guardedMerkleTree: GuardedMerkleTreeOperations,
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
@@ -135,20 +146,13 @@ export class PublicProcessor implements Traceable {
    */
   public async process(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
-    limits: {
-      maxTransactions?: number;
-      maxBlockSize?: number;
-      maxBlockGas?: Gas;
-      deadline?: Date;
-    } = {},
-    validator: {
-      preprocessValidator?: TxValidator<Tx>;
-      nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
-    } = {},
-  ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
+    limits: PublicProcessorLimits = {},
+    validator: PublicProcessorValidator = {},
+  ): Promise<[ProcessedTx[], FailedTx[], Tx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
     const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
+    const usedTxs: Tx[] = [];
     const failed: FailedTx[] = [];
     const timer = new Timer();
 
@@ -221,7 +225,9 @@ export class PublicProcessor implements Traceable {
       // We checkpoint the transaction here, then within the try/catch we
       // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
       // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
-      const checkpoint = await ForkCheckpoint.new(this.merkleTree);
+      // By doing this, every transaction starts on a fresh checkpoint and it's state updates only make it to the fork if this checkpoint is committed.
+      // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
+      const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -244,25 +250,44 @@ export class PublicProcessor implements Traceable {
         // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
+        usedTxs.push(tx);
         returns = returns.concat(returnValues);
 
         totalPublicGas = totalPublicGas.add(processedTx.gasUsed.publicGas);
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
       } catch (err: any) {
-        // Roll back state to start of TX before proceeding to next TX
-        await checkpoint.revert();
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
+          // We hit the transaction execution deadline.
+          // There may still be a transaction executing. We stop the guarded fork to prevent any further access to the world state.
+          await this.guardedMerkleTree.stop();
+
+          // We now know there can't be any further access to world state. The fork is in a state where there is:
+          // 1. At least one outstanding checkpoint that has not been committed (the one created before we processed the tx).
+          // 2. Possible state updates on that checkpoint or any others created during execution.
+
+          // First we revert a checkpoint as managed by the ForkCheckpoint. This will revert whatever is the current checkpoint
+          // which may not be the one originally created by this object. But that is ok, we do this to fulfil the ForkCheckpoint
+          // lifecycle expectations and ensure it doesn't attempt to commit later on.
+          await checkpoint.revert();
+
+          // Now we want to revert any/all remaining checkpoints, destroying any outstanding state updates.
+          // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
+          await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+
+          // We should now be in a position where the fork is in a clean state and no further updates can be made to it.
           break;
         }
+
+        // Roll back state to start of TX before proceeding to next TX
+        await checkpoint.revert();
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
-
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
         returns.push(new NestedProcessReturnValues([]));
       } finally {
-        // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was reverted
+        // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
         // The tx-level contracts cache should not live on to the next tx
         this.contractsDB.clearContractsForTx();
@@ -281,7 +306,7 @@ export class PublicProcessor implements Traceable {
       totalSizeInBytes,
     });
 
-    return [result, failed, returns];
+    return [result, failed, usedTxs, returns];
   }
 
   @trackSpan('PublicProcessor.processTx', async tx => ({ [Attributes.TX_HASH]: (await tx.getTxHash()).toString() }))
@@ -324,17 +349,17 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    await this.merkleTree.appendLeaves(
+    await this.guardedMerkleTree.appendLeaves(
       MerkleTreeId.NOTE_HASH_TREE,
       padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     try {
-      await this.merkleTree.batchInsert(
+      await this.guardedMerkleTree.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
         NULLIFIER_SUBTREE_HEIGHT,
       );
-    } catch (error) {
+    } catch {
       if (txValidator) {
         // Ideally the validator has already caught this above, but just in case:
         throw new Error(`Transaction ${processedTx.hash} invalid after processing public functions`);
@@ -390,7 +415,7 @@ export class PublicProcessor implements Traceable {
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     // This high-level db is used as a convenient helper. It could be done with the merkleTree directly.
-    const treesDB = new PublicTreesDB(this.merkleTree);
+    const treesDB = new PublicTreesDB(this.guardedMerkleTree);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
@@ -424,13 +449,9 @@ export class PublicProcessor implements Traceable {
       this.globalVariables,
     );
 
-    const siloedContractClassLogs = await tx.filterContractClassLogs(
-      tx.data.getNonEmptyContractClassLogsHashes(),
-      true,
-    );
-
     this.metrics.recordClassRegistration(
-      ...siloedContractClassLogs
+      ...tx
+        .getContractClassLogs()
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
@@ -468,13 +489,11 @@ export class PublicProcessor implements Traceable {
       }
     });
 
-    const siloedContractClassLogs = await tx.filterContractClassLogs(
-      tx.data.getNonEmptyContractClassLogsHashes(),
-      true,
-    );
-
+    const contractClassLogs = revertCode.isOK()
+      ? tx.getContractClassLogs()
+      : tx.getSplitContractClassLogs(false /* revertible */);
     this.metrics.recordClassRegistration(
-      ...siloedContractClassLogs
+      ...contractClassLogs
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );

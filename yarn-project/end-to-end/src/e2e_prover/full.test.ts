@@ -1,5 +1,5 @@
 import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
-import { RollupContract } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
@@ -12,7 +12,7 @@ import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 
 import TOML from '@iarna/toml';
 import '@jest/globals';
-import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient, getContract } from 'viem';
+import { type GetContractReturnType, getContract } from 'viem';
 
 import { FullProverTest } from './e2e_prover_test.js';
 
@@ -32,9 +32,9 @@ describe('full_prover', () => {
   let recipient: AztecAddress;
 
   let rollup: RollupContract;
-  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, PublicClient<HttpTransport, Chain>>;
-  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, PublicClient<HttpTransport, Chain>>;
-  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, PublicClient<HttpTransport, Chain>>;
+  let rewardDistributor: GetContractReturnType<typeof RewardDistributorAbi, ExtendedViemWalletClient>;
+  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
+  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, ExtendedViemWalletClient>;
 
   beforeAll(async () => {
     t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
@@ -42,29 +42,28 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    await t.deployVerifier();
 
     ({ provenAssets, accounts, tokenSim, logger, cheatCodes } = t);
     [sender, recipient] = accounts.map(a => a.address);
 
-    rollup = new RollupContract(t.l1Contracts.publicClient, t.l1Contracts.l1ContractAddresses.rollupAddress);
+    rollup = new RollupContract(t.l1Contracts.l1Client, t.l1Contracts.l1ContractAddresses.rollupAddress);
 
     rewardDistributor = getContract({
       abi: RewardDistributorAbi,
       address: t.l1Contracts.l1ContractAddresses.rewardDistributorAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
 
     feeJuicePortal = getContract({
       abi: FeeJuicePortalAbi,
       address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
 
     feeJuiceToken = getContract({
       abi: TestERC20Abi,
       address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
-      client: t.l1Contracts.publicClient,
+      client: t.l1Contracts.l1Client,
     });
   }, 120_000);
 
@@ -105,10 +104,9 @@ describe('full_prover', () => {
 
       // Prove them
       logger.info(`Proving txs`);
-      const provingOpts = { skipPublicSimulation: true };
       const [publicProvenTx, privateProvenTx] = await Promise.all([
-        publicInteraction.prove(provingOpts),
-        privateInteraction.prove(provingOpts),
+        publicInteraction.prove(),
+        privateInteraction.prove(),
       ]);
 
       // Verify them
@@ -197,10 +195,9 @@ describe('full_prover', () => {
 
     // Prove them
     logger.info(`Proving txs`);
-    const provingOpts = { skipPublicSimulation: true };
     const [publicProvenTx, firstPrivateProvenTx] = await Promise.all([
-      publicInteraction.prove(provingOpts),
-      firstPrivateInteraction.prove(provingOpts),
+      publicInteraction.prove(),
+      firstPrivateInteraction.prove(),
     ]);
 
     // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
@@ -217,7 +214,7 @@ describe('full_prover', () => {
       provenAssets[0].methods.set_admin(sender),
       provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0),
     ];
-    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove(provingOpts)));
+    const secondBlockProvenTxs = await Promise.all(secondBlockInteractions.map(p => p.prove()));
     const secondBlockTxs = await Promise.all(secondBlockProvenTxs.map(p => p.send()));
     await Promise.all(secondBlockTxs.map(t => t.wait({ timeout: 300, interval: 10 })));
 
@@ -278,8 +275,8 @@ describe('full_prover', () => {
     const privateInteraction = t.fakeProofsAsset.methods.transfer(recipient, 1n);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_in_public(sender, recipient, 1n, 0);
 
-    const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
-    const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
+    const sentPrivateTx = privateInteraction.send();
+    const sentPublicTx = publicInteraction.send();
 
     const results = await Promise.allSettled([
       sentPrivateTx.wait({ timeout: 10, interval: 0.1 }),
@@ -304,7 +301,7 @@ describe('full_prover', () => {
       logger.info(`Creating and proving tx`);
       const sendAmount = 1n;
       const interaction = provenAssets[0].methods.transfer(recipient, sendAmount);
-      const provenTx = await interaction.prove({ skipPublicSimulation: true });
+      const provenTx = await interaction.prove();
       const wallet = (provenTx as any).wallet;
 
       // Verify the tx proof
@@ -313,9 +310,8 @@ describe('full_prover', () => {
 
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
-      const invalidTxPromises = [];
       const data = provenTx.data;
-      for (let i = 0; i < NUM_INVALID_TXS; i++) {
+      const invalidTxs = Array.from({ length: NUM_INVALID_TXS }, (_, i) => {
         // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
         const invalidProvenTx = new ProvenTx(
           wallet,
@@ -329,14 +325,13 @@ describe('full_prover', () => {
               data.forRollup,
             ),
             ClientIvcProof.random(),
-            provenTx.contractClassLogs,
+            provenTx.contractClassLogFields,
             provenTx.publicFunctionCalldata,
           ),
+          [],
         );
-
-        const sentTx = invalidProvenTx.send();
-        invalidTxPromises.push(sentTx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true }));
-      }
+        return invalidProvenTx.send();
+      });
 
       logger.info(`Sending proven tx`);
       const validTx = provenTx.send();
@@ -349,7 +344,10 @@ describe('full_prover', () => {
       logger.info(`Advancing from epoch ${epoch} to next epoch`);
       await cheatCodes.rollup.advanceToNextEpoch();
 
-      const results = await Promise.allSettled([...invalidTxPromises, validTx.wait({ timeout: 300, interval: 10 })]);
+      const results = await Promise.allSettled([
+        ...invalidTxs.map(tx => tx.wait({ timeout: 10, interval: 0.1, dontThrowOnRevert: true })),
+        validTx.wait({ timeout: 300, interval: 10 }),
+      ]);
 
       // Assert that the large influx of invalid txs are rejected and do not ddos the node
       for (let i = 0; i < NUM_INVALID_TXS; i++) {

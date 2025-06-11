@@ -1,10 +1,17 @@
+import { optional } from '@aztec/foundation/schemas';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import { PrivateExecutionResult, collectSortedContractClassLogs } from './private_execution_result.js';
+import type { OffchainMessage } from './offchain_message.js';
+import {
+  PrivateExecutionResult,
+  collectOffchainMessages,
+  collectSortedContractClassLogs,
+} from './private_execution_result.js';
+import { type ProvingStats, ProvingTimingsSchema } from './profiling.js';
 import { Tx } from './tx.js';
 
 export class TxProvingResult {
@@ -12,6 +19,7 @@ export class TxProvingResult {
     public privateExecutionResult: PrivateExecutionResult,
     public publicInputs: PrivateKernelTailCircuitPublicInputs,
     public clientIvcProof: ClientIvcProof,
+    public stats?: ProvingStats,
   ) {}
 
   toTx(): Tx {
@@ -26,12 +34,17 @@ export class TxProvingResult {
     return tx;
   }
 
+  getOffchainMessages(): OffchainMessage[] {
+    return collectOffchainMessages(this.privateExecutionResult);
+  }
+
   static get schema() {
     return z
       .object({
         privateExecutionResult: PrivateExecutionResult.schema,
         publicInputs: PrivateKernelTailCircuitPublicInputs.schema,
         clientIvcProof: ClientIvcProof.schema,
+        timings: optional(ProvingTimingsSchema),
       })
       .transform(TxProvingResult.from);
   }

@@ -1,14 +1,15 @@
 import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
 
 export type ProverCoordinationConfig = {
-  proverCoordinationNodeUrl: string | undefined;
+  proverCoordinationNodeUrls: string[];
 };
 
 export const proverCoordinationConfigMappings: ConfigMappingsType<ProverCoordinationConfig> = {
-  proverCoordinationNodeUrl: {
-    env: 'PROVER_COORDINATION_NODE_URL',
-    description: 'The URL of the tx provider node',
-    parseEnv: (val: string) => val,
+  proverCoordinationNodeUrls: {
+    env: 'PROVER_COORDINATION_NODE_URLS',
+    description: 'The URLs of the tx provider nodes',
+    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
+    defaultValue: [],
   },
 };
 

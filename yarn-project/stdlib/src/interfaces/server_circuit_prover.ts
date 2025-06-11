@@ -1,5 +1,5 @@
 import type {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -149,9 +149,10 @@ export interface ServerCircuitProver {
    */
   getAvmProof(
     inputs: AvmCircuitInputs,
+    skipPublicInputsValidation?: boolean, // TODO(#14234)[Unconditional PIs validation]: Remove.
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>>;
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
 }
 
 /**
@@ -164,4 +165,9 @@ export interface ClientProtocolCircuitVerifier {
    * @returns True if the proof is valid, false otherwise
    */
   verifyProof(tx: Tx): Promise<boolean>;
+
+  /**
+   * Stop the verifier.
+   */
+  stop(): Promise<void>;
 }

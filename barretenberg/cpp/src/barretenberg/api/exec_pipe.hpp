@@ -2,28 +2,29 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
-#include <iostream>
+#include <cstring>
+#include <memory>
 #include <vector>
 
-inline std::vector<uint8_t> exec_pipe([[maybe_unused]] std::string const& command)
+namespace bb {
+inline std::vector<uint8_t> exec_pipe([[maybe_unused]] const std::string& command)
 {
 #ifdef __wasm__
     throw_or_abort("Can't use popen() in wasm! Implement this functionality natively.");
 #else
-    FILE* pipe = popen(command.c_str(), "r");
+    // popen() with "r" captures only stdout; stderr is inherited unchanged.
+    std::unique_ptr<FILE, int (*)(FILE*)> pipe(popen(command.c_str(), "r"), pclose); // NOLINT
     if (!pipe) {
-        throw_or_abort("popen() failed! Can't run: " + command);
+        throw_or_abort("popen() failed: '" + command + "' due to " + strerror(errno));
     }
 
-    std::vector<uint8_t> result;
-    while (!feof(pipe)) {
-        uint8_t buffer[128];
-        size_t count = fread(buffer, 1, sizeof(buffer), pipe);
-        result.insert(result.end(), buffer, buffer + count);
-    }
+    std::vector<uint8_t> output;
+    uint8_t buf[4096]; // NOLINT
 
-    pclose(pipe);
-    return result;
+    while (size_t n = fread(buf, 1, sizeof(buf), pipe.get())) {
+        output.insert(output.end(), buf, buf + n);
+    }
+    return output;
 #endif
 }
+} // namespace bb

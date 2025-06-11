@@ -7,6 +7,8 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 ## Prerequisites
 
 - You have followed the [quickstart](../../../getting_started.md)
@@ -15,23 +17,9 @@ In this guide, we will create our first Aztec.nr smart contract. We will build a
 
 ## Set up a project
 
-Create a new directory called `aztec-private-counter`
+Run this to create a new contract project:
 
 ```bash
-mkdir aztec-private-counter
-```
-
-then create a `contracts` folder inside where our Aztec.nr contract will live:
-
-```bash
-cd aztec-private-counter
-mkdir contracts
-```
-
-Inside `contracts` create a new project called `counter`:
-
-```bash
-cd contracts
 aztec-nargo new --contract counter
 ```
 
@@ -39,12 +27,10 @@ Your structure should look like this:
 
 ```tree
 .
-|-aztec-private-counter
-| |-contracts
-| | |--counter
-| | |  |--src
-| | |  |  |--main.nr
-| | |  |--Nargo.toml
+|-counter
+| |-src
+| | |-main.nr
+| |-Nargo.toml
 ```
 
 The file `main.nr` will soon turn into our smart contract!
@@ -60,7 +46,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 
 ## Define the functions
 
-Go to `main.nr` and start with this contract initialization:
+Go to `main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
 #include_code setup /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr raw
@@ -73,23 +59,30 @@ This defines a contract called `Counter`.
 
 We need to define some imports.
 
-Write this within your contract at the top:
+Write this inside your contract, ie inside these brackets:
+
+```rust
+pub contract Counter {
+    // imports go here!
+}
+```
 
 #include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
 
-`AztecAddress, Map`
+- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage};`
+  Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
 
-`AztecAddress` is a type for storing contract (including account) addresses. `Map` is a private state variable that functions like a dictionary, relating Fields to other state variables.
+- `use aztec::prelude::{AztecAddress, Map};`
+  Brings in `AztecAddress` (used to identify accounts/contracts) and `Map` (used for creating state mappings, like our counters).
 
-`value_note`
+- `use aztec::protocol_types::traits::{FromField, ToField};`
+  Provides traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
 
-Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of some arbitrary information. A commitment to a note is stored on-chain, it is associated with a nullifier key (that can be owned by an owner) so it can be spent, and encrypted note information is often emitted on-chain for later retrieval. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, e.g. a balance - or, in our case, a counter.
+- `use easy_private_state::EasyPrivateUint;`
+  Imports a wrapper to manage private integer-like state variables (ie our counter), abstracting away notes.
 
-We are also using `balance_utils` from this import, a useful library that allows us to utilize value notes as if they are simple balances.
-
-`EasyPrivateUint`
-
-This allows us to store our counter in a way that acts as an integer, abstracting the note logic.
+- `use value_note::{balance_utils, value_note::ValueNote};`
+  Brings in `ValueNote`, which represents a private value stored as a note, and `balance_utils`, which makes working with notes feel like working with simple balances.
 
 ## Declare storage
 
@@ -119,7 +112,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 ## Prevent double spending
 
-Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key.
+Because our counters are private, the network can't directly verify if a note was spent or not, which could lead to double-spending. To solve this, we use a nullifier - a unique identifier generated from each spent note and its nullifier key. You can learn more about nullifiers and private state in the [Learn section](../../../../aztec/index.md#private-and-public-state).
 
 ## Getting a counter
 
@@ -135,7 +128,7 @@ Now we've written a simple Aztec.nr smart contract, we can compile it with `azte
 
 ### Compile the smart contract
 
-In `./contracts/counter/` directory, run this:
+In `./counter/` directory, run this:
 
 ```bash
 aztec-nargo compile

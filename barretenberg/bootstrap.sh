@@ -15,32 +15,14 @@ function hash {
   cache_content_hash "^barretenberg"
 }
 
-function bench {
-  rm -rf bench-out && mkdir -p bench-out
-  local hash=$(hash)
-  if cache_download barretenberg-bench-results-$hash.tar.gz; then
-    return
-  fi
-  bootstrap_all bench
-  ./scripts/combine_benchmarks.py \
-    ./cpp/bench-out/*.json \
-    ./acir_tests/bench-out/*.txt \
-    > ./bench-out/bb-bench.json
-  cache_upload barretenberg-bench-results-$hash.tar.gz ./bench-out/bb-bench.json
-}
-
 cmd=${1:-}
-[ -n "$cmd" ] && shift
 
 case "$cmd" in
   hash)
     hash
     ;;
-  ""|clean|ci|fast|test|test_cmds|release)
-    bootstrap_all $cmd $@
-    ;;
-  bench)
-    bench
+  ""|clean|ci|fast|test|test_cmds|bench|bench_cmds|release)
+    bootstrap_all $@
     ;;
   bootstrap_e2e_hack)
     echo "WARNING: This assumes your PR only changes barretenberg and the rest of the repository is unchanged from master."

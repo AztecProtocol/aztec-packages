@@ -76,10 +76,10 @@ contract VoteTest is GovernanceBase {
     address _voter,
     uint256 _amount,
     bool _support,
-    address _governanceProposer
+    address _proposer
   ) external givenStateIsNotActive(_voter, _amount, _support) {
     // it revert
-    _stateDropped("empty", _governanceProposer);
+    _stateDropped("empty", _proposer);
     assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
   }
 
@@ -161,7 +161,7 @@ contract VoteTest is GovernanceBase {
     assertEq(proposal.config.votingDelay, fresh.config.votingDelay, "votingDelay");
     assertEq(proposal.config.votingDuration, fresh.config.votingDuration, "votingDuration");
     assertEq(proposal.creation, fresh.creation, "creation");
-    assertEq(proposal.governanceProposer, fresh.governanceProposer, "governanceProposer");
+    assertEq(proposal.proposer, fresh.proposer, "governanceProposer");
     assertEq(proposal.summedBallot.nea + (_support ? 0 : power), fresh.summedBallot.nea, "nea");
     assertEq(proposal.summedBallot.yea + (_support ? power : 0), fresh.summedBallot.yea, "yea");
     // The "written" state is still the same.

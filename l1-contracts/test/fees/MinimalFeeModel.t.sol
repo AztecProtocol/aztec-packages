@@ -46,6 +46,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
     model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION);
+    model.setProvingCost(provingCost);
   }
 
   function test_computeFeeAssetPerEth() public {
@@ -53,10 +54,6 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     // Then check that we get the same fee asset price as the python model
 
     for (uint256 i = 0; i < points.length; i++) {
-      model.setProvingCost(
-        EthValue.wrap(points[i].outputs.mana_base_fee_components_in_fee_asset.proving_cost)
-      );
-
       assertEq(
         FeeAssetPerEthE9.unwrap(model.getFeeAssetPerEth()),
         points[i].outputs.fee_asset_price_at_execution,
@@ -117,9 +114,6 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
       if (model.getCurrentSlot() == nextSlot) {
         uint256 index = nextSlot.unwrap() - 1;
         TestPoint memory point = points[index];
-        model.setProvingCost(
-          EthValue.wrap(point.outputs.mana_base_fee_components_in_wei.proving_cost)
-        );
 
         // Get a hold of the values that is used for the next block
         L1FeesModel memory fees = model.getCurrentL1Fees();

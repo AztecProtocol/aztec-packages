@@ -1,4 +1,6 @@
 #pragma once
+#include "barretenberg/api/file_io.hpp"
+#include "barretenberg/api/log.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/map.hpp"

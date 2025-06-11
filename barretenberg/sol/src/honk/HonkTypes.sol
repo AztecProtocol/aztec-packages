@@ -11,7 +11,7 @@ uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
-uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
+uint256 constant PAIRING_POINTS_SIZE = 16;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -126,7 +126,7 @@ library Honk {
 
     struct Proof {
         // Pairing point object
-        Fr[PAIRING_POINT_OBJECT_LENGTH] pairingPointObject;
+        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
         // Free wires
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;
@@ -150,7 +150,7 @@ library Honk {
 
     struct ZKProof {
         // Pairing point object
-        Fr[PAIRING_POINT_OBJECT_LENGTH] pairingPointObject;
+        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
         // Commitments to wire polynomials
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;

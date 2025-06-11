@@ -1,7 +1,7 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -19,7 +19,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
-import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -31,6 +31,12 @@ export async function startProverNode(
 ): Promise<{ config: ProverNodeConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+    process.exit(1);
+  }
+
+  // Check if running on ARM and fast-fail if so.
+  if (process.arch.startsWith('arm')) {
+    userLog(`Prover node is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
     process.exit(1);
   }
 
@@ -58,6 +64,7 @@ export async function startProverNode(
     throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
   }
 
+  const followsCanonicalRollup = typeof proverConfig.rollupVersion !== 'number';
   const { addresses, config } = await getL1Config(
     proverConfig.l1Contracts.registryAddress,
     proverConfig.l1RpcUrls,
@@ -72,9 +79,8 @@ export async function startProverNode(
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
@@ -109,9 +115,8 @@ export async function startProverNode(
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  const p2p = proverNode.getP2P();
-  if (p2p) {
-    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  if (proverNode.getP2P()) {
+    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {
@@ -121,5 +126,16 @@ export async function startProverNode(
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
   await proverNode.start();
+
+  if (proverConfig.autoUpdate !== 'disabled' && proverConfig.autoUpdateUrl) {
+    await setupUpdateMonitor(
+      proverConfig.autoUpdate,
+      new URL(proverConfig.autoUpdateUrl),
+      followsCanonicalRollup,
+      getPublicClient(proverConfig),
+      proverConfig.l1Contracts.registryAddress,
+      signalHandlers,
+    );
+  }
   return { config: proverConfig };
 }

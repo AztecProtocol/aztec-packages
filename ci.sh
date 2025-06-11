@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
+source $ci3/source_refname
 
 cmd=${1:-}
 arch=${ARCH:-$(arch)}
@@ -17,28 +18,27 @@ function echo_cmd {
 function print_usage {
   echo "usage: $(basename $0) <cmd>"
   echo
-  echo_cmd "ec2"            "Launch an ec2 instance and './bootstrap.sh ci' on it.\n" \
-                            "Exactly what Github Action's does, but doesn't touch GA."
-  echo_cmd "ec2-no-cache"   "Same as ec2, but perform a full build and test (disable build and test cache)."
-  echo_cmd "ec2-test"       "Same as ec2, but run all tests (disable test cache)."
-  echo_cmd "ec2-grind"      "Same as ec2-test, but run over N instances."
-  echo_cmd "ec2-shell"      "Launch an ec2 instance, clone the repo and drop into a shell."
-  echo_cmd "local"          "Clone your last commit into a fresh container and bootstrap on local hardware."
-  echo_cmd "run"            "Same as calling trigger, then rlog."
-  echo_cmd "shell"          "Jump into a new shell on the current running build instance.\n" \
-                            "Can provide a command to run instead of dropping into a shell, e.g. 'ci shell ls'."
-  echo_cmd "trigger"        "Trigger the GA workflow on the PR associated with the current branch.\n" \
-                            "Effectively the same as ec2, only the results will be tracked on your PR."
-  echo_cmd "rlog"           "Will tail the logs of the latest GA run, or tail/dump the given GA run id."
-  echo_cmd "ilog"           "Will tail the logs of the current running build instance."
-  echo_cmd "dlog"           "Display the log of the given denoise log id."
-  echo_cmd "llog"           "Tail the live log of a given log id."
+  echo_cmd "fast"           "Spin up an EC2 instance and run bootstrap ci-fast."
+  echo_cmd "full"           "Spin up an EC2 instance and run bootstrap ci-full."
+  echo_cmd "merge-queue"    "Spin up several EC2 instances to run the merge-queue jobs."
+  echo_cmd "nightly"        "Spin up an EC2 instance and run bootstrap nightly."
+  echo_cmd "release"        "Spin up an EC2 instance and run bootstrap release."
+  echo_cmd "shell-new"      "Spin up an EC2 instance, clone the repo, and drop into a shell."
+  echo_cmd "shell"          "Drop into a shell in the current running build instance container."
+  echo_cmd "shell-host"     "Drop into a shell in the current running build host."
+  echo_cmd "run"            "Trigger a GA workflow for the current branch PR and tail logs."
+  echo_cmd "trigger"        "Trigger the GA workflow on the PR associated with the current branch."
+  echo_cmd "rlog"           "Tail the logs of the latest GA run or the given GA run ID."
+  echo_cmd "ilog"           "Tail the logs of the current running build instance."
+  echo_cmd "dlog"           "Display the log of the given denoise log ID."
   echo_cmd "tlog"           "Display the last log of the given test command as output by test_cmds."
   echo_cmd "tilog"          "Tail the live log of a given test command as output by test_cmds."
-  echo_cmd "shell-host"     "Connect to host instance of the current running build."
-  echo_cmd "draft"          "Mark current PR as draft (no automatic CI runs when pushing)."
-  echo_cmd "uncached-tests" "List tests that will run/did not finish in a CI pass for this commit."
-  echo_cmd "ready"          "Mark current PR as ready (enable automatic CI runs when pushing)."
+  echo_cmd "llog"           "Tail the live log of a given log ID."
+  echo_cmd "draft"          "Mark the current PR as draft (no automatic CI runs when pushing)."
+  echo_cmd "ready"          "Mark the current PR as ready (enable automatic CI runs when pushing)."
+  echo_cmd "pr-url"         "Print the URL of the current PR associated with the branch."
+  echo_cmd "last-run-url"   "Print the URL of the last GA run for the current branch PR."
+  echo_cmd "help"           "Display this help message."
 }
 
 [ -n "$cmd" ] && shift
@@ -49,7 +49,7 @@ instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${a
 function get_ip_for_instance {
   ip=$(aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" \
+    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
     --query "Reservations[].Instances[0].PublicIpAddress" \
     --output text)
 }
@@ -68,51 +68,96 @@ function tail_live_instance {
   "
 }
 
+# Used in merge-queue, nightly, and release flows.
+function prep_vars {
+  export RUN_ID=${RUN_ID:-$(date +%s%3N)}
+  export PARENT_LOG_URL=http://ci.aztec-labs.com/$RUN_ID
+  export DENOISE=1
+  export DENOISE_WIDTH=32
+}
+
 case "$cmd" in
-  "ec2")
-    # Spin up ec2 instance and ci bootstrap with shell on failure.
-    export USE_TEST_CACHE=${USE_TEST_CACHE:-1}
-    exec bootstrap_ec2
+  "fast")
+    # Spin up ec2 instance and run the fast flow.
+    export JOB_ID="x1-fast"
+    exec bootstrap_ec2 "./bootstrap.sh ci-fast"
     ;;
-  "ec2-no-cache")
-    # Disable the build and test cache.
-    export NO_CACHE=1
-    export USE_TEST_CACHE=0
-    exec bootstrap_ec2
+  "full")
+    # Spin up ec2 instance and run the full flow.
+    export JOB_ID="x1-full"
+    exec bootstrap_ec2 "./bootstrap.sh ci-full"
     ;;
-  "ec2-test")
-    # Can use the build cache, but don't use the test cache.
-    export USE_TEST_CACHE=0
-    exec bootstrap_ec2
+  "grind")
+    # Spin up ec2 instance and run the merge-queue flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    }
+    export -f run
+    seq 1 ${1:-5} | parallel --termseq 'TERM,10000' --line-buffered --halt now,fail=1  'run $USER-x{}-full amd64 ci-full'
     ;;
-  "ec2-shell")
+  "merge-queue")
+    prep_vars
+    # Spin up ec2 instance and run the merge-queue flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    }
+    export -f run
+    # We perform two full runs of all tests on x86, and a single fast run on arm64 (allowing use of test cache).
+    parallel --jobs 10 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x1-full amd64 ci-full' \
+      'run x2-full amd64 ci-full' \
+      'run x3-full amd64 ci-full' \
+      'run x4-full amd64 ci-full' \
+      'run a1-fast arm64 ci-fast' | DUP=1 cache_log "Merge queue CI run" $RUN_ID
+    ;;
+  "nightly")
+    prep_vars
+    # Spin up ec2 instance and run the nightly flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-nightly'"
+    }
+    export -f run
+    # We need to run the release flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-nightly amd64' \
+      'run a-nightly arm64' | DUP=1 cache_log "Nightly CI run" $RUN_ID
+    ;;
+  "release")
+    prep_vars
+    # Spin up ec2 instance and run the release flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release'"
+    }
+    export -f run
+    # We need to run the release flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release amd64' \
+      'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
+    ;;
+  "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    exec bootstrap_ec2 "false"
+    cmd="${1:-false}"
+    exec bootstrap_ec2 "$cmd"
     ;;
-  "ec2-grind")
-    # Same as ec2-test but repeat it over arg1 instances.
-    export CI_FULL=1
-    export USE_TEST_CACHE=0
-    num=${1:-5}
-    seq 0 $((num - 1)) | parallel --tag --line-buffered \
-      'INSTANCE_POSTFIX=${USER}_{} bootstrap_ec2 2>&1 | cache_log "Grind {}"'
-    ;;
-  "local")
-    # Create container with clone of local repo and bootstrap.
-    bootstrap_local "$@"
-    ;;
-  "run")
-    # Trigger a GA workflow for current branch PR and tail logs.
-    $0 trigger
-    $0 rlog
-    ;;
-  "shell")
+  "shell-container")
+    # Drop into a shell in the current running build instance container.
     get_ip_for_instance
     [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
     [ "$#" -eq 0 ] && set -- "zsh" || true
     ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
       "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+    ;;
+  "shell-host")
+    # Drop into a shell in the current running build host.
+    get_ip_for_instance
+    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
+    ;;
+  "run")
+    # Trigger a GA workflow for current branch PR and tail logs.
+    $0 trigger
+    $0 rlog
     ;;
   "trigger")
     # Trigger workflow.
@@ -183,11 +228,6 @@ case "$cmd" in
       ./ci.sh shell tail -F -n +1 /tmp/$key
     fi
   ;;
-  "shell-host")
-    get_ip_for_instance
-    [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-    ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
-    ;;
   "kill")
     existing_instance=$(aws ec2 describe-instances \
       --region us-east-2 \
@@ -216,17 +256,8 @@ case "$cmd" in
       echo "No pull request found for branch $BRANCH."
     fi
     ;;
-  "gha-url")
-    workflow_id=$(gh workflow list --all --json name,id -q '.[] | select(.name == "CI").id')
-    run_url=$(gh run list --workflow $workflow_id -b $BRANCH --limit 1 --json url -q '.[0].url')
-    if [ -z "$run_url" ]; then
-      echo "No workflow runs found for branch '$BRANCH'."
-      exit 1
-    fi
-    echo "$run_url"
-    ;;
   "pr-url")
-    # Fetch the current PR associated with the branch
+    # Print the current PR associated with the branch.
     pr_url=$(gh pr list --head "$BRANCH" --limit 1 --json url -q '.[0].url')
     if [ -z "$pr_url" ]; then
       echo "No pull request found for branch '$BRANCH'."
@@ -234,50 +265,21 @@ case "$cmd" in
     fi
     echo "$pr_url"
     ;;
-  "deploy")
-    VERSION_TAG=$1
-    ;;
-  "watch")
-    watch_ci "$@"
+  "last-run-url")
+    # Print the URL of the last GA run for the current branch PR.
+    run_id=$(get_latest_run_id)
+    if [ -z "$run_id" ] || [ "$run_id" == "null" ]; then
+      echo "No recent GitHub Actions run found for branch '$BRANCH'."
+      exit 1
+    fi
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+    echo "https://github.com/$repo/actions/runs/$run_id"
     ;;
   "help"|"")
     print_usage
     ;;
   "gh-bench")
-    export CI=1
-    # Set up preferred commit attribution (needed by noir checkout).
-    git config --global user.email "tech@aztecprotocol.com"
-    git config --global user.name "AztecBot"
-    # Run benchmark logic for github actions.
-    bb_hash=$(barretenberg/bootstrap.sh hash)
-    yp_hash=$(yarn-project/bootstrap.sh hash)
-
-    if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
-      echo "Error, can't publish benchmarks due to unstaged changes."
-      git status -s
-      exit 1
-    fi
-
-    prev_bb_hash=$(AZTEC_CACHE_COMMIT=HEAD^ barretenberg/bootstrap.sh hash)
-    prev_yp_hash=$(AZTEC_CACHE_COMMIT=HEAD^ yarn-project/bootstrap.sh hash)
-
-    # barretenberg benchmarks.
-    if [ "$bb_hash" == "$prev_bb_hash" ]; then
-      echo "No changes since last master, skipping barretenberg benchmark publishing."
-      echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
-    else
-      cache_download barretenberg-bench-results-$bb_hash.tar.gz
-    fi
-
-    # yarn-project benchmarks.
-    if [ "$yp_hash" == "$prev_yp_hash" ]; then
-      echo "No changes since last master, skipping yarn-project benchmark publishing."
-      echo "SKIP_YP_BENCH=true" >> $GITHUB_ENV
-    else
-      cache_download yarn-project-bench-results-$yp_hash.tar.gz
-      # TODO reenable
-      # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
-    fi
+    cache_download bench-$COMMIT_HASH.tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

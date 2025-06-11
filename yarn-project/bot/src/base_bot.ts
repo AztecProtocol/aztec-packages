@@ -20,7 +20,11 @@ export abstract class BaseBot {
   protected attempts: number = 0;
   protected successes: number = 0;
 
-  protected constructor(public readonly pxe: PXE, public readonly wallet: Wallet, public config: BotConfig) {}
+  protected constructor(
+    public readonly pxe: PXE,
+    public readonly wallet: Wallet,
+    public config: BotConfig,
+  ) {}
 
   public async run(): Promise<TxReceipt | TxHash> {
     this.attempts++;
@@ -67,7 +71,7 @@ export abstract class BaseBot {
 
   protected getSendMethodOpts(...authWitnesses: AuthWitness[]): SendMethodOptions {
     const sender = this.wallet.getAddress();
-    const { l2GasLimit, daGasLimit, skipPublicSimulation } = this.config;
+    const { l2GasLimit, daGasLimit } = this.config;
     const paymentMethod = new FeeJuicePaymentMethod(sender);
 
     let gasSettings, estimateGas;
@@ -80,7 +84,6 @@ export abstract class BaseBot {
       this.log.verbose(`Estimating gas for transaction`);
     }
     const baseFeePadding = 2; // Send 3x the current base fee
-    this.log.verbose(skipPublicSimulation ? `Skipping public simulation` : `Simulating public transfers`);
-    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, skipPublicSimulation, authWitnesses };
+    return { fee: { estimateGas, paymentMethod, gasSettings, baseFeePadding }, authWitnesses };
   }
 }

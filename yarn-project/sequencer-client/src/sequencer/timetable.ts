@@ -3,6 +3,11 @@ import { createLogger } from '@aztec/aztec.js';
 import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
+const MIN_EXECUTION_TIME = 1;
+const BLOCK_PREPARE_TIME = 1;
+const BLOCK_VALIDATION_TIME = 1;
+const ATTESTATION_PROPAGATION_TIME = 2;
+
 export class SequencerTimetable {
   /**
    * How late into the slot can we be to start working. Computed as the total time needed for assembling and publishing a block,
@@ -19,16 +24,16 @@ export class SequencerTimetable {
   public readonly l1PublishingTime;
 
   /** What's the minimum time we want to leave available for execution and reexecution (used to derive init deadline) */
-  public readonly minExecutionTime = 1;
+  public readonly minExecutionTime: number = MIN_EXECUTION_TIME;
 
   /** How long it takes to get ready to start building */
-  public readonly blockPrepareTime = 1;
+  public readonly blockPrepareTime: number = BLOCK_PREPARE_TIME;
 
   /** How long it takes to for proposals and attestations to travel across the p2p layer (one-way) */
-  public readonly attestationPropagationTime = 2;
+  public readonly attestationPropagationTime: number = ATTESTATION_PROPAGATION_TIME;
 
   /** How much time we spend validating and processing a block after building it, and assembling the proposal to send to attestors */
-  public readonly blockValidationTime = 1;
+  public readonly blockValidationTime: number = BLOCK_VALIDATION_TIME;
 
   constructor(
     private readonly ethereumSlotDuration: number,
@@ -39,6 +44,13 @@ export class SequencerTimetable {
     private readonly log = createLogger('sequencer:timetable'),
   ) {
     this.l1PublishingTime = this.ethereumSlotDuration - this.maxL1TxInclusionTimeIntoSlot;
+
+    // Assume zero-cost propagation time and faster runs in test environments where L1 slot duration is shortened
+    if (this.ethereumSlotDuration < 8) {
+      this.attestationPropagationTime = 0;
+      this.blockValidationTime = 0.5;
+      this.blockPrepareTime = 0.5;
+    }
 
     const allWorkToDo =
       this.blockPrepareTime +

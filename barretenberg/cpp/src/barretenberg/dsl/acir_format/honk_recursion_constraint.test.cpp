@@ -137,7 +137,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             5, 10, 15, 5, inverse_of_five, 1,
         };
         uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
             honk_recursion = 1;
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
@@ -172,12 +172,13 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             std::vector<fr> proof_witnesses = inner_proof;
-            size_t num_public_inputs_to_extract =
-                inner_circuit.get_public_inputs().size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+            size_t num_public_inputs_to_extract = inner_circuit.get_public_inputs().size() - bb::PAIRING_POINTS_SIZE;
             acir_format::PROOF_TYPE proof_type = acir_format::HONK;
             if constexpr (HasIPAAccumulator<InnerFlavor>) {
                 num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
                 proof_type = ROLLUP_HONK;
+            } else if constexpr (InnerFlavor::HasZK) {
+                proof_type = HONK_ZK;
             }
 
             auto [key_indices, proof_indices, inner_public_inputs] = ProofSurgeon::populate_recursion_witness_data(
@@ -201,9 +202,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
         mock_opcode_indices(constraint_system);
         uint32_t honk_recursion = 0;
-        if constexpr (IsMegaBuilder<BuilderType>) {
-            honk_recursion = 0; // TODO(https://github.com/AztecProtocol/barretenberg/issues/1336): Turn this on.
-        } else if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
             honk_recursion = 1;
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
@@ -219,16 +218,14 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     }
 
   protected:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
 

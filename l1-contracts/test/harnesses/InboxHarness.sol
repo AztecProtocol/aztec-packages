@@ -23,7 +23,7 @@ contract InboxHarness is Inbox {
   }
 
   function treeInProgressFull() external view returns (bool) {
-    return trees[inProgress].isFull(SIZE);
+    return trees[state.inProgress].isFull(SIZE);
   }
 
   function getToConsumeRoot(uint256 _toConsume) external view returns (bytes32) {
@@ -36,12 +36,13 @@ contract InboxHarness is Inbox {
 
   function getNumTrees() external view returns (uint256) {
     // -INITIAL_L2_BLOCK_NUM because tree number INITIAL_L2_BLOCK_NUM is not real
-    return inProgress - Constants.INITIAL_L2_BLOCK_NUM;
+    return state.inProgress - Constants.INITIAL_L2_BLOCK_NUM;
   }
 
   function getNextMessageIndex() external view returns (uint256) {
-    FrontierLib.Tree storage currentTree = trees[inProgress];
-    uint256 index = (inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
+    FrontierLib.Tree storage currentTree = trees[state.inProgress];
+    uint256 index =
+      (state.inProgress - Constants.INITIAL_L2_BLOCK_NUM) * SIZE + currentTree.nextIndex;
     return index;
   }
 }

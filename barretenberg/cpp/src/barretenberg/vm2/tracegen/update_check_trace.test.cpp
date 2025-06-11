@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
@@ -24,7 +24,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -48,8 +48,8 @@ using simulation::Poseidon2;
 using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::PublicDataTreeCheck;
+using simulation::PublicDataTreeCheckEvent;
 using simulation::PublicDataTreeLeafPreimage;
-using simulation::PublicDataTreeReadEvent;
 using simulation::RangeCheck;
 using simulation::RangeCheckEvent;
 using simulation::UpdateCheck;
@@ -93,9 +93,9 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     NiceMock<MockMerkleCheck> mock_merkle_check;
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
-    EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_read_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
@@ -120,14 +120,14 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeReadTraceBuilder public_data_read_builder;
+    PublicDataTreeCheckTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
-    public_data_read_builder.process(public_data_tree_read_event_emitter.dump_events(), trace);
+    public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);
@@ -165,9 +165,9 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     NiceMock<MockMerkleCheck> mock_merkle_check;
     NiceMock<MockNullifierTreeCheck> mock_nullifier_tree_check;
 
-    EventEmitter<PublicDataTreeReadEvent> public_data_tree_read_event_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check(
-        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_read_event_emitter);
+        poseidon2, mock_merkle_check, mock_field_gt, public_data_tree_check_event_emitter);
 
     NiceMock<MockLowLevelMerkleDB> mock_low_level_merkle_db;
 
@@ -213,14 +213,14 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     Poseidon2TraceBuilder poseidon2_builder;
     RangeCheckTraceBuilder range_check_builder;
-    PublicDataTreeReadTraceBuilder public_data_read_builder;
+    PublicDataTreeCheckTraceBuilder public_data_check_builder;
     UpdateCheckTraceBuilder update_check_builder;
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
-    public_data_read_builder.process(public_data_tree_read_event_emitter.dump_events(), trace);
+    public_data_check_builder.process(public_data_tree_check_event_emitter.dump_events(), trace);
     update_check_builder.process(update_check_event_emitter.dump_events(), trace);
 
     LookupIntoDynamicTableSequential<update_hash_poseidon2::Settings>().process(trace);

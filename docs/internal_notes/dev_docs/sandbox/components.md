@@ -359,4 +359,4 @@ For `offchainData`:
 
 ## Participate
 
-Keep up with the latest discussion and join the conversation in the [Aztec forum](https://discourse.aztec.network).
+Keep up with the latest discussion and join the conversation in the [Aztec forum](https://forum.aztec.network/).

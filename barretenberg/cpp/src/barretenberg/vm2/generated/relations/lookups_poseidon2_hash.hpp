@@ -3,6 +3,7 @@
 
 #include "../columns.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
+#include "barretenberg/vm2/constraining/relations/interactions_base.hpp"
 
 #include <cstddef>
 #include <string_view>
@@ -12,21 +13,10 @@ namespace bb::avm2 {
 
 /////////////////// lookup_poseidon2_hash_poseidon2_perm ///////////////////
 
-class lookup_poseidon2_hash_poseidon2_perm_settings {
-  public:
+struct lookup_poseidon2_hash_poseidon2_perm_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_POSEIDON2_HASH_POSEIDON2_PERM";
     static constexpr std::string_view RELATION_NAME = "poseidon2_hash";
-
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
-    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
-    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
     static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
-    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
-    static constexpr size_t READ_TERM_DEGREE = 0;
-    static constexpr size_t WRITE_TERM_DEGREE = 0;
-
-    // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::poseidon2_hash_sel;
     static constexpr Column DST_SELECTOR = Column::poseidon2_perm_sel;
     static constexpr Column COUNTS = Column::lookup_poseidon2_hash_poseidon2_perm_counts;
@@ -41,78 +31,11 @@ class lookup_poseidon2_hash_poseidon2_perm_settings {
         ColumnAndShifts::poseidon2_perm_a_3, ColumnAndShifts::poseidon2_perm_b_0, ColumnAndShifts::poseidon2_perm_b_1,
         ColumnAndShifts::poseidon2_perm_b_2, ColumnAndShifts::poseidon2_perm_b_3
     };
-
-    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
-    {
-        return (in._poseidon2_hash_sel() == 1 || in._poseidon2_perm_sel() == 1);
-    }
-
-    template <typename Accumulator, typename AllEntities>
-    static inline auto compute_inverse_exists(const AllEntities& in)
-    {
-        using View = typename Accumulator::View;
-        const auto is_operation = View(in._poseidon2_hash_sel());
-        const auto is_table_entry = View(in._poseidon2_perm_sel());
-        return (is_operation + is_table_entry - is_operation * is_table_entry);
-    }
-
-    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
-    {
-        return get_entities(in);
-    }
-
-    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
-    {
-        return std::forward_as_tuple(in._lookup_poseidon2_hash_poseidon2_perm_inv(),
-                                     in._lookup_poseidon2_hash_poseidon2_perm_counts(),
-                                     in._poseidon2_hash_sel(),
-                                     in._poseidon2_perm_sel(),
-                                     in._poseidon2_hash_a_0(),
-                                     in._poseidon2_hash_a_1(),
-                                     in._poseidon2_hash_a_2(),
-                                     in._poseidon2_hash_a_3(),
-                                     in._poseidon2_hash_b_0(),
-                                     in._poseidon2_hash_b_1(),
-                                     in._poseidon2_hash_b_2(),
-                                     in._poseidon2_hash_b_3(),
-                                     in._poseidon2_perm_a_0(),
-                                     in._poseidon2_perm_a_1(),
-                                     in._poseidon2_perm_a_2(),
-                                     in._poseidon2_perm_a_3(),
-                                     in._poseidon2_perm_b_0(),
-                                     in._poseidon2_perm_b_1(),
-                                     in._poseidon2_perm_b_2(),
-                                     in._poseidon2_perm_b_3());
-    }
 };
 
+using lookup_poseidon2_hash_poseidon2_perm_settings = lookup_settings<lookup_poseidon2_hash_poseidon2_perm_settings_>;
 template <typename FF_>
-class lookup_poseidon2_hash_poseidon2_perm_relation
-    : public GenericLookupRelation<lookup_poseidon2_hash_poseidon2_perm_settings, FF_> {
-  public:
-    using Settings = lookup_poseidon2_hash_poseidon2_perm_settings;
-    static constexpr std::string_view NAME = lookup_poseidon2_hash_poseidon2_perm_settings::NAME;
-    static constexpr std::string_view RELATION_NAME = lookup_poseidon2_hash_poseidon2_perm_settings::RELATION_NAME;
-
-    template <typename AllEntities> inline static bool skip(const AllEntities& in)
-    {
-        return in.lookup_poseidon2_hash_poseidon2_perm_inv.is_zero();
-    }
-
-    static std::string get_subrelation_label(size_t index)
-    {
-        if (index == 0) {
-            return "INVERSES_ARE_CORRECT";
-        } else if (index == 1) {
-            return "ACCUMULATION_IS_CORRECT";
-        }
-        return std::to_string(index);
-    }
-};
+using lookup_poseidon2_hash_poseidon2_perm_relation =
+    lookup_relation_base<FF_, lookup_poseidon2_hash_poseidon2_perm_settings>;
 
 } // namespace bb::avm2

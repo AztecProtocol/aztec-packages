@@ -32,7 +32,10 @@ export abstract class SingleKeyBaseAccountContract extends DefaultAccountContrac
  * by reconstructing the current address.
  */
 class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
-  constructor(private privateKey: GrumpkinScalar, private account: CompleteAddress) {}
+  constructor(
+    private privateKey: GrumpkinScalar,
+    private account: CompleteAddress,
+  ) {}
 
   async createAuthWit(messageHash: Fr): Promise<AuthWitness> {
     const schnorr = new Schnorr();

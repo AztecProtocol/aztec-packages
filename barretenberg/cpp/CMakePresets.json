@@ -150,11 +150,17 @@
       "name": "tracy-memory",
       "displayName": "Release build with tracy with memory tracking",
       "description": "Release build with tracy with memory tracking",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
-        "TRACY_PROFILE_MEMORY": "ON"
+        "TRACY_PROFILE_MEMORY": "ON",
+        "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
+      },
+      "environment": {
+        "CFLAGS": "-g -fno-omit-frame-pointer",
+        "CXXFLAGS": "-g -fno-omit-frame-pointer",
+        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
       }
     },
     {
@@ -162,7 +168,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang16",
+      "inherits": "clang16-assert",
       "cacheVariables": {
         "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
@@ -172,7 +178,7 @@
       "displayName": "Build for tracy time profiling via sampling",
       "description": "Build for tracy time profiling via sampling",
       "binaryDir": "build-tracy-time-sampled",
-      "inherits": "default",
+      "inherits": "clang16-assert",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
         "CFLAGS": "-g -fno-omit-frame-pointer",
@@ -208,6 +214,26 @@
       }
     },
     {
+      "name": "clang16-no-avm",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16",
+      "binaryDir": "build-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      }
+    },
+    {
+      "name": "clang16-dbg-no-avm",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-debug-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      }
+    },
+    {
       "name": "clang16-dbg-fast-circuit-check-traces",
       "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
       "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
@@ -235,6 +261,18 @@
       "inherits": "clang16",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "asan-fast",
+      "displayName": "Debugging build with address sanitizer on Clang-16 in optimized debug mode",
+      "description": "Build with address sanitizer on clang16 in optimized debug mode",
+      "inherits": "clang16-dbg-fast",
+      "binaryDir": "build-asan-fast",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON",
+        "DISABLE_AZTEC_VM": "ON",
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -393,14 +431,15 @@
       }
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "displayName": "Build with coverage",
-      "description": "Build default preset but with coverage enabled",
-      "inherits": "default",
+      "description": "Build clang16 preset but with coverage enabled",
+      "inherits": "clang16",
       "binaryDir": "build-coverage",
       "cacheVariables": {
         "COVERAGE": "ON",
-        "CMAKE_BUILD_TYPE": "Debug"
+        "DISABLE_ASM": "ON",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -563,6 +602,16 @@
       "configurePreset": "clang16-dbg"
     },
     {
+      "name": "clang16-no-avm",
+      "inherits": "default",
+      "configurePreset": "clang16-no-avm"
+    },
+    {
+      "name": "clang16-dbg-no-avm",
+      "inherits": "default",
+      "configurePreset": "clang16-dbg-no-avm"
+    },
+    {
       "name": "tracy-memory",
       "inherits": "default",
       "configurePreset": "tracy-memory"
@@ -616,6 +665,11 @@
       "name": "clang16-assert",
       "inherits": "default",
       "configurePreset": "clang16-assert"
+    },
+    {
+      "name": "asan-fast",
+      "inherits": "default",
+      "configurePreset": "asan-fast"
     },
     {
       "name": "asan",
@@ -678,9 +732,9 @@
       "configurePreset": "ubsan"
     },
     {
-      "name": "coverage",
-      "inherits": "default",
-      "configurePreset": "coverage"
+      "name": "clang16-coverage",
+      "inherits": "clang16-dbg-fast",
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",
@@ -714,7 +768,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",
@@ -794,9 +848,9 @@
       "configurePreset": "smt-verification"
     },
     {
-      "name": "coverage",
+      "name": "clang16-coverage",
       "inherits": "default",
-      "configurePreset": "coverage"
+      "configurePreset": "clang16-coverage"
     },
     {
       "name": "wasm",

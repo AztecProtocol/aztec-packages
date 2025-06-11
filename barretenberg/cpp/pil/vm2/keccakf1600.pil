@@ -1,0 +1,8 @@
+namespace keccakf1600;
+
+// Dummy.
+pol commit keccak[1000];
+
+// Dummy.
+keccak[0] = keccak[0];
+keccak[1] = keccak[1];

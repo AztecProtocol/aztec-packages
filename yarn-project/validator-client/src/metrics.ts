@@ -52,19 +52,19 @@ export class ValidatorMetrics {
     this.reExecutionTime.record(time);
   }
 
-  public async recordFailedReexecution(proposal: BlockProposal) {
+  public recordFailedReexecution(proposal: BlockProposal) {
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_PROPOSER]: (await proposal.getSender())?.toString(),
+      [Attributes.BLOCK_PROPOSER]: proposal.getSender().toString(),
     });
   }
 
-  public incAttestations() {
-    this.attestationsCount.add(1);
+  public incAttestations(num: number) {
+    this.attestationsCount.add(num);
   }
 
-  public incFailedAttestations(reason: string) {
-    this.failedAttestationsCount.add(1, {
+  public incFailedAttestations(num: number, reason: string) {
+    this.failedAttestationsCount.add(num, {
       [Attributes.ERROR_TYPE]: reason,
     });
   }

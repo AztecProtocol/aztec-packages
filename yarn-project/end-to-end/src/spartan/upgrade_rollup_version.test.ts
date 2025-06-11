@@ -5,7 +5,7 @@ import {
   RegistryContract,
   RollupContract,
   createEthereumChain,
-  createL1Clients,
+  createExtendedL1Client,
   defaultL1TxUtilsConfig,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
@@ -74,43 +74,31 @@ describe('spartan_upgrade_rollup_version', () => {
       /** Setup */
 
       const chain = createEthereumChain(ETHEREUM_HOSTS, nodeInfo.l1ChainId);
-      const { walletClient: l1WalletClient, publicClient: l1PublicClient } = createL1Clients(
-        ETHEREUM_HOSTS,
-        config.L1_ACCOUNT_MNEMONIC,
-        chain.chainInfo,
-      );
-      debugLogger.info(`l1WalletClient: ${l1WalletClient.account.address}`);
+      const l1Client = createExtendedL1Client(ETHEREUM_HOSTS, config.L1_ACCOUNT_MNEMONIC, chain.chainInfo);
+      debugLogger.info(`L1 Client address: ${l1Client.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();
 
-      const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(
-        initialTestAccounts.map(a => a.address),
-      );
+      const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 
-      const rollup = new RollupContract(l1PublicClient, originalL1ContractAddresses.rollupAddress.toString());
+      const rollup = new RollupContract(l1Client, originalL1ContractAddresses.rollupAddress.toString());
       const { rollup: newRollup } = await deployRollupForUpgrade(
-        {
-          walletClient: l1WalletClient,
-          publicClient: l1PublicClient,
-        },
+        l1Client,
         {
           salt: Math.floor(Math.random() * 1000000),
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
           genesisArchiveRoot,
-          genesisBlockHash,
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,
           aztecTargetCommitteeSize: 48,
           aztecProofSubmissionWindow: 8,
-          minimumStake: BigInt(100e18),
           slashingQuorum: 6,
           slashingRoundSize: 10,
-          governanceProposerQuorum: 6,
-          governanceProposerRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
           feeJuicePortalInitialBalance: fundingNeeded,
+          realVerifier: false,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,
@@ -120,7 +108,7 @@ describe('spartan_upgrade_rollup_version', () => {
       const newAddresses = await newRollup.getRollupAddresses();
 
       const newCanonicalAddresses = await RegistryContract.collectAddresses(
-        l1PublicClient,
+        l1Client,
         originalL1ContractAddresses.registryAddress,
         'canonical',
       );
@@ -133,11 +121,11 @@ describe('spartan_upgrade_rollup_version', () => {
       });
 
       const oldVersion = await new RollupContract(
-        l1PublicClient,
+        l1Client,
         originalL1ContractAddresses.rollupAddress.toString(),
       ).getVersion();
       const newVersion = await new RollupContract(
-        l1PublicClient,
+        l1Client,
         newCanonicalAddresses.rollupAddress.toString(),
       ).getVersion();
 
@@ -146,11 +134,11 @@ describe('spartan_upgrade_rollup_version', () => {
       expect(oldVersion).not.toEqual(newVersion);
 
       await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, oldVersion),
+        RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, oldVersion),
       ).resolves.toEqual(originalL1ContractAddresses);
 
       await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, newVersion),
+        RegistryContract.collectAddresses(l1Client, originalL1ContractAddresses.registryAddress, newVersion),
       ).resolves.toEqual(newCanonicalAddresses);
 
       const oldRollupTips = await rollup.getTips();

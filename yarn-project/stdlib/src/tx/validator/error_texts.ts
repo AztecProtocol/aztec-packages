@@ -11,9 +11,11 @@ export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';
 export const TX_ERROR_EXISTING_NULLIFIER = 'Existing nullifier';
 
 // Metadata
-export const TX_ERROR_INVALID_BLOCK_NUMBER = 'Invalid block number';
-export const TX_ERROR_INCORRECT_CHAIN_ID = 'Incorrect chain id';
+export const TX_ERROR_INVALID_MAX_BLOCK_NUMBER = 'Invalid max block number';
+export const TX_ERROR_INCORRECT_L1_CHAIN_ID = 'Incorrect L1 chain id';
 export const TX_ERROR_INCORRECT_ROLLUP_VERSION = 'Incorrect rollup version';
+export const TX_ERROR_INCORRECT_VK_TREE_ROOT = 'Incorrect protocol circuits tree root';
+export const TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT = 'Incorrect protocol contracts tree root';
 
 // Proof
 export const TX_ERROR_INVALID_PROOF = 'Invalid proof';
@@ -23,7 +25,7 @@ export const TX_ERROR_INCORRECT_CALLDATA = 'Incorrect calldata for public call';
 export const TX_ERROR_CALLDATA_COUNT_MISMATCH = 'Wrong number of calldata for public calls';
 export const TX_ERROR_CALLDATA_COUNT_TOO_LARGE = 'Total calldata too large for enqueued public calls';
 export const TX_ERROR_CONTRACT_CLASS_LOG_COUNT = 'Mismatched number of contract class logs';
-export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Mismatched contract class logs length';
+export const TX_ERROR_CONTRACT_CLASS_LOG_LENGTH = 'Incorrect contract class logs length';
 export const TX_ERROR_CONTRACT_CLASS_LOGS = 'Mismatched contract class logs';
 export const TX_ERROR_CONTRACT_CLASS_LOG_SORTING = 'Incorrectly sorted contract class logs';
 

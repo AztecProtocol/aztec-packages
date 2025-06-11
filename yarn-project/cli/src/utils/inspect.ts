@@ -18,7 +18,7 @@ export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, op
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
   log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
-    ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas.toBigInt()} L2=${block.header.globalVariables.gasFees.feePerL2Gas.toBigInt()}`,
+    ` Fee per gas unit: DA=${block.header.globalVariables.gasFees.feePerDaGas} L2=${block.header.globalVariables.gasFees.feePerL2Gas}`,
   );
   log(` Coinbase: ${block.header.globalVariables.coinbase}`);
   log(` Fee recipient: ${block.header.globalVariables.feeRecipient}`);
@@ -166,13 +166,12 @@ async function getKnownNullifiers(pxe: PXE, artifactMap: ArtifactMap) {
   const deployNullifiers: Record<string, AztecAddress> = {};
   const classNullifiers: Record<string, string> = {};
   for (const contract of knownContracts) {
-    initNullifiers[siloNullifier(contract, contract.toField()).toString()] = contract;
-    deployNullifiers[siloNullifier(deployerAddress, contract.toField()).toString()] = contract;
+    initNullifiers[(await siloNullifier(contract, contract.toField())).toString()] = contract;
+    deployNullifiers[(await siloNullifier(deployerAddress, contract.toField())).toString()] = contract;
   }
   for (const artifact of Object.values(artifactMap)) {
-    classNullifiers[
-      siloNullifier(registererAddress, artifact.classId).toString()
-    ] = `${artifact.name}Class<${artifact.classId}>`;
+    classNullifiers[(await siloNullifier(registererAddress, artifact.classId)).toString()] =
+      `${artifact.name}Class<${artifact.classId}>`;
   }
   return { initNullifiers, deployNullifiers, classNullifiers };
 }

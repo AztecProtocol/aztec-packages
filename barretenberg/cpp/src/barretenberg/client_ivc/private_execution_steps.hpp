@@ -22,11 +22,11 @@ namespace bb {
  */
 struct PrivateExecutionStepRaw {
     // Represents bincode.
-    std::string bytecode;
+    std::vector<uint8_t> bytecode;
     // Represents bincoded witness data.
-    std::string witness;
+    std::vector<uint8_t> witness;
     // Represents a legacy-serialized vk.
-    std::string vk;
+    std::vector<uint8_t> vk;
     // Represents the function name.
     std::string function_name;
 
@@ -44,6 +44,6 @@ struct PrivateExecutionSteps {
     std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
 
     std::shared_ptr<ClientIVC> accumulate();
-    void parse(const std::vector<PrivateExecutionStepRaw>& steps);
+    void parse(std::vector<PrivateExecutionStepRaw>&& steps);
 };
 } // namespace bb

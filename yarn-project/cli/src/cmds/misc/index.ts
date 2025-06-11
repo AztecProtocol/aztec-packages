@@ -74,7 +74,7 @@ export function injectCommands(program: Command, log: LogFn) {
     .description('Generates an arbitrary secret (Fr), and its hash (using aztec-nr defaults)')
     .action(async () => {
       const { generateSecretAndHash } = await import('./generate_secret_and_hash.js');
-      generateSecretAndHash(log);
+      await generateSecretAndHash(log);
     });
 
   program

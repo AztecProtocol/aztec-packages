@@ -111,6 +111,14 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
                 $hasher_name.add_multiple($serialized_name[i]);
             }
         }
+    } else if typ.as_tuple().is_some() {
+        let tuple_len = typ.as_tuple().unwrap().len();
+        let mut tuple_quotes: [Quoted] = [];
+        for i in 0..tuple_len {
+            let element_quote = quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name.$i)); };
+            tuple_quotes = tuple_quotes.push_back(element_quote);
+        }
+        tuple_quotes.join(quote {})
     } else if typ.as_str().is_some() {
         quote {
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
@@ -145,10 +153,8 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         f"[{element_typ_quote};{array_len}]".quoted_contents()
     } else if typ.as_data_type().is_some() {
         let (s, generics) = typ.as_data_type().unwrap();
-        let field_signatures = s
-            .fields(generics)
-            .map(|(_, typ): (Quoted, Type)| signature_of_type(typ))
-            .join(quote {,});
+        let field_signatures =
+            s.fields(generics).map(|(_, typ, _)| signature_of_type(typ)).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else if typ.as_tuple().is_some() {
         // Note that tuples are handled the same way as structs
@@ -196,8 +202,7 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
     //
     // The signature will be "foo(Field,AztecAddress)".
     let fn_name = f.name();
-    let args_signatures =
-        f.parameters().map(|(_, typ): (Quoted, Type)| signature_of_type(typ)).join(quote {,});
+    let args_signatures = f.parameters().map(|(_, typ)| signature_of_type(typ)).join(quote {,});
     let signature_quote = quote { $fn_name($args_signatures) };
     let (signature_str_quote, _) = signature_quote.as_str_quote();
 
@@ -220,7 +225,7 @@ pub(crate) comptime fn compute_event_selector(s: TypeDefinition) -> Field {
     let event_name = s.name();
     let args_signatures = s
         .fields_as_written()
-        .map(|(_, typ): (Quoted, Type)| {
+        .map(|(_, typ, _)| {
             // signature_of_type can handle structs, so this supports nested structs
             // FIXME: Field generics are not handled here!
             signature_of_type(typ)
@@ -257,15 +262,6 @@ pub(crate) comptime fn module_has_storage(m: Module) -> bool {
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
     m.functions().any(|f: FunctionDefinition| is_fn_initializer(f))
-}
-
-pub(crate) comptime fn is_note(typ: Type) -> bool {
-    typ.as_data_type().map_or(false, |struc: (TypeDefinition, [Type])| {
-        let (def, _) = struc;
-        def.has_named_attribute("note")
-            | def.has_named_attribute("partial_note")
-            | def.has_named_attribute("custom_note")
-    })
 }
 
 /// Returns the typed expression of a trait method implementation.

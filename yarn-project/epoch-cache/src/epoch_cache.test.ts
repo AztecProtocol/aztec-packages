@@ -91,17 +91,17 @@ describe('EpochCache', () => {
     // Hence the chosen values for testCommittee below
 
     // Get validator for slot 0
-    const { currentProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(currentProposer).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    const { currentProposer: nextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(nextProposer).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    const { currentProposer: nextNextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextNextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
@@ -114,8 +114,31 @@ describe('EpochCache', () => {
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * (EPOCH_DURATION - 1) * 1000);
 
     // Should request to update the validator set
-    await epochCache.getProposerInCurrentOrNextSlot();
+    await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+  });
+
+  it('should compute the correct timestamp for a given slot', async () => {
+    const { l1GenesisTime, slotDuration, epochDuration } = (epochCache as any).l1constants as L1RollupConstants;
+
+    // generate a random slot greater than `epochDuration`
+    const targetSlot = BigInt(epochDuration) + BigInt(Math.floor(Math.random() * 1000));
+    const targetEpoch = targetSlot / BigInt(epochDuration);
+    const epochStartSlot = targetEpoch * BigInt(epochDuration);
+    const epochStartTimestamp = l1GenesisTime + epochStartSlot * BigInt(slotDuration);
+
+    const expectedCommittee = [EthAddress.fromString('0x000000000000000000000000000000000000BEEF')];
+    const expectedSeed = 999n;
+    rollupContract.getCommitteeAt.mockResolvedValue(expectedCommittee.map(v => v.toString()));
+    rollupContract.getSampleSeedAt.mockResolvedValue(expectedSeed);
+
+    await epochCache.getCommittee(targetSlot);
+
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getCommitteeAt).toHaveBeenCalledWith(epochStartTimestamp);
+
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledTimes(1);
+    expect(rollupContract.getSampleSeedAt).toHaveBeenCalledWith(epochStartTimestamp);
   });
 
   it('should cache multiple epochs', async () => {

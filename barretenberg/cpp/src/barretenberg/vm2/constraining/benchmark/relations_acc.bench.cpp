@@ -16,16 +16,11 @@ using namespace bb::avm2;
 
 namespace {
 
-// Getters are needed for interaction accumulation to work.
-struct FullRowWithGetters : public AvmFullRow<FF> {
-    DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_ALL_ENTITIES);
-};
-
-FullRowWithGetters get_random_row()
+AvmFullRow get_random_row()
 {
-    FullRowWithGetters row;
+    AvmFullRow row;
     for (size_t i = 0; i < NUM_COLUMNS_WITH_SHIFTS; i++) {
-        row.get_column(static_cast<ColumnAndShifts>(i)) = FF::random_element();
+        row.get(static_cast<ColumnAndShifts>(i)) = FF::random_element();
     }
     return row;
 }

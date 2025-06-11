@@ -1,6 +1,7 @@
+import { PUBLIC_DATA_WRITE_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { schemas } from '@aztec/foundation/schemas';
-import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
@@ -43,6 +44,25 @@ export class PublicDataWrite {
   static fromFields(fields: Fr[] | FieldReader): PublicDataWrite {
     const reader = FieldReader.asReader(fields);
     return new PublicDataWrite(reader.readField(), reader.readField());
+  }
+
+  toFields(): Fr[] {
+    const fields = serializeToFields(...PublicDataWrite.getFields(this));
+    if (fields.length !== PUBLIC_DATA_WRITE_LENGTH) {
+      throw new Error(
+        `Invalid number of fields for PublicDataWrite. Expected ${PUBLIC_DATA_WRITE_LENGTH}, got ${fields.length}`,
+      );
+    }
+    return fields;
+  }
+
+  static fromBlobFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    return new PublicDataWrite(reader.readField(), reader.readField());
+  }
+
+  toBlobFields(): Fr[] {
+    return [this.leafSlot, this.value];
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

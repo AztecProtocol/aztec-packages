@@ -1,6 +1,6 @@
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 
-import { TxProfileResult } from './profiled_tx.js';
+import { TxProfileResult } from './profiling.js';
 
 describe('profiled_tx', () => {
   it('convert to and from json', () => {

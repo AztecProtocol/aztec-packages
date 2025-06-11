@@ -62,10 +62,8 @@ const config = {
             );
           },
           routeBasePath: "/",
-          disableVersioning: process.env.ENV === "dev",
-          include: process.env.SHOW_PROTOCOL_SPECS
-            ? ["**/*.{md,mdx}"]
-            : ["**/*.{md,mdx}", "!protocol-specs/**"],
+          include: ["**/*.{md,mdx}"],
+          exclude: !process.env.PROTOCOL_SPECS ? ["protocol-specs/**"] : [],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -78,6 +76,7 @@ const config = {
               },
             ],
           ],
+          includeCurrentVersion: true,
           versions: (() => {
             const versionObject = {};
             if (process.env.ENV === "dev") {
@@ -243,6 +242,11 @@ const config = {
             position: "right",
           },
           {
+            to: "/try_testnet",
+            label: "Try Testnet",
+            position: "right",
+          },
+          {
             type: "dropdown",
             label: "Resources",
             position: "right",
@@ -301,16 +305,6 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS
-                ? [
-                    {
-                      type: "docSidebar",
-                      sidebarId: "protocolSpecSidebar",
-                      label: "Protocol Specification",
-                      className: "no-external-icon",
-                    },
-                  ]
-                : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -441,5 +435,19 @@ const config = {
       },
     }),
 };
+
+if (process.env.PROTOCOL_SPECS) {
+  //@ts-ignore
+  const index = config.themeConfig.navbar.items.findIndex(
+    (e) => e.type == "dropdown"
+  );
+
+  //@ts-ignore
+  config.themeConfig.navbar.items.splice(index, 0, {
+    type: "docSidebar",
+    sidebarId: "protocolSpecSidebar",
+    label: "Protocol Specification",
+  });
+}
 
 module.exports = config;

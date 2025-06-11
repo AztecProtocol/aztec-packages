@@ -2,8 +2,8 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
+        processing::enqueue_note_for_validation,
     },
-    oracle,
     utils::array,
 };
 use protocol_types::{
@@ -11,6 +11,7 @@ use protocol_types::{
 };
 
 /// The number of fields in a private note message content that are not the note's packed representation.
+// See the call to `std::static_assert` below to see what's in these fields.
 global PRIVATE_NOTE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 1;
 
 /// The maximum length of the packed representation of a note's contents. This is limited by private log size,
@@ -73,20 +74,15 @@ pub unconstrained fn attempt_note_discovery<Env>(
     );
 
     discovered_notes.for_each(|discovered_note| {
-        // TODO:(#10728): handle notes that fail delivery. This could be due to e.g. a temporary node connectivity
-        // issue, and we should perhaps not have marked the tag index as taken.
-        assert(
-            oracle::message_discovery::deliver_note(
-                contract_address,
-                storage_slot,
-                discovered_note.nonce,
-                packed_note,
-                discovered_note.note_hash,
-                discovered_note.inner_nullifier,
-                tx_hash,
-                recipient,
-            ),
-            "Failed to deliver note",
+        enqueue_note_for_validation(
+            contract_address,
+            storage_slot,
+            discovered_note.note_nonce,
+            packed_note,
+            discovered_note.note_hash,
+            discovered_note.inner_nullifier,
+            tx_hash,
+            recipient,
         );
     });
 }

@@ -17,7 +17,6 @@ using testing::ElementsAre;
 using testing::Field;
 
 using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(BitwiseTraceGenTest, U1And)
 {

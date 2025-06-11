@@ -6,19 +6,21 @@
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 
 using namespace bb;
 using FF = ECCVMFlavor::FF;
 using PK = ECCVMFlavor::ProvingKey;
+using Transcript = ECCVMFlavor::Transcript;
 class ECCVMTests : public ::testing::Test {
   protected:
-    void SetUp() override { srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path()); };
+    void SetUp() override { srs::init_file_crs_factory(bb::srs::bb_crs_path()); };
 };
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -92,9 +94,13 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver prover(builder);
+
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
     ECCVMProof proof = prover.construct_proof();
-    ECCVMVerifier verifier(prover.key);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
     bool verified = verifier.verify_proof(proof);
 
     ASSERT_TRUE(verified);
@@ -106,10 +112,13 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
 
-    ECCVMProver prover(builder);
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
 
     ECCVMProof proof = prover.construct_proof();
-    ECCVMVerifier verifier(prover.key);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
     bool verified = verifier.verify_proof(proof);
     ASSERT_FALSE(verified);
 }
@@ -126,17 +135,19 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
 
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-
-    ECCVMProver prover(builder);
-    auto pk = std::make_shared<ProvingKey>(builder);
-
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+    auto pk = std::make_shared<ProvingKey>(builder);
 
     // Prepare the inputs for the sumcheck prover:
     // Compute and add beta to relation parameters
     const FF alpha = FF::random_element();
     complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
 
+    // Clear the transcript
+    prover_transcript = std::make_shared<Transcript>();
+
+    // Run Sumcheck on the ECCVM Prover polynomials
     using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
     SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
 
@@ -145,11 +156,10 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     auto prover_output =
         sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 
-    ECCVMVerifier verifier(prover.key);
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(CONST_ECCVM_LOG_N, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
@@ -179,16 +189,29 @@ TEST_F(ECCVMTests, FixedVK)
 {
     // Generate a circuit and its verification key (computed at runtime from the proving key)
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver prover(builder);
-    ECCVMVerifier verifier(prover.key);
+    std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+    ECCVMProver prover(builder, prover_transcript);
+
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    ECCVMVerifier verifier(verifier_transcript);
 
     // Generate the default fixed VK
     ECCVMFlavor::VerificationKey fixed_vk{};
+    // Generate a VK from PK
+    ECCVMFlavor::VerificationKey vk_computed_by_prover(prover.key);
 
     // Set verifier PCS key to null in both the fixed VK and the generated VK
     fixed_vk.pcs_verification_key = nullptr;
-    verifier.key->pcs_verification_key = nullptr;
+    vk_computed_by_prover.pcs_verification_key = nullptr;
+
+    auto labels = verifier.key->get_labels();
+    size_t index = 0;
+    for (auto [vk_commitment, fixed_commitment] : zip_view(vk_computed_by_prover.get_all(), fixed_vk.get_all())) {
+        EXPECT_EQ(vk_commitment, fixed_commitment)
+            << "Mismatch between vk_commitment and fixed_commitment at label: " << labels[index];
+        ++index;
+    }
 
     // Check that the fixed VK is equal to the generated VK
-    EXPECT_EQ(fixed_vk, *verifier.key.get());
+    EXPECT_EQ(fixed_vk, vk_computed_by_prover);
 }

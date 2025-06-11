@@ -5,10 +5,13 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 
@@ -47,8 +50,8 @@ Flavor::FF AvmRecursiveVerifier_<Flavor>::evaluate_public_input_column(const std
 }
 
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt)
 {
     StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
@@ -64,24 +67,33 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         public_inputs_ct.push_back(vec_ct);
     }
 
-    return verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
+    return verify_proof(stdlib_proof, public_inputs_ct);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
+// TODO(#14234)[Unconditional PIs validation]: rename stdlib_proof_with_pi_flag to stdlib_proof
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof,
-    const std::vector<std::vector<FF>>& public_inputs,
-    AggregationObject agg_obj)
+AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof<Builder>& stdlib_proof_with_pi_flag, const std::vector<std::vector<FF>>& public_inputs)
 {
     using Curve = typename Flavor::Curve;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
-    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
+    using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using stdlib::bool_t;
+
+    // TODO(#14234)[Unconditional PIs validation]: Remove the next 3 lines
+    StdlibProof<Builder> stdlib_proof = stdlib_proof_with_pi_flag;
+    bool_t<Builder> pi_validation = !bool_t<Builder>(stdlib_proof.at(0));
+    stdlib_proof.erase(stdlib_proof.begin());
+
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
 
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
@@ -109,7 +121,9 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // unconstrained
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    const auto padding_indicator_array =
+        stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(FF(log_circuit_size));
+    auto sumcheck = SumcheckVerifier<Flavor>(transcript);
 
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -120,19 +134,28 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 
     // No need to constrain that sumcheck_verified is true as this is guaranteed by the implementation of
     // when called over a "circuit field" types.
-    SumcheckOutput<Flavor> output = sumcheck.verify(relation_parameters, alpha, gate_challenges);
-
+    SumcheckOutput<Flavor> output =
+        sumcheck.verify(relation_parameters, alpha, gate_challenges, padding_indicator_array);
     vinfo("verified sumcheck: ", (output.verified));
 
     // Public columns evaluation checks
     std::vector<FF> mle_challenge(output.challenge.begin(),
                                   output.challenge.begin() + static_cast<int>(log_circuit_size));
 
-    // Simplified public input with a single column
-    // TODO: Extend to multiple columns once public inputs are finalized
-    FF execution_input_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    execution_input_evaluation.assert_equal(output.claimed_evaluations.execution_input,
-                                            "execution_input_evaluation failed");
+    std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
+        output.claimed_evaluations.public_inputs_cols_0_,
+        output.claimed_evaluations.public_inputs_cols_1_,
+        output.claimed_evaluations.public_inputs_cols_2_,
+        output.claimed_evaluations.public_inputs_cols_3_,
+    };
+
+    // TODO(#14234)[Unconditional PIs validation]: Inside of loop, replace pi_validation.must_imply() by
+    // public_input_evaluation.assert_equal(claimed_evaluations[i]
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        vinfo("public_input_evaluation failed, public inputs col ", i);
+        pi_validation.must_imply(public_input_evaluation == claimed_evaluations[i], "public_input_evaluation failed");
+    }
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
@@ -140,17 +163,10 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        log_circuit_size, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
+        padding_indicator_array, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
-    pairing_points[0] = pairing_points[0].normalize();
-    pairing_points[1] = pairing_points[1].normalize();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
-    typename Curve::ScalarField recursion_separator =
-        Curve::ScalarField::from_witness_index(&builder, builder.add_variable(42));
-    agg_obj.aggregate(pairing_points, recursion_separator);
-    return agg_obj;
+    return pairing_points;
 }
 
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template

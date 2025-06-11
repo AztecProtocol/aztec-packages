@@ -16,6 +16,7 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract DepositToAztecPublic is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -30,23 +31,14 @@ contract DepositToAztecPublic is Test {
   address internal constant MAGIC_FEE_JUICE_ADDRESS = address(uint160(Constants.FEE_JUICE_ADDRESS));
 
   function setUp() public {
-    token = new TestERC20("test", "TEST", address(this));
-    registry = new Registry(OWNER, token);
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    rewardDistributor = new RewardDistributor(token, registry, address(this));
-    rollup = new Rollup(
-      token,
-      rewardDistributor,
-      token,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    token = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-
-    vm.prank(OWNER);
-    registry.addRollup(IRollup(address(rollup)));
   }
 
   function test_RevertGiven_InsufficientBalance() external {
@@ -95,16 +87,18 @@ contract DepositToAztecPublic is Test {
     token.approve(address(feeJuicePortal), amount);
 
     Inbox inbox = Inbox(address(Rollup(address(registry.getCanonicalRollup())).getInbox()));
-    assertEq(inbox.totalMessagesInserted(), 0);
+    assertEq(inbox.getTotalMessagesInserted(), 0);
 
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedKey)));
     vm.expectEmit(true, true, true, true, address(inbox));
-    emit IInbox.MessageSent(2, expectedIndex, expectedKey);
+    emit IInbox.MessageSent(2, expectedIndex, expectedKey, expectedHash);
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
     emit IFeeJuicePortal.DepositToAztecPublic(to, amount, secretHash, expectedKey, expectedIndex);
 
     (bytes32 key, uint256 index) = feeJuicePortal.depositToAztecPublic(to, amount, secretHash);
 
-    assertEq(inbox.totalMessagesInserted(), 1);
+    assertEq(inbox.getTotalMessagesInserted(), 1);
     assertEq(key, expectedKey);
     assertEq(index, expectedIndex);
   }

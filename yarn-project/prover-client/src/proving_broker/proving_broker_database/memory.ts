@@ -52,7 +52,7 @@ export class InMemoryBrokerDatabase implements ProvingBrokerDatabase {
   }
 
   async *allProvingJobs(): AsyncIterableIterator<[ProvingJob, ProvingJobSettledResult | undefined]> {
-    for await (const item of this.jobs.values()) {
+    for (const item of this.jobs.values()) {
       yield [item, this.results.get(item.id)] as const;
     }
   }

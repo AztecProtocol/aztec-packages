@@ -4,7 +4,7 @@ sidebar_position: 4
 tags: [fees]
 ---
 
-import { Why_Fees } from '@site/src/components/Snippets/snippets';
+import { Why_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <Why_Fees />
 
@@ -46,7 +46,7 @@ More information about the design/choices can be found in the fees section of th
 
 As part of a transaction the follow gas settings are available to be defined by the user.
 
-import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/src/components/Snippets/snippets';
+import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '@site/src/components/Snippets/general_snippets';
 
 <Gas_Settings />
 
@@ -60,7 +60,7 @@ These are:
 
 A fee payer will have bridged fee-juice from L1. On Aztec this fee asset is non-transferrable, and only deducted by the protocol to pay for fees. A user can claim bridged fee juice and use it to pay for transaction fees in the same transaction.
 
-The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/codealong/contract_tutorials/token_bridge) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
+The mechanisms for bridging is the same as any other token. For more on this concept see the start of the [Token Bridge Tutorial](../../developers/tutorials/codealong/js_tutorials/token_bridge.md) where it describes the components and how bridging works (under the hood this makes use of [portals](https://docs.aztec.network/aztec/concepts/communication/portals)).
 
 ### Payment methods
 

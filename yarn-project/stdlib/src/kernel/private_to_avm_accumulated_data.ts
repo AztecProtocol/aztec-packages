@@ -22,6 +22,7 @@ import { z } from 'zod';
 
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import type { UInt32 } from '../types/shared.js';
+import { countAccumulatedItems } from './utils/index.js';
 
 export class PrivateToAvmAccumulatedData {
   constructor(
@@ -52,6 +53,14 @@ export class PrivateToAvmAccumulatedData {
       arraySerializedSizeOfNonEmpty(this.noteHashes) +
       arraySerializedSizeOfNonEmpty(this.nullifiers) +
       arraySerializedSizeOfNonEmpty(this.l2ToL1Msgs)
+    );
+  }
+
+  getArrayLengths() {
+    return new PrivateToAvmAccumulatedDataArrayLengths(
+      countAccumulatedItems(this.noteHashes),
+      countAccumulatedItems(this.nullifiers),
+      countAccumulatedItems(this.l2ToL1Msgs),
     );
   }
 
@@ -122,7 +131,11 @@ export class PrivateToAvmAccumulatedData {
 }
 
 export class PrivateToAvmAccumulatedDataArrayLengths {
-  constructor(public noteHashes: UInt32, public nullifiers: UInt32, public l2ToL1Msgs: UInt32) {}
+  constructor(
+    public noteHashes: UInt32,
+    public nullifiers: UInt32,
+    public l2ToL1Msgs: UInt32,
+  ) {}
 
   static get schema() {
     return z
@@ -148,6 +161,10 @@ export class PrivateToAvmAccumulatedDataArrayLengths {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new this(reader.readU32(), reader.readU32(), reader.readU32());
+  }
+
+  toFields() {
+    return [this.noteHashes, this.nullifiers, this.l2ToL1Msgs];
   }
 
   static from(fields: FieldsOf<PrivateToAvmAccumulatedDataArrayLengths>) {

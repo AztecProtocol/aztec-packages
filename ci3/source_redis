@@ -3,9 +3,6 @@
 # Declare CI_REDIS host, allowing override.
 export CI_REDIS=${CI_REDIS:-localhost}
 
-# Default to not using the test cache.
-export USE_TEST_CACHE=${USE_TEST_CACHE:-0}
-
 # If we haven't yet checked for redis availability.
 if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
   # Start by setting it as not available.
@@ -38,9 +35,9 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
 fi
 
 # If redis isn't available, neither is the test cache.
-if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "$USE_TEST_CACHE" -eq 1 ]; then
-  echo_stderr "${yellow}Use of test cache requested, but redis unavailable. Disabling test cache.${reset}"
-  USE_TEST_CACHE=0
+if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+  echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
+  export USE_TEST_CACHE=0
 fi
 
 # Will set log expiry to 2 weeks in CI, and 8 hours for local runs.

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -10,7 +16,7 @@
 
 namespace bb {
 
-template <IsUltraFlavor Flavor_> class UltraProver_ {
+template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
   public:
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
@@ -42,7 +48,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&);
+    explicit UltraProver_(Builder&, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit UltraProver_(Builder&&);
 
@@ -58,9 +64,11 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
 using UltraProver = UltraProver_<UltraFlavor>;
 using UltraKeccakProver = UltraProver_<UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
 using UltraStarknetProver = UltraProver_<UltraStarknetFlavor>;
-using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using UltraStarknetZKProver = UltraProver_<UltraStarknetZKFlavor>;
+#endif
+using UltraKeccakZKProver = UltraProver_<UltraKeccakZKFlavor>;
 using MegaProver = UltraProver_<MegaFlavor>;
 using MegaZKProver = UltraProver_<MegaZKFlavor>;
 

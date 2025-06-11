@@ -8,6 +8,8 @@ import {
   getEpochAtSlot,
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
+  getSlotRangeForEpoch,
+  getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
@@ -32,9 +34,9 @@ export interface EpochCacheInterface {
   getEpochAndSlotNow(): EpochAndSlot;
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
-  getProposerInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+  getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
@@ -128,21 +130,27 @@ export class EpochCache implements EpochCacheInterface {
 
   private getEpochAndSlotAtSlot(slot: bigint): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
-    const ts = getTimestampRangeForEpoch(slot, this.l1constants)[0];
+    const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
     return { epoch, ts, slot };
   }
 
-  private getEpochAndSlotInNextSlot(): EpochAndSlot {
-    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.slotDuration);
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot {
+    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.ethereumSlotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
+    const slot = getSlotAtTimestamp(ts, this.l1constants);
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
-      slot: getSlotAtTimestamp(ts, this.l1constants),
-      ts,
+      ts: getTimestampForSlot(slot, this.l1constants),
+      slot,
     };
+  }
+
+  public getCommitteeForEpoch(epoch: bigint): Promise<EpochCommitteeInfo> {
+    const [startSlot] = getSlotRangeForEpoch(epoch, this.l1constants);
+    return this.getCommittee(startSlot);
   }
 
   /**
@@ -158,6 +166,10 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     const epochData = await this.computeCommittee({ epoch, ts });
+    // If the committee size is 0, then do not cache
+    if (epochData.committee.length == 0) {
+      return epochData;
+    }
     this.cache.set(epoch, epochData);
 
     const toPurge = Array.from(this.cache.keys())
@@ -172,7 +184,7 @@ export class EpochCache implements EpochCacheInterface {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
-      return this.getEpochAndSlotInNextSlot();
+      return this.getEpochAndSlotInNextL1Slot();
     } else {
       return this.getEpochAndSlotAtSlot(slot);
     }
@@ -200,35 +212,46 @@ export class EpochCache implements EpochCacheInterface {
   }
 
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint {
+    // if committe size is 0, then mod 1 is 0
+    if (size === 0n) {
+      return 0n;
+    }
     return BigInt(keccak256(this.getProposerIndexEncoding(epoch, slot, seed))) % size;
   }
 
   /**
-   * Returns the current and next proposer
+   * Returns the current and next proposer's attester address
    *
-   * We return the next proposer as the node will check if it is the proposer at the next ethereum block, which
-   * can be the next slot. If this is the case, then it will send proposals early.
+   * We return the next proposer's attester address as the node will check if it is the proposer at the next ethereum block,
+   * which can be the next slot. If this is the case, then it will send proposals early.
    */
-  async getProposerInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+  async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentSlot: bigint;
     nextSlot: bigint;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
   }> {
     const current = this.getEpochAndSlotNow();
-    const next = this.getEpochAndSlotInNextSlot();
+    const next = this.getEpochAndSlotInNextL1Slot();
 
     return {
-      currentProposer: await this.getProposerAt(current),
-      nextProposer: await this.getProposerAt(next),
+      currentProposer: await this.getProposerAttesterAddressAt(current),
+      nextProposer: await this.getProposerAttesterAddressAt(next),
       currentSlot: current.slot,
       nextSlot: next.slot,
     };
   }
 
-  private async getProposerAt(when: EpochAndSlot) {
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
+    const epochAndSlot = this.getEpochAndSlotInNextL1Slot();
+
+    return this.getProposerAttesterAddressAt(epochAndSlot);
+  }
+
+  private async getProposerAttesterAddressAt(when: EpochAndSlot) {
     const { epoch, slot } = when;
     const { seed, committee } = await this.getCommittee(slot);
+
     const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     return committee[Number(proposerIndex)];
   }
@@ -239,5 +262,11 @@ export class EpochCache implements EpochCacheInterface {
   async isInCommittee(validator: EthAddress): Promise<boolean> {
     const { committee } = await this.getCommittee();
     return committee.some(v => v.equals(validator));
+  }
+
+  async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
+    const { committee } = await this.getCommittee();
+    const committeeSet = new Set(committee.map(v => v.toString()));
+    return validators.filter(v => committeeSet.has(v.toString()));
   }
 }

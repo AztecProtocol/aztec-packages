@@ -9,24 +9,24 @@ describe('Addressing', () => {
   });
 
   it('should convert to wire format correctly', () => {
-    const addressingMode = new Addressing([
+    const addressingMode = Addressing.fromModes([
       AddressingMode.INDIRECT,
       AddressingMode.DIRECT,
       AddressingMode.INDIRECT,
       AddressingMode.DIRECT,
     ]);
     const wireModes = addressingMode.toWire();
-    expect(wireModes).toBe(0b00000101);
+    expect(wireModes).toBe(0b00010001);
   });
 
   it('should convert from wire format correctly', () => {
-    const addressingMode = Addressing.fromWire(0b00011001);
-    const expected = new Addressing([
+    const addressingMode = Addressing.fromWire(0b0000001101000001);
+    const expected = Addressing.fromModes([
       AddressingMode.INDIRECT,
       AddressingMode.DIRECT,
       AddressingMode.DIRECT,
       AddressingMode.INDIRECT,
-      AddressingMode.INDIRECT,
+      AddressingMode.INDIRECT_RELATIVE,
       AddressingMode.DIRECT,
       AddressingMode.DIRECT,
       AddressingMode.DIRECT,
@@ -36,7 +36,8 @@ describe('Addressing', () => {
   });
 
   it('should resolve offsets correctly', () => {
-    const addressingMode = Addressing.fromWire(0b00011001);
+    // Only first is indirect
+    const addressingMode = Addressing.fromWire(0b00000001);
     const offsets = [10, 20, 30];
     const mem = new TaggedMemory();
     mem.set(10, new Uint32(100));

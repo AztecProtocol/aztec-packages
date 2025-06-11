@@ -134,6 +134,8 @@ To store it on the disk just do the following
 
 4. Terms creation
 
+    ### Arithmetic Variables
+
     You can initialize symbolic variable via `STerm::Var(str name, &solver, TermType type)` or `STerm::Const(str val, &solver, TermType type, u32 base=16)`
 
     But also you can use `FFVar(str name, &Solver)` or equivalently via `FFIVar` and `BVVar` so you don't have to mess with types.
@@ -162,10 +164,12 @@ To store it on the disk just do the following
     - `STerm::in(cvc5::Term table&)` - simple set inclusion.
     - `static STerm::in_table(std::vector<STerm> entry, cvc5::Term& table)` - lookup table inclusion.
 
-    ---
+    --- 
+
+    ### Boolean Variables
 
 	There is a Bool type:
-	- `Bool Bool(STerm t)` or `Bool Bool(bool b, Solver* s)`
+	- `Bool Bool(STerm t)`, `Bool Bool(bool b, Solver* s)` or `Bool(str name, Solver* s)`
 
 	You can `|, &, ==, !=, !` these variables and also `batch_or`, `batch_and` them.
 	To create a constraint you should call `Bool::assert_term()` method.
@@ -174,6 +178,84 @@ To store it on the disk just do the following
 
     **!Note that constraint like `(Bool(STerm a) == Bool(STerm b)).assert_term()`, where a has `FFTerm` type and b has `FFITerm` type, won't work, since their types differ.**
     **!Note `Bool(a == b)` won't work since `a==b` will create an equality constraint as I mentioned earlier and the return type of this operation is `void`.**
+
+    --- 
+
+    ### Data Structures
+
+    There're three extra data structures:
+
+    #### STuple
+
+    Symbolic Tuple type. 
+    You can group several items in one term. 
+    **!Note Only compatible with `STerm` class**
+
+    `STuple STuple(vec<STerm>, Solver* slv)`
+
+    **!Note that you can not access the element of the tuple by its index after creation**
+
+    #### SymArray
+
+    Symbolic Array type. 
+    You can store symbolic values. And access them by symbolic index.
+
+    Both index and entry can be any of the symbolic types: `STerm`, `Bool`, `STuple`, `SymArray`, `SymSet`
+
+    Create an empty array:
+    `SymArray SymArray<sym_index, sym_entry>(cvc5:Sort idx_sort, TermType idx_type, cvc5::Sort entry_sort, TermType entry_type, Solver* s, str name = "")`
+
+    ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
+
+    Create an array from indicies and entrys:
+    `SymArray SymArray<sym_index, sym_entry>(vector<sym_index> indicies, vec<sym_entry> entries, str name = "")`
+
+    Create an integer indexed array from entries:
+    `SymArray SymArray<sym_index, sym_entry>(vec<sym_entry> entries, STerm index_base, str name = "")`
+
+    **!Note you need to provide an example for the integer like index entry. Most of the time you'll be fine using: `index_base` = `FFConst(1, &slv)`| `FFIConst(1, &slv)`| `IConst(1, &slv)`| `BVConst(1, &slv)`**
+
+    After you've created an array you can put/overwrite elements in it by:
+
+    `arr.put(sym_idx, sym_entry)`
+
+    And access them:
+
+    `arr.get(sym_idx)`
+    `arr[sym_idx]`
+
+
+    For debugging purposes there's a `print_trace` method, that will print all the `put` operations
+
+    #### SymSet
+
+    Symbolic Set type. 
+    You can store symbolic values. You can check wheter an element belong to the set or not.
+
+    Entries can be any of the symbolic types: `STerm`, `Bool`, `STuple`, `SymArray`, `SymSet`
+
+    Create an empty set:
+    `SymSet SymSet<sym_entry>(cvc5::Sort entry_sort, TermType entry_type, Solver* s, str name = "")`
+
+    ***!Note passing cvc5 native types directly is a little bit advanced compared to the ordinary usage of this module. See the tests***
+
+    Create a set from vector of values:
+    `SymSet SymSet<sym_entry>(vec<sym_entry> entries, str name = "")`
+
+    After you've created a set you can put elements in it by:
+
+    `set.insert(sym_entry)`
+
+    And add inclusion constraints:
+
+    `set.contains(entry)`
+    `set.not_contains(entry)`
+
+    For debugging purposes there's a `print_trace` method, that will print all the `insert` operations
+
+    ---
+
+    All the types support printing their name in variable case and value in constant case
 
 ## 3. Post model checking
 After generating all the constrains you should call `bool res = solver.check()` and depending on your goal it could be `true` or `false`.
@@ -263,6 +345,10 @@ Avalaible test suits in `smt_verification_tests`:
 - `FFITerm*`
 - `ITerm*`
 - `BVTerm*`
+- `SymbolicBool*`
+- `SymbolicTuple*`
+- `SymbolicArray*`
+- `SymbolicSet*`
 ---
 
 - `Subcircuits*`
@@ -402,6 +488,8 @@ void model_variables(SymCircuit& c, Solver* s, FFTerm& evaluation)
 More examples can be found in
 
 - [terms/ffterm.test.cpp](terms/ffterm.test.cpp), [terms/ffiterm.test.cpp](terms/ffiterm.test.cpp), [terms/bvterm.test.cpp](terms/bvterm.test.cpp), [terms/iterm.test.cpp](terms/iterm.test.cpp)
+- [terms/bool.test.cpp](terms/bool.test.cpp)
+- [terms/data_types.test.cpp]
 - [circuit/standard_circuit.test.cpp](circuit/standard_circuit.test.cpp), [circuit/ultra_circuit](circuit/ultra_circuit.test.cpp)
 - [smt_polynomials.test.cpp](smt_polynomials.test.cpp), [smt_examples.test.cpp](smt_examples.test.cpp)
 - [bb_tests](bb_tests)

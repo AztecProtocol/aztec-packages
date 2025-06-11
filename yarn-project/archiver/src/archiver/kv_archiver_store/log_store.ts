@@ -30,7 +30,11 @@ export class LogStore {
   #logsMaxPageSize: number;
   #log = createLogger('archiver:log_store');
 
-  constructor(private db: AztecAsyncKVStore, private blockStore: BlockStore, logsMaxPageSize: number = 1000) {
+  constructor(
+    private db: AztecAsyncKVStore,
+    private blockStore: BlockStore,
+    logsMaxPageSize: number = 1000,
+  ) {
     this.#logsByTag = db.openMap('archiver_tagged_logs_by_tag');
     this.#logTagsByBlock = db.openMap('archiver_log_tags_by_block');
     this.#privateLogsByBlock = db.openMap('archiver_private_logs_by_block');
@@ -59,7 +63,7 @@ export class LogStore {
       });
 
       txEffect.publicLogs.forEach((log, logIndex) => {
-        const tag = log.log[0];
+        const tag = log.fields[0];
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];

@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -40,11 +41,11 @@ const std::vector<OperandType> three_operand_format16 = {
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT8, OperandType::UINT16 };
 
 const std::vector<OperandType> external_call_format = { OperandType::INDIRECT16,
-                                                        /*gasOffset=*/OperandType::UINT16,
+                                                        /*l2GasOffset=*/OperandType::UINT16,
+                                                        /*daGasOffset=*/OperandType::UINT16,
                                                         /*addrOffset=*/OperandType::UINT16,
                                                         /*argsOffset=*/OperandType::UINT16,
-                                                        /*argsSizeOffset=*/OperandType::UINT16,
-                                                        /*successOffset=*/OperandType::UINT16 };
+                                                        /*argsSizeOffset=*/OperandType::UINT16 };
 
 // Contrary to TS, the format does not contain the WireOpCode byte which prefixes any instruction.
 // The format for WireOpCode::SET has to be handled separately as it is variable based on the tag.
@@ -139,7 +140,7 @@ const std::unordered_map<WireOpCode, std::vector<OperandType>> WireOpCode_WIRE_F
     { WireOpCode::L1TOL2MSGEXISTS,
       { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     { WireOpCode::GETCONTRACTINSTANCE,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
+      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT8 } },
     { WireOpCode::EMITUNENCRYPTEDLOG,
       {
           OperandType::INDIRECT8,
@@ -320,12 +321,31 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
 std::string Instruction::to_string() const
 {
     std::ostringstream oss;
-    oss << opcode << " indirect: " << indirect << ", operands: [ ";
-    for (const auto& operand : operands) {
-        oss << std::to_string(operand) << " ";
+    oss << opcode << " ";
+    for (size_t operand_pos = 0; operand_pos < operands.size(); ++operand_pos) {
+        const auto& operand = operands[operand_pos];
+        oss << std::to_string(operand);
+        if (is_operand_relative(indirect, static_cast<uint8_t>(operand_pos))) {
+            oss << "R";
+        }
+        if (is_operand_indirect(indirect, static_cast<uint8_t>(operand_pos))) {
+            oss << "I";
+        }
+        oss << " ";
     }
-    oss << "]";
     return oss.str();
+}
+
+size_t Instruction::size_in_bytes() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).size_in_bytes;
+}
+
+ExecutionOpCode Instruction::get_exec_opcode() const
+{
+    assert(WIRE_INSTRUCTION_SPEC.contains(opcode));
+    return WIRE_INSTRUCTION_SPEC.at(opcode).exec_opcode;
 }
 
 std::vector<uint8_t> Instruction::serialize() const

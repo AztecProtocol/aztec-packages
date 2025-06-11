@@ -1,7 +1,7 @@
 import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
-import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
-import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
@@ -118,7 +118,7 @@ describe('e2e_deploy_contract private initialization', () => {
     const owner = await t.registerRandomAccount();
     const sender = owner;
     const contract = await t.registerContract(wallet, StatefulTestContract, { initArgs: [owner, sender, 42] });
-    await expect(contract.methods.constructor(owner, sender, 43).prove()).rejects.toThrow(
+    await expect(contract.methods.constructor(owner, sender, 43).simulate()).rejects.toThrow(
       /Initialization hash does not match/,
     );
   });
@@ -130,7 +130,7 @@ describe('e2e_deploy_contract private initialization', () => {
       initArgs: [owner, sender, 42],
       deployer: owner,
     });
-    await expect(contract.methods.constructor(owner, sender, 42).prove()).rejects.toThrow(
+    await expect(contract.methods.constructor(owner, sender, 42).simulate()).rejects.toThrow(
       /Initializer address is not the contract deployer/i,
     );
   });

@@ -5,15 +5,22 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
+import { type Account, type GetContractReturnType, type Hex, encodeFunctionData, getAddress, getContract } from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
-import type { ViemPublicClient } from '../types.js';
+import type { L1TxUtils } from '../l1_tx_utils.js';
+import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
+import { checkBlockTag } from './utils.js';
+
+export type ViemCommitteeAttestation = {
+  addr: `0x${string}`;
+  signature: ViemSignature;
+};
 
 export type L1RollupContractAddresses = Pick<
   L1ContractAddresses,
@@ -25,20 +32,55 @@ export type L1RollupContractAddresses = Pick<
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
   | 'slashFactoryAddress'
+  | 'gseAddress'
 >;
 
 export type EpochProofPublicInputArgs = {
   previousArchive: `0x${string}`;
   endArchive: `0x${string}`;
-  previousBlockHash: `0x${string}`;
-  endBlockHash: `0x${string}`;
-  endTimestamp: bigint;
-  outHash: `0x${string}`;
   proverId: `0x${string}`;
 };
 
+export type ViemHeader = {
+  lastArchiveRoot: `0x${string}`;
+  contentCommitment: ViemContentCommitment;
+  slotNumber: bigint;
+  timestamp: bigint;
+  coinbase: `0x${string}`;
+  feeRecipient: `0x${string}`;
+  gasFees: ViemGasFees;
+  totalManaUsed: bigint;
+};
+
+export type ViemContentCommitment = {
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
+  outHash: `0x${string}`;
+};
+
+export type ViemGasFees = {
+  feePerDaGas: bigint;
+  feePerL2Gas: bigint;
+};
+
+export type ViemStateReference = {
+  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
+  partialStateReference: ViemPartialStateReference;
+};
+
+export type ViemPartialStateReference = {
+  noteHashTree: ViemAppendOnlyTreeSnapshot;
+  nullifierTree: ViemAppendOnlyTreeSnapshot;
+  publicDataTree: ViemAppendOnlyTreeSnapshot;
+};
+
+export type ViemAppendOnlyTreeSnapshot = {
+  root: `0x${string}`;
+  nextAvailableLeafIndex: number;
+};
+
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -50,10 +92,10 @@ export class RollupContract {
 
   static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
-      publicClient,
+      l1Client,
       l1ContractAddresses: { rollupAddress },
     } = deployL1ContractsValues;
-    return new RollupContract(publicClient, rollupAddress.toString());
+    return new RollupContract(l1Client, rollupAddress.toString());
   }
 
   static getFromConfig(config: L1ReaderConfig) {
@@ -62,18 +104,25 @@ export class RollupContract {
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex | EthAddress,
+  ) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
+  getGSE() {
+    return this.rollup.read.getGSE();
+  }
+
   public get address() {
     return this.rollup.address;
   }
 
-  getContract(): GetContractReturnType<typeof RollupAbi, ViemPublicClient> {
+  getContract(): GetContractReturnType<typeof RollupAbi, ViemClient> {
     return this.rollup;
   }
 
@@ -118,6 +167,11 @@ export class RollupContract {
   @memoize
   getMinimumStake() {
     return this.rollup.read.getMinimumStake();
+  }
+
+  @memoize
+  getDepositAmount() {
+    return this.rollup.read.getDepositAmount();
   }
 
   @memoize
@@ -175,6 +229,14 @@ export class RollupContract {
 
   getSlotNumber() {
     return this.rollup.read.getCurrentSlot();
+  }
+
+  getL1FeesAt(timestamp: bigint) {
+    return this.rollup.read.getL1FeesAt([timestamp]);
+  }
+
+  getFeeAssetPerEth() {
+    return this.rollup.read.getFeeAssetPerEth();
   }
 
   async getCommitteeAt(timestamp: bigint) {
@@ -269,6 +331,7 @@ export class RollupContract {
       rewardDistributorAddress,
       feeJuiceAddress,
       stakingAssetAddress,
+      gseAddress,
     ] = (
       await Promise.all([
         this.rollup.read.getInbox(),
@@ -277,6 +340,7 @@ export class RollupContract {
         this.rollup.read.getRewardDistributor(),
         this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
+        this.rollup.read.getGSE(),
       ] as const)
     ).map(EthAddress.fromString);
 
@@ -288,6 +352,7 @@ export class RollupContract {
       feeJuiceAddress,
       stakingAssetAddress,
       rewardDistributorAddress,
+      gseAddress,
     };
   }
 
@@ -307,8 +372,8 @@ export class RollupContract {
 
   public async validateHeader(
     args: readonly [
-      `0x${string}`,
-      ViemSignature[],
+      ViemHeader,
+      ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
       `0x${string}`,
@@ -350,6 +415,7 @@ export class RollupContract {
       slotDuration = BigInt(slotDuration);
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+
     try {
       const {
         result: [slot, blockNumber],
@@ -383,11 +449,13 @@ export class RollupContract {
     return this.rollup.read.getSlotAt([timestamp]);
   }
 
-  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+  async status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    await checkBlockTag(options?.blockNumber, this.client);
     return this.rollup.read.canPruneAtTime([timestamp], options);
   }
 
@@ -417,25 +485,51 @@ export class RollupContract {
     return this.rollup.read.getAttesters();
   }
 
-  getInfo(address: Hex | EthAddress) {
+  getAttesterView(address: Hex | EthAddress) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
-    return this.rollup.read.getInfo([address]);
+    return this.rollup.read.getAttesterView([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getStatus(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getStatus([address]);
+  }
+
+  getBlobCommitmentsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  }
+
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {
     return this.rollup.read.getStakingAsset();
   }
 
-  getProposerForAttester(attester: Hex | EthAddress) {
-    if (attester instanceof EthAddress) {
-      attester = attester.toString();
-    }
-    return this.rollup.read.getProposerForAttester([attester]);
+  setupEpoch(l1TxUtils: L1TxUtils) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'setupEpoch',
+        args: [],
+      }),
+    });
+  }
+
+  vote(l1TxUtils: L1TxUtils, proposalId: bigint) {
+    return l1TxUtils.sendAndMonitorTransaction({
+      to: this.address,
+      data: encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'vote',
+        args: [proposalId],
+      }),
+    });
   }
 }

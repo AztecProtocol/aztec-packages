@@ -33,6 +33,7 @@ library DataStructures {
   }
 
   // @notice if this changes, please update the enum in governance.ts
+  // solhint-disable ordering
   enum ProposalState {
     Pending,
     Active,
@@ -48,19 +49,9 @@ library DataStructures {
     Configuration config;
     ProposalState state;
     IPayload payload;
-    address governanceProposer;
+    address proposer;
     Timestamp creation;
     Ballot summedBallot;
-  }
-
-  struct CheckPoint {
-    Timestamp time;
-    uint256 power;
-  }
-
-  struct User {
-    uint256 numCheckPoints;
-    mapping(uint256 checkpointIndex => CheckPoint) checkpoints;
   }
 
   struct Withdrawal {

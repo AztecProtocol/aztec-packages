@@ -1,3 +1,4 @@
+import { type BatchedBlob, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
@@ -15,6 +16,7 @@ import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup'
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { inspect } from 'util';
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { ProverNodePublisherMetrics } from './metrics.js';
@@ -27,8 +29,6 @@ export type L1SubmitEpochProofArgs = {
   epochSize: number;
   previousArchive: Fr;
   endArchive: Fr;
-  previousBlockHash: Fr;
-  endBlockHash: Fr;
   endTimestamp: Fr;
   outHash: Fr;
   proverId: Fr;
@@ -96,6 +96,7 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }): Promise<boolean> {
     const { epochNumber, fromBlock, toBlock } = args;
     const ctx = { epochNumber, fromBlock, toBlock };
@@ -148,8 +149,9 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }) {
-    const { fromBlock, toBlock, publicInputs } = args;
+    const { fromBlock, toBlock, publicInputs, batchedBlobInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -162,33 +164,33 @@ export class ProverNodePublisher {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
     }
 
-    // Check the block hash and archive for the immediate block before the epoch
+    // Check the archive for the immediate block before the epoch
     const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
-    if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
+    if (publicInputs.previousArchiveRoot.toString() !== blockLog.archive) {
       throw new Error(
-        `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
-      );
-    }
-    // TODO: Remove zero check once we inject the proper zero blockhash
-    if (blockLog.blockHash !== Fr.ZERO.toString() && publicInputs.previousBlockHash.toString() !== blockLog.blockHash) {
-      throw new Error(
-        `Previous block hash mismatch: ${publicInputs.previousBlockHash.toString()} !== ${blockLog.blockHash}`,
+        `Previous archive root mismatch: ${publicInputs.previousArchiveRoot.toString()} !== ${blockLog.archive}`,
       );
     }
 
-    // Check the block hash and archive for the last block in the epoch
+    // Check the archive for the last block in the epoch
     const endBlockLog = await this.rollupContract.getBlock(BigInt(toBlock));
-    if (publicInputs.endArchive.root.toString() !== endBlockLog.archive) {
+    if (publicInputs.endArchiveRoot.toString() !== endBlockLog.archive) {
       throw new Error(
-        `End archive root mismatch: ${publicInputs.endArchive.root.toString()} !== ${endBlockLog.archive}`,
+        `End archive root mismatch: ${publicInputs.endArchiveRoot.toString()} !== ${endBlockLog.archive}`,
       );
     }
-    if (publicInputs.endBlockHash.toString() !== endBlockLog.blockHash) {
-      throw new Error(`End block hash mismatch: ${publicInputs.endBlockHash.toString()} !== ${endBlockLog.blockHash}`);
+
+    // Check the batched blob inputs from the root rollup against the batched blob computed in ts
+    if (!publicInputs.blobPublicInputs.equals(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))) {
+      throw new Error(
+        `Batched blob mismatch: ${inspect(publicInputs.blobPublicInputs)} !== ${inspect(FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batchedBlobInputs))}`,
+      );
     }
 
     // Compare the public inputs computed by the contract with the ones injected
-    const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(this.getSubmitEpochProofArgs(args));
+    const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(
+      this.getEpochProofPublicInputsArgs(args),
+    );
     const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
@@ -204,20 +206,9 @@ export class ProverNodePublisher {
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }): Promise<TransactionReceipt | undefined> {
-    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
-    const argsArray = this.getSubmitEpochProofArgs(args);
-
-    const txArgs = [
-      {
-        start: argsArray[0],
-        end: argsArray[1],
-        args: argsArray[2],
-        fees: argsArray[3],
-        blobPublicInputs: argsArray[4],
-        proof: proofHex,
-      },
-    ] as const;
+    const txArgs = [this.getSubmitEpochProofArgs(args)] as const;
 
     this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
     const data = encodeFunctionData({
@@ -250,34 +241,48 @@ export class ProverNodePublisher {
     }
   }
 
+  private getEpochProofPublicInputsArgs(args: {
+    fromBlock: number;
+    toBlock: number;
+    publicInputs: RootRollupPublicInputs;
+    batchedBlobInputs: BatchedBlob;
+  }) {
+    // Returns arguments for EpochProofLib.sol -> getEpochProofPublicInputs()
+    return [
+      BigInt(args.fromBlock) /*_start*/,
+      BigInt(args.toBlock) /*_end*/,
+      {
+        previousArchive: args.publicInputs.previousArchiveRoot.toString(),
+        endArchive: args.publicInputs.endArchiveRoot.toString(),
+        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+      } /*_args*/,
+      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
+        i % 2 === 0
+          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
+          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
+      ) /*_fees*/,
+      args.batchedBlobInputs.getEthBlobEvaluationInputs() /*_blobPublicInputs*/,
+    ] as const;
+  }
+
   private getSubmitEpochProofArgs(args: {
     fromBlock: number;
     toBlock: number;
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
+    batchedBlobInputs: BatchedBlob;
   }) {
-    return [
-      BigInt(args.fromBlock),
-      BigInt(args.toBlock),
-      {
-        previousArchive: args.publicInputs.previousArchive.root.toString(),
-        endArchive: args.publicInputs.endArchive.root.toString(),
-        previousBlockHash: args.publicInputs.previousBlockHash.toString(),
-        endBlockHash: args.publicInputs.endBlockHash.toString(),
-        endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
-        outHash: args.publicInputs.outHash.toString(),
-        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
-      },
-      makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
-        i % 2 === 0
-          ? args.publicInputs.fees[i / 2].recipient.toField().toString()
-          : args.publicInputs.fees[(i - 1) / 2].value.toString(),
-      ),
-      `0x${args.publicInputs.blobPublicInputs
-        .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
-        .map(b => b.toString())
-        .join(``)}`,
-    ] as const;
+    // Returns arguments for EpochProofLib.sol -> submitEpochRootProof()
+    const proofHex: Hex = `0x${args.proof.withoutPublicInputs().toString('hex')}`;
+    const argsArray = this.getEpochProofPublicInputsArgs(args);
+    return {
+      start: argsArray[0],
+      end: argsArray[1],
+      args: argsArray[2],
+      fees: argsArray[3],
+      blobInputs: argsArray[4],
+      proof: proofHex,
+    };
   }
 
   protected async sleepOrInterrupted() {

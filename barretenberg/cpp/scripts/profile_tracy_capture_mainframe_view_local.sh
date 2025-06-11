@@ -7,12 +7,12 @@
 # on local machine run:
 # export USER=...
 # export PRESET=...tracy for memory or tracy-gates for circuit gates...
-# ssh $USER-box "cat ~/aztec-packages/barretenberg/cpp/scripts/benchmark_tracy.sh" | bash /dev/stdin $USER
+# ssh $USER-box "cat ~/aztec-packages/barretenberg/cpp/scripts/profile_tracy_capture_mainframe_view_local.sh" | bash /dev/stdin $USER
 set -eux
 USER=${1:-$USER}
 BOX=$USER-box
-BENCHMARK=${2:-client_ivc_bench}
-COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=ClientIVCBench/Full/6"\$"}
+TARGET=${2:-client_ivc_bench}
+COMMAND=${3:-./bin/$TARGET --benchmark_filter=ClientIVCBench/Full/6"\$"}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}
@@ -20,28 +20,27 @@ PRESET=${PRESET:-tracy-memory}
 # Check if cmake exists
 cmake --version
 
+# Checkout tracy 0.11.1, build the headless capture tool and then capture a trace
 ssh $BOX "
 	set -eux ;
-	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
+	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy --depth 1 ;
 	cd ~/tracy/capture ;
-        git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 ;
-	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev libtbb-dev libfreetype-dev ;
-	mkdir -p build && cd build && cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
+	git fetch origin 5d542dc09f3d9378d005092a4ad446bd405f819a ;
+  git checkout 5d542dc09f3d9378d005092a4ad446bd405f819a ;
+	mkdir -p build && cd build && cmake -DNO_FILESELECTOR=ON -DCMAKE_MESSAGE_LOG_LEVEL=Warning .. && make -j ;
 	cd ~/aztec-packages/barretenberg/cpp/ ;
-	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
+	cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning --preset $PRESET && cmake --build --preset $PRESET --target $TARGET ;
 	cd ~/tracy/capture/build ;
-	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
+	./tracy-capture -a 127.0.0.1 -f -o trace-$TARGET & ;
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;
-	ninja $BENCHMARK ;
-	HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY $COMMAND ;
+	ninja $TARGET ;
+	export HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY ;
+	$COMMAND ;
 " &
-
+# If on ubuntu will need to build tracy checked out at 0.11.1 and comment this out
+# If on windows can use windows tracy build
+brew install tracy
 wait # TODO(AD) hack - not sure why needed
-! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
-cd ~/tracy
-git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 # release 0.11.0
-cmake -DCMAKE_MESSAGE_LOG_LEVEL=Warning -B profiler/build -S profiler -DCMAKE_BUILD_TYPE=Release
-cmake --build profiler/build --parallel
-scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$BENCHMARK .
-~/tracy/profiler/build/tracy-profiler trace-$BENCHMARK
+scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$TARGET .
+tracy trace-$TARGET

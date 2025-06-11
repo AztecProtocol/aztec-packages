@@ -15,7 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublicWithCommitment, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
-import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
@@ -148,6 +148,10 @@ export class PublicPersistableStateManager {
     await this.trace.tracePublicStorageWrite(contractAddress, slot, value, protocolWrite);
   }
 
+  public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
+    return this.trace.isStorageCold(contractAddress, slot);
+  }
+
   /**
    * Read from public storage.
    *
@@ -201,8 +205,8 @@ export class PublicPersistableStateManager {
    * @param siloedNoteHash - the non unique note hash to write
    */
   public async writeSiloedNoteHash(siloedNoteHash: Fr): Promise<void> {
-    const nonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
-    const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+    const noteNonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
+    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
     await this.writeUniqueNoteHash(uniqueNoteHash);
   }
 
@@ -300,6 +304,18 @@ export class PublicPersistableStateManager {
   public writeL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr) {
     this.log.trace(`L2ToL1Messages(${contractAddress}) += (recipient: ${recipient}, content: ${content}).`);
     this.trace.traceNewL2ToL1Message(contractAddress, recipient, content);
+  }
+
+  /**
+   * Write a scoped L2 to L1 message.
+   * @param l2ToL1Message - The L2 to L1 message to write.
+   */
+  public writeScopedL2ToL1Message(l2ToL1Message: ScopedL2ToL1Message) {
+    this.writeL2ToL1Message(
+      l2ToL1Message.contractAddress,
+      l2ToL1Message.message.recipient.toField(),
+      l2ToL1Message.message.content,
+    );
   }
 
   /**
@@ -458,10 +474,6 @@ export class PublicPersistableStateManager {
     );
 
     return contractClass.packedBytecode;
-  }
-
-  public traceEnqueuedCall(publicCallRequest: PublicCallRequest) {
-    this.trace.traceEnqueuedCall(publicCallRequest);
   }
 
   public async getPublicFunctionDebugName(avmEnvironment: AvmExecutionEnvironment): Promise<string> {

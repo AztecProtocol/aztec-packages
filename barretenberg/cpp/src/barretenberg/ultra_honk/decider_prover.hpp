@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -13,7 +19,7 @@
 
 namespace bb {
 
-template <IsUltraFlavor Flavor> class DeciderProver_ {
+template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     using FF = typename Flavor::FF;
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;

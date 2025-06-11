@@ -15,10 +15,9 @@ import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
-// Setup snapshots will create a node with index 0, so all of our loops here
-// need to start from 1 to avoid running validators with the same key
-export const PROPOSER_PRIVATE_KEYS_START_INDEX = 1;
-export const ATTESTER_PRIVATE_KEYS_START_INDEX = 1001;
+// Setup snapshots will create a node with index 0, and run extra bootstrap with
+// index 1, so all of our loops here need to start from 2 to avoid running validators with the same key
+export const ATTESTER_PRIVATE_KEYS_START_INDEX = 2;
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -70,6 +69,13 @@ export async function createNodes(
     nodePromises.push(nodePromise);
   }
   const nodes = await Promise.all(nodePromises);
+
+  // Sanity check that we have a sequencer
+  const seqClient = nodes[0].getSequencer();
+  if (!seqClient) {
+    throw new Error('Sequencer not found');
+  }
+
   removeLogNameHandler(logNameHandler);
   return nodes;
 }
@@ -80,14 +86,14 @@ export async function createNode(
   dateProvider: DateProvider,
   tcpPort: number,
   bootstrapNode: string | undefined,
-  accountIndex: number,
+  addressIndex: number,
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
   loggerIdStorage?: AsyncLocalStorage<string>,
 ) {
   const createNode = async () => {
-    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
+    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
     return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
@@ -98,20 +104,17 @@ export async function createValidatorConfig(
   config: AztecNodeConfig,
   bootstrapNodeEnr?: string,
   port?: number,
-  accountIndex: number = 1,
+  addressIndex: number = 1,
   dataDirectory?: string,
 ) {
   port = port ?? (await getPort());
 
   const attesterPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    ATTESTER_PRIVATE_KEYS_START_INDEX + accountIndex,
-  )!.toString('hex')}`;
-  const proposerPrivateKey: `0x${string}` = `0x${getPrivateKeyFromIndex(
-    PROPOSER_PRIVATE_KEYS_START_INDEX + accountIndex,
+    ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
   )!.toString('hex')}`;
 
-  config.validatorPrivateKey = attesterPrivateKey;
-  config.publisherPrivateKey = proposerPrivateKey;
+  config.validatorPrivateKeys = [attesterPrivateKey];
+  config.publisherPrivateKey = attesterPrivateKey;
 
   const nodeConfig: AztecNodeConfig = {
     ...config,

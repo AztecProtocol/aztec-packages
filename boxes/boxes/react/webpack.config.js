@@ -15,7 +15,7 @@ export default (_, argv) => ({
     rules: [
       {
         test: /\.tsx?$/,
-        use: 'ts-loader',
+        loader: 'ts-loader',
       },
       {
         test: /\.css$/i,

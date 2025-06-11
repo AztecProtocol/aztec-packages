@@ -18,12 +18,12 @@ describe('AttestationValidator', () => {
   it('returns high tolerance error if slot number is not current or next slot', async () => {
     // Create an attestation for slot 97
     const header = makeHeader(1, 97, 97);
-    const mockAttestation = await makeBlockAttestation({
+    const mockAttestation = makeBlockAttestation({
       header,
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 98n,
       nextSlot: 99n,
     });
@@ -35,12 +35,12 @@ describe('AttestationValidator', () => {
 
   it('returns high tolerance error if attester is not in committee', async () => {
     // The slot is correct, but the attester is not in the committee
-    const mockAttestation = await makeBlockAttestation({
+    const mockAttestation = makeBlockAttestation({
       header: makeHeader(1, 100, 100),
     });
 
     // Mock epoch cache to return matching slot number but invalid committee membership
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });
@@ -52,12 +52,12 @@ describe('AttestationValidator', () => {
 
   it('returns undefined if attestation is valid (current slot)', async () => {
     // Create an attestation for slot 100
-    const mockAttestation = await makeBlockAttestation({
+    const mockAttestation = makeBlockAttestation({
       header: makeHeader(1, 100, 100),
     });
 
     // Mock epoch cache for valid case with current slot
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });
@@ -69,12 +69,12 @@ describe('AttestationValidator', () => {
 
   it('returns undefined if attestation is valid (next slot)', async () => {
     // Setup attestation for next slot
-    const mockAttestation = await makeBlockAttestation({
+    const mockAttestation = makeBlockAttestation({
       header: makeHeader(1, 101, 101),
     });
 
     // Mock epoch cache for valid case with next slot
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
     });

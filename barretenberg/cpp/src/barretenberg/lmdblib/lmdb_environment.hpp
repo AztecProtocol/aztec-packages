@@ -48,8 +48,11 @@ class LMDBEnvironment {
 
     uint64_t get_map_size() const;
 
+    uint64_t get_data_file_size() const;
+
   private:
     std::atomic_uint64_t _id;
+    std::string _directory;
     MDB_env* _mdbEnv;
 
     struct ResourceGuard {

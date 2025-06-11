@@ -3,28 +3,28 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 export class PrivateKernelResetDimensions {
   constructor(
-    public NOTE_HASH_PENDING_AMOUNT: number,
-    public NOTE_HASH_SETTLED_AMOUNT: number,
-    public NULLIFIER_PENDING_AMOUNT: number,
-    public NULLIFIER_SETTLED_AMOUNT: number,
-    public NULLIFIER_KEYS: number,
-    public TRANSIENT_DATA_AMOUNT: number,
-    public NOTE_HASH_SILOING_AMOUNT: number,
-    public NULLIFIER_SILOING_AMOUNT: number,
-    public PRIVATE_LOG_SILOING_AMOUNT: number,
+    public NOTE_HASH_PENDING_READ: number,
+    public NOTE_HASH_SETTLED_READ: number,
+    public NULLIFIER_PENDING_READ: number,
+    public NULLIFIER_SETTLED_READ: number,
+    public KEY_VALIDATION: number,
+    public TRANSIENT_DATA_SQUASHING: number,
+    public NOTE_HASH_SILOING: number,
+    public NULLIFIER_SILOING: number,
+    public PRIVATE_LOG_SILOING: number,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
-      this.NOTE_HASH_PENDING_AMOUNT,
-      this.NOTE_HASH_SETTLED_AMOUNT,
-      this.NULLIFIER_PENDING_AMOUNT,
-      this.NULLIFIER_SETTLED_AMOUNT,
-      this.NULLIFIER_KEYS,
-      this.TRANSIENT_DATA_AMOUNT,
-      this.NOTE_HASH_SILOING_AMOUNT,
-      this.NULLIFIER_SILOING_AMOUNT,
-      this.PRIVATE_LOG_SILOING_AMOUNT,
+      this.NOTE_HASH_PENDING_READ,
+      this.NOTE_HASH_SETTLED_READ,
+      this.NULLIFIER_PENDING_READ,
+      this.NULLIFIER_SETTLED_READ,
+      this.KEY_VALIDATION,
+      this.TRANSIENT_DATA_SQUASHING,
+      this.NOTE_HASH_SILOING,
+      this.NULLIFIER_SILOING,
+      this.PRIVATE_LOG_SILOING,
     );
   }
 
@@ -57,15 +57,15 @@ export class PrivateKernelResetDimensions {
 export type DimensionName = keyof FieldsOf<PrivateKernelResetDimensions>;
 
 export const privateKernelResetDimensionNames: DimensionName[] = [
-  'NOTE_HASH_PENDING_AMOUNT',
-  'NOTE_HASH_SETTLED_AMOUNT',
-  'NULLIFIER_PENDING_AMOUNT',
-  'NULLIFIER_SETTLED_AMOUNT',
-  'NULLIFIER_KEYS',
-  'TRANSIENT_DATA_AMOUNT',
-  'NOTE_HASH_SILOING_AMOUNT',
-  'NULLIFIER_SILOING_AMOUNT',
-  'PRIVATE_LOG_SILOING_AMOUNT',
+  'NOTE_HASH_PENDING_READ',
+  'NOTE_HASH_SETTLED_READ',
+  'NULLIFIER_PENDING_READ',
+  'NULLIFIER_SETTLED_READ',
+  'KEY_VALIDATION',
+  'TRANSIENT_DATA_SQUASHING',
+  'NOTE_HASH_SILOING',
+  'NULLIFIER_SILOING',
+  'PRIVATE_LOG_SILOING',
 ];
 
 export interface DimensionConfig {

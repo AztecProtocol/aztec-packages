@@ -16,6 +16,7 @@ const search = css({
   '@media (width > 800px)': {
     maxWidth: '500px',
   },
+  marginBottom: '1rem',
 });
 
 const checkBoxLabel = css({
@@ -58,7 +59,7 @@ export function ContractFilter({ filters, onFilterChange }: ContractFilterProps)
           }}
         >
           <Tooltip
-            title="These functions are simulated locally and only proofs are sent to Aztec"
+            title="Function signature and execution are kept private by executing locally and generating a zk proof of correct execution. The proof is sent to Aztec."
             arrow
             slotProps={{
               tooltip: {
@@ -112,7 +113,7 @@ export function ContractFilter({ filters, onFilterChange }: ContractFilterProps)
           </Tooltip>
 
           <Tooltip
-            title="Only invoked by applications that interact with contracts to perform state queries from an off-chain client. They are unconstrained, meaning no proofs are generated"
+            title="These are off-chain getters (for you to query the state) without generating any proofs. They are unconstrained, so no proof is generated and data is fetched locally."
             arrow
             slotProps={{
               tooltip: {

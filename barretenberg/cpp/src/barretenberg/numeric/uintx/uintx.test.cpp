@@ -1,5 +1,6 @@
 #include "./uintx.hpp"
 #include "../random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -28,12 +29,9 @@ TEST(uintx, BarrettReduction1024)
 {
     uint1024_t x = engine.get_random_uint1024();
 
-    static constexpr uint64_t modulus_0 = 0x3C208C16D87CFD47UL;
-    static constexpr uint64_t modulus_1 = 0x97816a916871ca8dUL;
-    static constexpr uint64_t modulus_2 = 0xb85045b68181585dUL;
-    static constexpr uint64_t modulus_3 = 0x30644e72e131a029UL;
-    constexpr uint256_t modulus_partial(modulus_0, modulus_1, modulus_2, modulus_3);
-    constexpr uint512_t modulus = uint512_t(modulus_partial) * uint512_t(modulus_partial);
+    constexpr uint256_t modulus_lo{ "0x04689e957a1242c84a50189c6d96cadca602072d09eac1013b5458a2275d69b1" };
+    constexpr uint256_t modulus_hi{ "0x0925c4b8763cbf9c599a6f7c0348d21cb00b85511637560626edfa5c34c6b38d" };
+    constexpr uint512_t modulus{ modulus_lo, modulus_hi };
 
     const auto [quotient_result, remainder_result] = x.barrett_reduction<modulus>();
     const auto [quotient_expected, remainder_expected] = x.divmod_base(uint1024_t(modulus));

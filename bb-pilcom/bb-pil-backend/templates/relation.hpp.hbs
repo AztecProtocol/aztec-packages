@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::{{snakeCase root_name}} {
 
@@ -19,7 +20,7 @@ template <typename FF_> class {{name}}Impl {
         {{#if skippable_if}}
         template <typename AllEntities> inline static bool skip(const AllEntities& in)
         {
-            const auto& new_term = in;
+            using C = ColumnAndShifts;
             return ({{skippable_if}}).is_zero();
         }
         {{/if}}
@@ -27,10 +28,12 @@ template <typename FF_> class {{name}}Impl {
         template <typename ContainerOverSubrelations, typename AllEntities>
         void static accumulate(
             ContainerOverSubrelations& evals,
-            const AllEntities& new_term,
+            const AllEntities& in,
             [[maybe_unused]] const RelationParameters<FF>&,
             [[maybe_unused]] const FF& scaling_factor
         ){
+            using C = ColumnAndShifts;
+
             {{#each alias_defs as |alias|}}
             const auto {{alias.name}} = {{alias.expr}};
             {{/each}}

@@ -51,11 +51,10 @@ export class GasTxValidator implements TxValidator<Tx> {
     // Skip the tx if its max fees are not enough for the current block's gas fees.
     const maxFeesPerGas = gasSettings.maxFeesPerGas;
     const notEnoughMaxFees =
-      maxFeesPerGas.feePerDaGas.lt(this.#gasFees.feePerDaGas) ||
-      maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
+      maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
 
     if (notEnoughMaxFees) {
-      this.#log.warn(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
+      this.#log.verbose(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
         txMaxFeesPerGas: maxFeesPerGas.toInspect(),
         currentGasFees: this.#gasFees.toInspect(),
       });
@@ -71,7 +70,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     const minGasLimits = new Gas(FIXED_DA_GAS, FIXED_L2_GAS);
 
     if (minGasLimits.gtAny(gasLimits)) {
-      this.#log.warn(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
+      this.#log.verbose(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
         gasLimits,
         minGasLimits,
       });
@@ -113,7 +112,7 @@ export class GasTxValidator implements TxValidator<Tx> {
 
     const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
     if (balance.lt(feeLimit)) {
-      this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
+      this.#log.verbose(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,
         balance: balance.toBigInt(),
         feeLimit: feeLimit.toBigInt(),

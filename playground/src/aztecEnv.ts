@@ -102,14 +102,15 @@ export const AztecContext = createContext<{
   currentTx: UserTx;
   logs: Log[];
   logsOpen: boolean;
-  drawerOpen: boolean;
   showContractInterface: boolean;
   currentContractArtifact: ContractArtifact;
   totalLogCount: number;
+  defaultContractCreationParams: Record<string, unknown>;
+  pendingTxUpdateCounter: number;
+  isNetworkCongested: boolean;
   setTotalLogCount: (count: number) => void;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
-  setDrawerOpen: (drawerOpen: boolean) => void;
   setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
   setWalletDB: (walletDB: WalletDB) => void;
@@ -121,6 +122,9 @@ export const AztecContext = createContext<{
   setCurrentTx: (currentTx: UserTx) => void;
   setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
+  setDefaultContractCreationParams: (defaultContractCreationParams: Record<string, unknown>) => void;
+  setPendingTxUpdateCounter: (pendingTxUpdateCounter: number) => void;
+  setIsNetworkCongested: (isNetworkCongested: boolean) => void;
 }>({
   pxe: null,
   connecting: false,
@@ -135,12 +139,13 @@ export const AztecContext = createContext<{
   logs: [],
   totalLogCount: 0,
   logsOpen: false,
-  drawerOpen: false,
   showContractInterface: false,
+  defaultContractCreationParams: {},
+  pendingTxUpdateCounter: 0,
+  isNetworkCongested: false,
   setTotalLogCount: () => {},
   setShowContractInterface: () => {},
   setConnecting: () => {},
-  setDrawerOpen: () => {},
   setLogsOpen: () => {},
   setLogs: () => {},
   setWalletDB: () => {},
@@ -152,6 +157,9 @@ export const AztecContext = createContext<{
   setCurrentTx: () => {},
   setCurrentContractArtifact: () => {},
   setCurrentContractAddress: () => {},
+  setDefaultContractCreationParams: () => {},
+  setPendingTxUpdateCounter: () => {},
+  setIsNetworkCongested: () => {},
 });
 
 export class AztecEnv {

@@ -32,7 +32,7 @@ export function integerArgParser(
 export function aliasedTxHashParser(txHash: string, db?: WalletDB) {
   try {
     return parseTxHash(txHash);
-  } catch (err) {
+  } catch {
     const prefixed = txHash.includes(':') ? txHash : `transactions:${txHash}`;
     const rawTxHash = db ? db.tryRetrieveAlias(prefixed) : txHash;
     return parseTxHash(rawTxHash);
@@ -43,7 +43,7 @@ export function aliasedAuthWitParser(witnesses: string, db?: WalletDB) {
   const parsedWitnesses = witnesses.split(',').map(witness => {
     try {
       return AuthWitness.fromString(witness);
-    } catch (err) {
+    } catch {
       const prefixed = witness.includes(':') ? witness : `authwits:${witness}`;
       const rawAuthWitness = db ? db.tryRetrieveAlias(prefixed) : witness;
       return AuthWitness.fromString(rawAuthWitness);
@@ -120,6 +120,13 @@ export function createDebugExecutionStepsDirOption() {
   ).makeOptionMandatory(false);
 }
 
+export function createVerboseOption() {
+  return new Option(
+    '-v, --verbose',
+    'Provide timings on all executed operations (synching, simulating, proving)',
+  ).default(false);
+}
+
 export function artifactPathParser(filePath: string, db?: WalletDB) {
   if (filePath.includes('@')) {
     const [pkg, contractName] = filePath.split('@');
@@ -161,7 +168,7 @@ async function contractArtifactFromWorkspace(pkg?: string, contractName?: string
   const cwd = process.cwd();
   try {
     await stat(`${cwd}/Nargo.toml`);
-  } catch (e) {
+  } catch {
     throw new Error(
       'Invalid contract artifact argument provided. To use this option, command should be called from a nargo workspace',
     );
