@@ -27,6 +27,9 @@ contract StakingAssetHandlerScript is Test {
 
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
+  string internal constant SCOPE = "testnet.aztec.network";
+  string internal constant SUBSCOPE = "personhood";
+
   ZKPassportVerifier internal constant zkPassportVerifier =
     ZKPassportVerifier(0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5);
 
@@ -43,7 +46,17 @@ contract StakingAssetHandlerScript is Test {
 
     vm.startBroadcast(ME);
     StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(
-      ME, address(stakingAsset), registry, amin, 60 * 60 * 24, 10, zkPassportVerifier, isUnhinged
+      ME,
+      address(stakingAsset),
+      registry,
+      amin,
+      60 * 60 * 24,
+      10,
+      zkPassportVerifier,
+      isUnhinged,
+      SCOPE,
+      SUBSCOPE,
+      false // DO NOT: skip bind check
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
     vm.stopBroadcast();

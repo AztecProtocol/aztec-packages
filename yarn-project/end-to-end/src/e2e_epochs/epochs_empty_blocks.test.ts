@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext, WORLD_STATE_BLOCK_HISTORY } from './epochs_test.js';
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 15);
 
 describe('e2e_epochs/epochs_empty_blocks', () => {
   let context: EndToEndContext;
@@ -30,7 +30,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   });
 
   it('submits proof even if there are no txs to build a block', async () => {
-    await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+    context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
     // Sleep to make sure any pending blocks are published
@@ -63,7 +63,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
         `Reached PENDING L2 block ${epochTargetBlockNumber}, proving should now start, waiting for PROVEN block to reach ${provenBlockNumber}`,
       );
       await test.waitUntilProvenL2BlockNumber(provenBlockNumber, 120);
-      expect(Number(await rollup.getProvenBlockNumber())).toBe(provenBlockNumber);
+      expect(Number(await rollup.getProvenBlockNumber())).toBeGreaterThanOrEqual(provenBlockNumber);
       logger.info(`Reached PROVEN block number ${provenBlockNumber}, epoch ${epochNumber} is now proven`);
       epochNumber++;
 

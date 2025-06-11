@@ -6,7 +6,12 @@ use crate::{
     },
     merge::utils::merge_rollups::merge_rollups,
 };
-use blob::{blob::evaluate_blobs, blob_public_inputs::{BlobPublicInputs, BlockBlobPublicInputs}};
+use blob::{
+    blob_batching::evaluate_blobs_and_batch,
+    blob_batching_public_inputs::{
+        BlobAccumulationInputs, BlobAccumulatorPublicInputs, BlockBlobPublicInputs,
+    },
+};
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
@@ -19,7 +24,7 @@ use types::{
     partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
     state_reference::StateReference,
-    traits::{Empty, Hash},
+    traits::{Empty, Hash, is_empty},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -60,14 +65,15 @@ impl BlockRootRollupOutputComposer {
         let new_archive = self.update_archive(constants.last_archive, new_block_hash);
         let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let block_blob_public_inputs = self.get_block_blob_public_inputs(blob_data);
+        let end_blob_accumulator = self.get_blob_accumulator_public_inputs(blob_data);
 
         self.finish_with_new_values(
             constants,
             new_archive,
             proposed_block_header_hash,
             self.merged_rollup.out_hash,
-            block_blob_public_inputs,
+            self.data.start_blob_accumulator,
+            end_blob_accumulator,
             self.merged_rollup.accumulated_fees,
         )
     }
@@ -76,7 +82,7 @@ impl BlockRootRollupOutputComposer {
         self,
         constants: BlockConstantData,
         empty_effect_blobs_hash: Field,
-        empty_effect_blob_public_input: BlobPublicInputs,
+        empty_effect_blob_accumulation_input: BlobAccumulationInputs,
         is_padding: bool,
     ) -> BlockRootOrBlockMergePublicInputs {
         let (new_archive, proposed_block_header_hash) = if is_padding {
@@ -94,9 +100,20 @@ impl BlockRootRollupOutputComposer {
             )
         };
 
-        let mut block_blob_public_inputs = BlockBlobPublicInputs::empty();
-        if !is_padding {
-            block_blob_public_inputs.inner[0] = empty_effect_blob_public_input;
+        let end_blob_accumulator = if is_padding {
+            self.data.start_blob_accumulator
+        } else {
+            if is_empty(self.data.start_blob_accumulator) {
+                BlobAccumulatorPublicInputs::init(
+                    empty_effect_blob_accumulation_input,
+                    self.data.final_blob_challenges.gamma,
+                )
+            } else {
+                self.data.start_blob_accumulator.accumulate(
+                    empty_effect_blob_accumulation_input,
+                    self.data.final_blob_challenges.gamma,
+                )
+            }
         };
 
         self.finish_with_new_values(
@@ -104,7 +121,8 @@ impl BlockRootRollupOutputComposer {
             new_archive,
             proposed_block_header_hash,
             0 /* out_hash */,
-            block_blob_public_inputs,
+            self.data.start_blob_accumulator,
+            end_blob_accumulator,
             0, /* accumulated_fees */
         )
     }
@@ -115,7 +133,8 @@ impl BlockRootRollupOutputComposer {
         new_archive: AppendOnlyTreeSnapshot,
         proposed_block_header_hash: Field,
         out_hash: Field,
-        block_blob_public_inputs: BlockBlobPublicInputs,
+        start_blob_accumulator: BlobAccumulatorPublicInputs,
+        end_blob_accumulator: BlobAccumulatorPublicInputs,
         accumulated_fees: Field,
     ) -> BlockRootOrBlockMergePublicInputs {
         let mut proposed_block_header_hashes = [0; AZTEC_MAX_EPOCH_DURATION];
@@ -127,8 +146,11 @@ impl BlockRootRollupOutputComposer {
             value: accumulated_fees,
         };
 
-        let mut blob_public_inputs = [BlockBlobPublicInputs::empty(); AZTEC_MAX_EPOCH_DURATION];
-        blob_public_inputs[0] = block_blob_public_inputs;
+        let blob_public_inputs = BlockBlobPublicInputs {
+            start_blob_accumulator,
+            end_blob_accumulator,
+            final_blob_challenges: self.data.final_blob_challenges,
+        };
 
         BlockRootOrBlockMergePublicInputs {
             constants: EpochConstantData {
@@ -154,7 +176,6 @@ impl BlockRootRollupOutputComposer {
         blobs_hash: Field,
     ) -> BlockHeader {
         let content_commitment = ContentCommitment {
-            num_txs: self.merged_rollup.num_txs as Field,
             blobs_hash,
             in_hash: self.data.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: self.merged_rollup.out_hash,
@@ -212,20 +233,27 @@ impl BlockRootRollupOutputComposer {
         )
     }
 
-    fn get_block_blob_public_inputs(self, data: BlockRootRollupBlobData) -> BlockBlobPublicInputs {
+    fn get_blob_accumulator_public_inputs(
+        self,
+        data: BlockRootRollupBlobData,
+    ) -> BlobAccumulatorPublicInputs {
         if !dep::std::runtime::is_unconstrained() {
-            evaluate_blobs(
+            evaluate_blobs_and_batch(
                 data.blobs_fields,
                 data.blob_commitments,
                 self.merged_rollup.end_sponge_blob,
+                self.data.final_blob_challenges,
+                self.data.start_blob_accumulator,
             )
         } else {
             // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
             unsafe {
-                blob::mock_blob_oracle::evaluate_blobs(
+                blob::mock_blob_oracle::evaluate_blobs_and_batch(
                     data.blobs_fields,
                     data.blob_commitments,
                     self.merged_rollup.end_sponge_blob,
+                    self.data.final_blob_challenges,
+                    self.data.start_blob_accumulator,
                 )
             }
         }

@@ -12,51 +12,47 @@
 namespace bb::avm2::simulation {
 
 enum class AddressingEventError {
-    // The operand is not a valid address.
-    OPERAND_INVALID_ADDRESS,
-    // The base address is not a valid address.
-    BASE_ADDRESS_INVALID_ADDRESS,
+    // The base address (mem[0]) is not a valid address.
+    BASE_ADDRESS_INVALID,
     // The relative computation overflowed.
     RELATIVE_COMPUTATION_OOB,
     // The address obtained after applying indirection is not a valid address.
-    INDIRECT_INVALID_ADDRESS,
+    INVALID_ADDRESS_AFTER_INDIRECTION,
 };
 
 inline std::string to_string(AddressingEventError e)
 {
     switch (e) {
-    case AddressingEventError::OPERAND_INVALID_ADDRESS:
-        return "OPERAND_INVALID_ADDRESS";
-    case AddressingEventError::BASE_ADDRESS_INVALID_ADDRESS:
-        return "BASE_ADDRESS_INVALID_ADDRESS";
+    case AddressingEventError::BASE_ADDRESS_INVALID:
+        return "BASE_ADDRESS_INVALID";
     case AddressingEventError::RELATIVE_COMPUTATION_OOB:
         return "RELATIVE_COMPUTATION_OOB";
-    case AddressingEventError::INDIRECT_INVALID_ADDRESS:
-        return "INDIRECT_INVALID_ADDRESS";
+    case AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION:
+        return "INVALID_ADDRESS_AFTER_INDIRECTION";
     }
 
-    // Only to please the compiler.
-    return "UNKNOWN_ADDRESSING_ERROR";
+    // We should be catching all the cases above.
+    __builtin_unreachable();
 }
 
 struct AddressingException : public std::runtime_error {
-    explicit AddressingException(AddressingEventError e, size_t operand_idx = 0)
-        : std::runtime_error("Addressing error: " + to_string(e) + " at operand " + std::to_string(operand_idx))
-        , error(e)
-        , operand_idx(operand_idx)
+    explicit AddressingException()
+        : std::runtime_error("Error resolving operands.")
     {}
-    AddressingEventError error;
-    size_t operand_idx;
+};
+
+struct OperandResolutionInfo {
+    Operand after_relative;
+    Operand resolved_operand;
+    std::optional<AddressingEventError> error;
 };
 
 // See https://docs.google.com/document/d/1EgFj0OQYZCWufjzLgoAAiVL9jV0-fUAaCCIVlvRc8bY/ for circuit details.
 // - The activation mask can be derived from spec.num_addresses.
 struct AddressingEvent {
     Instruction instruction;
-    std::vector<Operand> after_relative;
-    std::vector<Operand> resolved_operands;
     MemoryValue base_address;
-    std::optional<AddressingException> error;
+    std::vector<OperandResolutionInfo> resolution_info; // One per operand (including immediates).
 };
 
 } // namespace bb::avm2::simulation

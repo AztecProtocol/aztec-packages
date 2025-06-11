@@ -317,7 +317,7 @@ export class SequencerPublisher {
       formattedAttestations,
       toHex(attestationData.digest),
       ts,
-      toHex(header.contentCommitment.blobsHash),
+      header.contentCommitment.blobsHash.toString(),
       flags,
     ] as const;
 
@@ -429,7 +429,7 @@ export class SequencerPublisher {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
       header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
@@ -476,7 +476,7 @@ export class SequencerPublisher {
       throw new Error('L1 TX utils needs to be initialized with an account wallet.');
     }
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(

@@ -29,7 +29,7 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import { type P2P, TxCollector, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   BlockBuilder,
@@ -255,6 +255,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
+    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+
+    const blockBuilder = new BlockBuilder(
+      {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupVersion: config.rollupVersion,
+        l1ChainId: config.l1ChainId,
+        txPublicSetupAllowList: config.txPublicSetupAllowList,
+      },
+      archiver,
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
@@ -264,30 +281,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
     if (config.slashPruneEnabled) {
+      const txCollector = new TxCollector(p2pClient);
       epochPruneWatcher = new EpochPruneWatcher(
         archiver,
         epochCache,
+        txCollector,
+        blockBuilder,
         config.slashPrunePenalty,
         config.slashPruneMaxPenalty,
       );
       await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
     }
-
-    const blockBuilder = new BlockBuilder(
-      {
-        l1GenesisTime,
-        slotDuration: Number(slotDuration),
-        rollupVersion: config.rollupVersion,
-        l1ChainId: config.l1ChainId,
-      },
-      archiver,
-      worldStateSynchronizer,
-      archiver,
-      dateProvider,
-      telemetry,
-    );
-
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
@@ -296,6 +301,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       blockBuilder,
       blockSource: archiver,
     });
+
+    if (validatorClient) {
+      watchers.push(validatorClient);
+    }
+
     log.verbose(`All Aztec Node subsystems synced`);
 
     let sequencer: SequencerClient | undefined;
@@ -589,7 +599,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     await this.txQueue.end();
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
-    this.slasherClient?.stop();
+    await tryStop(this.slasherClient);
     await tryStop(this.proofVerifier);
     await tryStop(this.sequencer);
     await tryStop(this.p2pClient);
@@ -1015,7 +1025,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    await this.sequencer?.updateSequencerConfig(config);
+    this.sequencer?.updateSequencerConfig(config);
+    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {

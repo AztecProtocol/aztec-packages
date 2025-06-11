@@ -132,8 +132,8 @@ export interface L2BlockSource {
  */
 
 export type ArchiverEmitter = TypedEventEmitter<{
-  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockSourceEvent) => void;
-  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockSourceEvent) => void;
+  [L2BlockSourceEvents.L2PruneDetected]: (args: L2BlockPruneEvent) => void;
+  [L2BlockSourceEvents.L2BlockProven]: (args: L2BlockProvenEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource, ArchiverEmitter {}
 
@@ -182,9 +182,15 @@ export enum L2BlockSourceEvents {
   L2BlockProven = 'l2BlockProven',
 }
 
-export type L2BlockSourceEvent = {
-  type: 'l2PruneDetected' | 'l2BlockProven';
+export type L2BlockProvenEvent = {
+  type: 'l2BlockProven';
   blockNumber: bigint;
   slotNumber: bigint;
   epochNumber: bigint;
+};
+
+export type L2BlockPruneEvent = {
+  type: 'l2PruneDetected';
+  epochNumber: bigint;
+  blocks: L2Block[];
 };

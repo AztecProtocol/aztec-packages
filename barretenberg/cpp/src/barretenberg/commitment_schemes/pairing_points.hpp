@@ -94,6 +94,8 @@ class PairingPoints {
     bool check() const
     {
         VerifierCK pcs_vkey{};
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1423): Rename to verifier_pcs_key or vckey or
+        // something. Issue exists in many places besides just here.
         return pcs_vkey.pairing_check(P0, P1);
     }
 

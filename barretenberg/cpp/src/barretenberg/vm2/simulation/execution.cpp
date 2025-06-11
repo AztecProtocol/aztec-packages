@@ -189,7 +189,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
-            ex_event.resolved_operands = resolved_operands;
 
             //// Temporality group 4+ starts (to be defined) ////
 
@@ -217,6 +216,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
         // State after the opcode.
         ex_event.after_context_event = context.serialize_context_event();
+        // TODO(dbanks12): fix phase. Should come from TX execution and be forwarded to nested calls.
+        ex_event.after_context_event.phase = TransactionPhase::APP_LOGIC;
         events.emit(std::move(ex_event));
 
         // If the context has halted, we need to exit the external call.
@@ -272,7 +273,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     inputs = {};
     output = TaggedValue::from<FF>(0);
 
-    debug("Dispatching opcode: ", opcode);
+    debug("Dispatching opcode: ", opcode, " (", static_cast<uint32_t>(opcode), ")");
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);

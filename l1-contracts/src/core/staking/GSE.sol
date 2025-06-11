@@ -23,7 +23,7 @@ struct AttesterConfig {
 
 struct InstanceStaking {
   SnapshottedAddressSet attesters;
-  mapping(address attester => AttesterConfig) configOf;
+  mapping(address attester => AttesterConfig config) configOf;
   bool exists;
 }
 
@@ -100,9 +100,8 @@ contract GSECore is IGSECore, Ownable {
   using DelegationLib for DelegationData;
   using ProposalLib for DataStructures.Proposal;
 
-  uint256 public constant MINIMUM_DEPOSIT = 100e18;
-  // @todo https://github.com/AztecProtocol/aztec-packages/issues/14304
-  uint256 public constant MINIMUM_BALANCE = 100e18;
+  uint256 public constant DEPOSIT_AMOUNT = 100e18;
+  uint256 public constant MINIMUM_STAKE = 50e18;
 
   address public constant CANONICAL_MAGIC_ADDRESS =
     address(uint160(uint256(keccak256("canonical"))));
@@ -110,7 +109,7 @@ contract GSECore is IGSECore, Ownable {
   IERC20 public immutable STAKING_ASSET;
 
   Checkpoints.Trace224 internal canonical;
-  mapping(address instance => InstanceStaking) internal instances;
+  mapping(address instanceAddress => InstanceStaking instance) internal instances;
   DelegationData internal delegation;
   Governance internal governance;
 
@@ -195,13 +194,13 @@ contract GSECore is IGSECore, Ownable {
       delegation.delegate(instanceAddress, _attester, instanceAddress);
     }
 
-    delegation.increaseBalance(instanceAddress, _attester, MINIMUM_DEPOSIT);
+    delegation.increaseBalance(instanceAddress, _attester, DEPOSIT_AMOUNT);
 
-    STAKING_ASSET.transferFrom(msg.sender, address(this), MINIMUM_DEPOSIT);
+    STAKING_ASSET.transferFrom(msg.sender, address(this), DEPOSIT_AMOUNT);
 
     Governance gov = getGovernance();
-    STAKING_ASSET.approve(address(gov), MINIMUM_DEPOSIT);
-    gov.deposit(address(this), MINIMUM_DEPOSIT);
+    STAKING_ASSET.approve(address(gov), DEPOSIT_AMOUNT);
+    gov.deposit(address(this), DEPOSIT_AMOUNT);
 
     emit Deposit(instanceAddress, _attester, _withdrawer);
   }
@@ -253,7 +252,7 @@ contract GSECore is IGSECore, Ownable {
     require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
-    bool isRemoved = balance - _amount < MINIMUM_BALANCE;
+    bool isRemoved = balance - _amount < MINIMUM_STAKE;
 
     // By default, we will be removing, but in the case of slash, we might just reduce.
     if (isRemoved) {

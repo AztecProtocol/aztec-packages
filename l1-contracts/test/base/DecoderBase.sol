@@ -46,7 +46,6 @@ contract DecoderBase is TestBase {
   struct AlphabeticalContentCommitment {
     bytes32 blobsHash;
     bytes32 inHash;
-    uint256 numTxs;
     bytes32 outHash;
   }
 
@@ -63,7 +62,12 @@ contract DecoderBase is TestBase {
 
   struct Data {
     bytes32 archive;
-    bytes blobInputs;
+    // Note: batchedBlobInputs is usually per epoch, rather than per block. For testing, these batchedBlobInputs assume that
+    // an epoch contains blobs including and up to the 'current' block.
+    // e.g. mixed_block_2's batchedBlobInputs assumes that the epoch consists of 2 blocks, mixed_block_1 and mixed_block_2, and their blobs.
+    // e.g. mixed_block_1's batchedBlobInputs assumes the epoch contains only mixed_block_1 and its blob(s).
+    bytes batchedBlobInputs; // EVM point evaluation precompile inputs for verifying an epoch's batch of blobs
+    bytes blobCommitments; // [numBlobs, ...blobCommitments], used in proposing blocks
     uint256 blockNumber;
     bytes body;
     ProposedHeader header;
@@ -73,7 +77,8 @@ contract DecoderBase is TestBase {
 
   struct AlphabeticalData {
     bytes32 archive;
-    bytes blobInputs;
+    bytes batchedBlobInputs;
+    bytes blobCommitments;
     uint256 blockNumber;
     bytes body;
     AlphabeticalHeader header;
@@ -99,7 +104,8 @@ contract DecoderBase is TestBase {
     Full memory result = Full({
       block: Data({
         archive: full.block.archive,
-        blobInputs: full.block.blobInputs,
+        blobCommitments: full.block.blobCommitments,
+        batchedBlobInputs: full.block.batchedBlobInputs,
         blockNumber: full.block.blockNumber,
         body: full.block.body,
         header: ProposedHeader({
@@ -107,8 +113,7 @@ contract DecoderBase is TestBase {
           contentCommitment: ContentCommitment({
             blobsHash: full.block.header.contentCommitment.blobsHash,
             inHash: full.block.header.contentCommitment.inHash,
-            outHash: full.block.header.contentCommitment.outHash,
-            numTxs: full.block.header.contentCommitment.numTxs
+            outHash: full.block.header.contentCommitment.outHash
           }),
           slotNumber: Slot.wrap(full.block.header.slotNumber),
           timestamp: Timestamp.wrap(full.block.header.timestamp),

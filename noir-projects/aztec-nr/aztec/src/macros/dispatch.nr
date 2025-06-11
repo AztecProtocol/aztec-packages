@@ -1,5 +1,6 @@
 use super::utils::compute_fn_selector;
-use std::panic;
+use poseidon::poseidon2::Poseidon2Hasher;
+use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
@@ -9,11 +10,26 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let unit = get_type::<()>();
 
+    let seen_selectors =
+        &mut UHashMap::<Field, Quoted, BuildHasherDefault<Poseidon2Hasher>>::default();
+
     let ifs = functions.map(|function: FunctionDefinition| {
         let parameters = function.parameters();
         let return_type = function.return_type();
 
         let selector: Field = compute_fn_selector(function);
+        let fn_name = function.name();
+
+        // Since function selectors are computed as the first 4 bytes of the hash of the function signature,
+        // it's possible to have collisions. With the following check, we ensure it doesn't happen within
+        // the same contract.
+        if seen_selectors.contains_key(selector) {
+            let existing_fn = seen_selectors.get(selector).unwrap();
+            panic(
+                f"Public function selector collision detected between functions '{fn_name}' and '{existing_fn}'",
+            );
+        }
+        seen_selectors.insert(selector, fn_name);
 
         let mut parameters_size = 0;
         for param in parameters {

@@ -20,7 +20,10 @@ if [[ "${1:-}" == "--update-inputs" ]]; then
 
     # 1) Generate new inputs
     echo "Running bootstrap to generate new IVC inputs..."
-    # Adjust the path if needed
+
+    ../bootstrap.sh # bootstrap bb
+    ../../noir-projects/noir-protocol-circuits/bootstrap.sh # bootstrap noir-protocol-circuits
+    ../../yarn-project/bootstrap.sh # bootstrap yarn-project
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
 
     # 2) Compress the results
