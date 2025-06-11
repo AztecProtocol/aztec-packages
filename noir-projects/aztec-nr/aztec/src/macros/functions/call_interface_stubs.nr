@@ -64,6 +64,9 @@ comptime fn create_stub_base(
     let fn_parameters = f.parameters();
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
+    let params_num_fields = fn_parameters
+        .map(|(_, typ)| crate::macros::dispatch::size_in_fields(typ))
+        .fold(0, |acc, size| acc + size);
 
     // Example of what the fold(...) below will generate for `target_address` and `fee_juice_limit_per_tx` function
     // parameters:
@@ -74,11 +77,17 @@ comptime fn create_stub_base(
     // ```
     let serialized_args_slice_construction = fn_parameters.fold(
         quote {
-            let mut $SERIALIZED_ARGS_SLICE_NAME = &[];
+            let mut $SERIALIZED_ARGS_SLICE_NAME = [0; $params_num_fields];
+            let mut foobar_index = 0;
         },
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
-            let arg_to_append = add_to_field_slice(SERIALIZED_ARGS_SLICE_NAME, name, typ);
+            let arg_to_append = add_to_field_slice(
+                SERIALIZED_ARGS_SLICE_NAME,
+                name,
+                typ,
+                quote { foobar_index },
+            );
             quote {
                 $args
                 $arg_to_append

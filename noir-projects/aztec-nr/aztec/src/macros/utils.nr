@@ -67,27 +67,50 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
-pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+pub(crate) comptime fn add_to_field_slice(
+    slice_name: Quoted,
+    name: Quoted,
+    typ: Type,
+    index_name: Quoted,
+) -> Quoted {
+    let serialized_name = f"{name}_serialized".quoted_contents();
+
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-        quote { $slice_name = $slice_name.push_back($name as Field); }
+        quote { 
+            $slice_name[$index_name] = $name as Field;
+            $index_name += 1;
+            }
     } else if typ.as_data_type().is_some() {
         // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
-        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
+        quote { 
+            let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name);
+            for i in 0..$serialized_name.len() {
+                $slice_name[$index_name] = $serialized_name[i];
+                $index_name += 1;
+            }
+            }
     } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
-        let serialized_name = f"{name}_serialized".quoted_contents();
+        // let (element_type, _) = typ.as_array().unwrap();
         // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
+            
             for i in 0..$name.len() {
-                $slice_name = $slice_name.append($serialized_name[i].as_slice());
+                let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name[i]);
+                for i in 0..$serialized_name.len() {
+                    $slice_name[$index_name] = $serialized_name[i];
+                    $index_name += 1;
+                  }
             }
         }
     } else if typ.as_str().is_some() {
         quote {
-            $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
+            let $serialized_name = $name.as_bytes().map(| byte: u8 | byte as Field);
+            for i in 0..$serialized_name.len() {
+                $slice_name[$index_name] = $serialized_name[i];
+                $index_name += 1;
+            }
         }
     } else {
         panic(

@@ -119,7 +119,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     }
 }
 
-comptime fn size_in_fields(typ: Type) -> u32 {
+pub(crate) comptime fn size_in_fields(typ: Type) -> u32 {
     let size = array_size_in_fields(typ);
     let size = size.or_else(|| bool_size_in_fields(typ));
     let size = size.or_else(|| constant_size_in_fields(typ));
