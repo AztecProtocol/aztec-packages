@@ -121,6 +121,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   // Serial queue to ensure that we only send one tx at a time
   private txQueue: SerialQueue = new SerialQueue();
 
+  private provenBlockNumberInterval: NodeJS.Timeout;
+
   public readonly tracer: Tracer;
 
   constructor(
@@ -149,6 +151,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+
+    this.provenBlockNumberInterval = setInterval(() => {
+      void this.getProvenBlockNumber().then(b => this.log.info(`proven block number: ${b}`));
+    }, 100);
   }
 
   public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
@@ -611,6 +617,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to stop the aztec node.
    */
   public async stop() {
+    clearInterval(this.provenBlockNumberInterval);
     this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
     await tryStop(this.validatorsSentinel);

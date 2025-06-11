@@ -36,7 +36,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   let test: EpochsTestContext;
 
-  let l1ClientForMesssages: ExtendedViemWalletClient;
+  let l1ClientForMessages: ExtendedViemWalletClient;
 
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
@@ -50,14 +50,14 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     proverNode = context.proverNode!;
 
     const account = privateKeyToAccount(generatePrivateKey());
-    l1ClientForMesssages = createExtendedL1Client(
+    l1ClientForMessages = createExtendedL1Client(
       [...test.l1Client.chain.rpcUrls.default.http],
       account,
       test.l1Client.chain,
     );
 
     const fundingTx = await test.l1Client.sendTransaction({
-      to: l1ClientForMesssages.account.address,
+      to: l1ClientForMessages.account.address,
       value: BigInt(1e16),
     });
 
@@ -255,7 +255,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       sendL1ToL2Message(
         { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
         {
-          l1Client: l1ClientForMesssages,
+          l1Client: l1ClientForMessages,
           l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses,
         },
       );
