@@ -160,7 +160,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
   public static async createAndSync(
-    config: AztecNodeConfig,
+    inputConfig: AztecNodeConfig,
     deps: {
       telemetry?: TelemetryClient;
       logger?: Logger;
@@ -172,6 +172,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       prefilledPublicData?: PublicDataTreeLeaf[];
     } = {},
   ): Promise<AztecNodeService> {
+    const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
     const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
