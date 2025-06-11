@@ -84,6 +84,7 @@ namespace bb::avm2 {
 struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2458;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
@@ -178,9 +179,25 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2024;
 >>>>>>> 58cdead42d (Add error handling for keccak gadget)
 >>>>>>> 92a719bd44 (Add error handling for keccak gadget)
+<<<<<<< HEAD
 >>>>>>> 0b09ab172c (Add error handling for keccak gadget)
+<<<<<<< HEAD
 >>>>>>> d429633777 (Add error handling for keccak gadget)
+<<<<<<< HEAD
 >>>>>>> 2ba9d9fe70 (Add error handling for keccak gadget)
+=======
+=======
+=======
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 96;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1964;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 216;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2276;
+>>>>>>> 37d9234501 (Guard most of permutation constraints by no error selector)
+>>>>>>> 9ddf90fb00 (Guard most of permutation constraints by no error selector)
+>>>>>>> de2044c985 (Guard most of permutation constraints by no error selector)
+>>>>>>> fb1c4efbc0 (Guard most of permutation constraints by no error selector)
 
     // Need to be templated for recursive verifier
     template <typename FF_>

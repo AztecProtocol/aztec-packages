@@ -7,6 +7,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 
 namespace bb::avm2::simulation {
@@ -58,6 +59,8 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
  */
 void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
+    KeccakF1600Event keccakf1600_event;
+
     // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
     // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
     constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
@@ -69,44 +72,72 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
     MemoryAddress dst_abs_diff =
         dst_out_of_range ? dst_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - dst_addr;
 
+    // We group both possible out-of-range errors in the same temporality group.
+    // Therefore, we perform both range checks no matter what.
     range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
     range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
     const bool out_of_range = src_out_of_range || dst_out_of_range;
 
+    keccakf1600_event.dst_addr = dst_addr;
+    keccakf1600_event.src_addr = src_addr;
+    keccakf1600_event.src_out_of_range = src_out_of_range;
+    keccakf1600_event.dst_out_of_range = dst_out_of_range;
+    keccakf1600_event.src_abs_diff = src_abs_diff;
+    keccakf1600_event.dst_abs_diff = dst_abs_diff;
+
+    if (out_of_range) {
+        perm_events.emit(KeccakF1600Event(keccakf1600_event));
+
+        if (src_out_of_range) {
+            vinfo("READ SLICE OUT OF RANGE: ", src_addr);
+            throw KeccakF1600EventError::READ_SLICE_OUT_OF_RANGE;
+        }
+        vinfo("WRITE SLICE OUT OF RANGE: ", dst_addr);
+        throw KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE;
+    }
+
     bool tag_error = false;
-    KeccakF1600StateMemValues state_input_values;
-    KeccakF1600StateMemValues src_mem_values;
 
     // We work with MemoryValue as this type is required for bitwise operations handled
     // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
     // them back only at the end (event emission).
+    KeccakF1600StateMemValues state_input_values;
+    KeccakF1600StateMemValues src_mem_values;
+
     auto& memory = context.get_memory();
 
-    // If out_of_range is true, we not read slice and set state_input_values = 0.
-    if (out_of_range) {
-        // We read zero values into the state and do not read from memory.
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                state_input_values[i][j] = MemoryValue::from<uint64_t>(0);
-                src_mem_values[i][j] = MemoryValue::from<uint64_t>(0);
+    // Only used for logging tag error.
+    std::optional<MemoryAddress> first_tag_error_addr;
+    MemoryTag first_error_tag = MemoryTag::U1;
+
+    // Slice read
+    for (size_t i = 0; i < 5; i++) {
+        for (size_t j = 0; j < 5; j++) {
+            src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
+            const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
+            if (!tag_valid && !first_tag_error_addr) {
+                first_tag_error_addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
+                first_error_tag = src_mem_values[i][j].get_tag();
             }
-        }
-    } else {
-        // Slice read
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
-                const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
-                // If there is a tag mismatch, we continue the whole simulation as we nevertheless
-                // build a full keccak permutation trace to satisfy constraints. We just replace
-                // the values with the wrong tag by zero.
-                state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
-                tag_error = tag_error || !tag_valid;
-            }
+            state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
+            tag_error = tag_error || !tag_valid;
         }
     }
+
+    keccakf1600_event.space_id = memory.get_space_id();
+    keccakf1600_event.tag_error = tag_error;
+    keccakf1600_event.src_mem_values = src_mem_values;
+
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
+
+    if (tag_error) {
+        keccakf1600_event.rounds[0].state = two_dim_array_to_uint64(state_input_values);
+        perm_events.emit(KeccakF1600Event(keccakf1600_event));
+        vinfo(
+            "READ SLICE TAG INVALID - addr: ", first_tag_error_addr.value(), "tag: ", std::to_string(first_error_tag));
+        throw KeccakF1600EventError::READ_SLICE_TAG_INVALID;
+    }
 
     for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
         std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
@@ -163,17 +194,12 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         }
 
         // state pi values
-        KeccakF1600StateMemValues state_pi_values;
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
-                state_pi_values[i][j] = state_rho_values[keccak_pi_rho_x_coords[i][j]][i];
-            }
-        }
-
         // state "not pi" values
+        KeccakF1600StateMemValues state_pi_values;
         KeccakF1600StateMemValues state_pi_not_values;
         for (size_t i = 0; i < 5; ++i) {
             for (size_t j = 0; j < 5; ++j) {
+                state_pi_values[i][j] = state_rho_values[keccak_pi_rho_x_coords[i][j]][i];
                 state_pi_not_values[i][j] = ~state_pi_values[i][j];
             }
         }
@@ -222,18 +248,8 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         }
     }
 
-    perm_events.emit({
-        .dst_addr = dst_addr,
-        .src_addr = src_addr,
-        .space_id = memory.get_space_id(),
-        .src_mem_values = src_mem_values,
-        .rounds = rounds_data,
-        .dst_out_of_range = dst_out_of_range,
-        .src_out_of_range = src_out_of_range,
-        .dst_abs_diff = dst_abs_diff,
-        .src_abs_diff = src_abs_diff,
-        .tag_error = tag_error,
-    });
+    keccakf1600_event.rounds = rounds_data;
+    perm_events.emit(KeccakF1600Event(keccakf1600_event));
 }
 
 } // namespace bb::avm2::simulation
