@@ -445,7 +445,7 @@ describe('e2e_synching', () => {
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
     for (const block of blocks) {
-      const targetTime = block.header.globalVariables.timestamp.toNumber() - ETHEREUM_SLOT_DURATION;
+      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }

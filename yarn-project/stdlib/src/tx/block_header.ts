@@ -166,7 +166,7 @@ export class BlockHeader {
       this.lastArchive.root,
       this.contentCommitment,
       this.globalVariables.slotNumber,
-      this.globalVariables.timestamp.toBigInt(),
+      this.globalVariables.timestamp,
       this.globalVariables.coinbase,
       this.globalVariables.feeRecipient,
       this.globalVariables.gasFees,
