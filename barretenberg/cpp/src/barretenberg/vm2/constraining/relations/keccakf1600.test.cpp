@@ -189,6 +189,9 @@ using lookup_round_constants = lookup_keccakf1600_round_cst_relation<FF>;
 // Memory slices permutations
 using perm_read_to_slice = perm_keccakf1600_read_to_slice_relation<FF>;
 using perm_write_to_slice = perm_keccakf1600_write_to_slice_relation<FF>;
+// Range check for slice memory ranges.
+using lookup_keccakf1600_src_abs_diff_positive = lookup_keccakf1600_src_abs_diff_positive_relation<FF>;
+using lookup_keccakf1600_dst_abs_diff_positive = lookup_keccakf1600_dst_abs_diff_positive_relation<FF>;
 // Keccak slice memory to memory sub-trace
 using lookup_slice_to_mem = lookup_keccak_memory_slice_to_mem_relation<FF>;
 // Helper function to simulate and generate a trace of a list of Keccakf1600 permutations.
@@ -379,6 +382,9 @@ void check_all_interactions(TestTraceContainer& trace)
     // Memory slices permutations
     PermutationBuilder<perm_read_to_slice::Settings>().process(trace);
     PermutationBuilder<perm_write_to_slice::Settings>().process(trace);
+    // Range check for slice memory ranges.
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_src_abs_diff_positive::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_dst_abs_diff_positive::Settings>().process(trace);
     // Keccak slice memory to memory sub-trace
     LookupIntoDynamicTableSequential<lookup_slice_to_mem::Settings>().process(trace);
 }
