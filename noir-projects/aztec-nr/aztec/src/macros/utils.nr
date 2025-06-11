@@ -113,7 +113,7 @@ pub(crate) comptime fn add_to_field_array(
         quote {
             let $serialized_name = $name.as_bytes();
             for i in 0..$serialized_name.len() {
-                $array_name[$index_name] = $serialized_name[i]  as Field;
+                $array_name[$index_name] = $serialized_name[i] as Field;
                 $index_name += 1;
             }
         }
