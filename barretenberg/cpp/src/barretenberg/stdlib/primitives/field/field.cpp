@@ -448,8 +448,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 {
     uint256_t exponent_value = exponent.get_value();
 
-    ASSERT(exponent_value.get_msb() < 32);
-
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
     }
@@ -467,11 +465,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
         bool_t<Builder> bit;
         bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
         bit.set_origin_tag(exponent.tag);
-        exponent_bits[31 - i] = (bit);
+        exponent_bits[31 - i] = bit;
         exponent_value >>= 1;
     }
 
-    field_t<Builder> exponent_accumulator(ctx, bb::fr::zero());
+    field_t<Builder> exponent_accumulator(bb::fr::zero());
     for (const auto& bit : exponent_bits) {
         exponent_accumulator += exponent_accumulator;
         exponent_accumulator += bit;
@@ -865,7 +863,6 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
 {
     // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
-        info("pred constant");
         auto result = field_t(predicate.get_value() ? lhs : rhs);
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;

@@ -923,8 +923,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
                 // Test constant base && witness exponent cases
                 field_ct result = field_ct(base).pow(exponent);
-                EXPECT_EQ(result.is_constant(), false);
-                // EXPECT_EQ(result.is_constant(), false);
+                // Normalized witness == 1 leads to constant results in `conditional_assign(predicate, 1, 1)`
+                EXPECT_EQ(result.is_constant(), base == 1);
 
                 EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
                 // Test witness base && witness exponent cases
