@@ -177,6 +177,7 @@ library ProposeLib {
 
   // @note: not view as sampling validators uses tstore
   function validateHeader(ValidateHeaderArgs memory _args) internal {
+    require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     RollupStore storage rollupStore = STFLib.getStorage();
