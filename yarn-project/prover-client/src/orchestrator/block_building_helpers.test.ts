@@ -18,7 +18,7 @@ describe('buildBlobHints', () => {
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toEqual(BLS12Point.COMPRESSED_ZERO.toString('hex'));
 
-    expect(await getEmptyBlockBlobsHash()).toEqual(blobsHash.toBuffer());
+    expect(await getEmptyBlockBlobsHash()).toEqual(blobsHash);
     const blobsHashStr = blobsHash.toString();
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9"`);
 
