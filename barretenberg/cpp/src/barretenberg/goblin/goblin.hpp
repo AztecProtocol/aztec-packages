@@ -46,7 +46,7 @@ class Goblin {
     fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-    std::vector<MergeProof> merge_verification_queue; // set of merge proofs to be verified
+    std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -84,12 +84,13 @@ class Goblin {
     GoblinProof prove();
 
     /**
-     * @brief Recursively verify each merge proof in the verification queue.
+     * @brief Recursively verify the next merge proof in the merge verification queue.
+     * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
      * @return PairingPoints
      */
-    PairingPoints perform_merge_recursive_verification(MegaBuilder& builder);
+    PairingPoints recursively_verify_merge(MegaBuilder& builder);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)

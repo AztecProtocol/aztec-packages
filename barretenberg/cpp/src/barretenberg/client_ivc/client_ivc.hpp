@@ -131,7 +131,7 @@ class ClientIVC {
         std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
-    using VerificationQueue = std::vector<VerifierInputs>;
+    using VerificationQueue = std::deque<VerifierInputs>;
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
@@ -139,8 +139,7 @@ class ClientIVC {
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
-
-    using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
+    using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
     ExecutionTraceUsageTracker trace_usage_tracker;
@@ -159,9 +158,9 @@ class ClientIVC {
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type} to be recursively verified
-    VerificationQueue verification_queue;
+    std::deque<VerifierInputs> verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
-    StdlibVerificationQueue stdlib_verification_queue;
+    std::deque<StdlibVerifierInputs> stdlib_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
