@@ -252,8 +252,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
             // In case closeAbove is reached, the server stops listening altogether
             // It's important that there is enough difference between closeAbove and listenAbove,
             // otherwise the server.listener will flap between being closed and open potentially degrading perf even more
-            closeAbove: maxPeerCount * 2 ?? Infinity,
-            listenBelow: maxPeerCount * 0.9 ?? Infinity,
+            closeAbove: maxPeerCount * 2,
+            listenBelow: maxPeerCount * 0.9,
           },
         }),
       ],
