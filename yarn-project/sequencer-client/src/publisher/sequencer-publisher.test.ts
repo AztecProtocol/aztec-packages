@@ -195,7 +195,7 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);

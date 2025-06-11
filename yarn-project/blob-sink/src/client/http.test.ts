@@ -83,8 +83,6 @@ describe('HttpBlobSinkClient', () => {
           blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
         },
         // Correctly encoded blob, but we do not ask for it in the client
         {
@@ -92,8 +90,6 @@ describe('HttpBlobSinkClient', () => {
           blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
         },
         // Incorrectly encoded blob
         {
@@ -101,8 +97,6 @@ describe('HttpBlobSinkClient', () => {
           blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
           kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
         },
       ];
     });

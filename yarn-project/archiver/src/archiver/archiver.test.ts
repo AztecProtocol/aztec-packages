@@ -807,7 +807,7 @@ describe('Archiver', () => {
  */
 async function makeRollupTx(l2Block: L2Block) {
   const header = l2Block.header.toPropose().toViem();
-  const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
+  const blobInput = Blob.getPrefixedEthBlobCommitments(await Blob.getBlobsPerBlock(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const stateReference = l2Block.header.state.toViem();
   const rollupInput = encodeFunctionData({
@@ -841,7 +841,7 @@ async function makeRollupTx(l2Block: L2Block) {
  * @returns Versioned blob hashes.
  */
 async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[]> {
-  const blobHashes = (await Blob.getBlobs(l2Block.body.toBlobFields())).map(b => b.getEthVersionedBlobHash());
+  const blobHashes = (await Blob.getBlobsPerBlock(l2Block.body.toBlobFields())).map(b => b.getEthVersionedBlobHash());
   return blobHashes.map(h => `0x${h.toString('hex')}` as `0x${string})`);
 }
 
@@ -851,6 +851,6 @@ async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[
  * @returns The blobs.
  */
 async function makeBlobsFromBlock(block: L2Block) {
-  const blobs = await Blob.getBlobs(block.body.toBlobFields());
+  const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
   return blobs.map((blob, index) => new BlobWithIndex(blob, index));
 }

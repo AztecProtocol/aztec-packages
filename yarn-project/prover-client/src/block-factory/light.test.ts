@@ -1,5 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import { BatchedBlob, BatchedBlobAccumulator, Blob, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, BatchedBlobAccumulator, Blob, BlobAccumulatorPublicInputs, SpongeBlob } from '@aztec/blob-lib';
 import {
   BLOBS_PER_BLOCK,
   FIELDS_PER_BLOB,
@@ -347,7 +347,7 @@ describe('LightBlockBuilder', () => {
 
   const getBlobData = async (txs: ProcessedTx[]) => {
     const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     const startBlobAccumulator = await BatchedBlob.newAccumulator(blobs);
     const blobsHash = getBlobsHashFromBlobs(blobs);
     return {
@@ -398,7 +398,7 @@ describe('LightBlockBuilder', () => {
       previousArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
-      startBlobAccumulator: startBlobAccumulator.toBlobAccumulatorPublicInputs(),
+      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
       finalBlobChallenges: startBlobAccumulator.finalBlobChallenges,
       proverId: Fr.ZERO,
     });

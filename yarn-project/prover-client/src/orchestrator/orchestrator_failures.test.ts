@@ -34,7 +34,9 @@ describe('prover/orchestrator/failures', () => {
       // We generate them and add them as part of the pending chain
       const blocks = await timesAsync(3, i => context.makePendingBlock(3, 1, i + 1, j => ({ privateOnly: j === 1 })));
 
-      const blobs = (await Promise.all(blocks.map(block => Blob.getBlobs(block.block.body.toBlobFields())))).flat();
+      const blobs = (
+        await Promise.all(blocks.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
+      ).flat();
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       orchestrator.startNewEpoch(1, 1, 3, finalBlobChallenges);
