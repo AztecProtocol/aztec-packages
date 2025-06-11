@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -13,6 +15,10 @@ namespace bb::avm2::testing {
 
 class PublicInputsBuilder {
   public:
+    PublicInputsBuilder()
+        : engine(numeric::get_debug_randomness())
+    {}
+
     PublicInputsBuilder& with_global_variables(const GlobalVariables& globals);
     PublicInputsBuilder& with_start_tree_snapshots(const TreeSnapshots& start_tree_snapshots);
     PublicInputsBuilder& with_start_gas_used(const Gas& gas);
@@ -57,6 +63,7 @@ class PublicInputsBuilder {
 
   private:
     PublicInputs public_inputs;
+    numeric::RNG& engine;
 };
 
 } // namespace bb::avm2::testing
