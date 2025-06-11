@@ -3023,7 +3023,7 @@ contract_class_log_fields = [
 ]
 ]
 
-[inputs.tube_data.public_inputs.rollup_validation_requests.max_block_number._opt]
+[inputs.tube_data.public_inputs.rollup_validation_requests.include_by_timestamp._opt]
 _is_some = true
 _value = "0x0000000000000000000000000000000000000000000000000000000000000e16"
 

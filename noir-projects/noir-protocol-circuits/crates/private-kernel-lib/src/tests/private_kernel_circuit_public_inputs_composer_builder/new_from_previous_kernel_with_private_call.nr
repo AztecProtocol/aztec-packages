@@ -15,7 +15,7 @@ fn new_from_previous_kernel_with_private_call_empty_data_succeeds() {
     assert_eq(array_lengths, expected_array_lengths);
 
     assert_eq(
-        output.validation_requests.for_rollup.max_block_number.unwrap_unchecked(),
+        output.validation_requests.for_rollup.include_by_timestamp.unwrap_unchecked(),
         DEFAULT_UPDATE_DELAY,
     );
     assert(is_empty(output.public_teardown_call_request));
@@ -62,7 +62,7 @@ fn new_from_previous_kernel_with_private_call_max_block_number_prev_empty_succee
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn new_from_previous_kernel_with_private_call_max_block_number_curr_empty_succee
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn new_from_previous_kernel_with_private_call_max_block_number_pick_prev_succeed
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn new_from_previous_kernel_with_private_call_max_block_number_pick_curr_succeed
 
     let output = builder.compose_from_previous_kernel();
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 3);
+    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 3);
 }
 
 #[test]

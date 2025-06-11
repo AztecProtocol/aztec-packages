@@ -12,15 +12,15 @@ pub contract Auth {
         state_vars::{PublicImmutable, SharedMutable},
     };
 
-    // Authorizing a new address has a certain block delay before it goes into effect.
-    global CHANGE_AUTHORIZED_DELAY_BLOCKS: u32 = 5;
+    // Authorizing a new address has a certain delay before it goes into effect.
+    global CHANGE_AUTHORIZED_DELAY: u32 = 5;
 
     #[storage]
     struct Storage<Context> {
         // Admin can change the value of the authorized address via set_authorized()
         admin: PublicImmutable<AztecAddress, Context>,
         // docs:start:shared_mutable_storage
-        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS, Context>,
+        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
         // docs:end:shared_mutable_storage
     }
 
@@ -73,8 +73,9 @@ pub contract Auth {
     #[private]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
-        // circuit will reject this tx if included in a block past the block horizon, which is as far as the circuit can
-        // guarantee the value will not change from some historical value (due to CHANGE_AUTHORIZED_DELAY_BLOCKS).
+        // circuit will reject this tx if timestamp of the block being built is past the timestamp horizon of
+        // the SharedMutable, which is as far as the circuit can guarantee the value will not change from some
+        // historical value (due to CHANGE_AUTHORIZED_DELAY).
         // docs:start:shared_mutable_get_current_private
         let authorized = storage.authorized.get_current_value();
         // docs:end:shared_mutable_get_current_private

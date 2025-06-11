@@ -70,7 +70,7 @@ fn validate_aggregated_values_min_revertible_side_effect_counter_random_output_f
 }
 
 /**
- * max_block_number
+ * include_by_timestamp
  */
 #[test]
 fn validate_aggregated_values_max_block_number_from_previous_succeeds() {
@@ -125,7 +125,7 @@ fn validate_aggregated_values_max_block_number_from_both_pick_private_call_succe
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "incorrect output max_block_number")]
+#[test(should_fail_with = "incorrect output include_by_timestamp")]
 fn validate_aggregated_values_max_block_number_from_both_pick_larger_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
@@ -136,7 +136,7 @@ fn validate_aggregated_values_max_block_number_from_both_pick_larger_fails() {
     builder.validate_as_inner_call();
 }
 
-#[test(should_fail_with = "incorrect output max_block_number")]
+#[test(should_fail_with = "incorrect output include_by_timestamp")]
 fn validate_aggregated_values_max_block_number_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

@@ -113,8 +113,8 @@ pub contract Test {
     }
 
     #[private]
-    fn set_tx_max_block_number(max_block_number: u32, enqueue_public_call: bool) {
-        context.set_tx_max_block_number(max_block_number);
+    fn set_include_by_timestamp(include_by_timestamp: u32, enqueue_public_call: bool) {
+        context.set_include_by_timestamp(include_by_timestamp);
 
         if enqueue_public_call {
             Test::at(context.this_address()).dummy_public_call().enqueue(&mut context)

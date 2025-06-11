@@ -45,7 +45,7 @@ fn new_from_tx_request_succeeds() {
     // Check values default to empty.
     assert_eq(output.min_revertible_side_effect_counter, 0);
     assert(is_empty(output.validation_requests));
-    assert(output.validation_requests.for_rollup.max_block_number.is_none());
+    assert(output.validation_requests.for_rollup.include_by_timestamp.is_none());
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));
 }
@@ -81,7 +81,7 @@ fn new_from_tx_request_without_protocol_nullifier_succeeds() {
     // Check values default to empty.
     assert_eq(output.min_revertible_side_effect_counter, 0);
     assert(is_empty(output.validation_requests));
-    assert(output.validation_requests.for_rollup.max_block_number.is_none());
+    assert(output.validation_requests.for_rollup.include_by_timestamp.is_none());
     assert(is_empty(output.public_teardown_call_request));
     assert(is_empty(output.fee_payer));
 }

@@ -2,12 +2,12 @@ import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
-  MaxBlockNumber,
+  IncludeByTimestamp,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
-  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
+  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
 } from '@aztec/stdlib/tx';
 
 import { MetadataTxValidator } from './metadata_validator.js';
@@ -94,24 +94,24 @@ describe('MetadataTxValidator', () => {
     await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT);
   });
 
-  it.each([42, 43])('allows txs with valid max block number', async maxBlockNumber => {
+  it.each([42, 43])('allows txs with valid max block number', async includeByTimestamp => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, maxBlockNumber);
+    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, includeByTimestamp);
 
     await expectValid(goodTx);
   });
 
   it('allows txs with unset max block number', async () => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, 0);
+    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(false, 0);
 
     await expectValid(goodTx);
   });
 
   it('rejects txs with lower max block number', async () => {
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber - 1);
+    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, blockNumber - 1);
 
-    await expectInvalid(badTx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
+    await expectInvalid(badTx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
   });
 });
