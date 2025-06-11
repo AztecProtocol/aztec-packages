@@ -51,7 +51,7 @@ import {
 import { ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
-import { MAX_RPC_LEN } from './api_limit.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -481,12 +481,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlocks: z
     .function()
-    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_LEN))
+    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(L2Block.schema)),
 
   getPublishedBlocks: z
     .function()
-    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_LEN))
+    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(PublishedL2Block.schema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
@@ -528,14 +528,14 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getPendingTxs: z
     .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_LEN).default(MAX_RPC_LEN)), optional(TxHash.schema))
+    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
     .returns(z.array(Tx.schema)),
 
   getPendingTxCount: z.function().returns(z.number()),
 
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
 
-  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_LEN)).returns(z.array(Tx.schema)),
+  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
 
   getPublicStorageAt: z.function().args(L2BlockNumberSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 

@@ -5,7 +5,7 @@ import type { P2PClientType } from '../p2p/client_type.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { MAX_RPC_LEN } from './api_limit.js';
+import { MAX_RPC_TXS_LEN } from './api_limit.js';
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }
@@ -79,7 +79,7 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     .returns(z.array(BlockAttestation.schema)),
   getPendingTxs: z
     .function()
-    .args(optional(z.number().gte(1).lte(MAX_RPC_LEN).default(MAX_RPC_LEN)), optional(TxHash.schema))
+    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
     .returns(z.array(Tx.schema)),
 
   getPendingTxCount: z.function().returns(schemas.Integer),
