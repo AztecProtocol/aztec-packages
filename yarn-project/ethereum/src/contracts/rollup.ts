@@ -410,11 +410,12 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-  ): Promise<[bigint, bigint]> {
+  ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
-    const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+    const latestBlock = await this.client.getBlock();
+    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
 
     try {
       const {
@@ -427,7 +428,7 @@ export class RollupContract {
         account,
       });
 
-      return [slot, blockNumber];
+      return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }

@@ -185,6 +185,10 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
+  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+    error_regex: "Failed events from sequencers"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

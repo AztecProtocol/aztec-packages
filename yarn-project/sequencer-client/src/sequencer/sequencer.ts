@@ -88,11 +88,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
   private l1Metrics: L1Metrics;
+  private lastBlockPublished: L2Block | undefined;
   private isFlushing: boolean = false;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
-
   protected enforceTimeTable: boolean = false;
 
   constructor(
@@ -276,27 +276,45 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const chainTipArchive = syncedTo.archive;
     const newBlockNumber = syncedTo.blockNumber + 1;
 
-    const { slot, ts } = this.publisher.epochCache.getEpochAndSlotInNextL1Slot();
+    const { slot, ts, now } = this.publisher.epochCache.getEpochAndSlotInNextL1Slot();
     this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
 
     // Check that the archiver and dependencies have synced to the previous L1 slot at least
     // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
     // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
     const syncLogData = {
+      now,
       syncedToL1Ts: syncedTo.l1Timestamp,
       syncedToL2Slot: getSlotAtTimestamp(syncedTo.l1Timestamp, this.l1Constants),
-      nextSlot: slot,
-      nextSlotTs: ts,
+      nextL2Slot: slot,
+      nextL2SlotTs: ts,
       l1SlotDuration: this.l1Constants.ethereumSlotDuration,
     };
+
     if (syncedTo.l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
-      this.log.verbose(
+      this.log.debug(
         `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} due to pending sync from L1`,
         syncLogData,
       );
       return;
-    } else {
-      this.log.debug(`Successfully synced to previous L1 block`, syncLogData);
+    }
+
+    // Check that the slot is not taken by a block already
+    if (syncedTo.block && syncedTo.block.header.getSlot() >= slot) {
+      this.log.debug(
+        `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
+        { ...syncLogData, block: syncedTo.block.header.toInspect() },
+      );
+      return;
+    }
+
+    // Or that we haven't published it ourselves
+    if (this.lastBlockPublished && this.lastBlockPublished.header.getSlot() >= slot) {
+      this.log.debug(
+        `Cannot propose block at next L2 slot ${slot} since that slot was taken by our own block ${this.lastBlockPublished.number}`,
+        { ...syncLogData, block: this.lastBlockPublished.header.toInspect() },
+      );
+      return;
     }
 
     // Check that we are a proposer for the next slot
@@ -309,6 +327,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
         proposer: proposerInNextSlot,
+        ...syncLogData,
       });
       return;
     }
@@ -316,29 +335,33 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Double check we are good for proposing at the next block before we start operations.
     // We should never fail this check assuming the logic above is good.
     const proposerAddress = proposerInNextSlot ?? EthAddress.ZERO;
-    const slotAndBlock = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
-    if (slotAndBlock === undefined) {
-      this.log.warn(`Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`);
+    const canProposeCheck = await this.publisher.canProposeAtNextEthBlock(chainTipArchive.toBuffer(), proposerAddress);
+    if (canProposeCheck === undefined) {
+      this.log.warn(
+        `Cannot propose block ${newBlockNumber} at slot ${slot} due to failed rollup contract check`,
+        syncLogData,
+      );
       this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed' });
       return;
-    } else if (slotAndBlock[0] !== slot) {
+    } else if (canProposeCheck.slot !== slot) {
       this.log.warn(
-        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${slotAndBlock[0]}.`,
-        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
+        `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${slot} but got ${canProposeCheck.slot}.`,
+        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch' });
       return;
-    } else if (slotAndBlock[1] !== BigInt(newBlockNumber)) {
+    } else if (canProposeCheck.blockNumber !== BigInt(newBlockNumber)) {
       this.log.warn(
-        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${slotAndBlock[1]}.`,
-        { rollup: slotAndBlock, newBlockNumber, expectedSlot: slot },
+        `Cannot propose block due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected block ${newBlockNumber} but got ${canProposeCheck.blockNumber}.`,
+        { ...syncLogData, rollup: canProposeCheck, newBlockNumber, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch' });
       return;
     }
 
     this.log.debug(
-      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} ` : ''}Can propose block ${newBlockNumber} at slot ${slot}`,
+      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} can` : 'Can'} propose block ${newBlockNumber} at slot ${slot}`,
+      { ...syncLogData, validatorAddresses },
     );
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
@@ -362,6 +385,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
     this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+      proposer: proposerInNextSlot?.toString(),
       globalVariables: newGlobalVariables.toInspect(),
       chainTipArchive,
       blockNumber: newBlockNumber,
@@ -420,6 +444,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const l1Response = await this.publisher.sendRequests();
     const proposedBlock = l1Response?.validActions.find(a => a === 'propose');
     if (proposedBlock) {
+      this.lastBlockPublished = block;
       this.emit('block-published', { blockNumber: newBlockNumber, slot: Number(slot) });
       this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
       if (finishedFlushing) {
@@ -689,7 +714,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * We don't check against the previous block submitted since it may have been reorg'd out.
    * @returns Boolean indicating if our dependencies are synced to the latest block.
    */
-  protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr; l1Timestamp: bigint } | undefined> {
+  protected async getChainTip(): Promise<
+    { block?: L2Block; blockNumber: number; archive: Fr; l1Timestamp: bigint } | undefined
+  > {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then(({ syncSummary }) => ({
         number: syncSummary.latestBlockNumber,
@@ -712,25 +739,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
           p2p.hash === l2BlockSource.hash &&
           l1ToL2MessageSource.hash === l2BlockSource.hash;
 
-    this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
-      worldState,
-      l2BlockSource,
-      p2p,
-      l1ToL2MessageSource,
-    });
+    const logData = { worldState, l2BlockSource, p2p, l1ToL2MessageSource };
+    this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, logData);
 
     if (!result) {
       return undefined;
     }
 
-    if (worldState.number >= INITIAL_L2_BLOCK_NUM) {
-      const block = await this.l2BlockSource.getBlock(worldState.number);
+    const blockNumber = worldState.number;
+    if (blockNumber >= INITIAL_L2_BLOCK_NUM) {
+      const block = await this.l2BlockSource.getBlock(blockNumber);
       if (!block) {
-        // this shouldn't really happen because a moment ago we checked that all components were in synch
+        // this shouldn't really happen because a moment ago we checked that all components were in sync
+        this.log.warn(`Failed to get L2 block ${blockNumber} from the archiver with all components in sync`, logData);
         return undefined;
       }
 
-      return { blockNumber: block.number, archive: block.archive.root, l1Timestamp };
+      return {
+        block,
+        blockNumber: block.number,
+        archive: block.archive.root,
+        l1Timestamp,
+      };
     } else {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp };

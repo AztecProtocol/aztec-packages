@@ -20,6 +20,9 @@ jest.setTimeout(1000 * 60 * 10);
 const NODE_COUNT = 3;
 const TX_COUNT = 3;
 
+// After setup, stops the initial sequencer and spawns NODE_COUNT validator nodes,
+// connected via a mocked gossip sub network. Then mines N txs across N blocks,
+// checking that no sequencer errors occur during block building and publishing.
 describe('e2e_epochs/epochs_monitor_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -71,7 +74,7 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     await test.teardown();
   });
 
-  it('builds blocks without errors', async () => {
+  it('builds blocks without any errors', async () => {
     // Create and submit a bunch of txs
     const txs = await timesAsync(TX_COUNT, i => contract.methods.spam(i, 1n, false).prove());
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
@@ -80,8 +83,15 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     });
 
     // Warp forward to epoch 2
-    const ts = await cheatCodes.rollup.advanceToEpoch(2n);
-    context.dateProvider?.setTime(Number(ts) * 1000);
+    const ts = await cheatCodes.rollup.advanceToEpoch(2n, {
+      updateDateProvider: context.dateProvider,
+      resetBlockInterval: true,
+    });
+    logger.warn(`Warped to epoch 2`, {
+      epochTs: ts,
+      dateProvider: context.dateProvider!.nowInSeconds(),
+      chainTs: await cheatCodes.eth.timestamp(),
+    });
 
     // Listen to all failure related events of the sequencers.
     const failEvents: (keyof SequencerEvents)[] = [
@@ -119,11 +129,13 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     await executeTimeout(() => Promise.all(sentTxs.map(tx => tx.wait())), timeout);
     logger.warn(`All txs have been mined`);
 
-    // And expect no failures from sequencers
-    // expect(events).toEqual([]);
+    // Expect no failures from sequencers during block building.
+    // The following error is marked as a flake on the test ignore patterns,
+    // so we can have this test run for a while before it breaks CI on a recoverable error.
     if (events.length > 0) {
       logger.error(`Failed events from sequencers`, events);
     }
+    expect(events).toEqual([]);
   });
 });
 
