@@ -8,7 +8,6 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
@@ -45,7 +44,6 @@ struct InterimProposeValues {
   bytes32 blobsHashesCommitment;
   bytes[] blobCommitments;
   bytes32 inHash;
-  uint256 outboxMinsize;
   bytes32 headerHash;
 }
 
@@ -165,12 +163,7 @@ library ProposeLib {
       Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
     );
 
-    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-    // Min size = smallest path of the rollup tree + 1
-    (v.outboxMinsize,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    rollupStore.config.outbox.insert(
-      blockNumber, header.contentCommitment.outHash, v.outboxMinsize + 1
-    );
+    rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
 
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }

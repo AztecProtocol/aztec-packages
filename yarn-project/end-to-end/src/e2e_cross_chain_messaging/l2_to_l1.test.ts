@@ -222,9 +222,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // to make a full tree of L2 -> L1 messages as we are only able to set one tx's worth of L1 -> L2 messages in a block (2 messages out of 4)
     const txReceipt = await call.send().wait();
 
-    const block = await aztecNode.getBlock(txReceipt.blockNumber!);
+    const block = (await aztecNode.getBlock(txReceipt.blockNumber!))!;
 
-    const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
     expect(l2ToL1Messages).toStrictEqual([
       computeMessageLeaf(makeL2ToL1Message(recipient1, content1)),
@@ -244,7 +244,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(siblingPath.pathSize).toBe(1);
     expect(l2MessageIndex).toBe(0n);
     const expectedRoot = calculateExpectedRoot(l2ToL1Messages![0], siblingPath, l2MessageIndex);
-    expect(expectedRoot.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
+    expect(expectedRoot).toEqual(block.header.contentCommitment.outHash.toBuffer());
 
     const l2ToL1Witness2 = await computeL2ToL1MembershipWitness(aztecNode, txReceipt.blockNumber!, l2ToL1Messages![1]);
 
@@ -255,7 +255,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     expect(siblingPath2.pathSize).toBe(1);
     expect(l2MessageIndex2).toBe(1n);
     const expectedRoot2 = calculateExpectedRoot(l2ToL1Messages![1], siblingPath2, l2MessageIndex2);
-    expect(expectedRoot2.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
+    expect(expectedRoot2).toEqual(block.header.contentCommitment.outHash.toBuffer());
 
     // Outbox L1 tests
 
@@ -263,10 +263,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await t.cheatCodes.rollup.markAsProven(txReceipt.blockNumber ?? 0);
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.getRootData([txReceipt.blockNumber]);
-    expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
-    // The path for the message should have the shortest possible height, since we only have 2 msgs
-    expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
+    const l1Root = await outbox.read.getRootData([txReceipt.blockNumber]);
+    expect(l1Root).toEqual(block.header.contentCommitment.outHash.toString());
 
     // Consume msg 2
     const msg2 = makeL2ToL1Message(recipient2, content2);
@@ -339,11 +337,11 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([call0.send().wait(), call1.send().wait()]);
     expect(l2TxReceipt0.blockNumber).toEqual(l2TxReceipt1.blockNumber);
 
-    const block = await aztecNode.getBlock(l2TxReceipt0.blockNumber!);
+    const block = (await aztecNode.getBlock(l2TxReceipt0.blockNumber!))!;
 
-    const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
     // Not checking strict equality as ordering is not guaranteed - this should be covered in that we can recalculate the out hash below
-    expect(l2ToL1Messages?.length).toEqual(4);
+    expect(l2ToL1Messages.length).toEqual(4);
 
     // For each individual message, we are using our node API to grab the index and sibling path. We expect
     // the index to match the order of the block we obtained earlier. We also then use this sibling path to hash up to the root,
@@ -361,7 +359,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     // +1 for being rolled up
     expect(siblingPath.pathSize).toBe(2);
     const expectedRoot = calculateExpectedRoot(singleMessageLeaf, siblingPath as SiblingPath<2>, l2MessageIndex);
-    expect(expectedRoot.toString('hex')).toEqual(block?.header.contentCommitment.outHash.toString('hex'));
+    expect(expectedRoot).toEqual(block.header.contentCommitment.outHash.toBuffer());
 
     const leafOfMessageToConsume = computeMessageLeaf(makeL2ToL1Message(recipient2, content2));
 
@@ -384,11 +382,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await t.cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
-    expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
-
-    // The path for the single message should have the shortest possible height
-    expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
+    const l1Root = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
+    expect(l1Root).toEqual(block.header.contentCommitment.outHash.toString());
 
     // Consume msg 2
     const msg2 = makeL2ToL1Message(recipient2, content2);
@@ -455,9 +450,9 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     const [l2TxReceipt0, l2TxReceipt1] = await Promise.all([call0.send().wait(), call1.send().wait()]);
     expect(l2TxReceipt0.blockNumber).toEqual(l2TxReceipt1.blockNumber);
 
-    const block = await aztecNode.getBlock(l2TxReceipt0.blockNumber!);
+    const block = (await aztecNode.getBlock(l2TxReceipt0.blockNumber!))!;
 
-    const l2ToL1Messages = block?.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
+    const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
     const messageToConsume = makeL2ToL1Message(recipient2, content2);
     const leafOfMessageToConsume = computeMessageLeaf(messageToConsume);
 
@@ -505,10 +500,8 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await t.cheatCodes.rollup.markAsProven(l2TxReceipt0.blockNumber ?? 0);
 
     // Check L1 has expected message tree
-    const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
-    expect(l1Root).toEqual(`0x${block?.header.contentCommitment.outHash.toString('hex')}`);
-    // The path for the message should have the shortest possible height, since we only have one msg per tx
-    expect(l1MinHeight).toEqual(BigInt(siblingPath.pathSize));
+    const l1Root = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
+    expect(l1Root).toEqual(block.header.contentCommitment.outHash.toString());
 
     // Consume msg 2
     const [inputIndex, inputPath] = leafOfMessageToConsume.equals(l2ToL1Messages![0])

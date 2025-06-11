@@ -14,9 +14,9 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
+import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -284,28 +284,20 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
     rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
-    blobsHash: Buffer,
+    blobsHash: Fr,
     endState: StateReference,
   ) => {
     if (previousRollupData.length > 2) {
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
     }
 
-    const numTxs = previousRollupData.reduce((sum, d) => sum + d.numTxs, 0);
     const outHash =
       previousRollupData.length === 0
-        ? Fr.ZERO.toBuffer()
+        ? Fr.ZERO
         : previousRollupData.length === 1
-          ? previousRollupData[0].outHash.toBuffer()
-          : sha256Trunc(
-              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-            );
-    const contentCommitment = new ContentCommitment(
-      new Fr(numTxs),
-      blobsHash,
-      parityPublicInputs.shaRoot.toBuffer(),
-      outHash,
-    );
+          ? previousRollupData[0].outHash
+          : sha256ToField([previousRollupData[0].outHash, previousRollupData[1].outHash]);
+    const contentCommitment = new ContentCommitment(blobsHash, parityPublicInputs.shaRoot, outHash);
 
     const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
     const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
@@ -349,12 +341,14 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const numTxs = body.txEffects.length;
     const outHash =
       numTxs === 0
-        ? Fr.ZERO.toBuffer()
+        ? Fr.ZERO
         : numTxs === 1
-          ? body.txEffects[0].txOutHash()
-          : computeUnbalancedMerkleRoot(
-              body.txEffects.map(tx => tx.txOutHash()),
-              TxEffect.empty().txOutHash(),
+          ? new Fr(body.txEffects[0].txOutHash())
+          : new Fr(
+              computeUnbalancedMerkleRoot(
+                body.txEffects.map(tx => tx.txOutHash()),
+                TxEffect.empty().txOutHash(),
+              ),
             );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -366,10 +360,10 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
       hasher,
     );
-    const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
+    const parityShaRoot = new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
 
-    const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
+    const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
@@ -380,9 +374,8 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
   },
 );
 
-export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
-  const blobHashes = serializeToBuffer(inputs.map(b => b.getEthVersionedBlobHash()));
-  return sha256Trunc(serializeToBuffer(blobHashes));
+export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
+  return sha256ToField(inputs.map(b => b.getEthVersionedBlobHash()));
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation
