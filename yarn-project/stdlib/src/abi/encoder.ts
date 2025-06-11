@@ -114,7 +114,7 @@ class ArgumentEncoder {
           break;
         }
         if (isBoundedVecStruct(abiType)) {
-          this.#encodeBoundedVec(abiType, arg);
+          this.#encodeBoundedVec(abiType, arg, name);
           break;
         }
 
@@ -156,6 +156,7 @@ class ArgumentEncoder {
    * Therefore, the input is simplified to accept a plain array of type T.
    * @param abiType - The ABI type definition.
    * @param arg - An array of items to encode.
+   * @param name - The name of the parameter.
    *
    * The BoundedVec struct is defined in Noir as:
    *
@@ -170,12 +171,36 @@ class ArgumentEncoder {
    * 1. The storage array is encoded first
    * 2. The length field is encoded second
    */
-  #encodeBoundedVec(abiType: AbiType, arg: any) {
+  #encodeBoundedVec(abiType: AbiType, arg: any, name?: string) {
     // First we encode the storage array
     {
       // Get the storage array type from the BoundedVec struct
       const storageField = (abiType as unknown as any).fields.find((f: any) => f.name === 'storage')!;
       const maxLength = storageField.type.length;
+
+      if (arg.length > maxLength) {
+        // Create a preview of the array for the error message, limiting to first few elements
+        const preview = arg
+          .slice(0, 3)
+          .map((x: any) => {
+            if (typeof x === 'object' && x !== null) {
+              if (Array.isArray(x)) {
+                return `[${x.join(', ')}]`;
+              }
+              // Convert object to string representation of its key-value pairs
+              return `{${Object.entries(x)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(', ')}}`;
+            }
+            return `${x}`;
+          })
+          .join(', ');
+        const suffix = arg.length > 3 ? ', ...' : '';
+        throw new Error(
+          `Error encoding param '${name ?? 'unnamed'}': ` +
+            `expected an array of maximum length ${maxLength} and got ${arg.length} instead: [ ${preview}${suffix} ]`,
+        );
+      }
 
       const storageArrayItemType = storageField.type.type;
 
