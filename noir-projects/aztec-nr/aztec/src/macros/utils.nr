@@ -111,9 +111,9 @@ pub(crate) comptime fn add_to_field_array(
         }
     } else if typ.as_str().is_some() {
         quote {
-            let $serialized_name = $name.as_bytes().map(| byte: u8 | byte as Field);
+            let $serialized_name = $name.as_bytes();
             for i in 0..$serialized_name.len() {
-                $array_name[$index_name] = $serialized_name[i];
+                $array_name[$index_name] = $serialized_name[i]  as Field;
                 $index_name += 1;
             }
         }
