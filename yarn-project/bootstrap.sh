@@ -149,6 +149,10 @@ function test_cmds {
       fi
     fi
 
+    if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
+    fi
+
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
 
