@@ -45,6 +45,8 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std
     typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 
+    // WORKTODO: compute vk
+    info("WARNING: computing vk in api_ultra_honk compute_prover, but a precomputed vk should be passed in.");
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
 
     return UltraProver_<Flavor>{ proving_key, verification_key };
