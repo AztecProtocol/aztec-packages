@@ -1,5 +1,5 @@
 use crate::macros::utils::{
-    add_to_field_slice, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
+    add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
 };
 use std::meta::{type_of, unquote};
 
@@ -13,7 +13,7 @@ comptime global FROM_FIELD: TypedExpr = {
         .as_typed_expr()
 };
 
-comptime global SERIALIZED_ARGS_SLICE_NAME: Quoted = quote { serialized_args };
+comptime global SERIALIZED_ARGS_NAME: Quoted = quote { serialized_args };
 
 pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let is_static_call = is_fn_view(f);
@@ -68,6 +68,7 @@ comptime fn create_stub_base(
         .map(|(_, typ)| crate::macros::dispatch::size_in_fields(typ))
         .fold(0, |acc, size| acc + size);
 
+    let serialized_args_index_name = quote { serialized_args_index };
     // Example of what the fold(...) below will generate for `target_address` and `fee_juice_limit_per_tx` function
     // parameters:
     // ```
@@ -77,17 +78,13 @@ comptime fn create_stub_base(
     // ```
     let serialized_args_slice_construction = fn_parameters.fold(
         quote {
-            let mut $SERIALIZED_ARGS_SLICE_NAME = [0; $params_num_fields];
+            let mut $SERIALIZED_ARGS_NAME = [0; $params_num_fields];
             let mut foobar_index = 0;
         },
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
-            let arg_to_append = add_to_field_slice(
-                SERIALIZED_ARGS_SLICE_NAME,
-                name,
-                typ,
-                quote { foobar_index },
-            );
+            let arg_to_append =
+                add_to_field_array(SERIALIZED_ARGS_NAME, name, typ, serialized_args_index_name);
             quote {
                 $args
                 $arg_to_append
@@ -118,7 +115,7 @@ comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -138,7 +135,7 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -156,7 +153,7 @@ comptime fn create_private_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -194,7 +191,7 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -214,7 +211,7 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -232,7 +229,7 @@ comptime fn create_public_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -273,7 +270,7 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -294,7 +291,7 @@ comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }

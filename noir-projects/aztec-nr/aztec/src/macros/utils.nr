@@ -67,7 +67,7 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
-pub(crate) comptime fn add_to_field_slice(
+pub(crate) comptime fn add_to_field_array(
     slice_name: Quoted,
     name: Quoted,
     typ: Type,
