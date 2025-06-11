@@ -290,19 +290,15 @@ pub(crate) comptime fn get_trait_impl_method(
 }
 
 pub comptime fn size_in_fields(typ: Type) -> u32 {
-    let size = array_size_in_fields(typ);
-    let size = size.or_else(|| bool_size_in_fields(typ));
-    let size = size.or_else(|| constant_size_in_fields(typ));
-    let size = size.or_else(|| field_size_in_fields(typ));
-    let size = size.or_else(|| int_size_in_fields(typ));
-    let size = size.or_else(|| str_size_in_fields(typ));
-    let size = size.or_else(|| struct_size_in_fields(typ));
-    let size = size.or_else(|| tuple_size_in_fields(typ));
-    if size.is_some() {
-        size.unwrap()
-    } else {
-        panic(f"Can't determine size in fields of {typ}")
-    }
+    array_size_in_fields(typ)
+        .or_else(|| bool_size_in_fields(typ))
+        .or_else(|| constant_size_in_fields(typ))
+        .or_else(|| field_size_in_fields(typ))
+        .or_else(|| int_size_in_fields(typ))
+        .or_else(|| str_size_in_fields(typ))
+        .or_else(|| struct_size_in_fields(typ))
+        .or_else(|| tuple_size_in_fields(typ))
+        .expect(f"Can't determine size in fields of {typ}")
 }
 
 comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
