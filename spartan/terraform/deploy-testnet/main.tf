@@ -56,6 +56,14 @@ data "google_secret_manager_secret_version" "mnemonic_latest" {
   secret = data.google_secret_manager_secret.mnemonic.secret_id
 }
 
+data "google_secret_manager_secret" "blockchain_node_api_key" {
+  secret_id = "alpha-testnet-geth-api-key"
+}
+
+data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
+  secret = data.google_secret_manager_secret.blockchain_node_api_key.secret_id
+}
+
 import {
   id = "projects/${var.GCP_PROJECT}/locations/${var.GCP_BLOCKCHAIN_NODE_REGION}/blockchainNodes/${var.GCP_BLOCKCHAIN_NODE_ID}"
   to = google_blockchain_node_engine_blockchain_nodes.default
@@ -66,26 +74,12 @@ resource "google_blockchain_node_engine_blockchain_nodes" "default" {
   blockchain_node_id = var.GCP_BLOCKCHAIN_NODE_ID
   blockchain_type    = "ETHEREUM"
   ethereum_details {
-    api_enable_admin = true
-    api_enable_debug = true
+    api_enable_admin = false
+    api_enable_debug = false
     consensus_client = "LIGHTHOUSE"
     execution_client = "GETH"
     network          = "TESTNET_SEPOLIA"
     node_type        = "FULL"
-  }
-}
-
-resource "google_apikeys_key" "default" {
-  name = "alpha-testnet-blockchain-node"
-
-  restrictions {
-    api_targets {
-      service = "blockchain.googleapis.com"
-    }
-
-    api_targets {
-      service = "blockchainnodeengine.googleapis.com"
-    }
   }
 }
 
@@ -108,17 +102,19 @@ data "kubernetes_service" "lighthouse" {
 locals {
   ethereum_hosts = [
     "http://${data.kubernetes_service.reth.metadata.0.name}.${data.kubernetes_service.reth.metadata.0.namespace}.svc.cluster.local:8545",
-    "${google_blockchain_node_engine_blockchain_nodes.default.connection_info.0.endpoint_info.0.json_rpc_api_endpoint}/${google_apikeys_key.default.key_string}"
+    "https://${google_blockchain_node_engine_blockchain_nodes.default.connection_info.0.endpoint_info.0.json_rpc_api_endpoint}?key=${
+      data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
+    }"
   ]
 
   consensus_hosts = [
     "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052",
-    google_blockchain_node_engine_blockchain_nodes.default.ethereum_details.0.additional_endpoints.0.beacon_api_endpoint
+    "https://${google_blockchain_node_engine_blockchain_nodes.default.ethereum_details.0.additional_endpoints.0.beacon_api_endpoint}"
   ]
 
   consensus_api_keys = [
     "",
-    google_apikeys_key.default.key_string
+    data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
   ]
 
   consensus_api_key_headers = [
@@ -150,6 +146,16 @@ resource "helm_release" "validator" {
     value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
   }
 
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
   set_list {
     name  = "global.l1ExecutionUrls"
     value = local.ethereum_hosts
@@ -161,12 +167,12 @@ resource "helm_release" "validator" {
   }
 
   set_list {
-    name  = "global.l1ConsensusApiKeys"
+    name  = "global.l1ConsensusHostApiKeys"
     value = local.consensus_api_keys
   }
 
   set_list {
-    name  = "global.l1ConsensusApiHeaders"
+    name  = "global.l1ConsensusHostApiKeyHeaders"
     value = local.consensus_api_key_headers
   }
 
@@ -176,8 +182,8 @@ resource "helm_release" "validator" {
   }
 
   timeout       = 300
-  wait          = true
-  wait_for_jobs = true
+  wait          = false
+  wait_for_jobs = false
 }
 
 resource "helm_release" "prover" {
@@ -203,6 +209,16 @@ resource "helm_release" "prover" {
     value = split(":", var.AZTEC_DOCKER_IMAGE)[1] # e.g. latest
   }
 
+  set {
+    name  = "global.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "global.useGcloudLogging"
+    value = true
+  }
+
   set_list {
     name  = "global.l1ExecutionUrls"
     value = local.ethereum_hosts
@@ -214,21 +230,21 @@ resource "helm_release" "prover" {
   }
 
   set_list {
-    name  = "global.l1ConsensusApiKeys"
+    name  = "global.l1ConsensusHostApiKeys"
     value = local.consensus_api_keys
   }
 
   set_list {
-    name  = "global.l1ConsensusApiHeaders"
+    name  = "global.l1ConsensusHostApiKeyHeaders"
     value = local.consensus_api_key_headers
   }
 
   set {
-    name  = "node.mnemonic"
+    name  = "validator.mnemonic"
     value = data.google_secret_manager_secret_version.mnemonic_latest.secret_data
   }
 
   timeout       = 300
-  wait          = true
-  wait_for_jobs = true
+  wait          = false
+  wait_for_jobs = false
 }

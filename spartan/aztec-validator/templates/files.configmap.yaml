@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-validator-scripts
-  labels:
-    {{- include "chart.labels" . | nindent 4 }}
-data:
-  get-private-key.sh: {{ .Files.get "scripts/get-private-key.sh" }}

@@ -24,7 +24,6 @@ validator:
   node:
     configMap:
       envEnabled: true
-      scriptsEnabled: true
     secret:
       envEnabled: true
 

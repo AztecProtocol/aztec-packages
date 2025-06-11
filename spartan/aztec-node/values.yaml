@@ -82,7 +82,7 @@ node:
 
   configMap:
     envEnabled: false
-    scriptsEnabled: false
+    extraScriptsEnabled: false
 
   secret:
     envEnabled: false

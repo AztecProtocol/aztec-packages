@@ -13,6 +13,7 @@ global:
     pullPolicy: Always
 
 validator:
+  replicaCount: 1
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -31,7 +32,8 @@ validator:
         cpu: "3"
         memory: "12Gi"
 
-  persistence.enabled: true
+  persistence:
+    enabled: true
   statefulSet:
     volumeClaimTemplates:
       - metadata:

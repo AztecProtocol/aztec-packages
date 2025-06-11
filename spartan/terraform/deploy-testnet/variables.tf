@@ -10,7 +10,7 @@ variable "GCP_REGION" {
 }
 
 variable "GCP_BLOCKCHAIN_NODE_ID" {
-  default = "eth-sepolia-node-2"
+  default = "eth-sepolia-node-3"
   type    = string
 }
 
@@ -22,7 +22,7 @@ variable "GCP_BLOCKCHAIN_NODE_REGION" {
 variable "GKE_CLUSTER_CONTEXT" {
   description = "GKE cluster context"
   type        = string
-  default     = "gke_testnet-440309_us-west1-a_aztec-gke-private"
+  default     = "gke_testnet-440309_us-west1-a_aztec-gke-public"
 }
 
 variable "RELEASE_PREFIX" {

@@ -43,14 +43,14 @@ spec:
           {{- if not .Values.hostNetwork }}
           export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
           echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /shared/init-nodeport;
-          echo "export P2P_PORT=$EXTERNAL_PORT"     >> /shared/init-nodeport;
+          echo "export P2P_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
           {{- end }}
 
           # Get the external IP of the node
           export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
 
-          echo "export EXTERNAL_IP=$EXTERNAL_IP"     >> /shared/init-nodeport;
-          echo "export P2P_IP=$EXTERNAL_IP"         >> /shared/init-nodeport;
+          echo "export EXTERNAL_IP=$EXTERNAL_IP" >> /shared/init-nodeport;
+          echo "export P2P_IP=$EXTERNAL_IP"      >> /shared/init-nodeport;
           cat /shared/init-nodeport;
       env:
         - name: POD_NAME
@@ -79,15 +79,13 @@ spec:
           export P2P_IP=$(hostname -i)
           {{- end }}
 
-          start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start")
-          pod_index=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
-
-          start_cmd+=({{ join " " .Values.node.startCmd }})
+          start_cmd=("node" "/usr/src/yarn-project/aztec/dest/bin/index.js" "start" {{ join " " .Values.node.startCmd }})
+          source /scripts/setup-otel-resource.sh
 
           {{- if .Values.node.preStartScript }}
           {{ .Values.node.preStartScript | nindent 10 }}
-
           {{- end }}
+
           "${start_cmd[@]}"
       startupProbe:
         httpGet:
@@ -106,9 +104,11 @@ spec:
       volumeMounts:
         - name: shared
           mountPath: /shared
-        {{- if .Values.node.configMap.scriptsEnabled }}
         - name: scripts
           mountPath: /scripts/
+        {{- if .Values.node.configMap.extraScriptsEnabled }}
+        - name: extra-scripts
+          mountPath: /extra-scripts/
         {{- end }}
         {{- if .Values.node.secret.filesEnabled }}
         - name: secrets
@@ -201,7 +201,7 @@ spec:
         - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
           value: "{{ .Values.global.otelCollectorEndpoint }}/v1/traces"
         - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-          value: "{{ .Values.node.metrics.otelCollectorEndpoint }}/v1/logs"
+          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/logs"
         {{- end }}
         {{- if .Values.node.coinbase }}
         - name: COINBASE
@@ -232,10 +232,13 @@ spec:
   volumes:
     - name: shared
       emptyDir: {}
-    {{- if .Values.node.configMap.scriptsEnabled }}
     - name: scripts
       configMap:
         name: {{ include "chart.fullname" . }}-scripts
+    {{- if .Values.node.configMap.extraScriptsEnabled }}
+    - name: extra-scripts
+      configMap:
+        name: {{ include "chart.fullname" . }}-extra-scripts
     {{- end }}
     {{- if .Values.node.secret.filesEnabled }}
     - name: config
