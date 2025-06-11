@@ -398,6 +398,46 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
+
+/**
+ * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
+ * implicitly range constrained.
+ *
+ * @returns this ** (exponent)
+ */
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
+{
+    if (is_constant()) {
+        return field_t(get_value().pow(exponent));
+    }
+    if (exponent == 0) {
+        return field_t(bb::fr::one());
+    }
+
+    bool accumulator_initialized = false;
+    field_t<Builder> accumulator;
+    field_t<Builder> running_power = *this;
+    auto shifted_exponent = exponent;
+
+    // Square and multiply, there's no need to constrain the exponent bit decomposition, as it is an integer constant.
+    while (shifted_exponent != 0) {
+        if (shifted_exponent & 1) {
+            if (!accumulator_initialized) {
+                accumulator = running_power;
+                accumulator_initialized = true;
+            } else {
+                accumulator *= running_power;
+            }
+        }
+        if (shifted_exponent >= 2) {
+            // Don't update `running_power` if `shifted_exponent` = 1, as it won't be used anywhere.
+            running_power = running_power.sqr();
+        }
+        shifted_exponent >>= 1;
+    }
+    return accumulator;
+}
+
 /**
  * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
  * implicitly range constrained.
@@ -406,14 +446,19 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
-
-    auto* ctx = get_context() ? get_context() : exponent.get_context();
     uint256_t exponent_value = exponent.get_value();
 
+    ASSERT(exponent_value.get_msb() < 32);
+
+    if (is_constant() && exponent.is_constant()) {
+        return field_t(get_value().pow(exponent_value));
+    }
     // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
     if (exponent.is_constant()) {
-        return this->pow(static_cast<uint32_t>(exponent_value));
+        return pow(static_cast<uint32_t>(exponent_value));
     }
+
+    auto* ctx = exponent.context;
 
     std::array<bool_t<Builder>, 32> exponent_bits;
     // Collect individual bits as bool_t's
@@ -446,19 +491,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     accumulator = accumulator.normalize();
     accumulator.tag = OriginTag(tag, exponent.tag);
     return accumulator;
-}
-
-/**
- * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
- *
- * @returns this ** (exponent)
- */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
-{
-    auto* ctx = get_context();
-    auto exponent_field_elt = field_t::from_witness(ctx, exponent);
-    return pow(exponent_field_elt);
 }
 
 /**
@@ -833,6 +865,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
 {
     // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
+        info("pred constant");
         auto result = field_t(predicate.get_value() ? lhs : rhs);
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
