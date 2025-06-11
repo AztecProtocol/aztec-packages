@@ -5,6 +5,11 @@ use protocol_types::{
 };
 
 /// Additional information needed to process a message.
+///
+/// All messages exist in the context of a transaction, and information about that
+/// transaction is typically required in order to perform validation, store results,
+/// etc. For example, messages containing notes require knowledge of note hashes
+/// and the first nullifier in order to find the note's nonce.
 #[derive(Deserialize, Serialize)]
 pub struct MessageContext {
     pub tx_hash: Field,
