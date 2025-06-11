@@ -40,10 +40,10 @@ describe('e2e_p2p_data_withholding_slash', () => {
   let nodes: AztecNodeService[];
 
   const slashingQuorum = 3;
-  const slashingRoundSize = 5;
+  const slashingRoundSize = 4;
   // This test needs longer slot window to ensure that the client has enough time to submit their txs,
   // and have the nodes get recreated, prior to the reorg.
-  const aztecSlotDuration = 20;
+  const aztecSlotDuration = 32;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -93,6 +93,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.dateProvider.setTime(Number(newTime * 1000n));
       // Send tx
       await t.sendDummyTx();
+      await debugRollup();
     }
 
     const slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
@@ -134,11 +135,11 @@ describe('e2e_p2p_data_withholding_slash', () => {
       t.ctx.dateProvider.setTime(Number(newTime * 1000n));
       // Send L1 tx
       await t.sendDummyTx();
+      await debugRollup();
     }
 
-    // Sleep for a slot to allow the *previous* epoch to be pruned.
-    // and to make sure that the contract deployment is *not* pruned.
-    await sleep(aztecSlotDuration * 1000);
+    // Sleep for a few seconds to allow the *previous* epoch to be pruned.
+    await sleep(4000);
 
     // Send Aztec txs
     t.logger.info('Setup account');
