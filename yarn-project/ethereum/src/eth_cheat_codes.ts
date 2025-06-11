@@ -364,7 +364,20 @@ export class EthCheatCodes {
    */
   public async reorg(depth: number): Promise<void> {
     try {
+      const wasAutoMining = await this.isAutoMining();
+
+      // disable mining
+      if (wasAutoMining) {
+        await this.setAutomine(false);
+      }
+
+      // reorg
       await this.rpcCall('anvil_rollback', [depth]);
+
+      // restore automine if necessary
+      if (wasAutoMining) {
+        await this.setAutomine(true);
+      }
     } catch (err) {
       throw new Error(`Error rolling back: ${err}`);
     }
