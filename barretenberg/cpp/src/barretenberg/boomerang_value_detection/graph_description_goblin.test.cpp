@@ -51,10 +51,9 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         MegaCircuitBuilder builder{ goblin_final.op_queue };
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
-        auto merge_proof = goblin_final.prove_final_merge();
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin_final.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
