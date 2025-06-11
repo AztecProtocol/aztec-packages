@@ -20,11 +20,11 @@ import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@a
 import {
   BlockHeader,
   GlobalVariables,
-  MaxBlockNumber,
+  IncludeByTimestamp,
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
+  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -207,29 +207,29 @@ describe('aztec node', () => {
 
     it('tests that the node correctly validates max block numbers', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
-      const noMaxBlockNumberMetadata = txs[0];
-      const invalidMaxBlockNumberMetadata = txs[1];
-      const validMaxBlockNumberMetadata = txs[2];
+      const noIncludeByTimestampMetadata = txs[0];
+      const invalidIncludeByTimestampMetadata = txs[1];
+      const validIncludeByTimestampMetadata = txs[2];
 
-      invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, 1),
+      invalidIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new IncludeByTimestamp(true, 1),
       );
 
-      validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, 5),
+      validIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
+        new IncludeByTimestamp(true, 5),
       );
 
       lastBlockNumber = 3;
 
-      // Default tx with no max block number should be valid
-      expect(await node.isValidTx(noMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
-      // Tx with max block number < current block number should be invalid
-      expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
+      // Default tx with no should be valid
+      expect(await node.isValidTx(noIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
+      // Tx with include by timestamp < current block number should be invalid
+      expect(await node.isValidTx(invalidIncludeByTimestampMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_MAX_BLOCK_NUMBER],
+        reason: [TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP],
       });
-      // Tx with max block number >= current block number should be valid
-      expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
+      // Tx with include by timestamp >= current block number should be valid
+      expect(await node.isValidTx(validIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
     });
   });
 

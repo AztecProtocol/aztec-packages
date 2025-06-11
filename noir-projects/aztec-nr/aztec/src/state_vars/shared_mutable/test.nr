@@ -185,7 +185,7 @@ unconstrained fn test_get_current_value_in_private_initial() {
 
     assert_eq(state_var.get_current_value(), zeroed());
     assert_eq(
-        state_var.context.max_block_number.unwrap(),
+        state_var.context.include_by_timestamp.unwrap(),
         historical_block_number + TEST_INITIAL_DELAY,
     );
 }
@@ -203,7 +203,7 @@ unconstrained fn test_get_current_value_in_private_before_change() {
 
     let private_state_var = in_private(&mut env, schedule_block_number);
     assert_eq(private_state_var.get_current_value(), MockStruct::empty());
-    assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
+    assert_eq(private_state_var.context.include_by_timestamp.unwrap(), block_of_change - 1);
 }
 
 #[test]
@@ -220,7 +220,7 @@ unconstrained fn test_get_current_value_in_private_immediately_before_change() {
     // Note that this transaction would never be valid since the max block number is the same as the historical block
     // used to built the proof, i.e. in the past.
     assert_eq(private_state_var.get_current_value(), MockStruct::empty());
-    assert_eq(private_state_var.context.max_block_number.unwrap(), block_of_change - 1);
+    assert_eq(private_state_var.context.include_by_timestamp.unwrap(), block_of_change - 1);
 }
 
 #[test]
@@ -236,7 +236,7 @@ unconstrained fn test_get_current_value_in_private_at_change() {
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value(), new_value);
     assert_eq(
-        private_state_var.context.max_block_number.unwrap(),
+        private_state_var.context.include_by_timestamp.unwrap(),
         historical_block_number + TEST_INITIAL_DELAY,
     );
 }
@@ -254,7 +254,7 @@ unconstrained fn test_get_current_value_in_private_after_change() {
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value(), new_value);
     assert_eq(
-        private_state_var.context.max_block_number.unwrap(),
+        private_state_var.context.include_by_timestamp.unwrap(),
         historical_block_number + TEST_INITIAL_DELAY,
     );
 }
@@ -279,7 +279,7 @@ unconstrained fn test_get_current_value_in_private_with_non_initial_delay() {
     let private_state_var = in_private(&mut env, historical_block_number);
     assert_eq(private_state_var.get_current_value(), new_value);
     assert_eq(
-        private_state_var.context.max_block_number.unwrap(),
+        private_state_var.context.include_by_timestamp.unwrap(),
         historical_block_number + new_delay,
     );
 }

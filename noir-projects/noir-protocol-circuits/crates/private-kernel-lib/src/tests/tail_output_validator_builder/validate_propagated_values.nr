@@ -59,7 +59,7 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
 }
 
 /**
- * max_block_number
+ * include_by_timestamp
  */
 #[test]
 fn validate_propagated_values_max_block_number_succeeds() {

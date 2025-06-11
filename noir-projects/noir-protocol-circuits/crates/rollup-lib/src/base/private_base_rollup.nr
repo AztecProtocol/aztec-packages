@@ -1047,7 +1047,7 @@ mod tests {
         builder.fails();
     }
 
-    #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
+    #[test(should_fail_with = "kernel include_by_timestamp is smaller than block number")]
     unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;

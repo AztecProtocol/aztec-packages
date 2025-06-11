@@ -8,7 +8,7 @@ import type { UInt32 } from '../types/index.js';
 /**
  * Maximum block number.
  */
-export class MaxBlockNumber {
+export class IncludeByTimestamp {
   constructor(
     /**
      * Whether a max block number was requested.
@@ -25,36 +25,36 @@ export class MaxBlockNumber {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(...MaxBlockNumber.getFields(this));
+    return serializeToBuffer(...IncludeByTimestamp.getFields(this));
   }
 
   toFields(): Fr[] {
-    const fields = serializeToFields(...MaxBlockNumber.getFields(this));
+    const fields = serializeToFields(...IncludeByTimestamp.getFields(this));
     if (fields.length !== MAX_BLOCK_NUMBER_LENGTH) {
       throw new Error(
-        `Invalid number of fields for MaxBlockNumber. Expected ${MAX_BLOCK_NUMBER_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for IncludeByTimestamp. Expected ${MAX_BLOCK_NUMBER_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
   }
 
   /**
-   * Deserializes MaxBlockNumber from a buffer or reader.
+   * Deserializes IncludeByTimestamp from a buffer or reader.
    * @param buffer - Buffer to read from.
-   * @returns The MaxBlockNumber.
+   * @returns The IncludeByTimestamp.
    */
-  static fromBuffer(buffer: Buffer | BufferReader): MaxBlockNumber {
+  static fromBuffer(buffer: Buffer | BufferReader): IncludeByTimestamp {
     const reader = BufferReader.asReader(buffer);
-    return new MaxBlockNumber(reader.readBoolean(), reader.readNumber());
+    return new IncludeByTimestamp(reader.readBoolean(), reader.readNumber());
   }
 
-  static fromFields(fields: Fr[] | FieldReader): MaxBlockNumber {
+  static fromFields(fields: Fr[] | FieldReader): IncludeByTimestamp {
     const reader = FieldReader.asReader(fields);
-    return new MaxBlockNumber(reader.readBoolean(), reader.readU32());
+    return new IncludeByTimestamp(reader.readBoolean(), reader.readU32());
   }
 
   static empty() {
-    return new MaxBlockNumber(false, 0);
+    return new IncludeByTimestamp(false, 0);
   }
 
   isEmpty(): boolean {
@@ -66,8 +66,8 @@ export class MaxBlockNumber {
    * @param fields - The dictionary.
    * @returns A new instance.
    */
-  static from(fields: FieldsOf<MaxBlockNumber>): MaxBlockNumber {
-    return new MaxBlockNumber(...MaxBlockNumber.getFields(fields));
+  static from(fields: FieldsOf<IncludeByTimestamp>): IncludeByTimestamp {
+    return new IncludeByTimestamp(...IncludeByTimestamp.getFields(fields));
   }
 
   /**
@@ -75,7 +75,7 @@ export class MaxBlockNumber {
    * @param fields - Object with fields.
    * @returns The array.
    */
-  static getFields(fields: FieldsOf<MaxBlockNumber>) {
+  static getFields(fields: FieldsOf<IncludeByTimestamp>) {
     return [fields.isSome, fields.value] as const;
   }
 }

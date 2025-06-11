@@ -29,18 +29,18 @@ unconstrained fn test_get_scheduled() {
     assert_eq(value_change.get_scheduled(), (post, block_of_change));
 }
 
-unconstrained fn assert_block_horizon_invariants(
+unconstrained fn assert_timestamp_horizon_invariants(
     value_change: &mut ScheduledValueChange<Field>,
     historical_block_number: u32,
-    block_horizon: u32,
+    timestamp_horizon: u32,
 ) {
-    // The current value should not change at the block horizon (but it might later).
+    // The current value should not change at the timestamp horizon (but it might later).
     let current_at_historical = value_change.get_current_at(historical_block_number);
-    assert_eq(current_at_historical, value_change.get_current_at(block_horizon));
+    assert_eq(current_at_historical, value_change.get_current_at(timestamp_horizon));
 
     // The earliest a new change could be scheduled in would be the immediate next block to the historical one. This
-    // should result in the new block of change landing *after* the block horizon, and the current value still not
-    // changing at the previously determined block_horizon.
+    // should result in the new block of change landing *after* the timestamp horizon, and the current value still not
+    // changing at the previously determined timestamp_horizon.
     let new = value_change.pre + value_change.post; // Make sure it's different to both pre and post
     value_change.schedule_change(
         new,
@@ -49,81 +49,97 @@ unconstrained fn assert_block_horizon_invariants(
         historical_block_number + 1 + TEST_DELAY,
     );
 
-    assert(value_change.block_of_change > block_horizon);
-    assert_eq(current_at_historical, value_change.get_current_at(block_horizon));
+    assert(value_change.block_of_change > timestamp_horizon);
+    assert_eq(current_at_historical, value_change.get_current_at(timestamp_horizon));
 }
 
 #[test]
-unconstrained fn test_get_block_horizon_change_in_past() {
+unconstrained fn test_get_timestamp_horizon_change_in_past() {
     let historical_block_number = 100;
     let block_of_change = 50;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, block_of_change);
 
-    let block_horizon = value_change.get_block_horizon(historical_block_number, TEST_DELAY);
-    assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+    let timestamp_horizon = value_change.get_timestamp_horizon(historical_block_number, TEST_DELAY);
+    assert_eq(timestamp_horizon, historical_block_number + TEST_DELAY);
 
-    assert_block_horizon_invariants(&mut value_change, historical_block_number, block_horizon);
+    assert_timestamp_horizon_invariants(
+        &mut value_change,
+        historical_block_number,
+        timestamp_horizon,
+    );
 }
 
 #[test]
-unconstrained fn test_get_block_horizon_change_in_immediate_past() {
+unconstrained fn test_get_timestamp_horizon_change_in_immediate_past() {
     let historical_block_number = 100;
     let block_of_change = 100;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, block_of_change);
 
-    let block_horizon = value_change.get_block_horizon(historical_block_number, TEST_DELAY);
-    assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+    let timestamp_horizon = value_change.get_timestamp_horizon(historical_block_number, TEST_DELAY);
+    assert_eq(timestamp_horizon, historical_block_number + TEST_DELAY);
 
-    assert_block_horizon_invariants(&mut value_change, historical_block_number, block_horizon);
+    assert_timestamp_horizon_invariants(
+        &mut value_change,
+        historical_block_number,
+        timestamp_horizon,
+    );
 }
 
 #[test]
-unconstrained fn test_get_block_horizon_change_in_near_future() {
+unconstrained fn test_get_timestamp_horizon_change_in_near_future() {
     let historical_block_number = 100;
     let block_of_change = 120;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, block_of_change);
 
-    // Note that this is the only scenario in which the block of change informs the block horizon.
+    // Note that this is the only scenario in which the block of change informs the timestamp horizon.
     // This may result in privacy leaks when interacting with applications that have a scheduled change
     // in the near future.
-    let block_horizon = value_change.get_block_horizon(historical_block_number, TEST_DELAY);
-    assert_eq(block_horizon, block_of_change - 1);
+    let timestamp_horizon = value_change.get_timestamp_horizon(historical_block_number, TEST_DELAY);
+    assert_eq(timestamp_horizon, block_of_change - 1);
 
-    assert_block_horizon_invariants(&mut value_change, historical_block_number, block_horizon);
+    assert_timestamp_horizon_invariants(
+        &mut value_change,
+        historical_block_number,
+        timestamp_horizon,
+    );
 }
 
 #[test]
-unconstrained fn test_get_block_horizon_change_in_far_future() {
+unconstrained fn test_get_timestamp_horizon_change_in_far_future() {
     let historical_block_number = 100;
     let block_of_change = 500;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, block_of_change);
 
-    let block_horizon = value_change.get_block_horizon(historical_block_number, TEST_DELAY);
-    assert_eq(block_horizon, historical_block_number + TEST_DELAY);
+    let timestamp_horizon = value_change.get_timestamp_horizon(historical_block_number, TEST_DELAY);
+    assert_eq(timestamp_horizon, historical_block_number + TEST_DELAY);
 
-    assert_block_horizon_invariants(&mut value_change, historical_block_number, block_horizon);
+    assert_timestamp_horizon_invariants(
+        &mut value_change,
+        historical_block_number,
+        timestamp_horizon,
+    );
 }
 
 #[test]
-unconstrained fn test_get_block_horizon_n0_delay() {
+unconstrained fn test_get_timestamp_horizon_n0_delay() {
     let historical_block_number = 100;
     let block_of_change = 50;
 
     let mut value_change: ScheduledValueChange<Field> =
         ScheduledValueChange::new(1, 2, block_of_change);
 
-    let block_horizon = value_change.get_block_horizon(historical_block_number, 0);
-    // Since the block horizon equals the historical block number, it is not possible to read the current value in
-    // private since the transaction `max_block_number` property would equal an already mined block.
-    assert_eq(block_horizon, historical_block_number);
+    let timestamp_horizon = value_change.get_timestamp_horizon(historical_block_number, 0);
+    // Since the timestamp horizon equals the historical block number, it is not possible to read the current value in
+    // private since the transaction `include_by_timestamp` property would equal an already mined block.
+    assert_eq(timestamp_horizon, historical_block_number);
 }
 
 #[test]

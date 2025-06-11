@@ -452,7 +452,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   ) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
-    const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
+    const includeByTimestamp = await this.syncDataProvider.getBlockNumber();
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
@@ -505,7 +505,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           const logsByTag = logsByTags[logIndex];
           if (logsByTag.length > 0) {
             // We filter out the logs that are newer than the historical block number of the tx currently being constructed
-            const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= maxBlockNumber);
+            const filteredLogsByBlockNumber = logsByTag.filter(l => l.blockNumber <= includeByTimestamp);
 
             // We store the logs in capsules (to later be obtained in Noir)
             await this.#storePendingTaggedLogs(

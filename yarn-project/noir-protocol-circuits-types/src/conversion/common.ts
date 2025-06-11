@@ -42,7 +42,7 @@ import {
   BlockHeader,
   ContentCommitment,
   GlobalVariables,
-  MaxBlockNumber,
+  IncludeByTimestamp,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -61,10 +61,11 @@ import type {
   GasSettings as GasSettingsNoir,
   GlobalVariables as GlobalVariablesNoir,
   EmbeddedCurveScalar as GrumpkinScalarNoir,
+  IncludeByTimestamp as IncludeByTimestampNoir,
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
-  MaxBlockNumber as MaxBlockNumberNoir,
+  MaxBlockNumber,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -429,17 +430,17 @@ export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
 }
 
-export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBlockNumberNoir {
+export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimestamp): IncludeByTimestampNoir {
   return {
     _opt: {
-      _is_some: maxBlockNumber.isSome,
-      _value: mapNumberToNoir(maxBlockNumber.value),
+      _is_some: includeByTimestamp.isSome,
+      _value: mapNumberToNoir(includeByTimestamp.value),
     },
   };
 }
 
-export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapNumberFromNoir(maxBlockNumber._opt._value));
+export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
+  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapNumberFromNoir(includeByTimestamp._opt._value));
 }
 
 /**

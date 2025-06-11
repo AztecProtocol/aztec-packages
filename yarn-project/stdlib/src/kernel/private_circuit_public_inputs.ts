@@ -30,7 +30,7 @@ import { PrivateLogData } from '../kernel/private_log_data.js';
 import { CountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { MaxBlockNumber } from '../tx/max_block_number.js';
+import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { TxContext } from '../tx/tx_context.js';
 import { ReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
@@ -66,7 +66,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The maximum block number in which this transaction can be included and be valid.
      */
-    public maxBlockNumber: MaxBlockNumber,
+    public includeByTimestamp: IncludeByTimestamp,
     /**
      * Read requests created by the corresponding function call.
      */
@@ -158,7 +158,7 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
+      reader.readObject(IncludeByTimestamp),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
@@ -185,7 +185,7 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readField(),
       reader.readBoolean(),
-      reader.readObject(MaxBlockNumber),
+      reader.readObject(IncludeByTimestamp),
       reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
@@ -215,7 +215,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       false,
-      MaxBlockNumber.empty(),
+      IncludeByTimestamp.empty(),
       makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
@@ -241,7 +241,7 @@ export class PrivateCircuitPublicInputs {
       this.returnsHash.isZero() &&
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
-      this.maxBlockNumber.isEmpty() &&
+      this.includeByTimestamp.isEmpty() &&
       isEmptyArray(this.noteHashReadRequests) &&
       isEmptyArray(this.nullifierReadRequests) &&
       isEmptyArray(this.keyValidationRequestsAndGenerators) &&
@@ -272,7 +272,7 @@ export class PrivateCircuitPublicInputs {
       fields.returnsHash,
       fields.minRevertibleSideEffectCounter,
       fields.isFeePayer,
-      fields.maxBlockNumber,
+      fields.includeByTimestamp,
       fields.noteHashReadRequests,
       fields.nullifierReadRequests,
       fields.keyValidationRequestsAndGenerators,

@@ -11,7 +11,7 @@ export const TX_ERROR_DUPLICATE_NULLIFIER_IN_TX = 'Duplicate nullifier in tx';
 export const TX_ERROR_EXISTING_NULLIFIER = 'Existing nullifier';
 
 // Metadata
-export const TX_ERROR_INVALID_MAX_BLOCK_NUMBER = 'Invalid max block number';
+export const TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP = 'Invalid max block number';
 export const TX_ERROR_INCORRECT_L1_CHAIN_ID = 'Incorrect L1 chain id';
 export const TX_ERROR_INCORRECT_ROLLUP_VERSION = 'Incorrect rollup version';
 export const TX_ERROR_INCORRECT_VK_TREE_ROOT = 'Incorrect protocol circuits tree root';

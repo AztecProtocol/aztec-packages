@@ -5,7 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MaxBlockNumber, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import { IncludeByTimestamp, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -305,11 +305,11 @@ describe('KV TX pool', () => {
 
   it('Evicts txs with a max block number lower than or equal to the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 1);
+    tx1.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 1);
     const tx2 = await mockTx(2);
-    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 2);
+    tx2.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 2);
     const tx3 = await mockTx(3);
-    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 3);
+    tx3.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 3);
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([await tx1.getTxHash()], 2);
