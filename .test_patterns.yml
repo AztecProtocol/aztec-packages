@@ -276,6 +276,11 @@ tests:
     owners:
       - *saleel
 
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "toBeVisible" # http://ci.aztec-labs.com/b7b10b95167d5ed6
+    owners:
+      - *saleel
+
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
     owners:
