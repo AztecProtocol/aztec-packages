@@ -1,6 +1,7 @@
 #include "scalar_multiplication.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -475,4 +476,27 @@ TYPED_TEST(ScalarMultiplicationTest, MSMEmptyPolynomial)
     AffineElement result = scalar_multiplication::MSM<Curve>::msm(input_points, scalar_span);
 
     EXPECT_EQ(result, Curve::Group::affine_point_at_infinity);
+}
+
+TEST(ScalarMultiplication, SmallInputsExplicit)
+{
+    uint256_t x0(0x68df84429941826a, 0xeb08934ed806781c, 0xc14b6a2e4f796a73, 0x08dc1a9a11a3c8db);
+    uint256_t y0(0x8ae5c31aa997f141, 0xe85f20c504f2c11b, 0x81a94193f3b1ce2b, 0x26f2c37372adb5b7);
+    uint256_t x1(0x80f5a592d919d32f, 0x1362652b984e51ca, 0xa0b26666f770c2a1, 0x142c6e1964e5c3c5);
+    uint256_t y1(0xb6c322ebb5ae4bc5, 0xf9fef6c7909c00f8, 0xb37ca1cc9af3b421, 0x1e331c7fa73d6a59);
+    uint256_t s0(0xe48bf12a24272e08, 0xf8dd0182577f3567, 0xec8fd222b8a6becb, 0x102d76b945612c9b);
+    uint256_t s1(0x098ae8d69f1e4e9e, 0xb5c8313c0f6040ed, 0xf78041e30cc46c44, 0x1d1e6e0c21892e13);
+
+    std::vector<grumpkin::fr> scalars{ s0, s1 };
+
+    std::vector<grumpkin::g1::affine_element> points{ grumpkin::g1::affine_element(x0, y0),
+                                                      grumpkin::g1::affine_element(x1, y1) };
+
+    PolynomialSpan<grumpkin::fr> scalar_span = PolynomialSpan<grumpkin::fr>(0, scalars);
+
+    auto result = scalar_multiplication::MSM<curve::Grumpkin>::msm(points, scalar_span);
+
+    grumpkin::g1::element expected = (points[0] * scalars[0]) + (points[1] * scalars[1]);
+
+    EXPECT_EQ(result, grumpkin::g1::affine_element(expected));
 }

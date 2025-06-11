@@ -37,7 +37,7 @@ typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& 
     for (size_t i = 0; i < range; ++i) {
         typename Curve::Element f = points[i];
 
-        r += f * scalars[i];
+        r += f * scalars[i].to_montgomery_form();
     }
     return r;
 }
