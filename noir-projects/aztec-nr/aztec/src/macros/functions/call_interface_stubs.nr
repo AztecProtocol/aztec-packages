@@ -75,7 +75,7 @@ comptime fn create_stub_base(
     // serialized_args = serialized_args.append(aztec::protocol_types::traits::Serialize::serialize(target_address));
     // serialized_args = serialized_args.push_back(fee_juice_limit_per_tx as Field);
     // ```
-    let serialized_args_slice_construction = fn_parameters.fold(
+    let serialized_args_array_construction = fn_parameters.fold(
         quote {
             let mut $SERIALIZED_ARGS_NAME = [0; $params_num_fields];
             let mut $serialized_args_index_name: u32 = 0;
@@ -96,19 +96,19 @@ comptime fn create_stub_base(
     let fn_selector: Field = compute_fn_selector(f);
 
     (
-        fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len,
+        fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len,
         fn_selector,
     )
 }
 
 comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateCallInterface<$fn_name_len, $fn_return_type, _> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateCallInterface::new(
                 self.target_contract,

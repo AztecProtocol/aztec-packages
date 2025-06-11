@@ -71,6 +71,9 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
 ///
 /// The function takes the name of the array, the index in the array where the value should be added, the name of the
 /// variable to be added, and the type of the variable. It returns a quoted expression that can be used in a function body.
+///
+/// The returned quoted expression will increment the `index_name` variable by the number of fields added to the array,
+/// which is typically 1 for simple types, but can be more for complex types like structs or arrays.
 pub(crate) comptime fn add_to_field_array(
     array_name: Quoted,
     index_name: Quoted,
@@ -103,7 +106,7 @@ pub(crate) comptime fn add_to_field_array(
                 for i in 0..$serialized_name.len() {
                     $array_name[$index_name] = $serialized_name[i];
                     $index_name += 1;
-                  }
+                }
             }
         }
     } else if typ.as_str().is_some() {
