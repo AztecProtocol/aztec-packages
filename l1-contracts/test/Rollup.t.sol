@@ -189,16 +189,12 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
-    // @note  Get the root and min height that we have in the outbox.
+    // @note  Get the root that we have in the outbox.
     //        We read it directly in storage because it is not yet proven, so the getter will give (0, 0).
     //        The values are stored such that we can check that after pruning, and inserting a new block,
     //        we will override it.
     bytes32 rootMixed = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    uint256 minHeightMixed =
-      uint256(vm.load(address(outbox), bytes32(uint256(keccak256(abi.encode(1, 0))) + 1)));
-
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
-    assertNotEq(minHeightMixed, 0, "Invalid min height");
 
     rollup.prune();
     assertEq(inbox.getInProgress(), 3, "Invalid in progress");
@@ -220,11 +216,7 @@ contract RollupTest is RollupBase {
 
     // We check that the roots in the outbox have correctly been updated.
     bytes32 rootEmpty = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    uint256 minHeightEmpty =
-      uint256(vm.load(address(outbox), bytes32(uint256(keccak256(abi.encode(1, 0))) + 1)));
-
     assertEq(rootEmpty, bytes32(0), "Invalid root");
-    assertNotEq(minHeightEmpty, 0, "Invalid min height");
   }
 
   function testTimestamp() public setUpFor("mixed_block_1") {

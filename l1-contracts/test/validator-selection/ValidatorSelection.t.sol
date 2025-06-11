@@ -489,7 +489,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
     if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {

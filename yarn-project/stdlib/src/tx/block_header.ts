@@ -188,10 +188,9 @@ export class BlockHeader {
   [inspect.custom]() {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},
-  contentCommitment.numTxs: ${this.contentCommitment.numTxs.toNumber()},
-  contentCommitment.blobsHash: ${this.contentCommitment.blobsHash.toString('hex')},
-  contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
-  contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
+  contentCommitment.blobsHash: ${inspect(this.contentCommitment.blobsHash)},
+  contentCommitment.inHash: ${inspect(this.contentCommitment.inHash)},
+  contentCommitment.outHash: ${inspect(this.contentCommitment.outHash)},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},
   state.noteHashTree: ${inspect(this.state.partial.noteHashTree)},
   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},

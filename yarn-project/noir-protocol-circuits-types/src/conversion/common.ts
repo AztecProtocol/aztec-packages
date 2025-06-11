@@ -7,10 +7,9 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
@@ -44,7 +43,6 @@ import {
   ContentCommitment,
   GlobalVariables,
   MaxBlockNumber,
-  NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -56,7 +54,6 @@ import type {
   BlockHeader as BlockHeaderNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
-  Field,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
   GasFees as GasFeesNoir,
@@ -371,10 +368,9 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    blobs_hash: mapSha256HashToNoir(contentCommitment.blobsHash),
-    in_hash: mapSha256HashToNoir(contentCommitment.inHash),
-    out_hash: mapSha256HashToNoir(contentCommitment.outHash),
+    blobs_hash: mapFieldToNoir(contentCommitment.blobsHash),
+    in_hash: mapFieldToNoir(contentCommitment.inHash),
+    out_hash: mapFieldToNoir(contentCommitment.outHash),
   };
 }
 
@@ -384,10 +380,9 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.blobs_hash),
-    mapSha256HashFromNoir(contentCommitment.in_hash),
-    mapSha256HashFromNoir(contentCommitment.out_hash),
+    mapFieldFromNoir(contentCommitment.blobs_hash),
+    mapFieldFromNoir(contentCommitment.in_hash),
+    mapFieldFromNoir(contentCommitment.out_hash),
   );
 }
 
@@ -421,24 +416,6 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
     mapFieldFromNoir(header.total_fees),
     mapFieldFromNoir(header.total_mana_used),
   );
-}
-
-/**
- * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (1 fields).
- * @returns The hash represented as a 31 bytes long buffer.
- */
-export function mapSha256HashFromNoir(hash: Field): Buffer {
-  return toBufferBE(mapFieldFromNoir(hash).toBigInt(), NUM_BYTES_PER_SHA256);
-}
-
-/**
- * Maps a sha256 to the representation used in noir.
- * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (1 field, truncated).
- */
-export function mapSha256HashToNoir(hash: Buffer): Field {
-  return mapFieldToNoir(toTruncField(hash));
 }
 
 export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {

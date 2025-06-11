@@ -303,7 +303,6 @@ describe('L1Publisher integration', () => {
             blobsHash: asHex(block.header.contentCommitment.blobsHash),
             inHash: asHex(block.header.contentCommitment.inHash),
             outHash: asHex(block.header.contentCommitment.outHash),
-            numTxs: block.header.contentCommitment.numTxs.toNumber(),
           },
           slotNumber: block.header.globalVariables.slotNumber.toNumber(),
           timestamp: block.header.globalVariables.timestamp.toNumber(),
@@ -402,14 +401,14 @@ describe('L1Publisher integration', () => {
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-        const [emptyRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const emptyRoot = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
         const blockBlobs = await Blob.getBlobs(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
-          sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+          sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
 
         let prevBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
@@ -486,7 +485,7 @@ describe('L1Publisher integration', () => {
         expect(ethTx.input).toEqual(expectedData);
 
         const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
-        const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const returnedRoot = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
         // check that values are inserted into the outbox
         expect(Fr.ZERO.toString()).toEqual(returnedRoot);

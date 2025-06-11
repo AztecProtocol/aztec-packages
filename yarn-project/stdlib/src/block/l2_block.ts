@@ -85,7 +85,7 @@ export class L2Block {
     txsPerBlock = 4,
     numPublicCallsPerTx = 3,
     numPublicLogsPerCall = 1,
-    inHash: Buffer | undefined = undefined,
+    inHash: Fr | undefined = undefined,
     slotNumber: number | undefined = undefined,
     maxEffects: number | undefined = undefined,
   ): Promise<L2Block> {
@@ -93,7 +93,7 @@ export class L2Block {
 
     return new L2Block(
       makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
-      makeHeader(0, txsPerBlock, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
+      makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, inHash),
       body,
     );
   }
