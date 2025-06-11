@@ -236,7 +236,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getPrivateLogs', async () => {
@@ -572,7 +572,7 @@ class MockAztecNode implements AztecNode {
     );
     return Object.fromEntries(protocolContracts) as ProtocolContractAddresses;
   }
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {

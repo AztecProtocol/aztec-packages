@@ -1049,8 +1049,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     });
   }
 
-  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.contractDataSource.registerContractFunctionSignatures(_address, signatures);
+  public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(signatures);
   }
 
   public flushTxs(): Promise<void> {

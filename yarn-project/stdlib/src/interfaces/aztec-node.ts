@@ -268,11 +268,10 @@ export interface AztecNode
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
 
   /**
-   * Method to add a contract artifact to the database.
-   * @param aztecAddress
-   * @param artifact
+   * Registers contract function signatures for debugging purposes.
+   * @param functionSignatures - An array of function signatures to register by selector.
    */
-  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
+  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -414,6 +413,8 @@ export interface AztecNode
 }
 
 export const MAX_LOGS_PER_TAG = 10;
+const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
+const MAX_SIGNATURE_LEN = 10000;
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
@@ -501,7 +502,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
+  registerContractFunctionSignatures: z
+    .function()
+    .args(z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL))
+    .returns(z.void()),
 
   getPrivateLogs: z
     .function()
