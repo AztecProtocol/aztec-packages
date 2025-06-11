@@ -83,7 +83,7 @@ comptime fn create_stub_base(
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
             let arg_to_append =
-                add_to_field_array(SERIALIZED_ARGS_NAME, name, typ, serialized_args_index_name);
+                add_to_field_array(SERIALIZED_ARGS_NAME, serialized_args_index_name, name, typ);
             quote {
                 $args
                 $arg_to_append
