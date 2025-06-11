@@ -769,7 +769,6 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 
     // Once we have our work units, each thread can independently evaluate its assigned msms
     parallel_for(num_cpus, [&](size_t thread_idx) {
-        // for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
         if (!thread_work_units[thread_idx].empty()) {
             const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
             std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
@@ -778,7 +777,6 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 std::span<const AffineElement> work_points = points[msm.batch_msm_index];
                 std::span<const uint32_t> work_indices =
                     std::span<const uint32_t>{ &msm_scalar_indices[msm.batch_msm_index][msm.start_index], msm.size };
-                // std::cout << "work item, thread " << thread_idx << " size = " << msm.size << std::endl;
                 std::vector<uint64_t> point_schedule(msm.size);
                 MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
                 AffineElement msm_result;
@@ -797,7 +795,6 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                 msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
             }
         }
-        //   }
     });
 
     // Accumulate results. This part needs to be single threaded, but amount of work done here should be small
