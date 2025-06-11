@@ -91,11 +91,9 @@ pub(crate) comptime fn add_to_field_array(
             }
             }
     } else if typ.as_array().is_some() {
-        // let (element_type, _) = typ.as_array().unwrap();
         // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
         quote {
-            
             for i in 0..$name.len() {
                 let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name[i]);
                 for i in 0..$serialized_name.len() {
