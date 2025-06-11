@@ -30,7 +30,7 @@ describe('e2e_epochs/epochs_empty_blocks', () => {
   });
 
   it('submits proof even if there are no txs to build a block', async () => {
-    await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+    context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
     // Sleep to make sure any pending blocks are published

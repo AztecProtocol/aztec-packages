@@ -71,9 +71,7 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    await (t.aztecNode as AztecNodeService)
-      .getSequencer()!
-      .updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    (t.aztecNode as AztecNodeService).getSequencer()!.updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 

@@ -592,8 +592,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           txEffect.data.noteHashes,
           txEffect.data.nullifiers[0],
           recipient,
-          scopedLog.logIndexInTx,
-          txEffect.txIndexInBlock,
         );
 
         return pendingTaggedLog.toFields();
@@ -638,8 +636,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         request.serializedEvent,
         request.eventCommitment,
         request.txHash,
-        request.logIndexInTx,
-        request.txIndexInBlock,
         request.recipient,
       ),
     );
@@ -743,8 +739,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     eventCommitment: Fr,
     txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
     recipient: AztecAddress,
   ): Promise<void> {
     // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
@@ -771,8 +765,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       selector,
       content,
       txHash,
-      logIndexInTx,
-      txIndexInBlock,
+      Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
       nullifierIndex.l2BlockNumber, // Block in which the event was emitted
     );
   }

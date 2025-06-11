@@ -21,12 +21,12 @@ contract Outbox is IOutbox {
   struct RootData {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
-    mapping(uint256 => bool) nullified;
+    mapping(uint256 index => bool nullified) nullified;
   }
 
   IRollup public immutable ROLLUP;
   uint256 public immutable VERSION;
-  mapping(uint256 l2BlockNumber => RootData) internal roots;
+  mapping(uint256 l2BlockNumber => RootData root) internal roots;
 
   constructor(address _rollup, uint256 _version) {
     ROLLUP = IRollup(_rollup);
