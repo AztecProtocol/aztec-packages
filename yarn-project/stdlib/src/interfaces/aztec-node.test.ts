@@ -15,6 +15,7 @@ import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundati
 import { SiblingPath } from '@aztec/foundation/trees';
 
 import omit from 'lodash.omit';
+import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -51,6 +52,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { ValidatorsStats } from '../validators/types.js';
+import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -95,6 +97,10 @@ describe('AztecNodeApiSchema', () => {
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
     expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+
+    await expect(
+      context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
+    ).rejects.toThrow();
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -189,6 +195,11 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(L2Block);
+
+    await expect(context.client.getBlocks(-1, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(0, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, 0)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
   it('getPublishedBlocks', async () => {
