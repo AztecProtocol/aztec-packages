@@ -1,4 +1,4 @@
-use super::{size_in_fields::size_in_fields, utils::compute_fn_selector};
+use super::utils::{compute_fn_selector, size_in_fields};
 use poseidon::poseidon2::Poseidon2Hasher;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
