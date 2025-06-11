@@ -4,10 +4,8 @@ mod order;
 use aztec::macros::aztec;
 
 /// ## Overview
-/// This contract demonstrates how to implement an **ClosedSetOrderbook** that maintains **public state**
-/// while still achieving **identity privacy**. However, it does **not provide function privacy**:
-/// - Anyone can observe **what actions** were performed.
-/// - All amounts involved are visible, but **who** performed the action remains private.
+/// This contract demonstrates how to implement an **Orderbook** that keeps all of the information in private. Orders
+/// are revealed only to a closed set of participants.
 ///
 /// **Note:**
 /// This is purely a demonstration implemented to test various features of Aztec.nr. The **Aztec team** does not
@@ -20,15 +18,10 @@ use aztec::macros::aztec;
 /// the action completes uninterrupted. This follows the **Checks-Effects-Interactions** pattern.
 ///
 /// - In this contract, **private functions** do not introduce intermediate states.
-/// - All operations will be fully executed in **public** without needing intermediate checks.
 ///
 /// ### 2. Public Functions:
 /// No **reentrancy guard** is required for public functions because:
-/// - All public functions are marked as **internal** with a **single callsite** - from a private function.
-/// - Public functions **cannot call private functions**, eliminating the risk of reentering into them from private.
-/// - Since public functions are internal-only, **external contracts cannot access them**, ensuring no external
-///   contract can trigger a reentrant call. This eliminates the following attack vector:
-///   `ClosedSetOrderbook.private_fn --> ClosedSetOrderbook.public_fn --> ExternalContract.fn --> ClosedSetOrderbook.public_fn`.
+/// -
 #[aztec]
 pub contract ClosedSetOrderbook {
     use crate::{config::Config, order::Order};
@@ -108,81 +101,5 @@ pub contract ClosedSetOrderbook {
         );
 
         order_id
-    }
-
-    #[public]
-    #[internal]
-    fn _create_order(order_id: Field, order: Order) {
-        // Note that PublicImmutable can be initialized only once so this is a secondary check that the order is
-        // unique.
-        storage.orders.at(order_id).initialize(order);
-
-        emit_event_in_public_log(OrderCreated { order_id }, &mut context);
-    }
-
-    /// Privately fulfills an existing order in the orderbook
-    /// The taker provides the order ID they want to fulfill
-    #[private]
-    fn fulfill_order(order_id: Field, authwit_nonce: Field) {
-        let config = storage.config.read();
-        let order = storage.orders.at(order_id).read();
-        let taker = context.msg_sender();
-
-        // Determine which tokens are being exchanged based on bid_token_is_zero flag
-        let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
-
-        // The `order_id` is a serialized form of the maker's partial note.
-        let maker_partial_note = PartialUintNote::from_field(order_id);
-
-        // Transfer the ask_amount from taker directly to the maker's partial note.
-        Token::at(ask_token)
-            .finalize_transfer_to_private_from_private(
-                taker,
-                maker_partial_note,
-                order.ask_amount,
-                authwit_nonce,
-            )
-            .call(&mut context);
-
-        // Prepare partial note for taker to receive bid_token
-        let taker_partial_note =
-            Token::at(bid_token).prepare_private_balance_increase(taker, taker).call(&mut context);
-
-        // Nullify the order such that it cannot be fulfilled again. We emit a nullifier instead of deleting the order
-        // from public storage because we get no refund for resetting public storage to zero and just emitting
-        // a nullifier is cheaper (1 Field in DA instead of multiple Fields for the order). We use the `order_id`
-        // itself as the nullifier because this contract does not work with notes and hence there is no risk of
-        // colliding with a real note nullifier.
-        context.push_nullifier(order_id);
-
-        // Enqueue the fulfillment to finalize both partial notes
-        ClosedSetOrderbook::at(context.this_address())
-            ._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount)
-            .enqueue(&mut context);
-    }
-
-    #[public]
-    #[internal]
-    fn _fulfill_order(
-        order_id: Field,
-        taker_partial_note: PartialUintNote,
-        bid_token: AztecAddress,
-        bid_amount: u128,
-    ) {
-        // Finalize transfer of bid_amount of bid_token to taker
-        Token::at(bid_token).finalize_transfer_to_private(bid_amount, taker_partial_note).call(
-            &mut context,
-        );
-
-        emit_event_in_public_log(OrderFulfilled { order_id }, &mut context);
-    }
-
-    /// Returns the order and whether it has been fulfilled.
-    #[utility]
-    unconstrained fn get_order(order_id: Field) -> pub (Order, bool) {
-        let order = storage.orders.at(order_id).read();
-        let is_fulfilled = check_nullifier_exists(order_id);
-
-        (order, is_fulfilled)
     }
 }
