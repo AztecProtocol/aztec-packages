@@ -32,6 +32,7 @@ function run_proof_generation {
   local ipa_accumulation_flag=""
 
   cd ./acir_tests/assert_statement
+  # we add a variable to track whether we are disabling zk for the test or not.
   local disable_zk="--disable_zk"
 
   # Adjust settings based on program type
@@ -131,6 +132,7 @@ function test {
 
 # Prints to stdout, one per line, the command to execute each individual test.
 # Paths are all relative to the repository root.
+# this function is used to generate the commands for running the tests.
 function test_cmds {
   local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_rollup_honk_proof')
@@ -168,10 +170,13 @@ function test_cmds {
   echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
+  # SYS decides which scheme will be used for the test.
+  # FLOW decides which script (prove, verify, prove_then_verify, etc.) will be ran
   for t in $honk_tests; do
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
+  # variable DISABLE_ZK in prove then verify determins whether the a --disable_zk flag is added or not.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"

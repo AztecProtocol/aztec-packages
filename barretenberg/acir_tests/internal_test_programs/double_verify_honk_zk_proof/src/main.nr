@@ -1,4 +1,4 @@
-// This circuit aggregates two Honk proof from `assert_statement`.
+// This circuit aggregates two ZK-Honk proofs from `assert_statement`.
 use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkZKProof, verify_ultrahonkzk_proof};
 
 fn main(
