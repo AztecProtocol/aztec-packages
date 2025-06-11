@@ -80,7 +80,7 @@ contract GovScript is Test {
     emit log_named_uint(
       "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
     );
-    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getMinimumStake(), 18);
+    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getDepositAmount(), 18);
 
     emit log_named_address("# Governance", address(governance));
     DataStructures.Configuration memory config = governance.getConfiguration();

@@ -8,16 +8,14 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
-import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { SlasherClient } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestation, L2BlockSource } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
-  type AllowedElement,
-  type BuildBlockOptions,
   type IFullNodeBlockBuilder,
+  type PublicProcessorLimits,
   SequencerConfigSchema,
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
@@ -74,7 +72,6 @@ export class Sequencer {
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private txPublicSetupAllowList: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
@@ -131,7 +128,7 @@ export class Sequencer {
    * Updates sequencer config.
    * @param config - New parameters.
    */
-  public async updateConfig(config: SequencerConfig) {
+  public updateConfig(config: SequencerConfig) {
     this.log.info(
       `Sequencer config set`,
       omit(pickFromSchema(config, SequencerConfigSchema), 'txPublicSetupAllowList'),
@@ -159,11 +156,7 @@ export class Sequencer {
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
     }
-    if (config.txPublicSetupAllowList) {
-      this.txPublicSetupAllowList = config.txPublicSetupAllowList;
-    } else {
-      this.txPublicSetupAllowList = await getDefaultAllowedSetupFunctions();
-    }
+
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
     }
@@ -198,8 +191,8 @@ export class Sequencer {
   /**
    * Starts the sequencer and moves to IDLE state.
    */
-  public async start() {
-    await this.updateConfig(this.config);
+  public start() {
+    this.updateConfig(this.config);
     this.metrics.start();
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
@@ -327,24 +320,26 @@ export class Sequencer {
       return;
     }
 
-    this.log.debug(`Can propose block ${newBlockNumber} at slot ${slot}`);
+    this.log.debug(
+      `${proposerInNextSlot ? `Validator ${proposerInNextSlot.toString()} ` : ''}Can propose block ${newBlockNumber} at slot ${slot}`,
+    );
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
       new Fr(newBlockNumber),
-      this._coinbase,
+      this.coinbase,
       this._feeRecipient,
       slot,
     );
 
     const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
       slot,
-      newGlobalVariables.timestamp.toBigInt(),
+      newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
       slot,
-      newGlobalVariables.timestamp.toBigInt(),
+      newGlobalVariables.timestamp,
       VoteType.SLASHING,
     );
 
@@ -359,7 +354,7 @@ export class Sequencer {
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = ProposedBlockHeader.from({
       ...newGlobalVariables,
-      timestamp: newGlobalVariables.timestamp.toBigInt(),
+      timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
@@ -461,7 +456,7 @@ export class Sequencer {
     await this.p2pClient.deleteTxs(failedTxHashes);
   }
 
-  protected getDefaultBlockBuilderOptions(slot: number): BuildBlockOptions {
+  protected getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
     // Deadline for processing depends on whether we're proposing a block
     const secondsIntoSlot = this.getSecondsIntoSlot(slot);
     const processingEndTimeWithinSlot = this.timetable.getBlockProposalExecTimeEnd(secondsIntoSlot);
@@ -474,7 +469,6 @@ export class Sequencer {
       maxTransactions: this.maxTxsPerBlock,
       maxBlockSize: this.maxBlockSizeInBytes,
       maxBlockGas: this.maxBlockGas,
-      txPublicSetupAllowList: this.txPublicSetupAllowList,
       deadline,
     };
   }
@@ -497,7 +491,7 @@ export class Sequencer {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: ProposedBlockHeader,
     newGlobalVariables: GlobalVariables,
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
@@ -576,7 +570,7 @@ export class Sequencer {
   protected async collectAttestations(
     block: L2Block,
     txs: Tx[],
-    proposerAddress: EthAddress,
+    proposerAddress: EthAddress | undefined,
   ): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
@@ -726,6 +720,10 @@ export class Sequencer {
   }
 
   get coinbase(): EthAddress {
+    if (this._coinbase.isZero()) {
+      this.log.debug(`Coinbase is zero, using publisher sender address`, this.publisher.getSenderAddress());
+      return this.publisher.getSenderAddress();
+    }
     return this._coinbase;
   }
 

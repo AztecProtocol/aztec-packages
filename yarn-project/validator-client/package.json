@@ -57,7 +57,8 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
-    ]
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs"
   },
   "dependencies": {
     "@aztec/constants": "workspace:^",
@@ -65,6 +66,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
+    "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "koa": "^2.16.1",

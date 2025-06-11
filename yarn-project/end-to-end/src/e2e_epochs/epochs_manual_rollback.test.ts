@@ -34,13 +34,13 @@ describe('e2e_epochs/manual_rollback', () => {
 
     it('manually rolls back', async () => {
       logger.info(`Starting manual rollback test to unfinalized block`);
-      await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 0 });
+      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 0 });
       await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
 
       logger.info(`Synced to block 4. Pausing syncing and rolling back the chain.`);
       await context.aztecNodeAdmin!.pauseSync();
-      await context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
+      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
       await context.cheatCodes.eth.reorg(2);
       const blockAfterReorg = Number(await rollup.getBlockNumber());
       expect(blockAfterReorg).toBeLessThan(4);

@@ -87,11 +87,11 @@ export class AppendOnlyTreeSnapshot {
     return [this.root.toString(), this.nextAvailableLeafIndex];
   }
 
-  static zero() {
+  static empty() {
     return new AppendOnlyTreeSnapshot(Fr.ZERO, 0);
   }
 
-  isZero(): boolean {
+  isEmpty(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
   }
 

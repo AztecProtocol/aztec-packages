@@ -224,7 +224,7 @@ struct GlobalVariables {
     FF version;
     FF blockNumber;
     FF slotNumber;
-    FF timestamp;
+    uint64_t timestamp;
     EthAddress coinbase;
     AztecAddress feeRecipient;
     GasFees gasFees;

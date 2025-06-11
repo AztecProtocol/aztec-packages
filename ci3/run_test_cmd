@@ -186,7 +186,7 @@ function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
-  track_test $test_hash "$line"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   exit
 }
 
@@ -236,34 +236,13 @@ EOF
   exit
 }
 
-# Prints a list of test owners based on matching test name pattern, and optional error regex.
-function get_owners {
-  entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
-
-  # Iterate over each matching entry.
-  while IFS= read -r entry; do
-    error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
-
-    # If error_regex is present, check the log content.
-    if [ -n "$error_regex" ]; then
-      # Strip color codes from the log file.
-      # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
-      if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$tmp_file"); then
-        echo "$entry" | jq -r '.owners[]'
-      fi
-    else
-      echo "$entry" | jq -r '.owners[]'
-    fi
-  done <<< "$entries" | sort -u
-}
-
 # Test passed.
 [ $code -eq 0 ] && pass
 
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-owners=$(get_owners)
+owners=$(get_test_owner "$test_cmd" "$tmp_file")
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

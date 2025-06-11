@@ -187,7 +187,7 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.MINIMUM_DEPOSIT();
+    uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.stakingAsset.approve(address(store.gse), amount);

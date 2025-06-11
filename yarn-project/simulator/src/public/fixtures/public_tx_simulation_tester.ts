@@ -17,7 +17,7 @@ import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
 import { createTxForPublicCalls } from './utils.js';
 
-const TIMESTAMP = new Fr(99833);
+const TIMESTAMP = 99833n;
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 export type TestEnqueuedCall = {

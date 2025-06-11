@@ -16,6 +16,7 @@ contract StakingBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
+  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal MINIMUM_STAKE;
 
   address internal SLASHER;
@@ -30,6 +31,7 @@ contract StakingBase is TestBase {
     staking = IStaking(address(builder.getConfig().rollup));
     stakingAsset = builder.getConfig().testERC20;
 
+    DEPOSIT_AMOUNT = staking.getDepositAmount();
     MINIMUM_STAKE = staking.getMinimumStake();
 
     SLASHER = staking.getSlasher();

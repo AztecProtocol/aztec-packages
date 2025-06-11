@@ -109,7 +109,8 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
-    ]
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs"
   },
   "engines": {
     "node": ">=20.10"
