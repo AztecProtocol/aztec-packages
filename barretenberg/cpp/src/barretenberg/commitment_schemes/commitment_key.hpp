@@ -267,11 +267,16 @@ template <class Curve> class CommitmentKey {
                                       " points with an SRS of size ",
                                       srs->get_monomial_size()));
             }
-            Fr* start = (Fr*)&polynomial[polynomial.start_index];
-            batch_scalars.push_back(std::span<Fr>(start, polynomial.size()));
-            batch_points.push_back(point_table.subspan(polynomial.start_index));
+            if (polynomial.start_index < polynomial.size()) {
+                Fr* start = (Fr*)&polynomial[polynomial.start_index];
+                batch_scalars.push_back(std::span<Fr>(start, polynomial.size()));
+                batch_points.push_back(point_table.subspan(polynomial.start_index));
+            } else {
+                batch_scalars.push_back({});
+                batch_points.push_back({});
+            }
         }
-
+        std::cout << "calling batch msm" << std::endl;
         return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalars);
     }
 
