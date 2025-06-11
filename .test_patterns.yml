@@ -255,6 +255,10 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
 
   # boxes
   - regex: "vanilla-all-browsers box boxes"
