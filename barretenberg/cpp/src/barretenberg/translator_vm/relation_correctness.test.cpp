@@ -632,7 +632,6 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     key.compute_interleaved_polynomials();
     key.compute_extra_range_constraint_numerator();
     key.compute_translator_range_constraint_ordered_polynomials();
-    key.split_interleaved_random_coefficients_to_ordered();
 
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
