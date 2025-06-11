@@ -50,9 +50,16 @@ void AvmProver::execute_wire_commitments_round()
     // Commit to all polynomials (apart from logderivative inverse polynomials, which are committed to in the later
     // logderivative phase)
     auto wire_polys = prover_polynomials.get_wires();
-    const auto& labels = prover_polynomials.get_wires_labels();
+    const auto& labels = ProverPolynomials::get_wires_labels();
+    std::vector<PolynomialSpan<const FF>> commitment_polynomials;
+    commitment_polynomials.reserve(wire_polys.size());
+
+    for (const auto& wire_poly : wire_polys) {
+        commitment_polynomials.push_back(wire_poly);
+    }
+    auto commitments = commitment_key->batch_commit(commitment_polynomials);
     for (size_t idx = 0; idx < wire_polys.size(); ++idx) {
-        transcript->send_to_verifier(labels[idx], commitment_key->commit(wire_polys[idx]));
+        transcript->send_to_verifier(labels[idx], commitments[idx]);
     }
 }
 
@@ -78,8 +85,17 @@ void AvmProver::execute_log_derivative_inverse_round()
 void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
     // Commit to all logderivative inverse polynomials
+
+    std::vector<PolynomialSpan<const FF>> commitment_polynomials;
+
     for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        commitment = commitment_key->commit(key_poly);
+        commitment_polynomials.push_back(key_poly);
+    }
+
+    auto commitments = commitment_key->batch_commit(commitment_polynomials);
+    size_t count = 0;
+    for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
+        commitment = commitments[count++];
     }
 
     // Send all commitments to the verifier
