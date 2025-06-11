@@ -100,8 +100,8 @@ template <typename Curve> class MSM {
     static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
     static bool use_affine_trick(const size_t num_points, const size_t num_buckets) noexcept;
 
-    static AffineElement small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
-    static AffineElement pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
+    static Element small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
+    static Element pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept;
     static Element evaluate_small_pippenger_round(MSMData& msm_data,
                                                   const size_t round_index,
                                                   JacobianBucketAccumulators& bucket_data,

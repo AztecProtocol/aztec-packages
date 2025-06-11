@@ -246,40 +246,6 @@ template <class Curve> class CommitmentKey {
         return result;
     }
 
-    /**
-     * @brief Utilizes new batch_multi_scalar_mul to commit to multiple polynomials at once
-     *
-     * @param polynomials
-     * @return std::vector<Commitment>
-     */
-    std::vector<Commitment> batch_commit(std::vector<PolynomialSpan<const Fr>>& polynomials)
-    {
-        std::span<const G1> point_table = srs->get_monomial_points();
-
-        std::vector<std::span<Fr>> batch_scalars;
-        std::vector<std::span<const G1>> batch_points;
-
-        for (auto& polynomial : polynomials) {
-            size_t consumed_srs = polynomial.start_index + polynomial.size();
-            if (consumed_srs > srs->get_monomial_size()) {
-                throw_or_abort(format("Attempting to commit to a polynomial that needs ",
-                                      consumed_srs,
-                                      " points with an SRS of size ",
-                                      srs->get_monomial_size()));
-            }
-            if (polynomial.start_index < polynomial.size()) {
-                Fr* start = (Fr*)&polynomial[polynomial.start_index];
-                batch_scalars.push_back(std::span<Fr>(start, polynomial.size()));
-                batch_points.push_back(point_table.subspan(polynomial.start_index));
-            } else {
-                batch_scalars.push_back({});
-                batch_points.push_back({});
-            }
-        }
-        std::cout << "calling batch msm" << std::endl;
-        return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalars, false);
-    }
-
     enum class CommitType { Default, Structured, Sparse, StructuredNonZeroComplement };
 
     Commitment commit_with_type(PolynomialSpan<const Fr> poly,

@@ -20,6 +20,29 @@
 namespace bb::scalar_multiplication {
 
 /**
+ * @brief Fallback method for very small numbers of input points
+ *
+ * @tparam Curve
+ * @param scalars
+ * @param points
+ * @param range
+ * @return Curve::Element
+ */
+template <typename Curve>
+typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& scalars,
+                                  std::span<const typename Curve::AffineElement>& points,
+                                  size_t range) noexcept
+{
+    typename Curve::Element r = Curve::Group::point_at_infinity;
+    for (size_t i = 0; i < range; ++i) {
+        typename Curve::Element f = points[i];
+
+        r += f * scalars[i];
+    }
+    return r;
+}
+
+/**
  * @brief Convert scalar out of Montgomery form. Populate `consolidated_indices` with nonzero scalar indices
  *
  * @tparam Curve
@@ -111,8 +134,11 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     const size_t work_per_thread = (total_work + num_threads - 1) / num_threads;
     size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
 
+    // [(MSMs + T - 1) / T] * [T - 1] > MSMs
+    // T = 192
+    // ([M + 191] / 192) * 193 > M
     // only use a single work unit if we don't have enough work for every thread
-    if ((work_per_thread * (num_threads - 1)) > total_work) {
+    if (num_threads > total_work) {
         for (size_t i = 0; i < num_msms; ++i) {
             work_units[0].push_back(MSMWorkUnit{
                 .batch_msm_index = i,
@@ -343,8 +369,7 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
  * @return Curve::AffineElement
  */
 template <typename Curve>
-typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(
-    MSMData& msm_data) noexcept
+typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
 {
     std::span<const uint32_t>& nonzero_scalar_indices = msm_data.scalar_indices;
     const size_t size = nonzero_scalar_indices.size();
@@ -358,7 +383,7 @@ typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transf
     for (size_t i = 0; i < num_rounds; ++i) {
         round_output = evaluate_small_pippenger_round(msm_data, i, bucket_data, round_output, bits_per_slice);
     }
-    return AffineElement(round_output);
+    return round_output;
 }
 
 /**
@@ -369,7 +394,7 @@ typename Curve::AffineElement MSM<Curve>::small_pippenger_low_memory_with_transf
  * @return Curve::AffineElement
  */
 template <typename Curve>
-typename Curve::AffineElement MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
+typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalars(MSMData& msm_data) noexcept
 {
     const size_t msm_size = msm_data.scalar_indices.size();
     const size_t bits_per_slice = get_optimal_log_num_buckets(msm_size);
@@ -388,7 +413,7 @@ typename Curve::AffineElement MSM<Curve>::pippenger_low_memory_with_transformed_
         round_output = evaluate_pippenger_round(msm_data, i, affine_data, bucket_data, round_output, bits_per_slice);
     }
 
-    return AffineElement(round_output);
+    return (round_output);
 }
 
 /**
@@ -739,33 +764,40 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::vector<std::vector<uint32_t>> msm_scalar_indices;
     std::vector<ThreadWorkUnits> thread_work_units = get_work_units(scalars, msm_scalar_indices);
     const size_t num_cpus = get_num_cpus();
-    std::vector<std::vector<std::pair<AffineElement, size_t>>> thread_msm_results(num_cpus);
+    std::vector<std::vector<std::pair<Element, size_t>>> thread_msm_results(num_cpus);
     BB_ASSERT_EQ(thread_work_units.size(), num_cpus);
 
     // Once we have our work units, each thread can independently evaluate its assigned msms
     parallel_for(num_cpus, [&](size_t thread_idx) {
+        // for (size_t thread_idx = 0; thread_idx < num_cpus; ++thread_idx) {
         if (!thread_work_units[thread_idx].empty()) {
             const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
-            std::vector<std::pair<AffineElement, size_t>>& msm_results = thread_msm_results[thread_idx];
+            std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
             for (const MSMWorkUnit& msm : msms) {
                 std::span<const ScalarField> work_scalars = scalars[msm.batch_msm_index];
                 std::span<const AffineElement> work_points = points[msm.batch_msm_index];
                 std::span<const uint32_t> work_indices =
                     std::span<const uint32_t>{ &msm_scalar_indices[msm.batch_msm_index][msm.start_index], msm.size };
-
+                // std::cout << "work item, thread " << thread_idx << " size = " << msm.size << std::endl;
                 std::vector<uint64_t> point_schedule(msm.size);
                 MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
                 AffineElement msm_result;
-                // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur
-                // Note: not as fast! use unsafe version if you know all input base points are linearly independent
-                if (handle_edge_cases) {
-                    msm_result = small_pippenger_low_memory_with_transformed_scalars(msm_data);
+                constexpr size_t SINGLE_MUL_THRESHOLD = 16;
+                if (msm.size < SINGLE_MUL_THRESHOLD) {
+                    msm_result = small_mul<Curve>(work_scalars, work_points, msm.size);
                 } else {
-                    msm_result = pippenger_low_memory_with_transformed_scalars(msm_data);
+                    // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur
+                    // Note: not as fast! use unsafe version if you know all input base points are linearly independent
+                    if (handle_edge_cases) {
+                        msm_result = small_pippenger_low_memory_with_transformed_scalars(msm_data);
+                    } else {
+                        msm_result = pippenger_low_memory_with_transformed_scalars(msm_data);
+                    }
                 }
                 msm_results.push_back(std::make_pair(msm_result, msm.batch_msm_index));
             }
         }
+        //   }
     });
 
     // Accumulate results. This part needs to be single threaded, but amount of work done here should be small
@@ -776,7 +808,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         ele.self_set_infinity();
     }
     for (const auto& single_thread_msm_results : thread_msm_results) {
-        for (const std::pair<AffineElement, size_t>& result : single_thread_msm_results) {
+        for (const std::pair<Element, size_t>& result : single_thread_msm_results) {
             results[result.second] += result.first;
         }
     }

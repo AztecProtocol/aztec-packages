@@ -32,7 +32,6 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-    info("before");
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
@@ -43,7 +42,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
         perform_ivc_accumulation_rounds(total_num_circuits, ivc, mocked_vkeys, /* mock_vk */ true);
         ivc.prove();
     }
-    info("after");
 }
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol

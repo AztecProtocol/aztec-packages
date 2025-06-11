@@ -47,8 +47,8 @@ void ECCVMProver::execute_wire_commitments_round()
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
-    std::vector<PolynomialSpan<const FF>> commitment_polynomials;
-    std::vector<std::string> labels;
+    CommitmentKey::CommitType commit_type =
+        (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
 
     // Commit to wires whose length is bounded by the real size of the ECCVM
     for (const auto& [wire, label] : zip_view(key->polynomials.get_wires_without_accumulators(),
@@ -58,23 +58,13 @@ void ECCVMProver::execute_wire_commitments_round()
         const size_t start = circuit_size == wire.size() ? 0 : 1;
         std::vector<std::pair<size_t, size_t>> active_ranges{ { start, key->real_size + start },
                                                               { unmasked_witness_size, circuit_size } };
-        wire.mask();
-        commitment_polynomials.push_back(wire);
-        labels.push_back(label);
+        commit_to_witness_polynomial(wire, label, commit_type, active_ranges);
     }
 
     // The accumulators are populated until the 2^{CONST_ECCVM_LOG_N}, therefore we commit to a full-sized polynomial
     for (const auto& [wire, label] :
          zip_view(key->polynomials.get_accumulators(), commitment_labels.get_accumulators())) {
-        wire.mask();
-        commitment_polynomials.push_back(wire);
-        labels.push_back(label);
-    }
-
-    std::vector<Commitment> commitments = key->commitment_key->batch_commit(commitment_polynomials);
-
-    for (size_t i = 0; i < commitments.size(); ++i) {
-        transcript->send_to_verifier(labels[i], commitments[i]);
+        commit_to_witness_polynomial(wire, label);
     }
 }
 
