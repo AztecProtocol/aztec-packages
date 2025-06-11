@@ -124,13 +124,6 @@ export interface ExecutionDataProvider {
   getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
-   * Gets the index of a nullifier in the nullifier tree.
-   * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
-   */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
    * Returns a nullifier membership witness for the given nullifier or undefined if not found.
    * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
    * @param nullifier - Nullifier we're looking for.
