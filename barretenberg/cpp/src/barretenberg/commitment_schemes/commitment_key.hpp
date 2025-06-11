@@ -277,7 +277,7 @@ template <class Curve> class CommitmentKey {
             }
         }
         std::cout << "calling batch msm" << std::endl;
-        return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalars);
+        return scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul(batch_points, batch_scalars, false);
     }
 
     enum class CommitType { Default, Structured, Sparse, StructuredNonZeroComplement };
