@@ -65,7 +65,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   afterEach(async () => {
-    await context.cheatCodes.eth.setIntervalMining(0);
     await test.teardown();
   });
 
