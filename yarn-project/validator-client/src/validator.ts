@@ -20,15 +20,9 @@ import {
 } from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
+import type { IFullNodeBlockBuilder, ITxCollector, SequencerConfig } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
-import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { EventEmitter } from 'events';
-
-import type { ValidatorClientConfig } from './config.js';
-import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
   InvalidValidatorPrivateKeyError,
@@ -36,7 +30,13 @@ import {
   ReExStateMismatchError,
   ReExTimeoutError,
   TransactionsNotAvailableError,
-} from './errors/validator.error.js';
+} from '@aztec/stdlib/validators';
+import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
+
+import { EventEmitter } from 'events';
+
+import type { ValidatorClientConfig } from './config.js';
+import { ValidationService } from './duties/validation_service.js';
 import type { ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 import { ValidatorMetrics } from './metrics.js';
@@ -81,7 +81,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private epochCacheUpdateLoop: RunningPromise;
 
   private blockProposalValidator: BlockProposalValidator;
-  private txCollector: TxCollector;
+  private txCollector: ITxCollector;
   private proposersOfInvalidBlocks: Set<EthAddress> = new Set();
 
   constructor(
@@ -91,6 +91,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private p2pClient: P2P,
     private blockSource: L2BlockSource,
     private config: ValidatorClientConfig &
+      Pick<SequencerConfig, 'txPublicSetupAllowList'> &
       Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
