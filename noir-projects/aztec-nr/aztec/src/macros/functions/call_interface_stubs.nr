@@ -79,7 +79,7 @@ comptime fn create_stub_base(
     let serialized_args_slice_construction = fn_parameters.fold(
         quote {
             let mut $SERIALIZED_ARGS_NAME = [0; $params_num_fields];
-            let mut foobar_index = 0;
+            let mut $serialized_args_index_name: u32 = 0;
         },
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
