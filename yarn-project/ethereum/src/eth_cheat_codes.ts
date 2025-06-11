@@ -349,6 +349,16 @@ export class EthCheatCodes {
   }
 
   /**
+   * Get the trace for a given transaction hash
+   * @param txHash - The transaction hash
+   * @returns The trace
+   */
+  public async debugTraceTransaction(txHash: Hex): Promise<any> {
+    const res = await this.rpcCall('debug_traceTransaction', [txHash]);
+    return res;
+  }
+
+  /**
    * Triggers a reorg of the given depth, removing those blocks from the chain.
    * @param depth - The depth of the reorg
    */

@@ -27,11 +27,12 @@ export async function sendL1ToL2Message(
   const version = await new RollupContract(ctx.l1Client, ctx.l1ContractAddresses.rollupAddress.toString()).getVersion();
 
   // We inject the message to Inbox
-  const txHash = await inbox.write.sendL2Message([
-    { actor: recipient.toString(), version: BigInt(version) },
-    content.toString(),
-    secretHash.toString(),
-  ]);
+  const txHash = await inbox.write.sendL2Message(
+    [{ actor: recipient.toString(), version: BigInt(version) }, content.toString(), secretHash.toString()],
+    {
+      gas: 1_000_000n,
+    },
+  );
   logger.info(`L1 to L2 message sent in tx ${txHash}`);
 
   // We check that the message was correctly injected by checking the emitted event
