@@ -92,10 +92,8 @@ template <class Curve> class CommitmentKey {
                                   srs->get_monomial_size()));
         }
 
-        DEBUG_LOG_ALL(polynomial.span);
         G1 r = scalar_multiplication::pippenger_unsafe<Curve>(polynomial, point_table);
         Commitment point(r);
-        DEBUG_LOG(point);
         return point;
     };
 
