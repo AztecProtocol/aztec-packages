@@ -182,8 +182,6 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
     size_t lo_slice_offset = lo_bit & 63;
     size_t lo_slice_bits = std::min(target_slice_size, 64 - lo_slice_offset);
     size_t hi_slice_bits = target_slice_size - lo_slice_bits;
-    BB_ASSERT_LT(start_limb, static_cast<size_t>(4));
-    BB_ASSERT_LT(end_limb, static_cast<size_t>(4));
     size_t lo_slice = (scalar.data[start_limb] >> lo_slice_offset) & ((static_cast<size_t>(1) << lo_slice_bits) - 1);
     size_t hi_slice = (scalar.data[end_limb] & ((static_cast<size_t>(1) << hi_slice_bits) - 1));
 
@@ -204,7 +202,7 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
 template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points)
 {
     // We do 2 group operations per bucket, and they are full 3D Jacobian adds which are ~2x more than an affine add
-    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 4;
+    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 3;
     size_t cached_cost = static_cast<size_t>(-1);
     size_t target_bit_slice = 0;
     for (size_t bit_slice = 1; bit_slice < 20; ++bit_slice) {
