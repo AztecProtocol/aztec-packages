@@ -17,7 +17,7 @@ struct lookup_keccakf1600_theta_xor_01_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_01";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_01_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_01_inv;
@@ -43,7 +43,7 @@ struct lookup_keccakf1600_theta_xor_02_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_02";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_02_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_02_inv;
@@ -69,7 +69,7 @@ struct lookup_keccakf1600_theta_xor_03_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_03";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_03_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_03_inv;
@@ -95,7 +95,7 @@ struct lookup_keccakf1600_theta_xor_row_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_ROW_0";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_row_0_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_row_0_inv;
@@ -122,7 +122,7 @@ struct lookup_keccakf1600_theta_xor_11_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_11";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_11_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_11_inv;
@@ -148,7 +148,7 @@ struct lookup_keccakf1600_theta_xor_12_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_12";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_12_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_12_inv;
@@ -174,7 +174,7 @@ struct lookup_keccakf1600_theta_xor_13_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_13";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_13_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_13_inv;
@@ -200,7 +200,7 @@ struct lookup_keccakf1600_theta_xor_row_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_ROW_1";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_row_1_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_row_1_inv;
@@ -227,7 +227,7 @@ struct lookup_keccakf1600_theta_xor_21_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_21";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_21_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_21_inv;
@@ -253,7 +253,7 @@ struct lookup_keccakf1600_theta_xor_22_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_22";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_22_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_22_inv;
@@ -279,7 +279,7 @@ struct lookup_keccakf1600_theta_xor_23_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_23";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_23_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_23_inv;
@@ -305,7 +305,7 @@ struct lookup_keccakf1600_theta_xor_row_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_ROW_2";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_row_2_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_row_2_inv;
@@ -332,7 +332,7 @@ struct lookup_keccakf1600_theta_xor_31_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_31";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_31_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_31_inv;
@@ -358,7 +358,7 @@ struct lookup_keccakf1600_theta_xor_32_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_32";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_32_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_32_inv;
@@ -384,7 +384,7 @@ struct lookup_keccakf1600_theta_xor_33_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_33";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_33_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_33_inv;
@@ -410,7 +410,7 @@ struct lookup_keccakf1600_theta_xor_row_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_ROW_3";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_row_3_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_row_3_inv;
@@ -437,7 +437,7 @@ struct lookup_keccakf1600_theta_xor_41_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_41";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_41_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_41_inv;
@@ -463,7 +463,7 @@ struct lookup_keccakf1600_theta_xor_42_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_42";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_42_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_42_inv;
@@ -489,7 +489,7 @@ struct lookup_keccakf1600_theta_xor_43_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_43";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_43_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_43_inv;
@@ -515,7 +515,7 @@ struct lookup_keccakf1600_theta_xor_row_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_XOR_ROW_4";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_xor_row_4_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_xor_row_4_inv;
@@ -542,7 +542,7 @@ struct lookup_keccakf1600_theta_combined_xor_0_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_COMBINED_XOR_0";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_combined_xor_0_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_combined_xor_0_inv;
@@ -570,7 +570,7 @@ struct lookup_keccakf1600_theta_combined_xor_1_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_COMBINED_XOR_1";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_combined_xor_1_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_combined_xor_1_inv;
@@ -598,7 +598,7 @@ struct lookup_keccakf1600_theta_combined_xor_2_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_COMBINED_XOR_2";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_combined_xor_2_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_combined_xor_2_inv;
@@ -626,7 +626,7 @@ struct lookup_keccakf1600_theta_combined_xor_3_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_COMBINED_XOR_3";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_combined_xor_3_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_combined_xor_3_inv;
@@ -654,7 +654,7 @@ struct lookup_keccakf1600_theta_combined_xor_4_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_COMBINED_XOR_4";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_combined_xor_4_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_combined_xor_4_inv;
@@ -682,7 +682,7 @@ struct lookup_keccakf1600_state_theta_00_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_00";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_00_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_00_inv;
@@ -709,7 +709,7 @@ struct lookup_keccakf1600_state_theta_01_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_01";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_01_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_01_inv;
@@ -736,7 +736,7 @@ struct lookup_keccakf1600_state_theta_02_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_02";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_02_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_02_inv;
@@ -763,7 +763,7 @@ struct lookup_keccakf1600_state_theta_03_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_03";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_03_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_03_inv;
@@ -790,7 +790,7 @@ struct lookup_keccakf1600_state_theta_04_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_04";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_04_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_04_inv;
@@ -817,7 +817,7 @@ struct lookup_keccakf1600_state_theta_10_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_10";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_10_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_10_inv;
@@ -844,7 +844,7 @@ struct lookup_keccakf1600_state_theta_11_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_11";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_11_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_11_inv;
@@ -871,7 +871,7 @@ struct lookup_keccakf1600_state_theta_12_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_12";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_12_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_12_inv;
@@ -898,7 +898,7 @@ struct lookup_keccakf1600_state_theta_13_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_13";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_13_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_13_inv;
@@ -925,7 +925,7 @@ struct lookup_keccakf1600_state_theta_14_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_14";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_14_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_14_inv;
@@ -952,7 +952,7 @@ struct lookup_keccakf1600_state_theta_20_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_20";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_20_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_20_inv;
@@ -979,7 +979,7 @@ struct lookup_keccakf1600_state_theta_21_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_21";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_21_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_21_inv;
@@ -1006,7 +1006,7 @@ struct lookup_keccakf1600_state_theta_22_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_22";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_22_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_22_inv;
@@ -1033,7 +1033,7 @@ struct lookup_keccakf1600_state_theta_23_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_23";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_23_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_23_inv;
@@ -1060,7 +1060,7 @@ struct lookup_keccakf1600_state_theta_24_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_24";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_24_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_24_inv;
@@ -1087,7 +1087,7 @@ struct lookup_keccakf1600_state_theta_30_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_30";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_30_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_30_inv;
@@ -1114,7 +1114,7 @@ struct lookup_keccakf1600_state_theta_31_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_31";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_31_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_31_inv;
@@ -1141,7 +1141,7 @@ struct lookup_keccakf1600_state_theta_32_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_32";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_32_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_32_inv;
@@ -1168,7 +1168,7 @@ struct lookup_keccakf1600_state_theta_33_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_33";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_33_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_33_inv;
@@ -1195,7 +1195,7 @@ struct lookup_keccakf1600_state_theta_34_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_34";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_34_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_34_inv;
@@ -1222,7 +1222,7 @@ struct lookup_keccakf1600_state_theta_40_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_40";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_40_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_40_inv;
@@ -1249,7 +1249,7 @@ struct lookup_keccakf1600_state_theta_41_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_41";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_41_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_41_inv;
@@ -1276,7 +1276,7 @@ struct lookup_keccakf1600_state_theta_42_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_42";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_42_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_42_inv;
@@ -1303,7 +1303,7 @@ struct lookup_keccakf1600_state_theta_43_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_43";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_43_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_43_inv;
@@ -1330,7 +1330,7 @@ struct lookup_keccakf1600_state_theta_44_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_THETA_44";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_theta_44_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_theta_44_inv;
@@ -1357,7 +1357,7 @@ struct lookup_keccakf1600_theta_limb_02_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_02_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_02_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_02_range_inv;
@@ -1381,7 +1381,7 @@ struct lookup_keccakf1600_theta_limb_04_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_04_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_04_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_04_range_inv;
@@ -1405,7 +1405,7 @@ struct lookup_keccakf1600_theta_limb_10_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_10_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_10_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_10_range_inv;
@@ -1429,7 +1429,7 @@ struct lookup_keccakf1600_theta_limb_12_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_12_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_12_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_12_range_inv;
@@ -1453,7 +1453,7 @@ struct lookup_keccakf1600_theta_limb_14_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_14_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_14_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_14_range_inv;
@@ -1477,7 +1477,7 @@ struct lookup_keccakf1600_theta_limb_21_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_21_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_21_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_21_range_inv;
@@ -1501,7 +1501,7 @@ struct lookup_keccakf1600_theta_limb_23_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_23_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_23_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_23_range_inv;
@@ -1525,7 +1525,7 @@ struct lookup_keccakf1600_theta_limb_30_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_30_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_30_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_30_range_inv;
@@ -1549,7 +1549,7 @@ struct lookup_keccakf1600_theta_limb_32_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_32_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_32_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_32_range_inv;
@@ -1573,7 +1573,7 @@ struct lookup_keccakf1600_theta_limb_33_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_33_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_33_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_33_range_inv;
@@ -1597,7 +1597,7 @@ struct lookup_keccakf1600_theta_limb_40_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_40_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_40_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_40_range_inv;
@@ -1621,7 +1621,7 @@ struct lookup_keccakf1600_theta_limb_41_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_41_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_41_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_41_range_inv;
@@ -1645,7 +1645,7 @@ struct lookup_keccakf1600_theta_limb_43_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_43_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_43_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_43_range_inv;
@@ -1669,7 +1669,7 @@ struct lookup_keccakf1600_theta_limb_44_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_44_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_44_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_44_range_inv;
@@ -1693,7 +1693,7 @@ struct lookup_keccakf1600_theta_limb_01_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_01_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_01_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_01_range_inv;
@@ -1717,7 +1717,7 @@ struct lookup_keccakf1600_theta_limb_03_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_03_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_03_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_03_range_inv;
@@ -1741,7 +1741,7 @@ struct lookup_keccakf1600_theta_limb_11_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_11_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_11_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_11_range_inv;
@@ -1765,7 +1765,7 @@ struct lookup_keccakf1600_theta_limb_13_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_13_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_13_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_13_range_inv;
@@ -1789,7 +1789,7 @@ struct lookup_keccakf1600_theta_limb_20_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_20_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_20_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_20_range_inv;
@@ -1813,7 +1813,7 @@ struct lookup_keccakf1600_theta_limb_22_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_22_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_22_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_22_range_inv;
@@ -1837,7 +1837,7 @@ struct lookup_keccakf1600_theta_limb_24_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_24_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_24_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_24_range_inv;
@@ -1861,7 +1861,7 @@ struct lookup_keccakf1600_theta_limb_31_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_31_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_31_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_31_range_inv;
@@ -1885,7 +1885,7 @@ struct lookup_keccakf1600_theta_limb_34_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_34_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_34_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_34_range_inv;
@@ -1909,7 +1909,7 @@ struct lookup_keccakf1600_theta_limb_42_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_THETA_LIMB_42_RANGE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_theta_limb_42_range_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_theta_limb_42_range_inv;
@@ -1933,7 +1933,7 @@ struct lookup_keccakf1600_state_pi_and_00_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_00";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_00_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_00_inv;
@@ -1960,7 +1960,7 @@ struct lookup_keccakf1600_state_pi_and_01_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_01";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_01_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_01_inv;
@@ -1987,7 +1987,7 @@ struct lookup_keccakf1600_state_pi_and_02_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_02";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_02_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_02_inv;
@@ -2014,7 +2014,7 @@ struct lookup_keccakf1600_state_pi_and_03_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_03";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_03_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_03_inv;
@@ -2041,7 +2041,7 @@ struct lookup_keccakf1600_state_pi_and_04_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_04";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_04_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_04_inv;
@@ -2068,7 +2068,7 @@ struct lookup_keccakf1600_state_pi_and_10_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_10";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_10_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_10_inv;
@@ -2095,7 +2095,7 @@ struct lookup_keccakf1600_state_pi_and_11_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_11";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_11_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_11_inv;
@@ -2122,7 +2122,7 @@ struct lookup_keccakf1600_state_pi_and_12_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_12";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_12_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_12_inv;
@@ -2149,7 +2149,7 @@ struct lookup_keccakf1600_state_pi_and_13_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_13";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_13_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_13_inv;
@@ -2176,7 +2176,7 @@ struct lookup_keccakf1600_state_pi_and_14_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_14";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_14_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_14_inv;
@@ -2203,7 +2203,7 @@ struct lookup_keccakf1600_state_pi_and_20_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_20";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_20_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_20_inv;
@@ -2230,7 +2230,7 @@ struct lookup_keccakf1600_state_pi_and_21_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_21";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_21_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_21_inv;
@@ -2257,7 +2257,7 @@ struct lookup_keccakf1600_state_pi_and_22_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_22";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_22_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_22_inv;
@@ -2284,7 +2284,7 @@ struct lookup_keccakf1600_state_pi_and_23_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_23";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_23_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_23_inv;
@@ -2311,7 +2311,7 @@ struct lookup_keccakf1600_state_pi_and_24_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_24";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_24_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_24_inv;
@@ -2338,7 +2338,7 @@ struct lookup_keccakf1600_state_pi_and_30_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_30";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_30_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_30_inv;
@@ -2365,7 +2365,7 @@ struct lookup_keccakf1600_state_pi_and_31_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_31";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_31_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_31_inv;
@@ -2392,7 +2392,7 @@ struct lookup_keccakf1600_state_pi_and_32_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_32";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_32_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_32_inv;
@@ -2419,7 +2419,7 @@ struct lookup_keccakf1600_state_pi_and_33_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_33";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_33_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_33_inv;
@@ -2446,7 +2446,7 @@ struct lookup_keccakf1600_state_pi_and_34_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_34";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_34_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_34_inv;
@@ -2473,7 +2473,7 @@ struct lookup_keccakf1600_state_pi_and_40_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_40";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_40_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_40_inv;
@@ -2500,7 +2500,7 @@ struct lookup_keccakf1600_state_pi_and_41_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_41";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_41_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_41_inv;
@@ -2527,7 +2527,7 @@ struct lookup_keccakf1600_state_pi_and_42_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_42";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_42_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_42_inv;
@@ -2554,7 +2554,7 @@ struct lookup_keccakf1600_state_pi_and_43_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_43";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_43_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_43_inv;
@@ -2581,7 +2581,7 @@ struct lookup_keccakf1600_state_pi_and_44_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_PI_AND_44";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_pi_and_44_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_pi_and_44_inv;
@@ -2608,7 +2608,7 @@ struct lookup_keccakf1600_state_chi_00_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_00";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_00_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_00_inv;
@@ -2634,7 +2634,7 @@ struct lookup_keccakf1600_state_chi_01_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_01";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_01_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_01_inv;
@@ -2660,7 +2660,7 @@ struct lookup_keccakf1600_state_chi_02_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_02";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_02_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_02_inv;
@@ -2686,7 +2686,7 @@ struct lookup_keccakf1600_state_chi_03_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_03";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_03_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_03_inv;
@@ -2712,7 +2712,7 @@ struct lookup_keccakf1600_state_chi_04_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_04";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_04_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_04_inv;
@@ -2738,7 +2738,7 @@ struct lookup_keccakf1600_state_chi_10_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_10";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_10_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_10_inv;
@@ -2764,7 +2764,7 @@ struct lookup_keccakf1600_state_chi_11_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_11";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_11_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_11_inv;
@@ -2790,7 +2790,7 @@ struct lookup_keccakf1600_state_chi_12_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_12";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_12_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_12_inv;
@@ -2816,7 +2816,7 @@ struct lookup_keccakf1600_state_chi_13_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_13";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_13_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_13_inv;
@@ -2842,7 +2842,7 @@ struct lookup_keccakf1600_state_chi_14_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_14";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_14_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_14_inv;
@@ -2868,7 +2868,7 @@ struct lookup_keccakf1600_state_chi_20_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_20";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_20_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_20_inv;
@@ -2894,7 +2894,7 @@ struct lookup_keccakf1600_state_chi_21_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_21";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_21_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_21_inv;
@@ -2920,7 +2920,7 @@ struct lookup_keccakf1600_state_chi_22_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_22";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_22_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_22_inv;
@@ -2946,7 +2946,7 @@ struct lookup_keccakf1600_state_chi_23_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_23";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_23_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_23_inv;
@@ -2972,7 +2972,7 @@ struct lookup_keccakf1600_state_chi_24_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_24";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_24_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_24_inv;
@@ -2998,7 +2998,7 @@ struct lookup_keccakf1600_state_chi_30_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_30";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_30_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_30_inv;
@@ -3024,7 +3024,7 @@ struct lookup_keccakf1600_state_chi_31_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_31";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_31_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_31_inv;
@@ -3050,7 +3050,7 @@ struct lookup_keccakf1600_state_chi_32_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_32";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_32_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_32_inv;
@@ -3076,7 +3076,7 @@ struct lookup_keccakf1600_state_chi_33_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_33";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_33_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_33_inv;
@@ -3102,7 +3102,7 @@ struct lookup_keccakf1600_state_chi_34_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_34";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_34_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_34_inv;
@@ -3128,7 +3128,7 @@ struct lookup_keccakf1600_state_chi_40_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_40";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_40_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_40_inv;
@@ -3154,7 +3154,7 @@ struct lookup_keccakf1600_state_chi_41_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_41";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_41_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_41_inv;
@@ -3180,7 +3180,7 @@ struct lookup_keccakf1600_state_chi_42_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_42";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_42_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_42_inv;
@@ -3206,7 +3206,7 @@ struct lookup_keccakf1600_state_chi_43_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_43";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_43_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_43_inv;
@@ -3232,7 +3232,7 @@ struct lookup_keccakf1600_state_chi_44_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_CHI_44";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_chi_44_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_chi_44_inv;
@@ -3258,7 +3258,7 @@ struct lookup_keccakf1600_round_cst_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_ROUND_CST";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_keccak;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_round_cst_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_round_cst_inv;
@@ -3280,7 +3280,7 @@ struct lookup_keccakf1600_state_iota_00_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAKF1600_STATE_IOTA_00";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel;
+    static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_no_error;
     static constexpr Column DST_SELECTOR = Column::bitwise_start;
     static constexpr Column COUNTS = Column::lookup_keccakf1600_state_iota_00_counts;
     static constexpr Column INVERSES = Column::lookup_keccakf1600_state_iota_00_inv;

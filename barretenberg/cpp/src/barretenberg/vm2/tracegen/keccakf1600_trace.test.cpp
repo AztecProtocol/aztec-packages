@@ -60,23 +60,22 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
     EXPECT_EQ(rows.size(), 2 * AVM_KECCAKF1600_STATE_SIZE + 1); // +1 for the initial empty row
 
     // Check the first row of the read operation
-    EXPECT_THAT(rows.at(1),
-                AllOf(ROW_FIELD_EQ(R, keccak_memory_sel, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_start, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_last, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_rw, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_addr, 100),
-                      ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(R, keccak_memory_val, 1000),
-                      ROW_FIELD_EQ(R, keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
-                      ROW_FIELD_EQ(R, keccak_memory_single_tag_error, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_ctr_inv, FF(1).invert()),
-                      ROW_FIELD_EQ(R,
-                                   keccak_memory_ctr_min_state_size_inv,
-                                   (FF(0) - FF(AVM_KECCAKF1600_STATE_SIZE + 1)).invert()),
-                      ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1)));
+    EXPECT_THAT(
+        rows.at(1),
+        AllOf(ROW_FIELD_EQ(R, keccak_memory_sel, 1),
+              ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
+              ROW_FIELD_EQ(R, keccak_memory_start, 1),
+              ROW_FIELD_EQ(R, keccak_memory_last, 0),
+              ROW_FIELD_EQ(R, keccak_memory_rw, 0),
+              ROW_FIELD_EQ(R, keccak_memory_addr, 100),
+              ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
+              ROW_FIELD_EQ(R, keccak_memory_val, 1000),
+              ROW_FIELD_EQ(R, keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
+              ROW_FIELD_EQ(R, keccak_memory_single_tag_error, 0),
+              ROW_FIELD_EQ(R, keccak_memory_tag_error, 0),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_inv, 1),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_min_state_size_inv, (FF(1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert()),
+              ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1)));
 
     // Check the last row of the read operation
     EXPECT_THAT(rows.at(AVM_KECCAKF1600_STATE_SIZE),
@@ -96,23 +95,22 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1)));
 
     // Check the first row of the write operation (after read operation)
-    EXPECT_THAT(rows.at(AVM_KECCAKF1600_STATE_SIZE + 1),
-                AllOf(ROW_FIELD_EQ(R, keccak_memory_sel, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_start, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_last, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_rw, 1),
-                      ROW_FIELD_EQ(R, keccak_memory_addr, 200),
-                      ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
-                      ROW_FIELD_EQ(R, keccak_memory_val, 10000),
-                      ROW_FIELD_EQ(R, keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
-                      ROW_FIELD_EQ(R, keccak_memory_single_tag_error, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_tag_error, 0),
-                      ROW_FIELD_EQ(R, keccak_memory_ctr_inv, FF(1).invert()),
-                      ROW_FIELD_EQ(R,
-                                   keccak_memory_ctr_min_state_size_inv,
-                                   (FF(0) - FF(AVM_KECCAKF1600_STATE_SIZE + 1)).invert()),
-                      ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1)));
+    EXPECT_THAT(
+        rows.at(AVM_KECCAKF1600_STATE_SIZE + 1),
+        AllOf(ROW_FIELD_EQ(R, keccak_memory_sel, 1),
+              ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
+              ROW_FIELD_EQ(R, keccak_memory_start, 1),
+              ROW_FIELD_EQ(R, keccak_memory_last, 0),
+              ROW_FIELD_EQ(R, keccak_memory_rw, 1),
+              ROW_FIELD_EQ(R, keccak_memory_addr, 200),
+              ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
+              ROW_FIELD_EQ(R, keccak_memory_val, 10000),
+              ROW_FIELD_EQ(R, keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
+              ROW_FIELD_EQ(R, keccak_memory_single_tag_error, 0),
+              ROW_FIELD_EQ(R, keccak_memory_tag_error, 0),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_inv, 1),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_min_state_size_inv, (FF(1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert()),
+              ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1)));
 
     // Check the last row of the write operation
     EXPECT_THAT(rows.at(2 * AVM_KECCAKF1600_STATE_SIZE),

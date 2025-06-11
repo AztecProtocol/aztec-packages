@@ -491,7 +491,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
     auto pay_gas = TxPhaseOffsetsTable::get_offsets(TransactionPhase::COLLECT_GAS_FEES);
     trace.set(9,
               {
-
+                  {
                       { C::precomputed_sel_phase, 1 },
                       { C::precomputed_phase_value, static_cast<uint8_t>(TransactionPhase::COLLECT_GAS_FEES) },
                       { C::precomputed_sel_collect_fee, 1 },
@@ -501,7 +501,7 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_read_public_input_length_offset, pay_gas.read_pi_length_offset },
                       { C::precomputed_write_public_input_offset, pay_gas.write_pi_offset },
                   },
-});
+              });
 }
 
 void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)

@@ -7,6 +7,30 @@
 
 namespace bb::avm2::simulation {
 
+enum class KeccakF1600EventError {
+    // The read slice is out of range.
+    READ_SLICE_OUT_OF_RANGE,
+    // The write slice is out of range.
+    WRITE_SLICE_OUT_OF_RANGE,
+    // A tag int the read slice is invalid (not U64).
+    READ_SLICE_TAG_INVALID,
+};
+
+inline std::string to_string(KeccakF1600EventError e)
+{
+    switch (e) {
+    case KeccakF1600EventError::READ_SLICE_OUT_OF_RANGE:
+        return "READ_SLICE_OUT_OF_RANGE";
+    case KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE:
+        return "WRITE_SLICE_OUT_OF_RANGE";
+    case KeccakF1600EventError::READ_SLICE_TAG_INVALID:
+        return "READ_SLICE_TAG_INVALID";
+    }
+
+    // We catch all the cases above.
+    __builtin_unreachable();
+}
+
 using KeccakF1600State = std::array<std::array<uint64_t, 5>, 5>;
 using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
 

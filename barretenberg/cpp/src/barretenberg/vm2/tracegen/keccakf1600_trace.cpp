@@ -27,7 +27,7 @@ using C = Column;
 namespace {
 
 // Mapping 2-dimensional array indices of state inputs to columns.
-constexpr std::array<std::array<C, 5>, 5> state_in_cols = {
+constexpr std::array<std::array<C, 5>, 5> STATE_IN_COLS = {
     {
         {
             C::keccakf1600_state_in_00,
@@ -68,7 +68,7 @@ constexpr std::array<std::array<C, 5>, 5> state_in_cols = {
 };
 
 // Mapping 2-dimensional array indices of theta xor intermediate value columns.
-constexpr std::array<std::array<C, 4>, 5> theta_xor_cols = {
+constexpr std::array<std::array<C, 4>, 5> THETA_XOR_COLS = {
     {
         {
             C::keccakf1600_theta_xor_01,
@@ -104,7 +104,7 @@ constexpr std::array<std::array<C, 4>, 5> theta_xor_cols = {
 };
 
 // Mapping indices of theta_xor_row_rotl1 to their columns.
-constexpr std::array<C, 5> theta_xor_row_rotl1_cols = {
+constexpr std::array<C, 5> THETA_XOR_ROW_ROTL1_COLS = {
     {
         C::keccakf1600_theta_xor_row_rotl1_0,
         C::keccakf1600_theta_xor_row_rotl1_1,
@@ -115,7 +115,7 @@ constexpr std::array<C, 5> theta_xor_row_rotl1_cols = {
 };
 
 // Mapping indices of theta_xor_row_msb to their columns.
-constexpr std::array<C, 5> theta_xor_row_msb_cols = {
+constexpr std::array<C, 5> THETA_XOR_ROW_MSB_COLS = {
     {
         C::keccakf1600_theta_xor_row_msb_0,
         C::keccakf1600_theta_xor_row_msb_1,
@@ -126,7 +126,7 @@ constexpr std::array<C, 5> theta_xor_row_msb_cols = {
 };
 
 // Mapping indices of theta_xor_row_low63 to their columns.
-constexpr std::array<C, 5> theta_xor_row_low63_cols = {
+constexpr std::array<C, 5> THETA_XOR_ROW_LOW63_COLS = {
     {
         C::keccakf1600_theta_xor_row_low63_0,
         C::keccakf1600_theta_xor_row_low63_1,
@@ -137,7 +137,7 @@ constexpr std::array<C, 5> theta_xor_row_low63_cols = {
 };
 
 // Mapping indices of theta_combined_xor to their columns.
-constexpr std::array<C, 5> theta_combined_xor_cols = {
+constexpr std::array<C, 5> THETA_COMBINED_XOR_COLS = {
     {
         C::keccakf1600_theta_combined_xor_0,
         C::keccakf1600_theta_combined_xor_1,
@@ -148,7 +148,7 @@ constexpr std::array<C, 5> theta_combined_xor_cols = {
 };
 
 // Mapping indices of state_theta to their columns.
-constexpr std::array<std::array<C, 5>, 5> state_theta_cols = {
+constexpr std::array<std::array<C, 5>, 5> STATE_THETA_COLS = {
     {
         {
             C::keccakf1600_state_theta_00,
@@ -190,7 +190,7 @@ constexpr std::array<std::array<C, 5>, 5> state_theta_cols = {
 
 // Mapping indices of state_theta_hi to their columns.
 // As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> state_theta_hi_cols = {
+constexpr std::array<C, 24> STATE_THETA_HI_COLS = {
     {
         C::keccakf1600_state_theta_hi_01, C::keccakf1600_state_theta_hi_02, C::keccakf1600_state_theta_hi_03,
         C::keccakf1600_state_theta_hi_04, C::keccakf1600_state_theta_hi_10, C::keccakf1600_state_theta_hi_11,
@@ -205,7 +205,7 @@ constexpr std::array<C, 24> state_theta_hi_cols = {
 
 // Mapping indices of state_theta_low to their columns.
 // As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> state_theta_low_cols = {
+constexpr std::array<C, 24> STATE_THETA_LOW_COLS = {
     {
         C::keccakf1600_state_theta_low_01, C::keccakf1600_state_theta_low_02, C::keccakf1600_state_theta_low_03,
         C::keccakf1600_state_theta_low_04, C::keccakf1600_state_theta_low_10, C::keccakf1600_state_theta_low_11,
@@ -220,7 +220,7 @@ constexpr std::array<C, 24> state_theta_low_cols = {
 
 // Mapping indices of state_rho to their columns.
 // As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> state_rho_cols = {
+constexpr std::array<C, 24> STATE_RHO_COLS = {
     {
         C::keccakf1600_state_rho_01, C::keccakf1600_state_rho_02, C::keccakf1600_state_rho_03,
         C::keccakf1600_state_rho_04, C::keccakf1600_state_rho_10, C::keccakf1600_state_rho_11,
@@ -235,7 +235,7 @@ constexpr std::array<C, 24> state_rho_cols = {
 
 // Mapping indices of rho rotation constants and the corresponding constant columns.
 // As index 00 is not used here, we flatten the list and start with 01.
-constexpr std::array<C, 24> rho_rotation_len_cols = {
+constexpr std::array<C, 24> RHO_ROTATION_LEN_COLS = {
     {
         C::keccakf1600_rot_64_min_len_01, C::keccakf1600_rot_len_02,        C::keccakf1600_rot_64_min_len_03,
         C::keccakf1600_rot_len_04,        C::keccakf1600_rot_len_10,        C::keccakf1600_rot_64_min_len_11,
@@ -249,7 +249,7 @@ constexpr std::array<C, 24> rho_rotation_len_cols = {
 };
 
 // Mapping indices of "pi not" values to their columns
-constexpr std::array<std::array<C, 5>, 5> state_pi_not_cols = {
+constexpr std::array<std::array<C, 5>, 5> STATE_PI_NOT_COLS = {
     {
         {
             C::keccakf1600_state_pi_not_00,
@@ -290,7 +290,7 @@ constexpr std::array<std::array<C, 5>, 5> state_pi_not_cols = {
 };
 
 // Mapping indices of "pi and" values to their columns
-constexpr std::array<std::array<C, 5>, 5> state_pi_and_cols = {
+constexpr std::array<std::array<C, 5>, 5> STATE_PI_AND_COLS = {
     {
         {
             C::keccakf1600_state_pi_and_00,
@@ -331,7 +331,7 @@ constexpr std::array<std::array<C, 5>, 5> state_pi_and_cols = {
 };
 
 // Mapping indices of chi values to their columns
-constexpr std::array<std::array<C, 5>, 5> state_chi_cols = {
+constexpr std::array<std::array<C, 5>, 5> STATE_CHI_COLS = {
     {
         {
             C::keccakf1600_state_chi_00,
@@ -372,7 +372,7 @@ constexpr std::array<std::array<C, 5>, 5> state_chi_cols = {
 };
 
 // Mapping 1-dimensional array indices of read/write memory slice values to columns.
-constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> mem_val_cols = {
+constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
     {
         C::keccak_memory_val00, C::keccak_memory_val01, C::keccak_memory_val02, C::keccak_memory_val03,
         C::keccak_memory_val04, C::keccak_memory_val10, C::keccak_memory_val11, C::keccak_memory_val12,
@@ -419,6 +419,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
             } else {
                 values[(5 * i) + j] = state[i][j]; // For write, we do not need to adjust write values, these are the
                                                    // same as in the output state.
+                tags[(5 * i) + j] = MemoryTag::U64;
             }
         }
     }
@@ -443,7 +444,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
                 { C::keccak_memory_ctr, i + 1 },
                 { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
                 { C::keccak_memory_ctr_min_state_size_inv,
-                  i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i) - FF(AVM_KECCAKF1600_STATE_SIZE + 1)).invert() },
+                  i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i + 1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert() },
                 { C::keccak_memory_start, i == 0 ? 1 : 0 },
                 { C::keccak_memory_last, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
                 { C::keccak_memory_rw, rw ? 1 : 0 },
@@ -461,7 +462,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
         for (size_t j = i; j < AVM_KECCAKF1600_STATE_SIZE; j++) {
-            trace.set(mem_val_cols[j - i], row, state[j / 5][j % 5]);
+            trace.set(MEM_VAL_COLS[j - i], row, state[j / 5][j % 5]);
         }
     }
 }
@@ -475,17 +476,31 @@ void KeccakF1600TraceBuilder::process_permutation(
 
     uint32_t row = 1;
     for (const auto& event : events) {
+        const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
+        const bool error = out_of_range || event.tag_error;
+
         for (size_t round_idx = 0; round_idx < AVM_KECCAKF1600_NUM_ROUNDS; round_idx++) {
             const auto& round_data = event.rounds[round_idx];
+
             // Setting the selector, xor operation id, and operation id, round, round cst
             trace.set(C::keccakf1600_sel, row, 1);
+            trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
             trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
             trace.set(C::keccakf1600_round, row, round_data.round);
             trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
             trace.set(C::keccakf1600_thirty_two, row, AVM_MEMORY_NUM_BITS);
 
-            const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
+            // Setting the rotation length constants
+            // If the constant is <= 32, we set it in the column.
+            // Otherwise, we set 64 - constant.
+            for (size_t k = 1; k < 25; k++) {
+                const size_t i = k / 5;
+                const size_t j = k % 5;
+                const auto rotation_len = simulation::keccak_rotation_len[i][j];
+                const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
+                trace.set(RHO_ROTATION_LEN_COLS[k - 1], row, value);
+            }
 
             // Selectors start and last.
             // src_address required on first row
@@ -499,7 +514,6 @@ void KeccakF1600TraceBuilder::process_permutation(
                 trace.set(C::keccakf1600_tag_error, row, event.tag_error ? 1 : 0);
                 trace.set(C::keccakf1600_sel_slice_read, row, out_of_range ? 0 : 1);
 
-                const bool error = out_of_range || event.tag_error;
                 trace.set(C::keccakf1600_error, row, error ? 1 : 0);
             } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
                 trace.set(C::keccakf1600_last, row, 1);
@@ -517,90 +531,74 @@ void KeccakF1600TraceBuilder::process_permutation(
                           ? 1
                           : (FF(round_data.round) - AVM_KECCAKF1600_NUM_ROUNDS).invert());
 
-            // Setting state inputs in their corresponding colums
-            for (size_t i = 0; i < 5; i++) {
-                for (size_t j = 0; j < 5; j++) {
-                    trace.set(state_in_cols[i][j], row, round_data.state[i][j]);
+            // When an error occurs, we do not set any state values.
+            if (!error) {
+
+                // Setting state inputs in their corresponding colums
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 5; j++) {
+                        trace.set(STATE_IN_COLS[i][j], row, round_data.state[i][j]);
+                    }
                 }
-            }
 
-            // Setting theta xor values to their corresponding columns
-            for (size_t i = 0; i < 5; i++) {
-                for (size_t j = 0; j < 4; j++) {
-                    trace.set(theta_xor_cols[i][j], row, round_data.theta_xor[i][j]);
+                // Setting theta xor values to their corresponding columns
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 4; j++) {
+                        trace.set(THETA_XOR_COLS[i][j], row, round_data.theta_xor[i][j]);
+                    }
                 }
-            }
 
-            // Setting theta xor final values left rotated by 1
-            // and the msb and low 63 bits values.
-            for (size_t i = 0; i < 5; i++) {
-                const auto theta_xor_row_rotl1 = round_data.theta_xor_row_rotl1[i];
-                const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
-                const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
+                // Setting theta xor final values left rotated by 1
+                // and the msb and low 63 bits values.
+                // Setting theta_combined_xor values
+                for (size_t i = 0; i < 5; i++) {
+                    const auto theta_xor_row_rotl1 = round_data.theta_xor_row_rotl1[i];
+                    const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
+                    const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
 
-                trace.set(theta_xor_row_rotl1_cols[i], row, theta_xor_row_rotl1);
-                trace.set(theta_xor_row_msb_cols[i], row, theta_xor_row_msb);
-                trace.set(theta_xor_row_low63_cols[i], row, theta_xor_row_low63);
-            }
-
-            // Setting theta_combined_xor values
-            for (size_t i = 0; i < 5; i++) {
-                trace.set(theta_combined_xor_cols[i], row, round_data.theta_combined_xor[i]);
-            }
-
-            // Setting state_theta values
-            for (size_t i = 0; i < 5; i++) {
-                for (size_t j = 0; j < 5; j++) {
-                    trace.set(state_theta_cols[i][j], row, round_data.state_theta[i][j]);
+                    trace.set(THETA_XOR_ROW_ROTL1_COLS[i], row, theta_xor_row_rotl1);
+                    trace.set(THETA_XOR_ROW_MSB_COLS[i], row, theta_xor_row_msb);
+                    trace.set(THETA_XOR_ROW_LOW63_COLS[i], row, theta_xor_row_low63);
+                    trace.set(THETA_COMBINED_XOR_COLS[i], row, round_data.theta_combined_xor[i]);
                 }
-            }
 
-            // Setting state_theta_hi and state_theta_low values.
-            // We loop the flatten index k from 1 to 25 and compute
-            // 2-dimensional indices i = k/5 and j = k%5
-            for (size_t k = 1; k < 25; k++) {
-                const size_t i = k / 5;
-                const size_t j = k % 5;
-                const size_t low_num_bits = 64 - simulation::keccak_rotation_len[i][j];
-                const auto state_theta_val = round_data.state_theta[i][j];
-                const auto state_theta_hi = state_theta_val >> low_num_bits;
-                const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
-
-                trace.set(state_theta_hi_cols[k - 1], row, state_theta_hi);
-                trace.set(state_theta_low_cols[k - 1], row, state_theta_low);
-            }
-
-            // Setting the rotation length constants
-            // If the constant is <= 32, we set it in the column.
-            // Otherwise, we set 64 - constant.
-            for (size_t k = 1; k < 25; k++) {
-                const size_t i = k / 5;
-                const size_t j = k % 5;
-                const auto rotation_len = simulation::keccak_rotation_len[i][j];
-                const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
-                trace.set(rho_rotation_len_cols[k - 1], row, value);
-            }
-
-            // Setting state_rho values
-            for (size_t k = 1; k < 25; k++) {
-                const size_t i = k / 5;
-                const size_t j = k % 5;
-                trace.set(state_rho_cols[k - 1], row, round_data.state_rho[i][j]);
-            }
-
-            // Setting "pi not" values
-            // Setting "pi and" values
-            // Setting chi values
-            for (size_t i = 0; i < 5; i++) {
-                for (size_t j = 0; j < 5; j++) {
-                    trace.set(state_pi_not_cols[i][j], row, round_data.state_pi_not[i][j]);
-                    trace.set(state_pi_and_cols[i][j], row, round_data.state_pi_and[i][j]);
-                    trace.set(state_chi_cols[i][j], row, round_data.state_chi[i][j]);
+                // Setting state_theta values
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 5; j++) {
+                        trace.set(STATE_THETA_COLS[i][j], row, round_data.state_theta[i][j]);
+                    }
                 }
-            }
 
-            // Setting iota_00
-            trace.set(C::keccakf1600_state_iota_00, row, round_data.state_iota_00);
+                // Setting state_theta_hi and state_theta_low and state_rho values.
+                // We loop the flatten index k from 1 to 25 and compute
+                // 2-dimensional indices i = k/5 and j = k%5
+                // Note that intermediate states at index (0,0) are omitted because they are not involved
+                // in constraints.
+                for (size_t k = 1; k < 25; k++) {
+                    const size_t i = k / 5;
+                    const size_t j = k % 5;
+                    const size_t low_num_bits = 64 - simulation::keccak_rotation_len[i][j];
+                    const auto state_theta_val = round_data.state_theta[i][j];
+                    const auto state_theta_hi = state_theta_val >> low_num_bits;
+                    const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
+
+                    trace.set(STATE_THETA_HI_COLS[k - 1], row, state_theta_hi);
+                    trace.set(STATE_THETA_LOW_COLS[k - 1], row, state_theta_low);
+                    trace.set(STATE_RHO_COLS[k - 1], row, round_data.state_rho[i][j]);
+                }
+
+                // Setting "pi not", "pi and", and "chi" values
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 5; j++) {
+                        trace.set(STATE_PI_NOT_COLS[i][j], row, round_data.state_pi_not[i][j]);
+                        trace.set(STATE_PI_AND_COLS[i][j], row, round_data.state_pi_and[i][j]);
+                        trace.set(STATE_CHI_COLS[i][j], row, round_data.state_chi[i][j]);
+                    }
+                }
+
+                // Setting iota_00
+                trace.set(C::keccakf1600_state_iota_00, row, round_data.state_iota_00);
+            }
             row++;
         }
     }
@@ -613,10 +611,18 @@ void KeccakF1600TraceBuilder::process_memory_slices(
 
     uint32_t row = 1;
     for (const auto& event : events) {
-        process_single_slice(event, false, row, trace);
-        row += AVM_KECCAKF1600_STATE_SIZE;
-        process_single_slice(event, true, row, trace);
-        row += AVM_KECCAKF1600_STATE_SIZE;
+        // Skip the event if there is an out of range error.
+        // Namely, in this case the lookups to the memory slice is inactive.
+        if (!event.src_out_of_range && !event.dst_out_of_range) {
+            process_single_slice(event, false, row, trace);
+            row += AVM_KECCAKF1600_STATE_SIZE;
+
+            // Write to memory slice is only active if there is no tag error.
+            if (!event.tag_error) {
+                process_single_slice(event, true, row, trace);
+                row += AVM_KECCAKF1600_STATE_SIZE;
+            }
+        }
     }
 }
 
