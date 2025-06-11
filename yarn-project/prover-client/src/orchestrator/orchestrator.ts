@@ -1,4 +1,4 @@
-import { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -726,12 +726,14 @@ export class ProvingOrchestrator implements EpochProver {
           provingState.reject(`New archive root mismatch.`);
         }
 
-        const endBlobAccumulator = provingState.endBlobAccumulator!;
+        const endBlobAccumulatorPublicInputs = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(
+          provingState.endBlobAccumulator!,
+        );
         const circuitEndBlobAccumulatorState = result.inputs.blobPublicInputs.endBlobAccumulator;
-        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulator.toBlobAccumulatorPublicInputs())) {
+        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulatorPublicInputs)) {
           logger.error(
             `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
-              endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+              endBlobAccumulatorPublicInputs,
             )}`,
           );
           provingState.reject(`Blob accumulator state mismatch.`);

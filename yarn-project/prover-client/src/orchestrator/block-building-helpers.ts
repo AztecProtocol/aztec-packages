@@ -253,7 +253,7 @@ export const buildBlobHints = runInSpan(
   'buildBlobHints',
   async (_span: Span, txEffects: TxEffect[]) => {
     const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
     // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
     // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
@@ -270,7 +270,7 @@ export const accumulateBlobs = runInSpan(
   'accumulateBlobs',
   async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
     const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
   },
@@ -361,7 +361,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       hasher,
     );
     const parityShaRoot = new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
@@ -376,6 +376,14 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
 
 export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
   return sha256ToField(inputs.map(b => b.getEthVersionedBlobHash()));
+}
+
+// Note: tested against the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts.
+// Having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
+// getBlobsPerBlock() works on empty input.
+export async function getEmptyBlockBlobsHash(): Promise<Fr> {
+  const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
+  return sha256ToField(blobHash);
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation

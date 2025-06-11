@@ -35,7 +35,7 @@ describe('prover/orchestrator/blocks', () => {
       await context.setTreeRoots(txs);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-      const blobs = await Blob.getBlobs(blobFields);
+      const blobs = await Blob.getBlobsPerBlock(blobFields);
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       // This will need to be a 2 tx block
@@ -55,7 +55,7 @@ describe('prover/orchestrator/blocks', () => {
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-      const blobs = await Blob.getBlobs(blobFields);
+      const blobs = await Blob.getBlobsPerBlock(blobFields);
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);

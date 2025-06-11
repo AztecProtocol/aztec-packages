@@ -2,7 +2,7 @@ import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { buildBlobHints } from './block-building-helpers.js';
+import { buildBlobHints, getEmptyBlockBlobsHash } from './block-building-helpers.js';
 
 function fieldArrToStr(arr: Fr[]) {
   return `[${arr.map(f => (f.isZero() ? '0' : f.toString())).join(', ')}]`;
@@ -18,19 +18,16 @@ describe('buildBlobHints', () => {
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toEqual(BLS12Point.COMPRESSED_ZERO.toString('hex'));
 
+    expect(await getEmptyBlockBlobsHash()).toEqual(blobsHash);
     const blobsHashStr = blobsHash.toString();
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluationY).toEqual(Buffer.alloc(32));
+    expect(blobs[0].evaluate().y).toEqual(Buffer.alloc(32));
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb"`);
 
-    // TODO(MW): add conversion when public inputs finalised
-    const blobCommitmentsFields = [
-      new Fr(blobCommitments[0].compress().subarray(0, 31)),
-      new Fr(blobCommitments[0].compress().subarray(31, 48)),
-    ];
+    const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(
@@ -74,17 +71,13 @@ describe('buildBlobHints', () => {
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluationY.toString('hex')).toMatchInlineSnapshot(
+    expect(blobs[0].evaluate().y.toString('hex')).toMatchInlineSnapshot(
       `"25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
     );
     const zStr = blobs[0].challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);
 
-    // TODO(MW): add conversion when public inputs finalised
-    const blobCommitmentsFields = [
-      new Fr(blobCommitments[0].compress().subarray(0, 31)),
-      new Fr(blobCommitments[0].compress().subarray(31, 48)),
-    ];
+    const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
     updateInlineTestData(

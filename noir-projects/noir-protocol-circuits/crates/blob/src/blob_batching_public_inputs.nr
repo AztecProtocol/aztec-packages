@@ -82,7 +82,6 @@ pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) 
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
     let most_sig_bits = byte_to_bits_be(compressed[0]);
-    // TODO(MW): May not need to assert this since Bignum may check it's 381 bits?
     for i in 0..3 {
         assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
     }
@@ -249,7 +248,7 @@ impl BlobAccumulatorPublicInputs {
             gamma == bigint::bignum::to_field(injected.gamma),
             "Final blob challenge gamma mismatch.",
         );
-        // TODO(MW): Refactor BlobBatchingCommitment once BlobCommitment can be safely deleted
+        // Compress to 2 fields to reduce number of public inputs to the root rollup:
         let c = compress_to_blob_commitment(self.c_acc).to_compressed_fields();
         FinalBlobAccumulatorPublicInputs {
             blob_commitments_hash: self.blob_commitments_hash_acc,

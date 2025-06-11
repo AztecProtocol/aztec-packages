@@ -9,6 +9,7 @@ import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader, serializeToBuffer } from '../serialize/index.js';
 import { bufferToHex, hexToBuffer } from '../string/index.js';
 import { BLS12Fq, BLS12Fr } from './bls12_fields.js';
+import { Fr } from './fields.js';
 
 /**
  * Represents a Point on an elliptic curve with x and y coordinates.
@@ -154,6 +155,33 @@ export class BLS12Point {
     } else {
       throw new Error('Invalid compressed G1 point of BLS12-381');
     }
+  }
+
+  /**
+   * Converts a Point to two BN254 Fr elements by storing its compressed form as:
+   * +------------------+------------------+
+   * | Field Element 1  | Field Element 2  |
+   * | [bytes 0-31]     | [bytes 32-47]   |
+   * +------------------+------------------+
+   * |     32 bytes     |     16 bytes    |
+   * +------------------+------------------+
+   * Used in the rollup circuits to store blob commitments in the native field type. See blob.ts.
+   * @param point - A BLS12Point instance.
+   * @returns The point fields.
+   */
+  toBN254Fields() {
+    const compressed = this.compress();
+    return [new Fr(compressed.subarray(0, 31)), new Fr(compressed.subarray(31, 48))];
+  }
+
+  /**
+   * Creates a Point instance from 2 BN254 Fr fields as encoded in toBNFields() above.
+   * Used in the rollup circuits to store blob commitments in the native field type. See blob.ts.
+   * @param fields - The encoded BN254 fields.
+   * @returns The point fields.
+   */
+  static fromBN254Fields(fields: [Fr, Fr]) {
+    return BLS12Point.decompress(Buffer.concat([fields[0].toBuffer().subarray(1), fields[1].toBuffer().subarray(-17)]));
   }
 
   /**

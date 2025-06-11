@@ -1,104 +1,8 @@
-use crate::{
-    blob_public_inputs::{BlobCommitment, BlobPublicInputs, BlockBlobPublicInputs},
-    config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS},
-};
+use crate::config::{D_INV, LOG_FIELDS_PER_BLOB, ROOTS};
 
 use bigint::{BigNum, BLS12_381_Fr as F};
 use std::ops::{Mul, Neg};
-use types::{
-    abis::sponge_blob::SpongeBlob,
-    constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
-    hash::poseidon2_hash_subarray,
-    traits::Empty,
-    utils::arrays::array_splice,
-};
-
-// TODO(MW): remove pub when fully moved to batching
-pub(crate) fn convert_blob_fields(
-    blob_as_fields: [Field; FIELDS_PER_BLOB],
-) -> [F; FIELDS_PER_BLOB] {
-    let mut blob: [F; FIELDS_PER_BLOB] = [F::zero(); FIELDS_PER_BLOB];
-    for i in 0..FIELDS_PER_BLOB {
-        blob[i] = F::from(blob_as_fields[i]);
-    }
-    blob
-}
-
-pub fn check_block_blob_sponge(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    mut sponge_blob: SpongeBlob,
-) -> Field {
-    // Check that we haven't overfilled the blobs
-    assert(
-        sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
-        "Attempted to overfill blobs",
-    );
-    // Check that the blob is full
-    assert(
-        sponge_blob.expected_fields == sponge_blob.fields,
-        "Incorrect number of tx effects added to blob",
-    );
-    let sponge_hash = sponge_blob.squeeze();
-    let hash = poseidon2_hash_subarray(blobs_as_fields, sponge_blob.fields);
-    assert(hash == sponge_hash, "Mismatched hashed tx effects");
-
-    sponge_hash
-}
-
-// TODO(MW): remove pub when fully moved to batching
-pub(crate) fn compute_challenge(
-    hashed_blobs_fields: Field,
-    kzg_commitment: BlobCommitment,
-) -> Field {
-    let preimage = [hashed_blobs_fields, kzg_commitment.inner[0], kzg_commitment.inner[1]];
-    let challenge = poseidon::poseidon2::Poseidon2::hash(preimage, 3);
-    challenge
-}
-
-// Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
-// we don't actually need to operate on it so we've simply encoded it as fitting inside a
-// [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-// See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
-// TODO(MW): remove pub when fully moved to batching
-pub(crate) fn evaluate_blob(
-    blob_as_fields: [Field; FIELDS_PER_BLOB],
-    kzg_commitment: BlobCommitment,
-    hashed_blobs_fields: Field,
-) -> BlobPublicInputs {
-    let challenge_z: Field = compute_challenge(hashed_blobs_fields, kzg_commitment);
-    let challenge_z_as_bignum = F::from(challenge_z);
-    let blob = convert_blob_fields(blob_as_fields);
-
-    let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
-
-    BlobPublicInputs { z: challenge_z, y, kzg_commitment }
-}
-
-// Evaluates each blob required for a block
-pub fn evaluate_blobs(
-    blobs_as_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    kzg_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
-    mut sponge_blob: SpongeBlob,
-) -> BlockBlobPublicInputs {
-    // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
-    // challenge_z = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
-    // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
-    // all fields in the blob, which it does.
-    let hashed_blobs_fields = check_block_blob_sponge(blobs_as_fields, sponge_blob);
-    let mut result = BlockBlobPublicInputs::empty();
-    for i in 0..BLOBS_PER_BLOCK {
-        let single_blob_fields = array_splice(blobs_as_fields, i * FIELDS_PER_BLOB);
-        result.inner[i] =
-            evaluate_blob(single_blob_fields, kzg_commitments[i], hashed_blobs_fields);
-        if (result.inner[i].is_zero()) & (single_blob_fields[0] == 0) {
-            // We use empty PIs for empty blobs, to make it simpler to verify on L1.
-            // Since our fields come from the base rollup, we know they are tightly packed
-            // and should contain no 0 values among valid values => single_blob_fields[0] == 0.
-            result.inner[i] = BlobPublicInputs::empty();
-        }
-    }
-    result
-}
+use types::constants::FIELDS_PER_BLOB;
 
 /**
  *                    ___d-1
@@ -120,7 +24,6 @@ pub fn evaluate_blobs(
  * @param ys - the many y_i's of the blob.
  *
  * @return y = p(z)
- * TODO(MW): remove pub when fully moved to batching
  */
 pub(crate) fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // Note: it's more efficient (saving 30k constraints) to compute:
@@ -403,21 +306,48 @@ unconstrained fn __compute_sum(fracs: [F; FIELDS_PER_BLOB]) -> F {
 
 mod tests {
     // TODO(#9982): Replace unconstrained_config with config and import ROOTS - calculating ROOTS in unconstrained is insecure.
-    use crate::{
-        blob::{
-            barycentric_evaluate_blob_at_z, check_block_blob_sponge, evaluate_blob, evaluate_blobs,
-        },
-        blob_public_inputs::BlobCommitment,
-        config::{D, D_INV},
-    };
+    use crate::{blob::barycentric_evaluate_blob_at_z, config::{D, D_INV}};
     use super::{__compute_partial_sums, __compute_sum};
     use bigint::{BigNum, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
-        constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
-        tests::{fixture_builder::FixtureBuilder, utils::pad_end},
-        traits::Serialize,
+        constants::FIELDS_PER_BLOB,
+        tests::fixture_builder::FixtureBuilder,
+        traits::{Empty, Serialize},
     };
+
+    // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
+    // we don't actually need to operate on it so we've simply encoded it as fitting inside a
+    // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
+    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
+    pub struct TestBlobEvaluationOutputs {
+        pub z: Field,
+        pub y: F,
+        pub c: [Field; 2],
+    }
+
+    impl Empty for TestBlobEvaluationOutputs {
+        fn empty() -> Self {
+            Self { z: 0, y: F::zero(), c: [0, 0] }
+        }
+    }
+
+    fn evaluate_blob(
+        blob_as_fields: [Field; FIELDS_PER_BLOB],
+        kzg_commitment: [Field; 2],
+        hashed_blobs_fields: Field,
+    ) -> TestBlobEvaluationOutputs {
+        let challenge_z = poseidon::poseidon2::Poseidon2::hash(
+            [hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1]],
+            3,
+        );
+        let challenge_z_as_bignum = F::from(challenge_z);
+        let blob = blob_as_fields.map(|b| F::from(b));
+
+        let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
+
+        TestBlobEvaluationOutputs { z: challenge_z, y, c: kzg_commitment }
+    }
 
     #[test]
     unconstrained fn test_one_note() {
@@ -431,9 +361,8 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(blob_fields.len());
         sponge_blob.absorb(blob_fields, blob_fields.len());
 
-        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
-        let padded_blob_fields = pad_end(blob, 0);
-        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+        let hashed_blob = sponge_blob.squeeze();
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
         let challenge_z = F::from(output.z);
         let y = output.y;
@@ -456,37 +385,6 @@ mod tests {
         assert_eq(lhs, rhs);
     }
 
-    // TODO: After reverting some noir changes (see PR#10341) the below no longer works in unconstrained
-    // This happened previously in commit 893f1eca422d952d672eec75e3c9ff8f149a9ae8 but a sync fixed it.
-    // It works and passes in constrained, just takes a min longer.
-    #[test]
-    fn test_base() {
-        let mut tx_data = FixtureBuilder::new();
-        // Add some random bits of state
-        tx_data.append_note_hashes(50);
-        tx_data.set_protocol_nullifier();
-        tx_data.append_nullifiers(50);
-        tx_data.append_l2_to_l1_msgs(5);
-        tx_data.append_public_logs(5);
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        let blob_fields = tx_data.to_private_to_rollup_accumulated_data().serialize();
-        for i in 0..blob_fields.len() {
-            blob[i] = blob_fields[i];
-        }
-        let mut sponge_blob = SpongeBlob::new(blob_fields.len());
-        sponge_blob.absorb(blob_fields, blob_fields.len());
-
-        let kzg_commitment_in = BlobCommitment { inner: [1, 2] }; // this is made-up nonsense.
-        let padded_blob_fields = pad_end(blob, 0);
-        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
-        let expected_z = poseidon::poseidon2::Poseidon2::hash(
-            [sponge_blob.squeeze(), kzg_commitment_in.inner[0], kzg_commitment_in.inner[1]],
-            3,
-        );
-        assert(expected_z == output.z);
-    }
-
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
     #[test]
     unconstrained fn test_400() {
@@ -497,15 +395,12 @@ mod tests {
         let mut sponge_blob = SpongeBlob::new(400);
         sponge_blob.absorb(blob, 400);
 
-        let kzg_commitment_in = BlobCommitment {
-            inner: [
-                0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
-                0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
-            ],
-        };
+        let kzg_commitment_in = [
+            0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
+            0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
+        ];
 
-        let padded_blob_fields = pad_end(blob, 0);
-        let hashed_blob = check_block_blob_sponge(padded_blob_fields, sponge_blob);
+        let hashed_blob = sponge_blob.squeeze();
         let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
         // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
@@ -517,79 +412,31 @@ mod tests {
         assert(expected_y == output.y);
     }
 
-    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate full blobs'
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate full blob'
     #[test]
-    unconstrained fn test_full_blobs() {
-        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
-            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
-        for j in 0..BLOBS_PER_BLOCK {
-            for i in 0..FIELDS_PER_BLOB {
-                blob[j * FIELDS_PER_BLOB + i] = i as Field + 2;
-            }
+    unconstrained fn test_full_blob() {
+        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        for i in 0..FIELDS_PER_BLOB {
+            blob[i] = i as Field + 2;
         }
+        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB);
+        sponge_blob.absorb(blob, FIELDS_PER_BLOB);
 
-        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
-        sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+        let kzg_commitment_in = [
+            0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
+            0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
+        ];
 
-        let kzg_commitment_in = BlobCommitment {
-            inner: [
-                0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
-                0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
-            ],
-        };
+        let hashed_blob = sponge_blob.squeeze();
+        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
 
-        let output = evaluate_blobs(blob, [kzg_commitment_in; BLOBS_PER_BLOCK], sponge_blob);
-
-        // y is a BLS field with value 0x52fd4e272015a79f3889cc9ab1d84bee4326de7d8ced52612ecc9ec137bd38ee
+        // y is a BLS field with value 0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c
         let expected_y: F = F::from_limbs([
-            0x26de7d8ced52612ecc9ec137bd38ee,
-            0x4e272015a79f3889cc9ab1d84bee43,
-            0x52fd,
+            0xecc38f478ced014b6ae860502a1b1c,
+            0x494e66a289c4509ecf97af4ff92aa7,
+            0x0365,
         ]);
-        for j in 0..BLOBS_PER_BLOCK {
-            assert(expected_y == output.inner[j].y);
-        }
-    }
-
-    #[test(should_fail_with = "Found non-zero field after breakpoint")]
-    unconstrained fn test_no_extra_blob_fields() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        // Fill fields with 50 inputs...
-        for i in 0..50 {
-            blob[i] = 3;
-        }
-        // ...but the rollup's sponge is only expecting 45...
-        let mut sponge_blob = SpongeBlob::new(45);
-        sponge_blob.absorb(blob, 45);
-
-        // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
-        let padded_blob_fields = pad_end(blob, 0);
-        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-    }
-
-    #[test(should_fail_with = "Incorrect number of tx effects added to blob")]
-    unconstrained fn test_absorbed_too_few_blob_fields() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        // Fill fields with 50 inputs...
-        for i in 0..50 {
-            blob[i] = 3;
-        }
-        // ...but the rollup's sponge is expecting 100...
-        let mut sponge_blob = SpongeBlob::new(100);
-        sponge_blob.absorb(blob, 50);
-
-        // ...so the below should fail as it detects we have not added all the tx effects.
-        let padded_blob_fields = pad_end(blob, 0);
-        let _ = check_block_blob_sponge(padded_blob_fields, sponge_blob);
-    }
-
-    #[test]
-    unconstrained fn test_empty_blob() {
-        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
-            [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
-        let mut sponge_blob = SpongeBlob::new(0);
-        // The below should not throw
-        let _ = check_block_blob_sponge(blob, sponge_blob);
+        assert(expected_y == output.y);
     }
 
     #[test]

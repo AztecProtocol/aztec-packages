@@ -1,6 +1,6 @@
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
-import { poseidon2Hash, randomBigInt, sha256ToField } from '@aztec/foundation/crypto';
+import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -8,7 +8,7 @@ import cKzg from 'c-kzg';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-import { BatchedBlob, Blob } from './index.js';
+import { BatchedBlob, BatchedBlobAccumulator, Blob } from './index.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
 const trustedSetup = JSON.parse(
@@ -30,7 +30,7 @@ try {
   }
 }
 
-describe('blob', () => {
+describe('Blob Batching', () => {
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
     const blobItems: Fr[] = Array(size).fill(new Fr(size + 1));
     const ourBlob = await Blob.fromFields(blobItems);
@@ -57,7 +57,7 @@ describe('blob', () => {
     // Initialise 400 fields. This test shows that a single blob works with batching methods.
     // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_400_batched
     const blobItems = Array(400).fill(new Fr(3));
-    const blobs = await Blob.getBlobs(blobItems);
+    const blobs = await Blob.getBlobsPerBlock(blobItems);
 
     // Challenge for the final opening (z)
     const zis = blobs.map(b => b.challengeZ);
@@ -114,7 +114,7 @@ describe('blob', () => {
     const items = [new Fr(3), new Fr(4), new Fr(5)].map(f =>
       new Array(FIELDS_PER_BLOB).fill(f).map((elt, i) => elt.mul(new Fr(i + 1))),
     );
-    const blobs = await Blob.getBlobs(items.flat());
+    const blobs = await Blob.getBlobsPerBlock(items.flat());
 
     // Challenge for the final opening (z)
     const zis = blobs.map(b => b.challengeZ);
@@ -173,14 +173,36 @@ describe('blob', () => {
   ])('should construct and verify a batch of blobs over %p blocks', async blocks => {
     const items = new Array(FIELD_ELEMENTS_PER_BLOB * blocks * BLOBS_PER_BLOCK)
       .fill(Fr.ZERO)
-      .map((_, i) => new Fr(BigInt(i) + randomBigInt(120n)));
+      .map((_, i) => new Fr(i + randomInt(120)));
 
     const blobs = [];
     for (let i = 0; i < blocks; i++) {
       const start = i * FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK;
-      blobs.push(...(await Blob.getBlobs(items.slice(start, start + FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK))));
+      blobs.push(
+        ...(await Blob.getBlobsPerBlock(items.slice(start, start + FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK))),
+      );
     }
     // BatchedBlob.batch() performs a verification check:
     await BatchedBlob.batch(blobs);
+  });
+});
+
+describe('BatchedBlobAccumulator', () => {
+  let acc: BatchedBlobAccumulator;
+  let blobs: Blob[];
+
+  beforeAll(async () => {
+    const items = new Array(FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK)
+      .fill(Fr.ZERO)
+      .map((_, i) => new Fr(i + randomInt(120)));
+    blobs = await Blob.getBlobsPerBlock(items);
+    acc = await BatchedBlob.newAccumulator(blobs);
+  });
+
+  it('clones correctly', async () => {
+    const clone = acc.clone();
+    expect(acc).toEqual(clone);
+    const modified = await clone.accumulate(blobs[0]);
+    expect(acc).not.toEqual(modified);
   });
 });

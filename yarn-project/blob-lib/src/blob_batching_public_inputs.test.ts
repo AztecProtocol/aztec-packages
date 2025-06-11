@@ -38,34 +38,26 @@ describe('BlockBlobPublicInputs', () => {
     const res = BlockBlobPublicInputs.fromBuffer(buffer);
     expect(res).toEqual(blobPI);
   });
-
-  it('converts correctly from Blob class', async () => {
-    const blobs = await timesParallel(BLOBS_PER_BLOCK, i => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
-    const startBlobAccumulator = makeBatchedBlobAccumulator(randomInt(1000));
-    const converted = await BlockBlobPublicInputs.fromBlobs(startBlobAccumulator, blobs);
-    const expectedEndBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
-    expect(converted.endBlobAccumulator).toEqual(expectedEndBlobAccumulator.toBlobAccumulatorPublicInputs());
-  });
 });
 
 describe('BlobAccumulatorPublicInputs', () => {
   let blobPI: BlobAccumulatorPublicInputs;
 
   beforeAll(() => {
-    blobPI = makeBatchedBlobAccumulator(randomInt(1000)).toBlobAccumulatorPublicInputs();
+    blobPI = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
   });
 
   it('serializes to buffer and deserializes it back', () => {
     const buffer = blobPI.toBuffer();
     const res = BlobAccumulatorPublicInputs.fromBuffer(buffer);
-    expect(res.equals(blobPI)).toBeTruthy();
+    expect(res).toEqual(blobPI);
   });
 
   it('serializes to fields and deserializes it back', () => {
     const fields = blobPI.toFields();
     expect(fields.length).toEqual(BLOB_ACCUMULATOR_PUBLIC_INPUTS);
     const res = BlobAccumulatorPublicInputs.fromFields(fields);
-    expect(res.equals(blobPI)).toBeTruthy();
+    expect(res).toEqual(blobPI);
   });
 });
 
@@ -73,7 +65,7 @@ describe('FinalBlobAccumulatorPublicInputs', () => {
   let blobPI: FinalBlobAccumulatorPublicInputs;
 
   beforeAll(() => {
-    blobPI = makeBatchedBlobAccumulator(randomInt(1000)).toFinalBlobAccumulatorPublicInputs();
+    blobPI = FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
   });
 
   it('serializes to buffer and deserializes it back', () => {

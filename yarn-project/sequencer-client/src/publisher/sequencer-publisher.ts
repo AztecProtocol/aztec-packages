@@ -429,7 +429,7 @@ export class SequencerPublisher {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
       header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),

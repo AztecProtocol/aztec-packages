@@ -406,7 +406,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = await Blob.getBlobs(block.body.toBlobFields());
+        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
