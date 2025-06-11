@@ -177,10 +177,13 @@ function test_cmds {
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
   # variable DISABLE_ZK in prove then verify determins whether the a --disable_zk flag is added or not.
+  # we are running the double_verify_honk_proof test with the --disable_zk flag.
+  # the zeroknowledge version of this test is given in the internal test programs.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
+  # we are running the assert_statement test with the --disable_zk flag.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
 
   # prove and verify using bb.js classes
