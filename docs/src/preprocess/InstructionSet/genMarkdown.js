@@ -44,11 +44,9 @@ function htmlInstructionSetTable() {
     const instr = INSTRUCTION_SET[i];
     const name = instr["Name"];
     let row = `<tr>\n`;
-    row += `\t<td style={{'text-align': 'center'}}><a id='isa-table-${
-      instr["id"]
-    }'/><Markdown>\\[${escapeTicks(name)}\\](#isa-section-${
-      instr["id"]
-    })</Markdown></td>`;
+    row += `\t<td style={{'text-align': 'center'}}><a id='isa-table-${instr["id"]
+      }'/><Markdown>\\[${escapeTicks(name)}\\](#isa-section-${instr["id"]
+      })</Markdown></td>`;
 
     for (let t = 0; t < TOPICS_IN_TABLE.length; t++) {
       const topic = TOPICS_IN_TABLE[t];
@@ -120,17 +118,6 @@ function markdownInstructionSetSection(docsDir) {
       subsection += `${item}\n`;
     }
 
-    // docusaurus will get images from static/img
-    const urlPath = `/img/protocol-specs/public-vm/bit-formats/${name.replace(
-      /`/g,
-      ""
-    )}.png`;
-
-    const bitFormatImagePath = path.join(docsDir, "..", `static${urlPath}`);
-
-    if (fs.existsSync(bitFormatImagePath)) {
-      subsection += `\n[![](${urlPath})](${urlPath})`;
-    }
     markdown += `\n${subsection}\n`;
   }
   return markdown;
