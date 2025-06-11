@@ -204,7 +204,7 @@ uint32_t MSM<Curve>::get_scalar_slice(const typename Curve::ScalarField& scalar,
 template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const size_t num_points) noexcept
 {
     // We do 2 group operations per bucket, and they are full 3D Jacobian adds which are ~2x more than an affine add
-    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 4;
+    constexpr size_t COST_OF_BUCKET_OP_RELATIVE_TO_POINT = 5;
     size_t cached_cost = static_cast<size_t>(-1);
     size_t target_bit_slice = 0;
     for (size_t bit_slice = 1; bit_slice < 20; ++bit_slice) {
@@ -246,7 +246,7 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
     // We use 4-bit windows = ((NUM_BITS_IN_FIELD + 3) / 4) multiplications
     // Computing 4-bit window table requires 14 muls
     constexpr size_t COST_OF_INVERSION = NUM_BITS_IN_FIELD + ((NUM_BITS_IN_FIELD + 3) / 4) + 14;
-    constexpr size_t COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION = 6;
+    constexpr size_t COST_SAVING_OF_AFFINE_TRICK_PER_GROUP_OPERATION = 5;
     constexpr size_t EXTRA_COST_OF_JACOBIAN_GROUP_OPERATION_IF_Z2_IS_NOT_1 = 5;
 
     double num_points_f = static_cast<double>(num_points);
