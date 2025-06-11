@@ -27,6 +27,7 @@ tags:
 The Aztec sequencer node is critical infrastructure responsible for ordering transactions and producing blocks.
 
 The sequencer node takes part in three key actions:
+
 1. Assemble unprocessed transactions and propose the next block
 2. Attest to correct execution of txs in the proposed block (if part of validator committee)
 3. Submit the successfully attested block to L1
@@ -40,6 +41,7 @@ The archiver component complements this process by maintaining historical chain 
 ### Requirements
 
 A computer running Linux or MacOS with the following specifictions:
+
 - CPU: 8-cores
 - RAM: 16 GiB
 - Storage: 1 TB SSD
@@ -52,17 +54,16 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 <General.InstallationInstructions />
 
-Now install the latest testnet version of aztec: `aztec-up alpha-testnet`
-
+Now install the latest testnet version of aztec: `aztec-up -v latest`
 
 Join the [Discord](https://discord.gg/aztec) to connect with the community and get help with your setup.
-
 
 ## Sequencer Quickstart
 
 With the alpha-testnet version of the aztec tools, you now need to define required variables for your node.
 
 The following variable names are specific to the `aztec start` command, set them as variables in the terminal or inline before the command.
+
 - `ETHEREUM_HOSTS=<url>`: One or more comma-separated public rpc provider url(s). NB - don't share your access token
 - `L1_CONSENSUS_HOST_URLS=<url>`: One or more comma-separated public rpc provider url(s) that supports consensus client requests
 - `VALIDATOR_PRIVATE_KEY="Ox<hex value>"`: Private key of testnet L1 EOA that holds Sepolia ETH (0.01 Sepolia ETH can get you started)
@@ -86,6 +87,7 @@ aztec start --node --archiver --sequencer \
 ```
 
 **Additional Parameters**: The comprehensive list of parameters can be seen via: `aztec help start`. For example:
+
 ```
 --p2p.p2pPort <value>        (default: 40400)        ($P2P_PORT)
       The port for the P2P service.
@@ -245,7 +247,7 @@ name: aztec-node
 services:
   node:
     network_mode: host # Optional, run with host networking
-    image: aztecprotocol/aztec:alpha-testnet
+    image: aztecprotocol/aztec:latest
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
