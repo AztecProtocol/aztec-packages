@@ -92,14 +92,12 @@ export type Operator = {
  * Return type of the deployL1Contract function.
  */
 export type DeployL1ContractsReturnType = {
-  /**
-   * Extended Wallet Client Type.
-   */
+  /** Extended Wallet Client Type. */
   l1Client: ExtendedViemWalletClient;
-  /**
-   * The currently deployed l1 contract addresses
-   */
+  /** The currently deployed l1 contract addresses */
   l1ContractAddresses: L1ContractAddresses;
+  /** Version of the current rollup contract. */
+  rollupVersion: number;
 };
 
 export interface LinkReferences {
@@ -1036,6 +1034,7 @@ export const deployL1Contracts = async (
   }
 
   return {
+    rollupVersion: Number(await rollup.getVersion()),
     l1Client: l1Client,
     l1ContractAddresses: {
       ...l1Contracts,

@@ -82,6 +82,7 @@ export async function deployContractsToL1(
   );
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
   return aztecNodeConfig.l1Contracts;
 }
