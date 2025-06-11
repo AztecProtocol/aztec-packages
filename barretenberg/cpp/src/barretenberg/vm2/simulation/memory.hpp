@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -27,9 +28,13 @@ class MemoryInterface {
 
 class Memory : public MemoryInterface {
   public:
-    Memory(uint32_t space_id, RangeCheckInterface& range_check, EventEmitterInterface<MemoryEvent>& event_emitter)
+    Memory(uint32_t space_id,
+           RangeCheckInterface& range_check,
+           ExecutionIdGetterInterface& execution_id_manager,
+           EventEmitterInterface<MemoryEvent>& event_emitter)
         : space_id(space_id)
         , range_check(range_check)
+        , execution_id_manager(execution_id_manager)
         , events(event_emitter)
     {}
 
@@ -43,10 +48,38 @@ class Memory : public MemoryInterface {
     unordered_flat_map<size_t, MemoryValue> memory;
 
     RangeCheckInterface& range_check;
+    ExecutionIdGetterInterface& execution_id_manager;
     // TODO: consider a deduplicating event emitter (within the same clk).
     EventEmitterInterface<MemoryEvent>& events;
 
     void validate_tag(const MemoryValue& value) const;
+};
+
+class MemoryProviderInterface {
+  public:
+    virtual ~MemoryProviderInterface() = default;
+    virtual std::unique_ptr<MemoryInterface> make_memory(uint32_t space_id) = 0;
+};
+
+class MemoryProvider : public MemoryProviderInterface {
+  public:
+    MemoryProvider(RangeCheckInterface& range_check,
+                   ExecutionIdGetterInterface& execution_id_manager,
+                   EventEmitterInterface<MemoryEvent>& event_emitter)
+        : range_check(range_check)
+        , execution_id_manager(execution_id_manager)
+        , events(event_emitter)
+    {}
+
+    std::unique_ptr<MemoryInterface> make_memory(uint32_t space_id) override
+    {
+        return std::make_unique<Memory>(space_id, range_check, execution_id_manager, events);
+    }
+
+  private:
+    RangeCheckInterface& range_check;
+    ExecutionIdGetterInterface& execution_id_manager;
+    EventEmitterInterface<MemoryEvent>& events;
 };
 
 // Just a map that doesn't emit events or do anything else.

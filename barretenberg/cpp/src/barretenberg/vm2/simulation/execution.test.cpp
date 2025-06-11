@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
@@ -46,10 +47,12 @@ class ExecutionSimulationTest : public ::testing::Test {
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
     StrictMock<MockContextProvider> context_provider;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
     Execution execution = Execution(alu,
                                     execution_components,
                                     context_provider,
                                     instruction_info_db,
+                                    execution_id_manager,
                                     execution_event_emitter,
                                     context_stack_event_emitter);
 };

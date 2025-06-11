@@ -207,6 +207,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         // We always do what follows. "Finally".
         // Move on to the next pc.
         context.set_pc(context.get_next_pc());
+        execution_id_manager.increment_execution_id();
 
         // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
         ex_event.inputs = get_inputs();
