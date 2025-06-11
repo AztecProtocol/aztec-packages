@@ -556,10 +556,10 @@ export async function setup(
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
-    const p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
-    const p2pIp = opts.p2pIp ?? '127.0.0.1';
+    config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
+    config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
-      { ...config, p2pEnabled, p2pIp },
+      config, // REFACTOR: createAndSync mutates this config
       { dateProvider, blobSinkClient, telemetry, p2pClientDeps },
       { prefilledPublicData },
     );
