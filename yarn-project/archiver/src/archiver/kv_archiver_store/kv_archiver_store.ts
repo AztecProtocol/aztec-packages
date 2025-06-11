@@ -301,12 +301,13 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - How many logs to return per tag. Default returns everything
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
     try {
-      return this.#logStore.getLogsByTags(tags);
+      return this.#logStore.getLogsByTags(tags, logsPerTag);
     } catch (err) {
       return Promise.reject(err);
     }
