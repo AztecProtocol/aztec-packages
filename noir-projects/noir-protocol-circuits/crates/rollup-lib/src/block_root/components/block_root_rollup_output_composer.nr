@@ -176,7 +176,6 @@ impl BlockRootRollupOutputComposer {
         blobs_hash: Field,
     ) -> BlockHeader {
         let content_commitment = ContentCommitment {
-            num_txs: self.merged_rollup.num_txs as Field,
             blobs_hash,
             in_hash: self.data.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: self.merged_rollup.out_hash,

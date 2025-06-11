@@ -87,6 +87,7 @@
     "rootDir": "./src",
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
-    ]
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs"
   }
 }

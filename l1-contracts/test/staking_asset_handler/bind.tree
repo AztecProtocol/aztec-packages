@@ -1,0 +1,5 @@
+BindTest
+├── When using the bound address
+│   └── it emits {AddedToQueue} event
+└── When not using the bound address
+    └── it reverts

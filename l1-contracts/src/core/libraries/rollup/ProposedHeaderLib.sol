@@ -30,7 +30,6 @@ struct GasFees {
 }
 
 struct ContentCommitment {
-  uint256 numTxs;
   bytes32 blobsHash;
   bytes32 inHash;
   bytes32 outHash;
@@ -68,7 +67,6 @@ library ProposedHeaderLib {
     return Hash.sha256ToField(
       abi.encodePacked(
         _header.lastArchiveRoot,
-        _header.contentCommitment.numTxs,
         _header.contentCommitment.blobsHash,
         _header.contentCommitment.inHash,
         _header.contentCommitment.outHash,

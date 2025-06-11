@@ -96,8 +96,6 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
     event_commitment: Field,
     tx_hash: Field,
     recipient: AztecAddress,
-    log_index_in_tx: Field,
-    tx_index_in_block: Field,
 ) {
     // We store requests in a `CapsuleArray`, which PXE will later read from and deserialize into its version of the
     // Noir `EventValidationRequest`
@@ -109,8 +107,6 @@ pub(crate) unconstrained fn enqueue_event_for_validation(
             event_commitment,
             tx_hash,
             recipient,
-            log_index_in_tx,
-            tx_index_in_block,
         },
     )
 }

@@ -317,7 +317,7 @@ export class SequencerPublisher {
       formattedAttestations,
       toHex(attestationData.digest),
       ts,
-      toHex(header.contentCommitment.blobsHash),
+      header.contentCommitment.blobsHash.toString(),
       flags,
     ] as const;
 

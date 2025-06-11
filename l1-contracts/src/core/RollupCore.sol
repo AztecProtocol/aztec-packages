@@ -32,6 +32,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 /**
  * @title Rollup
@@ -80,6 +81,7 @@ contract RollupCore is
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
     ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    RewardLib.initialize(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -154,7 +156,7 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return ExtRollupLib.claimSequencerRewards(_recipient);
+    return RewardLib.claimSequencerRewards(_recipient);
   }
 
   function claimProverRewards(address _recipient, Epoch[] memory _epochs)
@@ -163,7 +165,7 @@ contract RollupCore is
     returns (uint256)
   {
     require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return ExtRollupLib.claimProverRewards(_recipient, _epochs);
+    return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
   function vote(uint256 _proposalId) external override(IStakingCore) {
