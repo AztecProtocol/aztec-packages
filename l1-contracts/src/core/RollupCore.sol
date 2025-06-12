@@ -33,7 +33,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 /**
  * @title Rollup
@@ -80,7 +80,7 @@ contract RollupCore is
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
-    RewardLib.initialize(_config.rewardConfig);
+    RewardLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -112,6 +112,11 @@ contract RollupCore is
     rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
+  }
+
+  function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
+    RewardLib.setConfig(_config);
+    emit RewardConfigUpdated(_config);
   }
 
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
