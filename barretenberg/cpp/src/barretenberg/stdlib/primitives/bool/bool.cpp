@@ -16,18 +16,13 @@ template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
     : context(nullptr)
     , witness_bool(value)
-    , witness_inverted(false)
     , witness_index(IS_CONSTANT)
 {}
 
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context)
     : context(parent_context)
-{
-    witness_bool = false;
-    witness_inverted = false;
-    witness_index = IS_CONSTANT;
-}
+{}
 
 template <typename Builder>
 bool_t<Builder>::bool_t(const witness_t<Builder>& value)
@@ -44,32 +39,27 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value)
 template <typename Builder>
 bool_t<Builder>::bool_t(Builder* parent_context, const bool value)
     : context(parent_context)
-{
-    context = parent_context;
-    witness_index = IS_CONSTANT;
-    witness_bool = value;
-    witness_inverted = false;
-}
+    , witness_bool(value)
+{}
 
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool_t<Builder>& other)
     : context(other.context)
-{
-    witness_index = other.witness_index;
-    witness_bool = other.witness_bool;
-    witness_inverted = other.witness_inverted;
-    tag = other.tag;
-}
+    , witness_bool(other.witness_bool)
+    , witness_inverted(other.witness_inverted)
+    , witness_index(other.witness_index)
+    , tag(other.tag)
+{}
 
 template <typename Builder>
 bool_t<Builder>::bool_t(bool_t<Builder>&& other)
     : context(other.context)
-{
-    witness_index = other.witness_index;
-    witness_bool = other.witness_bool;
-    witness_inverted = other.witness_inverted;
-    tag = other.tag;
-}
+    , witness_bool(other.witness_bool)
+    , witness_inverted(other.witness_inverted)
+    , witness_index(other.witness_index)
+    , tag(other.tag)
+
+{}
 
 template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const bool other)
 {
@@ -104,7 +94,7 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
 {
     ASSERT((other.witness == bb::fr::one()) || (other.witness == bb::fr::zero()));
     context = other.context;
-    witness_bool = (other.witness == bb::fr::zero()) ? false : true;
+    witness_bool = other.witness == bb::fr::one();
     witness_index = other.witness_index;
     witness_inverted = false;
     context->create_bool_gate(witness_index);
@@ -114,12 +104,12 @@ template <typename Builder> bool_t<Builder>& bool_t<Builder>::operator=(const wi
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const bool_t& other) const
 {
-    bool_t<Builder> result(context == nullptr ? other.context : context);
+    bool_t<Builder> result(context ? context : other.context);
     bool left = witness_inverted ^ witness_bool;
     bool right = other.witness_inverted ^ other.witness_bool;
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
-    if (witness_index != IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    ASSERT(result.context || (is_constant() && other.is_constant()));
+    if (!is_constant() && !other.is_constant()) {
         result.witness_bool = left & right;
         bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
         result.witness_index = context->add_variable(value);
@@ -169,7 +159,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
             q3,
             qc,
         });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (!is_constant() && other.is_constant()) {
         if (other.witness_bool ^ other.witness_inverted) {
             result = bool_t<Builder>(*this);
         } else {
@@ -177,7 +167,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
             result.witness_inverted = false;
             result.witness_index = IS_CONSTANT;
         }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    } else if (is_constant() && !other.is_constant()) {
         if (witness_bool ^ witness_inverted) {
             result = bool_t<Builder>(other);
         } else {
@@ -196,14 +186,14 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const bool_t& other) const
 {
-    bool_t<Builder> result(context == nullptr ? other.context : context);
+    bool_t<Builder> result(context ? context : other.context);
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    ASSERT(result.context || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) | (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
     result.witness_inverted = false;
-    if ((other.witness_index != IS_CONSTANT) && (witness_index != IS_CONSTANT)) {
+    if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
         // result = A + B - AB, where A,B are the "real" values of the variables. But according to whether
         // witness_inverted flag is true, we need to invert the input. Hence, we look at four cases, and compute the
@@ -251,7 +241,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
                                     right_coefficient,
                                     bb::fr::neg_one(),
                                     constant_coefficient });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (!is_constant() && other.is_constant()) {
         if (other.witness_bool ^ other.witness_inverted) {
             result.witness_index = IS_CONSTANT;
             result.witness_bool = true;
@@ -259,7 +249,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator|(const boo
         } else {
             result = bool_t<Builder>(*this);
         }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    } else if (is_constant() && !other.is_constant()) {
         if (witness_bool ^ witness_inverted) {
             result.witness_index = IS_CONSTANT;
             result.witness_bool = true;
@@ -279,13 +269,13 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 {
     bool_t<Builder> result(context == nullptr ? other.context : context);
 
-    ASSERT(result.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
+    ASSERT(result.context || (is_constant() && other.is_constant()));
 
     result.witness_bool = (witness_bool ^ witness_inverted) ^ (other.witness_bool ^ other.witness_inverted);
     bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
     result.witness_inverted = false;
 
-    if ((other.witness_index != IS_CONSTANT) && (witness_index != IS_CONSTANT)) {
+    if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
         // norm a, norm b: a + b - 2ab
         // inv  a, norm b: (1 - a) + b - 2(1 - a)b = 1 - a - b + 2ab
@@ -314,14 +304,14 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
                                     right_coefficient,
                                     bb::fr::neg_one(),
                                     constant_coefficient });
-    } else if (witness_index != IS_CONSTANT && other.witness_index == IS_CONSTANT) {
+    } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
         if (other.witness_bool ^ other.witness_inverted) {
             result = !bool_t<Builder>(*this);
         } else {
             result = bool_t<Builder>(*this);
         }
-    } else if (witness_index == IS_CONSTANT && other.witness_index != IS_CONSTANT) {
+    } else if (is_constant() && !other.is_constant()) {
         if (witness_bool ^ witness_inverted) {
             result = !bool_t<Builder>(other);
         } else {
@@ -348,27 +338,27 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bool_t& other) const
 {
-    ASSERT(context || other.context || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
-    if ((other.witness_index == IS_CONSTANT) && (witness_index == IS_CONSTANT)) {
+    ASSERT(context || other.context || (is_constant() && other.is_constant()));
+    if (is_constant() && other.is_constant()) {
         bool_t<Builder> result(context == nullptr ? other.context : context);
         result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
         result.witness_index = IS_CONSTANT;
         result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
         return result;
-    } else if ((witness_index != IS_CONSTANT) && (other.witness_index == IS_CONSTANT)) {
+    } else if (!is_constant() && (other.is_constant())) {
         if (other.witness_bool ^ other.witness_inverted) {
             return (*this);
         } else {
             return !(*this);
         }
-    } else if ((witness_index == IS_CONSTANT) && (other.witness_index != IS_CONSTANT)) {
+    } else if (is_constant() && !other.is_constant()) {
         if (witness_bool ^ witness_inverted) {
             return other;
         } else {
             return !(other);
         }
     } else {
-        bool_t<Builder> result(context == nullptr ? other.context : context);
+        bool_t<Builder> result(context ? context : other.context);
         result.witness_bool = (witness_bool ^ witness_inverted) == (other.witness_bool ^ other.witness_inverted);
         bb::fr value = result.witness_bool ? bb::fr::one() : bb::fr::zero();
         result.witness_index = context->add_variable(value);
@@ -458,8 +448,8 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
     }
 
     bool same = lhs.witness_index == rhs.witness_index;
-    bool witness_same = same && lhs.witness_index != IS_CONSTANT && (lhs.witness_inverted == rhs.witness_inverted);
-    bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
+    bool witness_same = same && !lhs.is_constant() && (lhs.witness_inverted == rhs.witness_inverted);
+    bool const_same = same && lhs.is_constant() && (lhs.witness_bool == rhs.witness_bool);
     if (witness_same || const_same) {
         return lhs;
     }
