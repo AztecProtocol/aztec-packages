@@ -1146,8 +1146,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.store.getContractClassIds();
   }
 
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1540,8 +1540,8 @@ export class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getDebugFunctionName(address, selector);

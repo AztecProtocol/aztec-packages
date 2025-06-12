@@ -244,10 +244,10 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
-  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
-  //        the node api cleanup process.
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  /** Register a public function signature, so it can be looked up by selector. */
+  registerContractFunctionSignatures(signatures: string[]): Promise<void>;
+
+  /** Looks up a public function name given a selector. */
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /** Estimates the size of the store in bytes. */

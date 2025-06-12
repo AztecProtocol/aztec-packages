@@ -30,6 +30,8 @@ import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
 export const ARCHIVER_DB_VERSION = 2;
+export const MAX_FUNCTION_SIGNATURES = 1000;
+export const MAX_FUNCTION_NAME_LEN = 256;
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -42,6 +44,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
   #contractInstanceStore: ContractInstanceStore;
+
   private functionNames = new Map<string, string>();
 
   #log = createLogger('archiver:data-store');
@@ -81,18 +84,18 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.close();
   }
 
-  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
-  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
-  //        the node api cleanup process.
   getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return Promise.resolve(this.functionNames.get(selector.toString()));
   }
 
-  async registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
+  async registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     for (const sig of signatures) {
+      if (this.functionNames.size > MAX_FUNCTION_SIGNATURES) {
+        return;
+      }
       try {
         const selector = await FunctionSelector.fromSignature(sig);
-        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')));
+        this.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')).slice(0, MAX_FUNCTION_NAME_LEN));
       } catch {
         this.#log.warn(`Failed to parse signature: ${sig}. Ignoring`);
       }
