@@ -23,7 +23,7 @@ struct lookup_keccak_memory_slice_to_mem_settings_ {
     static constexpr Column INVERSES = Column::lookup_keccak_memory_slice_to_mem_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::keccak_memory_addr,
-        ColumnAndShifts::keccak_memory_val,
+        ColumnAndShifts::keccak_memory_val00,
         ColumnAndShifts::keccak_memory_tag,
         ColumnAndShifts::keccak_memory_rw,
         ColumnAndShifts::keccak_memory_space_id

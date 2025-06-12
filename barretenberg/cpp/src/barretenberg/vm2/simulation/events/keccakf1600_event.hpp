@@ -4,32 +4,16 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include <array>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
 
 namespace bb::avm2::simulation {
 
-enum class KeccakF1600EventError {
-    // The read slice is out of range.
-    READ_SLICE_OUT_OF_RANGE,
-    // The write slice is out of range.
-    WRITE_SLICE_OUT_OF_RANGE,
-    // A tag int the read slice is invalid (not U64).
-    READ_SLICE_TAG_INVALID,
+struct KeccakF1600Exception : public std::runtime_error {
+    explicit KeccakF1600Exception()
+        : std::runtime_error("Error in KeccakF1600 permutation.")
+    {}
 };
-
-inline std::string to_string(KeccakF1600EventError e)
-{
-    switch (e) {
-    case KeccakF1600EventError::READ_SLICE_OUT_OF_RANGE:
-        return "READ_SLICE_OUT_OF_RANGE";
-    case KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE:
-        return "WRITE_SLICE_OUT_OF_RANGE";
-    case KeccakF1600EventError::READ_SLICE_TAG_INVALID:
-        return "READ_SLICE_TAG_INVALID";
-    }
-
-    // We catch all the cases above.
-    __builtin_unreachable();
-}
 
 using KeccakF1600State = std::array<std::array<uint64_t, 5>, 5>;
 using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
@@ -51,8 +35,8 @@ struct KeccakF1600RoundData {
 struct KeccakF1600Event {
     MemoryAddress dst_addr;
     MemoryAddress src_addr;
-    uint32_t space_id;
     KeccakF1600StateMemValues src_mem_values;
+    uint32_t space_id;
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds;
     bool dst_out_of_range = false;
     bool src_out_of_range = false;

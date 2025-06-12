@@ -389,55 +389,44 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
 {
     std::array<bool, AVM_KECCAKF1600_STATE_SIZE> single_tag_errors;
     single_tag_errors.fill(false);
-    std::array<FF, AVM_KECCAKF1600_STATE_SIZE> values; // Read values in the slice.
     std::array<MemoryTag, AVM_KECCAKF1600_STATE_SIZE> tags;
     tags.fill(MemoryTag::U64);
 
-    // The relevant state and read/write memory values depending on read/write boolean.
-    simulation::KeccakF1600State state;
-    if (rw) {
-        state = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi;
-        state[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
+    // The effective number of rows to populate. In case of a tag error, we only populate
+    // the rows up to where the tag error occurred.
+    size_t num_rows = AVM_KECCAKF1600_STATE_SIZE;
 
+    // The relevant state and read/write memory values depending on read/write boolean.
+    std::array<std::array<FF, 5>, 5> state_ff;
+    if (rw) {
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                values[(5 * i) + j] = state[i][j]; // For write, we do not need to adjust write values, these are the
-                                                   // same as in the output state.
-                tags[(5 * i) + j] = MemoryTag::U64;
+                state_ff[i][j] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi[i][j];
             }
         }
+        state_ff[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
     } else {
         // While reading we need to check the tag for each slice value.
-        // Note that we fill the values directly read from memory and therefore
-        // in case of tag mismatch, the value is not necessarily set to 0.
-        // Handling of tag mismatch is performed in simulation and a zero value is stored
-        // in event.rounds[0].state.
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                const auto& mem_val = event.src_mem_values[i][j];
-                values[(5 * i) + j] = mem_val.as_ff();
-                tags[(5 * i) + j] = mem_val.get_tag();
-                if (tags[(5 * i) + j] != MemoryTag::U64) {
-                    single_tag_errors[(5 * i) + j] = true;
-                    state[i][j] = 0;
-                } else {
-                    state[i][j] = mem_val.as<uint64_t>();
-                }
+        for (size_t k = 0; k < AVM_KECCAKF1600_STATE_SIZE; k++) {
+            const size_t i = k / 5;
+            const size_t j = k % 5;
+            const auto& mem_val = event.src_mem_values[i][j];
+            state_ff[i][j] = mem_val.as_ff();
+            tags[k] = mem_val.get_tag();
+            if (tags[k] != MemoryTag::U64) {
+                single_tag_errors[k] = true;
+                num_rows = k + 1;
+                break;
             }
         }
     }
 
     std::array<bool, AVM_KECCAKF1600_STATE_SIZE> tag_errors;
-    tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1] = single_tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1];
-
-    for (size_t i = 1; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
-        tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1 - i] =
-            tag_errors[AVM_KECCAKF1600_STATE_SIZE - i] || single_tag_errors[AVM_KECCAKF1600_STATE_SIZE - 1 - i];
-    }
+    tag_errors.fill(single_tag_errors[num_rows - 1]);
 
     MemoryAddress addr = rw ? event.dst_addr : event.src_addr;
 
-    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE; i++) {
+    for (size_t i = 0; i < num_rows; i++) {
         const auto row = start_row + static_cast<uint32_t>(i);
 
         trace.set(
@@ -449,11 +438,11 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
                 { C::keccak_memory_ctr_min_state_size_inv,
                   i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i + 1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert() },
                 { C::keccak_memory_start, i == 0 ? 1 : 0 },
-                { C::keccak_memory_last, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
+                { C::keccak_memory_ctr_end, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
+                { C::keccak_memory_last, (i == AVM_KECCAKF1600_STATE_SIZE - 1) || single_tag_errors[i] ? 1 : 0 },
                 { C::keccak_memory_rw, rw ? 1 : 0 },
                 { C::keccak_memory_addr, addr + i },
                 { C::keccak_memory_space_id, event.space_id },
-                { C::keccak_memory_val, values[i] },
                 { C::keccak_memory_tag, static_cast<uint8_t>(tags[i]) },
                 { C::keccak_memory_tag_min_u64_inv,
                   single_tag_errors[i]
@@ -464,8 +453,8 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
             } });
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
-        for (size_t j = i; j < AVM_KECCAKF1600_STATE_SIZE; j++) {
-            trace.set(MEM_VAL_COLS[j - i], row, state[j / 5][j % 5]);
+        for (size_t j = i; j < num_rows; j++) {
+            trace.set(MEM_VAL_COLS[j - i], row, state_ff[j / 5][j % 5]);
         }
     }
 }
@@ -539,13 +528,9 @@ void KeccakF1600TraceBuilder::process_permutation(
             if (!out_of_range && event.tag_error && round_data.round == 1) {
                 for (size_t i = 0; i < 5; i++) {
                     for (size_t j = 0; j < 5; j++) {
-                        // Set the initial state value to src_mem_values counterpart when
+                        // In simulation we set src_mem_values[i][j] to be the memory value when
                         // tag is U64, otherwise we set it to zero.
-                        if (event.src_mem_values[i][j].get_tag() == MemoryTag::U64) {
-                            trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[i][j]);
-                        } else {
-                            trace.set(STATE_IN_COLS[i][j], row, 0);
-                        }
+                        trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[i][j]);
                     }
                 }
             }
@@ -627,6 +612,7 @@ void KeccakF1600TraceBuilder::process_memory_slices(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
     trace.set(C::keccak_memory_last, 0, 1);
+    trace.set(C::keccak_memory_ctr_end, 0, 1);
 
     uint32_t row = 1;
     for (const auto& event : events) {
