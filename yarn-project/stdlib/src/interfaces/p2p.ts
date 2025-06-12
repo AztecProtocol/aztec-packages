@@ -4,6 +4,8 @@ import { BlockAttestation } from '../p2p/block_attestation.js';
 import type { P2PClientType } from '../p2p/client_type.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
+import { TxHash } from '../tx/tx_hash.js';
+import { MAX_RPC_TXS_LEN } from './api_limit.js';
 
 export type PeerInfo =
   | { status: 'connected'; score: number; id: string }
@@ -26,9 +28,11 @@ const PeerInfoSchema = z.discriminatedUnion('status', [
 export interface P2PApiWithoutAttestations {
   /**
    * Returns all pending transactions in the transaction pool.
+   * @param limit - The number of items to returns
+   * @param after - The last known pending tx. Used for pagination
    * @returns An array of Txs.
    */
-  getPendingTxs(): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
 
   /** Returns the number of pending txs in the p2p tx pool. */
   getPendingTxCount(): Promise<number>;
@@ -73,7 +77,11 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
     .function()
     .args(schemas.BigInt, optional(z.string()))
     .returns(z.array(BlockAttestation.schema)),
-  getPendingTxs: z.function().returns(z.array(Tx.schema)),
+  getPendingTxs: z
+    .function()
+    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
+    .returns(z.array(Tx.schema)),
+
   getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),

@@ -85,6 +85,31 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     expect(bulkResult.revertCode.isOK()).toBe(true);
   });
 
+  it('AVM large calldata test', async () => {
+    tester.setMetricsPrefix('AvmTest contract tests');
+    const deployer = AztecAddress.fromNumber(42);
+
+    const avmTestContract = await tester.registerAndDeployContract(
+      /*constructorArgs=*/ [],
+      deployer,
+      /*contractArtifact=*/ AvmTestContractArtifact,
+    );
+
+    const result = await tester.simulateTxWithLabel(
+      /*txLabel=*/ 'AvmTest/nested_call_large_calldata',
+      /*sender=*/ deployer,
+      /*setupCalls=*/ [],
+      /*appCalls=*/ [
+        {
+          address: avmTestContract.address,
+          fnName: 'nested_call_large_calldata',
+          args: [/*input=*/ Array.from({ length: 300 }, () => Fr.random())],
+        },
+      ],
+    );
+    expect(result.revertCode.isOK()).toBe(true);
+  });
+
   describe('AVM gadgets tests', () => {
     const deployer = AztecAddress.fromNumber(42);
 

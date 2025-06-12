@@ -66,7 +66,7 @@ export class BlockHeader {
   }
 
   getBlockNumber() {
-    return this.globalVariables.blockNumber.toNumber();
+    return this.globalVariables.blockNumber;
   }
 
   getSize() {

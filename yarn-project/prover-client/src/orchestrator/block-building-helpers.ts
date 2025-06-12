@@ -323,7 +323,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
   ) => {
-    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber.toNumber());
+    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
       await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
       new PartialStateReference(

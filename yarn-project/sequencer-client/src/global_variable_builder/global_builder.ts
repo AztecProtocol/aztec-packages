@@ -94,7 +94,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: Fr,
+    blockNumber: number,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,

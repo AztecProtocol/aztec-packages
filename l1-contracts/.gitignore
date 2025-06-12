@@ -33,3 +33,5 @@ gas_benchmark.new.*
 gas_benchmark.diff
 
 /bench-out
+
+/coverage

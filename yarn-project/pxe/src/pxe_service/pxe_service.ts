@@ -587,7 +587,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
@@ -621,7 +621,7 @@ export class PXEService implements PXE {
         contractAddress,
         currentInstance,
         this.node,
-        header.globalVariables.blockNumber.toNumber(),
+        header.globalVariables.blockNumber,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
@@ -632,7 +632,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
       await this.contractDataProvider.addContractInstance(currentInstance);

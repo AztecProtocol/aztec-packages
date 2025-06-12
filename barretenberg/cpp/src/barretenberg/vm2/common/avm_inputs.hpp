@@ -308,23 +308,27 @@ struct Tx {
     std::string hash;
     GlobalVariables globalVariables;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
     std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
     std::optional<EnqueuedCallHint> teardownEnqueuedCall;
     Gas gasUsedByPrivate;
+    AztecAddress feePayer;
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
                    globalVariables,
                    gasSettings,
+                   effectiveGasFees,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,
                    teardownEnqueuedCall,
-                   gasUsedByPrivate);
+                   gasUsedByPrivate,
+                   feePayer);
 };
 
 struct ExecutionHints {
