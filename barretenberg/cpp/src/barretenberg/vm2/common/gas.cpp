@@ -21,7 +21,7 @@ uint32_t compute_addressing_gas(uint16_t indirect_flag)
         }
     }
 
-    return (indirect_operand_count * AVM_ADDRESSING_INDIRECT_L2_GAS) +
+    return AVM_ADDRESSING_BASE_L2_GAS + (indirect_operand_count * AVM_ADDRESSING_INDIRECT_L2_GAS) +
            (relative_operand_count * AVM_ADDRESSING_RELATIVE_L2_GAS);
 }
 
