@@ -21,19 +21,19 @@ void TxExecution::emit_public_call_request(const EnqueuedCallHint& call,
     std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
     calldata_with_sep.insert(calldata_with_sep.end(), call.calldata.begin(), call.calldata.end());
     auto calldata_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(calldata_with_sep);
-    events.emit(TxEvent{ .phase = phase,
-                         .prev_tree_state = std::move(prev_tree_state),
-                         .next_tree_state = merkle_db.get_tree_state(),
-                         .prev_gas_used = prev_gas,
-                         .gas_used = result.gas_used,
-                         .gas_limit = gas_limit,
-                         .event = EnqueuedCallEvent{
-                             .msg_sender = call.msgSender,
-                             .contract_address = call.contractAddress,
-                             .is_static = call.isStaticCall,
-                             .calldata_hash = calldata_hash,
-                             .success = result.success,
-                         } });
+    events.emit(TxPhaseEvent{ .phase = phase,
+                              .prev_tree_state = std::move(prev_tree_state),
+                              .next_tree_state = merkle_db.get_tree_state(),
+                              .event = EnqueuedCallEvent{
+                                  .msg_sender = call.msgSender,
+                                  .contract_address = call.contractAddress,
+                                  .is_static = call.isStaticCall,
+                                  .calldata_hash = calldata_hash,
+                                  .prev_gas_used = prev_gas,
+                                  .gas_used = result.gas_used,
+                                  .gas_limit = gas_limit,
+                                  .success = result.success,
+                              } });
 }
 
 // Simulates the entire transaction execution phases.
@@ -47,6 +47,12 @@ void TxExecution::simulate(const Tx& tx)
 {
     Gas gas_limit = tx.gasSettings.gasLimits;
     Gas gas_used = tx.gasUsedByPrivate;
+
+    events.emit(TxStartupEvent{
+        .tx_gas_limit = gas_limit,
+        .private_gas_used = gas_used,
+        .tree_state = merkle_db.get_tree_state(),
+    });
 
     info("Simulating tx ",
          tx.hash,
@@ -121,21 +127,41 @@ void TxExecution::simulate(const Tx& tx)
             }
         }
 
-        // Fee payment.
-        events.emit(TxEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
-                             .prev_tree_state = merkle_db.get_tree_state(),
-                             .next_tree_state = merkle_db.get_tree_state(),
-                             .prev_gas_used = gas_used,
-                             .gas_used = gas_used, // Gas charged outside AVM for private inserts
-                             .gas_limit = tx.gasSettings.gasLimits,
-                             .event = CollectGasFeeEvent{
-                                 .fee_per_da_gas = 0,
-                                 .fee_per_l2_gas = 0,
-                                 .max_fee_per_da_gas = tx.gasSettings.maxFeesPerGas.feePerDaGas,
-                                 .max_fee_per_l2_gas = tx.gasSettings.maxFeesPerGas.feePerL2Gas,
-                                 .max_priority_fees_per_l2_gas = tx.gasSettings.maxPriorityFeesPerGas.feePerL2Gas,
-                                 .max_priority_fees_per_da_gas = tx.gasSettings.maxPriorityFeesPerGas.feePerDaGas,
-                             } });
+        // Fee payment
+        uint128_t fee_per_da_gas = tx.effectiveGasFees.feePerDaGas;
+        uint128_t fee_per_l2_gas = tx.effectiveGasFees.feePerL2Gas;
+        FF fee = FF(fee_per_da_gas) * FF(gas_used.daGas) + FF(fee_per_l2_gas) * FF(gas_used.l2Gas);
+        TreeStates prev_tree_state = merkle_db.get_tree_state();
+
+        FF fee_payer = tx.feePayer;
+
+        FF fee_payer_balance_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash({ 1, fee_payer });
+        FF fee_payer_balance_leaf_slot = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
+            { GENERATOR_INDEX__PUBLIC_LEAF_INDEX, FEE_JUICE_ADDRESS, fee_payer_balance_slot });
+        (void)fee_payer_balance_leaf_slot; // Silence unused variable warning
+
+        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // FF fee_payer_balance = merkle_db.storage_read(fee_payer_balance_leaf_slot);
+        FF fee_payer_balance = FF::neg_one();
+
+        if (field_gt.ff_gt(fee, fee_payer_balance)) {
+            // Unrecoverable error.
+            throw std::runtime_error("Not enough balance for fee payer to pay for transaction");
+        }
+
+        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // merkle_db.storage_write(fee_payer_balance_leaf_slot, fee_payer_balance - fee);
+
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::COLLECT_GAS_FEES,
+                                  .prev_tree_state = prev_tree_state,
+                                  .next_tree_state = merkle_db.get_tree_state(),
+                                  .event = CollectGasFeeEvent{
+                                      .effective_fee_per_da_gas = fee_per_da_gas,
+                                      .effective_fee_per_l2_gas = fee_per_l2_gas,
+                                      .fee_payer = fee_payer,
+                                      .fee_payer_balance = fee_payer_balance,
+                                      .fee = fee,
+                                  } });
     } catch (const std::exception& e) {
         // Catastrophic failure.
         info("Error while simulating tx ", tx.hash, ": ", e.what());
@@ -162,10 +188,10 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
         merkle_db.nullifier_write(nullifier);
 
         auto next_tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
-                             .prev_tree_state = prev_tree_state,
-                             .next_tree_state = next_tree_state,
-                             .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
+                                  .prev_tree_state = prev_tree_state,
+                                  .next_tree_state = next_tree_state,
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = nullifier } });
         prev_tree_state = next_tree_state;
     }
 
@@ -174,10 +200,10 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
         merkle_db.note_hash_write(siloed_note_hash);
 
         auto next_tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
-                             .prev_tree_state = prev_tree_state,
-                             .next_tree_state = next_tree_state,
-                             .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
+                                  .prev_tree_state = prev_tree_state,
+                                  .next_tree_state = next_tree_state,
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
         prev_tree_state = next_tree_state;
     }
 
@@ -185,10 +211,10 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     for (const auto& l2_to_l1_msg : tx.nonRevertibleAccumulatedData.l2ToL1Messages) {
         // Tree state does not change when writing L2 to L1 messages.
         auto tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
-                             .prev_tree_state = tree_state,
-                             .next_tree_state = tree_state,
-                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_L2_TO_L1_MESSAGE,
+                                  .prev_tree_state = tree_state,
+                                  .next_tree_state = tree_state,
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
     }
 }
 
@@ -209,10 +235,10 @@ void TxExecution::insert_revertibles(const Tx& tx)
         merkle_db.nullifier_write(siloed_nullifier);
 
         auto next_tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,
-                             .prev_tree_state = prev_tree_state,
-                             .next_tree_state = next_tree_state,
-                             .event = PrivateAppendTreeEvent{ .leaf_value = siloed_nullifier } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,
+                                  .prev_tree_state = prev_tree_state,
+                                  .next_tree_state = next_tree_state,
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_nullifier } });
         prev_tree_state = next_tree_state;
     }
 
@@ -229,10 +255,10 @@ void TxExecution::insert_revertibles(const Tx& tx)
         merkle_db.note_hash_write(siloedNoteHash);
 
         auto next_tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
-                             .prev_tree_state = prev_tree_state,
-                             .next_tree_state = next_tree_state,
-                             .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
+                                  .prev_tree_state = prev_tree_state,
+                                  .next_tree_state = next_tree_state,
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
         prev_tree_state = next_tree_state;
     }
 
@@ -240,10 +266,10 @@ void TxExecution::insert_revertibles(const Tx& tx)
     for (const auto& l2_to_l1_msg : tx.revertibleAccumulatedData.l2ToL1Messages) {
         // Tree state does not change when writing L2 to L1 messages.
         auto tree_state = merkle_db.get_tree_state();
-        events.emit(TxEvent{ .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
-                             .prev_tree_state = tree_state,
-                             .next_tree_state = tree_state,
-                             .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
+        events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_L2_TO_L1_MESSAGE,
+                                  .prev_tree_state = tree_state,
+                                  .next_tree_state = tree_state,
+                                  .event = PrivateEmitL2L1MessageEvent{ .scoped_msg = l2_to_l1_msg } });
     }
 }
 

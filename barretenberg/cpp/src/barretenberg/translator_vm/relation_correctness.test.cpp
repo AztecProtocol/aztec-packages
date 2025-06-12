@@ -633,22 +633,6 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
     key.compute_extra_range_constraint_numerator();
     key.compute_translator_range_constraint_ordered_polynomials();
 
-    // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
-    for (size_t i = 0; i < 4; i++) {
-        auto& ordered = prover_polynomials.get_ordered_range_constraints()[i];
-        auto& interleaved = prover_polynomials.get_interleaved()[i];
-        for (size_t j = dyadic_circuit_size_without_masking; j < full_circuit_size; j++) {
-            ordered.at(j) = interleaved.at(j);
-        }
-    }
-
-    // Populate the last ordered range constraint and the extra polynomial in the numerator with random values
-    for (size_t i = dyadic_circuit_size_without_masking; i < full_circuit_size; i++) {
-        FF random_value = FF::random_element();
-        prover_polynomials.ordered_extra_range_constraints_numerator.at(i) = random_value;
-        prover_polynomials.ordered_range_constraints_4.at(i) = random_value;
-    }
-
     // Compute the grand product polynomial
     compute_grand_product<Flavor, bb::TranslatorPermutationRelation<FF>>(prover_polynomials, params);
 
