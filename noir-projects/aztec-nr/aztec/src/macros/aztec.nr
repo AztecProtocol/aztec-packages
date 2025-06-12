@@ -289,6 +289,7 @@ comptime fn generate_process_message() -> Quoted {
     // to determine whether a function is `private`, `public`, or `utility`.
     let utility = crate::macros::functions::utility;
 
+    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
     quote {
         #[$utility]
         unconstrained fn process_message(
