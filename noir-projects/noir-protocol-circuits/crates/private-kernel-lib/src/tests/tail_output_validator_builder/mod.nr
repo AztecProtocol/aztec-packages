@@ -3,6 +3,7 @@ mod validate_propagated_sorted_values;
 mod validate_propagated_values;
 
 use crate::components::{
+    previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
     tail_output_composer::meter_gas_used,
     tail_output_validator::{
         tail_output_hints::{generate_tail_output_hints, TailOutputHints},
@@ -16,11 +17,13 @@ use dep::types::{
     },
     constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
 };
 
 pub struct TailOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
+    previous_kernel_dense_trimmed_arrays: PreviousKernelDenseTrimmedArrays,
 }
 
 impl TailOutputValidatorBuilder {
@@ -33,12 +36,19 @@ impl TailOutputValidatorBuilder {
         );
 
         let mut output = FixtureBuilder::new();
+
         let mut previous_kernel = FixtureBuilder::new();
+
+        // TODO: I don't know how this will be used in the tests.
+        let previous_kernel_dense_trimmed_arrays = PreviousKernelDenseTrimmedArrays::empty();
+
         output.tx_context.gas_settings = gas_settings;
         previous_kernel.tx_context.gas_settings = gas_settings;
+
         output.set_protocol_nullifier();
         previous_kernel.set_protocol_nullifier();
-        TailOutputValidatorBuilder { output, previous_kernel }
+
+        TailOutputValidatorBuilder { output, previous_kernel, previous_kernel_dense_trimmed_arrays }
     }
 
     pub fn get_hints(self) -> TailOutputHints {
@@ -62,12 +72,23 @@ impl TailOutputValidatorBuilder {
 
     pub fn validate_with_output(self, output: PrivateToRollupKernelCircuitPublicInputs) {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator::new(output, previous_kernel).validate();
+        TailOutputValidator::new(
+            output,
+            previous_kernel,
+            self.previous_kernel_dense_trimmed_arrays,
+        )
+            .validate();
     }
 
     pub fn validate_with_hints(self, hints: TailOutputHints) {
         let output = self.export_output();
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator::new_with_hints(output, previous_kernel, hints).validate();
+        TailOutputValidator::new_with_hints(
+            output,
+            previous_kernel,
+            self.previous_kernel_dense_trimmed_arrays,
+            hints,
+        )
+            .validate();
     }
 }

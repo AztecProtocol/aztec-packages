@@ -73,7 +73,7 @@ fn validate_sorted_siloed_nullifiers_extra_item_fails() {
     builder.output.append_siloed_nullifiers(3);
     let mut hints = builder.get_hints();
     // Tweak the hint to point to an empty item.
-    hints.sorted_nullifier_indexes[3] = 4;
+    hints.sorted_kept_nullifier_indexes[3] = 4;
 
     builder.validate_with_hints(hints);
 }

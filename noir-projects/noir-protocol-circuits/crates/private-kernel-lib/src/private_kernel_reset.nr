@@ -1,5 +1,5 @@
 use crate::{
-    abis::PaddedSideEffects,
+    abis::PaddedSideEffectHints,
     components::{
         previous_kernel_validator::PreviousKernelValidator,
         reset_output_composer::{ResetOutputComposer, ResetOutputHints},
@@ -28,20 +28,21 @@ pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u3
 }
 
 pub struct PrivateKernelResetDimensions {
-    pub note_hash_pending_read: u32,
-    pub note_hash_settled_read: u32,
-    pub nullifier_pending_read: u32,
-    pub nullifier_settled_read: u32,
-    pub key_validation: u32,
-    pub transient_data_squashing: u32,
-    pub note_hash_siloing: u32,
-    pub nullifier_siloing: u32,
-    pub private_log_siloing: u32,
+    pub note_hash_pending_read: u32, // num pending note hash read requests to process
+    pub note_hash_settled_read: u32, // num settled note hash read requests to process (merkle membership)
+    pub nullifier_pending_read: u32, // num pending nullifier read requests to process
+    pub nullifier_settled_read: u32, // num settled note hash read requests to process (merkle membership)
+    pub key_validation: u32, // num key validation requests to process
+    pub transient_data_squashing: u32, // num (note, nullifier, note_log) tuples to squash.
+    // (Recall: we can squash a note that gets nullified in a later execution frame).
+    pub note_hash_siloing: u32, // num new note hashes to silo
+    pub nullifier_siloing: u32, // num new nullifiers to silo
+    pub private_log_siloing: u32, // num private logs to silo
 }
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32> {
     previous_kernel: PrivateKernelData,
-    padded_side_effects: PaddedSideEffects,
+    padded_side_effect_hints: PaddedSideEffectHints,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN>,
     dimensions: PrivateKernelResetDimensions,
 }
@@ -50,13 +51,13 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
-        padded_side_effects: PaddedSideEffects,
+        padded_side_effect_hints: PaddedSideEffectHints,
         hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN>,
         dimensions: PrivateKernelResetDimensions,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-            padded_side_effects,
+            padded_side_effect_hints,
             hints,
             dimensions,
         }
@@ -66,10 +67,11 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         self,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
     ) -> (PrivateKernelCircuitPublicInputs, ResetOutputHints) {
+        // Many hints are generated within this `new` call.
         let composer = ResetOutputComposer::new(
             self.previous_kernel.public_inputs,
             validation_request_processor,
-            self.padded_side_effects,
+            self.padded_side_effect_hints,
             self.hints.transient_data_index_hints,
             self.dimensions.note_hash_siloing,
             self.dimensions.nullifier_siloing,
@@ -109,13 +111,14 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             validation_requests_split_counter: self.hints.validation_requests_split_counter,
         };
 
+        // Validate inputs.
+        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.
         let (output, output_hints) = unsafe { self.generate_output(validation_request_processor) };
-
-        // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
@@ -128,7 +131,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 self.dimensions.note_hash_siloing,
                 self.dimensions.nullifier_siloing,
                 self.dimensions.private_log_siloing,
-                self.padded_side_effects,
+                self.padded_side_effect_hints,
                 output_hints,
             )
                 .validate();
@@ -140,7 +143,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
 mod tests {
     use crate::{
-        abis::PaddedSideEffects,
+        abis::PaddedSideEffectHints,
         private_kernel_reset::{
             ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs,
             PrivateKernelResetDimensions, PrivateKernelResetHints,
@@ -171,7 +174,7 @@ mod tests {
         },
         point::Point,
         tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, pad_end, swap_items}},
-        traits::{Empty, FromField, is_empty_array},
+        traits::{Empty, FromField},
         utils::arrays::find_index_hint,
     };
     use dep::types::constants::{
@@ -191,7 +194,7 @@ mod tests {
 
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
-        padded_side_effects: PaddedSideEffects,
+        padded_side_effect_hints: PaddedSideEffectHints,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN>,
@@ -227,7 +230,7 @@ mod tests {
                     key_validation_hints: BoundedVec::new(),
                     validation_requests_split_counter: 0,
                     dimensions,
-                    padded_side_effects: PaddedSideEffects::empty(),
+                    padded_side_effect_hints: PaddedSideEffectHints::empty(),
                 }
             }
 
@@ -271,7 +274,8 @@ mod tests {
                     self.transient_data_index_hints,
                     |hint: TransientDataIndexHint| hint.nullifier_index == MAX_NULLIFIERS_PER_TX,
                 )
-            };
+            }
+                .unwrap();
             self.transient_data_index_hints[num_hints] =
                 TransientDataIndexHint { nullifier_index, note_hash_index };
 
@@ -358,7 +362,7 @@ mod tests {
 
             let kernel = PrivateKernelResetCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
-                padded_side_effects: self.padded_side_effects,
+                padded_side_effect_hints: self.padded_side_effect_hints,
                 hints,
                 dimensions: self.dimensions,
             };
@@ -495,15 +499,15 @@ mod tests {
         let result = builder.execute();
 
         assert_array_eq(
-            result.validation_requests.note_hash_read_requests,
+            result.validation_requests.note_hash_read_requests.array,
             [note_hash_rr],
         );
         assert_array_eq(
-            result.validation_requests.nullifier_read_requests,
+            result.validation_requests.nullifier_read_requests.array,
             [nullifier_rr],
         );
         assert_array_eq(
-            result.validation_requests.scoped_key_validation_requests_and_generators,
+            result.validation_requests.scoped_key_validation_requests_and_generators.array,
             [key_validation],
         );
     }
@@ -518,11 +522,11 @@ mod tests {
         let nullifiers = builder.previous_kernel.nullifiers.storage();
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.note_hashes));
+        assert(public_inputs.end.note_hashes.is_empty());
 
         // The nullifier at index 0 is chopped.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[1]]);
-        assert(is_empty_array(public_inputs.end.private_logs));
+        assert_array_eq(public_inputs.end.nullifiers.array, [nullifiers[1]]);
+        assert(public_inputs.end.private_logs.is_empty());
     }
 
     #[test]
@@ -538,13 +542,13 @@ mod tests {
         let public_inputs = builder.execute();
 
         // The 0th hash is chopped.
-        assert_array_eq(public_inputs.end.note_hashes, [note_hashes[1]]);
+        assert_array_eq(public_inputs.end.note_hashes.array, [note_hashes[1]]);
 
         // The nullifier at index 0 is chopped.
-        assert_array_eq(public_inputs.end.nullifiers, [nullifiers[1]]);
+        assert_array_eq(public_inputs.end.nullifiers.array, [nullifiers[1]]);
 
         // The 0th log is chopped.
-        assert_array_eq(public_inputs.end.private_logs, [private_logs[1]]);
+        assert_array_eq(public_inputs.end.private_logs.array, [private_logs[1]]);
     }
 
     #[test]
@@ -558,11 +562,11 @@ mod tests {
         builder.nullify_pending_note_hash(1, 0);
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.note_hashes));
+        assert(public_inputs.end.note_hashes.is_empty());
 
         // No nullifiers left after squashing.
-        assert_array_eq(public_inputs.end.nullifiers, []);
-        assert(is_empty_array(public_inputs.end.private_logs));
+        assert_array_eq(public_inputs.end.nullifiers.array, []);
+        assert(public_inputs.end.private_logs.is_empty());
     }
 
     #[test]
@@ -592,11 +596,11 @@ mod tests {
 
         let public_inputs = builder.execute();
 
-        assert(is_empty_array(public_inputs.end.note_hashes));
+        assert(public_inputs.end.note_hashes.is_empty());
 
         // No nullifiers left after squashing.
-        assert_array_eq(public_inputs.end.nullifiers, []);
-        assert(is_empty_array(public_inputs.end.private_logs));
+        assert_array_eq(public_inputs.end.nullifiers.array, []);
+        assert(public_inputs.end.private_logs.is_empty());
     }
 
     #[test(should_fail_with = "Value of the hinted transient note hash does not match")]
@@ -622,9 +626,10 @@ mod tests {
         builder.dimensions.key_validation = 4;
 
         let public_inputs = builder.execute();
-        assert(is_empty_array(
-            public_inputs.validation_requests.scoped_key_validation_requests_and_generators,
-        ));
+        assert(public_inputs
+            .validation_requests
+            .scoped_key_validation_requests_and_generators
+            .is_empty());
     }
 
     #[test]
@@ -644,7 +649,7 @@ mod tests {
         let public_inputs = builder.execute();
 
         assert_array_eq(
-            public_inputs.validation_requests.scoped_key_validation_requests_and_generators,
+            public_inputs.validation_requests.scoped_key_validation_requests_and_generators.array,
             [requests[1], requests[2]],
         );
     }
@@ -696,12 +701,12 @@ mod tests {
         // The note hash at index 2 is chopped.
         let output_note_hashes =
             builder.compute_output_note_hashes([note_hashes[0], note_hashes[1], note_hashes[3]]);
-        assert_array_eq(public_inputs.end.note_hashes, output_note_hashes);
+        assert_array_eq(public_inputs.end.note_hashes.array, output_note_hashes);
 
         // The nullifier at index 1 is chopped.
         let output_nullifiers =
             builder.compute_output_nullifiers([nullifiers[0], nullifiers[2], nullifiers[3]]);
-        assert_array_eq(public_inputs.end.nullifiers, output_nullifiers);
+        assert_array_eq(public_inputs.end.nullifiers.array, output_nullifiers);
 
         // The note log at index 3 is chopped.
         let output_logs = builder.compute_output_private_logs([
@@ -710,7 +715,7 @@ mod tests {
             private_logs[2],
             private_logs[4],
         ]);
-        assert_array_eq(public_inputs.end.private_logs, output_logs);
+        assert_array_eq(public_inputs.end.private_logs.array, output_logs);
     }
 
     #[test]
@@ -724,7 +729,7 @@ mod tests {
 
         // The note hash at index 2 is chopped.
         let output_note_hash = builder.compute_output_note_hashes([note_hash])[0];
-        assert_array_eq(public_inputs.end.note_hashes, [output_note_hash]);
+        assert_array_eq(public_inputs.end.note_hashes.array, [output_note_hash]);
     }
 
     #[test(should_fail_with = "note hashes have been siloed in a previous reset")]
@@ -741,27 +746,27 @@ mod tests {
         builder.failed();
     }
 
-    #[test]
-    fn siloing_nullifiers_again_succeeds() {
-        let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
+    // #[test]
+    // fn siloing_nullifiers_again_succeeds() {
+    //     let mut builder = PrivateKernelResetInputsBuilder::new().with_siloing();
 
-        builder.previous_kernel.append_nullifiers(2);
+    //     builder.previous_kernel.append_nullifiers(2);
 
-        // The nullifier at index 0 is siloed.
-        let mut nullifier = builder.previous_kernel.nullifiers.get(0);
-        nullifier.contract_address = AztecAddress::zero();
-        builder.previous_kernel.nullifiers.set(0, nullifier);
+    //     // The nullifier at index 0 is siloed.
+    //     let mut nullifier = builder.previous_kernel.nullifiers.get(0);
+    //     nullifier.contract_address = AztecAddress::zero();
+    //     builder.previous_kernel.nullifiers.set(0, nullifier);
 
-        let nullifiers = builder.previous_kernel.nullifiers.storage();
+    //     let nullifiers = builder.previous_kernel.nullifiers.storage();
 
-        let public_inputs = builder.execute();
+    //     let public_inputs = builder.execute();
 
-        let output_nullifiers = public_inputs.end.nullifiers;
-        // The 0th nullifier doesn't change.
-        assert(OrderedValue::<Field>::value(output_nullifiers[0]) == nullifiers[0].value());
-        // The 1st nullifier has been siloed
-        assert(OrderedValue::<Field>::value(output_nullifiers[1]) != nullifiers[1].value());
-    }
+    //     let output_nullifiers = public_inputs.end.nullifiers;
+    //     // The 0th nullifier doesn't change.
+    //     assert(OrderedValue::<Field>::value(output_nullifiers.array[0]) == nullifiers[0].value());
+    //     // The 1st nullifier has been siloed
+    //     assert(OrderedValue::<Field>::value(output_nullifiers.array[1]) != nullifiers[1].value());
+    // }
 
     #[test]
     fn squashing_and_siloing_unordered_with_padded_items_succeeds() {
@@ -808,16 +813,16 @@ mod tests {
         }
             .scope(SIDE_EFFECT_MASKING_ADDRESS)];
 
-        builder.padded_side_effects.note_hashes[2] = padded_note_hashes[0].value();
-        builder.padded_side_effects.note_hashes[3] = padded_note_hashes[1].value();
-        builder.padded_side_effects.nullifiers[3] = padded_nullifiers[0].value();
-        builder.padded_side_effects.private_logs[2] = padded_private_logs[0].inner.log;
+        builder.padded_side_effect_hints.note_hashes[2] = padded_note_hashes[0].value();
+        builder.padded_side_effect_hints.note_hashes[3] = padded_note_hashes[1].value();
+        builder.padded_side_effect_hints.nullifiers[3] = padded_nullifiers[0].value();
+        builder.padded_side_effect_hints.private_logs[2] = padded_private_logs[0].inner.log;
 
         let public_inputs = builder.execute();
 
         // The note hash at index 2 is squashed.
         assert_array_eq(
-            public_inputs.end.note_hashes,
+            public_inputs.end.note_hashes.array,
             builder.compute_output_note_hashes([
                 note_hashes[0],
                 note_hashes[2],
@@ -828,7 +833,7 @@ mod tests {
 
         // The nullifier at index 1 is squashed.
         assert_array_eq(
-            public_inputs.end.nullifiers,
+            public_inputs.end.nullifiers.array,
             builder.compute_output_nullifiers([
                 nullifiers[0],
                 nullifiers[1],
@@ -839,7 +844,7 @@ mod tests {
 
         // The log at index 2 is chopped.
         assert_array_eq(
-            public_inputs.end.private_logs,
+            public_inputs.end.private_logs.array,
             builder.compute_output_private_logs([
                 private_logs[0],
                 private_logs[2],

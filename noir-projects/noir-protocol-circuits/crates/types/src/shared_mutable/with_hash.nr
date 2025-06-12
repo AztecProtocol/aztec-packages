@@ -56,10 +56,10 @@ fn public_storage_historical_read(
     historical_header: BlockHeader,
     storage_slot: Field,
     contract_address: AztecAddress,
-    witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+    witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, // Is this the witness of a "low leaf"? If so, we don't need a low leaf witness to prove _membership_; only to prove non-membership.
     leaf_preimage: PublicDataTreeLeafPreimage,
 ) -> Field {
-    let public_data_tree_index = compute_public_data_tree_index(contract_address, storage_slot);
+    let public_data_tree_index = compute_public_data_tree_index(contract_address, storage_slot); // Should this instead be called compute_public_data_tree_slot, and the variable be called `public_data_tree_slot`? This is not an index.
 
     assert_eq(
         historical_header.state.partial.public_data_tree.root,
@@ -71,18 +71,20 @@ fn public_storage_historical_read(
         "Proving public value inclusion failed",
     );
 
-    let is_less_than_slot = leaf_preimage.slot.lt(public_data_tree_index);
-    let is_next_greater_than = public_data_tree_index.lt(leaf_preimage.next_slot);
-    let is_max = ((leaf_preimage.next_index == 0) & (leaf_preimage.next_slot == 0));
-    let is_in_range = is_less_than_slot & (is_next_greater_than | is_max);
+    // These lt checks cost ~350 gates:
+    let is_less_than_slot = leaf_preimage.slot.lt(public_data_tree_index); // Why is this needed for a membership proof?
+    let is_next_greater_than = public_data_tree_index.lt(leaf_preimage.next_slot); // Why is this needed for a membership proof?
+    let is_max = ((leaf_preimage.next_index == 0) & (leaf_preimage.next_slot == 0)); // Why is this needed for a membership proof?
+    let is_in_range = is_less_than_slot & (is_next_greater_than | is_max); // Why is this needed for a membership proof?
 
     if is_in_range {
+        // Why is this needed for a membership proof?
         0
     } else {
         assert_eq(
             leaf_preimage.slot,
             public_data_tree_index,
-            "Public data tree index doesn't match witness",
+            "The provided public data tree leaf preimage is not the correct leaf for the provided contract_address and storage slot",
         );
         leaf_preimage.value
     }

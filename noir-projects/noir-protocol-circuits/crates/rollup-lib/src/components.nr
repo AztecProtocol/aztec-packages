@@ -28,7 +28,7 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
     left: BlockRootOrBlockMergePublicInputs,
     right: BlockRootOrBlockMergePublicInputs,
 ) {
-    assert(left.vk_tree_root == right.vk_tree_root, "input blocks have different vk tree roots");
+    assert_eq(left.vk_tree_root, right.vk_tree_root, "input blocks have different vk tree roots");
     assert(
         left.protocol_contract_tree_root == right.protocol_contract_tree_root,
         "input blocks have different protocol contract tree roots",

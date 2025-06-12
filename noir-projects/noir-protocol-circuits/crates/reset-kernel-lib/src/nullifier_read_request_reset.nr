@@ -62,13 +62,14 @@ mod tests {
         hash::compute_siloed_nullifier,
         merkle_tree::MembershipWitness,
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
-        traits::{Empty, FromField, Hash, is_empty_array},
+        traits::{Empty, FromField, Hash},
     };
+    use types::utils::arrays::AppendedUnvalidatedArray;
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
-        read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+        read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
         read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-        pending_values: [ScopedNullifier; PENDING_VALUE_LEN],
+        pending_values: AppendedUnvalidatedArray<ScopedNullifier, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         pending_read_amount: u32,
         leaf_preimages: [NullifierLeafPreimage; SETTLED_READ_HINTS_LEN],
@@ -85,24 +86,30 @@ mod tests {
                 inner_nullifiers.map(|n| compute_siloed_nullifier(contract_address, n));
 
             // Create 5 read requests. 0 and 3 are reading settled nullifiers. 1, 2 and 4 are reading pending nullifiers.
-            let read_requests = [
-                ReadRequest { value: inner_nullifiers[1], counter: 11 }.scope(contract_address), // settled
-                ReadRequest { value: inner_nullifiers[3], counter: 13 }.scope(contract_address), // pending
-                ReadRequest { value: inner_nullifiers[2], counter: 39 }.scope(contract_address), // pending
-                ReadRequest { value: inner_nullifiers[0], counter: 46 }.scope(contract_address), // settled
-                ReadRequest { value: inner_nullifiers[3], counter: 78 }.scope(contract_address), // pending
-            ];
+            let read_requests = AppendedUnvalidatedArray {
+                array: [
+                    ReadRequest { value: inner_nullifiers[1], counter: 11 }.scope(contract_address), // settled
+                    ReadRequest { value: inner_nullifiers[3], counter: 13 }.scope(contract_address), // pending
+                    ReadRequest { value: inner_nullifiers[2], counter: 39 }.scope(contract_address), // pending
+                    ReadRequest { value: inner_nullifiers[0], counter: 46 }.scope(contract_address), // settled
+                    ReadRequest { value: inner_nullifiers[3], counter: 78 }.scope(contract_address), // pending
+                ],
+                length: 5,
+            };
 
-            let pending_values = [
-                Nullifier { value: inner_nullifiers[2], counter: 2, note_hash: 0 }.scope(
-                    contract_address,
-                ),
-                Nullifier { value: inner_nullifiers[3], counter: 8, note_hash: 0 }.scope(
-                    contract_address,
-                ),
-                ScopedNullifier::empty(),
-                ScopedNullifier::empty(),
-            ];
+            let pending_values = AppendedUnvalidatedArray {
+                array: [
+                    Nullifier { value: inner_nullifiers[2], counter: 2, note_hash: 0 }.scope(
+                        contract_address,
+                    ),
+                    Nullifier { value: inner_nullifiers[3], counter: 8, note_hash: 0 }.scope(
+                        contract_address,
+                    ),
+                    ScopedNullifier::empty(),
+                    ScopedNullifier::empty(),
+                ],
+                length: 4,
+            };
 
             let pending_read_hints = [
                 PendingReadHint { read_request_index: 1, pending_value_index: 1 },
@@ -181,7 +188,7 @@ mod tests {
 
         pub unconstrained fn get_unverified_read_requests(
             self,
-        ) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
@@ -208,7 +215,7 @@ mod tests {
         let builder = TestBuilder::new();
         // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
-        assert(is_empty_array(unverified_read_requests));
+        assert(unverified_read_requests.is_empty());
 
         builder.verify();
     }
@@ -224,8 +231,8 @@ mod tests {
         // Safety: this is a test.
         let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
         assert_array_eq(
-            unverified_read_requests,
-            [read_requests[2], read_requests[4]],
+            unverified_read_requests.array,
+            [read_requests.array[2], read_requests.array[4]],
         );
 
         builder.verify();
@@ -236,7 +243,7 @@ mod tests {
         let mut builder = TestBuilder::new();
 
         // Tweak the value to be something different.
-        builder.pending_values[0].nullifier.value += 1;
+        builder.pending_values.array[0].nullifier.value += 1;
 
         builder.verify();
     }
@@ -245,7 +252,7 @@ mod tests {
     fn verify_reset_nullifier_read_requests_different_contract_addresses_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.pending_values[0].contract_address.inner += 1;
+        builder.pending_values.array[0].contract_address.inner += 1;
 
         builder.verify();
     }
@@ -255,9 +262,9 @@ mod tests {
         let mut builder = TestBuilder::new();
 
         let hint = builder.pending_read_hints[0];
-        let pending_read = builder.read_requests[hint.read_request_index];
+        let pending_read = builder.read_requests.array[hint.read_request_index];
         // Tweak the counter of the value to be greater than the read request.
-        builder.pending_values[hint.pending_value_index].nullifier.counter =
+        builder.pending_values.array[hint.pending_value_index].nullifier.counter =
             pending_read.counter() + 1;
 
         builder.verify();
@@ -270,7 +277,7 @@ mod tests {
         let (settled_read_hints, _) = builder.get_settled_read_hints();
         let hint = settled_read_hints[0];
         // Tweak the value of the first settled read to be something different.
-        builder.read_requests[hint.read_request_index].read_request.value += 1;
+        builder.read_requests.array[hint.read_request_index].read_request.value += 1;
 
         builder.verify();
     }

@@ -70,7 +70,7 @@ where
     LEAF_PREIMAGE: IndexedTreeLeafPreimage<VALUE>,
 {
     if exists {
-        assert(key == leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
+        assert_eq(key, leaf_preimage.get_key(), "Key does not match the key of the leaf preimage");
     } else {
         assert_check_valid_low_leaf(key, leaf_preimage);
     }

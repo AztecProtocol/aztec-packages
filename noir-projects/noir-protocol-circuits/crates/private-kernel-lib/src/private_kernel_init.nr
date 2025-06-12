@@ -51,20 +51,37 @@ impl PrivateKernelInitCircuitPrivateInputs {
             self.is_private_only,
             self.first_nullifier_hint,
         )
-            .with_private_call(self.private_call)
+            .with_private_call(
+                // TODO: consider moving this call into `new_from_tx_request`?
+                self.private_call,
+            )
             .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        // Validate inputs.
+
+        // Notice: within this constructor, the lengths of arrays are being rhs-empty-validated.
+        let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
+
+        private_call_data_validator.validate_proof(true /* is_first_app */);
+
+        private_call_data_validator.validate_as_first_call();
+        // TODO: consider removing the tx_request and this logic. (It won't reduce constraints, but it does reduce code):
+        // Edit: oh, looks like the first nullifier is calculated as hash(tx_request), if no nullifier exists from the first fn call. Hmmm.
+        // The TxRequest _could_ be constructed inside the `create_protocol_nullifier` function, if we wanted to remove it from the args of this kernel circuit.
+
+        private_call_data_validator.validate_against_tx_request(self.tx_request);
+        // Q: missing some checks that are included in `validate_against_call_request`?
+
         // Generate output.
+        // Note: the 0th nullifier is computed within here from the txRequest (consider computing it somewhere else...)
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
-        // Validate inputs.
-        let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
-        private_call_data_validator.validate_proof(true /* is_first_app */);
-        private_call_data_validator.validate_as_first_call();
-        private_call_data_validator.validate_against_tx_request(self.tx_request);
+        // Q: why is the output needed for this validation?
+        // A: it's used in log validation.
+        // Q: Should that log validation instead happen within the Output Validator steps below?
         private_call_data_validator.validate_data(
             output.end.note_hashes,
             self.protocol_contract_tree_root,
@@ -75,7 +92,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
                 self.private_call,
-                private_call_data_validator.array_lengths,
+                private_call_data_validator.empty_rhs_private_call_arrays,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
                 self.is_private_only,
@@ -90,7 +107,10 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
+        tests::{
+            fixture_builder::{appended_unvalidated_array_from_bounded_vec, FixtureBuilder},
+            utils::assert_array_eq,
+        },
         transaction::tx_request::TxRequest,
     };
 
@@ -129,20 +149,23 @@ mod tests {
 
         // note_hash_read_requests
         builder.private_call.append_note_hash_read_requests(2);
-        let note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
+        let note_hash_read_requests = appended_unvalidated_array_from_bounded_vec(
+            builder.private_call.note_hash_read_requests,
+        );
 
         // private_logs
         builder.private_call.append_private_logs(2);
-        let private_logs = builder.private_call.private_logs.storage();
+        let private_logs =
+            appended_unvalidated_array_from_bounded_vec(builder.private_call.private_logs);
 
         let public_inputs = builder.execute();
         assert_array_eq(
-            public_inputs.validation_requests.note_hash_read_requests,
-            [note_hash_read_requests[0], note_hash_read_requests[1]],
+            public_inputs.validation_requests.note_hash_read_requests.array,
+            [note_hash_read_requests.array[0], note_hash_read_requests.array[1]],
         );
         assert_array_eq(
-            public_inputs.end.private_logs,
-            [private_logs[0], private_logs[1]],
+            public_inputs.end.private_logs.array,
+            [private_logs.array[0], private_logs.array[1]],
         );
     }
 }

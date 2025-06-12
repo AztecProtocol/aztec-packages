@@ -104,6 +104,7 @@ pub fn compute_siloed_nullifier(app: AztecAddress, nullifier: Field) -> Field {
 }
 
 pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
+    // Q: shouldn't we be checking whether the _whole_ nullifier is empty?
     if nullifier.contract_address.is_zero() {
         nullifier.value() // Return value instead of 0 because the first nullifier's contract address is zero.
     } else {
@@ -400,7 +401,7 @@ fn poseidon2_absorb_chunks_loop<let N: u32, let M: u32>(
             // we want to absorb the final 'remainder' items
             sponge.absorb(input[in_len - remainder + i]);
         } else if should_check {
-            assert(input[in_len - remainder + i] == 0, "Found non-zero field after breakpoint");
+            assert_eq(input[in_len - remainder + i], 0, "Found non-zero field after breakpoint");
         }
     }
     sponge

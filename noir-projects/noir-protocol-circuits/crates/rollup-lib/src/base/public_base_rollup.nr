@@ -203,13 +203,14 @@ mod tests {
             merkle_tree_utils::NonEmptyMerkleTree,
         },
         traits::{Empty, Hash, ToField},
-        utils::{arrays::array_concat, field::field_from_bytes},
+        utils::field::field_from_bytes,
     };
     use types::abis::gas::Gas;
     use types::abis::gas_fees::GasFees;
     use types::abis::gas_settings::GasSettings;
     use types::constants::MAX_L2_GAS_PER_TX_PUBLIC_PORTION;
 
+    #[derive(Eq)]
     struct NullifierInsertion {
         existing_index: u32,
         value: Field,
@@ -218,6 +219,8 @@ mod tests {
     global MAX_NULLIFIERS_PER_TEST: u32 = 4;
     global AVAILABLE_PUBLIC_DATA_LEAVES_FOR_TEST: u32 = 128;
     global PRE_EXISTING_PUBLIC_DATA_LEAVES: u32 = 10;
+
+    #[derive(Eq)]
     struct PublicBaseRollupInputsBuilder {
         tube_data: FixtureBuilder,
         avm_data: FixtureBuilder,
@@ -268,8 +271,7 @@ mod tests {
                 .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 });
-            res.public_data_writes = array_concat(
-                all_public_data_update_requests,
+            res.public_data_writes = all_public_data_update_requests.concat(
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
                         - PRE_EXISTING_PUBLIC_DATA_LEAVES
@@ -293,7 +295,7 @@ mod tests {
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+                log_fields.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
@@ -410,18 +412,20 @@ mod tests {
         // Initial field = TX_START_PREFIX | 0 | txlen[0] txlen[1] | 0 | REVERT_CODE_PREFIX | 0 | revert_code
         // The first 4 are: i=0 init field, i=1: tx hash, i=2: tx fee, i=3: note prefix
         tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                0,
+                tx_effects.len() as u8,
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
         // TX hash
         tx_effects[1] = inputs.tube_data.public_inputs.hash();
-        tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], (0).to_be_bytes::<29>()),
-            true,
-        );
+        tx_effects[2] = field_from_bytes([TX_FEE_PREFIX, 0].concat((0).to_be_bytes::<29>()), true);
         tx_effects[3] = encode_blob_prefix(NOTES_PREFIX, 50);
         for i in 0..50 {
             tx_effects[i + 4] = builder.avm_data.note_hashes.storage()[i].value();
@@ -480,10 +484,8 @@ mod tests {
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
+        reconstructed_tx_effects[2] =
+            field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
         // notes
         let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
@@ -575,10 +577,15 @@ mod tests {
         // revert code = 0
         let length_bytes = (offset as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                length_bytes[0],
+                length_bytes[1],
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 

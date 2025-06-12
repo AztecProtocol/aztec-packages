@@ -1,7 +1,5 @@
 use crate::{
-    abis::side_effect::Ordered,
-    constants::MAX_U32_VALUE,
-    traits::{Empty, is_empty},
+    abis::side_effect::Ordered, constants::MAX_U32_VALUE, traits::Empty,
     utils::arrays::find_index_hint,
 };
 
@@ -9,45 +7,52 @@ pub(crate) fn assert_split_transformed_padded_arrays_with_hint<T, S, let N: u32,
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
-    is_transformed: fn[Env](T, S) -> bool,
+    assert_transformed: fn[Env](T, S) -> (),
     split_counter: u32,
     // The following hints should be checked in this function.
     num_padded_lt: u32,
-    first_after_split_index: u32,
-    first_padded_index: u32,
+    first_after_split_index: Option<u32>,
+    first_padded_index: Option<u32>,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     // --- Validate the hints ---
-    //
+
+    // We do not allow an Option::none for the first padded index.
+    let first_after_split_index = first_after_split_index.unwrap();
+    let first_padded_index = first_padded_index.unwrap();
+
     // Validate first_after_split_index
-    if first_after_split_index != 0 {
+
+    if first_padded_index != 0 {
         assert(
-            sorted_array[first_after_split_index - 1].counter() < split_counter,
+            sorted_array[first_padded_index - 1].counter() < split_counter,
             "first_after_split_index is too large",
         );
     }
-    if first_after_split_index != N {
-        let counter = sorted_array[first_after_split_index].counter();
-        // Note: A padded item can also be the first item after the split counter.
-        assert((counter == 0) | (counter >= split_counter), "incorrect first_after_split_index");
-    }
+
+    let counter = sorted_array[first_padded_index].counter();
+    // Note: A padded item can also be the first item after the split counter.
+    assert((counter == 0) | (counter >= split_counter), "incorrect first_after_split_index");
+
     // Validate first_padded_index
+
     if first_padded_index != 0 {
         assert(
             sorted_array[first_padded_index - 1].counter() != MAX_U32_VALUE,
             "first_padded_index is too large",
         );
     }
-    if first_padded_index != N {
-        assert(
-            sorted_array[first_padded_index].counter() == MAX_U32_VALUE,
-            "incorrect first_padded_index",
-        );
-    }
+
+    assert(
+        sorted_array[first_padded_index].counter() == MAX_U32_VALUE,
+        "incorrect first_padded_index",
+    );
+
     // Validate num_padded_lt/first_padded_gte_index
+
     let first_padded_gte_index = first_padded_index + num_padded_lt;
     if first_padded_gte_index != N {
         // If num_padded_lt is too large and there isn't enough padded items,
@@ -120,7 +125,7 @@ where
             transformed_value_array_gte[to_index]
         };
         // Assert the value is transformed correctly.
-        assert(is_transformed(from, to), "invalid transformed value");
+        assert_transformed(from, to);
 
         // For every item added to the lt array, there is an empty item padded to the gte array. And vice versa.
         // _lt: [...Phase_1, ...Phase_2, ...padded_from_Phase_3, ...padded_from_Phase_4]
@@ -141,7 +146,7 @@ where
             transformed_value_array_lt[empty_index]
         };
         // Assert an empty item is padded.
-        assert(is_empty(padded_empty), "array should be padded with empty items");
+        assert(padded_empty.is_empty(), "array should be padded with empty items");
     }
 }
 
@@ -154,14 +159,14 @@ pub fn assert_split_transformed_padded_arrays<T, S, let N: u32, Env>(
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
-    is_transformed: fn[Env](T, S) -> bool,
+    assert_transformed: fn[Env](T, S) -> (),
     split_counter: u32,
     // The following is provided as a hint and should be checked.
     num_padded_lt: u32,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     // Safety: The hints are constrained by `assert_split_transformed_padded_arrays_with_hint`.
     let (first_after_split_index, first_padded_index) = unsafe {
@@ -175,7 +180,7 @@ where
         sorted_array,
         transformed_value_array_lt,
         transformed_value_array_gte,
-        is_transformed,
+        assert_transformed,
         split_counter,
         num_padded_lt,
         first_after_split_index,
@@ -196,8 +201,8 @@ mod tests {
 
     global NUM_TEST_ITEMS: u32 = 8;
 
-    fn is_transformed(from: TestValue, to: Field) -> bool {
-        from.value == to
+    fn assert_transformed(from: TestValue, to: Field) -> () {
+        assert_eq(from.value, to);
     }
 
     struct TestBuilder {
@@ -206,8 +211,8 @@ mod tests {
         transformed_value_array_gte: [Field; NUM_TEST_ITEMS],
         split_counter: u32,
         num_padded_lt: u32,
-        first_after_split_index: u32,
-        first_padded_index: u32,
+        first_after_split_index: Option<u32>,
+        first_padded_index: Option<u32>,
     }
 
     impl TestBuilder {
@@ -234,8 +239,8 @@ mod tests {
                 transformed_value_array_gte,
                 split_counter: 12,
                 num_padded_lt: 1,
-                first_after_split_index: 2,
-                first_padded_index: 3,
+                first_after_split_index: Option::some(2),
+                first_padded_index: Option::some(3),
             }
         }
 
@@ -259,8 +264,8 @@ mod tests {
                 transformed_value_array_gte,
                 split_counter: 12,
                 num_padded_lt: 0,
-                first_after_split_index: 2,
-                first_padded_index: NUM_TEST_ITEMS,
+                first_after_split_index: Option::some(2),
+                first_padded_index: Option::some(NUM_TEST_ITEMS),
             }
         }
 
@@ -271,8 +276,8 @@ mod tests {
                 transformed_value_array_gte: [0; NUM_TEST_ITEMS],
                 split_counter: 12,
                 num_padded_lt: 0,
-                first_after_split_index: 0,
-                first_padded_index: 0,
+                first_after_split_index: Option::some(0),
+                first_padded_index: Option::some(0),
             }
         }
 
@@ -281,7 +286,7 @@ mod tests {
                 self.sorted_array,
                 self.transformed_value_array_lt,
                 self.transformed_value_array_gte,
-                is_transformed,
+                assert_transformed,
                 self.split_counter,
                 self.num_padded_lt,
             );
@@ -292,7 +297,7 @@ mod tests {
                 self.sorted_array,
                 self.transformed_value_array_lt,
                 self.transformed_value_array_gte,
-                is_transformed,
+                assert_transformed,
                 self.split_counter,
                 self.num_padded_lt,
                 self.first_after_split_index,
@@ -413,7 +418,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_after_split_index_too_small_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_after_split_index -= 1;
+        builder.first_after_split_index._value -= 1;
 
         builder.execute_with_hint();
     }
@@ -422,7 +427,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_after_split_index_too_large_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_after_split_index += 1;
+        builder.first_after_split_index._value += 1;
 
         builder.execute_with_hint();
     }
@@ -431,7 +436,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_padded_index_too_small_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_padded_index -= 1;
+        builder.first_padded_index._value -= 1;
 
         builder.execute_with_hint();
     }
@@ -440,7 +445,7 @@ mod tests {
     fn assert_split_transformed_padded_arrays_with_hint__first_padded_index_too_large_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.first_padded_index += 1;
+        builder.first_padded_index._value += 1;
 
         builder.execute_with_hint();
     }

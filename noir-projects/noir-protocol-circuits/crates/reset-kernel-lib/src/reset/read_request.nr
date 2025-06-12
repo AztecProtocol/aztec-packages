@@ -2,6 +2,7 @@ use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},
     traits::Empty,
+    utils::arrays::AppendedUnvalidatedArray,
 };
 
 pub struct ReadRequestStateEnum {
@@ -13,6 +14,7 @@ pub struct ReadRequestStateEnum {
 pub global ReadRequestState: ReadRequestStateEnum =
     ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
 
+#[derive(Eq)]
 pub struct ReadRequestStatus {
     pub state: u8,
     pub hint_index: u32,
@@ -73,8 +75,8 @@ where
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32>(
-    read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
-    pending_values: [T; PENDING_VALUE_LEN],
+    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    pending_values: AppendedUnvalidatedArray<T, PENDING_VALUE_LEN>,
     hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
 )
@@ -86,8 +88,8 @@ where
             let hint = hints[i];
             let read_request_index = hint.read_request_index;
             if read_request_index != READ_REQUEST_LEN {
-                let read_request = read_requests[read_request_index];
-                let pending_value = pending_values[hint.pending_value_index];
+                let read_request = read_requests.array[read_request_index];
+                let pending_value = pending_values.array[hint.pending_value_index];
                 pending_value.assert_match_read_request(read_request);
             }
         }
@@ -97,7 +99,7 @@ where
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
 fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
     hints: [H; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
     tree_root: Field,
@@ -111,7 +113,7 @@ where
             let hint = hints[i];
             let read_request_index = hint.read_request_index();
             if read_request_index != READ_REQUEST_LEN {
-                let read_request = read_requests[read_request_index];
+                let read_request = read_requests.array[read_request_index];
                 let leaf_preimage = hint.leaf_preimage();
                 leaf_preimage.assert_match_read_request(read_request);
 
@@ -124,13 +126,13 @@ where
 }
 
 fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, let PENDING_READ_HINTS_LEN: u32, T, let SETTLED_READ_HINTS_LEN: u32, S>(
-    read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [T; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [S; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
-    propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+    propagated_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
 )
 where
     T: ReadValueHint,
@@ -138,7 +140,7 @@ where
 {
     let mut num_propagated = 0;
     for i in 0..READ_REQUEST_LEN {
-        let read_request = read_requests[i];
+        let read_request = read_requests.array[i];
         let status = read_request_statuses[i];
         if status.state == ReadRequestState.PENDING {
             assert_eq(
@@ -154,7 +156,7 @@ where
             );
         } else {
             assert_eq(
-                propagated_read_requests[num_propagated],
+                propagated_read_requests.array[num_propagated],
                 read_request,
                 "Mismatch propagated read request",
             );
@@ -191,15 +193,15 @@ where
 // We created two variables because an array is not allowed to be empty (zero length). In the case a reset circuit skips
 // the read request verification, the array will contain empty items, and the [pending|settled]_read_amount will be zero.
 pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
-    pending_values: [P; PENDING_VALUE_LEN],
+    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    pending_values: AppendedUnvalidatedArray<P, PENDING_VALUE_LEN>,
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
     pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [H; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
     tree_root: Field,
-    propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+    propagated_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
 )
 where
     P: Readable<ScopedReadRequest>,
@@ -231,18 +233,24 @@ where
     );
 }
 
+// TODO: consider renaming to `get_propagated_read_requests` or `get_kept_read_requests`
 pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
-    read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
     read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-) -> [ScopedReadRequest; READ_REQUEST_LEN] {
-    let mut propagated_read_requests = BoundedVec::new();
+) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
+    let mut propagated_read_requests = AppendedUnvalidatedArray::empty();
     for i in 0..READ_REQUEST_LEN {
-        let read_request = read_requests[i];
+        let read_request = read_requests.array[i];
+        // Q: I guess "NADA" is being used here to mean "It is not going to be processed in this Reset iteration"?
+        // It's confusing, because actually, all read requests are reads of Pending or Settled notes: there is no 3rd category of read request.
+        // For that reason, it feels like "Nada" should not be an element of this enum.
+        //
+        // Q: Why don't we just pop a subarray of read_requests off the pile, and process those?
         if read_request_statuses[i].state == ReadRequestState.NADA {
             propagated_read_requests.push(read_request);
         }
     }
-    propagated_read_requests.storage()
+    propagated_read_requests
 }
 
 mod tests {
@@ -256,7 +264,8 @@ mod tests {
         address::AztecAddress,
         merkle_tree::{LeafPreimage, MembershipWitness},
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::{assert_array_eq, pad_end}},
-        traits::{Empty, FromField, is_empty_array},
+        traits::{Empty, FromField},
+        utils::arrays::AppendedUnvalidatedArray,
     };
 
     fn silo_test_value(value: Field) -> Field {
@@ -275,6 +284,7 @@ mod tests {
         }
     }
 
+    #[derive(Eq)]
     struct TestLeafPreimage {
         value: Field,
     }
@@ -333,9 +343,9 @@ mod tests {
     }
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
-        read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
+        read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
         read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
-        pending_values: [TestValue; PENDING_VALUE_LEN],
+        pending_values: AppendedUnvalidatedArray<TestValue, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         leaf_preimages: [TestLeafPreimage; SETTLED_READ_HINTS_LEN],
         pending_read_amount: u32,
@@ -351,17 +361,24 @@ mod tests {
             let siloed_values = values.map(|n| silo_test_value(n));
 
             // Create 4 read requests. 0 and 3 are reading settled values. 1 and 2 are reading pending values.
-            let read_requests = [
-                ReadRequest { value: values[1], counter: 11 }.scope(contract_address), // settled
-                ReadRequest { value: values[3], counter: 13 }.scope(contract_address), // pending
-                ReadRequest { value: values[2], counter: 39 }.scope(contract_address), // pending
-                ReadRequest { value: values[0], counter: 46 }.scope(contract_address), // settled
-            ];
+            let read_requests = AppendedUnvalidatedArray {
+                array: [
+                    ReadRequest { value: values[1], counter: 11 }.scope(contract_address), // settled
+                    ReadRequest { value: values[3], counter: 13 }.scope(contract_address), // pending
+                    ReadRequest { value: values[2], counter: 39 }.scope(contract_address), // pending
+                    ReadRequest { value: values[0], counter: 46 }.scope(contract_address), // settled
+                ],
+                length: 4,
+            };
 
-            let pending_values = [
-                TestValue { value: siloed_values[2], counter: 2 },
-                TestValue { value: siloed_values[3], counter: 8 },
-            ];
+            let pending_values = AppendedUnvalidatedArray {
+                array: [
+                    TestValue { value: siloed_values[2], counter: 2 },
+                    TestValue { value: siloed_values[3], counter: 8 },
+                ],
+                length: 2,
+            };
+
             let pending_read_hints = [
                 PendingReadHint { read_request_index: 1, pending_value_index: 1 },
                 PendingReadHint { read_request_index: 2, pending_value_index: 0 },
@@ -431,14 +448,16 @@ mod tests {
         }
 
         pub fn get_nada_pending_read_hint(self) -> PendingReadHint {
-            PendingReadHint::nada(self.read_requests.len())
+            PendingReadHint::nada(self.read_requests.array.len())
         }
 
         pub fn get_nada_settled_read_hint(self) -> TestSettledReadHint {
-            TestSettledReadHint::nada(self.read_requests.len())
+            TestSettledReadHint::nada(self.read_requests.array.len())
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        pub fn get_unverified_read_requests(
+            self,
+        ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
             // Safety: this is only used in tests.
             unsafe {
                 get_unverified_read_requests(self.read_requests, self.read_request_statuses)
@@ -607,7 +626,7 @@ mod tests {
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
         let unverified_read_requests = builder.get_unverified_read_requests();
-        assert(is_empty_array(unverified_read_requests));
+        assert(unverified_read_requests.is_empty());
 
         builder.verify();
     }
@@ -626,8 +645,8 @@ mod tests {
         let read_requests = builder.read_requests;
         let unverified_read_requests = builder.get_unverified_read_requests();
         assert_array_eq(
-            unverified_read_requests,
-            [read_requests[0], read_requests[2]],
+            unverified_read_requests.array,
+            [read_requests.array[0], read_requests.array[2]],
         );
 
         builder.verify_with_settled_hints(settled_hints);
@@ -661,13 +680,13 @@ mod tests {
         let request_index = builder.pending_read_hints[1].read_request_index;
         builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
         // Clear the hint.
-        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.len());
+        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.array.len());
 
         builder.verify();
 
-        let read_request = builder.read_requests[request_index];
+        let read_request = builder.read_requests.array[request_index];
         let unverified = builder.get_unverified_read_requests();
-        assert_array_eq(unverified, [read_request]);
+        assert_array_eq(unverified.array, [read_request]);
     }
 
     #[test(should_fail_with = "Unused pending read hint should not point to a read request")]
@@ -689,7 +708,7 @@ mod tests {
 
         // Only verify 1 pending request.
         builder.pending_read_amount = 1;
-        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.len());
+        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.array.len());
         // The status for the read request is still PENDING.
 
         builder.verify();
@@ -710,9 +729,9 @@ mod tests {
 
         builder.verify_with_settled_hints(settled_hints);
 
-        let read_request = builder.read_requests[request_index];
+        let read_request = builder.read_requests.array[request_index];
         let unverified = builder.get_unverified_read_requests();
-        assert_array_eq(unverified, [read_request]);
+        assert_array_eq(unverified.array, [read_request]);
     }
 
     #[test(should_fail_with = "Unused settled read hint should not point to a read request")]

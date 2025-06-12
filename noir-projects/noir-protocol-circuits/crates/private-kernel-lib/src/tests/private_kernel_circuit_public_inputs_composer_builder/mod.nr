@@ -41,7 +41,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         self.first_nullifier_hint = 0;
     }
 
-    pub fn new_from_tx_request(
+    pub unconstrained fn new_from_tx_request(
         self,
         is_private_only: bool,
     ) -> PrivateKernelCircuitPublicInputsComposer {
@@ -64,7 +64,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         }
     }
 
-    pub fn compose_from_tx_request(
+    pub unconstrained fn compose_from_tx_request(
         self,
         is_private_only: bool,
     ) -> PrivateKernelCircuitPublicInputs {
@@ -72,21 +72,19 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         self.new_from_tx_request(is_private_only).with_private_call(private_call).finish()
     }
 
-    pub fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
+    pub unconstrained fn compose_from_previous_kernel(self) -> PrivateKernelCircuitPublicInputs {
         // Append one private call request for the previous kernel.
         let mut previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
         let num_private_call_requests = self.previous_kernel.private_call_requests.len();
-        previous_kernel.end.private_call_stack[num_private_call_requests] =
+        previous_kernel.end.private_call_stack.array[num_private_call_requests] =
             PrivateCallRequest::empty();
-        previous_kernel.end.private_call_stack[num_private_call_requests].args_hash = 98765432;
+        previous_kernel.end.private_call_stack.array[num_private_call_requests].args_hash =
+            98765432;
 
         let private_call = self.private_call.to_private_call_data();
-        // Safety: This is only used in tests.
-        unsafe {
-            PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
-                .pop_top_call_request()
-                .with_private_call(private_call)
-                .finish()
-        }
+
+        PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
+            .with_private_call(private_call)
+            .finish()
     }
 }

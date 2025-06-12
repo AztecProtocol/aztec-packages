@@ -3,7 +3,7 @@ use crate::{
     constants::{
         MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
     },
-    traits::{Deserialize, Empty, FromField, is_empty, Serialize, ToField},
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::{arrays::array_length, reader::Reader},
 };
 
@@ -79,7 +79,7 @@ impl PublicCallRequestArrayLengths {
         PublicCallRequestArrayLengths {
             setup_calls: array_length(setup_call_requests),
             app_logic_calls: array_length(app_logic_call_requests),
-            teardown_call: !is_empty(teardown_call_request),
+            teardown_call: !teardown_call_request.is_empty(),
         }
     }
 }

@@ -17,6 +17,7 @@ global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
+#[derive(Eq)]
 pub struct RootRollupInputs {
     pub previous_rollup_data: [PreviousRollupBlockData; 2],
     pub prover_id: Field,

@@ -198,7 +198,11 @@ impl PrivateBaseRollupInputs {
         read_hint.validate(self.start.public_data_tree.root);
 
         let balance = read_hint.value;
-        assert(read_hint.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance read hint");
+        assert_eq(
+            read_hint.leaf_slot,
+            leaf_slot,
+            "Wrong leaf slot for Fee Juice balance read hint",
+        );
         assert(!balance.lt(tx_fee), "Not enough balance for fee payer to pay for transaction");
 
         let value = compute_public_data_tree_value(balance - tx_fee);
@@ -261,11 +265,12 @@ mod tests {
         },
         traits::{Empty, FromField, Hash, ToField},
         utils::{
-            arrays::{array_concat, get_sorted_tuple::get_sorted_tuple},
+            arrays::get_sorted_tuple::get_sorted_tuple,
             field::{field_from_bytes, full_field_less_than},
         },
     };
 
+    #[derive(Eq)]
     struct NullifierInsertion {
         existing_index: u32,
         value: Field,
@@ -433,8 +438,7 @@ mod tests {
                 .map(|leaf_preimage: PublicDataTreeLeafPreimage| {
                     PublicDataWrite { leaf_slot: leaf_preimage.slot, value: leaf_preimage.value }
                 });
-            res.public_data_writes = array_concat(
-                all_public_data_update_requests,
+            res.public_data_writes = all_public_data_update_requests.concat(
                 [
                     PublicDataWrite::empty(); MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
                         - PRE_EXISTING_PUBLIC_DATA_LEAVES
@@ -525,7 +529,7 @@ mod tests {
         // Exists separately to allow us to append correct log preimages and hashes
         unconstrained fn append_contract_class_log<let N: u32>(&mut self, log_fields: [Field; N]) {
             let padded_log_fields: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-                array_concat(log_fields, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+                log_fields.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
             self.contract_class_log_fields.push(padded_log_fields);
 
             let log_hash = compute_contract_class_log_hash(padded_log_fields);
@@ -868,10 +872,15 @@ mod tests {
         //   - Public data write prefix
         //   - 1 public data write (2 fields)
         tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, 0, tx_effects.len() as u8, 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                0,
+                tx_effects.len() as u8,
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 
@@ -881,7 +890,7 @@ mod tests {
         // Transaction fee.
         let transaction_fee = builder.compute_transaction_fee();
         tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], transaction_fee.to_be_bytes::<29>()),
+            [TX_FEE_PREFIX, 0].concat(transaction_fee.to_be_bytes::<29>()),
             true,
         );
 
@@ -947,10 +956,8 @@ mod tests {
         // tx hash
         reconstructed_tx_effects[1] = inputs.tube_data.public_inputs.hash();
         // tx fee
-        reconstructed_tx_effects[2] = field_from_bytes(
-            array_concat([TX_FEE_PREFIX, 0], tx_fee.to_be_bytes::<29>()),
-            true,
-        );
+        reconstructed_tx_effects[2] =
+            field_from_bytes([TX_FEE_PREFIX, 0].concat(tx_fee.to_be_bytes::<29>()), true);
         // notes
         let mut offset = 3;
         let notes_prefix = encode_blob_prefix(NOTES_PREFIX, NUM_NOTES);
@@ -1026,10 +1033,15 @@ mod tests {
         // revert code = 0
         let length_bytes = (offset as Field).to_be_bytes::<2>();
         reconstructed_tx_effects[0] = field_from_bytes(
-            array_concat(
-                TX_START_PREFIX.to_be_bytes::<8>(),
-                [0, length_bytes[0], length_bytes[1], 0, REVERT_CODE_PREFIX, 0, 0],
-            ),
+            TX_START_PREFIX.to_be_bytes::<8>().concat([
+                0,
+                length_bytes[0],
+                length_bytes[1],
+                0,
+                REVERT_CODE_PREFIX,
+                0,
+                0,
+            ]),
             true,
         );
 

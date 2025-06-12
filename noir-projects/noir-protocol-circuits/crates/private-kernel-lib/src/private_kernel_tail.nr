@@ -33,18 +33,25 @@ impl PrivateKernelTailCircuitPrivateInputs {
     }
 
     pub fn execute(self) -> PrivateToRollupKernelCircuitPublicInputs {
+        // Validate inputs.
+        let mut previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
+
+        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+
+        previous_kernel_validator.validate_for_private_tail();
+
         // Generate output.
         // Safety: The output is validated below by TailOutputValidator.
         let output = unsafe { self.generate_output() };
 
-        // Validate inputs.
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
-        previous_kernel_validator.validate_for_private_tail();
-
         // Validate output.
         if dep::types::validate::should_validate_output() {
-            TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
+            TailOutputValidator::new(
+                output,
+                self.previous_kernel.public_inputs,
+                previous_kernel_validator.previous_kernel_dense_trimmed_arrays,
+            )
+                .validate();
         }
 
         output

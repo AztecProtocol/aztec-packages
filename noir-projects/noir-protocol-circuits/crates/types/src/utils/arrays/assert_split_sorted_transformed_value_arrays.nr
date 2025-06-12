@@ -12,6 +12,7 @@ use crate::{
 
 // original_array must be valid, i.e. validate_array(original_array) == true
 // transformed_value_array must be verified against original_array before calling this function.
+// TODO: this can be optimised.
 fn assert_split_sorted_transformed_value_arrays<T, S, let N: u32>(
     original_array: [T; N],
     transformed_value_array: [S; N],
@@ -24,8 +25,8 @@ fn assert_split_sorted_transformed_value_arrays<T, S, let N: u32>(
     ascending: bool, // Whether the items in sorted_transformed_value_array_(lt/gte) is in ascending order.
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     // Can use array_length instead of validate_array for the original_array because it's taken from the previous kernel and guaranteed to be valid.
     let total_num = array_length(original_array);
@@ -62,13 +63,13 @@ where
         if i < num_lt {
             let counter = sorted_counters_lt[i];
             let prev_counter = sorted_counters_lt[i - 1];
-            assert(ascending == (counter > prev_counter), "value array must be sorted by counter");
+            assert_eq(ascending, (counter > prev_counter), "value array must be sorted by counter");
             assert(counter != prev_counter, "counters must not be the same");
         }
         if i < num_gte {
             let counter = sorted_counters_gte[i];
             let prev_counter = sorted_counters_gte[i - 1];
-            assert(ascending == (counter > prev_counter), "value array must be sorted by counter");
+            assert_eq(ascending, (counter > prev_counter), "value array must be sorted by counter");
             assert(counter != prev_counter, "counters must not be the same");
         }
     }
@@ -89,8 +90,8 @@ pub fn assert_split_sorted_transformed_value_arrays_asc<T, S, let N: u32>(
     hints: SplitOrderHints<N>,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     assert_split_sorted_transformed_value_arrays(
         original_array,
@@ -114,8 +115,8 @@ pub fn assert_split_sorted_transformed_value_arrays_desc<T, S, let N: u32>(
     hints: SplitOrderHints<N>,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     assert_split_sorted_transformed_value_arrays(
         original_array,

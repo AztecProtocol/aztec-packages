@@ -1,12 +1,37 @@
-pub fn assert_array_prepended<T, let N: u32>(dest: [T; N], source: [T; N], num_source_items: u32)
+use super::AppendedUnvalidatedArray;
+
+use crate::utils::for_loop::for_i_only_in_0_;
+
+// I tried replacing these functions with `for_i_in_0_()`, but it increased constraints
+// by 750.
+
+pub fn assert_array_prepended<T, let N: u32>(
+    dest: AppendedUnvalidatedArray<T, N>,
+    source: AppendedUnvalidatedArray<T, N>,
+)
 where
     T: Eq,
 {
-    let mut proceed = true;
-    for i in 0..source.len() {
-        proceed &= i != num_source_items;
-        if proceed {
-            assert_eq(dest[i], source[i], "source item does not prepend to dest");
-        }
-    }
+    for_i_only_in_0_(
+        source.length,
+        source.array.len(),
+        |i| { assert_eq(dest.array[i], source.array[i], "source item does not prepend to dest"); },
+        false,
+    );
+}
+
+pub fn assert_array_prepended_up_to_some_length<T, let N: u32>(
+    dest: AppendedUnvalidatedArray<T, N>,
+    source: AppendedUnvalidatedArray<T, N>,
+    source_length: u32,
+)
+where
+    T: Eq,
+{
+    for_i_only_in_0_(
+        source_length,
+        source.array.len(),
+        |i| { assert_eq(dest.array[i], source.array[i], "source item does not prepend to dest"); },
+        true,
+    );
 }

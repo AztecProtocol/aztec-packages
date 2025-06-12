@@ -15,6 +15,7 @@ use dep::types::{
         validation_requests::PrivateValidationRequests,
     },
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    utils::arrays::AppendedUnvalidatedArray,
 };
 
 pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> {
@@ -23,7 +24,7 @@ pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_S
     // Note hash read requests.
     pub note_hash_read_request_hints: NoteHashReadRequestHints<NH_RR_PENDING, NH_RR_SETTLED>,
     // - Pending.
-    pub pending_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
+    pub pending_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub pending_note_hash_read_amount: u32,
     // - Settled.
     pub note_hash_tree_root: Field,
@@ -32,7 +33,7 @@ pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_S
     // Nullifier read requests.
     pub nullifier_read_request_hints: NullifierReadRequestHints<NLL_RR_PENDING, NLL_RR_SETTLED>,
     // - Pending.
-    pub pending_nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
+    pub pending_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub pending_nullifier_read_amount: u32,
     // - Settled.
     pub nullifier_tree_root: Field,
@@ -47,12 +48,20 @@ pub struct PrivateValidationRequestProcessor<let NH_RR_PENDING: u32, let NH_RR_S
 }
 
 impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN> {
+    // "Compose" is an inconsistent word.
+    // I think this is outputting arrays of items that will be propagated from this circuit (i.e. items that will not be processed within this circuit). Is this function in the right place?
     pub unconstrained fn compose(self) -> PrivateValidationRequests {
+        // Splice-removes all but the "NADA" read_requests. I find this confusing.
+        // What have we computed here?
+        // - The read requests that will be propagated to the next circuit? <-- this one
+        // - Or the read requests that will be processed by this circuit?
+        // TODO(MC): consider renaming to `kept_note_hash_read_requests`, in line with the naming of the other arrays.
         let note_hash_read_requests = get_unverified_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.note_hash_read_request_hints.read_request_statuses,
         );
 
+        // Splice-removes all but the "NADA" read_requests. I find this confusing.
         let nullifier_read_requests = get_unverified_read_requests(
             self.validation_requests.nullifier_read_requests,
             self.nullifier_read_request_hints.read_request_statuses,
@@ -114,12 +123,17 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
 
         // split_counter
+        // TODO(MC): consider moving to `validate_unchanged_data`
         assert_eq(
             output.split_counter.unwrap(),
             self.validation_requests_split_counter,
             "mismatch split counter",
         );
+
         if self.validation_requests.split_counter.is_some() {
+            // Q: Wait, what's the difference between self.validation_requests.split_counter and
+            // validation_requests_split_counter? Why do we need validation_requests_split_counter if
+            // we already have validation_requests.split_counter?
             assert_eq(
                 self.validation_requests.split_counter.unwrap_unchecked(),
                 self.validation_requests_split_counter,

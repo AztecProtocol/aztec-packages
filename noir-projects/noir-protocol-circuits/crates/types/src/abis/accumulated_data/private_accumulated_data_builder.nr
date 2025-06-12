@@ -16,30 +16,33 @@ use crate::{
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     traits::Empty,
+    utils::arrays::AppendedUnvalidatedArray,
 };
 
+#[derive(Eq)]
 pub struct PrivateAccumulatedDataBuilder {
-    pub note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    pub nullifiers: BoundedVec<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
-    pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub l2_to_l1_msgs: AppendedUnvalidatedArray<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
 
-    pub private_logs: BoundedVec<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: AppendedUnvalidatedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
 
-    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
-    pub private_call_stack: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    pub public_call_requests: AppendedUnvalidatedArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
+    pub private_call_stack: AppendedUnvalidatedArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
 }
 
+// TODO: remove this PrivateAccumulatedDataBuilder, and just construct the PrivateAccumulatedData directly?
 impl PrivateAccumulatedDataBuilder {
     pub fn finish(self) -> PrivateAccumulatedData {
         PrivateAccumulatedData {
-            note_hashes: self.note_hashes.storage(),
-            nullifiers: self.nullifiers.storage(),
-            l2_to_l1_msgs: self.l2_to_l1_msgs.storage(),
-            private_logs: self.private_logs.storage(),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage(),
-            public_call_requests: self.public_call_requests.storage(),
-            private_call_stack: self.private_call_stack.storage(),
+            note_hashes: self.note_hashes,
+            nullifiers: self.nullifiers,
+            l2_to_l1_msgs: self.l2_to_l1_msgs,
+            private_logs: self.private_logs,
+            contract_class_logs_hashes: self.contract_class_logs_hashes,
+            public_call_requests: self.public_call_requests,
+            private_call_stack: self.private_call_stack,
         }
     }
 }
@@ -47,13 +50,13 @@ impl PrivateAccumulatedDataBuilder {
 impl Empty for PrivateAccumulatedDataBuilder {
     fn empty() -> Self {
         PrivateAccumulatedDataBuilder {
-            note_hashes: BoundedVec::new(),
-            nullifiers: BoundedVec::new(),
-            l2_to_l1_msgs: BoundedVec::new(),
-            private_logs: BoundedVec::new(),
-            contract_class_logs_hashes: BoundedVec::new(),
-            public_call_requests: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
+            note_hashes: AppendedUnvalidatedArray::empty(),
+            nullifiers: AppendedUnvalidatedArray::empty(),
+            l2_to_l1_msgs: AppendedUnvalidatedArray::empty(),
+            private_logs: AppendedUnvalidatedArray::empty(),
+            contract_class_logs_hashes: AppendedUnvalidatedArray::empty(),
+            public_call_requests: AppendedUnvalidatedArray::empty(),
+            private_call_stack: AppendedUnvalidatedArray::empty(),
         }
     }
 }

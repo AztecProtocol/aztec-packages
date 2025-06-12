@@ -18,42 +18,46 @@ use crate::{
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
-    utils::{arrays::validate_array, reader::Reader},
+    utils::{arrays::EmptyRHSArray, reader::Reader},
 };
 
-pub struct PrivateCircuitPublicInputsArrayLengths {
-    pub note_hash_read_requests: u32,
-    pub nullifier_read_requests: u32,
-    pub key_validation_requests_and_generators: u32,
-    pub note_hashes: u32,
-    pub nullifiers: u32,
-    pub l2_to_l1_msgs: u32,
-    pub private_call_requests: u32,
-    pub public_call_requests: u32,
-    pub private_logs: u32,
-    pub contract_class_logs_hashes: u32,
+#[derive(Eq)]
+pub struct EmptyRHSValidatedPrivateCallArrays {
+    pub note_hash_read_requests: EmptyRHSArray<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: EmptyRHSArray<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub key_validation_requests_and_generators: EmptyRHSArray<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
+    pub note_hashes: EmptyRHSArray<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
+    pub nullifiers: EmptyRHSArray<Nullifier, MAX_NULLIFIERS_PER_CALL>,
+    pub l2_to_l1_msgs: EmptyRHSArray<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub private_call_requests: EmptyRHSArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    pub public_call_requests: EmptyRHSArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
+    pub private_logs: EmptyRHSArray<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
+    pub contract_class_logs_hashes: EmptyRHSArray<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 }
 
-impl PrivateCircuitPublicInputsArrayLengths {
+impl EmptyRHSValidatedPrivateCallArrays {
     pub fn new(public_inputs: PrivateCircuitPublicInputs) -> Self {
-        PrivateCircuitPublicInputsArrayLengths {
-            note_hash_read_requests: validate_array(public_inputs.note_hash_read_requests),
-            nullifier_read_requests: validate_array(public_inputs.nullifier_read_requests),
-            key_validation_requests_and_generators: validate_array(
+        EmptyRHSValidatedPrivateCallArrays {
+            note_hash_read_requests: EmptyRHSArray::new(public_inputs.note_hash_read_requests),
+            nullifier_read_requests: EmptyRHSArray::new(public_inputs.nullifier_read_requests),
+            key_validation_requests_and_generators: EmptyRHSArray::new(
                 public_inputs.key_validation_requests_and_generators,
             ),
-            note_hashes: validate_array(public_inputs.note_hashes),
-            nullifiers: validate_array(public_inputs.nullifiers),
-            l2_to_l1_msgs: validate_array(public_inputs.l2_to_l1_msgs),
-            private_call_requests: validate_array(public_inputs.private_call_requests),
-            public_call_requests: validate_array(public_inputs.public_call_requests),
-            private_logs: validate_array(public_inputs.private_logs),
-            contract_class_logs_hashes: validate_array(public_inputs.contract_class_logs_hashes),
+            note_hashes: EmptyRHSArray::new(public_inputs.note_hashes),
+            nullifiers: EmptyRHSArray::new(public_inputs.nullifiers),
+            l2_to_l1_msgs: EmptyRHSArray::new(public_inputs.l2_to_l1_msgs),
+            private_call_requests: EmptyRHSArray::new(public_inputs.private_call_requests),
+            public_call_requests: EmptyRHSArray::new(public_inputs.public_call_requests),
+            private_logs: EmptyRHSArray::new(public_inputs.private_logs),
+            contract_class_logs_hashes: EmptyRHSArray::new(
+                public_inputs.contract_class_logs_hashes,
+            ),
         }
     }
 }
 
 // Public inputs to private app circuit.
+#[derive(Eq)]
 pub struct PrivateCircuitPublicInputs {
     pub call_context: CallContext,
 
@@ -88,34 +92,6 @@ pub struct PrivateCircuitPublicInputs {
     // they can be different in case of a protocol upgrade. In such a situation we could be using header from a block
     // before the upgrade took place but be using the updated protocol to execute and prove the transaction.
     pub tx_context: TxContext,
-}
-
-impl Eq for PrivateCircuitPublicInputs {
-    fn eq(self, other: Self) -> bool {
-        self.call_context.eq(other.call_context)
-            & self.args_hash.eq(other.args_hash)
-            & (self.returns_hash == other.returns_hash)
-            & (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
-            & (self.is_fee_payer == other.is_fee_payer)
-            & (self.max_block_number == other.max_block_number)
-            & (self.note_hash_read_requests == other.note_hash_read_requests)
-            & (self.nullifier_read_requests == other.nullifier_read_requests)
-            & (
-                self.key_validation_requests_and_generators
-                    == other.key_validation_requests_and_generators
-            )
-            & (self.note_hashes == other.note_hashes)
-            & (self.nullifiers == other.nullifiers)
-            & (self.private_call_requests == other.private_call_requests)
-            & (self.public_call_requests == other.public_call_requests)
-            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
-            & (self.private_logs == other.private_logs)
-            & (self.contract_class_logs_hashes == other.contract_class_logs_hashes)
-            & (self.start_side_effect_counter == other.start_side_effect_counter)
-            & (self.end_side_effect_counter == other.end_side_effect_counter)
-            & self.historical_header.eq(other.historical_header)
-            & self.tx_context.eq(other.tx_context)
-    }
 }
 
 impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInputs {

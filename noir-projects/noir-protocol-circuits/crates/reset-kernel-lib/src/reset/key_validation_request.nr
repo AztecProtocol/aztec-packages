@@ -1,8 +1,6 @@
 use dep::types::{
-    abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
-    hash::compute_app_secret_key,
-    scalar::Scalar,
-    traits::{Empty, is_empty},
+    abis::validation_requests::ScopedKeyValidationRequestAndGenerator, hash::compute_app_secret_key,
+    scalar::Scalar, traits::Empty, utils::arrays::AppendedUnvalidatedArray,
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
@@ -49,12 +47,14 @@ fn verify_key_validation_request(
 }
 
 // `key_validation_amount` should be a known constant at compile time.
+// ^^^ ... then perhaps we should pass it as a generic, instead of as a param?
+// Is there a way to mark a param as `comptime`?
 // For reset variants, the constant is defined in the main.nr files and passed down to this function.
 pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
-    key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUESTS_LEN],
+    key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
     hints: [KeyValidationHint; HINTS_LEN],
     key_validation_amount: u32,
-    unverified_requests: [ScopedKeyValidationRequestAndGenerator; REQUESTS_LEN],
+    unverified_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
 ) {
     assert(
         key_validation_amount <= HINTS_LEN,
@@ -62,13 +62,15 @@ pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN
     );
 
     for i in 0..REQUESTS_LEN {
-        let request = key_validation_requests[i];
+        let request = key_validation_requests.array[i];
         if i < key_validation_amount {
             let hint = hints[i];
-            if !is_empty(request.contract_address) {
+            if !request.contract_address.is_empty() {
                 verify_key_validation_request(request, hint.sk_m);
             }
 
+            // TODO: we might be able to remove these checks, given that we now have these safe types, that help us
+            // track which checks have been performed so far.
             // For each verified key validation request, an empty request is added to the unverified requests.
             // We need to make sure that the unverified requests are padded with empty requests, because the protocol
             // expects it to be a validated array ([...non_empty_items, ...empty_items]).
@@ -76,27 +78,33 @@ pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN
             // previous values, and the result will still be a validated array.
             // This will enable the tail kernels to simply check that the first request is empty to know that all the
             // requests are validated.
-            assert(
-                is_empty(unverified_requests[REQUESTS_LEN - i - 1]),
+
+            unverified_requests.array[REQUESTS_LEN - i - 1].assert_empty(
                 "unverified requests should be padded with empty requests",
             );
         } else {
             assert_eq(
                 request,
-                unverified_requests[i - key_validation_amount],
+                unverified_requests.array[i - key_validation_amount],
                 "mismatch propagated key validation request",
             );
         }
     }
 }
 
+// Dangerous. Come back to this, because I'm worried I'm missing constraints on the arrays.
 pub unconstrained fn get_unverified_key_validation_requests<let N: u32>(
-    key_validation_requests: [ScopedKeyValidationRequestAndGenerator; N],
+    key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N>,
     key_validation_amount: u32,
-) -> [ScopedKeyValidationRequestAndGenerator; N] {
-    let mut propagated = [ScopedKeyValidationRequestAndGenerator::empty(); N];
+) -> AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N> {
+    let mut propagated: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N> =
+        AppendedUnvalidatedArray::empty();
+
+    // We'll process a number of requests up to the `key_validation_amount`. We'll propagate any beyond that.
+    // Q: why do we "shift" (from the front) items that we want to process, instead of "pop" (from the back) them?
     for i in key_validation_amount..N {
-        propagated[i - key_validation_amount] = key_validation_requests[i];
+        propagated.array[i - key_validation_amount] = key_validation_requests.array[i];
     }
+    propagated.length = key_validation_requests.length - key_validation_amount;
     propagated
 }

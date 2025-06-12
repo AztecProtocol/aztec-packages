@@ -14,7 +14,7 @@ pub contract ContractClassRegisterer {
         },
         contract_class_id::ContractClassId,
         hash::poseidon2_hash,
-        utils::arrays::{array_concat, unsafe_padded_array_length},
+        utils::arrays::EmptyRHSArray,
     };
 
     use dep::aztec::{
@@ -209,10 +209,10 @@ pub contract ContractClassRegisterer {
         let counter = context.next_counter();
 
         let log_to_emit: [Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS] =
-            array_concat(log, [0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
+            log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
-        let length = unsafe { unsafe_padded_array_length(log_to_emit) };
+        let length = unsafe { EmptyRHSArray::new(log_to_emit).length };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
         let log_hash = poseidon2_hash(log_to_emit);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
@@ -220,7 +220,9 @@ pub contract ContractClassRegisterer {
             notify_created_contract_class_log(contract_address, log_to_emit, length, counter);
         }
 
-        context.contract_class_logs_hashes.push(LogHash { value: log_hash, length }.count(counter));
+        context.contract_class_logs_hashes.push(LogHash { value: log_hash, length: length }.count(
+            counter,
+        ));
     }
 
     #[private]

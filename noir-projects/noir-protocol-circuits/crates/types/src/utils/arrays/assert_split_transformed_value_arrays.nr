@@ -1,4 +1,4 @@
-use crate::{abis::side_effect::Ordered, traits::{Empty, is_empty}, utils::arrays::find_index_hint};
+use crate::{abis::side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
 
 pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     sorted_array: [T; N],
@@ -6,12 +6,15 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32,
-    num_non_revertibles: u32, // Hint. Should check in this function.
+    maybe_num_non_revertibles: Option<u32>, // Hint. Should check in this function.
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
+    // Disallowing no non-revertibles...
+    let num_non_revertibles = maybe_num_non_revertibles.unwrap();
+
     if num_non_revertibles != 0 {
         // If num_non_revertibles == 0, then the below can still underflow and cause 'Failed constraint' error,
         // even though it shouldn't reach here. See noir issue #7612.
@@ -50,7 +53,7 @@ where
         } else {
             transformed_value_array_lt[i]
         };
-        assert(is_empty(padded), "array should be padded with empty items");
+        assert(padded.is_empty(), "array should be padded with empty items");
     }
 }
 
@@ -62,8 +65,8 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     split_counter: u32,
 )
 where
-    T: Ordered + Empty + Eq,
-    S: Empty + Eq,
+    T: Ordered + Empty,
+    S: Empty,
 {
     // Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
     let num_non_revertibles =
@@ -140,7 +143,7 @@ mod tests {
                 self.transformed_value_array_gte,
                 is_transformed,
                 self.split_counter,
-                num_non_revertibles,
+                Option::some(num_non_revertibles),
             );
         }
     }

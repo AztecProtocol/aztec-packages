@@ -89,10 +89,12 @@ use crate::{
         self, contract_functions::ContractFunction, contracts::ContractData,
         public_data_tree::empty_public_data_tree,
     },
-    traits::{Deserialize, Empty, FromField, Hash, is_empty, Packable, ToField},
+    traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
+    utils::arrays::AppendedUnvalidatedArray,
 };
 
+/// For testing only.
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     assert(N >= M, "cannot call subarray on a smaller array");
     let mut new_arr = [arr[0]; M];
@@ -102,6 +104,7 @@ fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
     new_arr
 }
 
+/// For testing only.
 fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     let mut reversed = BoundedVec::new();
     let len = vec.len();
@@ -113,6 +116,16 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     reversed
 }
 
+/// For testing only. Not safe.
+/// Not part of the AppendedUnvalidatedArray methods, because we don't want it
+/// to be accidentally called in production code.
+pub fn appended_unvalidated_array_from_bounded_vec<T, let N: u32>(
+    vec: BoundedVec<T, N>,
+) -> AppendedUnvalidatedArray<T, N> {
+    AppendedUnvalidatedArray { array: vec.storage(), length: vec.len() }
+}
+
+#[derive(Eq)]
 pub struct FixtureBuilder {
     pub contract_address: AztecAddress,
     pub msg_sender: AztecAddress,
@@ -460,8 +473,8 @@ impl FixtureBuilder {
         let public_data_prefill = 2;
         let mut public_data_tree = empty_public_data_tree::<8, 3>(public_data_prefill);
 
-        if is_empty(self.updated_class_id_value_change)
-            & is_empty(self.updated_class_id_delay_change) {
+        if self.updated_class_id_value_change.is_empty()
+            & self.updated_class_id_delay_change.is_empty() {
             self.historical_header.state.partial.public_data_tree.root =
                 public_data_tree.get_root();
             self.historical_header.state.partial.public_data_tree.next_available_leaf_index =
@@ -532,13 +545,19 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
         PrivateAccumulatedDataBuilder {
-            note_hashes: self.note_hashes,
-            nullifiers: self.nullifiers,
-            l2_to_l1_msgs: self.l2_to_l1_msgs,
-            private_logs: self.private_logs,
-            contract_class_logs_hashes: self.contract_class_logs_hashes,
-            public_call_requests: self.public_call_requests,
-            private_call_stack: vec_reverse(self.private_call_requests),
+            note_hashes: appended_unvalidated_array_from_bounded_vec(self.note_hashes),
+            nullifiers: appended_unvalidated_array_from_bounded_vec(self.nullifiers),
+            l2_to_l1_msgs: appended_unvalidated_array_from_bounded_vec(self.l2_to_l1_msgs),
+            private_logs: appended_unvalidated_array_from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: appended_unvalidated_array_from_bounded_vec(
+                self.contract_class_logs_hashes,
+            ),
+            public_call_requests: appended_unvalidated_array_from_bounded_vec(
+                self.public_call_requests,
+            ),
+            private_call_stack: appended_unvalidated_array_from_bounded_vec(vec_reverse(
+                self.private_call_requests,
+            )),
         }
     }
 
@@ -601,11 +620,15 @@ impl FixtureBuilder {
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
-            scoped_key_validation_requests_and_generators: self
-                .scoped_key_validation_requests_and_generators
-                .storage(),
+            note_hash_read_requests: appended_unvalidated_array_from_bounded_vec(
+                self.note_hash_read_requests,
+            ),
+            nullifier_read_requests: appended_unvalidated_array_from_bounded_vec(
+                self.nullifier_read_requests,
+            ),
+            scoped_key_validation_requests_and_generators: appended_unvalidated_array_from_bounded_vec(
+                self.scoped_key_validation_requests_and_generators,
+            ),
             split_counter: self.validation_requests_split_counter,
         }
     }

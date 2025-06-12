@@ -4,6 +4,7 @@ use crate::{
 };
 use super::verification_key::VerificationKey;
 
+#[derive(Eq)]
 pub struct VkData<let VK_LENGTH: u32> {
     pub vk: VerificationKey<VK_LENGTH>,
     pub leaf_index: u32,
@@ -11,11 +12,15 @@ pub struct VkData<let VK_LENGTH: u32> {
 }
 
 impl<let VK_LENGTH: u32> VkData<VK_LENGTH> {
+    // TODO: duplicate of a function in private_kernel_data.nr?
     pub fn validate_in_vk_tree<let N: u32>(self, vk_tree_root: Field, allowed_indices: [u32; N]) {
         // Safety: find_index_hint should return an index into allowed_indices where
         // `index == index_in_allowed_list`. The assertion below then verifies that the condition is met.
-        let index_hint =
-            unsafe { find_index_hint(allowed_indices, |index: u32| index == self.leaf_index) };
+        let index_hint = unsafe {
+            find_index_hint(allowed_indices, |index: u32| index == self.leaf_index)
+        }
+            .unwrap();
+        // TODO: can we remove this `<` check, given the `unwrap()` call? Maybe not: maybe we still need to check that it's not some value like N + 5.
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], self.leaf_index, "Invalid vk index");
 

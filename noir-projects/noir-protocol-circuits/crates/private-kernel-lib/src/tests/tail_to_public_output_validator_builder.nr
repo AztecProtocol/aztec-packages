@@ -1,6 +1,9 @@
 use crate::{
     abis::PaddedSideEffectAmounts,
-    components::tail_to_public_output_validator::TailToPublicOutputValidator,
+    components::{
+        previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
+        tail_to_public_output_validator::TailToPublicOutputValidator,
+    },
 };
 use dep::types::{tests::fixture_builder::FixtureBuilder, traits::Empty};
 
@@ -22,8 +25,15 @@ impl TailToPublicOutputValidatorBuilder {
 
     pub(crate) fn validate(self) {
         let output = self.output.to_private_to_public_kernel_circuit_public_inputs();
+
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailToPublicOutputValidator::new(output, previous_kernel, self.padded_side_effect_amounts)
+
+        TailToPublicOutputValidator::new(
+            output,
+            previous_kernel,
+            PreviousKernelDenseTrimmedArrays::empty(),
+            self.padded_side_effect_amounts,
+        )
             .validate();
     }
 }

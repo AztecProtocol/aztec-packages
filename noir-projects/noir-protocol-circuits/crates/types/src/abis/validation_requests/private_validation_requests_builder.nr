@@ -13,25 +13,27 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
     traits::Empty,
+    utils::arrays::AppendedUnvalidatedArray,
 };
 
+#[derive(Eq)]
 pub struct PrivateValidationRequestsBuilder {
     pub max_block_number: MaxBlockNumber,
-    pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub note_hash_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     pub split_counter: Option<u32>,
 }
 
+// TODO: remove this PrivateValidationRequestsBuilder, and just construct the PrivateValidationRequests directly?
 impl PrivateValidationRequestsBuilder {
     pub fn finish(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.for_rollup(),
-            note_hash_read_requests: self.note_hash_read_requests.storage(),
-            nullifier_read_requests: self.nullifier_read_requests.storage(),
+            note_hash_read_requests: self.note_hash_read_requests,
+            nullifier_read_requests: self.nullifier_read_requests,
             scoped_key_validation_requests_and_generators: self
-                .scoped_key_validation_requests_and_generators
-                .storage(),
+                .scoped_key_validation_requests_and_generators,
             split_counter: self.split_counter,
         }
     }
@@ -45,9 +47,9 @@ impl Empty for PrivateValidationRequestsBuilder {
     fn empty() -> Self {
         PrivateValidationRequestsBuilder {
             max_block_number: MaxBlockNumber::empty(),
-            note_hash_read_requests: BoundedVec::new(),
-            nullifier_read_requests: BoundedVec::new(),
-            scoped_key_validation_requests_and_generators: BoundedVec::new(),
+            note_hash_read_requests: AppendedUnvalidatedArray::empty(),
+            nullifier_read_requests: AppendedUnvalidatedArray::empty(),
+            scoped_key_validation_requests_and_generators: AppendedUnvalidatedArray::empty(),
             split_counter: Option::none(),
         }
     }

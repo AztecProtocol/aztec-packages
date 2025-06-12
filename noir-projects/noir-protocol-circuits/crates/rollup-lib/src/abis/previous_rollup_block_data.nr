@@ -5,6 +5,7 @@ use dep::types::{
     traits::{Empty, Serialize},
 };
 
+#[derive(Eq)]
 pub struct PreviousRollupBlockData {
     pub block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs,
     pub proof: NestedRecursiveProof,
