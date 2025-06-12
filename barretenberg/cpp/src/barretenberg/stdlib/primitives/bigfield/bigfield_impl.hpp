@@ -1747,9 +1747,6 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     is_equal.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
 
     bigfield diff = (*this) - other;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512
-    // value fits in a u256, subtract off modulus until u256 fits into finite field)
     native diff_native = native((diff.get_value() % modulus_u512).lo);
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
