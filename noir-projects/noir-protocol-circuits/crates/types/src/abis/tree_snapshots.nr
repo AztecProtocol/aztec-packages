@@ -68,10 +68,10 @@ impl Deserialize<TREE_SNAPSHOTS_LENGTH> for TreeSnapshots {
 impl Empty for TreeSnapshots {
     fn empty() -> Self {
         Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
-            note_hash_tree: AppendOnlyTreeSnapshot::zero(),
-            nullifier_tree: AppendOnlyTreeSnapshot::zero(),
-            public_data_tree: AppendOnlyTreeSnapshot::zero(),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
+            note_hash_tree: AppendOnlyTreeSnapshot::empty(),
+            nullifier_tree: AppendOnlyTreeSnapshot::empty(),
+            public_data_tree: AppendOnlyTreeSnapshot::empty(),
         }
     }
 }

@@ -161,12 +161,6 @@ cd cpp
 ./bootstrap.sh
 ```
 
-You can then install the library on your system:
-
-```sh
-cmake --install build
-```
-
 ### Build Options and Instructions
 
 CMake can be passed various build options on its command line:

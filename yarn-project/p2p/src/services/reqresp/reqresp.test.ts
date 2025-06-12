@@ -11,7 +11,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -247,13 +247,8 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
-        `Timeout error: ${new IndividualReqRespTimeoutError().message} | peerId: ${peerId} | subProtocol: ${
-          ReqRespSubProtocol.TX
-        }`,
-        expect.objectContaining({
-          peerId: peerId,
-          subProtocol: ReqRespSubProtocol.TX,
-        }),
+        expect.stringContaining('Request to peer timed out'),
+        expect.objectContaining({ peerId, subProtocol: ReqRespSubProtocol.TX }),
       );
 
       // Expect the peer to be penalized for timing out

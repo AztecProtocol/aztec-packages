@@ -38,7 +38,7 @@ import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   ProposeArgs,
   ProposePayload,
@@ -67,6 +67,7 @@ import {
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -166,7 +167,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
+    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
     multiAdder.addValidators(initialValidators);
 
     _;
@@ -205,7 +206,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
-    bytes memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
     TestPoint memory point = points[slotNumber.unwrap() - 1];
@@ -217,20 +218,21 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
+    address c = proposer != address(0) ? proposer : coinbase;
 
     // Updating the header with important information!
-    header = DecoderBase.updateHeaderArchive(header, archiveRoot);
-    header = DecoderBase.updateHeaderSlot(header, slotNumber);
-    header = DecoderBase.updateHeaderTimestamp(header, ts);
-    header = DecoderBase.updateHeaderCoinbase(header, proposer);
-    header = DecoderBase.updateHeaderFeeRecipient(header, address(0));
-    header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
-    header = DecoderBase.updateHeaderManaUsed(header, manaSpent);
+    header.lastArchiveRoot = archiveRoot;
+    header.slotNumber = slotNumber;
+    header.timestamp = ts;
+    header.coinbase = c;
+    header.feeRecipient = bytes32(0);
+    header.gasFees.feePerL2Gas = manaBaseFee;
+    header.totalManaUsed = manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,
       archive: archiveRoot,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
       txHashes: txHashes
     });
@@ -242,7 +244,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 needed = validators.length * 2 / 3 + 1;
       attestations = new CommitteeAttestation[](validators.length);
 
-      bytes32 headerHash = HeaderLib.hash(proposeArgs.header);
+      bytes32 headerHash = ProposedHeaderLib.hash(proposeArgs.header);
 
       ProposePayload memory proposePayload = ProposePayload({
         archive: proposeArgs.archive,
@@ -265,7 +267,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     return Block({
       proposeArgs: proposeArgs,
-      blobInputs: full.block.blobInputs,
+      blobInputs: full.block.blobCommitments,
       attestations: attestations
     });
   }
@@ -359,14 +361,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           proverId: address(0)
         });
 
-        bytes memory blobPublicInputs;
-        for (uint256 j = 0; j < epochSize; j++) {
-          // For each block in the epoch, add its blob public inputs
-          // Since we are reusing the same block, they are the same
-          blobPublicInputs =
-            abi.encodePacked(blobPublicInputs, this.getBlobPublicInputs(full.block.blobInputs));
-        }
-
         {
           rollup.submitEpochRootProof(
             SubmitEpochRootProofArgs({
@@ -374,34 +368,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
-              blobPublicInputs: blobPublicInputs,
+              blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
           );
         }
       }
-    }
-  }
-
-  // This is duplicated from Rollup.t.sol because we need to call it as this.getBlobPublicInputs
-  // so it accepts the input as calldata
-  function getBlobPublicInputs(bytes calldata _blobsInput)
-    public
-    pure
-    returns (bytes memory blobPublicInputs)
-  {
-    uint8 numBlobs = uint8(_blobsInput[0]);
-    blobPublicInputs = abi.encodePacked(numBlobs, blobPublicInputs);
-    for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 192 + 1;
-      // We want to extract the bytes we use for public inputs:
-      //  * input[32:64]   - z
-      //  * input[64:96]   - y
-      //  * input[96:144]  - commitment C
-      // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
     }
   }
 }

@@ -391,15 +391,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
       const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
+      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
+
+      const blocks = await this.getBlocks(Number(provenBlockNumber) + 1, Number(blocksToUnwind));
+
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
-        blockNumber: pruneFrom,
-        slotNumber: pruneFromSlotNumber,
         epochNumber: pruneFromEpochNumber,
+        blocks,
       });
 
-      const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;
       this.log.debug(
         `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
       );
@@ -1139,8 +1141,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.store.getContractClassIds();
   }
 
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1494,8 +1496,8 @@ export class ArchiverStoreHelper
   getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags);
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getLogsByTags(tags, logsPerTag);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
@@ -1533,8 +1535,8 @@ export class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getDebugFunctionName(address, selector);

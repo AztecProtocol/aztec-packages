@@ -35,7 +35,7 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.BLOCKNUMBER:
       return new Field(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
-      return new Uint64(ctx.environment.globals.timestamp.toBigInt());
+      return new Uint64(ctx.environment.globals.timestamp);
     case EnvironmentVariable.FEEPERL2GAS:
       return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
     case EnvironmentVariable.FEEPERDAGAS:

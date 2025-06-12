@@ -3,10 +3,11 @@
   "rules": {
     "one-contract-per-file": "off",
     "no-inline-assembly": "off",
-    "no-empty-blocks": "off",
+    "import-path-check": "off",
     "not-rely-on-time": "off",
-    "gas-custom-errors": "off",
-    "custom-errors": "off",
+    "private-vars-no-leading-underscore": "error",
+    "func-param-name-leading-underscore": "error",
+    "no-global-import": "error",
     "interface-starts-with-i": "error",
     "immutable-vars-naming": [
       "error",
@@ -27,15 +28,17 @@
     "no-unused-vars": "error",
     "state-visibility": "error",
     "var-name-mixedcase": "error",
-    "private-func-leading-underscore": "warn",
-    "private-vars-no-leading-underscore": "error",
-    "func-param-name-leading-underscore": "error",
     "func-param-name-mixedcase": "error",
-    "strict-override": "error",
     "ordering": "error",
     "comprehensive-interface": "error",
     "no-unused-import": "error",
     "imports-order": "error",
-    "check-send-result": "error"
+    "check-send-result": "error",
+    "duplicated-imports": "warn",
+    "gas-custom-errors": "warn",
+    "named-parameters-mapping": "warn",
+    "gas-struct-packing": "warn",
+    "no-empty-blocks": "warn",
+    "private-func-leading-underscore": "warn"
   }
 }

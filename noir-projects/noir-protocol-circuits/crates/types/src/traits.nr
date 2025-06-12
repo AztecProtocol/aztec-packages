@@ -253,14 +253,14 @@ where
     fn deserialize(fields: [Field; O * M + 1]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
-        let len = fields[0] as u32;
-        let mut index = 1;
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        let len = fields[O * M] as u32;
 
-        for _ in 0..len {
+        for i in 0..len {
             let mut nested_fields = [0; O];
             for j in 0..O {
-                nested_fields[j] = fields[index];
-                index += 1;
+                nested_fields[j] = fields[i * O + j];
             }
 
             let item = T::deserialize(nested_fields);
@@ -271,6 +271,15 @@ where
     }
 }
 
+// This may cause issues if used as program input, because noir disallows empty arrays for program input.
+// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
+// if someone does run into this in the future.
+impl<let N: u32> Deserialize<0> for () {
+    fn deserialize(_fields: [Field; 0]) -> Self {
+        ()
+    }
+}
+
 impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Serialize<O>,
@@ -278,7 +287,6 @@ where
     #[inline_always]
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
-        fields[0] = self.len() as Field;
 
         let storage = self.storage();
 
@@ -286,9 +294,13 @@ where
             let serialized_item = storage[i].serialize();
 
             for j in 0..O {
-                fields[i * O + j + 1] = serialized_item[j];
+                fields[i * O + j] = serialized_item[j];
             }
         }
+
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        fields[O * M] = self.len() as Field;
 
         fields
     }

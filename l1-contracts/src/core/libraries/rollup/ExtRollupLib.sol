@@ -10,7 +10,6 @@ import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelection
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {ProposeLib, ProposeArgs, CommitteeAttestation} from "./ProposeLib.sol";
-import {RewardLib} from "./RewardLib.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
@@ -42,17 +41,6 @@ library ExtRollupLib {
   function setupSeedSnapshotForNextEpoch() external {
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     ValidatorSelectionLib.setSampleSeedForNextEpoch(currentEpoch);
-  }
-
-  function claimSequencerRewards(address _recipient) external returns (uint256) {
-    return RewardLib.claimSequencerRewards(_recipient);
-  }
-
-  function claimProverRewards(address _recipient, Epoch[] memory _epochs)
-    external
-    returns (uint256)
-  {
-    return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
   function setSlasher(address _slasher) external {
@@ -87,7 +75,7 @@ library ExtRollupLib {
     returns (
       bytes32[] memory blobHashes,
       bytes32 blobsHashesCommitment,
-      bytes32 blobPublicInputsHash
+      bytes[] memory blobCommitments
     )
   {
     return BlobLib.validateBlobs(_blobsInput, _checkBlob);

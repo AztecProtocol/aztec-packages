@@ -359,6 +359,7 @@ async function setupFromFresh(
     initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   if (opts.fundRewardDistributor) {
@@ -584,6 +585,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     deployL1ContractsValues: {
       l1Client,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
+      rollupVersion: aztecNodeConfig.rollupVersion,
     },
     watcher,
     cheatCodes,

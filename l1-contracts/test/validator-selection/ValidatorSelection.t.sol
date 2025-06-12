@@ -15,7 +15,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
   ProposeArgs,
   OracleInput,
@@ -26,8 +26,10 @@ import {
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
+import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
@@ -94,8 +96,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
@@ -141,8 +143,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     assertEq(rollup.getCurrentEpoch(), epoch);
@@ -207,7 +209,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint96 slashAmount = 10e18;
+    uint96 slashAmount = 90e18;
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
@@ -298,12 +300,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     TestFlags memory _flags
   ) internal {
     DecoderBase.Full memory full = load(_name);
-    bytes memory header = full.block.header;
+    ProposedHeader memory header = full.block.header;
 
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.timestamp));
+    vm.warp(max(block.timestamp, Timestamp.unwrap(full.block.header.timestamp)));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -318,14 +320,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       uint128 manaBaseFee =
         SafeCast.toUint128(rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true));
       bytes32 inHash = inbox.getRoot(full.block.blockNumber);
-      header = DecoderBase.updateHeaderInboxRoot(header, inHash);
-      header = DecoderBase.updateHeaderBaseFee(header, manaBaseFee);
+      header.contentCommitment.inHash = inHash;
+      header.gasFees.feePerL2Gas = manaBaseFee;
     }
 
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: full.block.archive,
-      stateReference: new bytes(0),
+      stateReference: EMPTY_STATE_REFERENCE,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -343,7 +345,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         archive: args.archive,
         stateReference: args.stateReference,
         oracleInput: args.oracleInput,
-        headerHash: HeaderLib.hash(header),
+        headerHash: ProposedHeaderLib.hash(header),
         txHashes: args.txHashes
       });
 
@@ -432,7 +434,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
 
       if (ree.shouldRevert) {
         return;
@@ -449,7 +451,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         );
         ree.shouldRevert = true;
       }
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -487,7 +489,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
     if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {

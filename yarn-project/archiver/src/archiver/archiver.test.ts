@@ -67,7 +67,7 @@ describe('Archiver', () => {
   const getNumPrivateLogsForBlock = (blockNumber: number) =>
     Array(txsPerBlock)
       .fill(0)
-      .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
+      .map((_, i) => getNumPrivateLogsForTx(blockNumber, i))
       .reduce((accum, num) => accum + num, 0);
 
   const mockL1BlockNumbers = (...nums: bigint[]) => {
@@ -158,7 +158,7 @@ describe('Archiver', () => {
 
     blocks = await Promise.all(blockNumbers.map(x => L2Block.random(x, txsPerBlock, x + 1, 2)));
     blocks.forEach((block, i) => {
-      block.header.globalVariables.timestamp = new Fr(now + Number(ETHEREUM_SLOT_DURATION) * (i + 1));
+      block.header.globalVariables.timestamp = BigInt(now + Number(ETHEREUM_SLOT_DURATION) * (i + 1));
       block.body.txEffects.forEach((txEffect, i) => {
         txEffect.privateLogs = times(getNumPrivateLogsForTx(block.number, i), () => PrivateLog.random());
       });
@@ -806,10 +806,10 @@ describe('Archiver', () => {
  * @returns A fake tx with calldata that corresponds to calling process in the Rollup contract.
  */
 async function makeRollupTx(l2Block: L2Block) {
-  const header = toHex(l2Block.header.toPropose().toBuffer());
-  const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
+  const header = l2Block.header.toPropose().toViem();
+  const blobInput = Blob.getPrefixedEthBlobCommitments(await Blob.getBlobsPerBlock(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
-  const stateReference = toHex(l2Block.header.state.toBuffer());
+  const stateReference = l2Block.header.state.toViem();
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
@@ -841,7 +841,7 @@ async function makeRollupTx(l2Block: L2Block) {
  * @returns Versioned blob hashes.
  */
 async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[]> {
-  const blobHashes = (await Blob.getBlobs(l2Block.body.toBlobFields())).map(b => b.getEthVersionedBlobHash());
+  const blobHashes = (await Blob.getBlobsPerBlock(l2Block.body.toBlobFields())).map(b => b.getEthVersionedBlobHash());
   return blobHashes.map(h => `0x${h.toString('hex')}` as `0x${string})`);
 }
 
@@ -851,6 +851,6 @@ async function makeVersionedBlobHashes(l2Block: L2Block): Promise<`0x${string}`[
  * @returns The blobs.
  */
 async function makeBlobsFromBlock(block: L2Block) {
-  const blobs = await Blob.getBlobs(block.body.toBlobFields());
+  const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
   return blobs.map((blob, index) => new BlobWithIndex(blob, index));
 }

@@ -1,28 +1,34 @@
 mod validate_with_avm_data;
-mod validate_with_rollup_data;
+mod validate_with_block_constant_data;
 
 use crate::base::components::PublicTubeDataValidator;
-use dep::types::tests::fixture_builder::FixtureBuilder;
+use dep::types::{
+    abis::block_constant_data::BlockConstantData, tests::fixture_builder::FixtureBuilder,
+};
 
 pub struct PublicTubeDataValidatorBuilder {
     pub tube_data: FixtureBuilder,
-    pub rollup_data: FixtureBuilder,
     pub avm_data: FixtureBuilder,
+    pub block_constant_data: BlockConstantData,
 }
 
 impl PublicTubeDataValidatorBuilder {
     pub fn new() -> Self {
+        let tube_data = FixtureBuilder::new().use_last_archive();
+        let block_constant_data = tube_data.to_block_constant_data();
         PublicTubeDataValidatorBuilder {
-            tube_data: FixtureBuilder::new(),
-            rollup_data: FixtureBuilder::new(),
-            avm_data: FixtureBuilder::new(),
+            tube_data,
+            avm_data: FixtureBuilder::new().use_last_archive(),
+            block_constant_data,
         }
     }
 
-    pub fn validate_with_rollup_data(self) {
+    pub fn validate_with_block_constant_data(self) {
         let tube_data = self.tube_data.to_public_tube_data();
-        let rollup_data = self.rollup_data.to_constant_rollup_data();
-        PublicTubeDataValidator::new(tube_data).validate_with_rollup_data(rollup_data);
+        PublicTubeDataValidator::new(tube_data).validate_with_block_constant_data(
+            self.block_constant_data,
+            self.tube_data.archive_root_membership_witness,
+        );
     }
 
     pub fn validate_with_avm_data(self) {

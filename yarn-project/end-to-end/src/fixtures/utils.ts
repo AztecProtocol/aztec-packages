@@ -216,13 +216,14 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
+  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
   const deployL1ContractsValues: DeployL1ContractsReturnType = {
-    l1ContractAddresses: l1Contracts,
+    l1ContractAddresses,
     l1Client,
+    rollupVersion,
   };
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
@@ -442,6 +443,7 @@ export async function setup(
       ));
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+    config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract

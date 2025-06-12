@@ -2,7 +2,13 @@ import { GLOBAL_VARIABLES_LENGTH } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
+import {
+  BufferReader,
+  FieldReader,
+  bigintToUInt64BE,
+  serializeToBuffer,
+  serializeToFields,
+} from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
@@ -11,6 +17,7 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { schemas } from '../schemas/index.js';
+import type { UInt64 } from '../types/shared.js';
 
 /**
  * Global variables of the L2 block.
@@ -26,7 +33,7 @@ export class GlobalVariables {
     /** Slot number of the L2 block */
     public slotNumber: Fr,
     /** Timestamp of the L2 block. */
-    public timestamp: Fr,
+    public timestamp: UInt64,
     /** Recipient of block reward. */
     public coinbase: EthAddress,
     /** Address to receive fees. */
@@ -42,7 +49,7 @@ export class GlobalVariables {
         version: schemas.Fr,
         blockNumber: schemas.Fr,
         slotNumber: schemas.Fr,
-        timestamp: schemas.Fr,
+        timestamp: schemas.BigInt,
         coinbase: schemas.EthAddress,
         feeRecipient: schemas.AztecAddress,
         gasFees: GasFees.schema,
@@ -62,7 +69,7 @@ export class GlobalVariables {
     return GlobalVariables.from({
       blockNumber: Fr.ZERO,
       slotNumber: Fr.ZERO,
-      timestamp: Fr.ZERO,
+      timestamp: 0n,
       chainId: Fr.ZERO,
       version: Fr.ZERO,
       coinbase: EthAddress.ZERO,
@@ -79,7 +86,7 @@ export class GlobalVariables {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readUInt64(),
       reader.readObject(EthAddress),
       reader.readObject(AztecAddress),
       reader.readObject(GasFees),
@@ -94,7 +101,7 @@ export class GlobalVariables {
       reader.readField(),
       reader.readField(),
       reader.readField(),
-      reader.readField(),
+      reader.readField().toBigInt(),
       EthAddress.fromField(reader.readField()),
       AztecAddress.fromField(reader.readField()),
       GasFees.fromFields(reader),
@@ -102,7 +109,7 @@ export class GlobalVariables {
   }
 
   static getFields(fields: FieldsOf<GlobalVariables>) {
-    // Note: The order here must match the order in the HeaderLib solidity library.
+    // Note: The order here must match the order in the ProposedHeaderLib solidity library.
     return [
       fields.chainId,
       fields.version,
@@ -116,7 +123,16 @@ export class GlobalVariables {
   }
 
   toBuffer() {
-    return serializeToBuffer(...GlobalVariables.getFields(this));
+    return serializeToBuffer([
+      this.chainId,
+      this.version,
+      this.blockNumber,
+      this.slotNumber,
+      bigintToUInt64BE(this.timestamp),
+      this.coinbase,
+      this.feeRecipient,
+      this.gasFees,
+    ]);
   }
 
   toFields() {
@@ -153,7 +169,7 @@ export class GlobalVariables {
       this.version.isZero() &&
       this.blockNumber.isZero() &&
       this.slotNumber.isZero() &&
-      this.timestamp.isZero() &&
+      this.timestamp === 0n &&
       this.coinbase.isZero() &&
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
@@ -166,7 +182,7 @@ export class GlobalVariables {
       version: this.version.toNumber(),
       blockNumber: this.blockNumber.toNumber(),
       slotNumber: this.slotNumber.toNumber(),
-      timestamp: this.timestamp.toNumber(),
+      timestamp: this.timestamp,
       coinbase: this.coinbase.toString(),
       feeRecipient: this.feeRecipient.toString(),
       feePerDaGas: Number(this.gasFees.feePerDaGas),
@@ -184,7 +200,7 @@ export class GlobalVariables {
       this.version.equals(other.version) &&
       this.blockNumber.equals(other.blockNumber) &&
       this.slotNumber.equals(other.slotNumber) &&
-      this.timestamp.equals(other.timestamp) &&
+      this.timestamp === other.timestamp &&
       this.coinbase.equals(other.coinbase) &&
       this.feeRecipient.equals(other.feeRecipient) &&
       this.gasFees.equals(other.gasFees)
