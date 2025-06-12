@@ -70,17 +70,13 @@ export class ContractInstanceStore {
     );
   }
 
-  async getCurrentContractInstanceClassId(
-    address: AztecAddress,
-    blockNumber: number,
-    originalClassId: Fr,
-  ): Promise<Fr> {
-    // We need to find the last update before the given block number
+  async getCurrentContractInstanceClassId(address: AztecAddress, timestamp: number, originalClassId: Fr): Promise<Fr> {
+    // We need to find the last update before the given timestamp
     const queryResult = await this.#contractInstanceUpdates
       .valuesAsync({
         reverse: true,
         start: this.getUpdateKey(address, 0), // Make sure we only look at updates for this contract
-        end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
+        end: this.getUpdateKey(address, timestamp + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= timestamp
         limit: 1,
       })
       .next();
@@ -90,7 +86,7 @@ export class ContractInstanceStore {
 
     const serializedUpdate = queryResult.value;
     const update = SerializableContractInstanceUpdate.fromBuffer(serializedUpdate);
-    if (blockNumber < update.blockOfChange) {
+    if (timestamp < update.timestampOfChange) {
       return update.prevContractClassId.isZero() ? originalClassId : update.prevContractClassId;
     }
     return update.newContractClassId;
@@ -98,7 +94,7 @@ export class ContractInstanceStore {
 
   async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: number,
   ): Promise<ContractInstanceWithAddress | undefined> {
     const contractInstance = await this.#contractInstances.getAsync(address.toString());
     if (!contractInstance) {
@@ -108,7 +104,7 @@ export class ContractInstanceStore {
     const instance = SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
     instance.currentContractClassId = await this.getCurrentContractInstanceClassId(
       address,
-      blockNumber,
+      timestamp,
       instance.originalContractClassId,
     );
     return instance;

@@ -54,9 +54,9 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
 
   public async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: number,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.db.getContractInstance(address, blockNumber);
+    const instance = await this.db.getContractInstance(address, timestamp);
     if (instance) {
       // We don't need to hint the block number because it doesn't change.
       this.hints.contractInstances.push(

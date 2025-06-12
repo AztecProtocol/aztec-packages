@@ -70,9 +70,10 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    timestamp?: number,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    // TODO(benesjan): get timestamp here
+    return this.getContractInstance(address, timestamp ?? (await this.getBlockNumber()));
   }
 
   public async backupTo(path: string, compress = true): Promise<string> {
@@ -110,8 +111,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#contractClassStore.getContractClassIds();
   }
 
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.#contractInstanceStore.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: number): Promise<ContractInstanceWithAddress | undefined> {
+    return this.#contractInstanceStore.getContractInstance(address, timestamp);
   }
 
   getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {

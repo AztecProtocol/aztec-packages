@@ -39,9 +39,9 @@ where
 //    another nor needing to coordinate)
 // This is famously a hard problem to solve. SharedMutable makes it work by introducing a delay to public mutation:
 // the value is not changed immediately but rather a value change is scheduled to happen in the future after some delay
-// measured in blocks. Reads in private are only valid as long as they are included in a block not too far into the
-// future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
-// The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
+// measured in seconds. Reads in private are only valid as long as they are included in a block with a timestamp not
+// too far into the future, so that they can guarantee the value will not have possibly changed by then (because of the
+// delay). The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
 impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> {
     pub fn new(context: Context, storage_slot: Field) -> Self {
@@ -72,13 +72,19 @@ where
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
-        let block_number = self.context.block_number();
-        let current_delay = delay_change.get_current(block_number);
+        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        let current_timestamp = self.context.timestamp() as u32;
+        let current_delay = delay_change.get_current(current_timestamp);
 
         // TODO: make this configurable
         // https://github.com/AztecProtocol/aztec-packages/issues/5501
-        let block_of_change = block_number + current_delay;
-        value_change.schedule_change(new_value, block_number, current_delay, block_of_change);
+        let timestamp_of_change = current_timestamp + current_delay;
+        value_change.schedule_change(
+            new_value,
+            current_timestamp,
+            current_delay,
+            timestamp_of_change,
+        );
 
         self.write(value_change, delay_change);
 
@@ -91,9 +97,9 @@ where
     {
         let mut delay_change = self.read_delay_change();
 
-        let block_number = self.context.block_number();
+        let current_timestamp = self.context.timestamp() as u32;
 
-        delay_change.schedule_change(new_delay, block_number);
+        delay_change.schedule_change(new_delay, current_timestamp);
 
         self.write(self.read_value_change(), delay_change);
     }
@@ -102,16 +108,18 @@ where
     where
         T: Packable<N>,
     {
-        let block_number = self.context.block_number();
-        self.read_value_change().get_current_at(block_number)
+        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        let current_timestamp = self.context.timestamp() as u32;
+        self.read_value_change().get_current_at(current_timestamp)
     }
 
     pub fn get_current_delay<let N: u32>(self) -> u32
     where
         T: Packable<N>,
     {
-        let block_number = self.context.block_number();
-        self.read_delay_change().get_current(block_number)
+        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        let current_timestamp = self.context.timestamp() as u32;
+        self.read_delay_change().get_current(current_timestamp)
     }
 
     pub fn get_scheduled_value<let N: u32>(self) -> (T, u32)
@@ -133,7 +141,7 @@ where
         T: Packable<N>,
     {
         // We don't read ScheduledValueChange directly by having it implement Packable because ScheduledValueChange
-        // and ScheduledDelayChange are packed together (sdc and svc.block_of_change are stored in the same slot).
+        // and ScheduledDelayChange are packed together (sdc and svc.timestamp_of_change are stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
         unpack_value_change::<T, N>(packed)
     }
@@ -146,9 +154,8 @@ where
         // here and skip the ones that correspond to ScheduledValueChange members. We are abusing the fact that
         // the field containing the ScheduledDelayChange data is the first one in the storage layout - otherwise we'd
         // need to offset the storage slot to get the position where it'd land.
-        // We don't read ScheduledDelayChange directly by having it implement Packable because
-        // ScheduledValueChange and ScheduledDelayChange are packed together (sdc and svc.block_of_change are
-        // stored in the same slot).
+        // We don't read ScheduledDelayChange directly by having it implement Packable because ScheduledValueChange
+        // and ScheduledDelayChange are packed together (sdc and svc.timestamp_of_change are stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
         unpack_delay_change::<INITIAL_DELAY>(packed)
     }
@@ -183,28 +190,29 @@ where
         T: Packable<N>,
     {
         // When reading the current value in private we construct a historical state proof for the public value.
-        // However, since this value might change, we must constrain the maximum transaction block number as this proof
-        // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
+        // However, since this value might change, we must constrain the maximum transaction timestamp as this proof
+        // will only be valid for however many timestamps we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
-        let (value_change, delay_change, historical_block_number) =
+        let (value_change, delay_change, historical_timestamp) =
             self.historical_read_from_public_storage();
 
-        // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
+        // We use the effective minimum delay as opposed to the current delay at the historical timestamp as this one also
         // takes into consideration any scheduled delay changes.
-        // For example, consider a scenario in which at block 200 the current delay was 50. We may naively think that
-        // the earliest we could change the value would be at block 251 by scheduling immediately after the historical
-        // block, i.e. at block 201. But if there was a delay change scheduled for block 210 to reduce the delay to 20
-        // blocks, then if a value change was scheduled at block 210 it would go into effect at block 230, which is
-        // earlier than what we'd expect if we only considered the current delay.
+        // For example, consider a scenario in which at timestamp `x` the current delay was 86400 seconds (1 day). We
+        // may naively think that the earliest we could change the value would be at timestamp `x + 86400` by scheduling
+        // immediately after the historical timestamp, i.e. at timestamp `x + 1`. But if there was a delay change scheduled
+        // for timestamp `y` to reduce the delay to 43200 seconds (12 hours), then if a value change was scheduled at
+        // timestamp `y` it would go into effect at timestamp `y + 43200`, which is earlier than what we'd expect if we
+        // only considered the current delay.
         let effective_minimum_delay =
-            delay_change.get_effective_minimum_delay_at(historical_block_number);
+            delay_change.get_effective_minimum_delay_at(historical_timestamp);
         let timestamp_horizon =
-            value_change.get_timestamp_horizon(historical_block_number, effective_minimum_delay);
+            value_change.get_timestamp_horizon(historical_timestamp, effective_minimum_delay);
 
-        // We prevent this transaction from being included in any block after the timestamp horizon, ensuring that the
+        // We prevent this transaction from being included in any timestamp after the timestamp horizon, ensuring that the
         // historical public value matches the current one, since it can only change after the horizon.
         self.context.set_include_by_timestamp(timestamp_horizon);
-        value_change.get_current_at(historical_block_number)
+        value_change.get_current_at(historical_timestamp)
     }
 
     fn historical_read_from_public_storage<let N: u32>(
@@ -216,12 +224,13 @@ where
         let header = self.context.get_block_header();
         let address = self.context.this_address();
 
-        let historical_block_number = header.global_variables.block_number;
+        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        let historical_timestamp = header.global_variables.timestamp as u32;
 
         let values: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::historical_public_storage_read(header, address, self.storage_slot);
 
-        (values.svc, values.sdc, historical_block_number)
+        (values.svc, values.sdc, historical_timestamp)
     }
 }
 
@@ -236,7 +245,10 @@ where
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
-        let block_number = self.context.block_number();
-        smv.svc.get_current_at(block_number)
+        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        // TODO(benesjan): expose timestamp in utility context
+        // let current_timestamp = self.context.timestamp() as u32;
+        let current_timestamp = 0 as u32;
+        smv.svc.get_current_at(current_timestamp)
     }
 }

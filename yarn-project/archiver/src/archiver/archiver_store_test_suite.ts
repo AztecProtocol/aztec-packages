@@ -547,7 +547,7 @@ export function describeArchiverDataStore(
       let contractInstance: ContractInstanceWithAddress;
       let classId: Fr;
       let nextClassId: Fr;
-      const blockOfChange = 10;
+      const timestampOfChange = 3600;
 
       beforeEach(async () => {
         classId = Fr.random();
@@ -563,28 +563,28 @@ export function describeArchiverDataStore(
             {
               prevContractClassId: classId,
               newContractClassId: nextClassId,
-              blockOfChange,
+              timestampOfChange,
               address: contractInstance.address,
             },
           ],
-          blockOfChange - 1,
+          timestampOfChange - 1,
         );
       });
 
       it('gets the correct current class id for a contract not updated yet', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange - 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange - 1);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(classId);
       });
 
       it('gets the correct current class id for a contract that has just been updated', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
 
       it('gets the correct current class id for a contract that was updated in the past', async () => {
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });
@@ -601,7 +601,7 @@ export function describeArchiverDataStore(
         };
         await store.addContractInstances([otherContractInstance], 1);
 
-        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(otherContractInstance.address, timestampOfChange + 1);
         expect(fetchedInstance?.originalContractClassId).toEqual(otherClassId);
         expect(fetchedInstance?.currentContractClassId).toEqual(otherClassId);
       });
@@ -623,14 +623,14 @@ export function describeArchiverDataStore(
             {
               prevContractClassId: otherClassId,
               newContractClassId: otherNextClassId,
-              blockOfChange,
+              timestampOfChange,
               address: otherContractInstance.address,
             },
           ],
-          blockOfChange - 1,
+          timestampOfChange - 1,
         );
 
-        const fetchedInstance = await store.getContractInstance(contractInstance.address, blockOfChange + 1);
+        const fetchedInstance = await store.getContractInstance(contractInstance.address, timestampOfChange + 1);
         expect(fetchedInstance?.originalContractClassId).toEqual(classId);
         expect(fetchedInstance?.currentContractClassId).toEqual(nextClassId);
       });

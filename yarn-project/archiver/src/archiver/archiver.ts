@@ -1119,9 +1119,9 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
   public async getContract(
     address: AztecAddress,
-    blockNumber?: number,
+    timestamp?: number,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber ?? (await this.getBlockNumber()));
+    return this.store.getContractInstance(address, timestamp ?? (await this.getBlockNumber()));
   }
 
   /**
@@ -1534,8 +1534,8 @@ export class ArchiverStoreHelper
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.store.getBytecodeCommitment(contractClassId);
   }
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined> {
-    return this.store.getContractInstance(address, blockNumber);
+  getContractInstance(address: AztecAddress, timestamp: number): Promise<ContractInstanceWithAddress | undefined> {
+    return this.store.getContractInstance(address, timestamp);
   }
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();

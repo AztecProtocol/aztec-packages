@@ -237,9 +237,9 @@ export interface ArchiverDataStore {
   /**
    * Returns a contract instance given its address and the given block number, or undefined if not exists.
    * @param address - Address of the contract.
-   * @param blockNumber - Block number to get the contract instance at. Contract updates might change the instance at a given block.
+   * @param timestamp - Timestamp to get the contract instance at. Contract updates might change the instance at a given timestamp.
    */
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, timestamp: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;

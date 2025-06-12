@@ -53,7 +53,7 @@ pub contract Auth {
     #[view]
     fn get_scheduled_authorized() -> AztecAddress {
         // docs:start:shared_mutable_get_scheduled_public
-        let (scheduled_value, _block_of_change): (AztecAddress, u32) =
+        let (scheduled_value, _timestamp_of_change): (AztecAddress, u32) =
             storage.authorized.get_scheduled_value();
         // docs:end:shared_mutable_get_scheduled_public
         scheduled_value

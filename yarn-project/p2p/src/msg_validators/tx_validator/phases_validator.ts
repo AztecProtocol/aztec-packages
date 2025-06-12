@@ -86,6 +86,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
+      // TODO(benesjan): get timestamp here
       const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {

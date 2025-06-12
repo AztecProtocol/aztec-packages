@@ -50,7 +50,7 @@ export class PublicPersistableStateManager {
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
-    private readonly blockNumber: number, // Needed for contract updates.
+    private readonly timestamp: number, // Needed for contract updates.
     private readonly doMerkleOperations: boolean = false,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
@@ -87,7 +87,7 @@ export class PublicPersistableStateManager {
       this.contractsDB,
       this.trace.fork(),
       this.firstNullifier,
-      this.blockNumber,
+      this.timestamp,
       this.doMerkleOperations,
       this.publicStorage.fork(),
       this.nullifiers.fork(),
@@ -335,7 +335,7 @@ export class PublicPersistableStateManager {
    */
   public async getContractInstance(contractAddress: AztecAddress): Promise<SerializableContractInstance | undefined> {
     this.log.trace(`Getting contract instance for address ${contractAddress}`);
-    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
+    const instanceWithAddress = await this.contractsDB.getContractInstance(contractAddress, this.timestamp);
     const exists = instanceWithAddress !== undefined;
 
     const instance = exists ? new SerializableContractInstance(instanceWithAddress) : undefined;
@@ -413,7 +413,7 @@ export class PublicPersistableStateManager {
       );
 
       // We now check that, depending on the current block, the current class id is correct.
-      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.blockNumber).at(0)!;
+      const expectedClassIdRaw = sharedMutableValues.svc.getCurrentAt(this.timestamp).at(0)!;
       const expectedClassId = expectedClassIdRaw.isZero() ? instance.originalContractClassId : expectedClassIdRaw;
       assert(
         instance.currentContractClassId.equals(expectedClassId),

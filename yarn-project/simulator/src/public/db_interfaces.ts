@@ -31,10 +31,10 @@ export interface PublicContractsDBInterface {
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
-   * @param blockNumber - The block number at which to retrieve the contract instance.
+   * @param timestamp - The timestamp at which to retrieve the contract instance.
    * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, timestamp: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns a publicly deployed contract class.

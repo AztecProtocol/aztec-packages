@@ -179,7 +179,7 @@ using lookup_update_check_update_lo_metadata_range_relation =
 
 /////////////////// lookup_update_check_block_of_change_cmp_range ///////////////////
 
-struct lookup_update_check_block_of_change_cmp_range_settings_ {
+struct lookup_update_check_timestamp_of_change_cmp_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_UPDATE_CHECK_BLOCK_OF_CHANGE_CMP_RANGE";
     static constexpr std::string_view RELATION_NAME = "update_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
@@ -195,10 +195,10 @@ struct lookup_update_check_block_of_change_cmp_range_settings_ {
     };
 };
 
-using lookup_update_check_block_of_change_cmp_range_settings =
-    lookup_settings<lookup_update_check_block_of_change_cmp_range_settings_>;
+using lookup_update_check_timestamp_of_change_cmp_range_settings =
+    lookup_settings<lookup_update_check_timestamp_of_change_cmp_range_settings_>;
 template <typename FF_>
 using lookup_update_check_block_of_change_cmp_range_relation =
-    lookup_relation_base<FF_, lookup_update_check_block_of_change_cmp_range_settings>;
+    lookup_relation_base<FF_, lookup_update_check_timestamp_of_change_cmp_range_settings>;
 
 } // namespace bb::avm2
