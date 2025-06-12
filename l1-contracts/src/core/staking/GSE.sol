@@ -249,11 +249,9 @@ contract GSECore is IGSECore, Ownable {
     require(isAttester, Errors.Staking__NothingToExit(_attester));
 
     uint256 balance = delegation.getBalanceOf(instanceAddress, _attester);
-    // Bound the withdrawal amount to the available balance
-    uint256 amountToWithdraw = _amount > balance ? balance : _amount;
 
-    uint256 amountWithdrawn = amountToWithdraw;
-    bool isRemoved = balance - amountToWithdraw < MINIMUM_STAKE;
+    uint256 amountWithdrawn = _amount;
+    bool isRemoved = balance - _amount < MINIMUM_STAKE;
 
     // By default, we will be removing, but in the case of slash, we might just reduce.
     if (isRemoved) {
