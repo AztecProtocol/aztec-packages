@@ -393,33 +393,36 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
     std::array<MemoryTag, AVM_KECCAKF1600_STATE_SIZE> tags;
     tags.fill(MemoryTag::U64);
 
-    // The relevant state depending on read/write boolean.
+    // The relevant state and read/write memory values depending on read/write boolean.
     simulation::KeccakF1600State state;
     if (rw) {
         state = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi;
         state[0][0] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_iota_00;
-    } else {
-        state = event.rounds[0].state;
-    }
 
-    // While reading we need to check the tag for each slice value.
-    // Note that we fill the values directly read from memory and therefore
-    // in case of tag mismatch, the value is not necessarily set to 0.
-    // Handling of tag mismatch is performed in simulation and a zero value is stored
-    // in event.rounds[0].state.
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            if (!rw) {
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                values[(5 * i) + j] = state[i][j]; // For write, we do not need to adjust write values, these are the
+                                                   // same as in the output state.
+                tags[(5 * i) + j] = MemoryTag::U64;
+            }
+        }
+    } else {
+        // While reading we need to check the tag for each slice value.
+        // Note that we fill the values directly read from memory and therefore
+        // in case of tag mismatch, the value is not necessarily set to 0.
+        // Handling of tag mismatch is performed in simulation and a zero value is stored
+        // in event.rounds[0].state.
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
                 const auto& mem_val = event.src_mem_values[i][j];
                 values[(5 * i) + j] = mem_val.as_ff();
                 tags[(5 * i) + j] = mem_val.get_tag();
                 if (tags[(5 * i) + j] != MemoryTag::U64) {
                     single_tag_errors[(5 * i) + j] = true;
+                    state[i][j] = 0;
+                } else {
+                    state[i][j] = mem_val.as<uint64_t>();
                 }
-            } else {
-                values[(5 * i) + j] = state[i][j]; // For write, we do not need to adjust write values, these are the
-                                                   // same as in the output state.
-                tags[(5 * i) + j] = MemoryTag::U64;
             }
         }
     }
@@ -484,7 +487,6 @@ void KeccakF1600TraceBuilder::process_permutation(
 
             // Setting the selector, xor operation id, and operation id, round, round cst
             trace.set(C::keccakf1600_sel, row, 1);
-            trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
             trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
             trace.set(C::keccakf1600_round, row, round_data.round);
@@ -514,14 +516,15 @@ void KeccakF1600TraceBuilder::process_permutation(
                 trace.set(C::keccakf1600_tag_error, row, event.tag_error ? 1 : 0);
                 trace.set(C::keccakf1600_sel_slice_read, row, out_of_range ? 0 : 1);
 
-                trace.set(C::keccakf1600_error, row, error ? 1 : 0);
             } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
                 trace.set(C::keccakf1600_last, row, 1);
-                trace.set(C::keccakf1600_sel_slice_write, row, out_of_range ? 0 : 1);
+                trace.set(C::keccakf1600_sel_slice_write, row, error ? 0 : 1);
             };
 
-            // dst_address required at every row as we propagate
+            // dst_address and sel_no_error are required at every row as we propagate
+            // for the slice memory write lookup
             trace.set(C::keccakf1600_dst_addr, row, event.dst_addr);
+            trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
 
             // Helper "inverse" columns for sel and last.
             trace.set(C::keccakf1600_round_inv, row, FF(round_data.round).invert());
@@ -531,7 +534,23 @@ void KeccakF1600TraceBuilder::process_permutation(
                           ? 1
                           : (FF(round_data.round) - AVM_KECCAKF1600_NUM_ROUNDS).invert());
 
-            // When an error occurs, we do not set any state values.
+            // When no out-of-range value occured but a tag value error, we
+            // need to set the initial state values in the first round.
+            if (!out_of_range && event.tag_error && round_data.round == 1) {
+                for (size_t i = 0; i < 5; i++) {
+                    for (size_t j = 0; j < 5; j++) {
+                        // Set the initial state value to src_mem_values counterpart when
+                        // tag is U64, otherwise we set it to zero.
+                        if (event.src_mem_values[i][j].get_tag() == MemoryTag::U64) {
+                            trace.set(STATE_IN_COLS[i][j], row, event.src_mem_values[i][j]);
+                        } else {
+                            trace.set(STATE_IN_COLS[i][j], row, 0);
+                        }
+                    }
+                }
+            }
+
+            // When there is no error we set state values completely.
             if (!error) {
 
                 // Setting state inputs in their corresponding colums
@@ -612,7 +631,7 @@ void KeccakF1600TraceBuilder::process_memory_slices(
     uint32_t row = 1;
     for (const auto& event : events) {
         // Skip the event if there is an out of range error.
-        // Namely, in this case the lookups to the memory slice is inactive.
+        // Namely, in this case the lookups to the memory slice are inactive.
         if (!event.src_out_of_range && !event.dst_out_of_range) {
             process_single_slice(event, false, row, trace);
             row += AVM_KECCAKF1600_STATE_SIZE;

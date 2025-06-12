@@ -60,196 +60,190 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
 void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
     KeccakF1600Event keccakf1600_event;
-
-    // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
-    // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
-    constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
-    bool src_out_of_range = src_addr > HIGHEST_SLICE_ADDRESS;
-    bool dst_out_of_range = dst_addr > HIGHEST_SLICE_ADDRESS;
-
-    MemoryAddress src_abs_diff =
-        src_out_of_range ? src_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - src_addr;
-    MemoryAddress dst_abs_diff =
-        dst_out_of_range ? dst_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - dst_addr;
-
-    // We group both possible out-of-range errors in the same temporality group.
-    // Therefore, we perform both range checks no matter what.
-    range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
-    range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
-
-    const bool out_of_range = src_out_of_range || dst_out_of_range;
-
     keccakf1600_event.dst_addr = dst_addr;
     keccakf1600_event.src_addr = src_addr;
-    keccakf1600_event.src_out_of_range = src_out_of_range;
-    keccakf1600_event.dst_out_of_range = dst_out_of_range;
-    keccakf1600_event.src_abs_diff = src_abs_diff;
-    keccakf1600_event.dst_abs_diff = dst_abs_diff;
 
-    if (out_of_range) {
-        perm_events.emit(KeccakF1600Event(keccakf1600_event));
+    try {
+        // We need to perform two range checks to determine whether dst_addr and src_addr correspond to
+        // a memory slice which is out-of-range. This is a clear circuit leakage into simulation.
+        constexpr MemoryAddress HIGHEST_SLICE_ADDRESS = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 1;
+        bool src_out_of_range = src_addr > HIGHEST_SLICE_ADDRESS;
+        bool dst_out_of_range = dst_addr > HIGHEST_SLICE_ADDRESS;
+
+        MemoryAddress src_abs_diff =
+            src_out_of_range ? src_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - src_addr;
+        MemoryAddress dst_abs_diff =
+            dst_out_of_range ? dst_addr - HIGHEST_SLICE_ADDRESS - 1 : HIGHEST_SLICE_ADDRESS - dst_addr;
+
+        keccakf1600_event.src_out_of_range = src_out_of_range;
+        keccakf1600_event.dst_out_of_range = dst_out_of_range;
+        keccakf1600_event.src_abs_diff = src_abs_diff;
+        keccakf1600_event.dst_abs_diff = dst_abs_diff;
+
+        // We group both possible out-of-range errors in the same temporality group.
+        // Therefore, we perform both range checks no matter what.
+        range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
+        range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
         if (src_out_of_range) {
             vinfo("READ SLICE OUT OF RANGE: ", src_addr);
             throw KeccakF1600EventError::READ_SLICE_OUT_OF_RANGE;
         }
-        vinfo("WRITE SLICE OUT OF RANGE: ", dst_addr);
-        throw KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE;
-    }
-
-    bool tag_error = false;
-
-    // We work with MemoryValue as this type is required for bitwise operations handled
-    // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
-    // them back only at the end (event emission).
-    KeccakF1600StateMemValues state_input_values;
-    KeccakF1600StateMemValues src_mem_values;
-
-    auto& memory = context.get_memory();
-
-    // Only used for logging tag error.
-    std::optional<MemoryAddress> first_tag_error_addr;
-    MemoryTag first_error_tag = MemoryTag::U1;
-
-    // Slice read
-    for (size_t i = 0; i < 5; i++) {
-        for (size_t j = 0; j < 5; j++) {
-            src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
-            const bool tag_valid = src_mem_values[i][j].get_tag() == MemoryTag::U64;
-            if (!tag_valid && !first_tag_error_addr) {
-                first_tag_error_addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
-                first_error_tag = src_mem_values[i][j].get_tag();
-            }
-            state_input_values[i][j] = tag_valid ? src_mem_values[i][j] : MemoryValue::from<uint64_t>(0);
-            tag_error = tag_error || !tag_valid;
+        if (dst_out_of_range) {
+            vinfo("WRITE SLICE OUT OF RANGE: ", dst_addr);
+            throw KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE;
         }
-    }
 
-    keccakf1600_event.space_id = memory.get_space_id();
-    keccakf1600_event.tag_error = tag_error;
-    keccakf1600_event.src_mem_values = src_mem_values;
+        // We work with MemoryValue as this type is required for bitwise operations handled
+        // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
+        // them back only at the end (event emission).
+        KeccakF1600StateMemValues src_mem_values;
 
-    std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
+        auto& memory = context.get_memory();
 
-    if (tag_error) {
-        keccakf1600_event.rounds[0].state = two_dim_array_to_uint64(state_input_values);
-        perm_events.emit(KeccakF1600Event(keccakf1600_event));
-        vinfo(
-            "READ SLICE TAG INVALID - addr: ", first_tag_error_addr.value(), "tag: ", std::to_string(first_error_tag));
-        throw KeccakF1600EventError::READ_SLICE_TAG_INVALID;
-    }
-
-    for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
-        std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
-
-        // Theta xor computations
-        for (size_t i = 0; i < 5; ++i) {
-            MemoryValue xor_accumulator = state_input_values[i][0];
-            for (size_t j = 0; j < 4; ++j) {
-                xor_accumulator = bitwise.xor_op(xor_accumulator, state_input_values[i][j + 1]);
-                theta_xor_values[i][j] = xor_accumulator;
+        // Slice read
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
             }
         }
 
-        // Theta xor values left rotated by 1
-        std::array<MemoryValue, 5> theta_xor_row_rotl1_values;
-        for (size_t i = 0; i < 5; ++i) {
-            theta_xor_row_rotl1_values[i] = unconstrained_rotate_left(theta_xor_values[i][3], 1);
-        }
+        keccakf1600_event.space_id = memory.get_space_id();
+        keccakf1600_event.src_mem_values = src_mem_values;
 
-        // Theta combined xor computation
-        std::array<MemoryValue, 5> theta_combined_xor_values;
-        for (size_t i = 0; i < 5; ++i) {
-            theta_combined_xor_values[i] =
-                bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values[(i + 1) % 5]);
-        }
+        // Check tag validity
+        for (size_t i = 0; i < 5; i++) {
+            for (size_t j = 0; j < 5; j++) {
+                if (src_mem_values[i][j].get_tag() != MemoryTag::U64) {
+                    const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
+                    const auto tag = src_mem_values[i][j].get_tag();
+                    keccakf1600_event.tag_error = true;
 
-        // State theta values
-        std::array<std::array<MemoryValue, 5>, 5> state_theta_values;
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
-                state_theta_values[i][j] = bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values[i]);
-            }
-        }
-
-        // State rho values
-        KeccakF1600StateMemValues state_rho_values;
-
-        // Handle range checks related to Rho round function.
-        // For i,j, such that 0 < rotation_len[i][j] <= 32, we range check
-        // the highest rotation_len[i][j] number of bits of state_theta_values[i][j].
-        // Otherwise, we range check the lowest 64 - rotation_len[i][j] bits.
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
-                const uint8_t& len = keccak_rotation_len[i][j];
-                // Compute state values after Rho function.
-                state_rho_values[i][j] = unconstrained_rotate_left(state_theta_values[i][j], len);
-                if (len > 0 && len <= 32) {
-                    range_check.assert_range(state_theta_values[i][j].as<uint64_t>() >> (64 - len), len);
-                } else if (len > 32) {
-                    range_check.assert_range(state_theta_values[i][j].as<uint64_t>() & ((1U << (64 - len)) - 1),
-                                             64 - len);
+                    vinfo("READ SLICE TAG INVALID - addr: ", addr, "tag: ", std::to_string(tag));
+                    throw KeccakF1600EventError::READ_SLICE_TAG_INVALID;
                 }
             }
         }
 
-        // state pi values
-        // state "not pi" values
-        KeccakF1600StateMemValues state_pi_values;
-        KeccakF1600StateMemValues state_pi_not_values;
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
-                state_pi_values[i][j] = state_rho_values[keccak_pi_rho_x_coords[i][j]][i];
-                state_pi_not_values[i][j] = ~state_pi_values[i][j];
+        // Initialize state input values with values read from memory.
+        KeccakF1600StateMemValues state_input_values = src_mem_values;
+
+        std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
+
+        for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
+            std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
+
+            // Theta xor computations
+            for (size_t i = 0; i < 5; ++i) {
+                MemoryValue xor_accumulator = state_input_values[i][0];
+                for (size_t j = 0; j < 4; ++j) {
+                    xor_accumulator = bitwise.xor_op(xor_accumulator, state_input_values[i][j + 1]);
+                    theta_xor_values[i][j] = xor_accumulator;
+                }
             }
+
+            // Theta xor values left rotated by 1
+            std::array<MemoryValue, 5> theta_xor_row_rotl1_values;
+            for (size_t i = 0; i < 5; ++i) {
+                theta_xor_row_rotl1_values[i] = unconstrained_rotate_left(theta_xor_values[i][3], 1);
+            }
+
+            // Theta combined xor computation
+            std::array<MemoryValue, 5> theta_combined_xor_values;
+            for (size_t i = 0; i < 5; ++i) {
+                theta_combined_xor_values[i] =
+                    bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values[(i + 1) % 5]);
+            }
+
+            // State theta values
+            std::array<std::array<MemoryValue, 5>, 5> state_theta_values;
+            for (size_t i = 0; i < 5; ++i) {
+                for (size_t j = 0; j < 5; ++j) {
+                    state_theta_values[i][j] = bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values[i]);
+                }
+            }
+
+            // State rho values
+            KeccakF1600StateMemValues state_rho_values;
+
+            // Handle range checks related to Rho round function.
+            // For i,j, such that 0 < rotation_len[i][j] <= 32, we range check
+            // the highest rotation_len[i][j] number of bits of state_theta_values[i][j].
+            // Otherwise, we range check the lowest 64 - rotation_len[i][j] bits.
+            for (size_t i = 0; i < 5; ++i) {
+                for (size_t j = 0; j < 5; ++j) {
+                    const uint8_t& len = keccak_rotation_len[i][j];
+                    // Compute state values after Rho function.
+                    state_rho_values[i][j] = unconstrained_rotate_left(state_theta_values[i][j], len);
+                    if (len > 0 && len <= 32) {
+                        range_check.assert_range(state_theta_values[i][j].as<uint64_t>() >> (64 - len), len);
+                    } else if (len > 32) {
+                        range_check.assert_range(state_theta_values[i][j].as<uint64_t>() & ((1U << (64 - len)) - 1),
+                                                 64 - len);
+                    }
+                }
+            }
+
+            // state pi values
+            // state "not pi" values
+            KeccakF1600StateMemValues state_pi_values;
+            KeccakF1600StateMemValues state_pi_not_values;
+            for (size_t i = 0; i < 5; ++i) {
+                for (size_t j = 0; j < 5; ++j) {
+                    state_pi_values[i][j] = state_rho_values[keccak_pi_rho_x_coords[i][j]][i];
+                    state_pi_not_values[i][j] = ~state_pi_values[i][j];
+                }
+            }
+
+            // state "pi and" values
+            KeccakF1600StateMemValues state_pi_and_values;
+            // state chi values
+            KeccakF1600StateMemValues state_chi_values;
+            for (size_t i = 0; i < 5; ++i) {
+                for (size_t j = 0; j < 5; ++j) {
+                    state_pi_and_values[i][j] =
+                        bitwise.and_op(state_pi_not_values[(i + 1) % 5][j], state_pi_values[(i + 2) % 5][j]);
+                    state_chi_values[i][j] = bitwise.xor_op(state_pi_values[i][j], state_pi_and_values[i][j]);
+                }
+            }
+
+            // state iota_00 value
+            // Recall that round starts with 1
+            MemoryValue iota_00_value =
+                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round - 1]));
+
+            rounds_data[round - 1] = {
+                .round = round,
+                .state = two_dim_array_to_uint64(state_input_values),
+                .theta_xor = two_dim_array_to_uint64(theta_xor_values),
+                .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
+                .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
+                .state_theta = two_dim_array_to_uint64(state_theta_values),
+                .state_rho = two_dim_array_to_uint64(state_rho_values),
+                .state_pi_not = two_dim_array_to_uint64(state_pi_not_values),
+                .state_pi_and = two_dim_array_to_uint64(state_pi_and_values),
+                .state_chi = two_dim_array_to_uint64(state_chi_values),
+                .state_iota_00 = iota_00_value.as<uint64_t>(),
+            };
+
+            state_input_values = state_chi_values;
+            state_input_values[0][0] = iota_00_value;
         }
 
-        // state "pi and" values
-        KeccakF1600StateMemValues state_pi_and_values;
-        // state chi values
-        KeccakF1600StateMemValues state_chi_values;
-        for (size_t i = 0; i < 5; ++i) {
-            for (size_t j = 0; j < 5; ++j) {
-                state_pi_and_values[i][j] =
-                    bitwise.and_op(state_pi_not_values[(i + 1) % 5][j], state_pi_values[(i + 2) % 5][j]);
-                state_chi_values[i][j] = bitwise.xor_op(state_pi_values[i][j], state_pi_and_values[i][j]);
-            }
-        }
-
-        // state iota_00 value
-        // Recall that round starts with 1
-        MemoryValue iota_00_value =
-            bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round - 1]));
-
-        rounds_data[round - 1] = {
-            .round = round,
-            .state = two_dim_array_to_uint64(state_input_values),
-            .theta_xor = two_dim_array_to_uint64(theta_xor_values),
-            .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
-            .theta_combined_xor = array_to_uint64(theta_combined_xor_values),
-            .state_theta = two_dim_array_to_uint64(state_theta_values),
-            .state_rho = two_dim_array_to_uint64(state_rho_values),
-            .state_pi_not = two_dim_array_to_uint64(state_pi_not_values),
-            .state_pi_and = two_dim_array_to_uint64(state_pi_and_values),
-            .state_chi = two_dim_array_to_uint64(state_chi_values),
-            .state_iota_00 = iota_00_value.as<uint64_t>(),
-        };
-
-        state_input_values = state_chi_values;
-        state_input_values[0][0] = iota_00_value;
-    }
-
-    // Slice write
-    if (!out_of_range) {
+        // Slice write
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
                 memory.set(dst_addr + static_cast<MemoryAddress>((i * 5) + j), state_input_values[i][j]);
             }
         }
-    }
 
-    keccakf1600_event.rounds = rounds_data;
-    perm_events.emit(KeccakF1600Event(keccakf1600_event));
+        keccakf1600_event.rounds = rounds_data;
+        perm_events.emit(KeccakF1600Event(keccakf1600_event));
+
+    } catch (const KeccakF1600EventError& e) {
+        perm_events.emit(KeccakF1600Event(keccakf1600_event));
+        throw e;
+    }
 }
 
 } // namespace bb::avm2::simulation
