@@ -1483,6 +1483,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
     makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
     makeGas(seed + 0x8000), // gasUsedByPrivate
+    makeAztecAddress(seed + 0x9000), // feePayer
   );
 }
 
