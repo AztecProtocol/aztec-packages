@@ -1578,10 +1578,13 @@ function addOpcodes() {
 
 function modifiedInstructionSet() {
   addOpcodes();
-  return INSTRUCTION_SET_RAW.map((instr) => {
-    instr["Bit-size"] = instructionSize(instr);
-    return instr;
-  });
+  // TODO: bit-sizes are totally wrong. Need to fix indirect's size (different per opcode)
+  // and take into consideration opcode "variants".
+  //return INSTRUCTION_SET_RAW.map((instr) => {
+  //  instr["Bit-size"] = instructionSize(instr);
+  //  return instr;
+  //});
+  return INSTRUCTION_SET_RAW;
 }
 
 const INSTRUCTION_SET = modifiedInstructionSet();
