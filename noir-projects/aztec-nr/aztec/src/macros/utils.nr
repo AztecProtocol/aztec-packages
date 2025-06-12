@@ -86,7 +86,7 @@ pub(crate) comptime fn add_to_field_array(
         quote { 
             $array_name[$index_name] = $name as Field;
             $index_name += 1;
-            }
+        }
     } else if typ.as_data_type().is_some() {
         // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
@@ -96,7 +96,7 @@ pub(crate) comptime fn add_to_field_array(
                 $array_name[$index_name] = $serialized_name[i];
                 $index_name += 1;
             }
-            }
+        }
     } else if typ.as_array().is_some() {
         // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
