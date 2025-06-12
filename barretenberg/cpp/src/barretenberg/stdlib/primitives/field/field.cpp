@@ -74,7 +74,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // In this case, `additive_constant` uniquely determines the value of `this`.
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
-    if (this->is_constant()) {
+    if (is_constant()) {
         ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
@@ -178,13 +178,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be multiplied without context
-    ASSERT(ctx || (this->is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    if (this->is_constant() && other.is_constant()) {
+    if (is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
         // The value of a constant is tracked in `.additive_constant`.
         result.additive_constant = additive_constant * other.additive_constant;
-    } else if (!this->is_constant() && other.is_constant()) {
+    } else if (!is_constant() && other.is_constant()) {
 
         //  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
         // More concretely, let:
@@ -205,7 +205,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         // We simply updated the scaling factors of `*this`, so `witness_index` of `result` must be equal to
         // `this->witness_index`.
         result.witness_index = witness_index;
-    } else if (this->is_constant() && !other.is_constant()) {
+    } else if (is_constant() && !other.is_constant()) {
         // Only one input is not constant: don't add a gate, but update scaling factors
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
@@ -301,14 +301,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     //    a := this;
     //    b := other;
     //    q := a / b;
-    Builder* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context) ? context : other.context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
-    ASSERT(ctx || (this->is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
-    if (this->is_constant() && other.is_constant()) {
+    if (is_constant() && other.is_constant()) {
         // Both inputs are constant, the result is given by
         //      q = a.add / b.add, if b != 0.
         //      q = a.add        , if b == 0
@@ -316,7 +316,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
-    } else if (!this->is_constant() && other.is_constant()) {
+    } else if (!is_constant() && other.is_constant()) {
         // The numerator is a circuit variable, the denominator is a constant.
         // The result is obtained by updating the circuit variable `a`
         //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
@@ -328,7 +328,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         result.additive_constant = additive_constant * additive_multiplier;
         result.multiplicative_constant = multiplicative_constant * additive_multiplier;
         result.witness_index = witness_index;
-    } else if (this->is_constant() && !other.is_constant()) {
+    } else if (is_constant() && !other.is_constant()) {
         // The numerator is a constant, the denominator is a circuit variable.
         // If a == 0, the result is a constant 0, otherwise the result is a new variable that has to be constrained.
         if (get_value() == 0) {
@@ -554,7 +554,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     bb::fr q_c = additive_constant + add_b.additive_constant + add_c.additive_constant;
 
     // Compute the sum of values of all summands
-    bb::fr a = this->is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
     bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
     bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
 
@@ -609,10 +609,15 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
-    // Aim of new gate: this.v * this.mul + this.add == result.v
-    // <=>                           this.v * [this.mul] +                  result.v * [ -1] + [this.add] == 0
-    // <=> this.v * this.v * [ 0 ] + this.v * [this.mul] + this.v * [ 0 ] + result.v * [ -1] + [this.add] == 0
-    // <=> this.v * this.v * [q_m] + this.v * [   q_l  ] + this.v * [q_r] + result.v * [q_o] + [   q_c  ] == 0
+    // The aim of a new `add` gate is to constrain
+    //              this.v * this.mul + this.add == result.v
+    // Let
+    //     q_1 := this.mul;
+    //     q_2 := 0;
+    //     q_3 := -1;
+    //     q_c := this.add;
+    // The `add` gate enforces the relation
+    //       this.v * q_1 + this.v * q_2 + result.v * q_3 + q_c = 0
 
     context->create_add_gate({ .a = witness_index,
                                .b = witness_index,
@@ -625,6 +630,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     return result;
 }
 
+/**
+ * @brief Enforce a copy constraint between *this and 0 stored at zero_idx of the Builder.
+ */
 template <typename Builder> void field_t<Builder>::assert_is_zero(std::string const& msg) const
 {
 
@@ -696,6 +704,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
 /**
  * @brief Validate whether a field_t element is zero.
+ *
  * @details
  * Let     a   := (*this).normalize()
  *         is_zero := (a == 0)
@@ -716,6 +725,8 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
  * we use the second constraint, it validates that
  *         (is_zero.v = true) ==>  (I = 1)
  * This way, if `a * I = 0`, we know that a = 0.
+ *
+ * @warning  If you want to ENFORCE that a field_t object is zero, use `assert_is_zero`
  */
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
@@ -775,7 +786,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
 }
 
 /**
- * @brief Compute a `bool_t` equal to (a == b)
+ * @brief Compute a `bool_t` (a == b)
  */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
@@ -829,7 +840,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // If lhs and rhs are the same witness, just return it
+    // If lhs and rhs are the same witness or constant, just return it
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
@@ -858,7 +869,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
 }
 
 /**
- * @brief Constrain that this field is equal to the given field.
+ * @brief Constrain that *this field is equal to the given field element.
  *
  * @warning: After calling this method, both field values *will* be equal, regardless of whether the constraint
  * succeeds or fails. This can lead to confusion when debugging. If you want to log the inputs, do so before
@@ -1037,12 +1048,12 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& c,
                                                     const field_t& d)
 {
-    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
-
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
+
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
     // validate that a * b + c + d = 0
     bb::fr q_m = a.multiplicative_constant * b.multiplicative_constant;
