@@ -62,7 +62,7 @@ describe('Environment getters', () => {
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],
-    [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber)],
+    [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
     [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
     [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
