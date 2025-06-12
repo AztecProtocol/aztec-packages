@@ -72,7 +72,7 @@ where
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
-        // TODO(benesjan): casting to u32 makes this explode in year 2106.
+        // Note that by casting to u32 we make this explode in year 2106. We do not care.
         let current_timestamp = self.context.timestamp() as u32;
         let current_delay = delay_change.get_current(current_timestamp);
 
@@ -108,7 +108,6 @@ where
     where
         T: Packable<N>,
     {
-        // TODO(benesjan): casting to u32 makes this explode in year 2106.
         let current_timestamp = self.context.timestamp() as u32;
         self.read_value_change().get_current_at(current_timestamp)
     }
@@ -117,7 +116,6 @@ where
     where
         T: Packable<N>,
     {
-        // TODO(benesjan): casting to u32 makes this explode in year 2106.
         let current_timestamp = self.context.timestamp() as u32;
         self.read_delay_change().get_current(current_timestamp)
     }
@@ -224,7 +222,6 @@ where
         let header = self.context.get_block_header();
         let address = self.context.this_address();
 
-        // TODO(benesjan): casting to u32 makes this explode in year 2106.
         let historical_timestamp = header.global_variables.timestamp as u32;
 
         let values: SharedMutableValues<T, INITIAL_DELAY> =
@@ -245,7 +242,6 @@ where
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
-        // TODO(benesjan): casting to u32 makes this explode in year 2106.
         // TODO(benesjan): expose timestamp in utility context
         // let current_timestamp = self.context.timestamp() as u32;
         let current_timestamp = 0 as u32;
