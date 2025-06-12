@@ -213,7 +213,7 @@ export class BlockStore {
     const blockHashString = blockHash.toString();
     const blockBodyBuffer = await this.#blockBodies.getAsync(blockHashString);
     if (blockBodyBuffer === undefined) {
-      this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`);
+      this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber} ${blockHash}`);
       return undefined;
     }
     const body = Body.fromBuffer(blockBodyBuffer);

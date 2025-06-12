@@ -272,12 +272,12 @@ class WorldState {
      */
     void rollback();
 
-    uint64_t create_fork(const std::optional<index_t>& blockNumber);
+    uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatusSummary set_finalised_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull unwind_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
+    WorldStateStatusSummary set_finalised_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull remove_historical_blocks(const block_number_t& toBlockNumber);
 
     void get_status_summary(WorldStateStatusSummary& status) const;
     WorldStateStatusFull sync_block(const StateReference& block_state_ref,

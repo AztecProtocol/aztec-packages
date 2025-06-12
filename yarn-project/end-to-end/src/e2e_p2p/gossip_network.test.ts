@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, sleep } from '@aztec/aztec.js';
+import { sleep } from '@aztec/aztec.js';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -127,7 +127,7 @@ describe('e2e_p2p_network', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 

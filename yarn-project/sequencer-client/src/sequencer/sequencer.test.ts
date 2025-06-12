@@ -149,7 +149,7 @@ describe('sequencer', () => {
     globalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(newBlockNumber),
+      newBlockNumber,
       new Fr(newSlotNumber),
       /*timestamp=*/ 0n,
       coinbase,
@@ -310,7 +310,7 @@ describe('sequencer', () => {
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
       block.header.globalVariables.slotNumber.toBigInt(),
-      block.header.globalVariables.blockNumber.toBigInt(),
+      BigInt(block.header.globalVariables.blockNumber),
     ]);
 
     await sequencer.doRealWork();

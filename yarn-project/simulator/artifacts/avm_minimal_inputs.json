@@ -1,30 +1,52 @@
 {
   "hints": {
     "tx": {
-      "hash": "0x2d6eaa10877d8c0994df1311da2b6c5fc716d6bcfa7a5995a0e6f975b08ac653",
+      "hash": "0x1c7bccdff7c7ea7a528c367bfbd30cde2bce5bc5e687fcaa9b92329811be3716",
       "globalVariables": {
         "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "blockNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "blockNumber": 42,
         "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "timestamp": "0",
+        "timestamp": "99833",
         "coinbase": "0x0000000000000000000000000000000000000000",
         "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "gasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" }
+        "gasFees": {
+          "feePerDaGas": "2",
+          "feePerL2Gas": "3"
+        }
       },
       "gasSettings": {
-        "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
-        "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
-        "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
-        "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
+        "gasLimits": {
+          "daGas": 1000000000,
+          "l2Gas": 6000000
+        },
+        "teardownGasLimits": {
+          "daGas": 0,
+          "l2Gas": 0
+        },
+        "maxFeesPerGas": {
+          "feePerDaGas": "10",
+          "feePerL2Gas": "10"
+        },
+        "maxPriorityFeesPerGas": {
+          "feePerDaGas": "0",
+          "feePerL2Gas": "0"
+        }
       },
-      "effectiveGasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" },
+      "effectiveGasFees": {
+        "feePerDaGas": "2",
+        "feePerL2Gas": "3"
+      },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
         "l2ToL1Messages": []
       },
-      "revertibleAccumulatedData": { "noteHashes": [], "nullifiers": [], "l2ToL1Messages": [] },
+      "revertibleAccumulatedData": {
+        "noteHashes": [],
+        "nullifiers": [],
+        "l2ToL1Messages": []
+      },
       "setupEnqueuedCalls": [],
       "appLogicEnqueuedCalls": [
         {
@@ -35,7 +57,11 @@
         }
       ],
       "teardownEnqueuedCall": null,
-      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 }
+      "gasUsedByPrivate": {
+        "daGas": 0,
+        "l2Gas": 0
+      },
+      "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a"
     },
     "contractInstances": [
       {
@@ -594,7 +620,9 @@
         },
         "index": "127",
         "leafPreimage": {
-          "leaf": { "nullifier": "0x000000000000000000000000000000000000000000000000000000000000007f" },
+          "leaf": {
+            "nullifier": "0x000000000000000000000000000000000000000000000000000000000000007f"
+          },
           "nextKey": "0x1fc93d6f39404974628d0cd615d3dad4aa26784f1f2f8a12cdb0ac811eac87d9",
           "nextIndex": "128"
         }
@@ -606,7 +634,9 @@
         },
         "index": "128",
         "leafPreimage": {
-          "leaf": { "nullifier": "0x1fc93d6f39404974628d0cd615d3dad4aa26784f1f2f8a12cdb0ac811eac87d9" },
+          "leaf": {
+            "nullifier": "0x1fc93d6f39404974628d0cd615d3dad4aa26784f1f2f8a12cdb0ac811eac87d9"
+          },
           "nextKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
           "nextIndex": "0"
         }
@@ -747,10 +777,14 @@
           "nextAvailableLeafIndex": 130
         },
         "treeId": 0,
-        "leaf": { "nullifier": "0x00000000000000000000000000000000000000000000000000000000000668a0" },
+        "leaf": {
+          "nullifier": "0x00000000000000000000000000000000000000000000000000000000000668a0"
+        },
         "lowLeavesWitnessData": {
           "leaf": {
-            "leaf": { "nullifier": "0x000000000000000000000000000000000000000000000000000000000000007f" },
+            "leaf": {
+              "nullifier": "0x000000000000000000000000000000000000000000000000000000000000007f"
+            },
             "nextKey": "0x1fc93d6f39404974628d0cd615d3dad4aa26784f1f2f8a12cdb0ac811eac87d9",
             "nextIndex": "128"
           },
@@ -800,7 +834,9 @@
         },
         "insertionWitnessData": {
           "leaf": {
-            "leaf": { "nullifier": "0x0000000000000000000000000000000000000000000000000000000000000000" },
+            "leaf": {
+              "nullifier": "0x0000000000000000000000000000000000000000000000000000000000000000"
+            },
             "nextKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "nextIndex": "0"
           },
@@ -851,20 +887,35 @@
       }
     ],
     "appendLeavesHints": [],
-    "createCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
-    "commitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
+    "createCheckpointHints": [
+      {
+        "actionCounter": 0,
+        "oldCheckpointId": 0,
+        "newCheckpointId": 1
+      }
+    ],
+    "commitCheckpointHints": [
+      {
+        "actionCounter": 1,
+        "oldCheckpointId": 1,
+        "newCheckpointId": 0
+      }
+    ],
     "revertCheckpointHints": []
   },
   "publicInputs": {
     "globalVariables": {
       "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "blockNumber": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "blockNumber": 42,
       "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "timestamp": "99833",
       "coinbase": "0x0000000000000000000000000000000000000000",
       "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
+      "gasFees": {
+        "feePerDaGas": "2",
+        "feePerL2Gas": "3"
+      }
     },
     "startTreeSnapshots": {
       "l1ToL2MessageTree": {
@@ -884,16 +935,38 @@
         "nextAvailableLeafIndex": 129
       }
     },
-    "startGasUsed": { "daGas": 0, "l2Gas": 0 },
-    "gasSettings": {
-      "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
-      "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },
-      "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
-      "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
+    "startGasUsed": {
+      "daGas": 0,
+      "l2Gas": 0
     },
-    "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
+    "gasSettings": {
+      "gasLimits": {
+        "daGas": 1000000000,
+        "l2Gas": 6000000
+      },
+      "teardownGasLimits": {
+        "daGas": 0,
+        "l2Gas": 0
+      },
+      "maxFeesPerGas": {
+        "feePerDaGas": "10",
+        "feePerL2Gas": "10"
+      },
+      "maxPriorityFeesPerGas": {
+        "feePerDaGas": "0",
+        "feePerL2Gas": "0"
+      }
+    },
+    "effectiveGasFees": {
+      "feePerDaGas": "2",
+      "feePerL2Gas": "3"
+    },
     "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a",
-    "publicCallRequestArrayLengths": { "setupCalls": 0, "appLogicCalls": 1, "teardownCall": false },
+    "publicCallRequestArrayLengths": {
+      "setupCalls": 0,
+      "appLogicCalls": 1,
+      "teardownCall": false
+    },
     "publicSetupCallRequests": [
       {
         "msgSender": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -1288,8 +1361,16 @@
       "isStaticCall": false,
       "calldataHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
     },
-    "previousNonRevertibleAccumulatedDataArrayLengths": { "noteHashes": 0, "nullifiers": 1, "l2ToL1Msgs": 0 },
-    "previousRevertibleAccumulatedDataArrayLengths": { "noteHashes": 0, "nullifiers": 0, "l2ToL1Msgs": 0 },
+    "previousNonRevertibleAccumulatedDataArrayLengths": {
+      "noteHashes": 0,
+      "nullifiers": 1,
+      "l2ToL1Msgs": 0
+    },
+    "previousRevertibleAccumulatedDataArrayLengths": {
+      "noteHashes": 0,
+      "nullifiers": 0,
+      "l2ToL1Msgs": 0
+    },
     "previousNonRevertibleAccumulatedData": {
       "noteHashes": [
         "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -1692,7 +1773,10 @@
         "nextAvailableLeafIndex": 129
       }
     },
-    "endGasUsed": { "daGas": 0, "l2Gas": 27 },
+    "endGasUsed": {
+      "daGas": 0,
+      "l2Gas": 27
+    },
     "accumulatedDataArrayLengths": {
       "noteHashes": 64,
       "nullifiers": 64,
