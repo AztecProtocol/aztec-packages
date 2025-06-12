@@ -16,7 +16,10 @@ spec:
   volumeClaimTemplates:
     - metadata:
         name: full-node-data
+        annotations:
+          "helm.sh/resource-policy": {{ .Values.fullNode.storageRetentionPolicy | default "Delete" | quote }}
       spec:
+        storageClassName: {{ .Values.fullNode.storageClass | default "standard" }}
         accessModes: [ "ReadWriteOnce" ]
         resources:
           requests:
@@ -164,6 +167,8 @@ spec:
               value: "{{ .Values.snapshots.syncUrl }}"
             - name: SENTINEL_ENABLED
               value: "{{ .Values.fullNode.sentinelEnabled }}"
+            - name: P2P_ARCHIVED_TX_LIMIT
+              value: "{{ .Values.fullNode.p2p.archivedTxLimit }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

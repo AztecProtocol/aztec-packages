@@ -441,31 +441,51 @@ export class AztecKVTxPool implements TxPool {
    * @returns Empty promise.
    */
   private async archiveTxs(txs: Tx[]): Promise<void> {
-    const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
-    await this.#archive.transactionAsync(async () => {
-      // calcualte the head and tail indices of the archived txs by insertion order.
-      let headIdx =
-        ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
-      let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
+    try {
+      const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
+      this.#log.verbose(`Archiving ${txs.length} txs`);
+      await this.#archive.transactionAsync(async () => {
+        // calcualte the head and tail indices of the archived txs by insertion order.
+        let headIdx =
+          ((await this.#archivedTxIndices.entriesAsync({ limit: 1, reverse: true }).next()).value?.[0] ?? -1) + 1;
+        let tailIdx = (await this.#archivedTxIndices.entriesAsync({ limit: 1 }).next()).value?.[0] ?? 0;
 
-      for (let i = 0; i < txs.length; i++) {
-        const tx = txs[i];
-        while (headIdx - tailIdx >= this.#archivedTxLimit) {
-          const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
-          if (txHash) {
-            await this.#archivedTxs.delete(txHash);
-            await this.#archivedTxIndices.delete(tailIdx);
+        this.#log.verbose(
+          `Archive state before processing - headIdx: ${headIdx}, tailIdx: ${tailIdx}, limit: ${this.#archivedTxLimit}`,
+        );
+
+        for (let i = 0; i < txs.length; i++) {
+          const tx = txs[i];
+          while (headIdx - tailIdx >= this.#archivedTxLimit) {
+            const txHash = await this.#archivedTxIndices.getAsync(tailIdx);
+            if (txHash) {
+              this.#log.verbose(`Purging old archived tx at index ${tailIdx} with hash ${txHash}`);
+              await this.#archivedTxs.delete(txHash);
+              await this.#archivedTxIndices.delete(tailIdx);
+            }
+            tailIdx++;
           }
-          tailIdx++;
-        }
 
-        const archivedTx: Tx = new Tx(tx.data, ClientIvcProof.empty(), tx.contractClassLogs, tx.publicFunctionCalldata);
-        const txHash = txHashes[i].toString();
-        await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
-        await this.#archivedTxIndices.set(headIdx, txHash);
-        headIdx++;
-      }
-    });
+          const archivedTx: Tx = new Tx(
+            tx.data,
+            ClientIvcProof.empty(),
+            tx.contractClassLogs,
+            tx.publicFunctionCalldata,
+          );
+          const txHash = txHashes[i].toString();
+          this.#log.verbose(`Archiving tx ${txHash} at index ${headIdx}`);
+          await this.#archivedTxs.set(txHash, archivedTx.toBuffer());
+          await this.#archivedTxIndices.set(headIdx, txHash);
+          headIdx++;
+        }
+        this.#log.verbose(
+          `Archive state after processing - headIdx: ${headIdx}, tailIdx: ${tailIdx}, total: ${headIdx - tailIdx}`,
+        );
+      });
+    } catch (error) {
+      this.#log.error(`Failed to archive transactions: ${error}`);
+      // throw error;
+    }
   }
 
   /**
