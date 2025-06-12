@@ -453,6 +453,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     }
     // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
     if (exponent.is_constant()) {
+        ASSERT(exponent_value.get_msb() < 32);
         return pow(static_cast<uint32_t>(exponent_value));
     }
 

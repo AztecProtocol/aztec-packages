@@ -960,6 +960,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_NE(result.get_value(), expected);
         EXPECT_EQ(builder.failed(), true);
         EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+
+        exponent = field_ct(exponent_val);
+#ifndef NDEBUG
+        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+#endif
     };
 
     static void test_copy_as_new_witness()
