@@ -1,4 +1,4 @@
-import { AVM_TORADIXBE_BASE_L2_GAS, AVM_TORADIXBE_DYN_L2_GAS } from '@aztec/constants';
+import { AVM_ADDRESSING_BASE_L2_GAS, AVM_TORADIXBE_BASE_L2_GAS, AVM_TORADIXBE_DYN_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AvmContext } from '../avm_context.js';
@@ -245,7 +245,10 @@ describe('Conversion Opcodes', () => {
 
       // Number of limbs requested is greater than the number of limbs needed for the radix: dynamic gas is applied using number of limbs
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_TORADIXBE_BASE_L2_GAS - numLimbs.toNumber() * AVM_TORADIXBE_DYN_L2_GAS,
+        gasBefore -
+          AVM_ADDRESSING_BASE_L2_GAS -
+          AVM_TORADIXBE_BASE_L2_GAS -
+          numLimbs.toNumber() * AVM_TORADIXBE_DYN_L2_GAS,
       );
 
       numLimbs = new Uint32(10); // Less limbs than needed
@@ -255,7 +258,10 @@ describe('Conversion Opcodes', () => {
 
       // Number of limbs requested is less than the number of limbs needed for the radix: dynamic gas is applied using modulus limbs
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_TORADIXBE_BASE_L2_GAS - MODULUS_LIMBS_PER_RADIX[radix.toNumber()] * AVM_TORADIXBE_DYN_L2_GAS,
+        gasBefore -
+          AVM_ADDRESSING_BASE_L2_GAS -
+          AVM_TORADIXBE_BASE_L2_GAS -
+          MODULUS_LIMBS_PER_RADIX[radix.toNumber()] * AVM_TORADIXBE_DYN_L2_GAS,
       );
     });
   });

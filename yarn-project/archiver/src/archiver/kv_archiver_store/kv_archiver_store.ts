@@ -287,7 +287,7 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return this.#messageStore.getL1ToL2Messages(blockNumber);
   }
 
@@ -384,8 +384,8 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.db.estimateSize();
   }
 
-  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void> {
-    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(BigInt(targetBlockNumber));
+  public rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
+    return this.#messageStore.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
   }
 
   public iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

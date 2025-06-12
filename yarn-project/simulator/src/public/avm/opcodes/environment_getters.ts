@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint64, Uint128 } from '../avm_memory_types.js';
+import { Field, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -33,7 +33,7 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.VERSION:
       return new Field(ctx.environment.globals.version);
     case EnvironmentVariable.BLOCKNUMBER:
-      return new Field(ctx.environment.globals.blockNumber);
+      return new Uint32(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
       return new Uint64(ctx.environment.globals.timestamp);
     case EnvironmentVariable.FEEPERL2GAS:

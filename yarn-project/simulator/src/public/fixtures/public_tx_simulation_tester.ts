@@ -177,6 +177,6 @@ export function defaultGlobals() {
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
   globals.gasFees = DEFAULT_GAS_FEES; // apply some nonzero default gas fees
-  globals.blockNumber = new Fr(DEFAULT_BLOCK_NUMBER);
+  globals.blockNumber = DEFAULT_BLOCK_NUMBER;
   return globals;
 }

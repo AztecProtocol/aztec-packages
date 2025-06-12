@@ -1,4 +1,8 @@
-import { AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS, AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS } from '@aztec/constants';
+import {
+  AVM_ADDRESSING_BASE_L2_GAS,
+  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -321,7 +325,9 @@ describe('Accrued Substate', () => {
       const daGasBefore = context.machineState.daGasLeft;
       await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
 
-      expect(context.machineState.l2GasLeft).toEqual(l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS);
+      expect(context.machineState.l2GasLeft).toEqual(
+        l2GasBefore - AVM_ADDRESSING_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+      );
       expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
     });
   });
