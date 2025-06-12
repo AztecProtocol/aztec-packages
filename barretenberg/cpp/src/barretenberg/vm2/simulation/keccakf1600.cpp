@@ -86,47 +86,44 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
         if (src_out_of_range) {
-            vinfo("READ SLICE OUT OF RANGE: ", src_addr);
-            throw KeccakF1600EventError::READ_SLICE_OUT_OF_RANGE;
+            vinfo("Read slice out of range: ", src_addr);
+            throw KeccakF1600Exception();
         }
         if (dst_out_of_range) {
-            vinfo("WRITE SLICE OUT OF RANGE: ", dst_addr);
-            throw KeccakF1600EventError::WRITE_SLICE_OUT_OF_RANGE;
+            vinfo("Write slice out of range: ", dst_addr);
+            throw KeccakF1600Exception();
         }
 
         // We work with MemoryValue as this type is required for bitwise operations handled
         // by the bitwise sub-trace simulator. We continue by operating over Memory values and convert
         // them back only at the end (event emission).
         KeccakF1600StateMemValues src_mem_values;
+        src_mem_values.fill(std::array<MemoryValue, 5>{ MemoryValue::from<uint64_t>(0) });
 
         auto& memory = context.get_memory();
-
-        // Slice read
-        for (size_t i = 0; i < 5; i++) {
-            for (size_t j = 0; j < 5; j++) {
-                src_mem_values[i][j] = memory.get(src_addr + static_cast<MemoryAddress>((i * 5) + j));
-            }
-        }
-
         keccakf1600_event.space_id = memory.get_space_id();
-        keccakf1600_event.src_mem_values = src_mem_values;
 
-        // Check tag validity
+        // Slice read and tag check
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
-                if (src_mem_values[i][j].get_tag() != MemoryTag::U64) {
-                    const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
-                    const auto tag = src_mem_values[i][j].get_tag();
-                    keccakf1600_event.tag_error = true;
+                const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
+                const auto mem_val = memory.get(addr);
+                const auto tag = mem_val.get_tag();
+                src_mem_values[i][j] = mem_val;
 
-                    vinfo("READ SLICE TAG INVALID - addr: ", addr, "tag: ", std::to_string(tag));
-                    throw KeccakF1600EventError::READ_SLICE_TAG_INVALID;
+                if (tag != MemoryTag::U64) {
+                    keccakf1600_event.tag_error = true;
+                    keccakf1600_event.src_mem_values = src_mem_values;
+
+                    vinfo("Read slice tag invalid - addr: ", addr, "tag: ", std::to_string(tag));
+                    throw KeccakF1600Exception();
                 }
             }
         }
 
         // Initialize state input values with values read from memory.
         KeccakF1600StateMemValues state_input_values = src_mem_values;
+        keccakf1600_event.src_mem_values = src_mem_values;
 
         std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
 
@@ -240,9 +237,9 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         keccakf1600_event.rounds = rounds_data;
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
 
-    } catch (const KeccakF1600EventError& e) {
+    } catch (const KeccakF1600Exception&) {
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
-        throw e;
+        throw KeccakF1600Exception();
     }
 }
 

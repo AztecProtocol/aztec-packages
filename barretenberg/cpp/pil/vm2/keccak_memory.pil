@@ -19,25 +19,33 @@ namespace keccak_memory;
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
-//   ctr   sel   start   last   rw  addr  tag   val val00  val01  val02 ....  val44  single_tag_error  tag_error
-//    1     1      1      0      0   38    U64        43    267     0           238       0                 1
-//    2     1      0      0      0   39    U64       267     0           238              0                 1
-//    3     1      0      0      0   40    FF   17    0                                   1                 1
-//    ...  ...    ...    ...     0   ..    U64  **    **     ***                          0                 0
-//    25    1      0      1      0   62    U64  238  238                                  0                 0
+//   ctr   ctr_end  sel   start   last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1      0      0   38    U64    43    267     17          238       0                 0
+//    2       0      1      0      0      0   39    U64   267     17          238              0                 0
+//    3       0      1      0      0      0   40    U64    17                                  0                 0
+//    ...    ...    ...    ...    ...     0   ..    U64    **     ***                          0                 0
+//    25      1      1      0      1      0   62    U64   238     0      0     ...    0        0                 0
 
 // A read/write memory operation is performed at each row at memory offset `addr`, `rw` boolean indicates
-// whether we write or read. The column val stores the read/write value and tag the tag value.
-// We set val00 being val except when a tag error occurs, we set a zero value. This is to ensure
-// that the main keccak permutation can operate over valid U64 values. One could avoid these dummy
-// computations but at the cost of higher relations in keccak permutation gadget. So, it is more
-// efficient to "sanitize" inputs here.
-// Each column value val{ij} is shifted to the right going bottom-up and finally are laid out
+// whether we write or read. The column val00 stores the read/write value and tag the tag value.
+// Note that in this case, val00 might not be in range of U64 values, this is not an issue because
+// whenever a tag error applies, the main keccak permutation is disabled (conditioned by sel_no_error
+// in keccakf1600.pil).
+// Each column value val{ij} is shifted to the right going bottom-up and finally is laid out
 // horizontally in the first row.
-// For a read operation, single_tag_error is toggled whenever tag is not U64. To consolidate
-// all the single_tag_error values, we accumulate them in tag_error. The accumulation is not a sum
-// but tag_error is set to 1 whenever the next row is 1 or single_tag_error == 1, basically
-// tag_error = tag_error' OR single_tag_error.
+// For a read operation, single_tag_error is toggled whenever tag is not U64.
+// When this happens, we toggle `last` and stop the multi-rows computation prematurely.
+// Therefore, when a tag error occurs the trace looks like:
+
+//   ctr  ctr_end   sel   start   last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1      0      0   38    U64    43    267     17          0         0                 1
+//    2       0      1      0      0      0   39    U64   267     17                           0                 1
+//    3       0      1      0      1      0   40    FF     17     0      0  ....     0         1                 1
+
+// The selector `last` is defined to be `ctr_end` OR `single_tag_error`.
+// To propagate the single_tag_error value, we use the column `tag_error`.
+// Note that we need a separate column because `single_tag_error` defines `last` which
+// controls when the computation or propagation stops.
 
 pol commit sel;
 sel * (1 - sel) = 0;
@@ -50,7 +58,6 @@ pol commit start;
 start * (1 - start) = 0;
 
 pol commit ctr;
-pol commit val;
 pol commit addr;
 pol commit tag;
 pol commit space_id;
@@ -64,7 +71,7 @@ pol commit val00, val01, val02, val03, val04,
            val30, val31, val32, val33, val34,
            val40, val41, val42, val43, val44;
 
-// We enforce the initial str to be set to 1.
+// We enforce the initial ctr to be set to 1.
 start * (ctr - 1) = 0;
 
 // sel == 1 <==> ctr != 0
@@ -72,21 +79,29 @@ pol commit ctr_inv;
 #[SEL_CTR_NON_ZERO]
 ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
 
+// ctr_end is toggled when all slice rows have been processed.
+pol commit ctr_end;
+ctr_end * (1 - ctr_end) = 0;
+
+// We define ctr_end == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
+pol commit ctr_min_state_size_inv;
+#[CTR_END]
+sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (ctr_end * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + ctr_end - 1) = 0;
+
+// Last ctr of a multi-rows processing of a slice
+pol commit last;
+
+// last == ctr_end || single_tag_error
+// `last` is boolean by definition
+#[LAST]
+last = 1 - (1 - ctr_end) * (1 - single_tag_error);
+
 #[CTR_INCREMENT]
 // Note: sel factor is required for an empty row to satisfy this relation
 sel * (1 - last) * (ctr' - ctr - 1) = 0;
 
-// Last ctr of a multi-rows processing of a slice
-pol commit last;
-last * (1 - last) = 0;
-
-// We define last == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
-pol commit ctr_min_state_size_inv;
-#[LAST]
-sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (last * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + last - 1) = 0;
-
+// Copied from memory.pil through lookup and constrained to be boolean in memory.pil.
 pol commit rw;
-rw * (1 - rw) = 0; // TODO: Not needed if constrained in memory trace
 
 single_tag_error * (1 - single_tag_error) = 0;
 
@@ -97,7 +112,7 @@ rw * single_tag_error = 0;
 last * (tag_error - single_tag_error) = 0;
 
 #[TAG_ERROR_PROPAGATION]
-(1 - last) * (tag_error - 1 + (1 - single_tag_error) * (1 - tag_error')) = 0;
+(1 - last) * (tag_error - tag_error') = 0;
 
 // No need to enforce a boolean constraint for tag_error as it follows from the above constraints.
 
@@ -116,10 +131,6 @@ sel * (TAG_MIN_U64 * ((1 - single_tag_error) * (1 - tag_min_u64_inv) + tag_min_u
 
 #[SINGLE_TAG_ERROR_BOOLEAN]
 single_tag_error * (1 - single_tag_error) = 0;
-
-// Set zero when tag is incorrect.
-#[VAL00]
-val00 = (1 - single_tag_error) * val;
 
 #[VAL01]
 val01 = (1 - last) * val00';
@@ -178,6 +189,6 @@ val44 = (1 - last) * val43';
 // TODO: Proper memory permutation (not a lookup), add clks in the tuple and introduce a specific
 // selector for keccak in memory sub-trace.
 #[SLICE_TO_MEM]
-sel {addr, val, tag, rw, space_id}
+sel {addr, val00, tag, rw, space_id}
 in // TODO: replace with `is` (permutation)
 memory.sel {memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
