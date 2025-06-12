@@ -148,6 +148,9 @@ template <typename Builder> class field_t {
     field_t operator-(const field_t& other) const;
     field_t operator*(const field_t& other) const;
     field_t operator/(const field_t& other) const;
+    bool_t<Builder> operator==(const field_t& other) const;
+    bool_t<Builder> operator!=(const field_t& other) const;
+
     field_t divide_no_zero_check(const field_t& other) const;
 
     field_t sqr() const { return operator*(*this); }
@@ -209,6 +212,7 @@ template <typename Builder> class field_t {
 
     void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
     OriginTag get_origin_tag() const { return tag; };
+
     /**
      * @brief Set the free witness flag for the field element's tag
      */
@@ -255,31 +259,10 @@ template <typename Builder> class field_t {
 
     static field_t accumulate(const std::vector<field_t>& input);
 
-    /**
-     * multiply *this by `to_mul` and add `to_add`
-     * One `madd` call costs 1 constraint in Ultra arithmetization
-     * */
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
-    // add_two costs 1 constraint in Ultra arithmetization
     field_t add_two(const field_t& add_b, const field_t& add_c) const;
-    bool_t<Builder> operator==(const field_t& other) const;
-    bool_t<Builder> operator!=(const field_t& other) const;
 
-    /**
-     * normalize returns a field_t element with equivalent value to `this`, but where `multiplicative_constant = 1` and
-     *`additive_constant = 0`.
-     * I.e. the returned value is defined entirely by the builder variable that `witness_index` points to (no scaling
-     * factors).
-     *
-     * If the witness_index of `this` is ever needed, `normalize` should be called first.
-     * but it's better to call `get_normalized_witness_index` in such case
-     *
-     * Will cost 1 constraint if the field element is not already normalized, as a new witness value would need to be
-     * created.
-     * Constants do not need to be normalized, as there is no underlying 'witness'; a constant's value is
-     * wholly tracked by `this.additive_constant`, so we definitely don't want to set that to 0!
-     **/
     [[nodiscard]] field_t normalize() const;
 
     bb::fr get_value() const;
@@ -288,10 +271,6 @@ template <typename Builder> class field_t {
 
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
-    /**
-     * is_zero will return a bool_t, and add constraints that enforce its correctness
-     * N.B. If you want to ENFORCE that a field_t object is zero, use `assert_is_zero`
-     **/
     bool_t<Builder> is_zero() const;
 
     void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
