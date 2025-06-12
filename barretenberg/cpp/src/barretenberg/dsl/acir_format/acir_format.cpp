@@ -351,7 +351,7 @@ void handle_IPA_accumulation(Builder& builder,
     }
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
-        auto commitment_key = CommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
+        CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);

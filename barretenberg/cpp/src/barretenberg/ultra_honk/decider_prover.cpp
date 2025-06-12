@@ -42,7 +42,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            auto commitment_key = CommitmentKey(1 << (log_subgroup_size + 1));
+            CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                              proving_key->relation_parameters,
