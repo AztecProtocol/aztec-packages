@@ -16,7 +16,7 @@ describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
-  const blockNumber = Fr.random();
+  const blockNumber = randomInt(20000);
   const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
   const gasFees = GasFees.random();
@@ -62,7 +62,7 @@ describe('Environment getters', () => {
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],
-    [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
+    [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
     [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
     [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],

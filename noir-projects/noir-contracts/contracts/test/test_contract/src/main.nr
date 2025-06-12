@@ -465,7 +465,7 @@ pub contract Test {
     fn assert_public_global_vars(
         chain_id: Field,
         version: Field,
-        block_number: Field,
+        block_number: u32,
         timestamp: u64,
         fee_per_da_gas: u128,
         fee_per_l2_gas: u128,

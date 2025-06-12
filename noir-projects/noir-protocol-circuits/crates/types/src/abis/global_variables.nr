@@ -10,7 +10,7 @@ use crate::{
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,
-    pub block_number: Field,
+    pub block_number: u32,
     pub slot_number: Field,
     pub timestamp: u64,
     pub coinbase: EthAddress,
@@ -38,7 +38,7 @@ impl Serialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
 
         serialized.push(self.chain_id);
         serialized.push(self.version);
-        serialized.push(self.block_number);
+        serialized.push(self.block_number as Field);
         serialized.push(self.slot_number);
         serialized.push(self.timestamp as Field);
         serialized.push(self.coinbase.to_field());
@@ -55,7 +55,7 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
         GlobalVariables {
             chain_id: reader.read(),
             version: reader.read(),
-            block_number: reader.read(),
+            block_number: reader.read_u32(),
             slot_number: reader.read(),
             timestamp: reader.read() as u64,
             coinbase: EthAddress::from_field(reader.read()),

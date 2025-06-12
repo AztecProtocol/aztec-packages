@@ -199,7 +199,7 @@ struct FindLowLeafResponse {
 };
 
 struct BlockShiftRequest {
-    index_t toBlockNumber;
+    block_number_t toBlockNumber;
     MSGPACK_FIELDS(toBlockNumber);
 };
 
@@ -233,7 +233,7 @@ struct UpdateArchiveRequest {
 };
 
 struct SyncBlockRequest {
-    uint64_t blockNumber;
+    block_number_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;

@@ -584,7 +584,7 @@ export class AztecKVTxPool implements TxPool {
 
       // Evict pending txs with a max block number less than or equal to the mined block
       const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
-      if (maxBlockNumber.isSome && maxBlockNumber.value.toNumber() <= blockNumber) {
+      if (maxBlockNumber.isSome && maxBlockNumber.value <= blockNumber) {
         this.#log.verbose(`Evicting tx ${txHash} from pool due to an invalid max block number`);
         txsToEvict.push(TxHash.fromString(txHash));
         continue;

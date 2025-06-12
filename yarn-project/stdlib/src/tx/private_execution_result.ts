@@ -13,6 +13,7 @@ import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
+import type { UInt32 } from '../types/index.js';
 import { HashedValues } from './hashed_values.js';
 import type { OffchainMessage } from './offchain_message.js';
 
@@ -105,8 +106,8 @@ export class PrivateExecutionResult {
   /**
    * The block number that this execution was simulated with.
    */
-  getSimulationBlockNumber(): number {
-    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber.toNumber();
+  getSimulationBlockNumber(): UInt32 {
+    return this.entrypoint.publicInputs.historicalHeader.globalVariables.blockNumber;
   }
 }
 

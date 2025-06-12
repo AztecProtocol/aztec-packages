@@ -96,7 +96,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
     typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
 
-    uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
+    uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
 
     ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);

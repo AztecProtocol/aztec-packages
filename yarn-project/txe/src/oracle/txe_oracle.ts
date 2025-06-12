@@ -354,7 +354,7 @@ export class TXE implements TypedOracle {
     const inputs = PrivateContextInputs.empty();
     inputs.txContext.chainId = new Fr(this.CHAIN_ID);
     inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
-    inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
+    inputs.historicalHeader.globalVariables.blockNumber = blockNumber;
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
@@ -579,7 +579,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(blockNumber);
+    header.globalVariables.blockNumber = blockNumber;
 
     return header;
   }
@@ -817,7 +817,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(blockNumber);
+    header.globalVariables.blockNumber = blockNumber;
 
     l2Block.header = header;
 
@@ -1015,7 +1015,7 @@ export class TXE implements TypedOracle {
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(this.CHAIN_ID);
     globalVariables.version = new Fr(this.ROLLUP_VERSION);
-    globalVariables.blockNumber = new Fr(this.blockNumber);
+    globalVariables.blockNumber = this.blockNumber;
     globalVariables.gasFees = new GasFees(1, 1);
 
     let result: PublicTxResult;
@@ -1500,7 +1500,7 @@ export class TXE implements TypedOracle {
     }
 
     const globals = makeGlobalVariables();
-    globals.blockNumber = new Fr(this.blockNumber);
+    globals.blockNumber = this.blockNumber;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1616,7 +1616,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+    header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
@@ -1671,7 +1671,7 @@ export class TXE implements TypedOracle {
     const publicCallRequests: PublicCallRequest[] = [publicCallRequest];
 
     const globals = makeGlobalVariables();
-    globals.blockNumber = new Fr(this.blockNumber);
+    globals.blockNumber = this.blockNumber;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1779,7 +1779,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+    header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
