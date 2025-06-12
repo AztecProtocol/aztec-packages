@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
   BatchInsertionResult,
