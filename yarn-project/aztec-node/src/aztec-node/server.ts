@@ -2,7 +2,7 @@ import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type ARCHIVE_HEIGHT,
+  ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
@@ -27,7 +27,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, TxCollector, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -740,6 +740,33 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>> {
     const committedDb = await this.#getWorldState(blockNumber);
     return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+  }
+
+  public async getArchiveMembershipWitness(
+    blockNumber: L2BlockNumber,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [index] = await committedDb.findLeafIndices(MerkleTreeId.ARCHIVE, [archive]);
+    if (index === undefined) {
+      return undefined;
+    }
+    return MembershipWitness.fromSiblingPath(index, await committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, index));
+  }
+
+  public async getNoteHashMembershipWitness(
+    blockNumber: L2BlockNumber,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [index] = await committedDb.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    if (index === undefined) {
+      return undefined;
+    }
+    return MembershipWitness.fromSiblingPath(
+      index,
+      await committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, index),
+    );
   }
 
   /**
