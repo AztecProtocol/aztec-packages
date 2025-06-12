@@ -119,7 +119,10 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     *result = ClientIVC::verify(proof, vk);
 }
 
-WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
+                                       uint8_t const* witness_vec,
+                                       uint8_t const* vk_buf,
+                                       uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraProver prover = [&] {
@@ -130,9 +133,9 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
         auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
-        // WORKTODO: compute vk
-        info("WARNING: computing vk in acir_prove_ultra_honk, but a precomputed vk should be passed in.");
-        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key =
+            std::make_shared<UltraFlavor::VerificationKey>(from_buffer<UltraFlavor::VerificationKey>(vk_buf));
+
         return UltraProver(proving_key, verification_key);
     }();
 
@@ -140,7 +143,10 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
     *out = to_heap_buffer(to_buffer(proof));
 }
 
-WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
+                                              uint8_t const* witness_vec,
+                                              uint8_t const* vk_buf,
+                                              uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakProver prover = [&] {
@@ -152,16 +158,18 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
         auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakFlavor>>(builder);
-        // WORKTODO: compute vk
-        info("WARNING: computing vk in acir_prove_ultra_keccak_honk, but a precomputed vk should be passed in.");
-        auto verification_key = std::make_shared<UltraKeccakFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<UltraKeccakFlavor::VerificationKey>(
+            from_buffer<UltraKeccakFlavor::VerificationKey>(vk_buf));
         return UltraKeccakProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
 }
 
-WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec,
+                                                 uint8_t const* witness_vec,
+                                                 uint8_t const* vk_buf,
+                                                 uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakZKProver prover = [&] {
@@ -173,9 +181,8 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
         auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakZKFlavor>>(builder);
-        // WORKTODO: compute vk
-        info("WARNING: computing vk in acir_prove_ultra_keccak_zk_honk, but a precomputed vk should be passed in.");
-        auto verification_key = std::make_shared<UltraKeccakZKFlavor::VerificationKey>(proving_key->proving_key);
+        auto verification_key = std::make_shared<UltraKeccakZKFlavor::VerificationKey>(
+            from_buffer<UltraKeccakZKFlavor::VerificationKey>(vk_buf));
         return UltraKeccakZKProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
@@ -184,6 +191,7 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_
 
 WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                 [[maybe_unused]] uint8_t const* witness_vec,
+                                                [[maybe_unused]] uint8_t const* vk_buf,
                                                 [[maybe_unused]] uint8_t** out)
 {
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -207,6 +215,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
 
 WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                    [[maybe_unused]] uint8_t const* witness_vec,
+                                                   [[maybe_unused]] uint8_t const* vk_buf,
                                                    [[maybe_unused]] uint8_t** out)
 {
 #ifdef STARKNET_GARAGA_FLAVORS

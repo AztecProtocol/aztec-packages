@@ -35,9 +35,13 @@ case ${SYS:-} in
   "ultra_honk_deprecated")
     # deprecated flow is necessary until we finish C++ api refactor and then align ts api
     SYS_DEP=_ultra_honk
+    OUTDIR=$(mktemp -d)
+    trap "rm -rf $OUTDIR" EXIT
+    $BIN write_vk$SYS_DEP $FLAGS $BFLAG -o $OUTDIR/vk
+    $BIN prove$SYS_DEP -o $OUTDIR/proof $FLAGS $BFLAG -k $OUTDIR/vk
     $BIN verify$SYS_DEP $FLAGS \
-        -k <($BIN write_vk$SYS_DEP -o - $FLAGS $BFLAG) \
-        -p <($BIN prove$SYS_DEP -o - $FLAGS $BFLAG)
+        -k $OUTDIR/vk \
+        -p $OUTDIR/proof
     ;;
   *)
     [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""
