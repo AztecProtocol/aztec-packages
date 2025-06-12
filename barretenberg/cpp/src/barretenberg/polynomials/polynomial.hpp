@@ -464,16 +464,13 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 
     const size_t n = evaluation_points.size();
     const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
-
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
     BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
-
     // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
     // at u₀,..., u_l.
     // In round 0, this is half the size of dim
     size_t n_l = 1 << (dim - 1);
-
     // temporary buffer of half the size of the Polynomial
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
     // DontZeroMemory::FLAG
@@ -489,7 +486,6 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     }
 
     Fr_ u_l = evaluation_points[0];
-
     // Note below: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity
     // padding (and there used to be no assert time checks, which this constant helps with).
     const size_t ALLOW_ONE_PAST_READ = 1;
@@ -498,7 +494,6 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
         tmp[i] = coefficients.get(i * 2 + offset) +
                  u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
     }
-
     // partially evaluate the dim-1 remaining points
     for (size_t l = 1; l < dim; ++l) {
         n_l = 1 << (dim - l - 1);
@@ -508,7 +503,6 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
         }
     }
     auto result = tmp[0];
-
     // We handle the "trivial" dimensions which are full of zeros.
     for (size_t i = dim; i < n; i++) {
         result *= (Fr_(1) - evaluation_points[i]);

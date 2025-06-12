@@ -145,3 +145,16 @@ pol constant sel_collect_fee;
 // Warning: Not a standard 0-based array!
 pol constant sel_keccak;
 pol constant keccak_round_constant;
+
+// GETENVVAR opcode precomputed columns
+// see opcodes/get_env_var.pil for ascii table
+pol constant invalid_envvar_enum;
+pol constant sel_envvar_pi_lookup;
+pol constant envvar_pi_row_idx;
+pol constant is_address;
+pol constant is_sender;
+pol constant is_transactionfee;
+pol constant is_feeperl2gas;
+pol constant is_isstaticcall;
+pol constant is_l2gasleft;
+pol constant is_dagasleft;

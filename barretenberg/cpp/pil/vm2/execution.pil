@@ -32,6 +32,7 @@ include "bytecode/instr_fetching.pil";
 include "bytecode/class_id_derivation.pil";
 include "bytecode/update_check.pil";
 
+include "opcodes/get_env_var.pil";
 include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
 
@@ -46,9 +47,19 @@ pol commit last; // last row selector
 sel * (1 - sel) = 0;
 last * (1 - last) = 0;
 
-// This is a set of selectors for the tx trace, they are here for now
+// Selector indicating enqueued call boundaries.
+// Used by TX trace for lookups to dispatch and retrieve results/reverted.
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
+
+// (enqueued_call_start == 1) <==> (is first execution row)
+//                               or (is first [active] row after an enqueued call ends)
+// TODO(dbanks12): does this work?
+//(enqueued_call_start - (1 - precomputed.first_row)) * (enqueued_call_start - (1 - last) * enqueued_call_end) = 0;
+
+// (enqueued_call_end == 1) <==> (is exit from top-level context)
+#[ENQUEUED_CALL_END]
+(enqueued_call_end - sel_exit_call * (1 - has_parent_ctx)) = 0;
 
 
 /**************************************************************************************************
@@ -231,7 +242,6 @@ pol commit rw[7];
 // TODO: gate this group with some error flag from the previous group.
 
 pol commit opcode_error;
-#[OPCODE_ERROR_BOOLEAN]
 opcode_error * (1 - opcode_error) = 0;
 
 // Subtrace operation id
@@ -248,6 +258,7 @@ pol commit sel_internal_call;
 pol commit sel_internal_return;
 pol commit sel_jump;
 pol commit sel_jumpi;
+pol commit sel_get_env_var;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
@@ -271,7 +282,6 @@ keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr,
 /**************************************************************************************************
  *  Error collection
  **************************************************************************************************/
-
 // sel_error is 1 iff any kind of error happens at the execution level.
 pol commit sel_error;
 sel_error * (1 - sel_error) = 0;

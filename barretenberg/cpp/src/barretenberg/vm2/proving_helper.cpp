@@ -70,15 +70,21 @@ std::shared_ptr<AvmVerifier::VerificationKey> AvmProvingHelper::create_verificat
 
 std::pair<AvmProvingHelper::Proof, AvmProvingHelper::VkData> AvmProvingHelper::prove(tracegen::TraceContainer&& trace)
 {
+    info("computing polynomials");
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));
+    info("creating proving key");
     auto proving_key = AVM_TRACK_TIME_V("proving/prove:proving_key", create_proving_key(polynomials));
+    info("constructing prover");
     auto prover =
         AVM_TRACK_TIME_V("proving/prove:construct_prover", AvmProver(proving_key, proving_key->commitment_key));
+    info("creating verification key");
     auto verification_key =
         AVM_TRACK_TIME_V("proving/prove:verification_key", std::make_shared<AvmVerifier::VerificationKey>(proving_key));
-
+    info("constructing proof");
     auto proof = AVM_TRACK_TIME_V("proving/construct_proof", prover.construct_proof());
+    info("serializing verification key");
     auto serialized_vk = to_buffer(verification_key->to_field_elements());
+    info("done");
 
     return { std::move(proof), std::move(serialized_vk) };
 }

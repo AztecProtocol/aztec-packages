@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -519,6 +520,73 @@ void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& tra
                   } });
         row++;
     }
+}
+
+/**
+ * See `opcodes/get_env_var.pil` for an ascii version of this table.
+ */
+void PrecomputedTraceBuilder::process_get_env_var_table(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t NUM_ROWS = 1 << 8;
+
+    // Start by flagging `invalid_envvar_enum` as 1 for all rows.
+    // "valid" rows will be reset manually to 0 below.
+    for (uint32_t i = 0; i < NUM_ROWS; i++) {
+        trace.set(C::precomputed_invalid_envvar_enum, i, 1);
+    }
+
+    // Manually set the rows representing the range of "valid" values
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::ADDRESS),
+              { { { C::precomputed_is_address, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::SENDER),
+              { { { C::precomputed_is_sender, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::TRANSACTIONFEE),
+              { { { C::precomputed_is_transactionfee, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::CHAINID),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::VERSION),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::BLOCKNUMBER),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::TIMESTAMP),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::FEEPERL2GAS),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+                  { C::precomputed_is_feeperl2gas, 1 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::FEEPERDAGAS),
+              { {
+                  { C::precomputed_sel_envvar_pi_lookup, 1 },
+                  { C::precomputed_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
+                  { C::precomputed_invalid_envvar_enum, 0 },
+              } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::ISSTATICCALL),
+              { { { C::precomputed_is_isstaticcall, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::L2GASLEFT),
+              { { { C::precomputed_is_l2gasleft, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
+    trace.set(static_cast<uint32_t>(EnvironmentVariable::DAGASLEFT),
+              { { { C::precomputed_is_dagasleft, 1 }, { C::precomputed_invalid_envvar_enum, 0 } } });
 }
 
 } // namespace bb::avm2::tracegen

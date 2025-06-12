@@ -1,0 +1,159 @@
+include "../public_inputs.pil";
+
+/**
+ * For some env vars, the value will available for access in the current execution/context/gas row:
+ * - ADDRESS
+ * - SENDER
+ * - TRANSACTIONFEE
+ * - ISSTATICCALL
+ * - L2GASLEFT
+ * - DAGASLEFT
+ *
+ * Other env vars come from global variables and must be looked up via public inputs.
+ * This virtual trace uses a selector to sel_envvar_pi_lookup to toggle the lookup from public inputs for:
+ * - CHAINID
+ * - VERSION
+ * - BLOCKNUMBER
+ * - TIMESTAMP
+ * - FEEPERL2GAS
+ * - FEEPERDAGAS
+ *
+ * Note that the lookup to public inputs pulls 2 values (col0 and col1)
+ * because { feePerDaGas, feePerL2Gas } is in 1 row spanning 2 columns.
+ * This means that while nearly all globalVariables will come from public inputs col0,
+ * feePerL2Gas will come from col1. But for now, they share one lookup.
+ *
+ * If memberEnum is out of range, or if some other error occurs in an earlier temporality group
+ * (e.g. address resolution or out-of-gas errors), all of this virtual gadget's selectors should
+ * be 0 except for the precomputed table lookup, and output register & intermediate values should be 0.
+ *
+ * The PI lookup selector, PI row-index, misc selectors indicating which env var is being accessed,
+ * and a selector indicating whether the enum value is valid or out-of-range, are all looked up
+ * from a precomputed table (precomputed.pil). The lookup populates the corresponding (identically named)
+ * columns in this gadget:
+ * +-------+----------------+-------------------+---------------------+-------------------+------------+-----------+------------------+---------------+---------------+--------------+----------------+
+ * |  Row  | Env Variable   | invalid_envvar_   | sel_envvar_pi_      | envvar_pi_row_idx | is_address | is_sender | is_transactionfee| is_feeperl2gas| is_isstaticcall | is_l2gasleft | is_dagasleft |
+ * | (clk) |                | enum              | lookup              |                   |            |           |                  |               |               |              |                |
+ * +-------+----------------+-------------------+---------------------+-------------------+------------+-----------+------------------+---------------+---------------+--------------+----------------+
+ * |   0   | address        |         0         |          0          |         0         |     1      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   1   | sender         |         0         |          0          |         1         |     0      |     1     |        0         |       0       |       0       |      0       |      0         |
+ * |   2   | transactionFee |         0         |          0          |         2         |     0      |     0     |        1         |       0       |       0       |      0       |      0         |
+ * |   3   | chainId        |         0         |          1          | CHAIN_ID_ROW_IDX  |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   4   | version        |         0         |          1          | VERSION_ROW_IDX   |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   5   | blockNumber    |         0         |          1          | BLOCK_NUM_ROW_IDX |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   6   | timestamp      |         0         |          1          | TIMESTAMP_ROW_IDX |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   7   | feePerL2Gas    |         0         |          1          | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       1       |       0       |      0       |      0         |
+ * |   8   | feePerDaGas    |         0         |          1          | GAS_FEES_ROW_IDX  |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * |   9   | isStaticCall   |         0         |          0          |         0         |     0      |     0     |        0         |       0       |       1       |      0       |      0         |
+ * |  10   | l2GasLeft      |         0         |          0          |         0         |     0      |     0     |        0         |       0       |       0       |      1       |      0         |
+ * |  11   | daGasLeft      |         0         |          0          |         0         |     0      |     0     |        0         |       0       |       0       |      0       |      1         |
+ * |  12+  | (invalid)      |         1         |          0          |         0         |     0      |     0     |        0         |       0       |       0       |      0       |      0         |
+ * +-------+----------------+-------------------+---------------------+-------------------+------------+-----------+------------------+---------------+---------------+--------------+----------------+
+ */
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0; // from execution.pil.
+
+    // According to the instruction spec (PIL & Cpp)...
+    // register[0] gets the output (retrieved envvar) to be written to memory
+    // rop[1] contains the enum value (ADDRESS, SENDER, etc.) from the immediate input operand
+    // opcode_error contains whether or not envvar enum is invalid (out of range)
+
+    ////////////////////////////////////////////////////////////////////////////
+    // from precomputed.pil's GETENVVAR opcode precomputed columns
+    pol commit sel_envvar_pi_lookup; // Sel to enable lookup to public inputs for certain env vars
+    pol commit envvar_pi_row_idx; // Row index to lookup in public inputs
+    pol commit is_address;
+    pol commit is_sender;
+    pol commit is_transactionfee;
+    pol commit is_feeperl2gas; // Needed to select pi.col1 instead of pi.col0
+    pol commit is_isstaticcall;
+    pol commit is_l2gasleft;
+    pol commit is_dagasleft;
+    // This lookup must be valid for all clks up to max u8 (255)
+    // to allow error handling for any invalid enum that fits in a u8 immediate.
+    // So, use the `precomputed.sel_range_8` as selector into the precomputed table.
+    #[PRECOMPUTED_INFO]
+    sel_get_env_var {
+        rop[1], // enum_value from opcode input operand
+        opcode_error, // invalid envvar enum - trigger an "opcode error"
+        sel_envvar_pi_lookup, envvar_pi_row_idx,
+        is_address, is_sender, is_transactionfee,
+        is_feeperl2gas, is_isstaticcall,
+        is_l2gasleft, is_dagasleft
+    } in precomputed.sel_range_8 {
+        precomputed.clk,
+        precomputed.invalid_envvar_enum,
+        precomputed.sel_envvar_pi_lookup, precomputed.envvar_pi_row_idx,
+        precomputed.is_address, precomputed.is_sender, precomputed.is_transactionfee,
+        precomputed.is_feeperl2gas, precomputed.is_isstaticcall,
+        precomputed.is_l2gasleft, precomputed.is_dagasleft
+    };
+    // end columns from precomputed.pil's GETENVVAR opcode precomputed columns
+    ////////////////////////////////////////////////////////////////////////////
+
+    // Selector for when we should get environment variable (gated by earlier errors)
+    pol commit sel_should_get_env_var;
+    sel_should_get_env_var * (1 - sel_should_get_env_var) = 0;
+    // Only actually do env var retrieval if there are no errors (enum error or earlier error).
+    // Note: use sel_should_resolve_address && !sel_addressing_error to gate this opcode.
+    // sel_should_resolve_address takes into account prior errors.
+    pol TRY_GET_ENV_VAR = execution.sel_should_resolve_address * (1 - execution.sel_addressing_error);
+    // If TRY_GET_ENV_VAR = 1 and there is no "invalid enum" (opcode error), sel_should_get_env_var must be 1
+    // And if sel_should_get_env_var = 0, either TRY_GET_ENV_VAR must be 0 or there must be an "invalid enum" (opcode error).
+    #[SHOULD_TRY_TO_GET_ENV_IF_NO_ERRORS]
+    sel_get_env_var * TRY_GET_ENV_VAR * (1 - opcode_error) * (1 - sel_should_get_env_var) = 0;
+    // If TRY_GET_ENV_VAR = 0 or there's an "invalid enum" (opcode error), sel_should_get_env_var must be 0.
+    // And if sel_should_get_env_var = 1, TRY_GET_ENV_VAR must be 1 AND there must NOT be an "invalid enum" (opcode error).
+    #[SHOULD_NOT_TRY_TO_GET_ENV_ON_ERROR]
+    (1 - TRY_GET_ENV_VAR + opcode_error) * sel_should_get_env_var = 0;
+
+    // If there's an invalid enum or prior error, set output register to 0
+    #[SET_OUTPUT_REGISTER_TO_0_ON_ERROR]
+    sel_get_env_var * (1 - sel_should_get_env_var) * register[0] = 0;
+
+    // Public input lookup for global variables
+    pol commit value_from_pi_col0; // intermediate value
+    pol commit value_from_pi_col1; // intermediate value
+    // NOTE: if we rearrange feePerDaGas and feePerL2Gas in the public inputs to instead be in subsequent rows
+    // instead of sharing a row, we could remove the is_feeperl2gas and value_from_pi_col* columns, and make this lookup
+    // only use pi col 0.
+    #[READ_FROM_PUBLIC_INPUTS]
+    sel_envvar_pi_lookup {
+        envvar_pi_row_idx, value_from_pi_col0, value_from_pi_col1
+    } in public_inputs.sel {
+        precomputed.clk, public_inputs.cols[0], public_inputs.cols[1]
+    };
+    // TODO(dbanks12): confirm that it's better to have 1 lookup of 2 values here ^
+    // rather than have 2 lookups where one of them is only used for feePerL2Gas from pi.col1.
+    // With 2 lookups, we could probably remove both of these intermediate value columns,
+    // but we'd need a new selector to indicate `sel_envvar_pi_lookup && !is_feeperl2gas`.
+
+    // For nearly all global envvars from PIs, use the value from public inputs col0
+    #[FROM_PI_COL0]
+    sel_envvar_pi_lookup * (1 - is_feeperl2gas) * (register[0] - value_from_pi_col0) = 0;
+    // For feePerL2Gas, use the value from public inputs col1
+    #[FROM_PI_COL1]
+    sel_envvar_pi_lookup * is_feeperl2gas * (register[0] - value_from_pi_col1) = 0;
+
+    // Context variables are read from columns within the execution row
+    // from the `context.pil` virtual trace.
+    #[ADDRESS_FROM_CONTEXT]
+    sel_should_get_env_var * is_address * (register[0] - contract_address) = 0;
+    #[SENDER_FROM_CONTEXT]
+    sel_should_get_env_var * is_sender * (register[0] - msg_sender) = 0;
+    #[TRANSACTION_FEE_FROM_CONTEXT]
+    sel_should_get_env_var * is_transactionfee * (register[0] - transaction_fee) = 0;
+    #[ISSTATICCALL_FROM_CONTEXT]
+    sel_should_get_env_var * is_isstaticcall * (register[0] - is_static) = 0;
+
+    // GasLeft are also read from the columns within the execution row,
+    // but from the `gas.pil` virtual trace.
+    // These require a computation: left = limit - used
+    #[L2GASLEFT_FROM_GAS]
+    sel_should_get_env_var * is_l2gasleft * (register[0] - (l2_gas_limit - l2_gas_used)) = 0;
+    #[DAGASLEFT_FROM_GAS]
+    sel_should_get_env_var * is_dagasleft * (register[0] - (da_gas_limit - da_gas_used)) = 0;

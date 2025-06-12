@@ -100,6 +100,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_transaction_fee).WillOnce(Return(FF(0)));
     EXPECT_CALL(context, get_parent_gas_used);
     EXPECT_CALL(context, get_parent_gas_limit);
 
@@ -114,7 +115,7 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
@@ -153,6 +154,39 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     EXPECT_CALL(context, set_next_pc(return_pc));
 
     execution.internal_return(context);
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
+{
+    AztecAddress addr = 0xdeadbeef;
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(addr));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ADDRESS));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
+{
+    GlobalVariables globals;
+    globals.chainId = 1;
+    EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
+{
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
 }
 
 } // namespace

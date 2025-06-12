@@ -31,6 +31,26 @@ enum TransactionPhase {
 
 using InternalCallId = uint32_t;
 
+/**
+ * Enum for environment variables, representing the various environment values
+ * that can be accessed by the AVM GETENVVAR opcode.
+ */
+enum class EnvironmentVariable {
+    ADDRESS = 0,
+    SENDER = 1,
+    TRANSACTIONFEE = 2,
+    CHAINID = 3,
+    VERSION = 4,
+    BLOCKNUMBER = 5,
+    TIMESTAMP = 6,
+    FEEPERL2GAS = 7,
+    FEEPERDAGAS = 8,
+    ISSTATICCALL = 9,
+    L2GASLEFT = 10,
+    DAGASLEFT = 11,
+    INVALID_SENTINEL = 12,
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
 ////////////////////////////////////////////////////////////////////////////

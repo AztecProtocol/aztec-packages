@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -19,6 +20,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -384,6 +386,10 @@ void ExecutionTraceBuilder::process(
         // Nested Context Control Flow and helper columns
         trace.set(row,
                   { {
+                      // Selectors that indicate "dispatch" from tx trace
+                      { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
+                      { C::execution_enqueued_call_end, sel_exit_call && !has_parent ? 1 : 0 },
+                      // Context & control flow
                       { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                       { C::execution_is_parent_id_inv, cached_parent_id_inv },
                       { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
@@ -430,6 +436,14 @@ void ExecutionTraceBuilder::process(
             if (is_opcode_error) {
                 trace.set(C::execution_opcode_error, row, 1);
             }
+
+            if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+                process_get_env_var_opcode(ex_event.inputs,
+                                           ex_event.output,
+                                           trace,
+                                           row,
+                                           !is_opcode_error && should_resolve_address && !addressing_failed);
+            }
         }
 
         /**************************************************************************************************
@@ -448,11 +462,10 @@ void ExecutionTraceBuilder::process(
             }
         }
 
-        bool end_of_enqueued_call = sel_exit_call && !has_parent;
+        bool enqueued_call_end = sel_exit_call && !has_parent;
         bool resolves_dying_context = is_failure && is_dying_context;
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
-        bool propagate_discard =
-            !end_of_enqueued_call && !resolves_dying_context && !nested_call_rom_undiscarded_context;
+        bool propagate_discard = !enqueued_call_end && !resolves_dying_context && !nested_call_rom_undiscarded_context;
 
         trace.set(
             row,
@@ -463,7 +476,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_dying_context_id_inv, dying_context_id_inv },
                 { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
                 { C::execution_dying_context_diff_inv, dying_context_diff_inv },
-                { C::execution_end_of_enqueued_call, end_of_enqueued_call ? 1 : 0 },
+                { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
                 { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
                 { C::execution_propagate_discard, propagate_discard ? 1 : 0 },
@@ -577,6 +590,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                   { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
                   { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
                   { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+                  { C::execution_sel_get_env_var, exec_opcode == ExecutionOpCode::GETENVVAR ? 1 : 0 },
               } });
 }
 
@@ -779,6 +793,59 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
     }
 }
+void ExecutionTraceBuilder::process_get_env_var_opcode(const std::vector<TaggedValue>& inputs,
+                                                       TaggedValue output,
+                                                       TraceContainer& trace,
+                                                       uint32_t row,
+                                                       bool should_get_env_var)
+{
+    // register[0] gets the output (retrieved envvar) to be written to memory
+    // rop[1] contains the enum value (ADDRESS, SENDER, etc.) from the immediate input operand
+    // execution opcode_error (sim dispatch error) contains whether or not envvar enum is invalid (out of range)
+
+    info("inputs size: {}", inputs.size());
+    assert(inputs.size() == 1);
+    assert(inputs.at(0).get_tag() == ValueTag::U8);
+    assert(inputs.at(0).as<uint8_t>() < static_cast<uint8_t>(EnvironmentVariable::INVALID_SENTINEL) &&
+           "process_get_env_var_opcode should never be reached in tracegen for invalid enum");
+
+    EnvironmentVariable enum_value = static_cast<EnvironmentVariable>(inputs.at(0).as<uint8_t>());
+    // assert presence of 1 input and 1 output
+
+    // See PIL table in `get_env_var.pil` for reference.
+    // pi lookup if enum is chainId, version, blockNumber, timestamp, feePerL2Gas, or feePerDaGas
+    bool pi_lookup = enum_value == EnvironmentVariable::CHAINID || enum_value == EnvironmentVariable::VERSION ||
+                     enum_value == EnvironmentVariable::BLOCKNUMBER || enum_value == EnvironmentVariable::TIMESTAMP ||
+                     enum_value == EnvironmentVariable::FEEPERL2GAS || enum_value == EnvironmentVariable::FEEPERDAGAS;
+    // row index is dicated by table above, but is 0 if not pi lookup
+    uint32_t pi_row_idx =
+        enum_value == EnvironmentVariable::CHAINID       ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX
+        : enum_value == EnvironmentVariable::VERSION     ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX
+        : enum_value == EnvironmentVariable::BLOCKNUMBER ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX
+        : enum_value == EnvironmentVariable::TIMESTAMP   ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX
+        : enum_value == EnvironmentVariable::FEEPERL2GAS ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX
+        : enum_value == EnvironmentVariable::FEEPERDAGAS ? AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX
+                                                         : 0; // else 0, and there will be an error (invalid enum)
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_get_env_var, 1 },
+                  { C::execution_sel_envvar_pi_lookup, pi_lookup ? 1 : 0 },
+                  { C::execution_envvar_pi_row_idx, pi_lookup ? pi_row_idx : 0 },
+                  { C::execution_is_address, enum_value == EnvironmentVariable::ADDRESS ? 1 : 0 },
+                  { C::execution_is_sender, enum_value == EnvironmentVariable::SENDER ? 1 : 0 },
+                  { C::execution_is_transactionfee, enum_value == EnvironmentVariable::TRANSACTIONFEE ? 1 : 0 },
+                  { C::execution_is_feeperl2gas, enum_value == EnvironmentVariable::FEEPERL2GAS ? 1 : 0 },
+                  { C::execution_is_isstaticcall, enum_value == EnvironmentVariable::ISSTATICCALL ? 1 : 0 },
+                  { C::execution_is_l2gasleft, enum_value == EnvironmentVariable::L2GASLEFT ? 1 : 0 },
+                  { C::execution_is_dagasleft, enum_value == EnvironmentVariable::DAGASLEFT ? 1 : 0 },
+                  { C::execution_value_from_pi_col0, should_get_env_var && pi_lookup ? output.as_ff() : 0 },
+                  // TODO(dbanks12): need to set the values from pi cols 0 and 1....
+                  // But need _both_ even though only one col's will be present in the event...
+                  // Might need 2 lookups instead....
+                  //{ C::execution_value_from_pi_col1, should_get_env_var && pi_lookup ? output.as_ff() : 0 },
+              } });
+}
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
@@ -814,6 +881,9 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
         // Dispatch to gadget sub-traces
-        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>();
+        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
+        // GetEnvVar opcode
+        .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_env_var_read_from_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

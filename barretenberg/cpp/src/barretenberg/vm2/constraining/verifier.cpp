@@ -30,7 +30,10 @@ using FF = AvmFlavor::FF;
 // Evaluate the given public input column over the multivariate challenge points
 inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
+    info("constructing polynomial for public input column");
     Polynomial<FF> polynomial(points, key->circuit_size);
+
+    info("evaluating polynomial for public input column");
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -118,13 +121,17 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         output.claimed_evaluations.public_inputs_cols_2_,
         output.claimed_evaluations.public_inputs_cols_3_,
     };
+    info("checking public inputs");
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        info("checking public input ", i);
         FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        info("public_input_evaluation: ", public_input_evaluation);
         if (public_input_evaluation != claimed_evaluations[i]) {
-            vinfo("public_input_evaluation failed, public inputs col ", i);
+            info("public_input_evaluation failed, public inputs col ", i);
             return false;
         }
     }
+    info("public inputs checked");
 
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },

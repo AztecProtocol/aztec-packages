@@ -69,6 +69,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Poseidon2Perm
     { ExecutionOpCode::POSEIDON2PERM, { .subtrace_selector = SubtraceSel::POSEIDON2PERM, .subtrace_operation_id = 0 } },
     // Execution
+    // TODO(dbanks12): is it okay that this has subop id 0? This section started with SET at op id 1 before.
+    { ExecutionOpCode::GETENVVAR, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 0 } },
     { ExecutionOpCode::SET, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 1 } },
     { ExecutionOpCode::MOV, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 2 } },
     { ExecutionOpCode::JUMP, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 3 } },
@@ -89,6 +91,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
 // TODO: This will need to revisited, we will only be sure of the access patterns when we do the opcodes
 const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = { {
     { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1) },
+    { ExecutionOpCode::GETENVVAR, RegisterMemInfo().has_outputs(1) },
+    // TODO(dbanks12): try removing hack has_inputs(0)
     { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
     { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
     { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(4) },

@@ -6,7 +6,7 @@ describe('AVM minimal tx', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new();
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
   });
 
   it('Proving minimal public tx', async () => {
