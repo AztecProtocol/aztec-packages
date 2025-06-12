@@ -216,12 +216,14 @@ void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
         }
     });
 
-    // As the total number of random values is not a multiple of num_ordered_polynomials in the current translator
-    // configurations, the remaining values are added to the last ordered range constraint
+    // As the total number of random values might not a multiple of num_ordered_polynomials (and is definitely not the
+    // current translator configurations) the remaining values are distributed across the ordered polynomials. The
+    // configurations ensure this still remain within boundaries of the polynomial size otherwise the assignment would
+    // fail.
     size_t index_into_random = num_ordered_polynomials * num_random_values_per_ordered;
-    auto& last_ordered = ordered[num_ordered_polynomials - 1];
-    for (size_t i = end; i < end + remaining_random_values; i++) {
-        last_ordered.at(i) = random_values[index_into_random];
+    ASSERT(remaining_random_values < num_ordered_polynomials && end < ordered[0].end_index());
+    for (size_t i = 0; i < remaining_random_values; i++) {
+        ordered[i].at(end) = random_values[index_into_random];
         index_into_random++;
     }
 }
