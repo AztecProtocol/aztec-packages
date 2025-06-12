@@ -134,7 +134,7 @@ void check_sibling_path_by_value(TreeType& tree,
         EXPECT_EQ(response.success, expected_result);
         if (expected_result) {
             EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
-            EXPECT_EQ(response.inner.leaf_paths[0].value().sibling_path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
             EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
@@ -173,7 +173,7 @@ void check_historic_sibling_path_by_value(TreeType& tree,
         EXPECT_EQ(response.success, expected_success);
         if (expected_success) {
             EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
-            EXPECT_EQ(response.inner.leaf_paths[0].value().sibling_path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
             EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
