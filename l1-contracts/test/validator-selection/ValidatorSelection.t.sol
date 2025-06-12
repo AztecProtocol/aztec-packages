@@ -96,8 +96,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
@@ -143,8 +143,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     assertEq(rollup.getCurrentEpoch(), epoch);
@@ -209,7 +209,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint96 slashAmount = 10e18;
+    uint96 slashAmount = 90e18;
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
@@ -434,7 +434,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
 
       if (ree.shouldRevert) {
         return;
@@ -451,7 +451,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         );
         ree.shouldRevert = true;
       }
-      rollup.propose(args, attestations, full.block.blobInputs);
+      rollup.propose(args, attestations, full.block.blobCommitments);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
@@ -489,7 +489,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
     if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {

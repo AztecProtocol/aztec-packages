@@ -53,7 +53,6 @@ export type ViemHeader = {
 };
 
 export type ViemContentCommitment = {
-  numTxs: bigint;
   blobsHash: `0x${string}`;
   inHash: `0x${string}`;
   outHash: `0x${string}`;
@@ -168,6 +167,11 @@ export class RollupContract {
   @memoize
   getMinimumStake() {
     return this.rollup.read.getMinimumStake();
+  }
+
+  @memoize
+  getDepositAmount() {
+    return this.rollup.read.getDepositAmount();
   }
 
   @memoize
@@ -494,8 +498,12 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getBlobCommitmentsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  }
+
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {

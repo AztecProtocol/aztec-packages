@@ -296,9 +296,10 @@ export class SequencerPublisher {
       header.toViem(),
       [] as ViemCommitteeAttestation[],
       `0x${'0'.repeat(64)}`, // 32 empty bytes
-      toHex(header.contentCommitment.blobsHash),
+      header.contentCommitment.blobsHash.toString(),
       flags,
     ] as const;
+
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
     // use sender balance to simulate
@@ -348,8 +349,11 @@ export class SequencerPublisher {
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
-    const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
+    // const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    // const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
+
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+    const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
     const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
 
@@ -475,7 +479,7 @@ export class SequencerPublisher {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
       header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
@@ -532,7 +536,7 @@ export class SequencerPublisher {
       throw new Error('L1 TX utils needs to be initialized with an account wallet.');
     }
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(

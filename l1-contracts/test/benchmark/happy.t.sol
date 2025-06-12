@@ -167,7 +167,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
+    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
     multiAdder.addValidators(initialValidators);
 
     _;
@@ -218,12 +218,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
+    address c = proposer != address(0) ? proposer : coinbase;
 
     // Updating the header with important information!
     header.lastArchiveRoot = archiveRoot;
     header.slotNumber = slotNumber;
     header.timestamp = ts;
-    header.coinbase = proposer;
+    header.coinbase = c;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaBaseFee;
     header.totalManaUsed = manaSpent;
@@ -266,7 +267,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     return Block({
       proposeArgs: proposeArgs,
-      blobInputs: full.block.blobInputs,
+      blobInputs: full.block.blobCommitments,
       attestations: attestations
     });
   }
@@ -360,14 +361,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           proverId: address(0)
         });
 
-        bytes memory blobPublicInputs;
-        for (uint256 j = 0; j < epochSize; j++) {
-          // For each block in the epoch, add its blob public inputs
-          // Since we are reusing the same block, they are the same
-          blobPublicInputs =
-            abi.encodePacked(blobPublicInputs, this.getBlobPublicInputs(full.block.blobInputs));
-        }
-
         {
           rollup.submitEpochRootProof(
             SubmitEpochRootProofArgs({
@@ -375,34 +368,12 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               end: start + epochSize - 1,
               args: args,
               fees: fees,
-              blobPublicInputs: blobPublicInputs,
+              blobInputs: full.block.batchedBlobInputs,
               proof: ""
             })
           );
         }
       }
-    }
-  }
-
-  // This is duplicated from Rollup.t.sol because we need to call it as this.getBlobPublicInputs
-  // so it accepts the input as calldata
-  function getBlobPublicInputs(bytes calldata _blobsInput)
-    public
-    pure
-    returns (bytes memory blobPublicInputs)
-  {
-    uint8 numBlobs = uint8(_blobsInput[0]);
-    blobPublicInputs = abi.encodePacked(numBlobs, blobPublicInputs);
-    for (uint256 i = 0; i < numBlobs; i++) {
-      // Add 1 for the numBlobs prefix
-      uint256 blobInputStart = i * 192 + 1;
-      // We want to extract the bytes we use for public inputs:
-      //  * input[32:64]   - z
-      //  * input[64:96]   - y
-      //  * input[96:144]  - commitment C
-      // Out of 192 bytes per blob.
-      blobPublicInputs =
-        abi.encodePacked(blobPublicInputs, _blobsInput[blobInputStart + 32:blobInputStart + 144]);
     }
   }
 }

@@ -16,10 +16,10 @@ import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockOptions,
   type IFullNodeBlockBuilder,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
+  type PublicProcessorLimits,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -32,7 +32,7 @@ import type { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock, mockDeep, mockFn } from 'jest-mock-extended';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -151,7 +151,7 @@ describe('sequencer', () => {
       version,
       new Fr(newBlockNumber),
       new Fr(newSlotNumber),
-      Fr.ZERO,
+      /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
       gasFees,
@@ -258,7 +258,7 @@ describe('sequencer', () => {
       l1Constants,
       new TestDateProvider(),
     );
-    await sequencer.updateConfig(config);
+    sequencer.updateConfig(config);
   });
 
   it('builds a block out of a single tx', async () => {
@@ -327,7 +327,7 @@ describe('sequencer', () => {
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
     const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -355,7 +355,7 @@ describe('sequencer', () => {
   it('builds a block that contains zero real transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -383,7 +383,7 @@ describe('sequencer', () => {
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -511,6 +511,29 @@ describe('sequencer', () => {
     // Even though the block publish was not enqueued, we still send any requests
     expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
   });
+
+  it('should proceed with block proposal when there is no proposer yet', async () => {
+    // Mock that there is no official proposer yet
+    publisher.epochCache.getProposerAttesterAddressInNextSlot = jest
+      .fn()
+      .mockImplementationOnce(() => Promise.resolve(undefined)) as jest.Mock<() => Promise<EthAddress | undefined>>;
+
+    publisher.getCurrentEpochCommittee.mockResolvedValueOnce([]);
+
+    // Mock that we have some pending transactions
+    const txs = [await makeTx(1), await makeTx(2)];
+    mockPendingTxs(txs);
+    block = await makeBlock(txs);
+
+    await sequencer.doRealWork();
+
+    // Verify that the sequencer attempted to create and broadcast a block proposal
+    expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
+
+    // Verify that the sequencer did not broadcast for attestations since there's no committee
+    expect(validatorClient.createBlockProposal).not.toHaveBeenCalled();
+    expect(validatorClient.broadcastBlockProposal).not.toHaveBeenCalled();
+  });
 });
 
 class TestSubject extends Sequencer {
@@ -527,7 +550,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override getDefaultBlockBuilderOptions(slot: number): BuildBlockOptions {
+  public override getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
     return super.getDefaultBlockBuilderOptions(slot);
   }
 }
