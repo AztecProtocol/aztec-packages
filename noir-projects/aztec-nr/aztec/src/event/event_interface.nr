@@ -1,7 +1,8 @@
 use crate::{
     context::{PrivateContext, PublicContext},
     messages::logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
-    utils::remove_constraints::remove_constraints_if,
+    oracle::offchain_message::emit_offchain_message,
+    utils::remove_constraints::{remove_constraints, remove_constraints_if},
 };
 use dep::protocol_types::{
     abis::event_selector::EventSelector,
@@ -71,6 +72,43 @@ where
     context.push_nullifier(event_commitment);
 
     context.emit_private_log(log_content, log_content.len());
+}
+
+/// Emits an event as an offchain message. Similar to private log emission but uses offchain message mechanism instead.
+///
+/// Unlike private log emission, encryption here is always unconstrained. This design choice stems from the nature of
+/// offchain messages - they lack guaranteed delivery, unlike private logs. Without delivery guarantees, smart
+/// contracts cannot make assumptions about a message being delivered, making constrained encryption unnecessary.
+/// However, message integrity remains protected through a cryptographic commitment stored in the nullifier tree,
+/// preventing tampering even in the absence of guaranteed delivery. See the description of the
+/// `oracle::offchain_message::emit_offchain_message` function for more details on when a guaranteed delivery is
+/// valuable. If guaranteed delivery is required, the `emit_event_in_private_log` function should be used instead.
+pub fn emit_event_as_offchain_message<Event, let N: u32>(
+    event: Event,
+    context: &mut PrivateContext,
+    recipient: AztecAddress,
+)
+where
+    Event: EventInterface + Serialize<N>,
+{
+    // Safety: as explained above, this function places no constraints on the content of the message.
+    let (message_ciphertext, randomness) =
+        unsafe { remove_constraints(|| to_encrypted_private_event_message(event, recipient)) };
+
+    // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery. Note
+    // that the commitment is made from the (constrained) event content, and not the (unconstrained) ciphertext.
+    // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
+    // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
+    // nullifier can be computed.
+    // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
+    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let event_commitment = poseidon2_hash_with_separator(
+        serialized_event_with_randomness,
+        GENERATOR_INDEX__EVENT_COMMITMENT,
+    );
+    context.push_nullifier(event_commitment);
+
+    emit_offchain_message(message_ciphertext, recipient);
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)
