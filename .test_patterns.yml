@@ -285,6 +285,11 @@ tests:
     error_regex: "Error: locator\\.click: Test timeout of"
     owners:
       - *saleel
+  
+  -regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
+    error_regex: "create account and cast vote"
+    owners:
+      - *saleel
 
   # Slack testing.
   - regex: "nonsense to match"
