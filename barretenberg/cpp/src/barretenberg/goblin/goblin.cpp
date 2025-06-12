@@ -74,7 +74,7 @@ GoblinProof Goblin::prove()
 Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder)
 {
     PairingPoints points_accumulator;
-    // Recursively verify a merge proof in the verification queue in a FIFO manner
+    // Recursively verify the next merge proof in the verification queue in a FIFO manner
     const MergeProof& merge_proof = merge_verification_queue.front();
     const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
 

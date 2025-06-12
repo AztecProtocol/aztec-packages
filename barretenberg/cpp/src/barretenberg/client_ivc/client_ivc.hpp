@@ -157,10 +157,10 @@ class ClientIVC {
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
-    // Set of tuples {proof, verification_key, type} to be recursively verified
-    std::deque<VerifierInputs> verification_queue;
+    // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
+    VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
-    std::deque<StdlibVerifierInputs> stdlib_verification_queue;
+    StdlibVerificationQueue stdlib_verification_queue;
 
     // Management of linking databus commitments between circuits in the IVC
     DataBusDepot bus_depot;
