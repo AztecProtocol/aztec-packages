@@ -28,7 +28,7 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(
-    blockNumber: Fr,
+    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,

@@ -313,7 +313,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: proposal.blockNumber,
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
@@ -778,7 +778,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
+      if (tx.data.constants.historicalHeader.globalVariables.blockNumber > latestBlock) {
         const txHash = await tx.getTxHash();
         txsToDelete.set(txHash.toString(), txHash);
       }

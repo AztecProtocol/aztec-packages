@@ -50,7 +50,7 @@ export function createValidatorForAcceptingTxs(
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
-      blockNumber: new Fr(blockNumber),
+      blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
@@ -111,7 +111,7 @@ function preprocessValidator(
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

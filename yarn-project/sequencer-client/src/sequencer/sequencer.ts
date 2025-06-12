@@ -325,7 +325,7 @@ export class Sequencer {
     );
 
     const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
+      newBlockNumber,
       this.coinbase,
       this._feeRecipient,
       slot,
@@ -485,7 +485,7 @@ export class Sequencer {
    * @param proposerAddress - The address of the proposer
    */
   @trackSpan('Sequencer.buildBlockAndEnqueuePublish', (_validTxs, _proposalHeader, newGlobalVariables) => ({
-    [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: newGlobalVariables.blockNumber,
   }))
   private async buildBlockAndEnqueuePublish(
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
@@ -495,7 +495,7 @@ export class Sequencer {
   ): Promise<void> {
     await this.publisher.validateBlockForSubmission(proposalHeader);
 
-    const blockNumber = newGlobalVariables.blockNumber.toNumber();
+    const blockNumber = newGlobalVariables.blockNumber;
     const slot = proposalHeader.slotNumber.toBigInt();
 
     // this.metrics.recordNewBlock(blockNumber, validTxs.length);
