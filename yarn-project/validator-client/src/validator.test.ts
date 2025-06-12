@@ -179,7 +179,7 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
       blockSource.getBlock.mockResolvedValue({
-        archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber.toNumber()),
+        archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
       } as L2Block);
     });
 
@@ -203,7 +203,7 @@ describe('ValidatorClient', () => {
           usedTxs: [],
           block: {
             body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
-            archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber.toNumber()),
+            archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
           } as L2Block,
         }),
       );
@@ -227,7 +227,7 @@ describe('ValidatorClient', () => {
           usedTxs: [],
           block: {
             body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
-            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber.toNumber()),
+            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber),
           } as L2Block,
         }),
       );
@@ -280,7 +280,7 @@ describe('ValidatorClient', () => {
           usedTxs: [],
           block: {
             body: { txEffects: times(proposal.payload.txHashes.length, () => ({})) },
-            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber.toNumber()),
+            archive: new AppendOnlyTreeSnapshot(Fr.random(), proposal.blockNumber),
           } as L2Block,
         }),
       );

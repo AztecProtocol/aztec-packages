@@ -222,7 +222,7 @@ struct AvmAccumulatedData {
 struct GlobalVariables {
     FF chainId;
     FF version;
-    FF blockNumber;
+    uint32_t blockNumber;
     FF slotNumber;
     uint64_t timestamp;
     EthAddress coinbase;

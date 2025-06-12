@@ -89,7 +89,7 @@ export class BlockProvingState {
   }
 
   public get blockNumber() {
-    return this.globalVariables.blockNumber.toNumber();
+    return this.globalVariables.blockNumber;
   }
 
   public startNewBlock(numTxs: number, numBlobFields: number) {

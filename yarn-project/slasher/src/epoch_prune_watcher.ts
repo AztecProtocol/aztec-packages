@@ -105,7 +105,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     if (blocks.length === 0) {
       return;
     }
-    const fork = await this.blockBuilder.getFork(blocks[0].header.globalVariables.blockNumber.toNumber() - 1);
+    const fork = await this.blockBuilder.getFork(blocks[0].header.globalVariables.blockNumber - 1);
     try {
       for (const block of blocks) {
         await this.validateBlock(block, fork);
