@@ -42,6 +42,7 @@ class TxExecution final {
     void insert_revertibles(const Tx& tx);
     void emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                   TransactionPhase phase,
+                                  FF transaction_fee,
                                   const ExecutionResult& result,
                                   TreeStates&& prev_tree_state,
                                   Gas prev_gas,

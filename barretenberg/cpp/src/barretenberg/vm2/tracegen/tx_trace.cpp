@@ -151,6 +151,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
         { Column::tx_is_teardown_phase, phase == TransactionPhase::TEARDOWN ? 1 : 0 },
         { Column::tx_msg_sender, event.msg_sender },
         { Column::tx_contract_addr, event.contract_address },
+        { Column::tx_fee, event.transaction_fee },
         { Column::tx_is_static, event.is_static },
         { Column::tx_calldata_hash, event.calldata_hash },
         { Column::tx_reverted, event.success },
