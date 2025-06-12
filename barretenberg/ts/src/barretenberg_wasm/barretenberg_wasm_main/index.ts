@@ -65,6 +65,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
   private getDefaultMaximum(): number {
     // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
     if (typeof window !== 'undefined' && /iPhone/.test(navigator.userAgent)) {
       return 2 ** 14;
     }
