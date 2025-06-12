@@ -86,6 +86,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2458;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
@@ -192,10 +193,13 @@ struct AvmFlavorVariables {
 =======
 =======
 >>>>>>> ce6d94dc7c (Addressing review comments)
+=======
+>>>>>>> 5bf23ab01c (Regenerate after rebase)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 96;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1965;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 217;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1977;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 219;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
 <<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2276;
 >>>>>>> 37d9234501 (Guard most of permutation constraints by no error selector)
@@ -210,7 +214,13 @@ struct AvmFlavorVariables {
     static constexpr size_t NUM_ALL_ENTITIES = 2278;
 >>>>>>> ce6d94dc7c (Addressing review comments)
 >>>>>>> 4a8a17fc2c (Addressing review comments)
+<<<<<<< HEAD
 >>>>>>> d8e082bbb0 (Addressing review comments)
+=======
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2292;
+>>>>>>> 5bf23ab01c (Regenerate after rebase)
+>>>>>>> b8df497967 (Regenerate after rebase)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
