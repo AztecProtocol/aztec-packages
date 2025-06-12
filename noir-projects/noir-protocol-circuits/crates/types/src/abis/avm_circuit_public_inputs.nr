@@ -377,7 +377,7 @@ impl AvmCircuitPublicInputs {
             self.global_variables.chain_id;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = self.global_variables.version;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] =
-            self.global_variables.block_number;
+            self.global_variables.block_number as Field;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] =
             self.global_variables.slot_number;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] =

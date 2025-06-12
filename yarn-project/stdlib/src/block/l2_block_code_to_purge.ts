@@ -77,7 +77,7 @@ export function makeGlobalVariables(
   return new GlobalVariables(
     new Fr(seed),
     new Fr(seed + 1),
-    new Fr(blockNumber ?? seed + 2),
+    blockNumber ?? seed + 2,
     new Fr(slotNumber ?? seed + 3),
     BigInt(seed + 4),
     EthAddress.fromField(new Fr(seed + 5)),

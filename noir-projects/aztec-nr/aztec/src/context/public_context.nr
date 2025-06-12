@@ -182,10 +182,10 @@ impl PublicContext {
             version()
         }
     }
-    pub fn block_number(_self: Self) -> Field {
+    pub fn block_number(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            block_number()
+            block_number() as u32
         }
     }
     pub fn timestamp(_self: Self) -> u64 {

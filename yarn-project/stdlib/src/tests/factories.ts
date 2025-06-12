@@ -307,7 +307,7 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
+  return new RollupValidationRequests(new MaxBlockNumber(true, seed + 0x31415));
 }
 
 function makeTxConstantData(seed = 1) {
@@ -566,7 +566,7 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
+    maxBlockNumber: new MaxBlockNumber(true, seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -598,7 +598,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: new Fr(seed + 2),
+    blockNumber: seed + 2,
     slotNumber: new Fr(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
@@ -911,7 +911,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+      ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
     fr(seed + 0x800),

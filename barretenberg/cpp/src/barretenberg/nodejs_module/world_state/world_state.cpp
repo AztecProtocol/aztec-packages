@@ -742,7 +742,7 @@ bool WorldStateWrapper::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<CreateForkRequest> request;
     obj.convert(request);
 
-    std::optional<index_t> blockNumber =
+    std::optional<block_number_t> blockNumber =
         request.value.latest ? std::nullopt : std::optional<index_t>(request.value.blockNumber);
 
     uint64_t forkId = _ws->create_fork(blockNumber);

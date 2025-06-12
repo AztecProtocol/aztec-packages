@@ -69,7 +69,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .returns(ContractInstanceWithAddressSchema.optional()),
   getContractClassIds: z.function().args().returns(z.array(schemas.Fr)),
   registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
-  getL1ToL2Messages: z.function().args(schemas.BigInt).returns(z.array(schemas.Fr)),
+  getL1ToL2Messages: z.function().args(schemas.Integer).returns(z.array(schemas.Fr)),
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),

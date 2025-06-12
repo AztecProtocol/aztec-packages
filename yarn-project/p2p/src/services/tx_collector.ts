@@ -101,7 +101,7 @@ export class TxCollector implements ITxCollector {
     this.instrumentation.incTxsFromP2P(txsFromP2P);
 
     this.log.info(`Retrieved ${txs.length}/${txHashes.length} txs for block proposal`, {
-      blockNumber: proposal.blockNumber.toNumber(),
+      blockNumber: proposal.blockNumber,
       slotNumber: proposal.slotNumber.toNumber(),
       totalTxsInProposal: txHashes.length,
       txsFromProposal: txTakenFromProposal,

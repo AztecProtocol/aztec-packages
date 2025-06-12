@@ -195,12 +195,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 self.public_inputs.validation_requests.max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number
-                         as u32,
-                    )),
-                );
-            }
+                    private_call.public_inputs.historical_header.global_variables.block_number,
+                )),
+            );
         }
+    }
 
     fn propagate_note_hash_read_requests(
         &mut self,

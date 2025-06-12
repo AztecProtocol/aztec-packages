@@ -110,7 +110,7 @@ export interface ArchiverDataStore {
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -260,7 +260,7 @@ export interface ArchiverDataStore {
   close(): Promise<void>;
 
   /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void>;
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void>;
 
   /** Returns an async iterator to all L1 to L2 messages on the range. */
   iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;
