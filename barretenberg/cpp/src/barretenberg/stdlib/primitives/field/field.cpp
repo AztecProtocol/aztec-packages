@@ -61,6 +61,7 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
     result.witness_index = witness_index;
     return result;
 }
+
 /**
  * @brief Convert a field_t element to a boolean and enforce bool constraints.
  *
@@ -773,16 +774,25 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
     return additive_constant;
 }
 
+/**
+ * @brief Compute a `bool_t` equal to (a == b)
+ */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
     return ((*this) - other).is_zero();
 }
 
+/**
+ * @brief Compute a `bool_t` equal to (a != b)
+ */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator!=(const field_t& other) const
 {
     return !operator==(other);
 }
 
+/**
+ * @brief If predicate's value == true, negate the value, else propagte it unchanged.
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
