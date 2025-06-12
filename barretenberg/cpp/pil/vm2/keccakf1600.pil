@@ -1344,6 +1344,15 @@ error = 1 - (1 - src_out_of_range_error) * (1 - dst_out_of_range_error) * (1 - t
 #[DST_ADDR_PROPAGATION]
 (1 - last) * (dst_addr' - dst_addr) = 0;
 
+// It is crucial to propagate sel_no_error to the bottom (last == 1) as to properly
+// activate the slice write lookup (see below).
+#[SEL_NO_ERROR_PROPAGATION]
+(1 - last) * (sel_no_error' - sel_no_error) = 0;
+
+// Note that we do not propagate src_out_of_range_error, dst_out_of_range_error, tag_error, error
+// as they are not affecting constraints in the other row. Error propagation to the caller
+// is performed through a lookup with destination selector `start`.
+
 // We disable slice read and write whenever the read or write slice is out of range.
 // This means that state_in_ij's on start row are completely unconstrained. This does not
 // matter as we return an error anyway. In this case, witness generation will fill these
@@ -1355,14 +1364,13 @@ sel_slice_read = start * (1 - src_out_of_range_error) * (1 - dst_out_of_range_er
 #[SEL_SLICE_WRITE]
 sel_slice_write = sel_no_error * last;
 
-// rw boolean is set to last as we have the guarantee that start == 1 ==> last == 0.
 #[READ_TO_SLICE]
 sel_slice_read {state_in_00, state_in_01, state_in_02, state_in_03, state_in_04,
        state_in_10, state_in_11, state_in_12, state_in_13, state_in_14,
        state_in_20, state_in_21, state_in_22, state_in_23, state_in_24,
        state_in_30, state_in_31, state_in_32, state_in_33, state_in_34,
        state_in_40, state_in_41, state_in_42, state_in_43, state_in_44,
-       last, src_addr, tag_error}
+       precomputed.zero, src_addr, tag_error}
 is
 keccak_memory.start {keccak_memory.val00, keccak_memory.val01, keccak_memory.val02, keccak_memory.val03, keccak_memory.val04,
                      keccak_memory.val10, keccak_memory.val11, keccak_memory.val12, keccak_memory.val13, keccak_memory.val14,

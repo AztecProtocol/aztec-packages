@@ -68,6 +68,7 @@ struct AvmFlavorVariables {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
     static constexpr size_t NUM_WITNESS_ENTITIES = 2395;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 163;
@@ -136,13 +137,19 @@ struct AvmFlavorVariables {
 >>>>>>> 0b09ab172c (Add error handling for keccak gadget)
 =======
 =======
+=======
+>>>>>>> ce6d94dc7c (Addressing review comments)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 96;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1964;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 216;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1965;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 217;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+<<<<<<< HEAD
     static constexpr size_t NUM_ALL_ENTITIES = 2276;
 >>>>>>> 37d9234501 (Guard most of permutation constraints by no error selector)
 >>>>>>> 9ddf90fb00 (Guard most of permutation constraints by no error selector)
+=======
+    static constexpr size_t NUM_ALL_ENTITIES = 2278;
+>>>>>>> ce6d94dc7c (Addressing review comments)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
