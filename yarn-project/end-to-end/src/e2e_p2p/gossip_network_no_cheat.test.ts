@@ -59,10 +59,8 @@ describe('e2e_p2p_network', () => {
       mockZkPassportVerifier: true,
     });
 
-    await t.setupAccount();
     await t.addBootstrapNode();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -200,7 +198,12 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
