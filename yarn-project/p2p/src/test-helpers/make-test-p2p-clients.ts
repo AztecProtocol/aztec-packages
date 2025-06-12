@@ -17,7 +17,7 @@ import { getPorts } from './get-ports.js';
 import { makeEnrs } from './make-enrs.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from './reqresp-nodes.js';
 
-interface MakeTestP2PClientOptions {
+export interface MakeTestP2PClientOptions {
   mockAttestationPool: AttestationPool;
   mockTxPool: TxPool;
   mockEpochCache: EpochCache;
@@ -143,6 +143,12 @@ export async function makeAndStartTestP2PClients(numberOfPeers: number, testConf
   }
 
   await Promise.all(clients.map(client => client.isReady()));
+  testConfig.logger?.info(`Created and started ${clients.length} P2P clients at ports ${ports.join(',')}`, {
+    ports,
+    peerEnrs,
+    peerIdPrivateKeys,
+  });
+
   return clients.map((client, index) => {
     return {
       client,

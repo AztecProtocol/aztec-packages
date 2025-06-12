@@ -1,5 +1,6 @@
 import {
   ARCHIVE_HEIGHT,
+  INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -50,6 +51,7 @@ import {
 import { ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -297,11 +299,12 @@ export interface AztecNode
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - How many logs to return per tag. Default 10 logs are returned for each tag
    * @returns For each received tag, an array of matching logs and metadata (e.g. tx hash) is returned. An empty
    * array implies no logs match that tag. There can be multiple logs for 1 tag because tag reuse can happen
    * --> e.g. when sending a note from multiple unsynched devices.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
@@ -331,7 +334,7 @@ export interface AztecNode
    * Method to retrieve pending txs.
    * @returns The pending txs.
    */
-  getPendingTxs(): Promise<Tx[]>;
+  getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]>;
 
   /**
    * Retrieves the number of pending txs
@@ -410,6 +413,8 @@ export interface AztecNode
   getEncodedEnr(): Promise<string | undefined>;
 }
 
+export const MAX_LOGS_PER_TAG = 10;
+
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
 
@@ -417,7 +422,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   findLeavesIndexes: z
     .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
+    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr).max(MAX_RPC_LEN))
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
@@ -474,9 +479,15 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getNodeInfo: z.function().returns(NodeInfoSchema),
 
-  getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+  getBlocks: z
+    .function()
+    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
+    .returns(z.array(L2Block.schema)),
 
-  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2Block.schema)),
+  getPublishedBlocks: z
+    .function()
+    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
+    .returns(z.array(PublishedL2Block.schema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
@@ -492,7 +503,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
 
-  getPrivateLogs: z.function().args(z.number(), z.number()).returns(z.array(PrivateLog.schema)),
+  getPrivateLogs: z
+    .function()
+    .args(z.number().gte(INITIAL_L2_BLOCK_NUM), z.number().lte(MAX_RPC_LEN))
+    .returns(z.array(PrivateLog.schema)),
 
   getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
 
@@ -500,7 +514,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getLogsByTags: z
     .function()
-    .args(z.array(schemas.Fr))
+    .args(
+      z.array(schemas.Fr).max(MAX_RPC_LEN),
+      optional(z.number().gte(1).lte(MAX_LOGS_PER_TAG).default(MAX_LOGS_PER_TAG)),
+    )
     .returns(z.array(z.array(TxScopedL2Log.schema))),
 
   sendTx: z.function().args(Tx.schema).returns(z.void()),
@@ -509,13 +526,16 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
 
-  getPendingTxs: z.function().returns(z.array(Tx.schema)),
+  getPendingTxs: z
+    .function()
+    .args(optional(z.number().gte(1).lte(MAX_RPC_TXS_LEN).default(MAX_RPC_TXS_LEN)), optional(TxHash.schema))
+    .returns(z.array(Tx.schema)),
 
   getPendingTxCount: z.function().returns(z.number()),
 
   getTxByHash: z.function().args(TxHash.schema).returns(Tx.schema.optional()),
 
-  getTxsByHash: z.function().args(z.array(TxHash.schema)).returns(z.array(Tx.schema)),
+  getTxsByHash: z.function().args(z.array(TxHash.schema).max(MAX_RPC_TXS_LEN)).returns(z.array(Tx.schema)),
 
   getPublicStorageAt: z.function().args(L2BlockNumberSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 

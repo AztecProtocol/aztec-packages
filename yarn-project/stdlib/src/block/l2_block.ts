@@ -143,7 +143,7 @@ export class L2Block {
     return {
       txCount: this.body.txEffects.length,
       blockNumber: this.number,
-      blockTimestamp: this.header.globalVariables.timestamp.toNumber(),
+      blockTimestamp: Number(this.header.globalVariables.timestamp),
       ...logsStats,
     };
   }

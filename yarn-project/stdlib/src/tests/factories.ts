@@ -600,7 +600,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     version: new Fr(seed + 1),
     blockNumber: new Fr(seed + 2),
     slotNumber: new Fr(seed + 3),
-    timestamp: new Fr(seed + 4),
+    timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),

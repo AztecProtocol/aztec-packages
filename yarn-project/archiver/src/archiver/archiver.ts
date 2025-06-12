@@ -1496,8 +1496,8 @@ export class ArchiverStoreHelper
   getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags);
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getLogsByTags(tags, logsPerTag);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);

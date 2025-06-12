@@ -333,13 +333,13 @@ export class Sequencer {
 
     const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
       slot,
-      newGlobalVariables.timestamp.toBigInt(),
+      newGlobalVariables.timestamp,
       VoteType.GOVERNANCE,
     );
 
     const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
       slot,
-      newGlobalVariables.timestamp.toBigInt(),
+      newGlobalVariables.timestamp,
       VoteType.SLASHING,
     );
 
@@ -354,7 +354,7 @@ export class Sequencer {
     // If I created a "partial" header here that should make our job much easier.
     const proposalHeader = ProposedBlockHeader.from({
       ...newGlobalVariables,
-      timestamp: newGlobalVariables.timestamp.toBigInt(),
+      timestamp: newGlobalVariables.timestamp,
       lastArchiveRoot: chainTipArchive,
       contentCommitment: ContentCommitment.empty(),
       totalManaUsed: Fr.ZERO,
