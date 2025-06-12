@@ -142,7 +142,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_id_manager,
                         execution_emitter,
                         context_stack_emitter);
-    TxExecution tx_execution(execution, context_provider, merkle_db, tx_event_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 

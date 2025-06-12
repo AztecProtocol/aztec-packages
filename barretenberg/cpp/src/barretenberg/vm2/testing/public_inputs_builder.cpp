@@ -283,6 +283,8 @@ PublicInputsBuilder& PublicInputsBuilder::rand_public_teardown_call_request()
         .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
     };
 
+    public_inputs.publicCallRequestArrayLengths.teardownCall = true;
+
     return *this;
 }
 
