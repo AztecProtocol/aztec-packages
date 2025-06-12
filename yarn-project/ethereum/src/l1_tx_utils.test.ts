@@ -686,7 +686,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
     expect(l1TxUtils.getGasPrice).toBeDefined();
     expect(l1TxUtils.estimateGas).toBeDefined();
     expect(l1TxUtils.getTransactionStats).toBeDefined();
-    expect(l1TxUtils.simulateGasUsed).toBeDefined();
+    expect(l1TxUtils.simulate).toBeDefined();
     expect(l1TxUtils.bumpGasLimit).toBeDefined();
   });
 
