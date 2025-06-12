@@ -114,5 +114,38 @@ TEST_F(ExecutionSimulationTest, Call)
                    /*cd_size=*/4);
 }
 
+TEST_F(ExecutionSimulationTest, GetEnvVarAddress)
+{
+    AztecAddress addr = 0xdeadbeef;
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(addr));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(addr)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ADDRESS));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarChainId)
+{
+    GlobalVariables globals;
+    globals.chainId = 1;
+    EXPECT_CALL(context, get_globals).WillOnce(ReturnRef(globals));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::CHAINID));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarIsStaticCall)
+{
+    EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, set(1, MemoryValue::from<FF>(1)));
+    execution.get_env_var(context, 1, static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL));
+}
+
+TEST_F(ExecutionSimulationTest, GetEnvVarInvalidEnum)
+{
+    EXPECT_CALL(context, get_memory);
+    EXPECT_THROW(execution.get_env_var(context, 1, 255), std::runtime_error);
+}
+
 } // namespace
 } // namespace bb::avm2::simulation

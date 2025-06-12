@@ -134,7 +134,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
-    ContextProvider context_provider(bytecode_manager, memory_provider);
+    ContextProvider context_provider(bytecode_manager, memory_provider, hints.tx.globalVariables);
     Execution execution(alu,
                         execution_components,
                         context_provider,

@@ -19,6 +19,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_nested_context(AztecAddr
                                            msg_sender,
                                            is_static,
                                            gas_limit,
+                                           parent_context.get_globals(),
                                            std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
                                            memory_provider.make_memory(context_id),
                                            parent_context,
@@ -41,6 +42,7 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
                                                  is_static,
                                                  gas_limit,
                                                  gas_used,
+                                                 global_variables,
                                                  std::make_unique<BytecodeManager>(address, tx_bytecode_manager),
                                                  memory_provider.make_memory(context_id),
                                                  calldata);

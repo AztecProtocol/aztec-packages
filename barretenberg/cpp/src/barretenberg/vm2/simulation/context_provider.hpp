@@ -36,9 +36,12 @@ class ContextProviderInterface {
 
 class ContextProvider : public ContextProviderInterface {
   public:
-    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, MemoryProviderInterface& memory_provider)
+    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
+                    MemoryProviderInterface& memory_provider,
+                    const GlobalVariables& global_variables)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
+        , global_variables(global_variables)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
@@ -60,6 +63,7 @@ class ContextProvider : public ContextProviderInterface {
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
     MemoryProviderInterface& memory_provider;
+    const GlobalVariables& global_variables;
 };
 
 } // namespace bb::avm2::simulation

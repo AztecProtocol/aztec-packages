@@ -26,6 +26,25 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * Enum for environment variables, representing the various environment values
+ * that can be accessed by the AVM GETENVVAR opcode.
+ */
+enum class EnvironmentVariable {
+    ADDRESS,
+    SENDER,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
+};
+
 struct ExecutionResult {
     MemoryAddress rd_offset;
     MemoryAddress rd_size;
@@ -79,6 +98,7 @@ class Execution : public ExecutionInterface {
                        MemoryAddress copy_size_offset,
                        MemoryAddress cd_start_offset,
                        MemoryAddress dst_offset);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
 
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();
