@@ -249,6 +249,7 @@ contract GSECore is IGSECore, Ownable {
     require(isAttester, Errors.Staking__NothingToExit(_attester));
 
     uint256 balance = delegation.getBalanceOf(instanceAddress, _attester);
+    require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
     bool isRemoved = balance - _amount < MINIMUM_STAKE;
