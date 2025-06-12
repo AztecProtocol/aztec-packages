@@ -64,6 +64,10 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getBlockNumber'));
   }
 
+  getTimestamp(): Promise<number> {
+    return Promise.reject(new OracleMethodNotAvailableError('getTimestamp'));
+  }
+
   getContractAddress(): Promise<AztecAddress> {
     return Promise.reject(new OracleMethodNotAvailableError('getContractAddress'));
   }

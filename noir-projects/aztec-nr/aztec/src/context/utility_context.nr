@@ -1,11 +1,12 @@
 use crate::oracle::{
-    execution::{get_block_number, get_chain_id, get_contract_address, get_version},
+    execution::{get_block_number, get_chain_id, get_contract_address, get_timestamp, get_version},
     storage::storage_read,
 };
 use dep::protocol_types::{address::AztecAddress, traits::Packable};
 
 pub struct UtilityContext {
     block_number: u32,
+    timestamp: u64,
     contract_address: AztecAddress,
     version: Field,
     chain_id: Field,
@@ -18,23 +19,26 @@ impl UtilityContext {
         // incorrectly attempts to create a UtilityContext in an environment in which these oracles are not
         // available.
         let block_number = get_block_number();
+        let timestamp = get_timestamp();
         let contract_address = get_contract_address();
-        let chain_id = get_chain_id();
         let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        let chain_id = get_chain_id();
+        Self { block_number, timestamp, contract_address, version, chain_id }
     }
 
     pub unconstrained fn at(contract_address: AztecAddress) -> Self {
         let block_number = get_block_number();
+        let timestamp = get_timestamp();
         let chain_id = get_chain_id();
         let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        Self { block_number, timestamp, contract_address, version, chain_id }
     }
 
     pub unconstrained fn at_historical(contract_address: AztecAddress, block_number: u32) -> Self {
+        let timestamp = get_timestamp();
         let chain_id = get_chain_id();
         let version = get_version();
-        Self { block_number, contract_address, version, chain_id }
+        Self { block_number, timestamp, contract_address, version, chain_id }
     }
 
     pub fn block_number(self) -> u32 {
