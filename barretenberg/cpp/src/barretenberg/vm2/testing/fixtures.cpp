@@ -172,7 +172,7 @@ ContractInstance random_contract_instance()
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/common/minimal_tx.testdata.bin");
+    auto data = read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
     AvmProvingInputs inputs = AvmProvingInputs::from(data);
 
     AvmSimulationHelper simulation_helper(inputs.hints);

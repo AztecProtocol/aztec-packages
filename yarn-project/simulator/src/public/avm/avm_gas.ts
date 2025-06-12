@@ -148,7 +148,9 @@ export function getBaseGasCost(opcode: Opcode): Gas {
 
 export function computeAddressingCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
   return makeCost(
-    indirectOperandsCount * c.AVM_ADDRESSING_INDIRECT_L2_GAS + relativeOperandsCount * c.AVM_ADDRESSING_RELATIVE_L2_GAS,
+    c.AVM_ADDRESSING_BASE_L2_GAS +
+      indirectOperandsCount * c.AVM_ADDRESSING_INDIRECT_L2_GAS +
+      relativeOperandsCount * c.AVM_ADDRESSING_RELATIVE_L2_GAS,
     0,
   );
 }
