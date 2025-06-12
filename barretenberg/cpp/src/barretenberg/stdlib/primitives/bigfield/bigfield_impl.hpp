@@ -1631,12 +1631,12 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     auto lhs = get_value() % modulus_u512;
     auto rhs = other.get_value() % modulus_u512;
     bool is_equal_raw = (lhs == rhs);
-    if (!ctx) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/660): null context _should_ mean that both are
-        // constant, but we check with an assertion to be sure.
-        ASSERT(is_constant() && other.is_constant());
+    if (is_constant() && other.is_constant()) {
         return is_equal_raw;
     }
+
+    // The context should not be null at this point.
+    ASSERT(ctx != NULL);
     bool_t<Builder> is_equal = witness_t<Builder>(ctx, is_equal_raw);
 
     // We need to manually propagate the origin tag
