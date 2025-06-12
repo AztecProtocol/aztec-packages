@@ -38,7 +38,7 @@ class Goblin {
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
+    CommitmentKey<curve::BN254> commitment_key;
 
     GoblinProof goblin_proof;
 
@@ -54,7 +54,7 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr,
+    Goblin(CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**

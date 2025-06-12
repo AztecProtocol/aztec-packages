@@ -59,7 +59,7 @@ template <class Curve> class CommitmentKey {
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
-    CommitmentKey() = delete;
+    CommitmentKey() = default;
 
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS

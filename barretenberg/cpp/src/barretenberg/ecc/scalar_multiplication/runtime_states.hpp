@@ -155,6 +155,8 @@ template <typename Curve> class PippengerReference {
     }
 
   public:
+    PippengerReference() = default;
+
     PippengerReference(size_t num_initial_points)
         : reference(get_singleton(num_initial_points))
     {}

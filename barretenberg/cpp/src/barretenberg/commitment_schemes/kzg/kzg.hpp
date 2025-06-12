@@ -37,7 +37,7 @@ template <typename Curve_> class KZG {
      * @param prover_transcript Prover transcript
      */
     template <typename Transcript>
-    static void compute_opening_proof(std::shared_ptr<CK> ck,
+    static void compute_opening_proof(CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<Transcript>& prover_trancript)
     {
@@ -46,7 +46,7 @@ template <typename Curve_> class KZG {
         quotient.at(0) = quotient[0] - pair.evaluation;
         // Computes the coefficients for the quotient polynomial q(X) = (p(X) - v) / (X - r) through an FFT
         quotient.factor_roots(pair.challenge);
-        auto quotient_commitment = ck->commit(quotient);
+        auto quotient_commitment = ck.commit(quotient);
         // TODO(#479): for now we compute the KZG commitment directly to unify the KZG and IPA interfaces but in the
         // future we might need to adjust this to use the incoming alternative to work queue (i.e. variation of
         // pthreads) or even the work queue itself

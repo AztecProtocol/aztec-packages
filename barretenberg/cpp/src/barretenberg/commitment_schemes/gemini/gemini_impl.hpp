@@ -51,7 +51,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr circuit_size,
     PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
-    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+    CommitmentKey<Curve>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
@@ -63,7 +63,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (has_zk) {
         Polynomial random_polynomial = Polynomial::random(n);
-        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
+        transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key.commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is `virtual_log_n`, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
         transcript->send_to_verifier("Gemini:masking_poly_eval",
@@ -86,7 +86,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
         if (l < log_n - 1) {
-            transcript->send_to_verifier(label, commitment_key->commit(fold_polynomials[l]));
+            transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
         } else {
             transcript->send_to_verifier(label, Commitment::one());
         }

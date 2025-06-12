@@ -132,7 +132,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     size_t circuit_size;
     PublicComponentKey pairing_inputs_public_input_key;
     bb::EvaluationDomain<FF> evaluation_domain;
-    std::shared_ptr<CommitmentKey_> commitment_key;
+    CommitmentKey_ commitment_key;
     size_t num_public_inputs;
     size_t log_circuit_size;
 
@@ -148,7 +148,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     ProvingKey_() = default;
     ProvingKey_(const size_t dyadic_circuit_size,
                 const size_t num_public_inputs = 0,
-                std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
+                CommitmentKey_ commitment_key = CommitmentKey_())
         : circuit_size(dyadic_circuit_size)
         , evaluation_domain(bb::EvaluationDomain<FF>(dyadic_circuit_size, dyadic_circuit_size))
         , commitment_key(commitment_key)
