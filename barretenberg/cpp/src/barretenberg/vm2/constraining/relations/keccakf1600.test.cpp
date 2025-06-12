@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -42,6 +43,7 @@ using MemorySimulator = simulation::Memory;
 using KeccakSimulator = simulation::KeccakF1600;
 using BitwiseSimulator = simulation::Bitwise;
 using RangeCheckSimulator = simulation::RangeCheck;
+using ExecutionIdManagerSimulator = simulation::ExecutionIdManager;
 using simulation::EventEmitter;
 using tracegen::BitwiseTraceBuilder;
 using tracegen::KeccakF1600TraceBuilder;
@@ -212,7 +214,8 @@ void generate_trace(TestTraceContainer& trace,
     RangeCheckSimulator range_check_simulator(range_check_event_emitter);
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
     KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator, range_check_simulator);
-    MemorySimulator memory_simulator(/*space_id=*/0, range_check_simulator, memory_event_emitter);
+    ExecutionIdManagerSimulator execution_id_manager(1);
+    MemorySimulator memory_simulator(/*space_id=*/0, range_check_simulator, execution_id_manager, memory_event_emitter);
 
     StrictMock<MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory_simulator));
