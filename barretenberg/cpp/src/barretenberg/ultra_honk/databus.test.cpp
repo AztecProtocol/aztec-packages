@@ -124,7 +124,7 @@ TYPED_TEST(DataBusTests, CallDataRead)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
     this->construct_circuit_with_calldata_reads(builder);
-
+    EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
