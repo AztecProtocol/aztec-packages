@@ -12,7 +12,7 @@
 using namespace bb;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = numeric::get_randomness();
 } // namespace
 
 template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
@@ -32,7 +32,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         size_t num_threads = get_num_cpus();
         std::vector<Element> expected_accs(num_threads);
         size_t range_per_thread = (total_points + num_threads - 1) / num_threads;
-        // for (size_t thread_idx = 0; thread_idx < num_threads; ++thread_idx) {
         parallel_for(num_threads, [&](size_t thread_idx) {
             Element expected_thread_acc;
             expected_thread_acc.self_set_infinity();
@@ -46,7 +45,6 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 }
             }
             expected_accs[thread_idx] = expected_thread_acc;
-            // }
         });
 
         Element expected_acc = Element();
@@ -66,6 +64,9 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
                 scalars[i] = Curve::ScalarField::random_element(&engine);
             }
         });
+        for (size_t i = 0; i < num_points - 1; ++i) {
+            BB_ASSERT_EQ(generators[i].x == generators[i + 1].x, false);
+        }
     };
 };
 

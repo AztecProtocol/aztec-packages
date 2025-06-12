@@ -31,13 +31,13 @@ namespace bb::scalar_multiplication {
 template <typename Curve>
 typename Curve::Element small_mul(std::span<const typename Curve::ScalarField>& scalars,
                                   std::span<const typename Curve::AffineElement>& points,
+                                  std::span<const uint32_t> scalar_indices,
                                   size_t range) noexcept
 {
     typename Curve::Element r = Curve::Group::point_at_infinity;
     for (size_t i = 0; i < range; ++i) {
-        typename Curve::Element f = points[i];
-
-        r += f * scalars[i].to_montgomery_form();
+        typename Curve::Element f = points[scalar_indices[i]];
+        r += f * scalars[scalar_indices[i]].to_montgomery_form();
     }
     return r;
 }
@@ -779,10 +779,10 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
                     std::span<const uint32_t>{ &msm_scalar_indices[msm.batch_msm_index][msm.start_index], msm.size };
                 std::vector<uint64_t> point_schedule(msm.size);
                 MSMData msm_data(work_scalars, work_points, work_indices, std::span<uint64_t>(point_schedule));
-                AffineElement msm_result;
+                Element msm_result = Curve::Group::point_at_infinity;
                 constexpr size_t SINGLE_MUL_THRESHOLD = 16;
                 if (msm.size < SINGLE_MUL_THRESHOLD) {
-                    msm_result = small_mul<Curve>(work_scalars, work_points, msm.size);
+                    msm_result = small_mul<Curve>(work_scalars, work_points, msm_data.scalar_indices, msm.size);
                 } else {
                     // Our non-affine method implicitly handles cases where Weierstrass edge cases may occur
                     // Note: not as fast! use unsafe version if you know all input base points are linearly independent
