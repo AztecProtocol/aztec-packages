@@ -6,6 +6,7 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -207,7 +208,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        auto vk = std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+        honk_vk = precomputed_vk ? precomputed_vk : vk;
+        if (precomputed_vk) {
+            BB_ASSERT_EQ(*precomputed_vk, *vk, "Precomputed VK does not match computed VK.");
+        }
     }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
@@ -233,7 +238,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
+        auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+        FoldingProver folding_prover(
+            { fold_output.accumulator, proving_key }, { verifier_accumulator, vk }, trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
@@ -340,7 +347,7 @@ HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
     std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
-    // TODO: Avoid computing the hiding circuit verification key during proving. Precompute instead.
+    // WORKTODO: Avoid computing the hiding circuit verification key during proving. Precompute instead.
     auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);

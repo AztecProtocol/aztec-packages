@@ -11,12 +11,12 @@ namespace bb {
 
 using Flavor = MegaFlavor;
 
-void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<Flavor, 2>>&))
+void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor>&))
 {
     using Builder = typename Flavor::CircuitBuilder;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderPKs = DeciderProvingKeys_<Flavor, 2>;
-    using ProtogalaxyProver = ProtogalaxyProver_<DeciderPKs>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
 
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto log2_num_gates = static_cast<size_t>(state.range(0));
@@ -30,9 +30,13 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
     std::shared_ptr<DeciderProvingKey> key_1 = construct_key();
+    auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(key_1->proving_key);
+    auto vk_1 = std::make_shared<DeciderVerificationKey>(honk_vk_1);
     std::shared_ptr<DeciderProvingKey> key_2 = construct_key();
+    auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(key_2->proving_key);
+    auto vk_2 = std::make_shared<DeciderVerificationKey>(honk_vk_2);
 
-    ProtogalaxyProver folding_prover({ key_1, key_2 });
+    ProtogalaxyProver folding_prover({ key_1, key_2 }, { vk_1, vk_2 });
 
     // prepare the prover state
     folding_prover.accumulator = key_1;
@@ -47,7 +51,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
     }
 }
 
-void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<MegaFlavor, 2>>&))
+void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<MegaFlavor>&))
 {
     _bench_round(state, F);
 }

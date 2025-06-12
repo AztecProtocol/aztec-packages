@@ -29,7 +29,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
