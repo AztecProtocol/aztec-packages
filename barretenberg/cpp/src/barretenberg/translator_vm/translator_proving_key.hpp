@@ -94,18 +94,6 @@ class TranslatorProvingKey {
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
         // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
         compute_translator_range_constraint_ordered_polynomials();
-
-        // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
-        for (size_t i = 0; i < 4; i++) {
-            auto& ordered = proving_key->polynomials.get_ordered_range_constraints()[i];
-            auto& interleaved = proving_key->polynomials.get_interleaved()[i];
-            for (size_t j = dyadic_circuit_size_without_masking; j < dyadic_circuit_size; j++) {
-                ordered.at(j) = interleaved.at(j);
-            }
-        }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Add random values to the last ordered range
-        // constraint
     };
 
     /**
@@ -144,5 +132,7 @@ class TranslatorProvingKey {
     void compute_translator_range_constraint_ordered_polynomials();
 
     void compute_interleaved_polynomials();
+
+    void split_interleaved_random_coefficients_to_ordered();
 };
 } // namespace bb

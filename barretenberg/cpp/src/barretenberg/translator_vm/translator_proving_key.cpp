@@ -160,6 +160,72 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
 
     // Copy the values into the actual polynomial
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
+
+    // Transfer randomness from interleaved to ordered polynomials such that the commitments and evaluations of all
+    // ordered polynomials and their shifts are hidden
+    split_interleaved_random_coefficients_to_ordered();
+}
+
+/**
+ * @brief Distribute the randomness from the 4 interleaved polynomials to the 5 ordered range constraints such that
+ * commitments and evaluations of ordered polynomials and their shifts are hidden.
+ *
+ * @details While we don't commit to the interleaved polynomials, ths PCS round connecting the opening of these to the
+ * commitments of group polynomials, we have to commit to the ordered polynomials. Since the permutation relation
+ * enforces that the values of ordered_* and interleaved_* are the same, we  must use the same blinding as for hiding
+ * commitments and evaluations of the groups *_range_constraint_* wire polynomials. This methods hence splits the
+ * randomness from interleaved to ordered polynomials.
+ *
+ * As a result, the ordered_* polynomials withing the range pointed to by lagrange_masking will have some random values
+ * and some zeroes. This still maintains the correctness of the permutation relation as we "make up" for the zeroes from
+ * the precomputed extra_range_constraint_numerator.
+ */
+void TranslatorProvingKey::split_interleaved_random_coefficients_to_ordered()
+{
+    auto interleaved = proving_key->polynomials.get_interleaved();
+    auto ordered = proving_key->polynomials.get_ordered_range_constraints();
+    const size_t num_ordered_polynomials = ordered.size();
+
+    const size_t total_num_random_values =
+        NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::NUM_INTERLEAVED_WIRES * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t num_random_values_per_interleaved = NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t num_random_values_per_ordered = total_num_random_values / num_ordered_polynomials;
+    const size_t remaining_random_values = total_num_random_values % num_ordered_polynomials;
+
+    std::array<FF, NUM_DISABLED_ROWS_IN_SUMCHECK* Flavor::NUM_INTERLEAVED_WIRES* Flavor::INTERLEAVING_GROUP_SIZE>
+        random_values = {};
+
+    // Add the random values from all interleaved polynomials to an array
+    parallel_for(Flavor::NUM_INTERLEAVED_WIRES, [&](size_t i) {
+        size_t idx = i * num_random_values_per_interleaved;
+        auto current_interleaved = interleaved[i];
+        for (size_t j = dyadic_circuit_size_without_masking; j < current_interleaved.end_index(); j++) {
+            random_values[idx] = current_interleaved.at(j);
+            idx++;
+        }
+    });
+
+    // Split them across the ordered polynomials
+    size_t end = dyadic_circuit_size_without_masking + num_random_values_per_ordered;
+    parallel_for(num_ordered_polynomials, [&](size_t i) {
+        size_t index_into_random = i * num_random_values_per_ordered;
+        auto& current_ordered = ordered[i];
+        for (size_t j = dyadic_circuit_size_without_masking; j < end; j++) {
+            current_ordered.at(j) = random_values[index_into_random];
+            index_into_random++;
+        }
+    });
+
+    // As the total number of random values might not a multiple of num_ordered_polynomials (and is definitely not the
+    // current translator configurations) the remaining values are distributed across the ordered polynomials. The
+    // configurations ensure this still remain within boundaries of the polynomial size otherwise the assignment would
+    // fail.
+    size_t index_into_random = num_ordered_polynomials * num_random_values_per_ordered;
+    ASSERT(remaining_random_values < num_ordered_polynomials && end < ordered[0].end_index());
+    for (size_t i = 0; i < remaining_random_values; i++) {
+        ordered[i].at(end) = random_values[index_into_random];
+        index_into_random++;
+    }
 }
 
 /**
