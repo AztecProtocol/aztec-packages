@@ -214,6 +214,7 @@ RUN apt update && \
         htop \
         iproute2 \
         iputils-ping \
+        lcov \
         less \
         libfuse2 \
         lldb \
