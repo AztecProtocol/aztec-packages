@@ -102,6 +102,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecTargetCommitteeSize: numberOfNodes,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
@@ -114,6 +115,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionWindow:
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
+        aztecTargetCommitteeSize: numberOfNodes,
         initialValidators: [],
         zkPassportArgs: {
           mockZkPassportVerifier,

@@ -51,6 +51,7 @@ describe('Forwarder', () => {
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
+      aztecTargetCommitteeSize: 0,
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;

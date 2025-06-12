@@ -13,6 +13,9 @@
       "path": "../epoch-cache"
     },
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
     },
     {

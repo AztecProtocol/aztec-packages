@@ -56,7 +56,6 @@ describe('e2e_p2p_validators_sentinel', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
 

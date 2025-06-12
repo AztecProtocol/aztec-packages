@@ -304,8 +304,12 @@ export class SequencerPublisher {
     // so that the committee is recalculated correctly
     const ignoreSignatures = attestationData.attestations.length === 0;
     if (ignoreSignatures) {
-      const committee = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
-      attestationData.attestations = committee.committee.map(committeeMember =>
+      const { committee } = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
+      if (!committee) {
+        this.log.warn(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+        throw new Error(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+      }
+      attestationData.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
@@ -326,9 +330,9 @@ export class SequencerPublisher {
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
     const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee.map(EthAddress.fromString);
+    return committee?.map(EthAddress.fromString);
   }
 
   private async enqueueCastVoteHelper(
