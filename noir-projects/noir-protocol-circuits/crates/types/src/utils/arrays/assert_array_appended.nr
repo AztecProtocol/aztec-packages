@@ -181,13 +181,10 @@ where
         source.length,
         source.array.len(),
         |i| {
+            let dest_item = dest.array[num_prepended_items + i];
+            assert_eq(dest_item.inner(), source.array[i], "source item does not append to dest");
             assert_eq(
-                dest.array[num_prepended_items + i].inner(),
-                source.array[i],
-                "source item does not append to dest",
-            );
-            assert_eq(
-                dest.array[num_prepended_items].contract_address(),
+                dest_item.contract_address(),
                 contract_address,
                 "propagated contract address does not match",
             );
@@ -214,13 +211,10 @@ where
         source.length,
         source.array.len(),
         |i| {
+            let dest_item = dest.array[num_prepended_items + i];
+            assert_eq(dest_item.inner, source.array[i], "source item does not append to dest");
             assert_eq(
-                dest.array[num_prepended_items + i].inner,
-                source.array[i],
-                "source item does not append to dest",
-            );
-            assert_eq(
-                dest.array[num_prepended_items].contract_address,
+                dest_item.contract_address,
                 contract_address,
                 "propagated contract address does not match",
             );
