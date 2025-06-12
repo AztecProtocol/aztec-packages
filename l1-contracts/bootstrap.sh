@@ -417,6 +417,7 @@ function coverage {
     if [ "$fancy" = "fancy" ]; then
       mkdir -p coverage
       genhtml lcov.info --branch-coverage --output-dir coverage
+      python3 -m http.server --directory "coverage"
     fi
   else
     forge coverage --no-match-coverage "(test|script|mock|generated)"
