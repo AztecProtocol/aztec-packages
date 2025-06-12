@@ -7,7 +7,7 @@ const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
-const DOCS_JS_AVM_GAS_CONSTANTS_FILE = '../../../../docs/src/preprocess/InstructionSet/avm_gas_constants.js';
+const DOCS_JS_AVM_GAS_CONSTANTS_FILE = '../../../../docs/src/preprocess/InstructionSet/avmGasConstants.js';
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.

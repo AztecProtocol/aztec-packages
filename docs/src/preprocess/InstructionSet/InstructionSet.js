@@ -1,5 +1,5 @@
 const { instructionSize } = require("./InstructionSize");
-const gasConstants = require("./avm_gas_constants");
+const gasConstants = require("./avmGasConstants");
 
 // TODO: mode: offset
 const TOPICS_IN_TABLE = ["Name", "Summary", "Expression"];
