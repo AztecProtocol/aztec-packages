@@ -325,7 +325,7 @@ export class FeesTest {
           // We round up
           const mulDiv = (a: bigint, b: bigint, c: bigint) => (a * b) / c + ((a * b) % c > 0n ? 1n : 0n);
 
-          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp.toBigInt());
+          const { baseFee } = await rollup.getL1FeesAt(block!.header.globalVariables.timestamp);
           const proverCost =
             mulDiv(
               mulDiv(L1_GAS_PER_EPOCH_VERIFIED, baseFee, await rollup.getEpochDuration()),

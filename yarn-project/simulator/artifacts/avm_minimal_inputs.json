@@ -1,16 +1,16 @@
 {
   "hints": {
     "tx": {
-      "hash": "0x2bae1e2a0fb023c10c7d7e081e9220235679ca6ecf93dba3de4383893d1ff746",
+      "hash": "0x2d6eaa10877d8c0994df1311da2b6c5fc716d6bcfa7a5995a0e6f975b08ac653",
       "globalVariables": {
         "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "blockNumber": "0x000000000000000000000000000000000000000000000000000000000000002a",
+        "blockNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "timestamp": "0x00000000000000000000000000000000000000000000000000000000000185f9",
+        "timestamp": "0",
         "coinbase": "0x0000000000000000000000000000000000000000",
         "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
+        "gasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
       "gasSettings": {
         "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
@@ -18,7 +18,7 @@
         "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
-      "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
+      "effectiveGasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
@@ -35,8 +35,7 @@
         }
       ],
       "teardownEnqueuedCall": null,
-      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 },
-      "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a"
+      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 }
     },
     "contractInstances": [
       {
@@ -862,7 +861,7 @@
       "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "blockNumber": "0x000000000000000000000000000000000000000000000000000000000000002a",
       "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "timestamp": "0x00000000000000000000000000000000000000000000000000000000000185f9",
+      "timestamp": "99833",
       "coinbase": "0x0000000000000000000000000000000000000000",
       "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }

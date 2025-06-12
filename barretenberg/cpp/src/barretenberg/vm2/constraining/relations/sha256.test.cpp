@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
@@ -24,11 +25,13 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
 using simulation::EventEmitter;
 using simulation::MemoryStore;
+using simulation::MockExecutionIdManager;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
@@ -54,9 +57,11 @@ TEST(Sha256ConstrainingTest, Basic)
     MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -76,10 +81,10 @@ TEST(Sha256ConstrainingTest, Basic)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
     TestTraceContainer trace;
     trace.set(C::precomputed_first_row, 0, 1);
-    tracegen::Sha256TraceBuilder builder(trace);
+    tracegen::Sha256TraceBuilder builder;
 
     const auto sha256_event_container = sha256_event_emitter.dump_events();
-    builder.process(sha256_event_container);
+    builder.process(sha256_event_container, trace);
 
     check_relation<sha256>(trace);
 }
@@ -89,9 +94,11 @@ TEST(Sha256ConstrainingTest, Interaction)
     MemoryStore mem;
     StrictMock<simulation::MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(mem));
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    EXPECT_CALL(execution_id_manager, get_execution_id()).WillRepeatedly(Return(1));
 
     EventEmitter<Sha256CompressionEvent> sha256_event_emitter;
-    Sha256 sha256_gadget(sha256_event_emitter);
+    Sha256 sha256_gadget(execution_id_manager, sha256_event_emitter);
 
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
@@ -109,13 +116,13 @@ TEST(Sha256ConstrainingTest, Interaction)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
 
     TestTraceContainer trace;
-    tracegen::Sha256TraceBuilder builder(trace);
+    tracegen::Sha256TraceBuilder builder;
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     // Build just enough clk rows for the lookup
     precomputed_builder.process_misc(trace, 65);
     precomputed_builder.process_sha256_round_constants(trace);
 
-    builder.process(sha256_event_emitter.get_events());
+    builder.process(sha256_event_emitter.get_events(), trace);
     LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
 
     check_relation<sha256>(trace);

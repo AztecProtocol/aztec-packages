@@ -3,6 +3,7 @@
 
 // Relations
 #include "relations/address_derivation.hpp"
+#include "relations/addressing.hpp"
 #include "relations/alu.hpp"
 #include "relations/bc_decomposition.hpp"
 #include "relations/bc_hashing.hpp"
@@ -14,6 +15,7 @@
 #include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
+#include "relations/execution_discard.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
@@ -33,6 +35,7 @@
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
+#include "relations/lookups_addressing.hpp"
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
@@ -58,17 +61,18 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 87;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2297;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2383;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 161;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2545;
+    static constexpr size_t NUM_ALL_ENTITIES = 2638;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
     using MainRelations_ = std::tuple<
         // Relations
         avm2::address_derivation<FF_>,
+        avm2::addressing<FF_>,
         avm2::alu<FF_>,
         avm2::bc_decomposition<FF_>,
         avm2::bc_hashing<FF_>,
@@ -80,6 +84,7 @@ struct AvmFlavorVariables {
         avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
+        avm2::execution_discard<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
@@ -112,6 +117,21 @@ struct AvmFlavorVariables {
         lookup_address_derivation_public_keys_hash_poseidon2_4_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_0_relation<FF_>,
         lookup_address_derivation_salted_initialization_hash_poseidon2_1_relation<FF_>,
+        lookup_addressing_base_address_from_memory_relation<FF_>,
+        lookup_addressing_indirect_from_memory_0_relation<FF_>,
+        lookup_addressing_indirect_from_memory_1_relation<FF_>,
+        lookup_addressing_indirect_from_memory_2_relation<FF_>,
+        lookup_addressing_indirect_from_memory_3_relation<FF_>,
+        lookup_addressing_indirect_from_memory_4_relation<FF_>,
+        lookup_addressing_indirect_from_memory_5_relation<FF_>,
+        lookup_addressing_indirect_from_memory_6_relation<FF_>,
+        lookup_addressing_relative_overflow_range_0_relation<FF_>,
+        lookup_addressing_relative_overflow_range_1_relation<FF_>,
+        lookup_addressing_relative_overflow_range_2_relation<FF_>,
+        lookup_addressing_relative_overflow_range_3_relation<FF_>,
+        lookup_addressing_relative_overflow_range_4_relation<FF_>,
+        lookup_addressing_relative_overflow_range_5_relation<FF_>,
+        lookup_addressing_relative_overflow_range_6_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,

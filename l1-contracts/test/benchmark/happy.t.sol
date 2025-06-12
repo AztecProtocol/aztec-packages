@@ -167,7 +167,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getMinimumStake() * _validatorCount);
+    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
     multiAdder.addValidators(initialValidators);
 
     _;
@@ -218,12 +218,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     uint256 manaSpent = point.block_header.mana_spent;
 
     address proposer = rollup.getCurrentProposer();
+    address c = proposer != address(0) ? proposer : coinbase;
 
     // Updating the header with important information!
     header.lastArchiveRoot = archiveRoot;
     header.slotNumber = slotNumber;
     header.timestamp = ts;
-    header.coinbase = proposer;
+    header.coinbase = c;
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaBaseFee;
     header.totalManaUsed = manaSpent;

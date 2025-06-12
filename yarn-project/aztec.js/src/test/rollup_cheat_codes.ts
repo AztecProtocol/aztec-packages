@@ -67,8 +67,8 @@ export class RollupCheatCodes {
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
     const archive = await rollup.archive();
-    const epochNum = await rollup.getEpochNumber();
     const slot = await this.getSlot();
+    const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
     this.logger.info(`Pending block num: ${pendingNum}`);
     this.logger.info(`Proven block num: ${provenNum}`);

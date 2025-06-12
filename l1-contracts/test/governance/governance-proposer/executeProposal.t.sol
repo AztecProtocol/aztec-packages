@@ -69,7 +69,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
         / validatorSelection.getSlotDuration()
     );
     Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
