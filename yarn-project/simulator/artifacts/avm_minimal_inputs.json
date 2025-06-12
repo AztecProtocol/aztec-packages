@@ -35,7 +35,8 @@
         }
       ],
       "teardownEnqueuedCall": null,
-      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 }
+      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 },
+      "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a"
     },
     "contractInstances": [
       {
