@@ -49,3 +49,5 @@ validator:
             requests:
               storage: 128Gi
 
+  service:
+    headless: true

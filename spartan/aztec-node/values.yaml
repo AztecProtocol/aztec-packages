@@ -139,7 +139,7 @@ service:
     # - node.example.com
 
   headless:
-    enabled: true
+    enabled: false
 
   p2p:
     enabled: true
