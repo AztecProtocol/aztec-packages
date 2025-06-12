@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -639,25 +640,26 @@ export class PeerManager {
       ReqRespSubProtocol.STATUS,
       ourStatus.toBuffer(),
     );
+
+    const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
     if (status !== ReqRespStatus.SUCCESS) {
       //TODO: maybe hard ban these peers in the future.
       //We could allow this to happen up to N times, and then hard ban?
       //Hard ban: Disallow connection via e.g. libp2p's Gater
-      this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, { peerId });
+      this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
       await this.disconnectPeer(peerId);
+      return;
     }
 
     try {
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake`, { peerId });
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake`, logData);
         await this.disconnectPeer(peerId);
       }
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.warn(`Disconnecting peer ${peerId} who sent invalid status message: ${err.message ?? err}`, {
-        peerId,
-      });
+      this.logger.warn(`Disconnecting peer ${peerId} who sent invalid status message: ${err.message ?? err}`, logData);
       await this.disconnectPeer(peerId);
     }
   }
