@@ -333,7 +333,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const globalVariables = GlobalVariables.from({
       ...proposal.payload.header,
       blockNumber: proposal.blockNumber,
-      timestamp: new Fr(header.timestamp),
+      timestamp: header.timestamp,
       chainId: new Fr(config.l1ChainId),
       version: new Fr(config.rollupVersion),
     });

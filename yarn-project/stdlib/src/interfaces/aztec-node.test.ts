@@ -12,14 +12,15 @@ import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import omit from 'lodash.omit';
+import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { InBlock } from '../block/in_block.js';
-import { CommitteeAttestation } from '../block/index.js';
+import { CommitteeAttestation, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -51,6 +52,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { ValidatorsStats } from '../validators/types.js';
+import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -95,6 +97,10 @@ describe('AztecNodeApiSchema', () => {
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
     expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+
+    await expect(
+      context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
+    ).rejects.toThrow();
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -130,6 +136,16 @@ describe('AztecNodeApiSchema', () => {
   it('getPublicDataSiblingPath', async () => {
     const response = await context.client.getPublicDataSiblingPath(1, 1n);
     expect(response).toBeInstanceOf(SiblingPath);
+  });
+
+  it('getArchiveMembershipWitness', async () => {
+    const response = await context.client.getArchiveMembershipWitness(1, Fr.random());
+    expect(response).toBeInstanceOf(MembershipWitness);
+  });
+
+  it('getNoteHashMembershipWitness', async () => {
+    const response = await context.client.getNoteHashMembershipWitness(1, Fr.random());
+    expect(response).toBeInstanceOf(MembershipWitness);
   });
 
   it('getNullifierMembershipWitness', async () => {
@@ -189,6 +205,11 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0]).toBeInstanceOf(L2Block);
+
+    await expect(context.client.getBlocks(-1, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(0, 1)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, 0)).rejects.toThrow();
+    await expect(context.client.getBlocks(1, MAX_RPC_LEN + 1)).rejects.toThrow();
   });
 
   it('getPublishedBlocks', async () => {
@@ -225,7 +246,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getPrivateLogs', async () => {
@@ -450,15 +471,27 @@ class MockAztecNode implements AztecNode {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
+  getArchiveMembershipWitness(
+    blockNumber: L2BlockNumber,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    expect(archive).toBeInstanceOf(Fr);
+    return Promise.resolve(MembershipWitness.random(ARCHIVE_HEIGHT));
+  }
+  getNoteHashMembershipWitness(
+    blockNumber: L2BlockNumber,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    expect(noteHash).toBeInstanceOf(Fr);
+    return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
+  }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(true);
   }
-
   getL2ToL1Messages(_blockNumber: number | 'latest'): Promise<Fr[][] | undefined> {
     return Promise.resolve(Array.from({ length: 3 }, (_, i) => [new Fr(i)]));
   }
-
   getArchiveSiblingPath(
     blockNumber: number | 'latest',
     leafIndex: bigint,
@@ -561,7 +594,7 @@ class MockAztecNode implements AztecNode {
     );
     return Object.fromEntries(protocolContracts) as ProtocolContractAddresses;
   }
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
   getPrivateLogs(_from: number, _limit: number): Promise<PrivateLog[]> {

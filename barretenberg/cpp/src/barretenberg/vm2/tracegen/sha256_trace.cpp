@@ -299,6 +299,7 @@ void Sha256TraceBuilder::process(
             FF inv = FF(64 - i).invert();
             trace.set(row,
                       { {
+                          { C::sha256_clk, event.execution_clk },
                           { C::sha256_sel, 1 },
                           { C::sha256_xor_sel, 2 },
                           { C::sha256_perform_round, 1 },
@@ -343,6 +344,7 @@ void Sha256TraceBuilder::process(
         // Set the final row
         trace.set(row,
                   { {
+                      { C::sha256_clk, event.execution_clk },
                       { C::sha256_latch, 1 },
                       { C::sha256_sel, 1 },
                       { C::sha256_xor_sel, 2 },

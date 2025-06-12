@@ -1,3 +1,4 @@
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
@@ -599,7 +600,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     version: new Fr(seed + 1),
     blockNumber: new Fr(seed + 2),
     slotNumber: new Fr(seed + 3),
-    timestamp: new Fr(seed + 4),
+    timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),
@@ -782,7 +783,7 @@ function makeBlockRootRollupData(seed = 0) {
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     makeHeader(seed + 0x2400),
-    makeBatchedBlobAccumulator(seed + 0x2500).toBlobAccumulatorPublicInputs(),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 0x2500)),
     makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
     fr(seed + 0x2700),
   );
@@ -886,7 +887,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x702),
     fr(seed + 0x703),
     fr(seed + 0x704),
-    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulatorPublicInputs(),
+    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 
@@ -1482,6 +1483,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
     makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
     makeGas(seed + 0x8000), // gasUsedByPrivate
+    makeAztecAddress(seed + 0x9000), // feePayer
   );
 }
 

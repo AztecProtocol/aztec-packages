@@ -122,7 +122,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       c.txs.map(tx => {
         const node = nodes[proposerIndexes[i]];
         void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
-        return new SentTx(node, tx.getTxHash);
+        return new SentTx(node, () => tx.getTxHash());
       }),
     );
 

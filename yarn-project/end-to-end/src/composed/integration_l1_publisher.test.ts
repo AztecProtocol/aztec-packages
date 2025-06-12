@@ -304,8 +304,8 @@ describe('L1Publisher integration', () => {
             inHash: asHex(block.header.contentCommitment.inHash),
             outHash: asHex(block.header.contentCommitment.outHash),
           },
-          slotNumber: block.header.globalVariables.slotNumber.toNumber(),
-          timestamp: block.header.globalVariables.timestamp.toNumber(),
+          slotNumber: Number(block.header.globalVariables.slotNumber),
+          timestamp: Number(block.header.globalVariables.timestamp),
           coinbase: asHex(block.header.globalVariables.coinbase, 40),
           feeRecipient: asHex(block.header.globalVariables.feeRecipient),
           gasFees: {
@@ -386,7 +386,7 @@ describe('L1Publisher integration', () => {
           new Fr(version),
           new Fr(1 + i),
           new Fr(slot),
-          new Fr(timestamp),
+          timestamp,
           coinbase,
           feeRecipient,
           new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
@@ -406,7 +406,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = await Blob.getBlobs(block.body.toBlobFields());
+        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
@@ -540,7 +540,7 @@ describe('L1Publisher integration', () => {
         new Fr(version),
         new Fr(1),
         new Fr(slot),
-        new Fr(timestamp),
+        timestamp,
         coinbase,
         feeRecipient,
         new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),

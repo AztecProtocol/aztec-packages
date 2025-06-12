@@ -112,15 +112,18 @@ PublicInputsBuilder& PublicInputsBuilder::set_reverted(bool reverted)
     return *this;
 }
 
+// *******************************************
+// Randomised Builders
+// *******************************************
 PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
 {
-    public_inputs.globalVariables = { .chainId = FF::random_element(),
-                                      .version = FF::random_element(),
-                                      .blockNumber = FF::random_element(),
-                                      .slotNumber = FF::random_element(),
-                                      .timestamp = FF::random_element(),
-                                      .coinbase = EthAddress::random_element(),
-                                      .feeRecipient = AztecAddress::random_element(),
+    public_inputs.globalVariables = { .chainId = FF::random_element(&engine),
+                                      .version = FF::random_element(&engine),
+                                      .blockNumber = FF::random_element(&engine),
+                                      .slotNumber = FF::random_element(&engine),
+                                      .timestamp = static_cast<uint64_t>(std::rand()),
+                                      .coinbase = EthAddress::random_element(&engine),
+                                      .feeRecipient = AztecAddress::random_element(&engine),
                                       .gasFees = {
                                           .feePerDaGas = static_cast<uint128_t>(std::rand()),
                                           .feePerL2Gas = static_cast<uint128_t>(std::rand()),
@@ -131,12 +134,11 @@ PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
 PublicInputsBuilder& PublicInputsBuilder::rand_start_tree_snapshots()
 {
     public_inputs.startTreeSnapshots = {
-        .l1ToL2MessageTree = { .root = FF::random_element(),
-                               .nextAvailableLeafIndex = static_cast<uint64_t>(std::rand()) },
-        .noteHashTree = { .root = FF::random_element(), .nextAvailableLeafIndex = static_cast<uint64_t>(std::rand()) },
-        .nullifierTree = { .root = FF::random_element(), .nextAvailableLeafIndex = static_cast<uint64_t>(std::rand()) },
-        .publicDataTree = { .root = FF::random_element(),
-                            .nextAvailableLeafIndex = static_cast<uint64_t>(std::rand()) },
+        .l1ToL2MessageTree = { .root = FF::random_element(&engine),
+                               .nextAvailableLeafIndex = engine.get_random_uint64() },
+        .noteHashTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
+        .nullifierTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
+        .publicDataTree = { .root = FF::random_element(&engine), .nextAvailableLeafIndex = engine.get_random_uint64() },
     };
     return *this;
 }
@@ -144,8 +146,8 @@ PublicInputsBuilder& PublicInputsBuilder::rand_start_tree_snapshots()
 PublicInputsBuilder& PublicInputsBuilder::rand_start_gas_used()
 {
     public_inputs.startGasUsed = {
-        .l2Gas = static_cast<uint32_t>(std::rand()),
-        .daGas = static_cast<uint32_t>(std::rand()),
+        .l2Gas = engine.get_random_uint32(),
+        .daGas = engine.get_random_uint32(),
     };
     return *this;
 }
@@ -154,20 +156,20 @@ PublicInputsBuilder& PublicInputsBuilder::rand_gas_settings()
 {
     public_inputs.gasSettings = {
         .gasLimits = {
-            .l2Gas = static_cast<uint32_t>(std::rand()),
-            .daGas = static_cast<uint32_t>(std::rand()),
+            .l2Gas = engine.get_random_uint32(),
+            .daGas = engine.get_random_uint32(),
         },
         .teardownGasLimits = {
-            .l2Gas = static_cast<uint32_t>(std::rand()),
-            .daGas = static_cast<uint32_t>(std::rand()),
+            .l2Gas = engine.get_random_uint32(),
+            .daGas = engine.get_random_uint32(),
         },
         .maxFeesPerGas = {
-            .feePerDaGas = static_cast<uint128_t>(std::rand()),
-            .feePerL2Gas = static_cast<uint128_t>(std::rand()),
+            .feePerDaGas = engine.get_random_uint128(),
+            .feePerL2Gas = engine.get_random_uint128(),
         },
         .maxPriorityFeesPerGas = {
-            .feePerDaGas = static_cast<uint128_t>(std::rand()),
-            .feePerL2Gas = static_cast<uint128_t>(std::rand()),
+            .feePerDaGas = engine.get_random_uint128(),
+            .feePerL2Gas = engine.get_random_uint128(),
         },
     };
     return *this;
@@ -175,24 +177,27 @@ PublicInputsBuilder& PublicInputsBuilder::rand_gas_settings()
 
 PublicInputsBuilder& PublicInputsBuilder::rand_fee_payer()
 {
-    public_inputs.feePayer = AztecAddress::random_element();
+    public_inputs.feePayer = AztecAddress::random_element(&engine);
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_previous_non_revertible_accumulated_data(size_t n)
 {
-    auto rand_note_hashes = random_fields(n);
-    auto rand_nullifiers = random_fields(n);
-    auto rand_l2_to_l1_messages = random_l2_to_l1_messages(n);
-
     std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
     std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> messages{};
 
     for (size_t i = 0; i < n; ++i) {
-        note_hashes[i] = rand_note_hashes[i];
-        nullifiers[i] = rand_nullifiers[i];
-        messages[i] = rand_l2_to_l1_messages[i];
+        note_hashes[i] = FF::random_element(&engine);
+        nullifiers[i] = FF::random_element(&engine);
+        messages[i] = ScopedL2ToL1Message{
+            .message =
+                L2ToL1Message{
+                    .recipient = FF::random_element(&engine),
+                    .content = FF::random_element(&engine),
+                },
+            .contractAddress = FF::random_element(&engine),
+        };
     }
 
     public_inputs.previousNonRevertibleAccumulatedData = {
@@ -210,18 +215,21 @@ PublicInputsBuilder& PublicInputsBuilder::rand_previous_non_revertible_accumulat
 
 PublicInputsBuilder& PublicInputsBuilder::rand_previous_revertible_accumulated_data(size_t n)
 {
-    auto rand_note_hashes = random_fields(n);
-    auto rand_nullifiers = random_fields(n);
-    auto rand_l2_to_l1_messages = random_l2_to_l1_messages(n);
-
     std::array<FF, MAX_NOTE_HASHES_PER_TX> note_hashes{};
     std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> messages{};
 
     for (size_t i = 0; i < n; ++i) {
-        note_hashes[i] = rand_note_hashes[i];
-        nullifiers[i] = rand_nullifiers[i];
-        messages[i] = rand_l2_to_l1_messages[i];
+        note_hashes[i] = FF::random_element(&engine);
+        nullifiers[i] = FF::random_element(&engine);
+        messages[i] = ScopedL2ToL1Message{
+            .message =
+                L2ToL1Message{
+                    .recipient = FF::random_element(&engine),
+                    .content = FF::random_element(&engine),
+                },
+            .contractAddress = FF::random_element(&engine),
+        };
     }
 
     public_inputs.previousRevertibleAccumulatedData = {
@@ -241,10 +249,10 @@ PublicInputsBuilder& PublicInputsBuilder::rand_public_setup_call_requests(size_t
 {
     for (size_t i = 0; i < n; ++i) {
         public_inputs.publicSetupCallRequests[i] = PublicCallRequest{
-            .msgSender = AztecAddress::random_element(),
-            .contractAddress = AztecAddress::random_element(),
-            .isStaticCall = (std::rand() % 2) == 0,
-            .calldataHash = FF::random_element(), // Placeholder for actual calldata hash
+            .msgSender = AztecAddress::random_element(&engine),
+            .contractAddress = AztecAddress::random_element(&engine),
+            .isStaticCall = engine.get_random_uint8() % 2 == 0,
+            .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
         };
     }
     public_inputs.publicCallRequestArrayLengths.setupCalls += static_cast<uint32_t>(n);
@@ -255,25 +263,27 @@ PublicInputsBuilder& PublicInputsBuilder::rand_public_app_logic_call_requests(si
 {
     for (size_t i = 0; i < n; ++i) {
         public_inputs.publicAppLogicCallRequests[i] = PublicCallRequest{
-            .msgSender = AztecAddress::random_element(),
-            .contractAddress = AztecAddress::random_element(),
-            .isStaticCall = (std::rand() % 2) == 0,
-            .calldataHash = FF::random_element(), // Placeholder for actual calldata hash
+            .msgSender = AztecAddress::random_element(&engine),
+            .contractAddress = AztecAddress::random_element(&engine),
+            .isStaticCall = engine.get_random_uint8() % 2 == 0,
+            .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
         };
     }
 
-    public_inputs.publicCallRequestArrayLengths.appLogicCalls += n;
+    public_inputs.publicCallRequestArrayLengths.appLogicCalls += static_cast<uint32_t>(n);
     return *this;
 }
 
 PublicInputsBuilder& PublicInputsBuilder::rand_public_teardown_call_request()
 {
     public_inputs.publicTeardownCallRequest = PublicCallRequest{
-        .msgSender = AztecAddress::random_element(),
-        .contractAddress = AztecAddress::random_element(),
-        .isStaticCall = (std::rand() % 2) == 0,
-        .calldataHash = FF::random_element(), // Placeholder for actual calldata hash
+        .msgSender = AztecAddress::random_element(&engine),
+        .contractAddress = AztecAddress::random_element(&engine),
+        .isStaticCall = engine.get_random_uint8() % 2 == 0,
+        .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
     };
+
+    public_inputs.publicCallRequestArrayLengths.teardownCall = true;
 
     return *this;
 }

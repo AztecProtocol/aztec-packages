@@ -1141,8 +1141,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return this.store.getContractClassIds();
   }
 
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
 
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
@@ -1496,8 +1496,8 @@ export class ArchiverStoreHelper
   getPrivateLogs(from: number, limit: number): Promise<PrivateLog[]> {
     return this.store.getPrivateLogs(from, limit);
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.store.getLogsByTags(tags);
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.store.getLogsByTags(tags, logsPerTag);
   }
   getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     return this.store.getPublicLogs(filter);
@@ -1535,8 +1535,8 @@ export class ArchiverStoreHelper
   getContractClassIds(): Promise<Fr[]> {
     return this.store.getContractClassIds();
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.store.registerContractFunctionSignatures(address, signatures);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.store.registerContractFunctionSignatures(signatures);
   }
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return this.store.getDebugFunctionName(address, selector);

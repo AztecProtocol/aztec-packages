@@ -79,7 +79,7 @@ export function makeGlobalVariables(
     new Fr(seed + 1),
     new Fr(blockNumber ?? seed + 2),
     new Fr(slotNumber ?? seed + 3),
-    new Fr(seed + 4),
+    BigInt(seed + 4),
     EthAddress.fromField(new Fr(seed + 5)),
     AztecAddress.fromField(new Fr(seed + 6)),
     new GasFees(seed + 7, seed + 8),
