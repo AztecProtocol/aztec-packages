@@ -124,7 +124,7 @@ export class BlockHeader {
 
   static empty(fields: Partial<FieldsOf<BlockHeader>> = {}): BlockHeader {
     return BlockHeader.from({
-      lastArchive: AppendOnlyTreeSnapshot.zero(),
+      lastArchive: AppendOnlyTreeSnapshot.empty(),
       contentCommitment: ContentCommitment.empty(),
       state: StateReference.empty(),
       globalVariables: GlobalVariables.empty(),
@@ -136,7 +136,7 @@ export class BlockHeader {
 
   isEmpty(): boolean {
     return (
-      this.lastArchive.isZero() &&
+      this.lastArchive.isEmpty() &&
       this.contentCommitment.isEmpty() &&
       this.state.isEmpty() &&
       this.globalVariables.isEmpty() &&
@@ -166,7 +166,7 @@ export class BlockHeader {
       this.lastArchive.root,
       this.contentCommitment,
       this.globalVariables.slotNumber,
-      this.globalVariables.timestamp.toBigInt(),
+      this.globalVariables.timestamp,
       this.globalVariables.coinbase,
       this.globalVariables.feeRecipient,
       this.globalVariables.gasFees,
@@ -188,10 +188,9 @@ export class BlockHeader {
   [inspect.custom]() {
     return `Header {
   lastArchive: ${inspect(this.lastArchive)},
-  contentCommitment.numTxs: ${this.contentCommitment.numTxs.toNumber()},
-  contentCommitment.blobsHash: ${this.contentCommitment.blobsHash.toString('hex')},
-  contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
-  contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
+  contentCommitment.blobsHash: ${inspect(this.contentCommitment.blobsHash)},
+  contentCommitment.inHash: ${inspect(this.contentCommitment.inHash)},
+  contentCommitment.outHash: ${inspect(this.contentCommitment.outHash)},
   state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},
   state.noteHashTree: ${inspect(this.state.partial.noteHashTree)},
   state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},

@@ -2,6 +2,7 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 source $ci3/source_redis
+source $ci3/source_color
 
 status=${1:-RUNNING}
 key=${2:-}
@@ -29,6 +30,8 @@ if [ -z "$key" ]; then
   if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
     name="${BASH_REMATCH[1]} (queue)"
   fi
+
+  msg=$(pr_link "$msg")
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \

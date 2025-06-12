@@ -68,7 +68,7 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     version,
     blockNumber: new Fr(l2BlockNumber),
     slotNumber: proposedHeader.slotNumber,
-    timestamp: new Fr(proposedHeader.timestamp),
+    timestamp: proposedHeader.timestamp,
     coinbase: proposedHeader.coinbase,
     feeRecipient: proposedHeader.feeRecipient,
     gasFees: proposedHeader.gasFees,

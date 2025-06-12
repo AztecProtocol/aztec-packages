@@ -19,8 +19,6 @@ export class EventValidationRequest {
     public eventCommitment: Fr,
     public txHash: TxHash,
     public recipient: AztecAddress,
-    public logIndexInTx: number,
-    public txIndexInBlock: number,
   ) {}
 
   static fromFields(fields: Fr[] | FieldReader): EventValidationRequest {
@@ -36,8 +34,6 @@ export class EventValidationRequest {
     const eventCommitment = reader.readField();
     const txHash = TxHash.fromField(reader.readField());
     const recipient = AztecAddress.fromField(reader.readField());
-    const logIndexInTx = reader.readField().toNumber();
-    const txIndexInBlock = reader.readField().toNumber();
 
     return new EventValidationRequest(
       contractAddress,
@@ -46,8 +42,6 @@ export class EventValidationRequest {
       eventCommitment,
       txHash,
       recipient,
-      logIndexInTx,
-      txIndexInBlock,
     );
   }
 }

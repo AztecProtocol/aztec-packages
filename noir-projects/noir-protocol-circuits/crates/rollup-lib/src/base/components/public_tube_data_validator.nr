@@ -1,12 +1,15 @@
 use crate::base::components::{
-    gas::clamp_gas_settings_for_avm, validate_tube_data::validate_max_fees_per_gas,
+    constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
+    validation_requests::validate_max_block_number,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
     abis::{
-        avm_circuit_public_inputs::AvmCircuitPublicInputs, constant_rollup_data::ConstantRollupData,
+        avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
         tube::PublicTubeData,
     },
+    constants::ARCHIVE_HEIGHT,
+    merkle_tree::MembershipWitness,
     proof::traits::Verifiable,
     traits::Empty,
     utils::arrays::array_length,
@@ -31,7 +34,6 @@ pub struct PublicTubeDataValidator {
     pub data: PublicTubeData,
 }
 
-// TODO: Move relevant verifications here.
 impl PublicTubeDataValidator {
     pub fn new(data: PublicTubeData) -> Self {
         PublicTubeDataValidator { data }
@@ -45,23 +47,35 @@ impl PublicTubeDataValidator {
         }
     }
 
-    pub fn validate_with_rollup_data(self, constants: ConstantRollupData) {
-        validate_max_fees_per_gas(
-            self.data.public_inputs.constants.tx_context.gas_settings.max_fees_per_gas,
-            constants.global_variables.gas_fees,
+    pub fn validate_with_block_constant_data(
+        self,
+        constants: BlockConstantData,
+        archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
+    ) {
+        validate_tx_constant_data(
+            self.data.public_inputs.constants,
+            constants,
+            archive_root_membership_witness,
+        );
+
+        validate_max_block_number(
+            self.data.public_inputs.rollup_validation_requests,
+            constants.global_variables.block_number,
         );
     }
 
     pub fn validate_with_avm_data(self, avm_data: AvmCircuitPublicInputs) {
         let tube_data = self.data.public_inputs;
 
-        // global_variables is checked in public_base_rollup.nr > validate_combined_constant_data()
-        // The constant data is exported from the public inputs and is checked later on to make sure it matches other txs's constant data.
+        // global_variables and start_tree_snapshots.l1_to_l2_message_tree are part of the block constant data, which
+        // is exported through public inputs and will be checked in merge or block root rollup to make sure that it's
+        // the same for all txs in the block. For l1_to_l2_message_tree, it has to match the value listed in the
+        // previous block header, which is validated in the block root rollup.
 
-        // start_tree_snapshots is exported from the public inputs and is checked later on:
-        // - For the first tx, it's checked in the block root rollup that it matches the previous block's end state.
-        // - For the subsequent txs, it's checked in the merge or block root rollup that it matches the previous tx's end state.
-        // TODO: export l1_to_l2_message_tree and check in the block root rollup.
+        // The rest of the values in start_tree_snapshots are also exported as start_state through public inputs and is
+        // validated as follows:
+        // - For the first tx, block root rollup checks that the start state matches the previous block's end state.
+        // - For all subsequent txs, the merge or block root rollup checks that it matches the previous tx's end state.
 
         assert_eq(
             tube_data.gas_used,

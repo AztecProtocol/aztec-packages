@@ -128,14 +128,15 @@ function test_cmds {
     # Boost some tests resources.
     if [[ "$test" =~ testbench ]]; then
       prefix+=":CPUS=10:MEM=16g"
-    fi
-    if [[ "$test" =~ ^ivc-integration/ ]]; then
+    elif [[ "$test" =~ ^ivc-integration/ ]]; then
       prefix+=":CPUS=8"
     fi
 
     # Add debug logging for tests that require a bit more info
-    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts || "$test" == p2p/src/client/p2p_client.integration.test.ts ]]; then
       cmd_env+=" LOG_LEVEL=debug"
+    elif [[ "$test" =~ e2e_p2p ]]; then
+      cmd_env+=" LOG_LEVEL='verbose; debug:p2p'"
     fi
 
     # Enable real proofs in prover-client integration tests only on CI full.
@@ -146,6 +147,10 @@ function test_cmds {
       else
         cmd_env+=" FAKE_PROOFS=1"
       fi
+    fi
+
+    if [[ "$test" =~ rollup_ivc_integration || "$test" =~ avm_integration ]]; then
+      cmd_env+=" LOG_LEVEL=trace BB_VERBOSE=1 "
     fi
 
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"

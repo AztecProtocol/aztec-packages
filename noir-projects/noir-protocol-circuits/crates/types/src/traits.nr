@@ -271,6 +271,15 @@ where
     }
 }
 
+// This may cause issues if used as program input, because noir disallows empty arrays for program input.
+// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
+// if someone does run into this in the future.
+impl<let N: u32> Deserialize<0> for () {
+    fn deserialize(_fields: [Field; 0]) -> Self {
+        ()
+    }
+}
+
 impl<T, let M: u32, let O: u32> Serialize<O * M + 1> for BoundedVec<T, M>
 where
     T: Serialize<O>,

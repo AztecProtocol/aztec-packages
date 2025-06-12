@@ -1,16 +1,21 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <ranges>
 #include <stdexcept>
 #include <sys/types.h>
+#include <unordered_map>
 
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/vm2/common/addressing.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -24,6 +29,7 @@
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 using C = bb::avm2::Column;
+using bb::avm2::simulation::AddressingEventError;
 using bb::avm2::simulation::ExecutionError;
 
 namespace bb::avm2::tracegen {
@@ -48,6 +54,49 @@ constexpr std::array<Column, NUM_OPERANDS> RESOLVED_OPERAND_COLUMNS = {
     C::execution_rop_0_, C::execution_rop_1_, C::execution_rop_2_, C::execution_rop_3_,
     C::execution_rop_4_, C::execution_rop_5_, C::execution_rop_6_,
 };
+constexpr std::array<Column, NUM_OPERANDS> RESOLVED_OPERAND_TAG_COLUMNS = {
+    C::execution_rop_tag_0_, C::execution_rop_tag_1_, C::execution_rop_tag_2_, C::execution_rop_tag_3_,
+    C::execution_rop_tag_4_, C::execution_rop_tag_5_, C::execution_rop_tag_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS = {
+    C::execution_sel_should_apply_indirection_0_, C::execution_sel_should_apply_indirection_1_,
+    C::execution_sel_should_apply_indirection_2_, C::execution_sel_should_apply_indirection_3_,
+    C::execution_sel_should_apply_indirection_4_, C::execution_sel_should_apply_indirection_5_,
+    C::execution_sel_should_apply_indirection_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OVERFLOW_COLUMNS = {
+    C::execution_sel_relative_overflow_0_, C::execution_sel_relative_overflow_1_, C::execution_sel_relative_overflow_2_,
+    C::execution_sel_relative_overflow_3_, C::execution_sel_relative_overflow_4_, C::execution_sel_relative_overflow_5_,
+    C::execution_sel_relative_overflow_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS = {
+    C::execution_sel_op_is_relative_effective_0_, C::execution_sel_op_is_relative_effective_1_,
+    C::execution_sel_op_is_relative_effective_2_, C::execution_sel_op_is_relative_effective_3_,
+    C::execution_sel_op_is_relative_effective_4_, C::execution_sel_op_is_relative_effective_5_,
+    C::execution_sel_op_is_relative_effective_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS = {
+    C::execution_overflow_range_check_result_0_, C::execution_overflow_range_check_result_1_,
+    C::execution_overflow_range_check_result_2_, C::execution_overflow_range_check_result_3_,
+    C::execution_overflow_range_check_result_4_, C::execution_overflow_range_check_result_5_,
+    C::execution_overflow_range_check_result_6_,
+};
+
+constexpr size_t TOTAL_INDIRECT_BITS = 16;
+static_assert(NUM_OPERANDS * 2 <= TOTAL_INDIRECT_BITS);
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_RELATIVE_WIRE_COLUMNS = {
+    C::execution_sel_op_is_relative_wire_0_, C::execution_sel_op_is_relative_wire_1_,
+    C::execution_sel_op_is_relative_wire_2_, C::execution_sel_op_is_relative_wire_3_,
+    C::execution_sel_op_is_relative_wire_4_, C::execution_sel_op_is_relative_wire_5_,
+    C::execution_sel_op_is_relative_wire_6_, C::execution_sel_op_is_relative_wire_7_,
+
+};
+constexpr std::array<Column, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_WIRE_COLUMNS = {
+    C::execution_sel_op_is_indirect_wire_0_, C::execution_sel_op_is_indirect_wire_1_,
+    C::execution_sel_op_is_indirect_wire_2_, C::execution_sel_op_is_indirect_wire_3_,
+    C::execution_sel_op_is_indirect_wire_4_, C::execution_sel_op_is_indirect_wire_5_,
+    C::execution_sel_op_is_indirect_wire_6_, C::execution_sel_op_is_indirect_wire_7_,
+};
 
 constexpr size_t NUM_REGISTERS = 7;
 constexpr std::array<Column, NUM_REGISTERS> REGISTER_COLUMNS = {
@@ -67,6 +116,100 @@ constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
     C::execution_mem_op_4_, C::execution_mem_op_5_, C::execution_mem_op_6_,
 };
 
+/**
+ * @brief Helper struct to track info after "discard" preprocessing.
+ */
+struct FailingContexts {
+    bool app_logic_failure = false;
+    bool teardown_failure = false;
+    uint32_t app_logic_exit_context_id = 0;
+    uint32_t teardown_exit_context_id = 0;
+    std::unordered_set<uint32_t> does_context_fail;
+};
+
+/**
+ * @brief Preprocess execution events to determine which contexts will fail.
+ *
+ * @details This is used during trace-generation to populate the `discard` and `dying_context_id` columns
+ * which must be set throughout a context that will EVENTUALLY fail. So we need to do a
+ * preprocessing pass so that we can set these columns properly during trace-generation for rows
+ * in a dying context before the actual failure event is reached.
+ *
+ * @param ex_events The execution events.
+ * @return The failing contexts.
+ */
+FailingContexts preprocess_for_discard(
+    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events)
+{
+    FailingContexts dying_info;
+
+    // Preprocessing pass 1: find the events that exit the app logic and teardown phases
+    for (const auto& ex_event : ex_events) {
+        bool is_exit = ex_event.is_exit();
+        bool is_top_level = ex_event.after_context_event.parent_id == 0;
+
+        if (is_exit && is_top_level) {
+            // TODO(dbanks12): confirm this should be after_context_event and not before_context_event
+            if (ex_event.after_context_event.phase == TransactionPhase::APP_LOGIC) {
+                dying_info.app_logic_failure = ex_event.is_failure();
+                dying_info.app_logic_exit_context_id = ex_event.after_context_event.id;
+            } else if (ex_event.after_context_event.phase == TransactionPhase::TEARDOWN) {
+                dying_info.teardown_failure = ex_event.is_failure();
+                dying_info.teardown_exit_context_id = ex_event.after_context_event.id;
+                break; // Teardown is the last phase we care about
+            }
+        }
+    }
+
+    // Preprocessing pass 2: find all contexts that fail and mark them
+    for (const auto& ex_event : ex_events) {
+        if (ex_event.is_failure()) {
+            dying_info.does_context_fail.insert(ex_event.after_context_event.id);
+        }
+    }
+
+    return dying_info;
+}
+
+/**
+ * @brief Check if an entire phase should "discard" [side effects].
+ *
+ * @param phase The phase to check.
+ * @param failures The failing contexts.
+ * @return true if the phase should be discarded, false otherwise.
+ */
+bool is_phase_discarded(TransactionPhase phase, const FailingContexts& failures)
+{
+    // Note that app logic also gets discarded if teardown failures
+    return (phase == TransactionPhase::APP_LOGIC && (failures.app_logic_failure || failures.teardown_failure)) ||
+           (phase == TransactionPhase::TEARDOWN && failures.teardown_failure);
+}
+
+/**
+ * @brief Get the dying context ID for a phase.
+ *
+ * @param phase The phase to check.
+ * @param failures The failing contexts.
+ * @return The dying context ID for the phase if any, 0 otherwise.
+ */
+uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& failures)
+{
+    assert((phase == TransactionPhase::APP_LOGIC || phase == TransactionPhase::TEARDOWN) &&
+           "Execution events must have app logic or teardown phase");
+
+    switch (phase) {
+    case TransactionPhase::APP_LOGIC:
+        // Note that app logic also gets discarded if teardown failures
+        return failures.app_logic_failure  ? failures.app_logic_exit_context_id
+               : failures.teardown_failure ? failures.teardown_exit_context_id
+                                           : 0;
+    case TransactionPhase::TEARDOWN:
+        return failures.teardown_failure ? failures.teardown_exit_context_id : 0;
+    default:
+        __builtin_unreachable(); // tell the compiler “we never reach here”
+    }
+}
+
 } // namespace
 
 void ExecutionTraceBuilder::process(
@@ -74,10 +217,29 @@ void ExecutionTraceBuilder::process(
 {
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
+    // Preprocess events to determine which contexts will fail
+    FailingContexts failures = preprocess_for_discard(ex_events);
+
     uint32_t last_seen_parent_id = 0;
     FF cached_parent_id_inv = 0;
 
+    // Some variables updated per loop iteration to track
+    // whether or not the upcoming row should "discard" [side effects].
+    uint32_t discard = 0;
+    uint32_t dying_context_id = 0;
+    FF dying_context_id_inv = 0;
+    bool is_first_event_in_enqueued_call = true;
+
     for (const auto& ex_event : ex_events) {
+        // Check if this is the first event in an enqueued call and whether
+        // the phase should be discarded
+        if (discard == 0 && is_first_event_in_enqueued_call &&
+            is_phase_discarded(ex_event.after_context_event.phase, failures)) {
+            discard = 1;
+            dying_context_id = dying_context_for_phase(ex_event.after_context_event.phase, failures);
+            dying_context_id_inv = FF(dying_context_id).invert();
+        }
+
         /**************************************************************************************************
          *  Setup.
          **************************************************************************************************/
@@ -185,38 +347,11 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         bool should_resolve_address = should_check_gas && !oog_base;
-        const auto& addr_event = ex_event.addressing_event;
-        bool addressing_failed = addr_event.error.has_value();
-        assert(addressing_failed == (ex_event.error == ExecutionError::ADDRESSING));
-
-        // As opposed to instruction fetching, we do have to write everything even if addressing failed.
-        // This is because addressing is a virtual gadget. Luckily, we do have all the information we need in the event.
-        auto resolved_operands = ex_event.resolved_operands;
-        assert(resolved_operands.size() <= NUM_OPERANDS);
-        resolved_operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
-        auto operands_after_relative = addr_event.after_relative;
-        assert(operands_after_relative.size() <= NUM_OPERANDS);
-        operands_after_relative.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
-
         trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
-
         if (should_resolve_address) {
-            // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(*exec_opcode);
-
-            trace.set(row,
-                      { {
-                          { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
-                          { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                          { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
-                      } });
-
-            for (size_t i = 0; i < NUM_OPERANDS; i++) {
-                trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, ex_spec.num_addresses <= i + 1 ? 1 : 0);
-                trace.set(OPERAND_AFTER_RELATIVE_COLUMNS[i], row, operands_after_relative.at(i));
-                trace.set(RESOLVED_OPERAND_COLUMNS[i], row, resolved_operands.at(i));
-            }
+            process_addressing(ex_event.addressing_event, ex_event.wire_instruction, trace, row);
         }
+        bool addressing_failed = ex_event.error == ExecutionError::ADDRESSING;
 
         /**************************************************************************************************
          *  Temporality group...: Registers.
@@ -296,6 +431,7 @@ void ExecutionTraceBuilder::process(
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
         bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
         bool is_err = ex_event.error != ExecutionError::NONE;
+        bool is_failure = is_revert || is_err;
         bool has_parent = ex_event.after_context_event.parent_id != 0;
         bool sel_enter_call = (is_call || is_static_call) && !is_err;
         bool sel_exit_call = is_return || is_revert || is_err;
@@ -380,12 +516,217 @@ void ExecutionTraceBuilder::process(
             }
         }
 
+        /**************************************************************************************************
+         *  Discarding.
+         **************************************************************************************************/
+
+        bool is_dying_context = discard == 1 && (ex_event.after_context_event.id == dying_context_id);
+
+        // Need to generate the item below for checking "is dying context" in circuit
+        FF dying_context_diff_inv = 0;
+        if (!is_dying_context) {
+            // Compute inversion when context_id != dying_context_id
+            FF diff = FF(ex_event.after_context_event.id) - FF(dying_context_id);
+            if (!diff.is_zero()) {
+                dying_context_diff_inv = diff.invert();
+            }
+        }
+
+        bool end_of_enqueued_call = sel_exit_call && !has_parent;
+        bool resolves_dying_context = is_failure && is_dying_context;
+        bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
+        bool propagate_discard =
+            !end_of_enqueued_call && !resolves_dying_context && !nested_call_rom_undiscarded_context;
+
+        trace.set(
+            row,
+            { {
+                { C::execution_sel_failure, is_failure ? 1 : 0 },
+                { C::execution_discard, discard },
+                { C::execution_dying_context_id, dying_context_id },
+                { C::execution_dying_context_id_inv, dying_context_id_inv },
+                { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
+                { C::execution_dying_context_diff_inv, dying_context_diff_inv },
+                { C::execution_end_of_enqueued_call, end_of_enqueued_call ? 1 : 0 },
+                { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
+                { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
+                { C::execution_propagate_discard, propagate_discard ? 1 : 0 },
+            } });
+
+        // Trace-generation is done for this event.
+        // Now, use this event to determine whether we should set/reset the discard flag for the NEXT event
+        bool event_kills_dying_context =
+            discard == 1 && is_failure && ex_event.after_context_event.id == dying_context_id;
+
+        if (event_kills_dying_context) {
+            // Set/unset discard flag if the current event is the one that kills the dying context
+            dying_context_id = 0;
+            dying_context_id_inv = 0;
+            discard = 0;
+        } else if (sel_enter_call && discard == 0 && !is_err &&
+                   failures.does_context_fail.contains(ex_event.next_context_id)) {
+            // If making a nested call, and discard isn't already high...
+            // if the nested context being entered eventually dies, raise discard flag and remember which context is
+            // dying.
+            // NOTE: if a [STATIC]CALL instruction _itself_ errors, we don't set the discard flag
+            // because we aren't actually entering a new context!
+            dying_context_id = ex_event.next_context_id;
+            dying_context_id_inv = FF(dying_context_id).invert();
+            discard = 1;
+        }
+        // Otherwise, we aren't entering or exiting a dying context,
+        // so just propagate discard and dying context.
+        // Implicit: dying_context_id = dying_context_id; discard = discard;
+
+        // If an enqueued call just exited, next event (if any) is the first in an enqueued call.
+        // Update flag for next iteration.
+        is_first_event_in_enqueued_call = ex_event.after_context_event.parent_id == 0 && sel_exit_call;
+
         row++;
     }
 
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+}
+
+void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
+                                               const simulation::Instruction& instruction,
+                                               TraceContainer& trace,
+                                               uint32_t row)
+{
+    // At this point we can assume instruction fetching succeeded, so this should never fail.
+    ExecutionOpCode exec_opcode = instruction.get_exec_opcode();
+    const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(exec_opcode);
+
+    auto resolution_info_vec = addr_event.resolution_info;
+    assert(resolution_info_vec.size() <= NUM_OPERANDS);
+    resolution_info_vec.resize(NUM_OPERANDS);
+
+    std::array<bool, NUM_OPERANDS> is_address{};
+    std::array<bool, NUM_OPERANDS> should_apply_indirection{};
+    std::array<bool, NUM_OPERANDS> is_relative_effective{};
+    std::array<bool, NUM_OPERANDS> is_indirect_effective{};
+    std::array<bool, NUM_OPERANDS> relative_oob{};
+    std::array<FF, NUM_OPERANDS> after_relative{};
+    std::array<FF, NUM_OPERANDS> resolved_operand{};
+    std::array<uint8_t, NUM_OPERANDS> resolved_operand_tag{};
+    uint8_t num_relative_operands = 0;
+
+    // Gather operand information.
+    for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        const auto& resolution_info = resolution_info_vec.at(i);
+        bool op_is_address = i < ex_spec.num_addresses;
+        relative_oob[i] = resolution_info.error.has_value() &&
+                          *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
+        is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
+        is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
+        is_address[i] = op_is_address;
+        should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
+        resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
+        after_relative[i] = resolution_info.after_relative;
+        resolved_operand[i] = resolution_info.resolved_operand;
+        if (is_relative_effective[i]) {
+            num_relative_operands++;
+        }
+    }
+
+    // Set the operand columns.
+    for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        FF relative_oob_check_diff = 0;
+        if (is_relative_effective[i]) {
+            relative_oob_check_diff =
+                !relative_oob[i] ? FF(1ULL << 32) - after_relative[i] - 1 : after_relative[i] - FF(1ULL << 32);
+        }
+        trace.set(row,
+                  { {
+                      { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
+                      { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
+                      { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
+                      { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
+                      { OPERAND_IS_RELATIVE_EFFECTIVE_COLUMNS[i], is_relative_effective[i] ? 1 : 0 },
+                      { OPERAND_RELATIVE_OOB_CHECK_DIFF_COLUMNS[i], relative_oob_check_diff },
+                      { RESOLVED_OPERAND_COLUMNS[i], resolved_operand[i] },
+                      { RESOLVED_OPERAND_TAG_COLUMNS[i], resolved_operand_tag[i] },
+                  } });
+    }
+
+    // We need to compute relative and indirect over the whole 16 bits of the indirect flag.
+    // See comment in PIL file about indirect upper bits.
+    for (size_t i = 0; i < TOTAL_INDIRECT_BITS / 2; i++) {
+        bool is_relative = is_operand_relative(instruction.indirect, i);
+        bool is_indirect = is_operand_indirect(instruction.indirect, i);
+        trace.set(row,
+                  { {
+                      { OPERAND_IS_RELATIVE_WIRE_COLUMNS[i], is_relative ? 1 : 0 },
+                      { OPERAND_IS_INDIRECT_WIRE_COLUMNS[i], is_indirect ? 1 : 0 },
+                  } });
+    }
+
+    // Base address check.
+    bool do_base_check = num_relative_operands != 0;
+    bool base_address_invalid = do_base_check && addr_event.base_address.get_tag() != MemoryTag::U32;
+    FF base_address_tag_diff_inv =
+        base_address_invalid
+            ? (FF(static_cast<uint8_t>(addr_event.base_address.get_tag())) - FF(static_cast<uint8_t>(MemoryTag::U32)))
+                  .invert()
+            : 0;
+
+    // Tag check after indirection.
+    bool some_final_check_failed =
+        std::any_of(addr_event.resolution_info.begin(), addr_event.resolution_info.end(), [](const auto& info) {
+            return info.error.has_value() && *info.error == AddressingEventError::INVALID_ADDRESS_AFTER_INDIRECTION;
+        });
+    FF batched_tags_diff_inv = 0;
+    if (some_final_check_failed) {
+        FF batched_tags_diff = 0;
+        FF power_of_2 = 1;
+        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+            batched_tags_diff +=
+                FF(is_indirect_effective[i]) * power_of_2 * (FF(resolved_operand_tag[i]) - FF(MEM_TAG_U32));
+            power_of_2 *= 8; // 2^3
+        }
+        batched_tags_diff_inv = batched_tags_diff != 0 ? batched_tags_diff.invert() : 0;
+    }
+
+    // Collect addressing errors. See PIL file for reference.
+    bool addressing_failed = std::any_of(addr_event.resolution_info.begin(),
+                                         addr_event.resolution_info.end(),
+                                         [](const auto& info) { return info.error.has_value(); });
+    FF addressing_error_collection_inv =
+        addressing_failed
+            ? FF(
+                  // Base address invalid.
+                  (base_address_invalid ? 1 : 0) +
+                  // Relative overflow.
+                  std::accumulate(addr_event.resolution_info.begin(),
+                                  addr_event.resolution_info.end(),
+                                  static_cast<uint32_t>(0),
+                                  [](uint32_t acc, const auto& info) {
+                                      return acc +
+                                             (info.error.has_value() &&
+                                                      *info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB
+                                                  ? 1
+                                                  : 0);
+                                  }) +
+                  // Some invalid address after indirection.
+                  (some_final_check_failed ? 1 : 0))
+                  .invert()
+            : 0;
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+                  { C::execution_addressing_error_collection_inv, addressing_error_collection_inv },
+                  { C::execution_base_address_val, addr_event.base_address.as_ff() },
+                  { C::execution_base_address_tag, static_cast<uint8_t>(addr_event.base_address.get_tag()) },
+                  { C::execution_base_address_tag_diff_inv, base_address_tag_diff_inv },
+                  { C::execution_sel_base_address_failure, base_address_invalid ? 1 : 0 },
+                  { C::execution_num_relative_operands_inv, do_base_check ? FF(num_relative_operands).invert() : 0 },
+                  { C::execution_sel_do_base_check, do_base_check ? 1 : 0 },
+                  { C::execution_constant_32, 32 },
+                  { C::execution_two_to_32, 1ULL << 32 },
+              } });
 }
 
 std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
@@ -396,6 +737,22 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         // Instruction fetching
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
+        // Addressing
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_4_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_5_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_6_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_0_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_1_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_2_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_3_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

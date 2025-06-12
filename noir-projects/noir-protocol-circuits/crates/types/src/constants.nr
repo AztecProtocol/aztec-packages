@@ -126,9 +126,11 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The genesis value is taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+// The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HEADER_HASH: Field =
+    0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
+    0x1f9c798be7975bb34c3e605a4c92c75796eae7b9a08644bc9a6a55354ed470be;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -216,7 +218,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
+pub global CONTENT_COMMITMENT_LENGTH: u32 = 3;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
@@ -227,8 +229,21 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
+pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
+pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
+pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
+pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
+pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
+    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
+    + BLS12_POINT /* c_acc */;
+pub global FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 1 /* blob_commitments_hash */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* y */
+    + 2 /* c */;
+pub global BLOCK_BLOB_PUBLIC_INPUTS: u32 = 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /* start and end accumulators */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* gamma */;
 pub global BLOB_PUBLIC_INPUTS: u32 = 6;
-pub global BLOB_PUBLIC_INPUTS_BYTES: u32 = 112; // = commitment (48) + z (32) + y (32)
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
 pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
@@ -321,8 +336,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 8 /* timestamp */
     + 20 /* coinbase */
     + 16 /* gas_fees.fee_per_da_gas */
-    + 16 /* gas_fees.fee_per_l2_gas */
-;
+    + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -438,27 +452,33 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + NUM_AVM_ACCUMULATED_DATA_ARRAYS /* accumulated_data_array_lengths */
     + 1 /* reverted */;
 
-pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
+pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* vk_tree_root */
+    + 1 /* protocol_contract_tree_root */
+    + 1 /* prover_id */;
 
-// + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
-pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + 2 * SPONGE_BLOB_LENGTH
-    + 5;
-pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
-    * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
+    + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
+    + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
+    + SPONGE_BLOB_LENGTH /* start_sponge_blob */
+    + SPONGE_BLOB_LENGTH /* end_sponge_blob */
+    + 1 /* rollup_type */
+    + 1 /* num_txs */
+    + 1 /* out_hash */
+    + 1 /* accumulated_fees */
+    + 1 /* accumulated_mana_used */
+;
+pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
+    + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
+    + BLOCK_BLOB_PUBLIC_INPUTS /* blob_public_inputs */;
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
     + 1 /* chain_id */
@@ -468,7 +488,7 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
+    + FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS /* blob_public_inputs */;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =

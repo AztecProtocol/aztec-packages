@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {IRootRegistry} from "@zkpassport/IRootRegistry.sol";
-import {HonkVerifier as OuterVerifier11} from "@zkpassport/OuterCount11.sol";
+import {HonkVerifier as OuterVerifier5} from "@zkpassport/OuterCount5.sol";
 import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
 
@@ -14,7 +14,7 @@ contract ZKPassportBase is Test {
   ZKPassportVerifier public zkPassportVerifier;
   MockZKPassportVerifier public mockZKPassportVerifier;
 
-  OuterVerifier11 public verifier;
+  OuterVerifier5 public verifier;
   IRootRegistry public rootRegistry;
 
   ProofVerificationParams internal fakeProof;
@@ -23,9 +23,13 @@ contract ZKPassportBase is Test {
   // Path to the proof file - using files directly in project root
   // Fixtures copied from within the zk passport subrepo
   bytes32 constant VKEY_HASH =
-    bytes32(uint256(0x2f55019d8fd28cf77000af567e4d8fcb54ef0d4853825d61b14911904b20d1c5));
+    bytes32(uint256(0x2ab349ef31f5d516da820a3f55f93c53f9c899b0b991c93fc341199cc1e3b36c));
   bytes32 constant CERTIFICATE_REGISTRY_ROOT =
     bytes32(uint256(0x130b5775fe59204b0490bdfcdd02bd7cc2bbf5fe3f3fee34cee13c3a3f9b7bbb));
+
+  // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
+  string constant CORRECT_SCOPE = "zkpassport.id";
+  string constant CORRECT_SUBSCOPE = "bigproof";
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -35,7 +39,7 @@ contract ZKPassportBase is Test {
     // Deploy wrapper verifier
     zkPassportVerifier = new ZKPassportVerifier(address(rootRegistry));
     // Deploy actual circuit verifier
-    verifier = new OuterVerifier11();
+    verifier = new OuterVerifier5();
 
     // Add to the zk passport verifier
     bytes32[] memory vkeyHashes = new bytes32[](1);
@@ -58,20 +62,14 @@ contract ZKPassportBase is Test {
   }
 
   function makeValidProof() internal view returns (ProofVerificationParams memory params) {
-    bytes memory proof = loadBytesFromFile("all_subproofs_proof.hex");
-    bytes32[] memory publicInputs = loadBytes32FromFile("all_subproofs_public_inputs.json");
-    bytes memory committedInputs = loadBytesFromFile("all_subproofs_committed_inputs.hex");
+    bytes memory proof = loadBytesFromFile("valid_proof.hex");
+    bytes32[] memory publicInputs = loadBytes32FromFile("valid_public_inputs.json");
+    bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
 
     // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](8);
+    uint256[] memory committedInputCounts = new uint256[](2);
     committedInputCounts[0] = 181;
-    committedInputCounts[1] = 601;
-    committedInputCounts[2] = 601;
-    committedInputCounts[3] = 601;
-    committedInputCounts[4] = 601;
-    committedInputCounts[5] = 11;
-    committedInputCounts[6] = 25;
-    committedInputCounts[7] = 25;
+    committedInputCounts[1] = 501;
 
     params = ProofVerificationParams({
       vkeyHash: VKEY_HASH,

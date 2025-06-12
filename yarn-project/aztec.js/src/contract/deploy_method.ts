@@ -214,9 +214,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
-    const txHashPromise = super.send(options).getTxHash();
+    const sendTx = () => super.send(options).getTxHash();
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
-    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, () => this.getInstance(options));
+    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
   }
 
   /**
@@ -247,7 +247,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const txProvingResult = await this.proveInternal(options);
     return new DeployProvenTx(
       this.wallet,
-      txProvingResult.toTx(),
+      txProvingResult,
       this.postDeployCtor,
       () => this.getInstance(options),
       txProvingResult.stats,
