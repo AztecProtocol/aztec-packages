@@ -17,6 +17,7 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
@@ -150,7 +151,7 @@ library StakingLib {
       );
 
       // If the slash amount is greater than the exit amount, bound it to the exit amount
-      uint256 slashAmount = _amount > exit.amount ? exit.amount : _amount;
+      uint256 slashAmount = Math.min(_amount, exit.amount);
 
       if (exit.amount == slashAmount) {
         // If we slashes the entire thing, nuke it entirely
@@ -168,7 +169,7 @@ library StakingLib {
       uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
 
       // If the slash amount is greater than the effective balance, bound it to the effective balance
-      uint256 slashAmount = _amount > effectiveBalance ? effectiveBalance : _amount;
+      uint256 slashAmount = Math.min(_amount, effectiveBalance);
 
       (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
         store.gse.withdraw(_attester, slashAmount);
