@@ -30,6 +30,7 @@ import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
 import {
   type IndexedTxEffect,
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -171,10 +172,9 @@ export interface PXE {
   simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    skipClassVerification?: boolean,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
 
@@ -476,10 +476,9 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .args(
       TxExecutionRequest.schema,
       z.boolean(),
-      optional(schemas.AztecAddress),
       optional(z.boolean()),
       optional(z.boolean()),
-      optional(z.boolean()),
+      optional(SimulationOverrides.schema),
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(TxSimulationResult.schema),

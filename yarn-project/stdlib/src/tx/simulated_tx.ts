@@ -3,6 +3,12 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { AztecAddress } from '../aztec-address/index.js';
+import { type ContractClassWithId, ContractClassWithIdSchema } from '../contract/interfaces/contract_class.js';
+import {
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+} from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
@@ -15,6 +21,37 @@ import {
 import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
+
+export type ContractOverrides = Map<
+  string, // AztecAddress as string
+  { instance: ContractInstanceWithAddress; contractClass: ContractClassWithId }
+>;
+
+export class SimulationOverrides {
+  constructor(
+    public contracts?: ContractOverrides,
+    public msgSender?: AztecAddress,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        contracts: optional(
+          z.map(
+            z.string(),
+            z.object({
+              instance: ContractInstanceWithAddressSchema,
+              contractClass: ContractClassWithIdSchema,
+            }),
+          ),
+        ),
+        msgSender: optional(AztecAddress.schema),
+      })
+      .transform(({ contracts, msgSender }) => {
+        return new SimulationOverrides(contracts, msgSender);
+      });
+  }
+}
 
 export class PrivateSimulationResult {
   constructor(

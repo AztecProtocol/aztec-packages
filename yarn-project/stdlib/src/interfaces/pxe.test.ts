@@ -37,6 +37,7 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import {
   type IndexedTxEffect,
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxHash,
   TxReceipt,
@@ -160,10 +161,9 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       await TxExecutionRequest.random(),
       true,
-      address,
       false,
       true,
-      false,
+      { msgSender: address, contracts: new Map() },
       [],
     );
     expect(result).toBeInstanceOf(TxSimulationResult);
@@ -178,7 +178,6 @@ describe('PXESchema', () => {
     const result = await context.client.simulateTx(
       await TxExecutionRequest.random(),
       true,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -400,15 +399,14 @@ class MockPXE implements PXE {
   async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
-    msgSender?: AztecAddress,
     _skipTxValidation?: boolean,
     _skipFeeEnforcement?: boolean,
-    _skipClassVerification?: boolean,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
-    if (msgSender) {
-      expect(msgSender).toBeInstanceOf(AztecAddress);
+    if (overrides?.msgSender) {
+      expect(overrides.msgSender).toBeInstanceOf(AztecAddress);
     }
     if (scopes) {
       expect(scopes).toEqual([]);

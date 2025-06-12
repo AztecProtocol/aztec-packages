@@ -37,14 +37,13 @@ import {
   PublicCallRequest,
   RollupValidationRequests,
   ScopedLogHash,
-  ScopedNullifier,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
-import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import {
   CallContext,
+  GlobalVariables,
   HashedValues,
   PrivateExecutionResult,
   TxConstantData,
@@ -293,7 +292,7 @@ export async function generateSimulatedProvingResult(
     l2ToL1Messages.push(
       ...execution.publicInputs.l2ToL1Msgs
         .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
-        .map(message => message.scope(contractAddress)),
+        .map(message => message.message.scope(contractAddress)),
     );
     contractClassLogsHashes.push(
       ...execution.publicInputs.contractClassLogsHashes
@@ -325,10 +324,6 @@ export async function generateSimulatedProvingResult(
       witness: execution.partialWitness,
     });
   }
-
-  const globals = makeGlobalVariables();
-  globals.blockNumber = new Fr(privateExecutionResult.getSimulationBlockNumber());
-  globals.gasFees = GasFees.empty();
 
   const blockHeader = await syncDataProvider.getBlockHeader();
 

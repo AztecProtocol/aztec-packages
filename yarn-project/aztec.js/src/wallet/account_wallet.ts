@@ -17,6 +17,7 @@ import {
   computeInnerAuthWitHashFromAction,
 } from '../utils/authwit.js';
 import { BaseWallet } from './base_wallet.js';
+import { getWallet } from './index.js';
 
 /**
  * A wallet implementation that forwards authentication requests to a provided account.
