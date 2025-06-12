@@ -18,7 +18,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
 
-    static std::shared_ptr<CK> ck;
+    static CK ck;
     static std::shared_ptr<VK> vk;
 
     static void SetUpTestSuite()
@@ -192,8 +192,8 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     fold_1.at(2) = -(Fr(1) - u[1]) * fold_1.at(1) * u[1].invert(); // fold₁[2] = -(1 - u₁) ⋅ fold₁[1] / u₁
     fold_1.at(3) = Fr(0);
 
-    prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck->commit(fold_1));
-    prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck->commit(fold_2));
+    prover_transcript->template send_to_verifier("Gemini:FOLD_1", this->ck.commit(fold_1));
+    prover_transcript->template send_to_verifier("Gemini:FOLD_2", this->ck.commit(fold_2));
 
     // Get Gemini evaluation challenge
     const Fr gemini_r = prover_transcript->template get_challenge<Fr>("Gemini:r");
@@ -229,7 +229,7 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    std::vector<Commitment> unshifted_commitments = { this->ck->commit(fold_0) };
+    std::vector<Commitment> unshifted_commitments = { this->ck.commit(fold_0) };
     std::vector<Fr> unshifted_evals = { claimed_multilinear_eval * rho.pow(0) };
 
     ClaimBatcher claim_batcher{ .unshifted =
@@ -254,5 +254,5 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
     }
 }
 
-template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::CK> GeminiTest<Curve>::ck = nullptr;
+template <class Curve> typename GeminiTest<Curve>::CK GeminiTest<Curve>::ck;
 template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::VK> GeminiTest<Curve>::vk = nullptr;

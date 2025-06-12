@@ -58,7 +58,7 @@ template <typename Flavor> struct ZKSumcheckData {
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
-                   typename Flavor::CommitmentKey commitment_key = Flavor::CommitmentKey())
+                   typename Flavor::CommitmentKey commitment_key = typename Flavor::CommitmentKey())
         : constant_term(FF::random_element())
         , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))

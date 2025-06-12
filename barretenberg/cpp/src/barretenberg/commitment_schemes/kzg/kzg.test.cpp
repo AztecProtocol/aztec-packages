@@ -25,7 +25,7 @@ class KZGTest : public CommitmentTest<Curve> {
 
     using CK = CommitmentKey<Curve>;
     using VK = VerifierCommitmentKey<Curve>;
-    static std::shared_ptr<CK> ck;
+    static CK ck;
     static std::shared_ptr<VK> vk;
 
     static constexpr Commitment g1_identity = Commitment::one();
@@ -41,7 +41,7 @@ TEST_F(KZGTest, single)
 {
 
     auto witness = bb::Polynomial<Fr>::random(n);
-    const Commitment commitment = ck->commit(witness);
+    const Commitment commitment = ck.commit(witness);
 
     const Fr challenge = Fr::random_element();
     const Fr evaluation = witness.evaluate(challenge);
@@ -74,7 +74,7 @@ TEST_F(KZGTest, SingleInLagrangeBasis)
     // compute the monomial coefficients
     bb::Polynomial<Fr> witness_polynomial(std::span<Fr>(eval_points), std::span<Fr>(witness), n);
     // commit to the polynomial in the monomial form
-    g1::element commitment = ck->commit(witness_polynomial);
+    g1::element commitment = ck.commit(witness_polynomial);
 
     const Fr challenge = Fr::random_element();
     // evaluate the original univariate
@@ -331,5 +331,5 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
 }
 
 } // namespace bb
-std::shared_ptr<typename bb::KZGTest::CK> bb::KZGTest::ck = nullptr;
+typename bb::KZGTest::CK bb::KZGTest::ck;
 std::shared_ptr<typename bb::KZGTest::VK> bb::KZGTest::vk = nullptr;
