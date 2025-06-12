@@ -2,12 +2,13 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import type { UInt64 } from '../types/shared.js';
 import type { ContractInstanceUpdate } from './interfaces/contract_instance_update.js';
 
 export class SerializableContractInstanceUpdate {
   prevContractClassId: Fr;
   newContractClassId: Fr;
-  timestampOfChange: number;
+  timestampOfChange: UInt64;
 
   constructor(instance: ContractInstanceUpdate) {
     this.prevContractClassId = instance.prevContractClassId;
@@ -24,7 +25,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: reader.readObject(Fr),
       newContractClassId: reader.readObject(Fr),
-      timestampOfChange: reader.readNumber(),
+      timestampOfChange: reader.readObject(Fr).toBigInt(),
     });
   }
 
@@ -32,7 +33,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: Fr.random(),
       newContractClassId: Fr.random(),
-      timestampOfChange: Math.floor(Math.random() * 1000),
+      timestampOfChange: BigInt(Math.floor(Math.random() * 1000)),
       ...opts,
     });
   }
@@ -41,7 +42,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: Fr.zero(),
       newContractClassId: Fr.zero(),
-      timestampOfChange: 0,
+      timestampOfChange: 0n,
     });
   }
 }

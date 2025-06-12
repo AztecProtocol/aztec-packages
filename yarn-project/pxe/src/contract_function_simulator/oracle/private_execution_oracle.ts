@@ -383,7 +383,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     await verifyCurrentClassId(
       targetContractAddress,
       this.executionDataProvider,
-      this.historicalHeader.globalVariables.blockNumber,
+      this.historicalHeader.globalVariables.timestamp,
     );
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(

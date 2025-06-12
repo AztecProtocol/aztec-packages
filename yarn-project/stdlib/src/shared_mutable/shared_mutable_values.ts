@@ -23,7 +23,7 @@ export class SharedMutableValues {
     const svcPre = reader.readFieldArray(UPDATES_VALUE_SIZE);
     const svcPost = reader.readFieldArray(UPDATES_VALUE_SIZE);
     const svcTimestampOfChange = firstField & 0xffffffffn;
-    const svc = new ScheduledValueChange(svcPre, svcPost, Number(svcTimestampOfChange));
+    const svc = new ScheduledValueChange(svcPre, svcPost, svcTimestampOfChange);
 
     // Extract fields for ScheduledDelayChange from first field
     const sdcTimestampOfChange = (firstField >> 32n) & 0xffffffffn;
@@ -35,7 +35,7 @@ export class SharedMutableValues {
     const sdc = new ScheduledDelayChange(
       sdcIsPreSome ? Number(sdcPre) : undefined,
       sdcIsPostSome ? Number(sdcPost) : undefined,
-      Number(sdcTimestampOfChange),
+      sdcTimestampOfChange,
     );
 
     return new this(svc, sdc);
@@ -44,8 +44,8 @@ export class SharedMutableValues {
   toFields(): Fr[] {
     // Pack format matches Noir implementation:
     // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.timestamp_of_change: u32 | svc.timestamp_of_change: u32 ]
-    let firstField = BigInt(this.svc.timestampOfChange);
-    firstField |= BigInt(this.sdc.timestampOfChange) << 32n;
+    let firstField = this.svc.timestampOfChange;
+    firstField |= this.sdc.timestampOfChange << 32n;
     firstField |= (this.sdc.post === undefined ? 0n : 1n) << 64n;
     firstField |= BigInt(this.sdc.post || 0) << 72n;
     firstField |= (this.sdc.pre === undefined ? 0n : 1n) << 104n;

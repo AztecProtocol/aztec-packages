@@ -7,8 +7,9 @@ import {
   SerializableContractInstance,
   SerializableContractInstanceUpdate,
 } from '@aztec/stdlib/contract';
+import type { UInt64 } from '@aztec/stdlib/types';
 
-type ContractInstanceUpdateKey = [string, number] | [string, number, number];
+type ContractInstanceUpdateKey = [string, UInt64] | [string, UInt64, number];
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -41,11 +42,11 @@ export class ContractInstanceStore {
     });
   }
 
-  getUpdateKey(contractAddress: AztecAddress, blockNumber: number, logIndex?: number): ContractInstanceUpdateKey {
+  getUpdateKey(contractAddress: AztecAddress, timestamp: UInt64, logIndex?: number): ContractInstanceUpdateKey {
     if (logIndex === undefined) {
-      return [contractAddress.toString(), blockNumber];
+      return [contractAddress.toString(), timestamp];
     } else {
-      return [contractAddress.toString(), blockNumber, logIndex];
+      return [contractAddress.toString(), timestamp, logIndex];
     }
   }
 
@@ -70,13 +71,13 @@ export class ContractInstanceStore {
     );
   }
 
-  async getCurrentContractInstanceClassId(address: AztecAddress, timestamp: number, originalClassId: Fr): Promise<Fr> {
+  async getCurrentContractInstanceClassId(address: AztecAddress, timestamp: UInt64, originalClassId: Fr): Promise<Fr> {
     // We need to find the last update before the given timestamp
     const queryResult = await this.#contractInstanceUpdates
       .valuesAsync({
         reverse: true,
         start: this.getUpdateKey(address, 0), // Make sure we only look at updates for this contract
-        end: this.getUpdateKey(address, timestamp + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= timestamp
+        end: this.getUpdateKey(address, timestamp + 1n), // No update can match this key since it doesn't have a log index. We want the highest key <= timestamp
         limit: 1,
       })
       .next();
@@ -94,7 +95,7 @@ export class ContractInstanceStore {
 
   async getContractInstance(
     address: AztecAddress,
-    timestamp: number,
+    timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
     const contractInstance = await this.#contractInstances.getAsync(address.toString());
     if (!contractInstance) {

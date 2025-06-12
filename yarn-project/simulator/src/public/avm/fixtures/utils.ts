@@ -17,6 +17,7 @@ import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 import merge from 'lodash.merge';
@@ -26,6 +27,7 @@ import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import type { AvmRevertReason } from '../errors.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+export const DEFAULT_TIMESTAMP: UInt64 = 99833n;
 export const DEFAULT_BLOCK_NUMBER = 42;
 
 /**

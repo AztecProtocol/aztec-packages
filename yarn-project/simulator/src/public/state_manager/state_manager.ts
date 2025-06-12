@@ -19,6 +19,7 @@ import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { TreeSnapshots } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
@@ -50,7 +51,7 @@ export class PublicPersistableStateManager {
     private readonly contractsDB: PublicContractsDBInterface,
     private readonly trace: PublicSideEffectTraceInterface,
     private readonly firstNullifier: Fr, // Needed for note hashes.
-    private readonly timestamp: number, // Needed for contract updates.
+    private readonly timestamp: UInt64, // Needed for contract updates.
     private readonly doMerkleOperations: boolean = false,
     private readonly publicStorage: PublicStorage = new PublicStorage(treesDB),
     private readonly nullifiers: NullifierManager = new NullifierManager(treesDB),
@@ -65,14 +66,14 @@ export class PublicPersistableStateManager {
     trace: PublicSideEffectTraceInterface,
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
-    blockNumber: number,
+    timestamp: UInt64,
   ): PublicPersistableStateManager {
     return new PublicPersistableStateManager(
       treesDB,
       contractsDB,
       trace,
       firstNullifier,
-      blockNumber,
+      timestamp,
       doMerkleOperations,
     );
   }

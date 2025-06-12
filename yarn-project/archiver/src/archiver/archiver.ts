@@ -60,6 +60,7 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -1121,6 +1122,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     address: AztecAddress,
     timestamp?: number,
   ): Promise<ContractInstanceWithAddress | undefined> {
+    // TODO(benesjan): get timestamp here
     return this.store.getContractInstance(address, timestamp ?? (await this.getBlockNumber()));
   }
 
@@ -1534,7 +1536,7 @@ export class ArchiverStoreHelper
   getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     return this.store.getBytecodeCommitment(contractClassId);
   }
-  getContractInstance(address: AztecAddress, timestamp: number): Promise<ContractInstanceWithAddress | undefined> {
+  getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     return this.store.getContractInstance(address, timestamp);
   }
   getContractClassIds(): Promise<Fr[]> {

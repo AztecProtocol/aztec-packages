@@ -22,6 +22,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { NullifierCache } from './nullifier_cache.js';
 
@@ -36,6 +37,7 @@ export function createValidatorForAcceptingTxs(
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
+    timestamp,
   }: {
     blockNumber: number;
     l1ChainId: number;
@@ -43,6 +45,7 @@ export function createValidatorForAcceptingTxs(
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
+    timestamp: UInt64;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
@@ -55,7 +58,7 @@ export function createValidatorForAcceptingTxs(
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
-    new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
+    new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
   ];
 
@@ -111,7 +114,7 @@ function preprocessValidator(
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

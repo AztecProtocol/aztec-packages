@@ -1,5 +1,5 @@
 /** The key type for use with the kv-store */
-export type Key = string | number | Uint8Array | Array<string | number>;
+export type Key = string | number | Uint8Array | Array<string | number> | bigint;
 
 export type Value = NonNullable<any>;
 
