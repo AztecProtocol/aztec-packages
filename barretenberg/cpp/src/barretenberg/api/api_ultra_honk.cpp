@@ -40,32 +40,43 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
 }
 
 template <typename Flavor>
-UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
+std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::string& bytecode_path,
+                                                                 const std::string& witness_path)
+{
+    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
+    auto decider_proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    return decider_proving_key;
+}
+
+template <typename Flavor>
+PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::filesystem::path& bytecode_path,
+                                                                   const std::filesystem::path& witness_path)
 {
     typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-
-    // WORKTODO: compute vk
-    info("WARNING: computing vk in api_ultra_honk compute_prover, but a precomputed vk should be passed in.");
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
-
-    return UltraProver_<Flavor>{ proving_key, verification_key };
+    return { PublicInputsVector{},
+             HonkProof{},
+             std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
 }
 
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
-                                     const std::filesystem::path& witness_path)
+template <typename Flavor>
+PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute_vk,
+                                                              const std::filesystem::path& bytecode_path,
+                                                              const std::filesystem::path& witness_path,
+                                                              const std::filesystem::path& vk_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
-    return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
-}
+    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
+    std::shared_ptr<typename Flavor::VerificationKey> vk;
+    if (compute_vk) {
+        info("WARNING: computing proving key while proving. Pass in a precomputed vk for better performance.");
+        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    } else {
+        vk = std::make_shared<typename Flavor::VerificationKey>(
+            from_buffer<typename Flavor::VerificationKey>(read_file(vk_path)));
+    }
 
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _prove(const bool compute_vk,
-                                const std::filesystem::path& bytecode_path,
-                                const std::filesystem::path& witness_path)
-{
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
+    UltraProver_<Flavor> prover{ proving_key, vk };
+
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
     // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
@@ -85,9 +96,7 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
         HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
                   concat_pi_and_proof.end())
     };
-    return { public_inputs_and_proof.public_inputs,
-             public_inputs_and_proof.proof,
-             compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
+    return { public_inputs_and_proof.public_inputs, public_inputs_and_proof.proof, vk };
 }
 
 template <typename Flavor>
@@ -151,6 +160,7 @@ bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
 void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& bytecode_path,
                          const std::filesystem::path& witness_path,
+                         const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
     const auto _write = [&](auto&& _prove_output) {
@@ -158,18 +168,18 @@ void UltraHonkAPI::prove(const Flags& flags,
     };
 
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
-        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
-        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
 #endif
     } else {
         throw_or_abort("Invalid proving options specified in _prove");

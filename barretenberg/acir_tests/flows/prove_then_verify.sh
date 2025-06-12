@@ -18,12 +18,6 @@ case ${SYS:-} in
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
   ;;
-  "ultra_plonk_deprecated")
-    # This used to be the default but now it's on its way out.
-    $BIN OLD_API verify $FLAGS \
-        -k <($BIN OLD_API write_vk -o - $FLAGS $BFLAG) \
-        -p <($BIN OLD_API prove -o - $FLAGS $BFLAG)
-  ;;
   "ultra_honk")
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
@@ -31,9 +25,10 @@ case ${SYS:-} in
 
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT
-    $BIN prove $FLAGS $BFLAG -o $OUTDIR
+    $BIN write_vk $FLAGS $BFLAG -o $OUTDIR
+    $BIN prove $FLAGS $BFLAG -k $OUTDIR/vk -o $OUTDIR
     $BIN verify $FLAGS \
-        -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
+        -k $OUTDIR/vk \
         -p $OUTDIR/proof \
         -i $OUTDIR/public_inputs
   ;;
