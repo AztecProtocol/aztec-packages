@@ -18,6 +18,11 @@ node:
       requests:
         cpu: "3"
         memory: "12Gi"
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+
   affinity:
     podAntiAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -30,7 +35,8 @@ node:
           topologyKey: "kubernetes.io/hostname"
           namespaceSelector: {}
 
-  persistence.enabled: true
+  persistence:
+    enabled: true
   statefulSet:
     volumeClaimTemplates:
       - metadata:
@@ -42,7 +48,14 @@ node:
               storage: 128Gi
 
 broker:
-  persistence.enabled: true
+  replicaCount: 1
+
+  nodeSelector:
+    local-ssd: "false"
+    node-type: "network"
+
+  persistence:
+    enabled: true
   statefulSet:
     volumeClaimTemplates:
       - metadata:
@@ -67,7 +80,7 @@ agent:
       HARDWARE_CONCURRENCY: "15"
     resources:
       requests:
-        memory: "64Gi"
+        memory: "60Gi"
         cpu: "15"
 
   affinity:

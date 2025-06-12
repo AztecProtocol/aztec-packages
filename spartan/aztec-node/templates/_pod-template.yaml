@@ -13,9 +13,14 @@ spec:
   hostNetwork: true
   {{- end }}
 
-  {{- if .Values.podAffinity }}
+  {{- if .Values.affinity }}
   affinity:
     {{- toYaml .Values.affinity | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml .Values.nodeSelector | nindent 4 }}
   {{- end }}
 
   {{- if .Values.tolerations }}

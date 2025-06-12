@@ -60,3 +60,16 @@ variable "PROVER_VALUES" {
   type        = string
   default     = "alpha-testnet-prover.yaml"
 }
+
+variable "NODE_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "alpha-testnet-node.yaml"
+}
+
+variable "SNAPSHOT_VALUES" {
+  description = "The values file to apply"
+  type        = string
+  default     = "alpha-testnet-snapshots.yaml"
+}
+

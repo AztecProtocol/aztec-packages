@@ -60,6 +60,7 @@ statefulSet:
   #         requests:
   #           storage: 10Gi
 
+nodeSelector: null
 affinity: null
 tolerations: []
 

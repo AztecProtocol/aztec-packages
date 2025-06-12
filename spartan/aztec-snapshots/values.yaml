@@ -1,0 +1,14 @@
+# -- Overrides the chart name
+nameOverride: ""
+# -- Overrides the chart computed fullname
+fullnameOverride: ""
+
+snapshot:
+  uploadLocation: null
+  frequency: "0 0 * * *" # daily uploads at midnight
+  aztecNodeAdminUrl: null
+
+image:
+  repository: curlimages/curl
+  tag: "7.81.0"
+  pullPolicy: IfNotPresent
