@@ -278,19 +278,15 @@ where
     #[inline_always]
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
+        fields[0] = self.len() as Field;
 
-        let len = self.len();
-        fields[0] = len as Field;
+        let storage = self.storage();
 
-        let mut index: u32 = 1;
-
-        for i in 0..len {
-            let item = self.get_unchecked(i);
-            let serialized_item = item.serialize();
+        for i in 0..M {
+            let serialized_item = storage[i].serialize();
 
             for j in 0..O {
-                fields[index] = serialized_item[j];
-                index += 1;
+                fields[i * O + j + 1] = serialized_item[j];
             }
         }
 
@@ -345,4 +341,32 @@ pub trait Packable<let N: u32> {
 
     /// Unpacks a compact array of `Field` elements into the original value.
     fn unpack(fields: [Field; N]) -> Self;
+}
+
+#[test]
+unconstrained fn bounded_vec_serialization() {
+    // Test empty BoundedVec
+    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
+    let serialized = empty_vec.serialize();
+    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
+    assert_eq(empty_vec, deserialized);
+    assert_eq(deserialized.len(), 0);
+
+    // Test partially filled BoundedVec
+    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
+    let serialized = partial_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(partial_vec, deserialized);
+    assert_eq(deserialized.len(), 1);
+    assert_eq(deserialized.get(0), [1, 2]);
+
+    // Test full BoundedVec
+    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
+    let serialized = full_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(full_vec, deserialized);
+    assert_eq(deserialized.len(), 3);
+    assert_eq(deserialized.get(0), [1, 2]);
+    assert_eq(deserialized.get(1), [3, 4]);
+    assert_eq(deserialized.get(2), [5, 6]);
 }

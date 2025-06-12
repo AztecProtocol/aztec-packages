@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <ranges>
@@ -9,6 +10,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
@@ -21,193 +23,64 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
+using C = bb::avm2::Column;
+using bb::avm2::simulation::ExecutionError;
+
 namespace bb::avm2::tracegen {
 namespace {
 
-constexpr size_t operand_columns = 7;
+constexpr size_t NUM_OPERANDS = 7;
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_COLUMNS = {
+    C::execution_op_0_, C::execution_op_1_, C::execution_op_2_, C::execution_op_3_,
+    C::execution_op_4_, C::execution_op_5_, C::execution_op_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_IS_ADDRESS_COLUMNS = {
+    C::execution_sel_op_is_address_0_, C::execution_sel_op_is_address_1_, C::execution_sel_op_is_address_2_,
+    C::execution_sel_op_is_address_3_, C::execution_sel_op_is_address_4_, C::execution_sel_op_is_address_5_,
+    C::execution_sel_op_is_address_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> OPERAND_AFTER_RELATIVE_COLUMNS = {
+    C::execution_op_after_relative_0_, C::execution_op_after_relative_1_, C::execution_op_after_relative_2_,
+    C::execution_op_after_relative_3_, C::execution_op_after_relative_4_, C::execution_op_after_relative_5_,
+    C::execution_op_after_relative_6_,
+};
+constexpr std::array<Column, NUM_OPERANDS> RESOLVED_OPERAND_COLUMNS = {
+    C::execution_rop_0_, C::execution_rop_1_, C::execution_rop_2_, C::execution_rop_3_,
+    C::execution_rop_4_, C::execution_rop_5_, C::execution_rop_6_,
+};
+
+constexpr size_t NUM_REGISTERS = 7;
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_COLUMNS = {
+    C::execution_register_0_, C::execution_register_1_, C::execution_register_2_, C::execution_register_3_,
+    C::execution_register_4_, C::execution_register_5_, C::execution_register_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_TAG_COLUMNS = {
+    C::execution_mem_tag_0_, C::execution_mem_tag_1_, C::execution_mem_tag_2_, C::execution_mem_tag_3_,
+    C::execution_mem_tag_4_, C::execution_mem_tag_5_, C::execution_mem_tag_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_IS_WRITE_COLUMNS = {
+    C::execution_rw_0_, C::execution_rw_1_, C::execution_rw_2_, C::execution_rw_3_,
+    C::execution_rw_4_, C::execution_rw_5_, C::execution_rw_6_,
+};
+constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
+    C::execution_mem_op_0_, C::execution_mem_op_1_, C::execution_mem_op_2_, C::execution_mem_op_3_,
+    C::execution_mem_op_4_, C::execution_mem_op_5_, C::execution_mem_op_6_,
+};
 
 } // namespace
 
-// TODO: Currently we accept the execution opcode, we need a way to map this to the actual selector for the circuit
-// we should be able to leverage the instruction specification table for this
 void ExecutionTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events, TraceContainer& trace)
 {
-    using C = Column;
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
-
-    // TODO: Compute success for the call opcodes.
 
     uint32_t last_seen_parent_id = 0;
     FF cached_parent_id_inv = 0;
 
     for (const auto& ex_event : ex_events) {
-        const auto& addr_event = ex_event.addressing_event;
-
-        // TODO(ilyas): These operands will likely also need to obey the exec instruction spec, i.e. a SET will require
-        // the sole operand in op3 instead of "compactly" in op1. Ideally this encoding is done in EXEC_INSTRUCTION_SPEC
-        // and we can use that to fill in the operands here.
-        auto operands = ex_event.wire_instruction.operands;
-        assert(operands.size() <= operand_columns);
-        operands.resize(operand_columns, simulation::Operand::from<FF>(0));
-        auto resolved_operands = ex_event.resolved_operands;
-        assert(resolved_operands.size() <= operand_columns);
-        resolved_operands.resize(operand_columns, simulation::Operand::from<FF>(0));
-
-        // TODO: remove this once we support all opcodes.
-        bool ex_opcode_exists =
-            REGISTER_INFO_MAP.contains(ex_event.opcode) && SUBTRACE_INFO_MAP.contains(ex_event.opcode);
-
-        std::array<TaggedValue, operand_columns> registers = {};
-        size_t input_counter = 0;
-        auto register_info =
-            ex_opcode_exists ? REGISTER_INFO_MAP.at(ex_event.opcode) : REGISTER_INFO_MAP.at(ExecutionOpCode::ADD);
-        for (uint8_t i = 0; i < operand_columns; ++i) {
-            if (register_info.is_active(i)) {
-                if (register_info.is_write(i)) {
-                    // If this is a write operation, we need to get the value from the output.
-                    registers[i] = ex_event.output;
-                } else {
-                    // If this is a read operation, we need to get the value from the input.
-                    auto input = ex_event.inputs.size() > input_counter ? ex_event.inputs[input_counter]
-                                                                        : TaggedValue::from<FF>(0);
-                    registers[i] = input;
-                    input_counter++;
-                }
-            }
-        }
-
-        const SubtraceInfo& dispatch_to_subtrace =
-            ex_opcode_exists ? SUBTRACE_INFO_MAP.at(ex_event.opcode) : SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD);
-
-        // Overly verbose but maximising readibility here
-        bool is_call = ex_event.opcode == ExecutionOpCode::CALL;
-        bool is_static_call = ex_event.opcode == ExecutionOpCode::STATICCALL;
-        bool is_return = ex_event.opcode == ExecutionOpCode::RETURN;
-        bool is_revert = ex_event.opcode == ExecutionOpCode::REVERT;
-        bool is_err = ex_event.error;
-        bool has_parent = ex_event.after_context_event.parent_id != 0;
-        bool sel_enter_call = (is_call || is_static_call) && !is_err;
-        bool sel_exit_call = is_return || is_revert || is_err;
-        bool nested_exit_call = sel_exit_call && has_parent;
-        // We rollback if we revert or error and we have a parent context.
-        bool rollback_context = (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.error) && has_parent;
-
-        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
-        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
-            last_seen_parent_id = ex_event.after_context_event.parent_id;
-            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
-        }
-
-        trace.set(
-            row,
-            { {
-                { C::execution_sel, 1 }, // active execution trace
-                { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
-                { C::execution_indirect, ex_event.wire_instruction.indirect },
-                { C::execution_sel_call, is_call ? 1 : 0 },
-                { C::execution_sel_static_call, is_static_call ? 1 : 0 },
-                { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
-                { C::execution_sel_return, is_return ? 1 : 0 },
-                { C::execution_sel_revert, is_revert ? 1 : 0 },
-                { C::execution_sel_error, ex_event.error ? 1 : 0 },
-                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
-                { C::execution_bytecode_id, ex_event.bytecode_id },
-                // Nested Context Control Flow
-                { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
-                { C::execution_is_parent_id_inv, cached_parent_id_inv },
-                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
-                { C::execution_rollback_context, rollback_context ? 1 : 0 },
-                // Operands
-                { C::execution_op1, operands.at(0) },
-                { C::execution_op2, operands.at(1) },
-                { C::execution_op3, operands.at(2) },
-                { C::execution_op4, operands.at(3) },
-                { C::execution_op5, operands.at(4) },
-                { C::execution_op6, operands.at(5) },
-                { C::execution_op7, operands.at(6) },
-                // Resolved Operands
-                { C::execution_rop1, resolved_operands.at(0) },
-                { C::execution_rop2, resolved_operands.at(1) },
-                { C::execution_rop3, resolved_operands.at(2) },
-                { C::execution_rop4, resolved_operands.at(3) },
-                { C::execution_rop5, resolved_operands.at(4) },
-                { C::execution_rop6, resolved_operands.at(5) },
-                { C::execution_rop7, resolved_operands.at(6) },
-                // Selectors for memory operations
-                { C::execution_mem_op1, register_info.is_active(0) ? 1 : 0 },
-                { C::execution_mem_op2, register_info.is_active(1) ? 1 : 0 },
-                { C::execution_mem_op3, register_info.is_active(2) ? 1 : 0 },
-                { C::execution_mem_op4, register_info.is_active(3) ? 1 : 0 },
-                { C::execution_mem_op5, register_info.is_active(4) ? 1 : 0 },
-                { C::execution_mem_op6, register_info.is_active(5) ? 1 : 0 },
-                { C::execution_mem_op7, register_info.is_active(6) ? 1 : 0 },
-                // Read / Write Selectors
-                { C::execution_rw1, register_info.is_write(0) ? 1 : 0 },
-                { C::execution_rw2, register_info.is_write(1) ? 1 : 0 },
-                { C::execution_rw3, register_info.is_write(2) ? 1 : 0 },
-                { C::execution_rw4, register_info.is_write(3) ? 1 : 0 },
-                { C::execution_rw5, register_info.is_write(4) ? 1 : 0 },
-                { C::execution_rw6, register_info.is_write(5) ? 1 : 0 },
-                { C::execution_rw7, register_info.is_write(6) ? 1 : 0 },
-                // Register Values
-                { C::execution_reg1, registers[0].as_ff() },
-                { C::execution_reg2, registers[1].as_ff() },
-                { C::execution_reg3, registers[2].as_ff() },
-                { C::execution_reg4, registers[3].as_ff() },
-                { C::execution_reg5, registers[4].as_ff() },
-                { C::execution_reg6, registers[5].as_ff() },
-                { C::execution_reg7, registers[6].as_ff() },
-                // Associated Mem Tags of Register values
-                { C::execution_mem_tag1, static_cast<uint8_t>(registers[0].get_tag()) },
-                { C::execution_mem_tag2, static_cast<uint8_t>(registers[1].get_tag()) },
-                { C::execution_mem_tag3, static_cast<uint8_t>(registers[2].get_tag()) },
-                { C::execution_mem_tag4, static_cast<uint8_t>(registers[3].get_tag()) },
-                { C::execution_mem_tag5, static_cast<uint8_t>(registers[4].get_tag()) },
-                { C::execution_mem_tag6, static_cast<uint8_t>(registers[5].get_tag()) },
-                { C::execution_mem_tag7, static_cast<uint8_t>(registers[6].get_tag()) },
-                // Selector Id
-                { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-                // Selectors
-                { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
-                { C::execution_sel_bitwise, dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
-                { C::execution_sel_poseidon2_perm,
-                  dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
-                { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
-            } });
-
-        auto operands_after_relative = addr_event.after_relative;
-        assert(operands_after_relative.size() <= operand_columns);
-        operands_after_relative.resize(operand_columns, simulation::Operand::from<FF>(0));
-
-        const ExecInstructionSpec& ex_spec = ex_opcode_exists ? EXEC_INSTRUCTION_SPEC.at(ex_event.opcode)
-                                                              : EXEC_INSTRUCTION_SPEC.at(ExecutionOpCode::ADD);
-        // Addressing
-        trace.set(
-            row,
-            { {
-                { C::execution_base_address_val, addr_event.base_address.as_ff() },
-                { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
-                { C::execution_sel_addressing_error, addr_event.error.has_value() ? 1 : 0 },
-                { C::execution_addressing_error_idx, addr_event.error.has_value() ? addr_event.error->operand_idx : 0 },
-                { C::execution_addressing_error_kind,
-                  addr_event.error.has_value() ? static_cast<size_t>(addr_event.error->error) : 0 },
-                { C::execution_sel_op1_is_address, ex_spec.num_addresses <= 1 ? 1 : 0 },
-                { C::execution_sel_op2_is_address, ex_spec.num_addresses <= 2 ? 1 : 0 },
-                { C::execution_sel_op3_is_address, ex_spec.num_addresses <= 3 ? 1 : 0 },
-                { C::execution_sel_op4_is_address, ex_spec.num_addresses <= 4 ? 1 : 0 },
-                { C::execution_sel_op5_is_address, ex_spec.num_addresses <= 5 ? 1 : 0 },
-                { C::execution_sel_op6_is_address, ex_spec.num_addresses <= 6 ? 1 : 0 },
-                { C::execution_sel_op7_is_address, ex_spec.num_addresses <= 7 ? 1 : 0 },
-                // After Relative
-                { C::execution_op1_after_relative, operands_after_relative.at(0) },
-                { C::execution_op2_after_relative, operands_after_relative.at(1) },
-                { C::execution_op3_after_relative, operands_after_relative.at(2) },
-                { C::execution_op4_after_relative, operands_after_relative.at(3) },
-                { C::execution_op5_after_relative, operands_after_relative.at(4) },
-                { C::execution_op6_after_relative, operands_after_relative.at(5) },
-                { C::execution_op7_after_relative, operands_after_relative.at(6) },
-            } });
+        /**************************************************************************************************
+         *  Setup.
+         **************************************************************************************************/
 
         // Context
         trace.set(
@@ -236,55 +109,275 @@ void ExecutionTraceBuilder::process(
                 { C::execution_next_context_id, ex_event.next_context_id },
             } });
 
-        // Gas
+        /**************************************************************************************************
+         *  Temporality group 1: Instruction fetching.
+         **************************************************************************************************/
+
+        // This will only have a value if instruction fetching succeeded.
+        std::optional<ExecutionOpCode> exec_opcode;
+
+        bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
+        trace.set(row,
+                  { {
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                      { C::execution_sel_instruction_fetching_failure, instruction_fetching_failed ? 1 : 0 },
+                      { C::execution_sel_instruction_fetching_success, !instruction_fetching_failed ? 1 : 0 },
+                  } });
+
+        // We don't write anything else if instruction fetching failed.
+        // To prove failure, we only need pc and bytecode_id which are already set.
+        // NOTE: Because of this we end up doing 2 lookups in execution.pil.
+        if (!instruction_fetching_failed) {
+            exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+            trace.set(row,
+                      { {
+                          { C::execution_ex_opcode, static_cast<uint8_t>(*exec_opcode) },
+                          { C::execution_indirect, ex_event.wire_instruction.indirect },
+                          { C::execution_instr_length, ex_event.wire_instruction.size_in_bytes() },
+                      } });
+
+            // At this point we can assume instruction fetching succeeded.
+            auto operands = ex_event.wire_instruction.operands;
+            assert(operands.size() <= NUM_OPERANDS);
+            operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
+
+            for (size_t i = 0; i < NUM_OPERANDS; i++) {
+                trace.set(OPERAND_COLUMNS[i], row, operands.at(i));
+            }
+        }
+
+        /**************************************************************************************************
+         *  Temporality group 2: Mapping from wire to execution and Base gas.
+         **************************************************************************************************/
+
+        // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
+        // However, we will not do it all in the same place. We do it by temporality groups, but always unconditionally.
+        bool should_read_exec_spec = !instruction_fetching_failed;
+        if (should_read_exec_spec) {
+            trace.set(row,
+                      { {
+                          { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
+                          { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
+                          { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
+                          { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
+                      } });
+        }
+
+        // TODO(alvaro): More of this should be gated with a boolean but the PIL relations don't accomodate it.
+        bool should_check_gas = !instruction_fetching_failed;
         bool oog_base = ex_event.gas_event.oog_base_l2 || ex_event.gas_event.oog_base_da;
-        trace.set(
-            row,
-            { {
-                { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
-                { C::execution_addressing_gas, ex_event.gas_event.addressing_gas },
-                { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
-                { C::execution_out_of_gas_base_l2, ex_event.gas_event.oog_base_l2 },
-                { C::execution_out_of_gas_base_da, ex_event.gas_event.oog_base_da },
-                { C::execution_out_of_gas_base, oog_base },
-                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                { C::execution_should_run_dyn_gas_check, !oog_base }, // This should be false also if addressing errors
-                { C::execution_dynamic_l2_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
-                { C::execution_dynamic_da_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
-                { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
-                { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
-                { C::execution_out_of_gas_dynamic_l2, ex_event.gas_event.oog_dynamic_l2 },
-                { C::execution_out_of_gas_dynamic_da, ex_event.gas_event.oog_dynamic_da },
-                { C::execution_out_of_gas_dynamic,
-                  ex_event.gas_event.oog_dynamic_l2 || ex_event.gas_event.oog_dynamic_da },
-                { C::execution_constant_64, 64 },
-                { C::execution_limit_used_l2_cmp_diff, ex_event.gas_event.limit_used_l2_comparison_witness },
-                { C::execution_limit_used_da_cmp_diff, ex_event.gas_event.limit_used_da_comparison_witness },
-            } });
+        trace.set(row,
+                  { {
+                      { C::execution_addressing_gas, ex_event.gas_event.addressing_gas },
+                      { C::execution_out_of_gas_base_l2, ex_event.gas_event.oog_base_l2 },
+                      { C::execution_out_of_gas_base_da, ex_event.gas_event.oog_base_da },
+                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      { C::execution_limit_used_l2_cmp_diff, ex_event.gas_event.limit_used_l2_comparison_witness },
+                      { C::execution_limit_used_da_cmp_diff, ex_event.gas_event.limit_used_da_comparison_witness },
+                      { C::execution_constant_64, 64 },
+                      { C::execution_sel_should_check_gas, should_check_gas ? 1 : 0 },
+                      { C::execution_out_of_gas_base, oog_base ? 1 : 0 },
+                  } });
 
-        // Call specific logic
-        if (sel_enter_call) {
-            Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
+        /**************************************************************************************************
+         *  Temporality group 3: Addressing.
+         **************************************************************************************************/
 
-            uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
-            bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
-            uint32_t allocated_left_l2_cmp_diff =
-                is_l2_gas_allocated_lt_left ? gas_left.l2Gas - allocated_l2_gas - 1 : allocated_l2_gas - gas_left.l2Gas;
+        bool should_resolve_address = should_check_gas && !oog_base;
+        const auto& addr_event = ex_event.addressing_event;
+        bool addressing_failed = addr_event.error.has_value();
+        assert(addressing_failed == (ex_event.error == ExecutionError::ADDRESSING));
 
-            uint32_t allocated_da_gas = registers[1].as<uint32_t>();
-            bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
-            uint32_t allocated_left_da_cmp_diff =
-                is_da_gas_allocated_lt_left ? gas_left.daGas - allocated_da_gas - 1 : allocated_da_gas - gas_left.daGas;
+        // As opposed to instruction fetching, we do have to write everything even if addressing failed.
+        // This is because addressing is a virtual gadget. Luckily, we do have all the information we need in the event.
+        auto resolved_operands = ex_event.resolved_operands;
+        assert(resolved_operands.size() <= NUM_OPERANDS);
+        resolved_operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
+        auto operands_after_relative = addr_event.after_relative;
+        assert(operands_after_relative.size() <= NUM_OPERANDS);
+        operands_after_relative.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
+
+        trace.set(C::execution_sel_should_resolve_address, row, should_resolve_address ? 1 : 0);
+
+        if (should_resolve_address) {
+            // At this point we can assume instruction fetching succeeded, so this should never fail.
+            const ExecInstructionSpec& ex_spec = EXEC_INSTRUCTION_SPEC.at(*exec_opcode);
 
             trace.set(row,
                       { {
-                          { C::execution_constant_32, 32 },
-                          { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
-                          { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
-                          { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
-                          { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
+                          { C::execution_sel_addressing_error, addressing_failed ? 1 : 0 },
+                          { C::execution_base_address_val, addr_event.base_address.as_ff() },
+                          { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address.get_tag()) },
                       } });
+
+            for (size_t i = 0; i < NUM_OPERANDS; i++) {
+                trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, ex_spec.num_addresses <= i + 1 ? 1 : 0);
+                trace.set(OPERAND_AFTER_RELATIVE_COLUMNS[i], row, operands_after_relative.at(i));
+                trace.set(RESOLVED_OPERAND_COLUMNS[i], row, resolved_operands.at(i));
+            }
+        }
+
+        /**************************************************************************************************
+         *  Temporality group...: Registers.
+         **************************************************************************************************/
+
+        // This comes from the EXEC_SPEC_READ lookup.
+        if (should_read_exec_spec) {
+            // At this point we can assume instruction fetching succeeded, so this should never fail.
+            const auto& register_info = REGISTER_INFO_MAP.at(*exec_opcode);
+
+            for (size_t i = 0; i < NUM_REGISTERS; i++) {
+                trace.set(REGISTER_IS_WRITE_COLUMNS[i], row, register_info.is_write(static_cast<uint8_t>(i)) ? 1 : 0);
+                trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
+            }
+        }
+
+        std::array<TaggedValue, NUM_REGISTERS> registers = {};
+        bool should_process_registers = should_resolve_address && !addressing_failed;
+        if (should_process_registers) {
+            // At this point we can assume instruction fetching succeeded, so this should never fail.
+            const auto& register_info = REGISTER_INFO_MAP.at(*exec_opcode);
+
+            // Registers.
+            size_t input_counter = 0;
+            for (uint8_t i = 0; i < NUM_REGISTERS; ++i) {
+                if (register_info.is_active(i)) {
+                    if (register_info.is_write(i)) {
+                        // If this is a write operation, we need to get the value from the output.
+                        registers[i] = ex_event.output;
+                    } else {
+                        // If this is a read operation, we need to get the value from the input.
+                        auto input = ex_event.inputs.size() > input_counter ? ex_event.inputs.at(input_counter)
+                                                                            : TaggedValue::from<FF>(0);
+                        registers[i] = input;
+                        input_counter++;
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < NUM_REGISTERS; i++) {
+                trace.set(REGISTER_COLUMNS[i], row, registers.at(i));
+                trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers.at(i).get_tag()));
+            }
+        }
+
+        // FIXME: do correctly.
+        bool register_processing_failed = false;
+
+        /**************************************************************************************************
+         *  Temporality group...: Dynamic gas.
+         **************************************************************************************************/
+
+        bool should_process_dynamic_gas = should_process_registers && !register_processing_failed;
+        bool oog_dynamic = ex_event.gas_event.oog_dynamic_l2 || ex_event.gas_event.oog_dynamic_da;
+        if (should_process_dynamic_gas) {
+            trace.set(row,
+                      { {
+                          { C::execution_should_run_dyn_gas_check,
+                            !oog_base ? 1 : 0 }, // This should be false also if addressing errors
+                          { C::execution_dynamic_l2_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
+                          { C::execution_dynamic_da_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
+                          { C::execution_out_of_gas_dynamic_l2, ex_event.gas_event.oog_dynamic_l2 },
+                          { C::execution_out_of_gas_dynamic_da, ex_event.gas_event.oog_dynamic_da },
+                          { C::execution_out_of_gas_dynamic, oog_dynamic ? 1 : 0 },
+                      } });
+        }
+
+        /**************************************************************************************************
+         *  Temporality group...: Dispatching.
+         **************************************************************************************************/
+
+        // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
+
+        // Overly verbose but maximising readibility here
+        bool is_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::CALL;
+        bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
+        bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
+        bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+        bool is_err = ex_event.error != ExecutionError::NONE;
+        bool has_parent = ex_event.after_context_event.parent_id != 0;
+        bool sel_enter_call = (is_call || is_static_call) && !is_err;
+        bool sel_exit_call = is_return || is_revert || is_err;
+        bool nested_exit_call = sel_exit_call && has_parent;
+        // We rollback if we revert or error and we have a parent context.
+        bool rollback_context =
+            ((exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT) || is_err) && has_parent;
+
+        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
+        if (last_seen_parent_id != ex_event.after_context_event.parent_id) {
+            last_seen_parent_id = ex_event.after_context_event.parent_id;
+            cached_parent_id_inv = has_parent ? FF(ex_event.after_context_event.parent_id).invert() : 0;
+        }
+
+        // Nested Context Control Flow and helper columns
+        trace.set(row,
+                  { {
+                      { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
+                      { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                      { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
+                      { C::execution_rollback_context, rollback_context ? 1 : 0 },
+                      // Helper columns
+                      { C::execution_sel, 1 },
+                      { C::execution_sel_error, is_err ? 1 : 0 },
+                      { C::execution_sel_call, is_call ? 1 : 0 },
+                      { C::execution_sel_static_call, is_static_call ? 1 : 0 },
+                      { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
+                      { C::execution_sel_return, is_return ? 1 : 0 },
+                      { C::execution_sel_revert, is_revert ? 1 : 0 },
+                      { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
+                  } });
+
+        // This comes from the EXEC_SPEC_READ lookup.
+        if (should_read_exec_spec) {
+            // At this point we can assume instruction fetching succeeded, so this should never fail.
+            const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
+
+            // Subtrace dispatching.
+            trace.set(
+                row,
+                { {
+                    // Selector Id
+                    { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                    // Selectors
+                    { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
+                    { C::execution_sel_bitwise,
+                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
+                    { C::execution_sel_poseidon2_perm,
+                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
+                    { C::execution_sel_to_radix,
+                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
+                    { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
+                } });
+        }
+
+        bool should_process_dispatching = should_process_dynamic_gas && !oog_dynamic;
+        if (should_process_dispatching) {
+            // Call specific logic
+            if (sel_enter_call) {
+                Gas gas_left = ex_event.after_context_event.gas_limit - ex_event.after_context_event.gas_used;
+
+                uint32_t allocated_l2_gas = registers[0].as<uint32_t>();
+                bool is_l2_gas_allocated_lt_left = allocated_l2_gas < gas_left.l2Gas;
+                uint32_t allocated_left_l2_cmp_diff = is_l2_gas_allocated_lt_left
+                                                          ? gas_left.l2Gas - allocated_l2_gas - 1
+                                                          : allocated_l2_gas - gas_left.l2Gas;
+
+                uint32_t allocated_da_gas = registers[1].as<uint32_t>();
+                bool is_da_gas_allocated_lt_left = allocated_da_gas < gas_left.daGas;
+                uint32_t allocated_left_da_cmp_diff = is_da_gas_allocated_lt_left
+                                                          ? gas_left.daGas - allocated_da_gas - 1
+                                                          : allocated_da_gas - gas_left.daGas;
+
+                trace.set(row,
+                          { {
+                              { C::execution_constant_32, 32 },
+                              { C::execution_call_is_l2_gas_allocated_lt_left, is_l2_gas_allocated_lt_left },
+                              { C::execution_call_allocated_left_l2_cmp_diff, allocated_left_l2_cmp_diff },
+                              { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
+                              { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
+                          } });
+            }
         }
 
         row++;
@@ -300,6 +393,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
     return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
         // Execution
         std::make_unique<LookupIntoIndexedByClk<lookup_execution_exec_spec_read_settings>>(),
+        // Instruction fetching
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

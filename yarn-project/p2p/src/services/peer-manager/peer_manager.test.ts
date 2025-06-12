@@ -1,5 +1,10 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type {
+  WorldStateSyncStatus,
+  WorldStateSynchronizer,
+  WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -880,6 +885,12 @@ describe('PeerManager', () => {
       maxPeerCount: maxPeerCount,
     };
     peerScoring = new PeerScoring(config);
+    const mockWorldStateSynchronizer = {
+      status: () =>
+        Promise.resolve({
+          syncSummary: {} as WorldStateSyncStatus,
+        } as WorldStateSynchronizerStatus),
+    };
 
     return new PeerManager(
       node,
@@ -889,6 +900,8 @@ describe('PeerManager', () => {
       createLogger(name),
       peerScoring,
       mockReqResp,
+      mockWorldStateSynchronizer as WorldStateSynchronizer,
+      '',
     );
   }
 });

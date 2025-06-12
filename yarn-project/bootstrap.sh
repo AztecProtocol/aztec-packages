@@ -145,7 +145,7 @@ function test_cmds {
   echo "$hash cd yarn-project/kv-store && yarn test"
   echo "$hash cd yarn-project/ivc-integration && yarn test:browser"
 
-  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" != "next" ]; then
+  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/test/testnet_compatibility.test.ts"
   fi
 }

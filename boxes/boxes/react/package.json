@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/react",
+  "name": "aztec-example-react",
   "description": "React App",
   "private": true,
   "version": "0.1.0",

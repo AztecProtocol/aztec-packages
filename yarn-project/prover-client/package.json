@@ -4,7 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./block-builder": "./dest/block_builder/index.js",
+    "./block-factory": "./dest/block-factory/index.js",
     "./broker": "./dest/proving_broker/index.js",
     "./orchestrator": "./dest/orchestrator/index.js",
     "./helpers": "./dest/orchestrator/block-building-helpers.js",

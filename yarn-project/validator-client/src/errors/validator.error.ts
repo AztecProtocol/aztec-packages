@@ -14,7 +14,7 @@ export class InvalidValidatorPrivateKeyError extends ValidatorError {
 
 export class AttestationTimeoutError extends ValidatorError {
   constructor(numberOfRequiredAttestations: number, slot: bigint) {
-    super(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
+    super(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot ${slot}`);
   }
 }
 

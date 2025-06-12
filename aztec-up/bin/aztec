@@ -110,8 +110,8 @@ case ${1:-} in
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
-      "
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+      " bash "$@"
     else
 
       export P2P_PORT="${P2P_PORT:-40400}"

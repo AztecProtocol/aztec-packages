@@ -13,7 +13,6 @@
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
-#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
@@ -92,12 +91,6 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     // of the circuit.
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     info("Running check circuit over ", num_rows, " rows.");
-
-    // Go into interactive debug mode if requested.
-    if (getenv("AVM_DEBUG") != nullptr) {
-        InteractiveDebugger debugger(trace);
-        debugger.run();
-    }
 
     // Warning: this destroys the trace.
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));

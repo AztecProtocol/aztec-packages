@@ -8,7 +8,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import EventEmitter from 'node:events';
 import type { Hex } from 'viem';
 
-import { Offence, WANT_TO_SLASH_EVENT } from './config.js';
+import { Offense, WANT_TO_SLASH_EVENT } from './config.js';
 import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 
 describe('EpochPruneWatcher', () => {
@@ -16,11 +16,12 @@ describe('EpochPruneWatcher', () => {
   let l2BlockSource: L2BlockSourceEventEmitter;
   let epochCache: MockProxy<EpochCache>;
   const penalty = BigInt(1000000000000000000n);
+  const maxPenalty = penalty * 2n;
 
   beforeEach(async () => {
     l2BlockSource = new EventEmitter() as unknown as L2BlockSourceEventEmitter;
     epochCache = mock<EpochCache>();
-    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty);
+    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, penalty, maxPenalty);
     await watcher.start();
   });
 
@@ -51,16 +52,56 @@ describe('EpochPruneWatcher', () => {
     // Just need to yield to the event loop to clear our synchronous promises
     await sleep(0);
 
-    expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, {
-      validators: committee,
-      amounts: [penalty, penalty],
-      offenses: [Offence.EPOCH_PRUNE, Offence.EPOCH_PRUNE],
-    });
+    expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+      {
+        validator: EthAddress.fromString(committee[0]),
+        amount: penalty,
+        offense: Offense.EPOCH_PRUNE,
+      },
+      {
+        validator: EthAddress.fromString(committee[1]),
+        amount: penalty,
+        offense: Offense.EPOCH_PRUNE,
+      },
+    ]);
 
-    await expect(watcher.shouldSlash(committee[0], penalty, Offence.EPOCH_PRUNE)).resolves.toBe(true);
-    await expect(watcher.shouldSlash(committee[1], penalty, Offence.EPOCH_PRUNE)).resolves.toBe(true);
     await expect(
-      watcher.shouldSlash('0x0000000000000000000000000000000000000000', penalty, Offence.EPOCH_PRUNE),
+      watcher.shouldSlash({
+        validator: EthAddress.fromString(committee[0]),
+        amount: penalty,
+        offense: Offense.EPOCH_PRUNE,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      watcher.shouldSlash({
+        validator: EthAddress.fromString(committee[1]),
+        amount: penalty,
+        offense: Offense.EPOCH_PRUNE,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      watcher.shouldSlash({
+        validator: EthAddress.fromString('0x0000000000000000000000000000000000000000'),
+        amount: penalty,
+        offense: Offense.EPOCH_PRUNE,
+      }),
+    ).resolves.toBe(false);
+
+    // Should slash if the penalty is within the max penalty
+    await expect(
+      watcher.shouldSlash({
+        validator: EthAddress.fromString(committee[0]),
+        amount: maxPenalty,
+        offense: Offense.EPOCH_PRUNE,
+      }),
+    ).resolves.toBe(true);
+    // Should not slash if the penalty is above the max penalty
+    await expect(
+      watcher.shouldSlash({
+        validator: EthAddress.fromString(committee[0]),
+        amount: maxPenalty + 1n,
+        offense: Offense.EPOCH_PRUNE,
+      }),
     ).resolves.toBe(false);
   });
 });

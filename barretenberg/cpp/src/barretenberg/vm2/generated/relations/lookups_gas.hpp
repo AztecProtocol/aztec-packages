@@ -17,7 +17,7 @@ struct lookup_gas_addressing_gas_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_ADDRESSING_GAS_READ";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_addressing_gas;
     static constexpr Column COUNTS = Column::lookup_gas_addressing_gas_read_counts;
     static constexpr Column INVERSES = Column::lookup_gas_addressing_gas_read_inv;
@@ -39,7 +39,7 @@ struct lookup_gas_limit_used_l2_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_LIMIT_USED_L2_RANGE";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_gas_limit_used_l2_range_counts;
     static constexpr Column INVERSES = Column::lookup_gas_limit_used_l2_range_inv;
@@ -61,7 +61,7 @@ struct lookup_gas_limit_used_da_range_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GAS_LIMIT_USED_DA_RANGE";
     static constexpr std::string_view RELATION_NAME = "gas";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_check_gas;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
     static constexpr Column COUNTS = Column::lookup_gas_limit_used_da_range_counts;
     static constexpr Column INVERSES = Column::lookup_gas_limit_used_da_range_inv;

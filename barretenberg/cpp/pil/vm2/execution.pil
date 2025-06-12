@@ -31,49 +31,21 @@ include "gas.pil";
 namespace execution;
 
 pol commit sel; // subtrace selector
+pol commit last; // last row selector
+sel * (1 - sel) = 0;
+last * (1 - last) = 0;
 
+// This is a set of selectors for the tx trace, they are here for now
+pol commit enqueued_call_start;
+pol commit enqueued_call_end;
+
+// If `sel` is 0, then the Execution relation should pass.
 #[skippable_if]
 sel = 0;
 
-// Subtrace operation id
-pol commit subtrace_operation_id;
-
-// Subtrace Dispatch selectors
-// These boolean selectors are constrained via the precomputed Execution Instruction Spec Table
-pol commit sel_alu;
-pol commit sel_bitwise;
-pol commit sel_to_radix;
-pol commit sel_ecc_add;
-pol commit sel_poseidon2_perm;
-
-pol commit ex_opcode;
-pol commit indirect;
-// operands
-pol commit op1, op2, op3, op4;
-pol commit op5, op6, op7;
-// resolved operands
-pol commit rop1, rop2, rop3, rop4;
-pol commit rop5, rop6, rop7;
-// Registers
-pol commit reg1, reg2, reg3, reg4;
-pol commit reg5, reg6, reg7;
-// Memory Acccesses
-pol commit mem_op1, mem_op2, mem_op3, mem_op4;
-pol commit mem_op5, mem_op6, mem_op7;
-// Memory Tag
-pol commit mem_tag1, mem_tag2, mem_tag3, mem_tag4;
-pol commit mem_tag5, mem_tag6, mem_tag7;
-// Read / Write selectors
-pol commit rw1, rw2, rw3, rw4;
-pol commit rw5, rw6, rw7;
-
-pol commit bytecode_id;
-pol commit instr_length; // Need this for shift col on next_pc, will be part of lookup to instr_fetch
-pol commit last;
-
-// Selector constraints
-sel * (1 - sel) = 0;
-last * (1 - last) = 0;
+/**************************************************************************************************
+ *  Setup (some general constraints)
+ **************************************************************************************************/
 
 // If the current row is an execution row, then either
 // the next row is an execution row, or the current row is marked as the last row.
@@ -92,23 +64,176 @@ sel * (1 - sel') * (1 - last) = 0;
 #[LAST_IS_LAST]
 last * sel' = 0;
 
-// These are needed to have a non-empty set of columns for each type.
-pol public input;
+/**************************************************************************************************
+ *  Temporality group 1: Instruction fetching (unconditional)
+ **************************************************************************************************/
 
-#[EXEC_SPEC_READ]
+pol commit bytecode_id;
+pol commit instr_length; // Need this for shift col on next_pc
+pol commit sel_instruction_fetching_failure;
+
+pol commit ex_opcode;
+pol commit indirect;
+pol commit op[7];  // operands
+
+// We now proceed to fetch the instruction.
+// The handling is slightly subtle: suppose fetching fails, then in simulation/tracegen
+// we will NOT have the partial information of the instruction, and to be honest we
+// ideally want to leave it unconstrained. This is why we do 2 lookups instead of 1.
+// TODO: We can consider optimizing this later, but it is probably the cleanest right now.
+
+#[INSTRUCTION_FETCHING_RESULT]
 sel {
+    pc, bytecode_id, sel_instruction_fetching_failure
+} in instr_fetching.sel {
+    instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
+};
+
+pol commit sel_instruction_fetching_success;
+sel * (sel_instruction_fetching_success - (1 - sel_instruction_fetching_failure)) = 0;
+
+#[INSTRUCTION_FETCHING_BODY]
+sel_instruction_fetching_success {
+    pc, bytecode_id, ex_opcode, instr_length,
+    indirect, op[0], op[1], op[2], op[3], op[4], op[5], op[6]
+} in instr_fetching.sel {
+    instr_fetching.pc,
+    instr_fetching.bytecode_id,
+    instr_fetching.exec_opcode,
+    instr_fetching.instr_size,
+    instr_fetching.indirect,
+    instr_fetching.op1,
+    instr_fetching.op2,
+    instr_fetching.op3,
+    instr_fetching.op4,
+    instr_fetching.op5,
+    instr_fetching.op6,
+    instr_fetching.op7
+};
+
+/**************************************************************************************************
+ *  Temporality group 2
+ *  - Mapping from wire instruction to execution instruction
+ *  - Gas
+ **************************************************************************************************/
+
+// TODO(fcarreiro): Ideally we would use this one as selector for readability, but it's not supported yet.
+// pol SEL_SHOULD_READ_EXEC_SPEC = sel_instruction_fetching_success;
+#[EXEC_SPEC_READ]
+sel_instruction_fetching_success {
     ex_opcode,
+    // in gas.pil.
     opcode_gas,
     base_da_gas,
     dynamic_l2_gas,
-    dynamic_da_gas
-    // Mem ops, subtrace selectors, etc
+    dynamic_da_gas,
+    // subtraces, mem ops, etc (defined later in this file)
+    subtrace_operation_id, sel_alu, sel_bitwise, sel_to_radix, sel_ecc_add, sel_poseidon2_perm,
+    mem_op[0], mem_op[1], mem_op[2], mem_op[3], mem_op[4], mem_op[5], mem_op[6],
+    rw[0], rw[1], rw[2], rw[3], rw[4], rw[5], rw[6]
 } in
 precomputed.sel_exec_spec {
+    // execution opcode
     precomputed.clk,
+    // gas
     precomputed.exec_opcode_opcode_gas,
     precomputed.exec_opcode_base_da_gas,
     precomputed.exec_opcode_dynamic_l2_gas,
-    precomputed.exec_opcode_dynamic_da_gas
+    precomputed.exec_opcode_dynamic_da_gas,
+    // subtraces
+    precomputed.subtrace_operation_id,
+    precomputed.sel_dispatch_alu,
+    precomputed.sel_dispatch_bitwise,
+    precomputed.sel_dispatch_poseidon_perm,
+    precomputed.sel_dispatch_to_radix,
+    precomputed.sel_dispatch_ecc,
+    // memory operations per register
+    precomputed.mem_op_reg[0],
+    precomputed.mem_op_reg[1],
+    precomputed.mem_op_reg[2],
+    precomputed.mem_op_reg[3],
+    precomputed.mem_op_reg[4],
+    precomputed.mem_op_reg[5],
+    precomputed.mem_op_reg[6],
+    // read / write per register
+    precomputed.rw[0],
+    precomputed.rw[1],
+    precomputed.rw[2],
+    precomputed.rw[3],
+    precomputed.rw[4],
+    precomputed.rw[5],
+    precomputed.rw[6]
 };
 
+//////// BASE GAS ////////
+
+// Ideally this could be an alias, but I'm adding a column for readability.
+pol commit sel_should_check_gas;
+sel * (sel_should_check_gas - sel_instruction_fetching_success) = 0;
+
+// NOTE: Gas is constrained in gas.pil.
+// The "output we want is" out_of_gas_base from gas.pil.
+
+/**************************************************************************************************
+ *  Temporality group 3: Address resolution
+ **************************************************************************************************/
+
+pol commit sel_should_resolve_address;
+// This assumes mutual exclusivity of the failure selectors.
+sel * (sel_should_resolve_address - (1 - out_of_gas_base - sel_instruction_fetching_failure)) = 0;
+
+// resolved operands
+pol commit rop[7];
+
+// NOTE: Constraints on the resolved operands are in addressing.pil.
+// The "output we want is" sel_addressing_error from addressing.pil.
+
+/**************************************************************************************************
+ *  Temporality group N: Dynamic gas
+ **************************************************************************************************/
+
+// TODO: gate this group with sel_addressing_error, etc.
+
+/**************************************************************************************************
+ *  Temporality group N: Registers + Dispatch opcode
+ **************************************************************************************************/
+
+// TODO: gate this group with oog_dynamic, etc.
+
+// Registers
+pol commit register[7];
+// Memory Acccesses
+pol commit mem_op[7];
+// Memory Tag
+pol commit mem_tag[7];
+// Read / Write selectors
+pol commit rw[7];
+
+/**************************************************************************************************
+ *  Temporality group N: Dispatch opcode
+ **************************************************************************************************/
+
+// TODO: gate this group with some error flag from the previous group.
+
+// Subtrace operation id
+pol commit subtrace_operation_id;
+
+// Subtrace Dispatch selectors
+// These boolean selectors are constrained via the precomputed Execution Instruction Spec Table
+pol commit sel_alu;
+pol commit sel_bitwise;
+pol commit sel_to_radix;
+pol commit sel_ecc_add;
+pol commit sel_poseidon2_perm;
+
+/**************************************************************************************************
+ *  Error collection
+ **************************************************************************************************/
+
+// sel_error is 1 iff any kind of error happens at the execution level.
+pol commit sel_error;
+sel_error * (1 - sel_error) = 0;
+
+// TODO: complete.
+// This implies mutual exclusivity of the failure selectors.
+// sel_error = sel_gas_failure + sel_instruction_fetching_failure;

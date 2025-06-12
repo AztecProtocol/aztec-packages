@@ -353,4 +353,8 @@ export class EthCheatCodes {
     }
     this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
   }
+
+  public traceTransaction(txHash: Hex): Promise<any> {
+    return this.rpcCall('trace_transaction', [txHash]);
+  }
 }

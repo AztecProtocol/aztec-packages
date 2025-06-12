@@ -19,11 +19,13 @@
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
 struct EventsContainer {
+    EventEmitterInterface<TxEvent>::Container tx;
     EventEmitterInterface<ExecutionEvent>::Container execution;
     EventEmitterInterface<AluEvent>::Container alu;
     EventEmitterInterface<BitwiseEvent>::Container bitwise;

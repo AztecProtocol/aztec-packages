@@ -1,3 +1,4 @@
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -153,7 +154,7 @@ describe('ReqResp', () => {
   });
 
   describe('Tx req protocol', () => {
-    it('Can request a Tx from TxHash', async () => {
+    it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -179,7 +180,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(tx);
     });
 
-    it('Handle returning empty buffers', async () => {
+    it('handles returning empty buffers', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -202,7 +203,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(undefined);
     });
 
-    it('Does not crash if tx hash returns undefined', async () => {
+    it('does not crash if tx hash returns undefined', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -468,7 +469,7 @@ describe('ReqResp', () => {
       const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
       const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
 
       // Expect one request to have been sent to each peer
@@ -489,6 +490,52 @@ describe('ReqResp', () => {
       );
     });
 
+    it('should send a batch request with a pinned peer', async () => {
+      const batchSize = 9;
+      nodes = await createNodes(peerScoring, 4, {
+        // Bump rate limits so the pinned peer can respond
+        [ReqRespSubProtocol.PING]: {
+          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+        },
+      });
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
+      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
+      expect(res).toEqual(expectResponses);
+
+      // Expect pinned peer to have received all requests
+      for (let i = 0; i < batchSize; i++) {
+        expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
+          ReqRespSubProtocol.PING,
+          Buffer.from(`ping${i}`),
+        );
+      }
+
+      // Expect at least one request to have been sent to each other peer
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[2].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[3].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+    });
+
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
       nodes = await createNodes(peerScoring, 3);
@@ -506,7 +553,7 @@ describe('ReqResp', () => {
         RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
       );
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
 
       // Check that we did detect hitting a rate limit

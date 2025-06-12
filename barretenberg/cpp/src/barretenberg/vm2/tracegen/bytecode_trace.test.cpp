@@ -477,7 +477,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
                           ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 0),
                           ROW_FIELD_EQ(R, instr_fetching_tag_out_of_range, 0),
-                          ROW_FIELD_EQ(R, instr_fetching_parsing_err, 0),
+                          ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 0),
                           ROW_FIELD_EQ(R, instr_fetching_sel_pc_in_range, 1),
                           ROW_FIELD_EQ(R, instr_fetching_sel_has_tag, has_tag),
                           ROW_FIELD_EQ(R, instr_fetching_sel_tag_is_op2, tag_is_op2),
@@ -579,7 +579,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
                                    20), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 19), // bytecode_size - pc - 1   if bytecode_size > pc
                       ROW_FIELD_EQ(R, instr_fetching_opcode_out_of_range, 1)));
 
@@ -592,7 +592,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
                                    6), // instr_size > bytes_to_read: instr_size - bytes_to_read - 1
-                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 0), // bytecode_size - pc - 1   if bytecode_size > pc
                       ROW_FIELD_EQ(R, instr_fetching_instr_out_of_range, 1)));
 
@@ -605,7 +605,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
                                    0), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 1),
                       ROW_FIELD_EQ(R, instr_fetching_pc_abs_diff, 18), // pc - bytecode_size if bytecode_size <= pc
                       ROW_FIELD_EQ(R, instr_fetching_pc_out_of_range, 1)));
 }
@@ -673,7 +673,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
                                    set_64_size), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 1),
                       ROW_FIELD_EQ(R,
                                    instr_fetching_pc_abs_diff,
                                    cast_size + set_64_size - 1), // bytecode_size - pc - 1 if bytecode_size > pc
@@ -691,7 +691,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
                       ROW_FIELD_EQ(R,
                                    instr_fetching_instr_abs_diff,
                                    0), // instr_size <= bytes_to_read: bytes_to_read - instr_size
-                      ROW_FIELD_EQ(R, instr_fetching_parsing_err, 1),
+                      ROW_FIELD_EQ(R, instr_fetching_sel_parsing_err, 1),
                       ROW_FIELD_EQ(R,
                                    instr_fetching_pc_abs_diff,
                                    set_64_size - 1), // bytecode_size - pc - 1 if bytecode_size > pc

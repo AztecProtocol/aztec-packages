@@ -36,6 +36,9 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        static constexpr size_t VERIFICATION_KEY_LENGTH =
+            UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
+
         virtual ~VerificationKey() = default;
         PublicComponentKey ipa_claim_public_input_key;
 
@@ -70,6 +73,10 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
+
+            BB_ASSERT_EQ(elements.size(),
+                         VERIFICATION_KEY_LENGTH,
+                         "Verification key length did not match expected length from formula.");
 
             return elements;
         }

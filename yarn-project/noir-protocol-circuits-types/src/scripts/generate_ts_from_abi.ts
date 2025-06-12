@@ -52,6 +52,12 @@ const main = async () => {
 
   code += `
     // Types added manually.
+
+    export type L2ToL1Message = {
+      recipient: EthAddress;
+      content: Field;
+    }
+
     export type LogHash = {
       value: Field;
       length: u32;

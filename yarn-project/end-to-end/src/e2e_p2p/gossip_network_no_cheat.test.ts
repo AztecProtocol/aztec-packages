@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
-import { addL1Validator } from '@aztec/cli/l1';
+import { addL1Validator, dripQueue } from '@aztec/cli/l1';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -118,8 +118,19 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    const attestersImmediatelyAfterAdding = await rollup.read.getAttesters();
-    expect(attestersImmediatelyAfterAdding.length).toBe(validators.length);
+    // Drip the deposit queue to add validators to the rollup
+    await dripQueue({
+      rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      privateKey: t.baseAccountPrivateKey,
+      mnemonic: undefined,
+      stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+      log: t.logger.info,
+      debugLogger: t.logger,
+    });
+
+    const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
+    expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
     // Check that the validators are added correctly
     const withdrawer = await stakingAssetHandler.read.withdrawer();

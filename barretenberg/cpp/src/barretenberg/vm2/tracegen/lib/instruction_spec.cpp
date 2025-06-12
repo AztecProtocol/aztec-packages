@@ -35,14 +35,14 @@ RegisterMemInfo& RegisterMemInfo::has_outputs(uint16_t num_outputs)
     return *this;
 }
 
-bool RegisterMemInfo::is_active(uint8_t index) const
+bool RegisterMemInfo::is_active(size_t index) const
 {
-    return ((encoded_register_info >> (2 * index)) & 1) == 1;
+    return ((encoded_register_info >> (2 * static_cast<uint8_t>(index))) & 1) == 1;
 }
 
-bool RegisterMemInfo::is_write(uint8_t index) const
+bool RegisterMemInfo::is_write(size_t index) const
 {
-    return ((encoded_register_info >> (2 * index + 1)) & 1) == 1;
+    return ((encoded_register_info >> (2 * static_cast<uint8_t>(index) + 1)) & 1) == 1;
 }
 
 const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
@@ -94,7 +94,7 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::REVERT, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::JUMP, RegisterMemInfo() },
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
-    { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(3) },
+    { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(2) },
 } };
 
 } // namespace bb::avm2::tracegen

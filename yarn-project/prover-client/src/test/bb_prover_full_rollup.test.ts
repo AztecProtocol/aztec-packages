@@ -12,7 +12,7 @@ import { mockTx } from '@aztec/stdlib/testing';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
-import { buildBlockWithCleanDB } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 

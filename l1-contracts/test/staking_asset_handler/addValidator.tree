@@ -14,6 +14,13 @@ AddValidatorTest
     │       ├── it deposits into the rollup
     │       └── it emits a {ValidatorAdded} event
     └── given balance GE depositAmount
-        ├── it exits the attester if needed
-        ├── it deposits into the rollup
-        └── it emits a {ValidatorAdded} event
+    │       ├── it exits the attester if needed
+    │       ├── it deposits into the rollup
+    │       └── it emits a {ValidatorAdded} event
+    └── given the deposit call fails
+            ├── it deposits into the rollup
+            ├── it does not revert if the deposit call fails
+            ├──  it emits a {ValidatorAdded} event for the first attester
+            └── it emits a {ValidatorAdded} event for the third attester
+
+

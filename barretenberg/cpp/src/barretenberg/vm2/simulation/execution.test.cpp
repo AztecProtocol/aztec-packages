@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
@@ -19,6 +20,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
@@ -43,8 +45,13 @@ class ExecutionSimulationTest : public ::testing::Test {
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution =
-        Execution(alu, execution_components, instruction_info_db, execution_event_emitter, context_stack_event_emitter);
+    StrictMock<MockContextProvider> context_provider;
+    Execution execution = Execution(alu,
+                                    execution_components,
+                                    context_provider,
+                                    instruction_info_db,
+                                    execution_event_emitter,
+                                    context_stack_event_emitter);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -75,7 +82,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
-    EXPECT_CALL(execution_components, get_next_context_id);
+    EXPECT_CALL(context_provider, get_next_context_id);
     EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
@@ -93,7 +100,7 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,

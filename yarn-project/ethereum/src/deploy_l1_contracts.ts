@@ -635,7 +635,8 @@ export const deployRollup = async (
       });
       logger.verbose(`Adding rollup ${rollupContract.address} to GSE ${addresses.gseAddress} in tx ${addRollupTxHash}`);
 
-      txHashes.push(addRollupTxHash);
+      // wait for this tx to land in case we have to register initialValidators
+      await extendedClient.waitForTransactionReceipt({ hash: addRollupTxHash });
     } else {
       logger.verbose(`Rollup ${rollupContract.address} is already registered in GSE ${addresses.gseAddress}`);
     }

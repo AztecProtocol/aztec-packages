@@ -107,13 +107,7 @@ pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
 // Memory Access + Register mappings
-pol constant mem_op_reg1, rw_1;
-pol constant mem_op_reg2, rw_2;
-pol constant mem_op_reg3, rw_3;
-pol constant mem_op_reg4, rw_4;
-pol constant mem_op_reg5, rw_5;
-pol constant mem_op_reg6, rw_6;
-pol constant mem_op_reg7, rw_7;
+pol constant mem_op_reg[7], rw[7];
 // Subtrace/Gadget Selector
 pol constant sel_dispatch_alu;
 pol constant sel_dispatch_bitwise;
@@ -127,3 +121,19 @@ pol constant subtrace_operation_id;
 pol constant sel_addressing_gas;
 // Indirect is clk
 pol constant addressing_gas;
+
+// Phase Table for Tx Trace
+pol constant sel_phase; // Selector for phase table
+pol constant phase_value; // { NR_PRIVATE_INSERTS, SETUP, R_PRIVATE_INSERTS, APPLOGIC, TEARDOWN}
+pol constant is_public_call_request_phase;
+pol constant is_l2_l1_message_phase;
+pol constant is_revertible;
+pol constant next_phase_on_revert;
+pol constant read_public_input_offset;
+pol constant read_public_input_length_offset;
+pol constant write_public_input_offset;
+pol constant sel_non_revertible_append_note_hash;
+pol constant sel_non_revertible_append_nullifier;
+pol constant sel_revertible_append_note_hash;
+pol constant sel_revertible_append_nullifier;
+pol constant sel_collect_fee;

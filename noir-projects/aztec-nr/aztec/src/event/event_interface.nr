@@ -6,7 +6,10 @@ use crate::{
 use dep::protocol_types::{
     abis::event_selector::EventSelector,
     address::AztecAddress,
+    constants::GENERATOR_INDEX__EVENT_COMMITMENT,
+    hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
+    utils::arrays::array_concat,
 };
 
 pub struct PrivateLogContentConstraintsEnum {
@@ -49,11 +52,23 @@ where
     // usage is requested. If `constraints` were a runtime value then performance would suffer.
     assert_constant(constraints);
 
-    let ciphertext = remove_constraints_if(
+    let (ciphertext, randomness) = remove_constraints_if(
         constraints == PrivateLogContent.NO_CONSTRAINTS,
         || to_encrypted_private_event_message(event, recipient),
     );
     let log_content = prefix_with_tag(ciphertext, sender, recipient);
+
+    // We generate a cryptographic commitment to the event to ensure its authenticity during out-of-band delivery.
+    // The nullifier tree is chosen over the note hash tree for this purpose since it provides a simpler mechanism
+    // - nullifiers require no nonce, and events, being non-spendable, don't need the guarantee that a "spending"
+    // nullifier can be computed.
+    // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
+    let serialized_event_with_randomness = array_concat([randomness], event.serialize());
+    let event_commitment = poseidon2_hash_with_separator(
+        serialized_event_with_randomness,
+        GENERATOR_INDEX__EVENT_COMMITMENT,
+    );
+    context.push_nullifier(event_commitment);
 
     context.emit_private_log(log_content, log_content.len());
 }

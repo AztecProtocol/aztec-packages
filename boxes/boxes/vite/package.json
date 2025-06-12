@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/vite",
+  "name": "aztec-example-vite",
   "private": true,
   "version": "0.0.0",
   "type": "module",

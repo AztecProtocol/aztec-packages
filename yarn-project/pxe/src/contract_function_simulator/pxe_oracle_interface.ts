@@ -19,6 +19,7 @@ import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/key
 import {
   IndexedTaggingSecret,
   PendingTaggedLog,
+  PrivateLogWithTxData,
   PublicLog,
   PublicLogWithTxData,
   TxScopedL2Log,
@@ -40,6 +41,7 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { EventValidationRequest } from './event_validation_request.js';
 import { NoteValidationRequest } from './note_validation_request.js';
 import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
@@ -91,10 +93,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       status,
       scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, noteHash, siloedNullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, noteNonce, note, noteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       note,
       noteHash,
       siloedNullifier,
@@ -601,39 +603,58 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
-  public async validateEnqueuedNotes(
+  public async validateEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
-    notePendingValidationArrayBaseSlot: Fr,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void> {
-    // We read all note validation requests and process them all concurrently. This makes the process much faster as we
-    // don't need to wait for the network round-trip.
+    // We read all note and event validation requests and process them all concurrently. This makes the process much
+    // faster as we don't need to wait for the network round-trip.
     const noteValidationRequests = (
-      await this.capsuleDataProvider.readCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot)
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot)
     ).map(NoteValidationRequest.fromFields);
 
-    await Promise.all(
-      noteValidationRequests.map(request =>
-        this.deliverNote(
-          request.contractAddress,
-          request.storageSlot,
-          request.nonce,
-          request.content,
-          request.noteHash,
-          request.nullifier,
-          request.txHash,
-          request.recipient,
-        ),
+    const eventValidationRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot)
+    ).map(EventValidationRequest.fromFields);
+
+    const noteDeliveries = noteValidationRequests.map(request =>
+      this.deliverNote(
+        request.contractAddress,
+        request.storageSlot,
+        request.noteNonce,
+        request.content,
+        request.noteHash,
+        request.nullifier,
+        request.txHash,
+        request.recipient,
       ),
     );
 
+    const eventDeliveries = eventValidationRequests.map(request =>
+      this.deliverEvent(
+        request.contractAddress,
+        request.eventTypeId,
+        request.serializedEvent,
+        request.eventCommitment,
+        request.txHash,
+        request.logIndexInTx,
+        request.txIndexInBlock,
+        request.recipient,
+      ),
+    );
+
+    await Promise.all([...noteDeliveries, ...eventDeliveries]);
+
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, notePendingValidationArrayBaseSlot, []);
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    nonce: Fr,
+    noteNonce: Fr,
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
@@ -657,20 +678,23 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // in time of the locally synced state.
     // Note that while this technically results in historical queries, we perform it at the latest locally synced block
     // number which *should* be recent enough to be available, even for non-archive nodes.
+    // Also note that the note should never be ahead of the synced block here since `fetchTaggedLogs` only processes
+    // logs up to the synced block making this only an additional safety check.
     const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
-    const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
     const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
-    // note existence in said tree.
-    const [uniqueNoteHashTreeIndexInBlock] = await this.aztecNode.findLeavesIndexes(
-      syncedBlockNumber,
-      MerkleTreeId.NOTE_HASH_TREE,
-      [uniqueNoteHash],
-    );
+    // note existence in said tree. We concurrently also check if the note's nullifier exists, performing all node
+    // queries in a single round-trip.
+    const [[uniqueNoteHashTreeIndexInBlock], [nullifierIndex]] = await Promise.all([
+      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash]),
+      this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [siloedNullifier]),
+    ]);
+
     if (uniqueNoteHashTreeIndexInBlock === undefined) {
       throw new Error(
         `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
@@ -681,7 +705,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       new Note(content),
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       noteHash,
       siloedNullifier,
       txHash,
@@ -700,9 +724,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
-    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
-      siloedNullifier,
-    ]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
@@ -716,11 +737,51 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
+  async deliverEvent(
+    contractAddress: AztecAddress,
+    selector: EventSelector,
+    content: Fr[],
+    eventCommitment: Fr,
+    txHash: TxHash,
+    logIndexInTx: number,
+    txIndexInBlock: number,
+    recipient: AztecAddress,
+  ): Promise<void> {
+    // While using 'latest' block number would be fine for private events since they cannot be accessed from Aztec.nr
+    // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
+    // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
+    // since `fetchTaggedLogs` only processes logs up to the synced block.
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
+
+    const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
+
+    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
+      siloedEventCommitment,
+    ]);
+
+    if (nullifierIndex === undefined) {
+      throw new Error(
+        `Event commitment ${eventCommitment} (siloed as ${siloedEventCommitment}) is not present on the nullifier tree at block ${syncedBlockNumber} (from tx ${txHash})`,
+      );
+    }
+
+    return this.privateEventDataProvider.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      selector,
+      content,
+      txHash,
+      logIndexInTx,
+      txIndexInBlock,
+      nullifierIndex.l2BlockNumber, // Block in which the event was emitted
+    );
+  }
+
   public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
-    this.log.debug(`Got ${logsForTag.length} logs for tag ${tag}`);
+    this.log.debug(`Got ${logsForTag.length} public logs for tag ${tag}`);
 
     if (logsForTag.length == 0) {
       return null;
@@ -742,6 +803,39 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
 
     return new PublicLogWithTxData(
+      scopedLog.log.getEmittedFieldsWithoutTag(),
+      scopedLog.txHash,
+      txEffect.data.noteHashes,
+      txEffect.data.nullifiers[0],
+    );
+  }
+
+  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+    const logs = await this.#getPrivateLogsByTags([siloedTag]);
+    const logsForTag = logs[0];
+
+    this.log.debug(`Got ${logsForTag.length} private logs for tag ${siloedTag}`);
+
+    if (logsForTag.length == 0) {
+      return null;
+    } else if (logsForTag.length > 1) {
+      // TODO(#11627): handle this case
+      throw new Error(
+        `Got ${logsForTag.length} logs for tag ${siloedTag}. getPrivateLogByTag currently only supports a single log per tag`,
+      );
+    }
+
+    const scopedLog = logsForTag[0];
+
+    // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
+    // we need to make a second call to the node for `getTxEffect`.
+    // TODO(#9789): bundle this information in the `getLogsByTag` call.
+    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+    if (txEffect == undefined) {
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
+    }
+
+    return new PrivateLogWithTxData(
       scopedLog.log.getEmittedFieldsWithoutTag(),
       scopedLog.txHash,
       txEffect.data.noteHashes,
@@ -816,38 +910,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
-  }
-
-  async storePrivateEventLog(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    eventSelector: EventSelector,
-    msgContent: Fr[],
-    txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
-  ): Promise<void> {
-    const txReceipt = await this.aztecNode.getTxReceipt(txHash);
-    const blockNumber = txReceipt.blockNumber;
-    if (blockNumber === undefined) {
-      throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
-    }
-    const historicalBlockNumber = await this.syncDataProvider.getBlockNumber();
-    if (blockNumber > historicalBlockNumber) {
-      throw new Error(
-        `Attempting to store private event log from a block newer than the historical block of the simulation. Log block number: ${blockNumber}, historical block number: ${historicalBlockNumber}`,
-      );
-    }
-    return this.privateEventDataProvider.storePrivateEventLog(
-      contractAddress,
-      recipient,
-      eventSelector,
-      msgContent,
-      txHash,
-      logIndexInTx,
-      txIndexInBlock,
-      blockNumber,
-    );
   }
 
   // TODO(#12656): Make this a public function on the AztecNode interface and remove the original getLogsByTags. This

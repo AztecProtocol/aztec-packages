@@ -65,13 +65,13 @@ void Execution::call(ContextInterface& context,
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
 
     // Cd size and cd offset loads are deferred to (possible) calldatacopy
-    auto nested_context = execution_components.make_nested_context(contract_address,
-                                                                   /*msg_sender=*/context.get_address(),
-                                                                   /*parent_context=*/context,
-                                                                   /*cd_offset_addr=*/cd_offset,
-                                                                   /*cd_size_addr=*/cd_size,
-                                                                   /*is_static=*/false,
-                                                                   gas_limit);
+    auto nested_context = context_provider.make_nested_context(contract_address,
+                                                               /*msg_sender=*/context.get_address(),
+                                                               /*parent_context=*/context,
+                                                               /*cd_offset_addr=*/cd_offset,
+                                                               /*cd_size_addr=*/cd_size,
+                                                               /*is_static=*/false,
+                                                               /*gas_limit=*/gas_limit);
 
     // We do not recurse. This context will be use on the next cycle of execution.
     handle_enter_call(context, std::move(nested_context));
@@ -119,6 +119,28 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     }
 }
 
+// FIXME: unconstrained!
+void Execution::calldata_copy(ContextInterface& context,
+                              MemoryAddress copy_size_offset,
+                              MemoryAddress cd_start_offset,
+                              MemoryAddress dst_offset)
+{
+    // FIXME: this is a fake implementation to make gas tests and lookups work.
+    auto& memory = context.get_memory();
+    auto copy_size = memory.get(copy_size_offset);
+    auto cd_start = memory.get(cd_start_offset);
+    // FIXME: each input need to be set separately.
+    set_inputs({ copy_size, cd_start });
+    uint32_t copy_size_u32 = copy_size.as<uint32_t>();
+    uint32_t cd_start_u32 = cd_start.as<uint32_t>();
+
+    get_gas_tracker().consume_dynamic_gas({ .l2Gas = copy_size_u32, .daGas = 0 });
+    for (uint32_t i = 0; i < copy_size_u32; ++i) {
+        const MemoryValue& value = memory.get(cd_start_u32 + i);
+        memory.set(dst_offset + i, value);
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -139,35 +161,44 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         try {
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
-            ex_event.next_context_id = execution_components.get_next_context_id();
+            ex_event.next_context_id = context_provider.get_next_context_id();
 
             // Basic pc and bytecode setup.
             auto pc = context.get_pc();
             ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
+            //// Temporality group 1 starts ////
+
             // We try to fetch an instruction.
+            ex_event.error = ExecutionError::INSTRUCTION_FETCHING; // Set preemptively.
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
             ex_event.wire_instruction = instruction;
-
-            get_gas_tracker().set_instruction(instruction);
-
-            // Go from a wire instruction to an execution opcode.
-            const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
-            context.set_next_pc(pc + wire_spec.size_in_bytes);
             debug("@", pc, " ", instruction.to_string());
-            ExecutionOpCode opcode = wire_spec.exec_opcode;
-            ex_event.opcode = opcode;
+            context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            auto addressing = execution_components.make_addressing(ex_event.addressing_event);
+            //// Temporality group 2 starts ////
 
+            // Gas checking may throw OOG.
+            ex_event.error = ExecutionError::GAS;           // Set preemptively.
+            get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
             get_gas_tracker().consume_base_gas();
 
+            //// Temporality group 3 starts ////
+
             // Resolve the operands.
+            ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
+            auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
             ex_event.resolved_operands = resolved_operands;
 
+            //// Temporality group 4+ starts (to be defined) ////
+
             // Execute the opcode.
-            dispatch_opcode(opcode, context, resolved_operands);
+            ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
+            dispatch_opcode(instruction.get_exec_opcode(), context, resolved_operands);
+
+            // If we made it this far, there was no error.
+            ex_event.error = ExecutionError::NONE;
         } catch (const std::exception& e) {
             info("Exceptional halt: ", e.what());
             context.halt();
@@ -202,7 +233,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
 {
     ctx_stack_events.emit({ .id = parent_context.get_context_id(),
                             .parent_id = parent_context.get_parent_id(),
-                            .entered_context_id = execution_components.get_next_context_id(),
+                            .entered_context_id = context_provider.get_next_context_id(),
                             .next_pc = parent_context.get_next_pc(),
                             .msg_sender = parent_context.get_msg_sender(),
                             .contract_addr = parent_context.get_address(),
@@ -241,6 +272,7 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     inputs = {};
     output = TaggedValue::from<FF>(0);
 
+    debug("Dispatching opcode: ", opcode);
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
@@ -263,9 +295,13 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::JUMPI:
         call_with_operands(&Execution::jumpi, context, resolved_operands);
         break;
+    case ExecutionOpCode::CALLDATACOPY:
+        call_with_operands(&Execution::calldata_copy, context, resolved_operands);
+        break;
     default:
-        // TODO: should be caught by parsing.
-        throw std::runtime_error("Unknown opcode");
+        // TODO: Make this an assertion once all execution opcodes are supported.
+        vinfo("Warning: dispatch ignored for unknown execution opcode: ", static_cast<uint32_t>(opcode));
+        break;
     }
 }
 
