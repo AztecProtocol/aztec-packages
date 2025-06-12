@@ -1,11 +1,13 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
-import { addL1Validator, dripQueue } from '@aztec/cli/l1';
+import { addL1ValidatorToQueue, dripQueue } from '@aztec/cli/l1';
+import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -54,6 +56,7 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
       },
+      mockZkPassportVerifier: true,
     });
 
     await t.setupAccount();
@@ -101,20 +104,34 @@ describe('e2e_p2p_network', () => {
       client: t.ctx.deployL1ContractsValues.l1Client,
     });
 
+    const zkPassportVerifier = getContract({
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.zkPassportVerifierAddress!.toString(),
+      abi: MockZKPassportVerifierAbi,
+      client: t.ctx.deployL1ContractsValues.l1Client,
+    });
+
     expect((await rollup.read.getAttesters()).length).toBe(0);
 
     // Add the validators to the rollup using the same function as the CLI
     for (let i = 0; i < validators.length; i++) {
       const validator = validators[i];
-      await addL1Validator({
+      const mockPassportProof = ZkPassportProofParams.random().toBuffer();
+      await addL1ValidatorToQueue({
         rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
         chainId: t.ctx.aztecNodeConfig.l1ChainId,
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+        proofParams: mockPassportProof,
         log: t.logger.info,
         debugLogger: t.logger,
+      });
+
+      // mock nullifiers - increment the id in the mock zk passport verifier
+      t.logger.info('Incrementing unique identifier in mock zk passport verifier');
+      await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+        hash: await zkPassportVerifier.write.incrementUniqueIdentifier(),
       });
     }
 

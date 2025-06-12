@@ -9,6 +9,7 @@ import {
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
+  getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
@@ -34,8 +35,8 @@ export interface EpochCacheInterface {
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
@@ -133,16 +134,17 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-  public getEpochAndSlotInNextSlot(): EpochAndSlot {
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot {
     const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.ethereumSlotDuration);
     return this.getEpochAndSlotAtTimestamp(nextSlotTs);
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
+    const slot = getSlotAtTimestamp(ts, this.l1constants);
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
-      slot: getSlotAtTimestamp(ts, this.l1constants),
-      ts,
+      ts: getTimestampForSlot(slot, this.l1constants),
+      slot,
     };
   }
 
@@ -182,7 +184,7 @@ export class EpochCache implements EpochCacheInterface {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
-      return this.getEpochAndSlotInNextSlot();
+      return this.getEpochAndSlotInNextL1Slot();
     } else {
       return this.getEpochAndSlotAtSlot(slot);
     }
@@ -226,11 +228,11 @@ export class EpochCache implements EpochCacheInterface {
   async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentSlot: bigint;
     nextSlot: bigint;
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
   }> {
     const current = this.getEpochAndSlotNow();
-    const next = this.getEpochAndSlotInNextSlot();
+    const next = this.getEpochAndSlotInNextL1Slot();
 
     return {
       currentProposer: await this.getProposerAttesterAddressAt(current),
@@ -240,8 +242,8 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  getProposerAttesterAddressInNextSlot(): Promise<EthAddress> {
-    const epochAndSlot = this.getEpochAndSlotInNextSlot();
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
+    const epochAndSlot = this.getEpochAndSlotInNextL1Slot();
 
     return this.getProposerAttesterAddressAt(epochAndSlot);
   }

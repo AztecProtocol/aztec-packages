@@ -1,4 +1,3 @@
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -6,7 +5,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { ContentCommitment } from '../tx/content_commitment.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { StateReference } from '../tx/state_reference.js';
@@ -14,16 +13,10 @@ import { StateReference } from '../tx/state_reference.js';
 /**
  * Makes header.
  */
-export function makeHeader(
-  seed = 0,
-  numTxs: number | undefined = undefined,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-  inHash: Buffer | undefined = undefined,
-): BlockHeader {
+export function makeHeader(seed = 0, blockNumber?: number, slotNumber?: number, inHash?: Fr): BlockHeader {
   return new BlockHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200, numTxs, inHash),
+    makeContentCommitment(seed + 0x200, inHash),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), blockNumber, slotNumber ?? blockNumber),
     new Fr(seed + 0x800),
@@ -43,17 +36,8 @@ export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
 /**
  * Makes content commitment
  */
-function makeContentCommitment(
-  seed = 0,
-  numTxs: number | undefined = undefined,
-  inHash: Buffer | undefined = undefined,
-): ContentCommitment {
-  return new ContentCommitment(
-    numTxs ? new Fr(numTxs) : new Fr(seed),
-    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
-    inHash ?? toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
-  );
+function makeContentCommitment(seed = 0, inHash?: Fr): ContentCommitment {
+  return new ContentCommitment(new Fr(seed + 0x100), inHash ?? new Fr(seed + 0x200), new Fr(seed + 0x300));
 }
 
 /**
@@ -95,9 +79,9 @@ export function makeGlobalVariables(
     new Fr(seed + 1),
     new Fr(blockNumber ?? seed + 2),
     new Fr(slotNumber ?? seed + 3),
-    new Fr(seed + 4),
+    BigInt(seed + 4),
     EthAddress.fromField(new Fr(seed + 5)),
     AztecAddress.fromField(new Fr(seed + 6)),
-    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    new GasFees(seed + 7, seed + 8),
   );
 }

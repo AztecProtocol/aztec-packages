@@ -5,7 +5,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import { type GlobalVariableBuilder, GlobalVariables } from '@aztec/stdlib/tx';
 
 export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
-  private timestamp = new Fr(1);
+  private timestamp = 1n;
   private slotNumber = 1n;
 
   // The version and chainId should match the one on txe_oracle
@@ -15,7 +15,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
   constructor() {}
 
   public getCurrentBaseFees(): Promise<GasFees> {
-    return Promise.resolve(new GasFees(Fr.ZERO, Fr.ZERO));
+    return Promise.resolve(new GasFees(0, 0));
   }
 
   /**
@@ -32,7 +32,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const gasFees = new GasFees(Fr.ZERO, Fr.ZERO);
+    const gasFees = new GasFees(0, 0);
 
     slotNumber ??= this.slotNumber;
 
@@ -48,7 +48,7 @@ export class TXEGlobalVariablesBuilder implements GlobalVariableBuilder {
     );
 
     this.slotNumber++;
-    this.timestamp = this.timestamp.add(new Fr(1));
+    this.timestamp = this.timestamp + 1n;
 
     return Promise.resolve(globalVariables);
   }

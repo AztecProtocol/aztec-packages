@@ -489,10 +489,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const chainId = Fr.random();
     const version = Fr.random();
     const blockNumber = Fr.random();
-    const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
-    const feePerDaGas = Fr.random();
-    const feePerL2Gas = Fr.random();
-    const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+    const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
+    const gasFees = GasFees.random();
 
     beforeAll(async () => {
       address = await AztecAddress.random();
@@ -524,9 +522,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['chainId', () => chainId.toField(), 'get_chain_id'],
       ['version', () => version.toField(), 'get_version'],
       ['blockNumber', () => blockNumber.toField(), 'get_block_number'],
-      ['timestamp', () => timestamp.toField(), 'get_timestamp'],
-      ['feePerDaGas', () => feePerDaGas.toField(), 'get_fee_per_da_gas'],
-      ['feePerL2Gas', () => feePerL2Gas.toField(), 'get_fee_per_l2_gas'],
+      ['timestamp', () => new Fr(timestamp), 'get_timestamp'],
+      ['feePerDaGas', () => new Fr(gasFees.feePerDaGas), 'get_fee_per_da_gas'],
+      ['feePerL2Gas', () => new Fr(gasFees.feePerL2Gas), 'get_fee_per_l2_gas'],
     ])('%s getter', async (_name: string, valueGetter: () => Fr, functionName: string) => {
       const value = valueGetter();
       const bytecode = getAvmTestContractBytecode(functionName);

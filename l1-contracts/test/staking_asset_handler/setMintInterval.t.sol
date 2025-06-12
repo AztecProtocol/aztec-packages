@@ -52,6 +52,8 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
     _newMintInterval = bound(_newMintInterval, mintInterval + 1, type(uint24).max);
+    setMockZKPassportVerifier();
+
     stakingAssetHandler.setMintInterval(_newMintInterval);
     vm.warp(block.timestamp + _newMintInterval);
     // it mints
@@ -61,9 +63,9 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     address rollup = stakingAssetHandler.getRollup();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(1));
+    emit IStakingAssetHandler.AddedToQueue(address(1), 1);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1));
+    stakingAssetHandler.addValidatorToQueue(address(1), realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, address(1), WITHDRAWER);

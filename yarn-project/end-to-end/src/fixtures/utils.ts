@@ -44,6 +44,7 @@ import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ether
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -64,6 +65,7 @@ import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -128,6 +130,7 @@ export const setupL1Contracts = async (
     salt: args.salt,
     initialValidators: args.initialValidators,
     ...getL1ContractsConfigEnvVars(),
+    realVerifier: false,
     ...args,
   });
 
@@ -180,15 +183,7 @@ export async function setupPXEService(
     useLogSuffix,
   });
 
-  const teardown = async () => {
-    if (!configuredDataDirectory) {
-      try {
-        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
-      } catch (err) {
-        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
-      }
-    }
-  };
+  const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(pxeServiceConfig.dataDirectory!);
 
   return {
     pxe,
@@ -221,13 +216,14 @@ async function setupWithRemoteEnvironment(
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
-  const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
+  const { l1ContractAddresses, rollupVersion } = await pxeClient.getNodeInfo();
 
   const l1Client = createExtendedL1Client(config.l1RpcUrls, account, foundry);
 
   const deployL1ContractsValues: DeployL1ContractsReturnType = {
-    l1ContractAddresses: l1Contracts,
+    l1ContractAddresses,
     l1Client,
+    rollupVersion,
   };
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
@@ -447,6 +443,7 @@ export async function setup(
       ));
 
     config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+    config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
     if (opts.fundRewardDistributor) {
       // Mints block rewards for 10000 blocks to the rewardDistributor contract
@@ -565,39 +562,26 @@ export async function setup(
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
     const teardown = async () => {
-      await pxeTeardown();
+      try {
+        await pxeTeardown();
 
-      if (aztecNode instanceof AztecNodeService) {
-        await aztecNode?.stop();
-      }
+        await tryStop(aztecNode, logger);
+        await tryStop(proverNode, logger);
 
-      if (proverNode) {
-        await proverNode.stop();
-      }
-
-      if (acvmConfig?.cleanup) {
-        // remove the temp directory created for the acvm
-        logger.verbose(`Cleaning up ACVM state`);
-        await acvmConfig.cleanup();
-      }
-
-      if (bbConfig?.cleanup) {
-        // remove the temp directory created for the acvm
-        logger.verbose(`Cleaning up BB state`);
-        await bbConfig.cleanup();
-      }
-
-      await anvil?.stop().catch(err => getLogger().error(err));
-      await watcher.stop();
-      await blobSink?.stop();
-
-      if (directoryToCleanup) {
-        try {
-          logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
-          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-        } catch (err) {
-          logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+        if (acvmConfig?.cleanup) {
+          await acvmConfig.cleanup();
         }
+
+        if (bbConfig?.cleanup) {
+          await bbConfig.cleanup();
+        }
+
+        await tryStop(anvil, logger);
+        await tryStop(watcher, logger);
+        await tryStop(blobSink, logger);
+        await tryRmDir(directoryToCleanup, logger);
+      } catch (err) {
+        logger.error(`Error during e2e test teardown`, err);
       }
     };
 

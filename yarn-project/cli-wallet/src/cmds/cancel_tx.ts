@@ -27,8 +27,8 @@ export async function cancelTx(
   }
 
   const maxPriorityFeesPerGas = new GasFees(
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas.add(increasedFees.feePerDaGas),
-    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas.add(increasedFees.feePerL2Gas),
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerDaGas + increasedFees.feePerDaGas,
+    prevTxGasSettings.maxPriorityFeesPerGas.feePerL2Gas + increasedFees.feePerL2Gas,
   );
 
   const fee: FeeOptions = {
@@ -46,7 +46,7 @@ export async function cancelTx(
   });
   const txSimulationResult = await wallet.simulateTx(txRequest, true);
   const txProvingResult = await wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
-  const sentTx = new SentTx(wallet, wallet.sendTx(txProvingResult.toTx()));
+  const sentTx = new SentTx(wallet, () => wallet.sendTx(txProvingResult.toTx()));
   try {
     await sentTx.wait({ timeout: DEFAULT_TX_TIMEOUT_S });
 

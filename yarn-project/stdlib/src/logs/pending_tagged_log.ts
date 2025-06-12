@@ -15,8 +15,6 @@ export class PendingTaggedLog {
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
     public recipient: AztecAddress,
-    public logIndexInTx: number,
-    public txIndexInBlock: number,
   ) {}
 
   toFields(): Fr[] {
@@ -26,8 +24,6 @@ export class PendingTaggedLog {
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
       this.recipient.toField(),
-      new Fr(this.logIndexInTx),
-      new Fr(this.txIndexInBlock),
     ];
   }
 }

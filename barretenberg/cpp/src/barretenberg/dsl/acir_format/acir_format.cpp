@@ -9,6 +9,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -413,7 +414,18 @@ process_honk_recursion_constraints(Builder& builder,
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
-        if (constraint.proof_type == HONK) {
+        if (constraint.proof_type == HONK_ZK) {
+            auto [pairing_points, _ipa_claim, _ipa_proof] =
+                create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(
+                    builder, constraint, has_valid_witness_assignments);
+
+            if (output.points_accumulator.has_data) {
+                output.points_accumulator.aggregate(pairing_points);
+            } else {
+                output.points_accumulator = pairing_points;
+            }
+
+        } else if (constraint.proof_type == HONK) {
             auto [pairing_points, _ipa_claim, _ipa_proof] =
                 create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
                     builder, constraint, has_valid_witness_assignments);

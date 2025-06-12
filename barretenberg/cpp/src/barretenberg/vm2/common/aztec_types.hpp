@@ -111,8 +111,8 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    FF feePerDaGas;
-    FF feePerL2Gas;
+    uint128_t feePerDaGas;
+    uint128_t feePerL2Gas;
 
     bool operator==(const GasFees& other) const = default;
 
@@ -224,7 +224,7 @@ struct GlobalVariables {
     FF version;
     FF blockNumber;
     FF slotNumber;
-    FF timestamp;
+    uint64_t timestamp;
     EthAddress coinbase;
     AztecAddress feeRecipient;
     GasFees gasFees;

@@ -17,11 +17,9 @@ describe('Environment getters', () => {
   const chainId = Fr.random();
   const version = Fr.random();
   const blockNumber = Fr.random();
-  const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
-  const feePerDaGas = Fr.random();
-  const feePerL2Gas = Fr.random();
+  const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
-  const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
+  const gasFees = GasFees.random();
   const globals = initGlobalVariables({
     chainId,
     version,
@@ -65,9 +63,9 @@ describe('Environment getters', () => {
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
-    [EnvironmentVariable.TIMESTAMP, timestamp.toField(), TypeTag.UINT64],
-    [EnvironmentVariable.FEEPERDAGAS, feePerDaGas.toField()],
-    [EnvironmentVariable.FEEPERL2GAS, feePerL2Gas.toField()],
+    [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
+    [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {

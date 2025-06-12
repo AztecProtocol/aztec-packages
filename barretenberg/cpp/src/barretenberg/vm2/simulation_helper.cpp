@@ -35,8 +35,10 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -96,6 +98,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
 
+    ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
@@ -104,6 +107,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+    Alu alu(alu_emitter);
+    Sha256 sha256(execution_id_manager, sha256_compression_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
@@ -128,12 +133,16 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        instruction_fetching_emitter);
     ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
-    Alu alu(alu_emitter);
-    ContextProvider context_provider(bytecode_manager, range_check, memory_emitter);
-    Execution execution(
-        alu, execution_components, context_provider, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution, context_provider, merkle_db, tx_event_emitter);
-    Sha256 sha256(sha256_compression_emitter);
+    MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
+    ContextProvider context_provider(bytecode_manager, memory_provider);
+    Execution execution(alu,
+                        execution_components,
+                        context_provider,
+                        instruction_info_db,
+                        execution_id_manager,
+                        execution_emitter,
+                        context_stack_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 

@@ -24,8 +24,16 @@ class TranslatorProvingKey {
     static constexpr size_t mini_circuit_dyadic_size = Flavor::MINI_CIRCUIT_SIZE;
     // The actual circuit size is several times bigger than the trace in the circuit, because we use interleaving
     // to bring the degree of relations down, while extending the length.
-
     static constexpr size_t dyadic_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+
+    // Real mini and full circuit sizes i.e. the number of rows excluding those reserved for randomness (to achieve
+    // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
+    // rows at a time
+    static constexpr size_t dyadic_mini_circuit_size_without_masking =
+        mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+    static constexpr size_t dyadic_circuit_size_without_masking =
+        dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+
     std::shared_ptr<ProvingKey> proving_key;
 
     BF batching_challenge_v = { 0 };
@@ -40,14 +48,13 @@ class TranslatorProvingKey {
         PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE) {
+        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 
         proving_key = std::make_shared<ProvingKey>(std::move(commitment_key));
-
-        // Populate the wire polynomials from the wire vectors in the circuit
-        for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
+        auto wires = proving_key->polynomials.get_wires();
+        for (auto [wire_poly_, wire_] : zip_view(wires, circuit.wires)) {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
@@ -62,11 +69,16 @@ class TranslatorProvingKey {
             });
         }
 
-        // First and last lagrange polynomials (in the full circuit size)
-        proving_key->polynomials.lagrange_first.at(0) = 1;
-        proving_key->polynomials.lagrange_real_last.at(dyadic_circuit_size - 1) = 1;
-        proving_key->polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+        // Iterate over all circuit wire polynomials, except the ones representing the op queue, and add random values
+        // at the end.
+        for (size_t idx = Flavor::NUM_OP_QUEUE_WIRES; idx < wires.size(); idx++) {
+            auto& wire = wires[idx];
+            for (size_t i = wire.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < wire.end_index(); i++) {
+                wire.at(i) = FF::random_element();
+            }
+        }
 
+        // First and last lagrange polynomials (in the full circuit size)
         // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
         // polynomials at second and second to last indices in the minicircuit
         compute_lagrange_polynomials();
@@ -117,8 +129,10 @@ class TranslatorProvingKey {
 
     void compute_extra_range_constraint_numerator();
 
-    void compute_translator_range_constraint_ordered_polynomials(bool masking = false);
+    void compute_translator_range_constraint_ordered_polynomials();
 
     void compute_interleaved_polynomials();
+
+    void split_interleaved_random_coefficients_to_ordered();
 };
 } // namespace bb

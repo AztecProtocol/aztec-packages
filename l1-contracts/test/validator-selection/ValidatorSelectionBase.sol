@@ -23,6 +23,8 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {ProposePayload} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
+import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+
 import {TimeCheater} from "../staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
 
@@ -64,9 +66,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime =
-        full.block.decodedHeader.timestamp - slotNumber * TestConstants.AZTEC_SLOT_DURATION;
+      Slot slotNumber = full.block.header.slotNumber;
+      uint256 initialTime = Timestamp.unwrap(full.block.header.timestamp)
+        - Slot.unwrap(slotNumber) * TestConstants.AZTEC_SLOT_DURATION;
 
       timeCheater = new TimeCheater(
         address(rollup),
@@ -94,7 +96,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
 
     if (initialValidators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), rollup.getMinimumStake() * initialValidators.length);
+      testERC20.mint(address(multiAdder), rollup.getDepositAmount() * initialValidators.length);
       multiAdder.addValidators(initialValidators);
     }
 

@@ -136,10 +136,11 @@ export interface ArchiverDataStore {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -243,10 +244,10 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
-  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
-  //        the node api cleanup process.
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  /** Register a public function signature, so it can be looked up by selector. */
+  registerContractFunctionSignatures(signatures: string[]): Promise<void>;
+
+  /** Looks up a public function name given a selector. */
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /** Estimates the size of the store in bytes. */

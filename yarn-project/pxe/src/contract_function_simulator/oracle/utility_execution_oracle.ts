@@ -354,4 +354,8 @@ export class UtilityExecutionOracle extends TypedOracle {
   public override getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
+
+  public override emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new Error('Cannot emit offchain message from a utility function'));
+  }
 }

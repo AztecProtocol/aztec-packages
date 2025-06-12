@@ -181,6 +181,7 @@ const emptyPrivateCallExecutionResult = () =>
     [],
     [],
     [],
+    [],
   );
 
 const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);
@@ -295,7 +296,7 @@ export async function randomPublishedL2Block(
   const block = await L2Block.random(l2BlockNumber);
   const l1 = {
     blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp.toBigInt(),
+    timestamp: block.header.globalVariables.timestamp,
     blockHash: Buffer32.random().toString(),
   };
 

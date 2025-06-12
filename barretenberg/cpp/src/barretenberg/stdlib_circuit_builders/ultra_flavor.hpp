@@ -356,7 +356,7 @@ class UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
@@ -367,7 +367,7 @@ class UltraFlavor {
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
         {
@@ -378,6 +378,7 @@ class UltraFlavor {
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
             if (proving_key.commitment_key == nullptr) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {

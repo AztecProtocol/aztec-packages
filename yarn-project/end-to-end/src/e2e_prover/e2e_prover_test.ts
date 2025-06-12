@@ -18,9 +18,9 @@ import { CheatCodes } from '@aztec/aztec.js/testing';
 import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
-import { type DeployL1ContractsReturnType, deployL1Contract } from '@aztec/ethereum';
+import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
@@ -94,7 +94,9 @@ export class FullProverTest {
       `full_prover_integration/${testName}`,
       dataPath,
       { startProverNode: true, fundRewardDistributor: true, coinbase },
-      {},
+      {
+        realVerifier: realProofs,
+      },
     );
   }
 
@@ -389,29 +391,5 @@ export class FullProverTest {
         return Promise.resolve();
       },
     );
-  }
-
-  async deployVerifier() {
-    if (!this.realProofs) {
-      return;
-    }
-
-    if (!this.circuitProofVerifier) {
-      throw new Error('No verifier');
-    }
-
-    const { l1Client, l1ContractAddresses } = this.context.deployL1ContractsValues;
-    const rollup = getContract({
-      abi: RollupAbi,
-      address: l1ContractAddresses.rollupAddress.toString(),
-      client: l1Client,
-    });
-
-    const { address: verifierAddress } = await deployL1Contract(l1Client, HonkVerifierAbi, HonkVerifierBytecode);
-    this.logger.info(`Deployed honk verifier at ${verifierAddress}`);
-
-    await rollup.write.setEpochVerifier([verifierAddress.toString()]);
-
-    this.logger.info('Rollup only accepts valid proofs now');
   }
 }

@@ -221,6 +221,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     throw new Error('Method not implemented.');
   }
 
+  getL1Timestamp(): Promise<bigint> {
+    throw new Error('Method not implemented.');
+  }
+
   /**
    * Starts the block source. In this mock implementation, this is a noop.
    * @returns A promise that signals the initialization of the l2 block source on completion.
@@ -259,7 +263,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 

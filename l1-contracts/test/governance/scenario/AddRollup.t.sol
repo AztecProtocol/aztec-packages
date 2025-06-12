@@ -65,7 +65,8 @@ contract AddRollupTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    vm.warp(1000);
+    // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
+    vm.warp(100000);
     RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
     builder.deploy();
 
@@ -86,7 +87,7 @@ contract AddRollupTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.updateGovernance(address(governance));
@@ -141,8 +142,8 @@ contract AddRollupTest is TestBase {
       uint256 val = 1;
 
       while (gse.supplyOf(gse.getCanonical()) < gse.totalSupply() / 3) {
-        token.mint(address(this), rollup.getMinimumStake());
-        token.approve(address(rollup), rollup.getMinimumStake());
+        token.mint(address(this), rollup.getDepositAmount());
+        token.approve(address(rollup), rollup.getDepositAmount());
         rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }

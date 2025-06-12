@@ -29,7 +29,7 @@ describe('public_processor', () => {
 
   let processor: PublicProcessor;
 
-  const gasFees = GasFees.from({ feePerDaGas: new Fr(2), feePerL2Gas: new Fr(3) });
+  const gasFees = GasFees.from({ feePerDaGas: 2n, feePerL2Gas: 3n });
   const globalVariables = GlobalVariables.from({ ...GlobalVariables.empty(), gasFees });
 
   const mockPrivateOnlyTx = ({ seed = 1, feePayer }: { seed?: number; feePayer?: AztecAddress } = {}) =>

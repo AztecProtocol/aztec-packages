@@ -702,6 +702,7 @@ __metadata:
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
     lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -733,7 +734,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
-    c-kzg: "npm:4.0.0-alpha.1"
+    bn.js: "npm:^5.2.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
     detect-node: "npm:^2.1.0"
@@ -972,7 +973,7 @@ __metadata:
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-types": "npm:1.0.0-beta.6"
-    glob: "npm:^11.0.1"
+    glob: "npm:^11.0.2"
     ts-command-line-args: "npm:^2.5.1"
   bin:
     noir-codegen: lib/main.js
@@ -981,13 +982,13 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.6
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=354553&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=6efb87&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.6"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.6"
     "@aztec/noir-types": "npm:1.0.0-beta.6"
     pako: "npm:^2.1.0"
-  checksum: 10/7ed4c3721b60d1a88775e9f0892103164ab6de1828dca033225a48f4f1fde2e39a1b33aad66320fb9182b8aa3df146a416214443dfc657039266f1030cbc7af6
+  checksum: 10/11f477af9793d63309e2e107ce774e266257910f56511935d16cd11cf6263ecf6d95097bd7f15b7a5f83fb85a0fea3352e11172e0191fc7ce221d90e80b903f0
   languageName: node
   linkType: hard
 
@@ -1192,6 +1193,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -1503,6 +1505,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -13016,7 +13019,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^11.0.1":
+"glob@npm:^11.0.2":
   version: 11.0.2
   resolution: "glob@npm:11.0.2"
   dependencies:

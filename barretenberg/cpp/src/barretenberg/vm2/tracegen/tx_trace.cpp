@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/tracegen/tx_trace.hpp"
 
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -118,15 +120,47 @@ std::vector<std::pair<Column, FF>> handle_pi_read_write(TransactionPhase phase,
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_enqueued_call_event(const simulation::EnqueuedCallEvent& event)
+std::vector<std::pair<Column, FF>> handle_prev_gas_used(Gas prev_gas_used)
+{
+    return {
+        { Column::tx_prev_da_gas_used, prev_gas_used.daGas },
+        { Column::tx_prev_l2_gas_used, prev_gas_used.l2Gas },
+    };
+}
+
+std::vector<std::pair<Column, FF>> handle_next_gas_used(Gas next_gas_used)
+{
+    return {
+        { Column::tx_next_da_gas_used, next_gas_used.daGas },
+        { Column::tx_next_l2_gas_used, next_gas_used.l2Gas },
+    };
+}
+
+std::vector<std::pair<Column, FF>> handle_gas_limit(Gas gas_limit)
+{
+    return {
+        { Column::tx_da_gas_limit, gas_limit.daGas },
+        { Column::tx_l2_gas_limit, gas_limit.l2Gas },
+    };
+}
+
+std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase phase,
+                                                              const simulation::EnqueuedCallEvent& event)
 {
     return {
         { Column::tx_is_public_call_request, 1 },
+        { Column::tx_is_teardown_phase, phase == TransactionPhase::TEARDOWN ? 1 : 0 },
         { Column::tx_msg_sender, event.msg_sender },
         { Column::tx_contract_addr, event.contract_address },
         { Column::tx_is_static, event.is_static },
         { Column::tx_calldata_hash, event.calldata_hash },
         { Column::tx_reverted, event.success },
+        { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.prev_gas_used.daGas },
+        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call, event.prev_gas_used.l2Gas },
+        { Column::tx_next_da_gas_used_sent_to_enqueued_call, event.gas_used.daGas },
+        { Column::tx_next_l2_gas_used_sent_to_enqueued_call, event.gas_used.l2Gas },
+        { Column::tx_da_gas_limit, event.gas_limit.daGas },
+        { Column::tx_l2_gas_limit, event.gas_limit.l2Gas },
     };
 };
 
@@ -171,24 +205,29 @@ std::vector<std::pair<Column, FF>> handle_collect_gas_fee_event(const simulation
 {
     return {
         { Column::tx_is_collect_fee, 1 },
+        { Column::tx_effective_fee_per_da_gas, FF(event.effective_fee_per_da_gas) },
+        { Column::tx_effective_fee_per_l2_gas, FF(event.effective_fee_per_l2_gas) },
+        { Column::tx_fee_payer, event.fee_payer },
+        { Column::tx_fee_payer_pi_offset, AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX },
+        {
+            Column::tx_fee,
+            event.fee,
+        },
+        {
+            Column::tx_fee_payer_balance,
+            event.fee_payer_balance,
+        },
+        { Column::tx_end_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
 
-        // TODO compute fee
-
-        { Column::tx_fee_per_da_gas, event.fee_per_da_gas },
-        { Column::tx_fee_per_l2_gas, event.fee_per_l2_gas },
-        { Column::tx_max_fee_per_da_gas, event.max_fee_per_da_gas },
-        { Column::tx_max_fee_per_l2_gas, event.max_fee_per_l2_gas },
-        { Column::tx_max_priority_fees_per_l2_gas, event.max_priority_fees_per_l2_gas },
-        { Column::tx_max_priority_fees_per_da_gas, event.max_priority_fees_per_da_gas },
     };
 }
 
-std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
+std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas gas_used, Gas gas_limit)
 {
     // We should throw here - but tests are currently unsuitable
     // assert(phase != TransactionPhase::COLLECT_GAS_FEES);
 
-    return {
+    std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_sel, 1 },
         { Column::tx_phase_value, static_cast<uint8_t>(phase) },
         { Column::tx_is_padded, 1 },
@@ -212,8 +251,22 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase)
         { Column::tx_is_collect_fee, is_collect_fee_phase(phase) ? 1 : 0 },
 
         { Column::tx_is_revertible, is_revertible(phase) ? 1 : 0 },
-
+        // Public call request specific
+        { Column::tx_is_teardown_phase, phase == TransactionPhase::TEARDOWN ? 1 : 0 },
+        { Column::tx_da_gas_limit, is_public_call_request_phase(phase) ? gas_limit.daGas : 0 },
+        { Column::tx_l2_gas_limit, is_public_call_request_phase(phase) ? gas_limit.l2Gas : 0 },
+        // Gas used does not change in padding rows
+        { Column::tx_prev_da_gas_used_sent_to_enqueued_call,
+          is_public_call_request_phase(phase) && phase != TransactionPhase::TEARDOWN ? gas_used.daGas : 0 },
+        { Column::tx_prev_l2_gas_used_sent_to_enqueued_call,
+          is_public_call_request_phase(phase) && phase != TransactionPhase::TEARDOWN ? gas_used.l2Gas : 0 },
+        { Column::tx_next_da_gas_used_sent_to_enqueued_call,
+          is_public_call_request_phase(phase) && phase != TransactionPhase::TEARDOWN ? gas_used.daGas : 0 },
+        { Column::tx_next_l2_gas_used_sent_to_enqueued_call,
+          is_public_call_request_phase(phase) && phase != TransactionPhase::TEARDOWN ? gas_used.l2Gas : 0 },
     };
+
+    return columns;
 }
 
 } // namespace
@@ -229,7 +282,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     // continuity in the tree state propagation
 
     // We bucket the events by phase to make it easier to detect phases with no events
-    std::array<std::vector<const simulation::TxEvent*>, NUM_PHASES> phase_buckets = {};
+    std::array<std::vector<const simulation::TxPhaseEvent*>, NUM_PHASES> phase_buckets = {};
     // We have the phases in iterable form so that in the main loop when we and empty phase
     // we can map back to this enum
     std::array<TransactionPhase, NUM_PHASES> phase_array = { TransactionPhase::NR_NULLIFIER_INSERTION,
@@ -243,100 +296,125 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                                                              TransactionPhase::TEARDOWN,
                                                              TransactionPhase::COLLECT_GAS_FEES };
 
+    std::optional<simulation::TxStartupEvent> startup_event;
+
     for (const auto& tx_event : events) {
-        // Minus 1 since the enum is 1-indexed
-        phase_buckets[static_cast<uint8_t>(tx_event.phase) - 1].push_back(&tx_event);
+        if (std::holds_alternative<simulation::TxStartupEvent>(tx_event)) {
+            startup_event = std::get<simulation::TxStartupEvent>(tx_event);
+        } else {
+            const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
+            // Minus 1 since the enum is 1-indexed
+            phase_buckets[static_cast<uint8_t>(tx_phase_event.phase) - 1].push_back(&tx_phase_event);
+        }
     }
+
+    if (!startup_event.has_value()) {
+        throw std::runtime_error("Transaction startup event is missing");
+    }
+
+    const auto& startup_event_data = startup_event.value();
 
     // We keep the msg counter across the phases since it is not tracked in the event
     uint32_t l2_l1_msg_counter = 0;
     // This is the tree state we will use during the "skipped" phases
-    TreeStates propagated_tree_state = {};
+    TreeStates propagated_tree_state = startup_event_data.tree_state;
 
-    // We should not have an empty events list since that is an invalid proof
-    // should this be an assert?
-    if (!events.empty()) {
-        propagated_tree_state = events[0].prev_tree_state;
-    }
+    Gas gas_limit = startup_event_data.tx_gas_limit;
+    Gas gas_used = startup_event_data.private_gas_used;
 
-    // Go through each phase and process the events in the phase
+    // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
         const auto& phase = phase_buckets[i];
         if (phase.empty()) {
             TransactionPhase phase = phase_array[i];
             trace.set(row, insert_tree_state(propagated_tree_state, propagated_tree_state));
-            trace.set(row, handle_padded_row(phase));
+            trace.set(row, handle_padded_row(phase, gas_used, gas_limit));
             trace.set(row, handle_pi_read_write(phase, /*phase_length=*/0, /*read_counter*/ 0, /*write_counter=*/0));
+            trace.set(row, handle_prev_gas_used(gas_used));
+            trace.set(row, handle_next_gas_used(gas_used));
+            trace.set(row, handle_gas_limit(gas_limit));
             row++;
             continue;
         }
         // We have events to process in this phase
-        for (const auto& tx_event : phase) {
+        for (const auto& tx_phase_event : phase) {
             // Count the number of steps in this phase
             uint32_t phase_counter = 0;
             uint32_t phase_length = static_cast<uint32_t>(phase.size());
             // We alway set the tree state
-            trace.set(row, insert_tree_state(tx_event->prev_tree_state, tx_event->next_tree_state));
+            trace.set(row, insert_tree_state(tx_phase_event->prev_tree_state, tx_phase_event->next_tree_state));
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },
-                          { C::tx_phase_value, static_cast<uint8_t>(tx_event->phase) },
+                          { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                           { C::tx_is_padded, 0 },
                           { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
                           { C::tx_sel_read_phase_length,
-                            phase_counter == 0 && tx_event->phase != TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
-                          { C::tx_is_revertible, is_revertible(tx_event->phase) ? 1 : 0 },
+                            phase_counter == 0 && tx_phase_event->phase != TransactionPhase::COLLECT_GAS_FEES ? 1 : 0 },
+                          { C::tx_is_revertible, is_revertible(tx_phase_event->phase) ? 1 : 0 },
 
                           { C::tx_end_phase, phase_counter == phase.size() - 1 ? 1 : 0 },
                       } });
+            trace.set(row, handle_prev_gas_used(gas_used));
 
             // Pattern match on the variant event type and call the appropriate handler
             std::visit(
                 overloaded{
                     [&](const simulation::EnqueuedCallEvent& event) {
-                        trace.set(row, handle_enqueued_call_event(event));
+                        trace.set(row, handle_enqueued_call_event(tx_phase_event->phase, event));
                         // No explicit write counter for this phase
-                        trace.set(
-                            row,
-                            handle_pi_read_write(tx_event->phase, phase_length, phase_counter, /*write_counter=*/0));
+                        trace.set(row,
+                                  handle_pi_read_write(
+                                      tx_phase_event->phase, phase_length, phase_counter, /*write_counter=*/0));
+
+                        // Gas limit will change in teardown
+                        gas_limit = event.gas_limit;
+
+                        // Teardown has independent gas tracking
+                        if (tx_phase_event->phase != TransactionPhase::TEARDOWN) {
+                            gas_used = event.gas_used;
+                        }
                     },
                     [&](const simulation::PrivateAppendTreeEvent& event) {
-                        trace.set(row, handle_append_tree_event(event, tx_event->phase, tx_event->reverted));
+                        trace.set(row,
+                                  handle_append_tree_event(event, tx_phase_event->phase, tx_phase_event->reverted));
 
                         // The read/write counter differs if we are inserting note hashes or nullifiers
-                        auto tree_state = tx_event->prev_tree_state;
-                        if (TransactionPhase::NR_NOTE_INSERTION == tx_event->phase ||
-                            TransactionPhase::R_NOTE_INSERTION == tx_event->phase) {
-                            trace.set(
-                                row,
-                                handle_pi_read_write(
-                                    tx_event->phase, phase_length, phase_counter, tree_state.noteHashTree.counter));
+                        auto tree_state = tx_phase_event->prev_tree_state;
+                        if (TransactionPhase::NR_NOTE_INSERTION == tx_phase_event->phase ||
+                            TransactionPhase::R_NOTE_INSERTION == tx_phase_event->phase) {
+                            trace.set(row,
+                                      handle_pi_read_write(tx_phase_event->phase,
+                                                           phase_length,
+                                                           phase_counter,
+                                                           tree_state.noteHashTree.counter));
                         } else {
-                            trace.set(
-                                row,
-                                handle_pi_read_write(
-                                    tx_event->phase, phase_length, phase_counter, tree_state.nullifierTree.counter));
+                            trace.set(row,
+                                      handle_pi_read_write(tx_phase_event->phase,
+                                                           phase_length,
+                                                           phase_counter,
+                                                           tree_state.nullifierTree.counter));
                         }
                     },
                     [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
-                        trace.set(row, handle_l2_l1_msg_event(event, l2_l1_msg_counter, tx_event->reverted));
-                        trace.set(
-                            row, handle_pi_read_write(tx_event->phase, phase_length, phase_counter, l2_l1_msg_counter));
+                        trace.set(row, handle_l2_l1_msg_event(event, l2_l1_msg_counter, tx_phase_event->reverted));
+                        trace.set(row,
+                                  handle_pi_read_write(
+                                      tx_phase_event->phase, phase_length, phase_counter, l2_l1_msg_counter));
                         l2_l1_msg_counter++;
                     },
                     [&](const simulation::CollectGasFeeEvent& event) {
-                        // TODO: Decide what to read and write
-                        trace.set(
-                            row,
-                            handle_pi_read_write(tx_event->phase, phase_length, phase_counter, /*write_counter=*/0));
+                        trace.set(row, handle_pi_read_write(tx_phase_event->phase, 1, 0, /*write_counter=*/0));
                         trace.set(row, handle_collect_gas_fee_event(event));
                     } },
-                tx_event->event);
+                tx_phase_event->event);
+            trace.set(row, handle_next_gas_used(gas_used));
+            trace.set(row, handle_gas_limit(gas_limit));
 
             // Handle a potential phase jump due to a revert, we dont need to check if we are in a revertible phase
             // since our witgen will have exited for any reverts in a non-revertible phase.
             // If we revert in a phase that isnt TEARDOWN, we jump to TEARDOWN
-            if (tx_event->reverted && tx_event->phase != TransactionPhase::TEARDOWN) {
+            if (tx_phase_event->reverted && tx_phase_event->phase != TransactionPhase::TEARDOWN) {
                 // Jump to the TEARDOWN phase
                 // we need to -2 because of the loop increment and because the enum is 1-indexed
                 i = static_cast<uint8_t>(TransactionPhase::TEARDOWN) - 2;
@@ -362,7 +440,14 @@ std::vector<std::unique_ptr<class InteractionBuilderInterface>> TxTraceBuilder::
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_tree_insert_value_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_tree_insert_value_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_l2_l1_msg_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>());
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_effective_fee_public_inputs_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_fee_payer_public_inputs_settings>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_balance_validation_settings>>()
+        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
+        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_fee_public_inputs_settings>>(),
+        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_end_gas_used_public_inputs_settings>>()
+    );
 }
 
 } // namespace bb::avm2::tracegen

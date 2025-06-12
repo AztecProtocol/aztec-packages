@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint64 } from '../avm_memory_types.js';
+import { Field, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -35,11 +35,11 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.BLOCKNUMBER:
       return new Field(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
-      return new Uint64(ctx.environment.globals.timestamp.toBigInt());
+      return new Uint64(ctx.environment.globals.timestamp);
     case EnvironmentVariable.FEEPERL2GAS:
-      return new Field(ctx.environment.globals.gasFees.feePerL2Gas);
+      return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
     case EnvironmentVariable.FEEPERDAGAS:
-      return new Field(ctx.environment.globals.gasFees.feePerDaGas);
+      return new Uint128(ctx.environment.globals.gasFees.feePerDaGas);
     case EnvironmentVariable.ISSTATICCALL:
       return new Field(ctx.environment.isStaticCall ? 1 : 0);
     case EnvironmentVariable.L2GASLEFT:

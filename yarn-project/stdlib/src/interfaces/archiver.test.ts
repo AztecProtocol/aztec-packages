@@ -214,7 +214,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getContract', async () => {
@@ -239,6 +239,11 @@ describe('ArchiverApiSchema', () => {
 
   it('syncImmediate', async () => {
     await context.client.syncImmediate();
+  });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toBe(1n);
   });
 });
 
@@ -374,8 +379,7 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
@@ -389,5 +393,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+  getL1Timestamp(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
 }

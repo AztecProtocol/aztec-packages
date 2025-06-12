@@ -1,3 +1,4 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -137,6 +138,7 @@ describe('prover-node-publisher', () => {
         Promise.resolve({
           archive: blocks[Number(blockNumber) - 1].endArchiveRoot.toString(),
           headerHash: '0x', // unused,
+          blobCommitmentsHash: '0x', // unused,
           slotNumber: 0n, // unused,
         }),
       );
@@ -146,6 +148,14 @@ describe('prover-node-publisher', () => {
       const ourPublicInputs = RootRollupPublicInputs.random();
       ourPublicInputs.previousArchiveRoot = blocks[fromBlock - 2]?.endArchiveRoot ?? Fr.ZERO;
       ourPublicInputs.endArchiveRoot = blocks[toBlock - 1]?.endArchiveRoot ?? Fr.ZERO;
+
+      const ourBatchedBlob = new BatchedBlob(
+        ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+        ourPublicInputs.blobPublicInputs.z,
+        ourPublicInputs.blobPublicInputs.y,
+        ourPublicInputs.blobPublicInputs.c,
+        ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+      );
 
       // Return our public inputs
       const totalFields = ourPublicInputs.toFields();
@@ -158,6 +168,7 @@ describe('prover-node-publisher', () => {
           toBlock,
           publicInputs: ourPublicInputs,
           proof: Proof.empty(),
+          batchedBlobInputs: ourBatchedBlob,
         })
         .then(() => 'Success')
         .catch(error => error.message);

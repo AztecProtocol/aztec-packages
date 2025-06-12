@@ -11,6 +11,7 @@ import type { SequencerPublisher } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { L2BlockNumber } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
@@ -153,9 +154,9 @@ export class EpochsTestContext {
   }
 
   public async teardown() {
-    this.monitor.stop();
-    await Promise.all(this.proverNodes.map(node => node.stop()));
-    await Promise.all(this.nodes.map(node => node.stop()));
+    await this.monitor.stop();
+    await Promise.all(this.proverNodes.map(node => tryStop(node, this.logger)));
+    await Promise.all(this.nodes.map(node => tryStop(node, this.logger)));
     await this.context.teardown();
   }
 
