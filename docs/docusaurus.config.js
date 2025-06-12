@@ -76,7 +76,7 @@ const config = {
               },
             ],
           ],
-          includeCurrentVersion: true,
+          includeCurrentVersion: false,
           versions: (() => {
             const versionObject = {};
             if (process.env.ENV === "dev") {
