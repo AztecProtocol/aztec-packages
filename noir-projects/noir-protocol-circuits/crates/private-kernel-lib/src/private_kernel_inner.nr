@@ -39,6 +39,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(
             self.previous_kernel.public_inputs,
         )
+            .pop_top_call_request()
             .with_private_call(
                 // TODO: consider moving this call into `new_from_previous_kernel`
                 self.private_call,

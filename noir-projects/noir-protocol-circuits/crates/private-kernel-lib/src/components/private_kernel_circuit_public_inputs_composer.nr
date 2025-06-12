@@ -120,10 +120,15 @@ impl PrivateKernelCircuitPublicInputsComposer {
         public_inputs_builder.end.public_call_requests = start.public_call_requests;
         public_inputs_builder.end.private_call_stack = start.private_call_stack;
 
-        // Pop the top item in the call stack, which is the caller of the current call, and shouldn't be propagated to the output.
-        let _ = public_inputs_builder.end.private_call_stack.pop_hint();
-
         PrivateKernelCircuitPublicInputsComposer { public_inputs_builder }
+    }
+
+    // Note: this is not part of `new_from_previous_kernel`, because the reset and tail circuits also
+    // use the constructors of this class, and they don't pop calls!
+    pub unconstrained fn pop_top_call_request(&mut self) -> Self {
+        // Pop the top item in the call stack, which is the caller of the current call, and shouldn't be propagated to the output.
+        let _ = self.public_inputs_builder.end.private_call_stack.pop_hint();
+        *self
     }
 
     pub unconstrained fn with_private_call(&mut self, private_call: PrivateCallData) -> Self {

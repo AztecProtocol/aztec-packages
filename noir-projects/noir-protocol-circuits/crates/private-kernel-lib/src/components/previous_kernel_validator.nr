@@ -147,6 +147,20 @@ impl PreviousKernelValidator {
             .l2_to_l1_msgs
             .assert_dense_trimmed());
 
+        self.previous_kernel_dense_trimmed_arrays.private_logs = Option::some(self
+            .previous_kernel
+            .public_inputs
+            .end
+            .private_logs
+            .assert_dense_trimmed());
+
+        self.previous_kernel_dense_trimmed_arrays.contract_class_logs_hashes = Option::some(self
+            .previous_kernel
+            .public_inputs
+            .end
+            .contract_class_logs_hashes
+            .assert_dense_trimmed());
+
         // Private call stack is separately validated to be empty.
         // Public call stack is separately validated to be:
         // - Empty if private tail.

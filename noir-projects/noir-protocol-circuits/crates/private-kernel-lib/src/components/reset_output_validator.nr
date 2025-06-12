@@ -336,7 +336,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             padded_nullifiers,
             self.output.end.nullifiers,
             |prev: ScopedNullifier, out: ScopedNullifier| {
-                // Inefficient `&` operations - it feels like we should be able to refactor to get rid of those.
                 let out_val = out.value();
                 let prev_val = silo_nullifier(prev);
                 println(f"out_val: {out_val}");

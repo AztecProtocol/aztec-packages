@@ -84,6 +84,7 @@ impl PrivateKernelCircuitPublicInputsComposerBuilder {
         let private_call = self.private_call.to_private_call_data();
 
         PrivateKernelCircuitPublicInputsComposer::new_from_previous_kernel(previous_kernel)
+            .pop_top_call_request()
             .with_private_call(private_call)
             .finish()
     }
