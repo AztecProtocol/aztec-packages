@@ -204,7 +204,7 @@ class WorldState {
     void find_sibling_paths(const WorldStateRevision& revision,
                             MerkleTreeId tree_id,
                             const std::vector<T>& leaves,
-                            std::vector<std::optional<fr_sibling_path>>& paths) const;
+                            std::vector<std::optional<SiblingPathAndIndex>>& paths) const;
 
     /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
@@ -575,7 +575,7 @@ template <typename T>
 void WorldState::find_sibling_paths(const WorldStateRevision& rev,
                                     MerkleTreeId id,
                                     const std::vector<T>& leaves,
-                                    std::vector<std::optional<fr_sibling_path>>& paths) const
+                                    std::vector<std::optional<SiblingPathAndIndex>>& paths) const
 {
     using namespace crypto::merkle_tree;
 

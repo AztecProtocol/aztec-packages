@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
@@ -181,7 +182,7 @@ template <typename T> struct FindLeafPathsRequest {
 };
 
 struct FindLeafPathsResponse {
-    std::vector<std::optional<fr_sibling_path>> paths;
+    std::vector<std::optional<SiblingPathAndIndex>> paths;
     MSGPACK_FIELDS(paths);
 };
 

@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { assertLength, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type {
   BatchInsertionResult,
@@ -49,7 +49,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
   async findSiblingPaths<N extends number>(
     treeId: MerkleTreeId,
     values: MerkleTreeLeafType<MerkleTreeId>[],
-  ): Promise<(SiblingPath<N> | undefined)[]> {
+  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]> {
     const response = await this.instance.call(WorldStateMessageType.FIND_SIBLING_PATHS, {
       leaves: values.map(leaf => serializeLeaf(hydrateLeaf(treeId, leaf))),
       revision: this.revision,
@@ -60,7 +60,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
       if (!path) {
         return undefined;
       }
-      return new SiblingPath(path.length, path) as any;
+      return { path: new SiblingPath<N>(path.path.length as N, path.path), index: BigInt(path.index) };
     });
   }
 
