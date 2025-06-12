@@ -62,7 +62,7 @@ class PublicInputsBuilder {
     PublicInputs build() const;
 
   private:
-    PublicInputs public_inputs;
+    PublicInputs public_inputs = {};
     numeric::RNG& engine;
 };
 
