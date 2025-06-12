@@ -65,91 +65,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2395;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 163;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2638;
-<<<<<<< HEAD
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2637;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2386;
-=======
-=======
->>>>>>> 209278ea42 (Remove dummy columns in keccak)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1740;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 209;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2986;
->>>>>>> 49adc1e822 (keccakf1600: permutation without memory)
->>>>>>> 78efe0b47a (keccakf1600: permutation without memory)
-<<<<<<< HEAD
->>>>>>> a53e582be1 (keccakf1600: permutation without memory)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 1962;
->>>>>>> 209278ea42 (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> c1fc7163b8 (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> 6d2b36e63d (Remove dummy columns in keccak)
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2031;
->>>>>>> 2e4ec74c56 (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> 5379c9c43f (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> ef547dbfa7 (Pil relations for keccak slice memory gadget)
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2012;
->>>>>>> 2df79011ef (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> 2f900345fa (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> c39ba6e655 (Add permutations between keccak permutation and slice gadget)
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2024;
->>>>>>> 58cdead42d (Add error handling for keccak gadget)
->>>>>>> 92a719bd44 (Add error handling for keccak gadget)
-<<<<<<< HEAD
->>>>>>> 0b09ab172c (Add error handling for keccak gadget)
-=======
-=======
-=======
->>>>>>> ce6d94dc7c (Addressing review comments)
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 96;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1965;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 217;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 1977;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 219;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2276;
->>>>>>> 37d9234501 (Guard most of permutation constraints by no error selector)
->>>>>>> 9ddf90fb00 (Guard most of permutation constraints by no error selector)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2278;
->>>>>>> ce6d94dc7c (Addressing review comments)
+    static constexpr size_t NUM_ALL_ENTITIES = 2292;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
