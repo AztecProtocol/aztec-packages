@@ -4,6 +4,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  ExtRollupLib2Abi,
+  ExtRollupLib2Bytecode,
   ExtRollupLibAbi,
   ExtRollupLibBytecode,
   FeeAssetHandlerAbi,
@@ -158,6 +160,10 @@ export const l1Artifacts = {
         ExtRollupLib: {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
+        },
+        ExtRollupLib2: {
+          contractAbi: ExtRollupLib2Abi,
+          contractBytecode: ExtRollupLib2Bytecode as Hex,
         },
       },
     },
