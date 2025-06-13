@@ -132,7 +132,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        OuterProver ultra_prover(ultra_instance);
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+        OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
@@ -213,7 +214,8 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        UltraRollupProver outer_prover(outer_proving_key);
+        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 

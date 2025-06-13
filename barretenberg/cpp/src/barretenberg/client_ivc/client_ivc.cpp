@@ -6,6 +6,7 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -217,7 +218,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
-        MegaOinkProver oink_prover{ proving_key };
+        MegaOinkProver oink_prover{ proving_key, honk_vk };
         vinfo("computing oink proof...");
         HonkProof oink_proof = oink_prover.prove();
         vinfo("oink proof constructed");
@@ -233,7 +234,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
+        auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+        FoldingProver folding_prover(
+            { fold_output.accumulator, proving_key }, { verifier_accumulator, vk }, trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
@@ -339,9 +342,12 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
-    auto decider_pk = construct_hiding_circuit_key();
+    std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
+    // key during proving. Precompute instead.
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk, transcript);
+    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;

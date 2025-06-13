@@ -134,10 +134,10 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-    OuterProver prover(proving_key);
+    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+    OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     OuterVerifier verifier(verification_key, ipa_verification_key);
     EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
@@ -165,9 +165,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        OuterProver prover(proving_key);
+        expected_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, expected_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
-        expected_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
@@ -189,9 +189,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
-        OuterProver prover(proving_key);
+        actual_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, actual_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
-        actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
     }
 
     // Compare the VK constructed via running the IVC with the one constructed via mocking

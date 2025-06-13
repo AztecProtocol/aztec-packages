@@ -92,18 +92,6 @@ export class UltraHonkBackend {
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
 
-    const proveUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirProveUltraKeccakZkHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-          : options?.starknetZK
-            ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
-            : this.api.acirProveUltraHonk.bind(this.api);
-
-    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, ungzip(compressedWitness));
-
     // Write VK to get the number of public inputs
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
@@ -115,8 +103,24 @@ export class UltraHonkBackend {
             ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
             : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
-    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
+    const vkBuf = await writeVKUltraHonk(this.acirUncompressedBytecode);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vkBuf));
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : options?.keccakZK
+        ? this.api.acirProveUltraKeccakZkHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+          : options?.starknetZK
+            ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
+            : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
+      this.acirUncompressedBytecode,
+      ungzip(compressedWitness),
+      new RawBuffer(vkBuf),
+    );
 
     // Item at index 1 in VK is the number of public inputs
     const publicInputsSizeIndex = 1; // index into VK for numPublicInputs

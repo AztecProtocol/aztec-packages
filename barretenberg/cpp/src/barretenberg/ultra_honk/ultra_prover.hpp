@@ -27,11 +27,12 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderPK = DeciderProvingKey;
+    using DeciderPK = DeciderProvingKey_<Flavor>;
+    using HonkVK = typename Flavor::VerificationKey;
     using Transcript = typename Flavor::Transcript;
 
     std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<HonkVK> honk_vk;
 
     std::shared_ptr<Transcript> transcript;
 
@@ -43,14 +44,17 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     CommitmentKey commitment_key;
 
-    UltraProver_(const std::shared_ptr<DeciderPK>&, const CommitmentKey&);
+    UltraProver_(const std::shared_ptr<DeciderPK>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
 
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
+                          const std::shared_ptr<HonkVK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&, const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit UltraProver_(Builder&,
+                          const std::shared_ptr<HonkVK>&,
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit UltraProver_(Builder&&);
+    explicit UltraProver_(Builder&&, const std::shared_ptr<HonkVK>&);
 
     BB_PROFILE void generate_gate_challenges();
 
