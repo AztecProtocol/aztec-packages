@@ -200,7 +200,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparse)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
     G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
+    G1 sparse_commit_result = key->commit(poly);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
@@ -229,7 +229,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparseSmallSize)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
     G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
+    G1 sparse_commit_result = key->commit(poly);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
@@ -259,7 +259,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparseNonZeroStartIndex)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
     G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
+    G1 sparse_commit_result = key->commit(poly);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
@@ -290,7 +290,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparseMediumNonZeroStartIndex)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
     G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
+    G1 sparse_commit_result = key->commit(poly);
 
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
