@@ -5,6 +5,18 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
+// @notice if this changes, please update the enum in governance.ts
+enum ProposalState {
+  Pending,
+  Active,
+  Queued,
+  Executable,
+  Rejected,
+  Executed,
+  Dropped,
+  Expired
+}
+
 struct ProposeConfiguration {
   Timestamp lockDelay;
   uint256 lockAmount;
@@ -24,18 +36,6 @@ struct Configuration {
 struct Ballot {
   uint256 yea;
   uint256 nea;
-}
-
-// @notice if this changes, please update the enum in governance.ts
-enum ProposalState {
-  Pending,
-  Active,
-  Queued,
-  Executable,
-  Rejected,
-  Executed,
-  Dropped,
-  Expired
 }
 
 struct Proposal {

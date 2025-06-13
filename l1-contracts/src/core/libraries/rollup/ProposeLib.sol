@@ -13,8 +13,9 @@ import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
-import {SignatureLib, SignatureDomainSeparator} from "@aztec/shared/libraries/SignatureLib.sol";
-import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {
+  SignatureDomainSeparator, CommitteeAttestation
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
