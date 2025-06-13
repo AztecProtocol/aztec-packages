@@ -30,7 +30,7 @@ import {
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
-import {RewardLib, ActivityScore} from "./libraries/rollup/RewardLib.sol";
+import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
   RollupCore,
   GenesisState,
@@ -611,6 +611,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
     return STFLib.canPruneAtTime(_ts);
+  }
+
+  function getRewardConfig() external view override(IRollup) returns (RewardConfig memory) {
+    return RewardLib.getStorage().config;
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {

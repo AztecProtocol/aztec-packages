@@ -36,6 +36,17 @@ library TestConstants {
     });
   }
 
+  function getRewardConfig() internal pure returns (RewardConfig memory) {
+    return RewardConfig({
+      sequencerBps: Bps.wrap(5000),
+      increment: 200000,
+      maxScore: 5000000,
+      a: 5000,
+      k: 1000000,
+      minimum: 100000
+    });
+  }
+
   function getRollupConfigInput() internal pure returns (RollupConfigInput memory) {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
@@ -46,14 +57,7 @@ library TestConstants {
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,
       provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
-      rewardConfig: RewardConfig({
-        sequencerBps: Bps.wrap(5000),
-        increment: 200000,
-        maxScore: 5000000,
-        a: 5000,
-        k: 1000000,
-        minimum: 100000
-      })
+      rewardConfig: getRewardConfig()
     });
   }
 }
