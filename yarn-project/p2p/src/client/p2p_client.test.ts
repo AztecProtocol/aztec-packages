@@ -1,6 +1,5 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import { timesAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -361,10 +360,10 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
@@ -385,13 +384,13 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodButOldTx = await mockTx();
-      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
+      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = 89;
 
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockResolvedValue([

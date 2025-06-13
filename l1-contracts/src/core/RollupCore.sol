@@ -19,8 +19,9 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
+import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -32,7 +33,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 /**
  * @title Rollup
@@ -48,8 +49,6 @@ contract RollupCore is
   IValidatorSelectionCore,
   IRollupCore
 {
-  using ProposeLib for ProposeArgs;
-
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
@@ -80,8 +79,8 @@ contract RollupCore is
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
     StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
-    ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
-    RewardLib.initialize(_config.rewardConfig);
+    ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
+    RewardLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -115,9 +114,10 @@ contract RollupCore is
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                          CHEAT CODES START HERE                            */
-  /* -------------------------------------------------------------------------- */
+  function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
+    RewardLib.setConfig(_config);
+    emit RewardConfigUpdated(_config);
+  }
 
   function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
     uint256 currentManaTarget = FeeLib.getStorage().manaTarget;
@@ -129,17 +129,13 @@ contract RollupCore is
     emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                          CHEAT CODES END HERE                              */
-  /* -------------------------------------------------------------------------- */
-
   function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
     isRewardsClaimable = _isRewardsClaimable;
     emit RewardsClaimableUpdated(_isRewardsClaimable);
   }
 
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
-    ExtRollupLib.setSlasher(_slasher);
+    ExtRollupLib2.setSlasher(_slasher);
   }
 
   function setProvingCostPerMana(EthValue _provingCostPerMana)
@@ -169,14 +165,14 @@ contract RollupCore is
   }
 
   function vote(uint256 _proposalId) external override(IStakingCore) {
-    ExtRollupLib.vote(_proposalId);
+    ExtRollupLib2.vote(_proposalId);
   }
 
   function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    ExtRollupLib.deposit(_attester, _withdrawer, _onCanonical);
+    ExtRollupLib2.deposit(_attester, _withdrawer, _onCanonical);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -184,7 +180,7 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    return ExtRollupLib.initiateWithdraw(_attester, _recipient);
+    return ExtRollupLib2.initiateWithdraw(_attester, _recipient);
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {
@@ -216,11 +212,11 @@ contract RollupCore is
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib.setupEpoch();
+    ExtRollupLib2.setupEpoch();
   }
 
   function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib.setupSeedSnapshotForNextEpoch();
+    ExtRollupLib2.setupSeedSnapshotForNextEpoch();
   }
 
   /**

@@ -433,13 +433,13 @@ export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBloc
   return {
     _opt: {
       _is_some: maxBlockNumber.isSome,
-      _value: mapFieldToNoir(maxBlockNumber.value),
+      _value: mapNumberToNoir(maxBlockNumber.value),
     },
   };
 }
 
 export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
+  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapNumberFromNoir(maxBlockNumber._opt._value));
 }
 
 /**
@@ -577,7 +577,7 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
     version: mapFieldToNoir(globalVariables.version),
-    block_number: mapFieldToNoir(globalVariables.blockNumber),
+    block_number: mapNumberToNoir(globalVariables.blockNumber),
     slot_number: mapFieldToNoir(globalVariables.slotNumber),
     timestamp: mapBigIntToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
@@ -595,7 +595,7 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
-    mapFieldFromNoir(globalVariables.block_number),
+    mapNumberFromNoir(globalVariables.block_number),
     mapFieldFromNoir(globalVariables.slot_number),
     mapBigIntFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),

@@ -649,12 +649,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
     this.logger.debug(
-      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
+      `Received attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
         archive: attestation.archive.toString(),
-        block: attestation.blockNumber.toNumber(),
+        block: attestation.blockNumber,
         source: source.toString(),
       },
     );
@@ -687,7 +687,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
-    [Attributes.BLOCK_NUMBER]: block.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: block.blockNumber,
     [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
@@ -697,12 +697,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const previousSlot = slot - 1n;
     const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber.toNumber()} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
+      `Received block ${block.blockNumber} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
         archive: block.archive.toString(),
-        block: block.blockNumber.toNumber(),
+        block: block.blockNumber,
         source: sender.toString(),
       },
     );
@@ -720,12 +720,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (attestations?.length) {
       for (const attestation of attestations) {
         this.logger.verbose(
-          `Broadcasting attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()}`,
+          `Broadcasting attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()}`,
           {
             p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
             slot: attestation.slotNumber.toNumber(),
             archive: attestation.archive.toString(),
-            block: attestation.blockNumber.toNumber(),
+            block: attestation.blockNumber,
           },
         );
         await this.broadcastAttestation(attestation);
@@ -738,7 +738,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
@@ -955,7 +955,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),

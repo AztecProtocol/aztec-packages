@@ -384,7 +384,7 @@ describe('L1Publisher integration', () => {
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(version),
-          new Fr(1 + i),
+          i + 1, // block number
           new Fr(slot),
           timestamp,
           coinbase,
@@ -401,7 +401,7 @@ describe('L1Publisher integration', () => {
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-        const emptyRoot = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const emptyRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
 
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
@@ -442,7 +442,7 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
-        const thisBlockNumber = block.header.globalVariables.blockNumber.toBigInt();
+        const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
         const isFirstBlockOfEpoch =
           thisBlockNumber == 1n ||
           (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
@@ -485,7 +485,7 @@ describe('L1Publisher integration', () => {
         expect(ethTx.input).toEqual(expectedData);
 
         const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
-        const returnedRoot = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const returnedRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
 
         // check that values are inserted into the outbox
         expect(Fr.ZERO.toString()).toEqual(returnedRoot);
@@ -538,7 +538,7 @@ describe('L1Publisher integration', () => {
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(version),
-        new Fr(1),
+        1, // block number
         new Fr(slot),
         timestamp,
         coinbase,

@@ -38,6 +38,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
+import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 
@@ -152,5 +153,42 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
+  }
+
+  function test_getRewardConfig() external setup(1) {
+    RewardConfig memory defaultConfig = TestConstants.getRewardConfig();
+
+    RewardConfig memory config = rollup.getRewardConfig();
+
+    assertEq(
+      Bps.unwrap(config.sequencerBps),
+      Bps.unwrap(defaultConfig.sequencerBps),
+      "invalid sequencerBps"
+    );
+    assertEq(config.increment, defaultConfig.increment, "in--valid increment");
+    assertEq(config.maxScore, defaultConfig.maxScore, "invalid maxScore");
+    assertEq(config.a, defaultConfig.a, "invalid a");
+    assertEq(config.k, defaultConfig.k, "invalid k");
+    assertEq(config.minimum, defaultConfig.minimum, "invalid minimum");
+
+    RewardConfig memory updated =
+      RewardConfig({sequencerBps: Bps.wrap(1), increment: 2, maxScore: 3, a: 4, k: 5, minimum: 6});
+
+    address owner = rollup.owner();
+
+    vm.expectEmit(true, true, true, true);
+    emit IRollupCore.RewardConfigUpdated(updated);
+    vm.prank(owner);
+    rollup.setRewardConfig(updated);
+    config = rollup.getRewardConfig();
+
+    assertEq(
+      Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
+    );
+    assertEq(config.increment, updated.increment, "invalid increment");
+    assertEq(config.maxScore, updated.maxScore, "invalid maxScore");
+    assertEq(config.a, updated.a, "invalid a");
+    assertEq(config.k, updated.k, "invalid k");
+    assertEq(config.minimum, updated.minimum, "invalid minimum");
   }
 }
