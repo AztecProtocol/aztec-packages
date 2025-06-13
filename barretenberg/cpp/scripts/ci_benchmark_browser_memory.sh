@@ -5,7 +5,8 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 cd ..
 
-flow=${1:-"ecdsar1+transfer_0_recursions+sponsored_fpc"}
+flow_folder=${1:-"ecdsar1+transfer_0_recursions+sponsored_fpc"}
+flow="$(basename $flow_folder)"
 mkdir -p bench-out/
 
 # NOTE: if port issues are hit, make sure no other test has the string '9339' for a port
@@ -22,7 +23,7 @@ name_path="app_proving/$flow/chrome-wasm"
 output="bench-out/$name_path"
 mkdir -p "$output"
 start=$(date +%s%N)
-BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_client_ivc -i ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$flow/ivc-inputs.msgpack --verbose 2>&1 \
+BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_client_ivc -i $flow_folder/ivc-inputs.msgpack --verbose 2>&1 \
   | tee "$output/benchmark.log"
 end=$(date +%s%N)
 elapsed_ns=$(( end - start ))
