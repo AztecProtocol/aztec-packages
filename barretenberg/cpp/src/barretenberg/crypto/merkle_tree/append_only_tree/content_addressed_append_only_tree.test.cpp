@@ -125,6 +125,7 @@ void check_sibling_path(TreeType& tree,
 void check_sibling_path_by_value(TreeType& tree,
                                  fr value,
                                  fr_sibling_path expected_sibling_path,
+                                 index_t expected_index,
                                  bool includeUncommitted = true,
                                  bool expected_result = true)
 {
@@ -132,7 +133,9 @@ void check_sibling_path_by_value(TreeType& tree,
     auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_result);
         if (expected_result) {
-            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+            EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
     };
@@ -161,14 +164,17 @@ void check_historic_sibling_path(TreeType& tree,
 void check_historic_sibling_path_by_value(TreeType& tree,
                                           fr value,
                                           fr_sibling_path expected_sibling_path,
+                                          index_t expected_index,
                                           block_number_t blockNumber,
                                           bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        if (expected_success) {
+            EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
     };
@@ -411,7 +417,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_size(tree, 1);
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
-    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -736,8 +742,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, i, memdb.get_sibling_path(i));
 
-        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
-        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i));
+        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
+        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i), i);
     }
 }
 
@@ -762,8 +768,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
-    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
-    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
+    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1), 4 - 1);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
@@ -917,10 +923,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], i + 1);
-            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], 0, i + 1);
             index_t maxSizeAtBlock = ((i + 1) * batch_size) - 1;
             check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], i + 1);
-            check_historic_sibling_path_by_value(tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], i + 1);
+            check_historic_sibling_path_by_value(
+                tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], maxSizeAtBlock, i + 1);
         }
     };
 
