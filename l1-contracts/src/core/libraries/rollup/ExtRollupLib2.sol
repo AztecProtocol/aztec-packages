@@ -4,8 +4,8 @@
 pragma solidity >=0.8.27;
 
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {StakingLib} from "./../staking/StakingLib.sol";
-import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
+import {StakingLib} from "./StakingLib.sol";
+import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
