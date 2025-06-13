@@ -17,6 +17,7 @@ class UltraHonkAPI : public API {
     void prove(const Flags& flags,
                const std::filesystem::path& bytecode_path,
                const std::filesystem::path& witness_path,
+               const std::filesystem::path& vk_path,
                const std::filesystem::path& output_dir);
 
     bool verify(const Flags& flags,
