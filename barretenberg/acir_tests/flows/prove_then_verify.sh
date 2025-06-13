@@ -33,7 +33,7 @@ case ${SYS:-} in
         -i $OUTDIR/public_inputs
   ;;
   "ultra_honk_deprecated")
-    # deprecated flow is necessary until we finish C++ api refactor and then align ts api
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1434) deprecated flow is necessary until we finish C++ api refactor and then align ts api
     SYS_DEP=_ultra_honk
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT

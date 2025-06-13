@@ -208,11 +208,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Set the verification key from precomputed if available, else compute it
     {
         PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
-        // auto vk = std::make_shared<MegaVerificationKey>(proving_key->proving_key);
         honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
-        // if (precomputed_vk) {
-        //     BB_ASSERT_EQ(*precomputed_vk, *vk, "Precomputed VK does not match computed VK.");
-        // }
     }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);

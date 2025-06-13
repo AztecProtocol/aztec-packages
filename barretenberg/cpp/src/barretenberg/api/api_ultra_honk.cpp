@@ -19,10 +19,15 @@ template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
 Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
 {
     uint32_t honk_recursion = 0;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1326): Get rid of honk_recursion and just use
+    // ipa_accumulation.
+    // bool ipa_accumulation = false;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
+        // ipa_accumulation = true;
     }
 #ifdef STARKNET_GARAGA_FLAVORS
     if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
@@ -30,7 +35,9 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
     }
 #endif
 
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{
+        .honk_recursion = honk_recursion,
+    };
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path) };
 
     if (!witness_path.empty()) {
@@ -52,8 +59,7 @@ template <typename Flavor>
 PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::filesystem::path& bytecode_path,
                                                                    const std::filesystem::path& witness_path)
 {
-    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
     return { PublicInputsVector{},
              HonkProof{},
              std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
@@ -68,7 +74,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (compute_vk) {
-        info("WARNING: computing proving key while proving. Pass in a precomputed vk for better performance.");
+        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
         vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
     } else {
         vk = std::make_shared<typename Flavor::VerificationKey>(
@@ -280,31 +286,19 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                                        const std::string& witness_path,
                                        const std::string& output_path)
 {
-    using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using FF = typename Flavor::FF;
 
-    uint32_t honk_recursion = 0;
-    bool ipa_accumulation = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
-        ipa_accumulation = true;
-    }
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-
-    acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path);
-    program.witness = get_witness(witness_path);
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    std::shared_ptr<DeciderProvingKey_<Flavor>> proving_key = _compute_proving_key<Flavor>(bytecode_path, witness_path);
     auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Prover prover{ proving_key, verification_key };
     std::vector<FF> proof = prover.construct_proof();
 
+    bool ipa_accumulation = false;
+    if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        ipa_accumulation = true;
+    }
     const std::string toml_content =
         acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
 

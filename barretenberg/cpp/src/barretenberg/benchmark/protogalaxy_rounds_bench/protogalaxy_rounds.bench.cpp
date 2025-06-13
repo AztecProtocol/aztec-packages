@@ -29,17 +29,17 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
-    std::shared_ptr<DeciderProvingKey> key_1 = construct_key();
-    auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(key_1->proving_key);
-    auto vk_1 = std::make_shared<DeciderVerificationKey>(honk_vk_1);
-    std::shared_ptr<DeciderProvingKey> key_2 = construct_key();
-    auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(key_2->proving_key);
-    auto vk_2 = std::make_shared<DeciderVerificationKey>(honk_vk_2);
+    std::shared_ptr<DeciderProvingKey> decider_pk_1 = construct_key();
+    auto honk_vk_1 = std::make_shared<Flavor::VerificationKey>(decider_pk_1->proving_key);
+    auto decider_vk_1 = std::make_shared<DeciderVerificationKey>(honk_vk_1);
+    std::shared_ptr<DeciderProvingKey> decider_pk_2 = construct_key();
+    auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(decider_pk_2->proving_key);
+    auto decider_vk_2 = std::make_shared<DeciderVerificationKey>(honk_vk_2);
 
-    ProtogalaxyProver folding_prover({ key_1, key_2 }, { vk_1, vk_2 });
+    ProtogalaxyProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
 
     // prepare the prover state
-    folding_prover.accumulator = key_1;
+    folding_prover.accumulator = decider_pk_1;
     folding_prover.deltas.resize(log2_num_gates);
     std::fill_n(folding_prover.deltas.begin(), log2_num_gates, 0);
     folding_prover.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);

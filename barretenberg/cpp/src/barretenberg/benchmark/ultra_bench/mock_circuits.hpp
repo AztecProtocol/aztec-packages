@@ -80,7 +80,6 @@ void construct_proof_with_specified_num_iterations(
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     for (auto _ : state) {
-        // Why is this not being included?
         // Construct circuit and prover; don't include this part in measurement
         state.PauseTiming();
         Prover prover = get_prover<Prover>(test_circuit_function, num_iterations);
