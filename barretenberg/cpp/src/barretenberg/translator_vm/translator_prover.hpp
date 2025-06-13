@@ -27,9 +27,6 @@ class TranslatorProver {
     using PCS = typename Flavor::PCS;
     using Transcript = typename Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
-    size_t total_num_gates = 0;          // num_gates (already include zero row offset) (used to compute dyadic size)
-    size_t dyadic_circuit_size = 0;      // final power-of-2 circuit size
-    size_t mini_circuit_dyadic_size = 0; // The size of the small circuit that contains non-range constraint relations
 
     explicit TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& key,
                               const std::shared_ptr<Transcript>& transcript);

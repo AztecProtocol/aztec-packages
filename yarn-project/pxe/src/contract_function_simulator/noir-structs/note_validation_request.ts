@@ -7,14 +7,14 @@ import { TxHash } from '@aztec/stdlib/tx';
 const MAX_NOTE_PACKED_LEN = 12;
 
 /**
- * Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotes` oracle expects for
- * values of this type to be stored in a `CapsuleArray`.
+ * Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotesAndEvents` oracle
+ * expects for values of this type to be stored in a `CapsuleArray`.
  */
 export class NoteValidationRequest {
   constructor(
     public contractAddress: AztecAddress,
     public storageSlot: Fr,
-    public nonce: Fr,
+    public noteNonce: Fr,
     public content: Fr[],
     public noteHash: Fr,
     public nullifier: Fr,
@@ -27,7 +27,7 @@ export class NoteValidationRequest {
 
     const contractAddress = AztecAddress.fromField(reader.readField());
     const storageSlot = reader.readField();
-    const nonce = reader.readField();
+    const noteNonce = reader.readField();
 
     const contentStorage = reader.readFieldArray(MAX_NOTE_PACKED_LEN);
     const contentLen = reader.readField().toNumber();
@@ -41,7 +41,7 @@ export class NoteValidationRequest {
     return new NoteValidationRequest(
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       content,
       noteHash,
       nullifier,

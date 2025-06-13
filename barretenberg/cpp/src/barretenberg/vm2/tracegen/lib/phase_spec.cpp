@@ -71,13 +71,11 @@ const std::unordered_map<TransactionPhase, TxPhaseOffsetsTable::Offsets> PHASE_P
               AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
       } },
 
-    // todo: These are placeholders for now!
     { TransactionPhase::COLLECT_GAS_FEES,
       {
-          .read_pi_offset = AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX,
-          .write_pi_offset = 0,
-          .read_pi_length_offset = AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX,
-
+          .read_pi_offset = AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
+          .write_pi_offset = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX,
+          .read_pi_length_offset = 0,
       } },
 } };
 

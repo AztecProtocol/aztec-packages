@@ -452,7 +452,7 @@ describe('PXEOracleInterface', () => {
     let nullifier: Fr;
     let txHash: TxHash;
     let storageSlot: Fr;
-    let nonce: Fr;
+    let noteNonce: Fr;
     let content: Fr[];
 
     beforeEach(() => {
@@ -460,12 +460,12 @@ describe('PXEOracleInterface', () => {
       nullifier = Fr.random();
       txHash = TxHash.random();
       storageSlot = Fr.random();
-      nonce = Fr.random();
+      noteNonce = Fr.random();
       content = [Fr.random(), Fr.random()];
     });
 
     it('should store note if it exists in note hash tree and is not nullified', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
       // Mock note exists in tree
       aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
         if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
@@ -477,7 +477,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
-        nonce,
+        noteNonce,
         content,
         noteHash,
         nullifier,
@@ -499,7 +499,7 @@ describe('PXEOracleInterface', () => {
         pxeOracleInterface.deliverNote(
           contractAddress,
           storageSlot,
-          nonce,
+          noteNonce,
           content,
           noteHash,
           nullifier,
@@ -510,7 +510,7 @@ describe('PXEOracleInterface', () => {
     });
 
     it('should store and immediately remove note if it is already nullified', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
       const siloedNullifier = await siloNullifier(contractAddress, nullifier);
 
       // Mock note exists and is nullified
@@ -527,7 +527,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
-        nonce,
+        noteNonce,
         content,
         noteHash,
         nullifier,
@@ -544,7 +544,7 @@ describe('PXEOracleInterface', () => {
     // `AztecNode.findLeavesIndexes` to only return the note hash in blocks beyond our current
     // sync point, and then we check that the function correctly throws.
     it('should reject notes that exist only in unsynced future blocks', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
       const syncedBlockNumber = 100;
       await setSyncedBlockNumber(syncedBlockNumber);
 
@@ -562,7 +562,7 @@ describe('PXEOracleInterface', () => {
         pxeOracleInterface.deliverNote(
           contractAddress,
           storageSlot,
-          nonce,
+          noteNonce,
           content,
           noteHash,
           nullifier,
@@ -576,7 +576,7 @@ describe('PXEOracleInterface', () => {
     // synced yet. We mock the note to exist in a synced block but its nullifier to only exist in future blocks, then
     // verify the note can still be obtained as active.
     it('should not remove note if nullifier only exists in unsynced blocks', async () => {
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, await siloNoteHash(contractAddress, noteHash));
       const siloedNullifier = await siloNullifier(contractAddress, nullifier);
       const syncedBlockNumber = 100;
       await setSyncedBlockNumber(syncedBlockNumber);
@@ -597,7 +597,7 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.deliverNote(
         contractAddress,
         storageSlot,
-        nonce,
+        noteNonce,
         content,
         noteHash,
         nullifier,
@@ -856,7 +856,7 @@ describe('PXEOracleInterface', () => {
   const setSyncedBlockNumber = (blockNumber: number) => {
     return syncDataProvider.setHeader(
       BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+        globalVariables: GlobalVariables.empty({ blockNumber }),
       }),
     );
   };

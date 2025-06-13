@@ -98,7 +98,7 @@ export class DefaultMultiCallEntrypoint implements EntrypointInterface {
                   },
                 },
               },
-              { name: 'nonce', type: { kind: 'field' } },
+              { name: 'tx_nonce', type: { kind: 'field' } },
             ],
           },
           visibility: 'public',

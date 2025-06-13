@@ -75,7 +75,7 @@ describe('Public Side Effect Trace', () => {
     trace.traceNewL2ToL1Message(address, recipient, content);
     expect(trace.getCounter()).toBe(startCounterPlus1);
 
-    const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content, 0).scope(address)];
+    const expected = [new L2ToL1Message(EthAddress.fromField(recipient), content).scope(address)];
     expect(trace.getSideEffects().l2ToL1Msgs).toEqual(expected);
   });
 

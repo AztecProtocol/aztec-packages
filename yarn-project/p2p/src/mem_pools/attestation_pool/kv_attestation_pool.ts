@@ -5,7 +5,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@azte
 import { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
 
 export class KvAttestationPool implements AttestationPool {
@@ -24,8 +24,14 @@ export class KvAttestationPool implements AttestationPool {
     this.proposalsForSlot = store.openMultiMap('proposals_for_slot');
     this.attestationsForProposal = store.openMultiMap('attestations_for_proposal');
 
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
+
+  private poolStats: PoolStatsCallback = async () => {
+    return {
+      itemCount: await this.attestations.sizeAsync(),
+    };
+  };
 
   public async isEmpty(): Promise<boolean> {
     for await (const _ of this.attestations.entriesAsync()) {
@@ -73,8 +79,6 @@ export class KvAttestationPool implements AttestationPool {
         });
       }
     });
-
-    this.metrics.recordAddedObjects(attestations.length);
   }
 
   public async getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
@@ -135,10 +139,9 @@ export class KvAttestationPool implements AttestationPool {
 
         await this.attestationsForProposal.delete(this.getProposalKey(slotFr, proposalId));
       }
-    });
 
-    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
-    this.metrics.recordRemovedObjects(numberOfAttestations);
+      this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
+    });
   }
 
   public async deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void> {
@@ -156,10 +159,9 @@ export class KvAttestationPool implements AttestationPool {
 
       await this.proposalsForSlot.deleteValue(slotString, proposalId);
       await this.attestationsForProposal.delete(this.getProposalKey(slotString, proposalId));
-    });
 
-    this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-    this.metrics.recordRemovedObjects(numberOfAttestations);
+      this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
+    });
   }
 
   public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
@@ -168,8 +170,12 @@ export class KvAttestationPool implements AttestationPool {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
         const address = attestation.getSender().toString();
+        const key = this.getAttestationKey(slotNumber, proposalId, address);
 
-        await this.attestations.delete(this.getAttestationKey(slotNumber, proposalId, address));
+        if (await this.attestations.hasAsync(key)) {
+          await this.attestations.delete(key);
+        }
+
         await this.attestationsForProposal.deleteValue(
           this.getProposalKey(slotNumber, proposalId),
           this.getAttestationKey(slotNumber, proposalId, address),
@@ -178,6 +184,5 @@ export class KvAttestationPool implements AttestationPool {
         this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
     });
-    this.metrics.recordRemovedObjects(attestations.length);
   }
 }

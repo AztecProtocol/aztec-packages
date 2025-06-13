@@ -14,8 +14,8 @@ contract FinaliseWithdrawTest is StakingBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
     staking.finaliseWithdraw(ATTESTER);
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
-    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
@@ -23,7 +23,7 @@ contract FinaliseWithdrawTest is StakingBase {
     staking.finaliseWithdraw(ATTESTER);
 
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, MINIMUM_STAKE);
+    staking.slash(ATTESTER, DEPOSIT_AMOUNT);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
     staking.finaliseWithdraw(ATTESTER);
@@ -32,8 +32,8 @@ contract FinaliseWithdrawTest is StakingBase {
   modifier givenStatusIsExiting() {
     // We deposit and initiate a withdraw
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
-    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
@@ -76,11 +76,11 @@ contract FinaliseWithdrawTest is StakingBase {
 
     address lookup = _claimedFromGov ? address(staking) : address(staking.getGSE().getGovernance());
 
-    assertEq(stakingAsset.balanceOf(lookup), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(lookup), DEPOSIT_AMOUNT);
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawFinalised(ATTESTER, RECIPIENT, DEPOSIT_AMOUNT);
     staking.finaliseWithdraw(ATTESTER);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -89,6 +89,6 @@ contract FinaliseWithdrawTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(lookup), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), DEPOSIT_AMOUNT);
   }
 }

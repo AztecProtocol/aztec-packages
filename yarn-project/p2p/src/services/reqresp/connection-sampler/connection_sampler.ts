@@ -1,3 +1,4 @@
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 
@@ -52,7 +53,7 @@ export class ConnectionSampler {
     clearInterval(this.cleanupInterval);
 
     for (const attempt of this.dialAttempts) {
-      attempt.abort();
+      attempt.abort(new AbortError('Connection sampler stopped'));
     }
     this.dialAttempts = [];
     await this.dialQueue.end();
@@ -186,6 +187,7 @@ export class ConnectionSampler {
    *
    * @param peerId - The peer id
    * @param protocol - The protocol
+   * @param timeout - Abort connection if it takes too long
    * @returns The stream
    */
   async dialProtocol(peerId: PeerId, protocol: string, timeout?: number): Promise<Stream> {
@@ -197,7 +199,7 @@ export class ConnectionSampler {
     this.dialAttempts.push(abortController);
     let timeoutHandle: NodeJS.Timeout | undefined;
     if (timeout) {
-      timeoutHandle = setTimeout(() => abortController.abort(), timeout);
+      timeoutHandle = setTimeout(() => abortController.abort(new TimeoutError('Dial protocol timeout')), timeout);
     }
 
     try {
@@ -236,7 +238,7 @@ export class ConnectionSampler {
   async close(streamId: string): Promise<void> {
     try {
       const streamAndPeerId = this.streams.get(streamId);
-      if (!streamAndPeerId) {
+      if (!streamAndPeerId || !streamAndPeerId.stream) {
         this.logger.debug(`Stream ${streamId} not found`);
         return;
       }
@@ -253,11 +255,7 @@ export class ConnectionSampler {
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
 
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream?.close();
-      }
+      await stream!.close();
     } catch (error) {
       this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
     } finally {

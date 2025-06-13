@@ -1,11 +1,13 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { IncomingStreamData, PeerId, Stream } from '@libp2p/interface';
+import { abortableDuplex, abortableSink } from 'abortable-iterator';
 import { pipe } from 'it-pipe';
 import type { Libp2p } from 'libp2p';
 import type { Uint8ArrayList } from 'uint8arraylist';
@@ -23,6 +25,7 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
@@ -53,7 +56,7 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-export class ReqResp {
+export class ReqResp implements ReqRespInterface {
   protected readonly logger: Logger;
 
   private overallRequestTimeoutMs: number;
@@ -174,7 +177,7 @@ export class ReqResp {
     const responseValidator = this.subProtocolValidators[subProtocol];
     const requestBuffer = request.toBuffer();
 
-    const requestFunction = async () => {
+    const requestFunction = async (signal: AbortSignal) => {
       // Attempt to ask all of our peers, but sampled in a random order
       // This function is wrapped in a timeout, so we will exit the loop if we have not received a response
       const numberOfPeers = this.libp2p.getPeers().length;
@@ -186,6 +189,9 @@ export class ReqResp {
 
       const attemptedPeers: Map<string, boolean> = new Map();
       for (let i = 0; i < numberOfPeers; i++) {
+        if (signal.aborted) {
+          throw new AbortError('Request has been aborted');
+        }
         // Sample a peer to make a request to
         const peer = this.connectionSampler.getPeer(attemptedPeers);
         this.logger.trace(`Attempting to send request to peer: ${peer?.toString()}`);
@@ -273,7 +279,7 @@ export class ReqResp {
     const responses: (InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[] = new Array(requests.length);
     const requestBuffers = requests.map(req => req.toBuffer());
 
-    const requestFunction = async () => {
+    const requestFunction = async (signal: AbortSignal) => {
       // Track which requests still need to be processed
       const pendingRequestIndices = new Set(requestBuffers.map((_, i) => i));
 
@@ -300,6 +306,9 @@ export class ReqResp {
 
       let retryAttempts = 0;
       while (pendingRequestIndices.size > 0 && batchSampler.activePeerCount > 0 && retryAttempts < maxRetryAttempts) {
+        if (signal.aborted) {
+          throw new AbortError('Batch request aborted');
+        }
         // Process requests in parallel for each available peer
         type BatchEntry = { peerId: PeerId; indices: number[] };
         const requestBatches = new Map<string, BatchEntry>();
@@ -418,6 +427,7 @@ export class ReqResp {
    * @param peerId - The peer to send the request to
    * @param subProtocol - The protocol to use to request
    * @param payload - The payload to send
+   * @param dialTimeout - If establishing a stream takes longer than this an error will be thrown
    * @returns If the request is successful, the response is returned, otherwise undefined
    *
    * @description
@@ -440,7 +450,7 @@ export class ReqResp {
     peerId: PeerId,
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
-    dialTimeout?: number,
+    dialTimeout: number = 500,
   ): Promise<ReqRespResponse> {
     let stream: Stream | undefined;
     try {
@@ -450,7 +460,8 @@ export class ReqResp {
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
-        (): Promise<ReqRespResponse> => pipe([payload], stream!, this.readMessage.bind(this)),
+        (signal): Promise<ReqRespResponse> =>
+          pipe([payload], abortableDuplex(stream!, signal), abortableSink(this.readMessage.bind(this), signal)),
         this.individualRequestTimeoutMs,
         () => new IndividualReqRespTimeoutError(),
       );
@@ -500,23 +511,35 @@ export class ReqResp {
    * Categorize the error and log it.
    */
   private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+
     // Non punishable errors - we do not expect a response for goodbye messages
     if (subProtocol === ReqRespSubProtocol.GOODBYE) {
-      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', {
-        peerId: peerId.toString(),
-        subProtocol,
-      });
+      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', logTags);
       return undefined;
     }
 
     // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
-    const logTags = {
-      peerId: peerId.toString(),
-      subProtocol,
-    };
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
+      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    // Do not punish if we are stopping the service
+    if (e instanceof AbortError) {
+      this.logger.debug(`Request aborted: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    // Do not punish if we are the ones closing the connection
+    if (
+      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
+      e?.code === 'ERR_CONNECTION_CLOSED' ||
+      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
+      e?.message?.includes('Muxer already closed')
+    ) {
       this.logger.debug(
-        `Non-punishable error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
         logTags,
       );
       return undefined;
@@ -536,13 +559,14 @@ export class ReqResp {
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    // Timeout errors are punished with high tolerance, they can be due to a geogrpahically far away peer or an
-    // overloaded peer
-    if (e instanceof IndividualReqRespTimeoutError) {
-      this.logger.debug(
-        `Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
-        logTags,
-      );
+    if (e?.code === 'ERR_UNEXPECTED_EOF') {
+      this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
+    if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
+      this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
@@ -657,7 +681,7 @@ export class ReqResp {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp Response error: ', e);
+      this.logger.warn('Reqresp response error: ', e);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown
@@ -666,9 +690,16 @@ export class ReqResp {
         errorStatus = e.status;
       }
 
-      if (stream.status === 'open') {
+      const canWriteToStream =
+        stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
+      if (!canWriteToStream) {
+        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+        return;
+      }
+
+      // Return and yield the response chunk
+      try {
         const sendErrorChunk = this.sendErrorChunk(errorStatus);
-        // Return and yield the response chunk
         await pipe(
           stream,
           async function* (_source: any) {
@@ -676,15 +707,11 @@ export class ReqResp {
           },
           stream,
         );
-      } else {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+      } catch (e: any) {
+        this.logger.warn('Error while sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream.close();
-      }
+      await stream.close();
     }
   }
 

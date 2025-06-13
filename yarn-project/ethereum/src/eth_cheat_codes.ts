@@ -3,8 +3,9 @@ import { keccak256 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 
-import { type Hex, createPublicClient, fallback, http, parseTransaction } from 'viem';
+import { type Hex, createPublicClient, fallback, http } from 'viem';
 
 import type { ViemPublicClient } from './types.js';
 
@@ -30,7 +31,7 @@ export class EthCheatCodes {
 
   async rpcCall(method: string, params: any[]) {
     const paramsString = jsonStringify(params);
-    this.logger.info(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
+    this.logger.debug(`Calling ${method} with params: ${paramsString} on ${this.rpcUrls.join(', ')}`);
     return (await this.publicClient.transport.request({
       method,
       params,
@@ -121,7 +122,7 @@ export class EthCheatCodes {
   }
 
   /**
-   * Set the interval between blocks (block time)
+   * Set the interval between successive blocks (block time). This does NOT enable interval mining.
    * @param interval - The interval to use between blocks
    */
   public async setBlockInterval(interval: number): Promise<void> {
@@ -147,7 +148,19 @@ export class EthCheatCodes {
   }
 
   /**
-   * Set the interval between blocks (block time)
+   * Get interval mining if set.
+   * @param seconds - The interval to use between blocks
+   */
+  public getIntervalMining(): Promise<number | null> {
+    try {
+      return this.rpcCall('anvil_getIntervalMining', []);
+    } catch (err) {
+      throw new Error(`Error getting interval mining: ${err}`);
+    }
+  }
+
+  /**
+   * Enable interval mining at the given interval (block time)
    * @param seconds - The interval to use between blocks
    */
   public async setIntervalMining(seconds: number): Promise<void> {
@@ -199,17 +212,39 @@ export class EthCheatCodes {
   }
 
   /**
-   * Set the next block timestamp and mines the block
+   * Set the next block timestamp and mines the block.
+   * Optionally resets interval mining so the next block is mined in `blockInterval` seconds from now.
+   * Optionally updates a provided date provider to follow L1 time.
    * @param timestamp - The timestamp to set the next block to
    */
-  public async warp(timestamp: number | bigint, silent = false): Promise<void> {
+  public async warp(
+    timestamp: number | bigint,
+    opts: { silent?: boolean; resetBlockInterval?: boolean; updateDateProvider?: TestDateProvider } = {},
+  ): Promise<void> {
+    let blockInterval: number | null = null;
     try {
+      // Load current block interval and disable it
+      if (opts.resetBlockInterval) {
+        blockInterval = await this.getIntervalMining();
+        if (blockInterval !== null) {
+          await this.setIntervalMining(0);
+        }
+      }
+      // Set the timestamp of the next block to be mined
       await this.rpcCall('evm_setNextBlockTimestamp', [Number(timestamp)]);
+      // And mine a block so the timestamp goes into effect now
+      await this.doMine();
+      // Update the date provider if provided so it follows L1 time
+      opts.updateDateProvider?.setTime(Number(timestamp) * 1000);
     } catch (err) {
       throw new Error(`Error warping: ${err}`);
+    } finally {
+      // Restore interval mining so the next block is mined in `blockInterval` seconds from this one
+      if (opts.resetBlockInterval && blockInterval !== null && blockInterval > 0) {
+        await this.setIntervalMining(blockInterval);
+      }
     }
-    await this.doMine();
-    if (!silent) {
+    if (!opts.silent) {
       this.logger.warn(`Warped L1 timestamp to ${timestamp}`);
     }
   }
@@ -337,12 +372,6 @@ export class EthCheatCodes {
     newBlocks: (Hex | { to: EthAddress | Hex; input?: Hex; from?: EthAddress | Hex; value?: number | bigint })[][] = [],
   ): Promise<void> {
     this.logger.verbose(`Preparing L1 reorg with depth ${depth}`);
-    for (const tx of newBlocks.flat()) {
-      const isBlobTx = typeof tx === 'string' ? parseTransaction(tx).type === 'eip4844' : 'blobVersionedHashes' in tx;
-      if (isBlobTx) {
-        throw new Error(`Anvil does not support blob transactions in anvil_reorg`);
-      }
-    }
     try {
       await this.rpcCall('anvil_reorg', [
         depth,
@@ -352,5 +381,9 @@ export class EthCheatCodes {
       throw new Error(`Error reorging: ${err}`);
     }
     this.logger.warn(`Reorged L1 chain with depth ${depth} and ${newBlocks.length} new blocks`, { depth, newBlocks });
+  }
+
+  public traceTransaction(txHash: Hex): Promise<any> {
+    return this.rpcCall('trace_transaction', [txHash]);
   }
 }

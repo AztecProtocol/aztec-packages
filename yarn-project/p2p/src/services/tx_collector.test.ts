@@ -24,7 +24,7 @@ describe('tx collector', () => {
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
     const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty(), txHashes);
-    return new BlockProposal(new Fr(1), payload, Signature.empty(), txs);
+    return new BlockProposal(1, payload, Signature.empty(), txs);
   };
 
   const setupTxPools = async (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {
@@ -184,7 +184,7 @@ describe('tx collector', () => {
       missingTxs: originalHashes.slice(8),
     };
     await checkResults({ retrievedTxs: results.txs, missingTxs: results.missing ?? [] }, expected);
-    // all retrieved txs should be in the pool
+    // all txs should be in the pool
     expect(txPool.size).toEqual(8);
   });
 

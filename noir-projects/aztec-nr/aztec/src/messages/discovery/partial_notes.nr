@@ -156,7 +156,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 enqueue_note_for_validation(
                     contract_address,
                     pending_partial_note.storage_slot,
-                    discovered_note.nonce,
+                    discovered_note.note_nonce,
                     complete_packed_note,
                     discovered_note.note_hash,
                     discovered_note.inner_nullifier,

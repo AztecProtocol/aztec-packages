@@ -31,6 +31,12 @@ export function describeAztecMap(
         : await (sut as AztecAsyncMap<any, any>).getAsync(key);
     }
 
+    async function size(sut: AztecAsyncMap<any, any> | AztecMap<any, any> = map) {
+      return isSyncStore(store) && !forceAsync
+        ? (sut as AztecMap<any, any>).size()
+        : await (sut as AztecAsyncMap<any, any>).sizeAsync();
+    }
+
     async function entries() {
       return isSyncStore(store) && !forceAsync
         ? await toArray((map as AztecMap<any, any>).entries())
@@ -80,6 +86,16 @@ export function describeAztecMap(
 
       expect(await get('foo')).to.equal(undefined);
       expect(await get('baz')).to.equal('qux');
+    });
+
+    it('should be able to return size of the map', async () => {
+      await map.set('foo', 'bar');
+      expect(await size()).to.equal(1);
+      await map.set('baz', 'qux');
+      expect(await size()).to.equal(2);
+
+      await map.delete('foo');
+      expect(await size()).to.equal(1);
     });
 
     it('should be able to iterate over entries when there are no keys', async () => {

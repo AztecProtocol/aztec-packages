@@ -16,6 +16,7 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // None -> Does not exist in our setup
@@ -85,16 +86,24 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     Governance gov = store.gse.getGovernance();
 
-    // We need to check if we made the proposal. We are assuming an honest gov, because if dishonest
-    // this vote don't matter anyway.
-    // We must be the current canonical instance. Because we only want to vote on our own proposals.
-    address govProposer = gov.governanceProposer();
+    // We will vote if:
+    // 1. We are the canonical instance as seen be my the governance proposer
+    // 2. We are the actor that was canonical when the proposal was made in the governance proposer
+    // 3. The proposer in the governance is the governance proposer.
+    // This means that if we only vote if canonical and on our own proposals (assuming that the governance
+    // proposer don't lie to us).
+
+    GovernanceProposer govProposer = GovernanceProposer(gov.governanceProposer());
+    require(address(this) == govProposer.getInstance(), Errors.Staking__NotCanonical(address(this)));
+    address proposalProposer = govProposer.getProposalProposer(_proposalId);
     require(
-      address(this) == GovernanceProposer(govProposer).getInstance(),
-      Errors.Staking__NotCanonical(address(this))
+      address(this) == proposalProposer,
+      Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
     );
     DataStructures.Proposal memory proposal = gov.getProposal(_proposalId);
-    require(proposal.proposer == govProposer, Errors.Staking__NotOurProposal(_proposalId));
+    require(
+      proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
+    );
 
     Timestamp ts = proposal.pendingThroughMemory();
 
@@ -141,20 +150,31 @@ library StakingLib {
         Errors.Staking__CannotSlashExitedStake(_attester)
       );
 
-      if (exit.amount == _amount) {
+      // If the slash amount is greater than the exit amount, bound it to the exit amount
+      uint256 slashAmount = Math.min(_amount, exit.amount);
+
+      if (exit.amount == slashAmount) {
         // If we slashes the entire thing, nuke it entirely
         delete store.exits[_attester];
       } else {
-        exit.amount -= _amount;
+        exit.amount -= slashAmount;
       }
+
+      emit IStakingCore.Slashed(_attester, slashAmount);
     } else {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
       require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, _amount);
+      // Get the effective balance of the attester
+      uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
 
-      uint256 toUser = amountWithdrawn - _amount;
+      // If the slash amount is greater than the effective balance, bound it to the effective balance
+      uint256 slashAmount = Math.min(_amount, effectiveBalance);
+
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
+        store.gse.withdraw(_attester, slashAmount);
+
+      uint256 toUser = amountWithdrawn - slashAmount;
       if (isRemoved && toUser > 0) {
         // Only if we remove the attester AND there is something left will we create an exit
         store.exits[_attester] = Exit({
@@ -166,9 +186,9 @@ library StakingLib {
           exists: true
         });
       }
-    }
 
-    emit IStakingCore.Slashed(_attester, _amount);
+      emit IStakingCore.Slashed(_attester, slashAmount);
+    }
   }
 
   function deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
@@ -179,7 +199,7 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     // We don't allow deposits, if we are currently exiting.
     require(!store.exits[_attester].exists, Errors.Staking__AlreadyExiting(_attester));
-    uint256 amount = store.gse.MINIMUM_DEPOSIT();
+    uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
     store.stakingAsset.approve(address(store.gse), amount);

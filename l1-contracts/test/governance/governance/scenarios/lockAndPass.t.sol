@@ -35,7 +35,7 @@ contract LockAndPassTest is GovernanceBase {
     proposalId = governance.proposalCount();
     vm.expectEmit(true, true, true, true, address(governance));
     emit IGovernance.Proposed(proposalId, address(payload));
-    assertTrue(governance.proposeWithLock(IPayload(address(payload)), address(this)));
+    governance.proposeWithLock(IPayload(address(payload)), address(this));
 
     proposal = governance.getProposal(proposalId);
     assertEq(address(proposal.payload), address(payload));

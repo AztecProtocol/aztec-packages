@@ -50,7 +50,7 @@ contract GovernanceBase is TestBase {
     {
       CallAssetPayload payload = new CallAssetPayload(token, address(governance));
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["call_asset"] = governance.proposalCount() - 1;
       proposals["call_asset"] = governance.getProposal(proposalIds["call_asset"]);
@@ -59,7 +59,7 @@ contract GovernanceBase is TestBase {
     {
       UpgradePayload payload = new UpgradePayload(registry);
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["upgrade"] = governance.proposalCount() - 1;
       proposals["upgrade"] = governance.getProposal(proposalIds["upgrade"]);
@@ -68,7 +68,7 @@ contract GovernanceBase is TestBase {
     {
       CallRevertingPayload payload = new CallRevertingPayload();
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["revert"] = governance.proposalCount() - 1;
       proposals["revert"] = governance.getProposal(proposalIds["revert"]);
@@ -77,7 +77,7 @@ contract GovernanceBase is TestBase {
     {
       EmptyPayload payload = new EmptyPayload();
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["empty"] = governance.proposalCount() - 1;
       proposals["empty"] = governance.getProposal(proposalIds["empty"]);

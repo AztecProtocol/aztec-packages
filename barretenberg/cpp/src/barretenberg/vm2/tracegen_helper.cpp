@@ -249,8 +249,9 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.instruction_fetching);
                 },
                 [&]() {
-                    Sha256TraceBuilder sha256_builder(trace);
-                    AVM_TRACK_TIME("tracegen/sha256_compression", sha256_builder.process(events.sha256_compression));
+                    Sha256TraceBuilder sha256_builder;
+                    AVM_TRACK_TIME("tracegen/sha256_compression",
+                                   sha256_builder.process(events.sha256_compression, trace));
                     clear_events(events.sha256_compression);
                 },
                 [&]() {

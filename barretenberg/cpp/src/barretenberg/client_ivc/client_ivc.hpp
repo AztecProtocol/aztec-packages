@@ -7,13 +7,15 @@
 #pragma once
 
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -41,7 +43,6 @@ class ClientIVC {
     using FF = Flavor::FF;
     using Point = Flavor::Curve::AffineElement;
     using FoldProof = std::vector<FF>;
-    using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
@@ -56,7 +57,7 @@ class ClientIVC {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
-    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>;
+    using Transcript = NativeTranscript;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -127,7 +128,6 @@ class ClientIVC {
     // An entry in the native verification queue
     struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::vector<FF> merge_proof;
         std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -136,7 +136,6 @@ class ClientIVC {
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
         StdlibProof<ClientCircuit> proof; // oink or PG
-        StdlibProof<ClientCircuit> merge_proof;
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -148,6 +147,9 @@ class ClientIVC {
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
+
+    // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
@@ -167,7 +169,7 @@ class ClientIVC {
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
-    std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
+    typename MegaFlavor::CommitmentKey bn254_commitment_key;
 
     Goblin goblin;
 
@@ -210,9 +212,6 @@ class ClientIVC {
     bool prove_and_verify();
 
     HonkProof decider_prove() const;
-
-    std::vector<std::shared_ptr<MegaVerificationKey>> precompute_folding_verification_keys(
-        std::vector<ClientCircuit> circuits);
 
     VerificationKey get_vk() const;
 };

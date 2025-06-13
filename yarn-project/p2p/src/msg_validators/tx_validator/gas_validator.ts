@@ -51,8 +51,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     // Skip the tx if its max fees are not enough for the current block's gas fees.
     const maxFeesPerGas = gasSettings.maxFeesPerGas;
     const notEnoughMaxFees =
-      maxFeesPerGas.feePerDaGas.lt(this.#gasFees.feePerDaGas) ||
-      maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
+      maxFeesPerGas.feePerDaGas < this.#gasFees.feePerDaGas || maxFeesPerGas.feePerL2Gas < this.#gasFees.feePerL2Gas;
 
     if (notEnoughMaxFees) {
       this.#log.verbose(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {

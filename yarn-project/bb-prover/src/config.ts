@@ -3,6 +3,7 @@ export interface BBConfig {
   bbWorkingDirectory: string;
   /** Whether to skip tmp dir cleanup for debugging purposes */
   bbSkipCleanup: boolean;
+  numConcurrentIVCVerifiers: number;
 }
 
 export interface ACVMConfig {

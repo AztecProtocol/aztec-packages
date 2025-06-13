@@ -61,17 +61,20 @@ export default defineConfig(({ mode }) => {
       bundlesize({
         // Bump log:
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
-        limits: [{ name: 'assets/index-*', limit: '1700kB' }],
+        // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
+        limits: [{ name: 'assets/index-*', limit: '1750kB' }],
       }),
     ],
     define: {
       'process.env': JSON.stringify({
         LOG_LEVEL: env.LOG_LEVEL,
+        // docs:start:bb-wasm-path
         // The path to a custom WASM file for bb.js.
         // Only the single-threaded file name is needed, the multithreaded file name will be inferred
         // by adding the -threads suffix: e.g: /assets/barretenberg.wasm.gz -> /assets/barretenberg-threads.wasm.gz
         // Files can be compressed or uncompressed, but must be gzipped if compressed.
         BB_WASM_PATH: env.BB_WASM_PATH,
+        // docs:end:bb-wasm-path
       }),
     },
     build: {

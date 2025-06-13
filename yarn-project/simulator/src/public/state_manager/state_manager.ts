@@ -205,8 +205,8 @@ export class PublicPersistableStateManager {
    * @param siloedNoteHash - the non unique note hash to write
    */
   public async writeSiloedNoteHash(siloedNoteHash: Fr): Promise<void> {
-    const nonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
-    const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNoteHash);
+    const noteNonce = await computeNoteHashNonce(this.firstNullifier, this.trace.getNoteHashCount());
+    const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNoteHash);
     await this.writeUniqueNoteHash(uniqueNoteHash);
   }
 

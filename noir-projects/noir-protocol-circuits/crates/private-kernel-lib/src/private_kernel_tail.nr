@@ -61,10 +61,9 @@ mod tests {
             max_block_number::MaxBlockNumber,
         },
         address::{AztecAddress, EthAddress},
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
         point::Point,
-        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
-        traits::{Empty, FromField},
+        tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
+        traits::FromField,
     };
     use dep::types::constants::{
         AVM_L2_GAS_PER_NOTE_HASH_WRITE, AVM_L2_GAS_PER_NULLIFIER_WRITE, DA_BYTES_PER_FIELD,
@@ -124,24 +123,24 @@ mod tests {
     fn ordering_of_msgs() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
 
-        builder.previous_kernel.append_l2_to_l1_msgs(2);
+        let num_msg = 4;
+        builder.previous_kernel.append_l2_to_l1_msgs(num_msg);
 
         // Reorder the msgs
         let original_msgs = builder.previous_kernel.l2_to_l1_msgs.storage();
-        let mut reversed_msgs = [ScopedL2ToL1Message::empty(); 2];
-        for i in 0..reversed_msgs.len() {
-            reversed_msgs[i] = builder.previous_kernel.l2_to_l1_msgs.pop();
+        for i in 0..num_msg / 2 {
+            swap_items(
+                &mut builder.previous_kernel.l2_to_l1_msgs,
+                i,
+                num_msg - 1 - i,
+            );
         }
-        builder.previous_kernel.l2_to_l1_msgs.extend_from_array(reversed_msgs);
 
         let public_inputs = builder.execute();
 
         let resulting_msgs = public_inputs.end.l2_to_l1_msgs;
 
-        assert_eq(
-            resulting_msgs,
-            original_msgs.map(|mut msg: ScopedL2ToL1Message| msg.expose_to_public()),
-        );
+        assert_eq(resulting_msgs, original_msgs.map(|msg| msg.expose_to_public()));
     }
 
     #[test(should_fail_with = "Private call stack must be empty when executing the tail circuit")]

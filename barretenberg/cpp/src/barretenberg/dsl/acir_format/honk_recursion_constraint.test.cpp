@@ -137,7 +137,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             5, 10, 15, 5, inverse_of_five, 1,
         };
         uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
             honk_recursion = 1;
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
@@ -177,6 +177,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
             if constexpr (HasIPAAccumulator<InnerFlavor>) {
                 num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
                 proof_type = ROLLUP_HONK;
+            } else if constexpr (InnerFlavor::HasZK) {
+                proof_type = HONK_ZK;
             }
 
             auto [key_indices, proof_indices, inner_public_inputs] = ProofSurgeon::populate_recursion_witness_data(
@@ -200,7 +202,7 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
         mock_opcode_indices(constraint_system);
         uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
             honk_recursion = 1;
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
@@ -221,7 +223,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
 using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
-                               UltraRecursiveFlavor_<MegaCircuitBuilder>>;
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
 

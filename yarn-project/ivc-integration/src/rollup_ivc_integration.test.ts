@@ -33,7 +33,7 @@ import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
 
-jest.setTimeout(120_000);
+jest.setTimeout(240_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
 

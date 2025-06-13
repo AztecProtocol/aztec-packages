@@ -41,6 +41,44 @@ export type EpochProofPublicInputArgs = {
   proverId: `0x${string}`;
 };
 
+export type ViemHeader = {
+  lastArchiveRoot: `0x${string}`;
+  contentCommitment: ViemContentCommitment;
+  slotNumber: bigint;
+  timestamp: bigint;
+  coinbase: `0x${string}`;
+  feeRecipient: `0x${string}`;
+  gasFees: ViemGasFees;
+  totalManaUsed: bigint;
+};
+
+export type ViemContentCommitment = {
+  blobsHash: `0x${string}`;
+  inHash: `0x${string}`;
+  outHash: `0x${string}`;
+};
+
+export type ViemGasFees = {
+  feePerDaGas: bigint;
+  feePerL2Gas: bigint;
+};
+
+export type ViemStateReference = {
+  l1ToL2MessageTree: ViemAppendOnlyTreeSnapshot;
+  partialStateReference: ViemPartialStateReference;
+};
+
+export type ViemPartialStateReference = {
+  noteHashTree: ViemAppendOnlyTreeSnapshot;
+  nullifierTree: ViemAppendOnlyTreeSnapshot;
+  publicDataTree: ViemAppendOnlyTreeSnapshot;
+};
+
+export type ViemAppendOnlyTreeSnapshot = {
+  root: `0x${string}`;
+  nextAvailableLeafIndex: number;
+};
+
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemClient>;
 
@@ -129,6 +167,11 @@ export class RollupContract {
   @memoize
   getMinimumStake() {
     return this.rollup.read.getMinimumStake();
+  }
+
+  @memoize
+  getDepositAmount() {
+    return this.rollup.read.getDepositAmount();
   }
 
   @memoize
@@ -329,7 +372,7 @@ export class RollupContract {
 
   public async validateHeader(
     args: readonly [
-      `0x${string}`,
+      ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
       bigint,
@@ -367,11 +410,12 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-  ): Promise<[bigint, bigint]> {
+  ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
-    const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+    const latestBlock = await this.client.getBlock();
+    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
 
     try {
       const {
@@ -384,7 +428,7 @@ export class RollupContract {
         account,
       });
 
-      return [slot, blockNumber];
+      return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }
@@ -456,8 +500,12 @@ export class RollupContract {
     return this.rollup.read.getStatus([address]);
   }
 
-  getBlobPublicInputsHash(blockNumber: bigint) {
-    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  getBlobCommitmentsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobCommitmentsHash([blockNumber]);
+  }
+
+  getCurrentBlobCommitmentsHash() {
+    return this.rollup.read.getCurrentBlobCommitmentsHash();
   }
 
   getStakingAsset() {
