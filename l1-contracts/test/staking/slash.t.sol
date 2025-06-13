@@ -210,7 +210,12 @@ contract SlashTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE, "Status should be NONE");
   }
 
-  function test_SlashingMoreThanExitBalance() external whenCallerIsTheSlasher whenAttesterIsRegistered whenAttesterIsExiting {
+  function test_SlashingMoreThanExitBalance()
+    external
+    whenCallerIsTheSlasher
+    whenAttesterIsRegistered
+    whenAttesterIsExiting
+  {
     // it should slash only up to the available exit balance
     // it emits {Slashed} event with the actual slashed amount
 
