@@ -19,7 +19,7 @@ trap "kill $server_pid 2>/dev/null" EXIT SIGINT
 sleep 2 # Give server time to start
 
 # Run the benchmark.
-name_path="app_proving/$flow/chrome-wasm"
+name_path="app-proving/$flow/chrome-wasm"
 output="bench-out/$name_path"
 mkdir -p "$output"
 start=$(date +%s%N)
