@@ -32,41 +32,48 @@ export class CopyCatWallet extends AccountWallet {
   constructor(
     pxe: PXE,
     account: AccountInterface,
-    private completeAddress: CompleteAddress,
-    private contractClassId: Fr,
-    private contractArtifact: ContractArtifact,
+    private originalContractClassId: Fr,
+    private originalAddress: CompleteAddress,
+    private additionalAddresses: AztecAddress[],
+    private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {
     super(pxe, account);
   }
 
-  static async from(pxe: PXE, account: AccountWallet): Promise<CopyCatWallet> {
+  static async create(
+    pxe: PXE,
+    originalAccount: AccountWallet,
+    additionalAccounts: AztecAddress[],
+  ): Promise<CopyCatWallet> {
     const simulatedAuthWitnessProvider = {
       createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         return Promise.resolve(new AuthWitness(messageHash, []));
       },
     };
     const nodeInfo = await pxe.getNodeInfo();
-    const accountInterface = new DefaultAccountInterface(
-      simulatedAuthWitnessProvider,
-      account.getCompleteAddress(),
-      nodeInfo,
-    );
+    const originalAddress = originalAccount.getCompleteAddress();
+    const { contractInstance } = await pxe.getContractMetadata(originalAddress.address);
+    if (!contractInstance) {
+      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
+    }
+    const { currentContractClassId: originalContractClassId } = contractInstance;
+    const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
     const { SimulatedAccountContractArtifact } = await import('@aztec/noir-contracts.js/SimulatedAccount');
     const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
-    const { contractInstance } = await pxe.getContractMetadata(account.getAddress());
     return new CopyCatWallet(
       pxe,
       accountInterface,
-      account.getCompleteAddress(),
-      contractInstance!.currentContractClassId,
+      originalContractClassId,
+      originalAddress,
+      additionalAccounts,
       SimulatedAccountContractArtifact,
       instance,
     );
   }
 
   override getCompleteAddress(): CompleteAddress {
-    return this.completeAddress;
+    return this.originalAddress;
   }
 
   override async simulateTx(
@@ -77,12 +84,13 @@ export class CopyCatWallet extends AccountWallet {
     _overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
     const instanceOverrides = new Map();
-    instanceOverrides.set(this.completeAddress.address.toString(), this.instance);
     const artifactOverrides = new Map();
-    artifactOverrides.set(this.contractClassId.toString(), this.contractArtifact);
+    for (const address of [this.originalAddress.address, ...this.additionalAddresses]) {
+      instanceOverrides.set(address.toString(), this.instance);
+    }
+    artifactOverrides.set(this.originalContractClassId.toString(), this.artifact);
     return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
       contracts: { instances: instanceOverrides, artifacts: artifactOverrides },
-      msgSender: this.completeAddress.address,
     });
   }
 }
@@ -117,14 +125,8 @@ describe('Kernelless simulation', () => {
     const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
-    // We need to compute the message we want to sign and add it to the wallet as approved
-    const action = token
-      .withWallet(recipientWallet)
-      .methods.transfer_in_private(adminWallet.getAddress(), recipientWallet.getAddress(), amount, authwitNonce);
+    const copyCat = await CopyCatWallet.create(pxe, recipientWallet, [adminWallet.getAddress()]);
 
-    const witness = await adminWallet.createAuthWit({ caller: recipientWallet.getAddress(), action });
-
-    const copyCat = await CopyCatWallet.from(pxe, recipientWallet);
     const { offchainMessages } = await token
       .withWallet(copyCat)
       .methods.transfer_in_private(adminWallet.getAddress(), recipientWallet.getAddress(), amount, authwitNonce)
@@ -133,12 +135,20 @@ describe('Kernelless simulation', () => {
     expect(offchainMessages.length).toBe(1);
 
     const [authwitRequest] = offchainMessages;
-    expect(authwitRequest.recipient).toBe(recipientWallet.getAddress());
-    expect(authwitRequest.contractAddress).toBe(token.address);
+
+    expect(authwitRequest.recipient).toEqual(token.address);
+    expect(authwitRequest.contractAddress).toEqual(adminWallet.getAddress());
 
     expect(authwitRequest.message).toHaveLength(1);
 
     const [authwitHash] = authwitRequest.message;
-    expect(authwitHash).toBe(witness.requestHash);
+
+    // Compute the real authwitness
+    const action = token
+      .withWallet(recipientWallet)
+      .methods.transfer_in_private(adminWallet.getAddress(), recipientWallet.getAddress(), amount, authwitNonce);
+    const witness = await adminWallet.createAuthWit({ caller: recipientWallet.getAddress(), action });
+
+    expect(authwitHash).toEqual(witness.requestHash);
   });
 });

@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract SimulatedAccount {
     use dep::authwit::{
         account::AccountActions,
-        auth::IS_VALID_SELECTOR,
+        auth::{compute_authwit_message_hash, IS_VALID_SELECTOR},
         entrypoint::{app::AppPayload, fee::FeePayload},
     };
     use dep::aztec::{
@@ -32,7 +32,13 @@ pub contract SimulatedAccount {
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        emit_offchain_message(inner_hash, context.msg_sender());
+        let message_hash = compute_authwit_message_hash(
+            context.msg_sender(),
+            context.chain_id(),
+            context.version(),
+            inner_hash,
+        );
+        emit_offchain_message(message_hash, context.msg_sender());
         IS_VALID_SELECTOR
     }
 

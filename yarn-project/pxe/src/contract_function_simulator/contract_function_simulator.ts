@@ -87,15 +87,13 @@ export class ContractFunctionSimulator {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
     msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
-    skipClassVerification = false,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
     const header = await this.executionDataProvider.getBlockHeader();
 
-    if (!skipClassVerification) {
-      await verifyCurrentClassId(contractAddress, this.executionDataProvider);
-    }
+    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
+
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {

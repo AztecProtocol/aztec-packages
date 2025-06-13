@@ -56,6 +56,7 @@ import type {
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
+import { ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type ContractOverrides,
@@ -256,7 +257,7 @@ export class PXEService implements PXE {
 
   // Internal methods
 
-  #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }): ContractFunctionSimulator {
+  #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.keyStore,
@@ -356,7 +357,6 @@ export class PXEService implements PXE {
     contractFunctionSimulator: ContractFunctionSimulator,
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
-    skipClassVerification?: boolean,
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
@@ -367,7 +367,6 @@ export class PXEService implements PXE {
         contractAddress,
         functionSelector,
         msgSender,
-        skipClassVerification,
         scopes,
       );
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
@@ -861,30 +860,29 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        const skipClassVerification = overrides?.contracts !== undefined && overrides.contracts.instances.size > 0;
+        const skipKernels = overrides?.contracts !== undefined && overrides.contracts.instances.size > 0;
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,
           overrides?.msgSender,
-          skipClassVerification,
           scopes,
         );
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];
 
-        if (skipClassVerification) {
-          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
-            simulate: true,
-            skipFeeEnforcement,
-            profileMode: 'none',
-          }));
-        } else {
+        if (skipKernels) {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
             this.contractDataProvider,
             this.syncDataProvider,
           ));
+        } else {
+          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
+            simulate: true,
+            skipFeeEnforcement,
+            profileMode: 'none',
+          }));
         }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
@@ -898,7 +896,7 @@ export class PXEService implements PXE {
         }
 
         let validationTime: number | undefined;
-        if (!skipTxValidation) {
+        if (!skipTxValidation && !skipKernels) {
           const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
