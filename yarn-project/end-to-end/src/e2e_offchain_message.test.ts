@@ -28,17 +28,17 @@ describe('e2e_offchain_message', () => {
 
   afterAll(() => teardown());
 
+  async function generateMessage(i: number) {
+    return {
+      message: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+      recipient: await AztecAddress.random(),
+      // eslint-disable-next-line camelcase
+      next_contract: i % 2 === 0 ? contract2.address : contract1.address,
+    };
+  }
+
   it('should emit offchain message', async () => {
-    const messages = await Promise.all(
-      Array(3)
-        .fill(null)
-        .map(async (_, i) => ({
-          message: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
-          recipient: await AztecAddress.random(),
-          // eslint-disable-next-line camelcase
-          next_contract: i % 2 === 0 ? contract2.address : contract1.address,
-        })),
-    );
+    const messages = [await generateMessage(0), await generateMessage(1), await generateMessage(2)] as const;
 
     const provenTx = await contract1.methods.emit_offchain_message_for_recipient(messages).prove();
 

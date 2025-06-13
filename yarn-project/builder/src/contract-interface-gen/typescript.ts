@@ -45,9 +45,18 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
         return 'WrappedFieldLike';
       }
       if (isBoundedVecStruct(type)) {
-        // To make BoundedVec easier to work with, we expect a simple array on the input and then we encode it
-        // as a BoundedVec in the ArgumentsEncoder.
-        return `${abiTypeToTypescript(type.fields[0].type)}`;
+        // This generates a readonly array of the max length of the bounded vec.
+        // E.g. for BoundedVec<Field, 3> we would get:
+        // "readonly [FieldLike?,FieldLike?,FieldLike?]"
+
+        const maxLength = (type.fields[0].type as any).length;
+        const elementType = abiTypeToTypescript((type.fields[0].type as any).type);
+        let arrayContent = '';
+        for (let i = 0; i < maxLength; i++) {
+          arrayContent += `${elementType}?,`;
+        }
+
+        return `readonly [${arrayContent}]`;
       }
       return `{ ${type.fields.map(f => `${f.name}: ${abiTypeToTypescript(f.type)}`).join(', ')} }`;
     default:

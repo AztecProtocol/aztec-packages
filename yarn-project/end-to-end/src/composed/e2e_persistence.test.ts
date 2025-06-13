@@ -364,6 +364,16 @@ async function addPendingShieldNoteToPXE(
       amount,
       secretHash,
       txHash.hash,
+      // Here we have a problem because we don't have the information of the note hashes length since it's a dynamic
+      // array Fr[] and we get this error:
+      //
+      // """
+      // Argument of type 'Fr[]' is not assignable to parameter of type 'readonly [(FieldLike | undefined)?, (FieldLike | undefined)?, (FieldLike | undefined)?, (FieldLike | undefined)?, (FieldLike | undefined)?, ... 58 more ...?, (FieldLike | undefined)?]'.
+      // Target allows only 64 element(s) but source may have more.
+      // """
+      //
+      // Here we know that this is satisfied because TxEffect.noteHashes can contain at most MAX_NOTE_HASHES_PER_TX note
+      // hashes but this would be out of scope for this PR.
       txEffects!.data.noteHashes,
       txEffects!.data.nullifiers[0],
       recipient,
