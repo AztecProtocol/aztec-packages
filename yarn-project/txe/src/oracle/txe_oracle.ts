@@ -306,6 +306,11 @@ export class TXE implements TypedOracle {
 
   setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
+    const AZTEC_SLOT_DURATION = 36n; // Copied over from `TestConstants.sol`
+    // Currently we assume genesis time to be 0 which points to the beginning of unix timestamp so year 1970.
+    // TODO: After mainnet we might want to define a mainnet genesis time here.
+    // We also assume that in each slot a block was proposed. This is not a problem for TXE.
+    this.timestamp = BigInt(blockNumber) * AZTEC_SLOT_DURATION;
   }
 
   getContractDataProvider() {

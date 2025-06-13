@@ -52,6 +52,9 @@ impl TestEnvironment {
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
     /// of transactions when building blocks, this block number is also returned by public_context.block_number().
     pub unconstrained fn pending_block_number(_self: Self) -> u32 {
+        // TODO: This oracle when used in PXE returns the latest synched block number by the node and not the pending
+        // block number! But TXE handles this in some messed up custom way so this might actually be kinda correct.
+        // Terrible.
         get_block_number()
     }
 
