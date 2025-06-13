@@ -13,14 +13,15 @@ void DataCopy::cd_copy(ContextInterface& context,
                        const MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
+    // todo(ilyas): check out of bounds error
     auto padded_calldata = context.get_calldata(cd_offset, cd_copy_size);
 
-    // todo(ilyas): check out of bounds error
     for (uint32_t i = 0; i < cd_copy_size; i++) {
-        memory.set(dst_addr + i, MemoryValue::from(padded_calldata[i]));
+        memory.set(dst_addr + i, MemoryValue::from<FF>(padded_calldata[i]));
     }
 
-    events.emit(DataCopyEvent{ .operation = DataCopyOperation::CD_COPY,
+    events.emit(DataCopyEvent{ .execution_clk = execution_id_manager.get_execution_id(),
+                               .operation = DataCopyOperation::CD_COPY,
                                .calldata = padded_calldata,
                                .context_id = context.get_context_id(),
                                .write_context_id = context.get_context_id(),
@@ -39,14 +40,15 @@ void DataCopy::rd_copy(ContextInterface& context,
                        const MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
+    // todo(ilyas): check out of bounds error
     auto padded_returndata = context.get_returndata(rd_offset, rd_copy_size);
 
-    // todo(ilyas): check out of bounds error
     for (uint32_t i = 0; i < rd_copy_size; i++) {
-        memory.set(dst_addr + i, MemoryValue::from(padded_returndata[i]));
+        memory.set(dst_addr + i, MemoryValue::from<FF>(padded_returndata[i]));
     }
 
-    events.emit(DataCopyEvent{ .operation = DataCopyOperation::RD_COPY,
+    events.emit(DataCopyEvent{ .execution_clk = execution_id_manager.get_execution_id(),
+                               .operation = DataCopyOperation::RD_COPY,
                                .calldata = padded_returndata,
                                .context_id = context.get_context_id(),
                                .write_context_id = context.get_context_id(),

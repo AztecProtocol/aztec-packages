@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 
 using ::testing::ElementsAre;
 using ::testing::NiceMock;
@@ -22,9 +23,10 @@ TEST(AvmSimulationDataCopyTest, CdCopyAll)
     MemoryStore mem;
     NiceMock<MockContext> context;
     NiceMock<MockBytecodeManager> bytecode_manager;
+    NiceMock<MockExecutionIdManager> execution_id_manager;
     EventEmitter<DataCopyEvent> event_emitter;
 
-    DataCopy data_copy(event_emitter);
+    DataCopy data_copy(execution_id_manager, event_emitter);
 
     std::vector<FF> calldata = { 1, 2, 3, 4, 5, 6, 7, 8 };
     uint32_t parent_cd_addr = 100;

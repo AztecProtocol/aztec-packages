@@ -13,6 +13,7 @@ enum class DataCopyOperation {
 };
 
 struct DataCopyEvent {
+    uint32_t execution_clk = 0; // Data copy will read and write memory,
     DataCopyOperation operation;
     std::vector<FF> calldata;
     uint32_t context_id;           // Needed to reference the top level call request if the calldata is at the top level
