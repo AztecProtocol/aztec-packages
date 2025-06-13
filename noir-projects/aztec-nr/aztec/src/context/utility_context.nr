@@ -45,6 +45,10 @@ impl UtilityContext {
         self.block_number
     }
 
+    pub fn timestamp(self) -> u64 {
+        self.timestamp
+    }
+
     pub fn this_address(self) -> AztecAddress {
         self.contract_address
     }
