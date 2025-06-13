@@ -117,16 +117,19 @@ class TranslatorProvingKey {
      * range (e.g. p_1(x) = {0, 2^14 - 1, 2^14 - 1, 2^14 - 1}), to ensure the relation is still satisfied, we
      * concatenate the set of coefficients to a set of steps that span across the desired range.
      */
-    static const std::array<size_t, Flavor::SORTED_STEPS_COUNT>& get_sorted_steps()
+    static std::array<size_t, Flavor::SORTED_STEPS_COUNT> get_sorted_steps()
     {
         static const std::array<size_t, Flavor::SORTED_STEPS_COUNT> sorted_elements = [] {
             std::array<size_t, Flavor::SORTED_STEPS_COUNT> inner_array{};
 
+            // The value we have to end polynomials with, 2¹⁴ - 1
             const size_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
-            const size_t min_iterations_per_thread = 1 << 6;
 
+            // min number of iterations for which we'll spin up a unique thread
+            const size_t min_iterations_per_thread = 1 << 6;
             const size_t num_threads =
                 bb::calculate_num_threads_pow2(Flavor::SORTED_STEPS_COUNT, min_iterations_per_thread);
+            // actual iterations per thread
             const size_t iterations_per_thread = Flavor::SORTED_STEPS_COUNT / num_threads;
             const size_t leftovers = Flavor::SORTED_STEPS_COUNT % num_threads;
 
@@ -134,7 +137,6 @@ class TranslatorProvingKey {
                 const size_t start = thread_idx * iterations_per_thread;
                 const size_t end =
                     (thread_idx + 1) * iterations_per_thread + (thread_idx == num_threads - 1 ? leftovers : 0);
-
                 for (size_t idx = start; idx < end; ++idx) {
                     inner_array[idx] = max_value - Flavor::SORT_STEP * idx;
                 }
