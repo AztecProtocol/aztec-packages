@@ -23,7 +23,7 @@ impl PrivateCallDataValidatorBuilder {
     pub fn compute_updated_contract(
         &mut self,
         new_class_id: ContractClassId,
-        block_of_change: u32,
+        timestamp_of_change: u32,
     ) {
         let original_class_id = ContractClassId::from_field(27);
         self.private_call.contract_address = AztecAddress::compute_from_class_id(
@@ -33,7 +33,7 @@ impl PrivateCallDataValidatorBuilder {
         );
 
         self.private_call.updated_class_id_value_change =
-            ScheduledValueChange::new(original_class_id, new_class_id, block_of_change);
+            ScheduledValueChange::new(original_class_id, new_class_id, timestamp_of_change);
 
         self.private_call.compute_update_tree_and_hints();
     }

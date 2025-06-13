@@ -65,22 +65,23 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         update_preimage_pre_class_id = update_preimage[1];
         update_preimage_post_class_id = update_preimage[2];
 
-        // Decompose the metadata: we want the least significant 32 bits since that's the block of change.
-        uint128_t update_metadata_hi = static_cast<uint128_t>(update_preimage_metadata >> BLOCK_NUMBER_BIT_SIZE);
-        uint32_t update_block_of_change = static_cast<uint32_t>(update_preimage_metadata & 0xffffffff);
-        range_check.assert_range(update_metadata_hi, UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - BLOCK_NUMBER_BIT_SIZE);
-        range_check.assert_range(update_block_of_change, BLOCK_NUMBER_BIT_SIZE);
+        // Decompose the metadata: we want the least significant 32 bits since that's the timestamp of change.
+        uint128_t update_metadata_hi = static_cast<uint128_t>(update_preimage_metadata >> TIMESTAMP_OF_CHANGE_BIT_SIZE);
+        uint32_t timestamp_of_change = static_cast<uint32_t>(update_preimage_metadata & 0xffffffff);
+        range_check.assert_range(update_metadata_hi,
+                                 UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - TIMESTAMP_OF_CHANGE_BIT_SIZE);
+        range_check.assert_range(timestamp_of_change, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
         // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
         FF pre_class = update_preimage_pre_class_id == 0 ? instance.original_class_id : update_preimage_pre_class_id;
         FF post_class = update_preimage_post_class_id == 0 ? instance.original_class_id : update_preimage_post_class_id;
 
-        FF expected_current_class_id = current_block_number < update_block_of_change ? pre_class : post_class;
-        uint32_t block_of_change_subtraction = current_block_number < update_block_of_change
-                                                   ? update_block_of_change - 1 - current_block_number
-                                                   : current_block_number - update_block_of_change;
+        FF expected_current_class_id = current_timestamp < timestamp_of_change ? pre_class : post_class;
+        uint32_t timestamp_of_change_subtraction = current_timestamp < timestamp_of_change
+                                                       ? timestamp_of_change - 1 - current_timestamp
+                                                       : current_timestamp - timestamp_of_change;
 
-        range_check.assert_range(block_of_change_subtraction, BLOCK_NUMBER_BIT_SIZE);
+        range_check.assert_range(timestamp_of_change_subtraction, TIMESTAMP_OF_CHANGE_BIT_SIZE);
 
         if (expected_current_class_id != instance.current_class_id) {
             throw std::runtime_error(
@@ -94,7 +95,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .current_class_id = instance.current_class_id,
         .original_class_id = instance.original_class_id,
         .public_data_tree_root = merkle_db.get_tree_roots().publicDataTree.root,
-        .current_block_number = current_block_number,
+        .current_timestamp = current_timestamp,
         .update_hash = hash,
         .update_preimage_metadata = update_preimage_metadata,
         .update_preimage_pre_class_id = update_preimage_pre_class_id,

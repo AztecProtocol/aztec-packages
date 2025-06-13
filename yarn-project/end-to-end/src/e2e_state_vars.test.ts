@@ -1,4 +1,4 @@
-import { BatchCall, type PXE, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 
@@ -229,7 +229,7 @@ describe('e2e_state_vars', () => {
       authContract = await AuthContract.deploy(wallet, wallet.getAddress()).send().deployed();
     });
 
-    it('sets the max block number property', async () => {
+    it('sets the include by timestamp property', async () => {
       // We change the SharedMutable authorized delay here to 2, this means that a change to the "authorized" value can
       // only be applied 2 blocks after it is initiated, and thus read requests on a historical state without an
       // initiated change is valid for at least 2 blocks.
@@ -238,14 +238,16 @@ describe('e2e_state_vars', () => {
       // Note: Because we are decreasing the delay, we must first wait for the full previous delay - 1 (5 -1).
       await delay(4);
 
-      const expectedModifiedMaxBlockNumber = (await pxe.getBlockNumber()) + 2;
+      const expectedModifiedIncludeByTimestamp = (await pxe.getBlockNumber()) + 2;
 
-      // We now call our AuthContract to see if the change in max block number has reflected our delay change
+      // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
       const tx = await authContract.methods.get_authorized_in_private().prove();
 
       // The validity of our SharedMutable read request should be limited to 2 blocks
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(expectedModifiedMaxBlockNumber);
+      expect(tx.data.rollupValidationRequests.includeByTimestamp.isSome).toEqual(true);
+      expect(tx.data.rollupValidationRequests.includeByTimestamp.value).toEqual(
+        new Fr(expectedModifiedIncludeByTimestamp),
+      );
     });
   });
 });

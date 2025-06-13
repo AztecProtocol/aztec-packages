@@ -24,6 +24,7 @@ import { PrivateCircuitPublicInputs } from '@aztec/stdlib/kernel';
 import { SharedMutableValues, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { Oracle } from './oracle.js';
@@ -144,13 +145,13 @@ export async function readCurrentClassId(
   contractAddress: AztecAddress,
   instance: ContractInstance,
   executionDataProvider: ExecutionDataProvider | AztecNode,
-  blockNumber: number,
+  timestamp: UInt64,
 ) {
   const { sharedMutableSlot } = await SharedMutableValuesWithHash.getContractUpdateSlots(contractAddress);
   const sharedMutableValues = await SharedMutableValues.readFromTree(sharedMutableSlot, slot =>
-    executionDataProvider.getPublicStorageAt(blockNumber, ProtocolContractAddress.ContractInstanceDeployer, slot),
+    executionDataProvider.getPublicStorageAt(timestamp, ProtocolContractAddress.ContractInstanceDeployer, slot),
   );
-  let currentClassId = sharedMutableValues.svc.getCurrentAt(blockNumber)[0];
+  let currentClassId = sharedMutableValues.svc.getCurrentAt(timestamp)[0];
   if (currentClassId.isZero()) {
     currentClassId = instance.originalContractClassId;
   }
@@ -160,11 +161,11 @@ export async function readCurrentClassId(
 export async function verifyCurrentClassId(
   contractAddress: AztecAddress,
   executionDataProvider: ExecutionDataProvider,
-  blockNumber?: number,
+  timestamp?: UInt64,
 ) {
   const instance = await executionDataProvider.getContractInstance(contractAddress);
-  blockNumber = blockNumber ?? (await executionDataProvider.getBlockNumber());
-  const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, blockNumber);
+  timestamp = timestamp ?? BigInt(await executionDataProvider.getTimestamp());
+  const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, timestamp);
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(
       `Contract ${contractAddress} is outdated, current class id is ${currentClassId}, local class id is ${instance.currentContractClassId}`,

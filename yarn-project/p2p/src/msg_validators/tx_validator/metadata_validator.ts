@@ -6,7 +6,7 @@ import {
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
-  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
+  TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP,
   Tx,
   type TxValidationResult,
   type TxValidator,
@@ -34,7 +34,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
     if (!(await this.#isValidForBlockNumber(tx))) {
-      errors.push(TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
+      errors.push(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
     }
     if (!(await this.#hasCorrectVkTreeRoot(tx))) {
       errors.push(TX_ERROR_INCORRECT_VK_TREE_ROOT);
@@ -85,12 +85,12 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   async #isValidForBlockNumber(tx: T): Promise<boolean> {
-    const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
+    const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
 
-    if (maxBlockNumber.isSome && maxBlockNumber.value < this.values.blockNumber) {
+    if (includeByTimestamp.isSome && includeByTimestamp.value < this.values.blockNumber) {
       this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)} for low max block number. Tx max block number: ${
-          maxBlockNumber.value
+          includeByTimestamp.value
         }, current block number: ${this.values.blockNumber}.`,
       );
       return false;

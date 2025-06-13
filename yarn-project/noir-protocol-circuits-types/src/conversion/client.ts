@@ -115,8 +115,8 @@ import {
   mapGrumpkinScalarToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapMaxBlockNumberFromNoir,
-  mapMaxBlockNumberToNoir,
+  mapIncludeByTimestampFromNoir,
+  mapIncludeByTimestampToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -420,14 +420,14 @@ export function mapRollupValidationRequestsToNoir(
   rollupValidationRequests: RollupValidationRequests,
 ): RollupValidationRequestsNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
+    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
   };
 }
 
 export function mapRollupValidationRequestsFromNoir(
   rollupValidationRequests: RollupValidationRequestsNoir,
 ): RollupValidationRequests {
-  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
+  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
 }
 
 function mapPrivateValidationRequestsToNoir(requests: PrivateValidationRequests): PrivateValidationRequestsNoir {
@@ -516,7 +516,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
   privateCircuitPublicInputs: PrivateCircuitPublicInputs,
 ): PrivateCircuitPublicInputsNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(privateCircuitPublicInputs.maxBlockNumber),
+    include_by_timestamp: mapIncludeByTimestampToNoir(privateCircuitPublicInputs.includeByTimestamp),
     call_context: mapCallContextToNoir(privateCircuitPublicInputs.callContext),
     args_hash: mapFieldToNoir(privateCircuitPublicInputs.argsHash),
     returns_hash: mapFieldToNoir(privateCircuitPublicInputs.returnsHash),

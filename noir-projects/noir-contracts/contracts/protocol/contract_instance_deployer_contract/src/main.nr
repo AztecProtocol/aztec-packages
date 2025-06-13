@@ -89,7 +89,7 @@ pub contract ContractInstanceDeployer {
         address: AztecAddress,
         prev_contract_class_id: ContractClassId,
         new_contract_class_id: ContractClassId,
-        block_of_change: u32,
+        timestamp_of_change: u32,
     }
 
     #[storage]
@@ -164,14 +164,14 @@ pub contract ContractInstanceDeployer {
             .updated_class_ids
             .at(address)
             .schedule_and_return_value_change(new_contract_class_id);
-        let (prev_contract_class_id, block_of_change) = scheduled_value_update.get_previous();
+        let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {
             DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE,
             address,
             prev_contract_class_id,
             new_contract_class_id,
-            block_of_change,
+            timestamp_of_change,
         };
 
         context.emit_public_log(event);
