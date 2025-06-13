@@ -257,7 +257,7 @@ export class ConnectionSampler {
       });
 
       if (!this.streams.has(stream)) {
-        this.logger.warn(`Stream ${stream.id} is not in the active streams set`);
+        this.logger.debug(`Stream ${stream.id} is not in the active streams set`);
       }
 
       await stream.close();
