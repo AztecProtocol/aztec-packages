@@ -278,8 +278,6 @@ struct RevertCheckpointHint {
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
 
-// The reason we need EnqueuedCall hints at all (and cannot just use the public inputs) is
-// because they don't have the actual calldata, just the hash of it.
 struct PublicCallRequestWithCalldata {
     PublicCallRequest request;
     std::vector<FF> calldata;

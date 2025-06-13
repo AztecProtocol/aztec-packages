@@ -65,7 +65,6 @@ void DataCopyTraceBuilder::process(
                           { C::data_copy_sel_start, i == 0 ? 1 : 0 },
                           { C::data_copy_sel_end, end ? 1 : 0 },
                           { C::data_copy_next_write_count_inv, next_write_count_inv },
-                          { C::data_copy_one, 1 },
 
                           { C::data_copy_sel_mem_write, 1 },
 

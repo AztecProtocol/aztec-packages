@@ -22,9 +22,9 @@ struct lookup_data_copy_mem_write_settings_ {
     static constexpr Column COUNTS = Column::lookup_data_copy_mem_write_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_mem_write_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_clk,   ColumnAndShifts::data_copy_write_addr,
-        ColumnAndShifts::data_copy_value, ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::data_copy_one,   ColumnAndShifts::data_copy_dst_context_id
+        ColumnAndShifts::data_copy_clk,           ColumnAndShifts::data_copy_write_addr,
+        ColumnAndShifts::data_copy_value,         ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::data_copy_sel_mem_write, ColumnAndShifts::data_copy_dst_context_id
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,

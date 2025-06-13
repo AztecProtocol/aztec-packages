@@ -19,11 +19,11 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using data_copy = bb::avm2::data_copy<FF>;
 
-using mem_read_lookup = bb::avm2::lookup_data_copy_mem_read_relation<FF>;
-using mem_write_lookup = bb::avm2::lookup_data_copy_mem_write_relation<FF>;
+using mem_read_lookup = bb::avm2::lookup_data_copy_mem_read_settings;
+using mem_write_lookup = bb::avm2::lookup_data_copy_mem_write_settings;
 
 // todo(ilyas): expand this test to pass in a copy_size so we can test padding
-TestTraceContainer calldata_rows(std::vector<FF> calldata)
+TestTraceContainer calldata_rows(const std::vector<FF>& calldata)
 {
 
     std::vector<std::vector<std::pair<Column, FF>>> rows;
@@ -57,7 +57,6 @@ TestTraceContainer calldata_rows(std::vector<FF> calldata)
             { C::data_copy_sel_start, i == 0 ? 1 : 0 },
             { C::data_copy_sel_end, (i == calldata.size() - 1) ? 1 : 0 },
             { C::data_copy_next_write_count_inv, next_write_count_inv },
-            { C::data_copy_one, 1 },
 
             { C::data_copy_sel_mem_write, 1 },
 
@@ -104,34 +103,34 @@ TEST(DataCopyConstrainingTest, EnqueuedCallCdCopy)
           { C::data_copy_sel_rd_copy, 0 },
           { C::data_copy_operation_id, 1 },
           { C::data_copy_clk, 0 },
-          { C::data_copy_src_context_id, 2 },
-          { C::data_copy_dst_context_id, 3 },
-          { C::data_copy_data_copy_size, static_cast<uint32_t>(calldata.size()) },
+          { C::data_copy_src_context_id, 0 },
+          { C::data_copy_dst_context_id, 1 },
+          { C::data_copy_data_copy_size, 1 },
           { C::data_copy_data_offset, 0 },
           { C::data_copy_data_addr, 0 },
           { C::data_copy_data_size, static_cast<uint32_t>(calldata.size()) },
           { C::data_copy_write_addr, 0 },
 
           { C::data_copy_sel_start, 1 },
-          { C::data_copy_sel_end, 0 },
+          { C::data_copy_sel_end, 1 },
           { C::data_copy_next_write_count_inv, FF(calldata.size() - 1).invert() },
-          { C::data_copy_one, 1 },
 
           { C::data_copy_sel_mem_write, 1 },
 
-          { C::data_copy_is_top_level, 0 },
-          { C::data_copy_parent_id_inv, FF(2).invert() },
+          { C::data_copy_is_top_level, 1 },
+          { C::data_copy_parent_id_inv, 0 },
 
-          { C::data_copy_sel_mem_read, 1 },
+          { C::data_copy_sel_mem_read, 0 },
           { C::data_copy_read_addr, 0 },
-          { C::data_copy_read_count, static_cast<uint32_t>(calldata.size()) },
-          { C::data_copy_read_count_inv, FF(calldata.size()).invert() },
+          { C::data_copy_read_count, 1 },
+          { C::data_copy_read_count_inv, 1 },
           { C::data_copy_padding, 0 },
           { C::data_copy_value, calldata[0] },
 
-          { C::data_copy_cd_copy_col_read, 0 },
-          { C::data_copy_cd_index, 0 } },
+          { C::data_copy_cd_copy_col_read, 1 },
+          { C::data_copy_cd_index, 1 } },
     });
+    check_relation<data_copy>(trace);
 }
 
 TEST(DataCopyConstrainingTest, NestedCdCopy)
@@ -169,8 +168,8 @@ TEST(DataCopyConstrainingTest, NestedCdCopy)
     }
 
     check_relation<data_copy>(trace);
-    tracegen::LookupIntoDynamicTableGeneric<mem_read_lookup::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<mem_write_lookup::Settings>().process(trace);
+    tracegen::LookupIntoDynamicTableGeneric<mem_read_lookup>().process(trace);
+    tracegen::LookupIntoDynamicTableGeneric<mem_write_lookup>().process(trace);
 }
 
 } // namespace
