@@ -256,13 +256,11 @@ export class PXEService implements PXE {
 
   // Internal methods
 
-  #getSimulatorForTx(
-    overrides: { contracts?: ContractOverrides } = { contracts: new Map() },
-  ): ContractFunctionSimulator {
+  #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }): ContractFunctionSimulator {
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.keyStore,
-      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides.contracts ?? new Map()),
+      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
       this.noteDataProvider,
       this.capsuleDataProvider,
       this.syncDataProvider,
@@ -863,7 +861,7 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        const skipClassVerification = overrides?.contracts !== undefined && overrides.contracts.size > 0;
+        const skipClassVerification = overrides?.contracts !== undefined && overrides.contracts.instances.size > 0;
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,

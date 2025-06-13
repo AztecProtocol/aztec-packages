@@ -3,6 +3,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type ContractClassWithId, ContractClassWithIdSchema } from '../contract/interfaces/contract_class.js';
 import {
@@ -22,10 +23,10 @@ import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
-export type ContractOverrides = Map<
-  string, // AztecAddress as string
-  { instance: ContractInstanceWithAddress; contractClass: ContractClassWithId }
->;
+export type ContractOverrides = {
+  instances: Map<string /* AztecAddress as string */, ContractInstanceWithAddress>;
+  artifacts: Map<string /* ContractClassId as string */, ContractArtifact>;
+};
 
 export class SimulationOverrides {
   constructor(
@@ -37,13 +38,10 @@ export class SimulationOverrides {
     return z
       .object({
         contracts: optional(
-          z.map(
-            z.string(),
-            z.object({
-              instance: ContractInstanceWithAddressSchema,
-              contractClass: ContractClassWithIdSchema,
-            }),
-          ),
+          z.object({
+            instances: z.map(z.string(), ContractInstanceWithAddressSchema),
+            artifacts: z.map(z.string(), ContractArtifactSchema),
+          }),
         ),
         msgSender: optional(AztecAddress.schema),
       })

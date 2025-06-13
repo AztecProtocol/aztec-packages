@@ -163,7 +163,7 @@ describe('PXESchema', () => {
       true,
       false,
       true,
-      { msgSender: address, contracts: new Map() },
+      { msgSender: address, contracts: { instances: new Map(), artifacts: new Map() } },
       [],
     );
     expect(result).toBeInstanceOf(TxSimulationResult);

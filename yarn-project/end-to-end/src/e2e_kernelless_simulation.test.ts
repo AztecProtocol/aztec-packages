@@ -33,7 +33,8 @@ export class CopyCatWallet extends AccountWallet {
     pxe: PXE,
     account: AccountInterface,
     private completeAddress: CompleteAddress,
-    private contractClass: ContractClassWithId,
+    private contractClassId: Fr,
+    private contractArtifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {
     super(pxe, account);
@@ -52,9 +53,16 @@ export class CopyCatWallet extends AccountWallet {
       nodeInfo,
     );
     const { SimulatedAccountContractArtifact } = await import('@aztec/noir-contracts.js/SimulatedAccount');
-    const contractClass = await getContractClassFromArtifact(SimulatedAccountContractArtifact);
     const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
-    return new CopyCatWallet(pxe, accountInterface, account.getCompleteAddress(), contractClass, instance);
+    const { contractInstance } = await pxe.getContractMetadata(account.getAddress());
+    return new CopyCatWallet(
+      pxe,
+      accountInterface,
+      account.getCompleteAddress(),
+      contractInstance!.currentContractClassId,
+      SimulatedAccountContractArtifact,
+      instance,
+    );
   }
 
   override getCompleteAddress(): CompleteAddress {
@@ -68,13 +76,12 @@ export class CopyCatWallet extends AccountWallet {
     skipFeeEnforcement?: boolean,
     _overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
-    const contractOverrides = new Map();
-    contractOverrides.set(this.completeAddress.address.toString(), {
-      instance: this.instance,
-      contractClass: this.contractClass,
-    });
+    const instanceOverrides = new Map();
+    instanceOverrides.set(this.completeAddress.address.toString(), this.instance);
+    const artifactOverrides = new Map();
+    artifactOverrides.set(this.contractClassId.toString(), this.contractArtifact);
     return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
-      contracts: contractOverrides,
+      contracts: { instances: instanceOverrides, artifacts: artifactOverrides },
       msgSender: this.completeAddress.address,
     });
   }
