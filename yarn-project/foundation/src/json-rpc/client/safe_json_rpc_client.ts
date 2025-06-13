@@ -3,6 +3,7 @@ import { format } from 'util';
 import { type Logger, createLogger } from '../../log/pino-logger.js';
 import { type PromiseWithResolvers, promiseWithResolvers } from '../../promise/utils.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
+import { jsonStringify } from '../convert.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 // batch window of 0 would capture all requests in the current sync iteration of the event loop
@@ -10,11 +11,19 @@ import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 // minimal latency
 const DEFAULT_BATCH_WINDOW_MS = 0;
 
+// the maximum size of a batched request
+const DEFAULT_MAX_BATCH_SIZE = 100;
+
+// 10 mb
+const DEFAULT_MAX_REQUESTY_BODY_SIZE = 10 * 1024 * 1024;
+
 export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
   fetch?: JsonRpcFetch;
   log?: Logger;
   batchWindowMS?: number;
+  maxBatchSize?: number;
+  maxRequestBodySize?: number;
   onResponse?: (res: {
     response: any;
     headers: { get: (header: string) => string | null | undefined };
@@ -62,7 +71,12 @@ export function createSafeJsonRpcClient<T extends object>(
 ): T {
   const fetch = config.fetch ?? defaultFetch;
   const log = config.log ?? createLogger('json-rpc:client');
-  const { namespaceMethods = false, batchWindowMS = DEFAULT_BATCH_WINDOW_MS } = config;
+  const {
+    namespaceMethods = false,
+    batchWindowMS = DEFAULT_BATCH_WINDOW_MS,
+    maxBatchSize = DEFAULT_MAX_BATCH_SIZE,
+    maxRequestBodySize = DEFAULT_MAX_REQUESTY_BODY_SIZE,
+  } = config;
 
   let id = 0;
   let sendBatchTimeoutHandle: NodeJS.Timeout | undefined;
@@ -74,14 +88,31 @@ export function createSafeJsonRpcClient<T extends object>(
       sendBatchTimeoutHandle = undefined;
     }
 
-    const rpcCalls = queue;
-    queue = [];
+    const rpcCalls: typeof queue = [];
+    let bodySize = 0;
 
+    while (queue.length > 0 && rpcCalls.length < maxBatchSize && bodySize < maxRequestBodySize) {
+      let item = queue.shift();
+      if (!item) {
+        break;
+      }
+
+      // batched requests can tmp go over the limit
+      bodySize = bodySize + jsonStringify(item.request).length;
+      rpcCalls.push(item);
+    }
+
+    // no-op
     if (rpcCalls.length === 0) {
       return;
     }
 
-    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length}`, {
+    // schedule another call if there are more items to send
+    if (queue.length > 0) {
+      sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
+    }
+
+    log.debug(`Executing JSON-RPC batch of size: ${rpcCalls.length} body size: ${bodySize} bytes`, {
       methods: rpcCalls.map(({ request }) => request.method),
     });
     try {
