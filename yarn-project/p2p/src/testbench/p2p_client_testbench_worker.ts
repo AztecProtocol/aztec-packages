@@ -26,6 +26,8 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { PeerManager } from '../services/peer-manager/peer_manager.js';
+import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 import type { PubSubLibp2p } from '../util.js';
@@ -108,6 +110,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     config: P2PConfig,
     node: PubSubLibp2p,
     peerDiscoveryService: PeerDiscoveryService,
+    reqresp: ReqResp,
+    peerManager: PeerManager,
     mempools: MemPools<T>,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
@@ -122,6 +126,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       config,
       node,
       peerDiscoveryService,
+      reqresp,
+      peerManager,
       mempools,
       archiver,
       epochCache,
@@ -201,8 +207,6 @@ process.on('message', async msg => {
         deps,
       );
 
-      const _client = client as any;
-
       // Create test service with validation disabled
       const testService = new TestLibP2PService(
         P2PClientType.Full,
@@ -210,6 +214,8 @@ process.on('message', async msg => {
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
         (client as any).p2pService.mempools,
+        (client as any).p2pService.reqresp,
+        (client as any).p2pService.peerManager,
         (client as any).p2pService.archiver,
         epochCache,
         proofVerifier,

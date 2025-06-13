@@ -58,7 +58,8 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -182,7 +183,7 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.debug(`Current L2 slot: ${currentL2Slot}`);
+    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
