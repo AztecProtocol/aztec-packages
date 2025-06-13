@@ -1,3 +1,4 @@
+import { json } from 'stream/consumers';
 import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
@@ -80,7 +81,11 @@ export function createSafeJsonRpcClient<T extends object>(
 
   let id = 0;
   let sendBatchTimeoutHandle: NodeJS.Timeout | undefined;
-  let queue: Array<{ request: JsonRpcRequest; deferred: PromiseWithResolvers<JsonRpcResponse> }> = [];
+  let queue: Array<{
+    request: JsonRpcRequest;
+    deferred: PromiseWithResolvers<JsonRpcResponse>;
+    encodedLength: number;
+  }> = [];
 
   const sendBatch = async () => {
     if (sendBatchTimeoutHandle !== undefined) {
@@ -92,13 +97,18 @@ export function createSafeJsonRpcClient<T extends object>(
     let bodySize = 0;
 
     while (queue.length > 0 && rpcCalls.length < maxBatchSize && bodySize < maxRequestBodySize) {
-      let item = queue.shift();
+      let item = queue[0];
       if (!item) {
         break;
       }
 
-      // batched requests can tmp go over the limit
-      bodySize = bodySize + jsonStringify(item.request).length;
+      const tmpBodySize = bodySize + item.encodedLength;
+      if (tmpBodySize >= maxRequestBodySize) {
+        break;
+      }
+
+      bodySize = tmpBodySize;
+      queue.shift();
       rpcCalls.push(item);
     }
 
@@ -192,7 +202,12 @@ export function createSafeJsonRpcClient<T extends object>(
     const body: JsonRpcRequest = { jsonrpc: '2.0', id: id++, method, params };
 
     const deferred = promiseWithResolvers<JsonRpcResponse>();
-    queue.push({ request: body, deferred });
+    const encodedLength = jsonStringify(body).length;
+    if (encodedLength >= maxRequestBodySize) {
+      throw new Error(`Request body too large: ${encodedLength}`);
+    }
+
+    queue.push({ request: body, deferred, encodedLength });
 
     if (sendBatchTimeoutHandle === undefined) {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises

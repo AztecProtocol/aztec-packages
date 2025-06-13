@@ -254,12 +254,16 @@ describe('SafeJsonRpcClient', () => {
 
     it('splits into batches', async () => {
       const promises: Promise<any>[] = [];
-      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 2)));
-      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 2)));
+      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 3)));
+      promises.push(client.setValue('0'.repeat(maxRequestBodySize / 3)));
       promises.push(client.setValue('0'.repeat(maxRequestBodySize / 2)));
 
       await Promise.all(promises);
       expect(handler).toHaveBeenCalledTimes(2);
+    });
+
+    it('rejects requests that are too large', async () => {
+      await expect(client.setValue('0'.repeat(maxRequestBodySize))).rejects.toThrow();
     });
   });
 });
