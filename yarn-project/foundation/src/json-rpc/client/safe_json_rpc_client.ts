@@ -1,4 +1,3 @@
-import { json } from 'stream/consumers';
 import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
@@ -81,13 +80,13 @@ export function createSafeJsonRpcClient<T extends object>(
 
   let id = 0;
   let sendBatchTimeoutHandle: NodeJS.Timeout | undefined;
-  let queue: Array<{
+  const queue: Array<{
     request: JsonRpcRequest;
     deferred: PromiseWithResolvers<JsonRpcResponse>;
     encodedLength: number;
   }> = [];
 
-  const sendBatch = async () => {
+  const sendBatch = async (): Promise<void> => {
     if (sendBatchTimeoutHandle !== undefined) {
       clearTimeout(sendBatchTimeoutHandle);
       sendBatchTimeoutHandle = undefined;
@@ -97,7 +96,7 @@ export function createSafeJsonRpcClient<T extends object>(
     let bodySize = 0;
 
     while (queue.length > 0 && rpcCalls.length < maxBatchSize && bodySize < maxRequestBodySize) {
-      let item = queue[0];
+      const item = queue[0];
       if (!item) {
         break;
       }
@@ -119,6 +118,7 @@ export function createSafeJsonRpcClient<T extends object>(
 
     // schedule another call if there are more items to send
     if (queue.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
       sendBatchTimeoutHandle = setTimeout(sendBatch, batchWindowMS);
     }
 
