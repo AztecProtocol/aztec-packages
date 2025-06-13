@@ -16,23 +16,20 @@ namespace bb::avm2 {
 struct lookup_data_copy_mem_write_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_MEM_WRITE";
     static constexpr std::string_view RELATION_NAME = "data_copy";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_write;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_data_copy_mem_write_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_mem_write_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_write_addr,
-        ColumnAndShifts::data_copy_value,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::data_copy_one,
-        ColumnAndShifts::data_copy_dst_context_id
+        ColumnAndShifts::data_copy_clk,   ColumnAndShifts::data_copy_write_addr,
+        ColumnAndShifts::data_copy_value, ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::data_copy_one,   ColumnAndShifts::data_copy_dst_context_id
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::memory_address,
-                                                                                    ColumnAndShifts::memory_value,
-                                                                                    ColumnAndShifts::memory_tag,
-                                                                                    ColumnAndShifts::memory_rw,
-                                                                                    ColumnAndShifts::memory_space_id };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
+        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
+    };
 };
 
 using lookup_data_copy_mem_write_settings = lookup_settings<lookup_data_copy_mem_write_settings_>;
@@ -44,23 +41,20 @@ using lookup_data_copy_mem_write_relation = lookup_relation_base<FF_, lookup_dat
 struct lookup_data_copy_mem_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_MEM_READ";
     static constexpr std::string_view RELATION_NAME = "data_copy";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_mem_read;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_data_copy_mem_read_counts;
     static constexpr Column INVERSES = Column::lookup_data_copy_mem_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_read_addr,
-        ColumnAndShifts::data_copy_value,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::data_copy_src_context_id
+        ColumnAndShifts::data_copy_clk,    ColumnAndShifts::data_copy_read_addr,
+        ColumnAndShifts::data_copy_value,  ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::precomputed_zero, ColumnAndShifts::data_copy_src_context_id
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::memory_address,
-                                                                                    ColumnAndShifts::memory_value,
-                                                                                    ColumnAndShifts::memory_tag,
-                                                                                    ColumnAndShifts::memory_rw,
-                                                                                    ColumnAndShifts::memory_space_id };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
+        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
+    };
 };
 
 using lookup_data_copy_mem_read_settings = lookup_settings<lookup_data_copy_mem_read_settings_>;

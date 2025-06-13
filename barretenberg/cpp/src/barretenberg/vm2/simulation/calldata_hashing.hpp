@@ -1,11 +1,11 @@
 #pragma once
 
+#include <vector>
+
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
-
-#include <vector>
 
 namespace bb::avm2::simulation {
 

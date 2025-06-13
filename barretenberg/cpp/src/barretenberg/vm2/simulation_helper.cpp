@@ -139,7 +139,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     ContextProvider context_provider(bytecode_manager, memory_provider);
-    DataCopy data_copy(data_copy_emitter);
+    DataCopy data_copy(execution_id_manager, data_copy_emitter);
     Execution execution(alu,
                         data_copy,
                         execution_components,

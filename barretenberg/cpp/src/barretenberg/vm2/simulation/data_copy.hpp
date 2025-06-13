@@ -23,8 +23,9 @@ class DataCopyInterface {
 
 class DataCopy : public DataCopyInterface {
   public:
-    DataCopy(EventEmitterInterface<DataCopyEvent>& event_emitter)
-        : events(event_emitter)
+    DataCopy(ExecutionIdGetterInterface& execution_id_manager, EventEmitterInterface<DataCopyEvent>& event_emitter)
+        : execution_id_manager(execution_id_manager)
+        , events(event_emitter)
     {}
 
     void cd_copy(ContextInterface& context,
@@ -37,6 +38,7 @@ class DataCopy : public DataCopyInterface {
                  const MemoryAddress dst_addr) override;
 
   private:
+    ExecutionIdGetterInterface& execution_id_manager;
     EventEmitterInterface<DataCopyEvent>& events;
 };
 

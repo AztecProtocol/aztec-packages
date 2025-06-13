@@ -109,9 +109,9 @@ namespace data_copy;
     #[INCR_WRITE_ADDR]
     (1 - precomputed.first_row) * SEL * (1 - sel_end) * (write_addr' - write_addr - 1) = 0;
     #[MEM_WRITE]
-    sel_mem_write { write_addr, value, precomputed.zero, one, dst_context_id }
+    sel_mem_write { clk, write_addr, value, precomputed.zero, one, dst_context_id }
     in
-    memory.sel { memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
 
     // ===== Reading for nested call =====
     // === Helper ===
@@ -152,9 +152,9 @@ namespace data_copy;
     SEL * padding * value = 0;
 
     #[MEM_READ]
-    sel_mem_read { read_addr, value, precomputed.zero, precomputed.zero, src_context_id }
+    sel_mem_read { clk, read_addr, value, precomputed.zero, precomputed.zero, src_context_id }
     in
-    memory.sel {memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
+    memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
 
     // ===== Reading for top level call =====
     // Reading from column

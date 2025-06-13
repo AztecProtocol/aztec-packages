@@ -49,11 +49,10 @@ void DataCopyTraceBuilder::process(
 
             trace.set(row,
                       { {
+                          { C::data_copy_clk, event.execution_clk },
                           { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                           { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
                           { C::data_copy_operation_id, static_cast<uint8_t>(event.operation) },
-                          // TODO
-                          { C::data_copy_clk, 0 },
 
                           { C::data_copy_src_context_id, event.read_context_id },
                           { C::data_copy_dst_context_id, event.write_context_id },
