@@ -1,0 +1,21 @@
+include "precomputed.pil";
+
+// The internal call stack maintains the call stack of internal call and internal return
+// It is partitioned per context.
+// When an internal call is executed, the current pc from the execution trace becomes the return pc
+// and is added to the stack (along with context information)
+// The context information is needed during internal return when the stack is "popped", so that
+// we can reset the internal call ptr information ({id, return_id})
+
+namespace internal_call_stack;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit context_id;
+    pol commit id;
+    pol commit entered_call_id;
+    pol commit return_id;
+    pol commit return_pc;

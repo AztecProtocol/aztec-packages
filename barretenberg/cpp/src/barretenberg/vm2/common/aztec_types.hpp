@@ -10,6 +10,7 @@ namespace bb::avm2 {
 
 using AztecAddress = FF;
 using ContractClassId = FF;
+using PC = uint32_t;
 using AffinePoint = grumpkin::g1::affine_element;
 // In typescript the EthAddress is a byte vector, but in our circuit implementation
 // it's represented as a field element for simplicity
@@ -27,6 +28,8 @@ enum TransactionPhase {
     TEARDOWN = 9,
     COLLECT_GAS_FEES = 10,
 };
+
+using InternalCallId = uint32_t;
 
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes

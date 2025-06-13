@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -74,8 +75,8 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_offset,
-              MemoryAddress cd_size);
+              MemoryAddress cd_size_offset,
+              MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
     void cd_copy(ContextInterface& context,
@@ -86,6 +87,8 @@ class Execution : public ExecutionInterface {
                  MemoryAddress rd_size_offset,
                  MemoryAddress rd_offset,
                  MemoryAddress dst_addr);
+    void internal_call(ContextInterface& context, uint32_t loc);
+    void internal_return(ContextInterface& context);
 
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();

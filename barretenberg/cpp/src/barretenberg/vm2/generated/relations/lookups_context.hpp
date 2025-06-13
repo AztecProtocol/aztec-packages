@@ -109,12 +109,13 @@ using lookup_context_ctx_stack_rollback_relation =
 struct lookup_context_ctx_stack_return_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_CONTEXT_CTX_STACK_RETURN";
     static constexpr std::string_view RELATION_NAME = "context";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 12;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
     static constexpr Column SRC_SELECTOR = Column::execution_nested_return;
     static constexpr Column DST_SELECTOR = Column::context_stack_sel;
     static constexpr Column COUNTS = Column::lookup_context_ctx_stack_return_counts;
     static constexpr Column INVERSES = Column::lookup_context_ctx_stack_return_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_context_id,
         ColumnAndShifts::execution_context_id_shift,
         ColumnAndShifts::execution_parent_id_shift,
         ColumnAndShifts::execution_pc_shift,
@@ -129,6 +130,7 @@ struct lookup_context_ctx_stack_return_settings_ {
         ColumnAndShifts::execution_parent_da_gas_used_shift
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::context_stack_entered_context_id,
         ColumnAndShifts::context_stack_context_id,
         ColumnAndShifts::context_stack_parent_id,
         ColumnAndShifts::context_stack_next_pc,
