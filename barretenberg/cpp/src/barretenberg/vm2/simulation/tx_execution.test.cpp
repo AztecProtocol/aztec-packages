@@ -1,5 +1,4 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_cd_hasher.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
@@ -26,9 +25,7 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockExecution> execution;
     NiceMock<MockFieldGreaterThan> field_gt;
-    NiceMock<MockCalldataHasher> cd_hasher;
-    TxExecution tx_execution =
-        TxExecution(execution, context_provider, merkle_db, field_gt, cd_hasher, tx_event_emitter);
+    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)

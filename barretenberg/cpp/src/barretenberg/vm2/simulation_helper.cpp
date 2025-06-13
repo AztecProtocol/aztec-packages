@@ -122,7 +122,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
-    CalldataHasher calldata_hasher(poseidon2, calldata_emitter);
     Siloing siloing(siloing_emitter);
     InstructionInfoDB instruction_info_db;
     TxBytecodeManager bytecode_manager(contract_db,
@@ -138,7 +137,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
-    ContextProvider context_provider(bytecode_manager, memory_provider);
+    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    ContextProvider context_provider(bytecode_manager, memory_provider, calldata_hashing_provider);
     DataCopy data_copy(execution_id_manager, data_copy_emitter);
     Execution execution(alu,
                         data_copy,
@@ -148,7 +148,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_id_manager,
                         execution_emitter,
                         context_stack_emitter);
-    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, calldata_hasher, tx_event_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 
