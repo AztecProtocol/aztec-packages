@@ -245,8 +245,8 @@ contract TestBase is Test {
 
   function logStatus(Status status) internal {
     string memory statusString;
-    if (status == Status.LIVING) {
-      statusString = "LIVING";
+    if (status == Status.ZOMBIE) {
+      statusString = "ZOMBIE";
     } else if (status == Status.VALIDATING) {
       statusString = "VALIDATING";
     } else if (status == Status.EXITING) {
