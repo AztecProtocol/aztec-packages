@@ -13,6 +13,7 @@ import type {
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -64,7 +65,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getBlockNumber'));
   }
 
-  getTimestamp(): Promise<number> {
+  getTimestamp(): Promise<UInt64> {
     return Promise.reject(new OracleMethodNotAvailableError('getTimestamp'));
   }
 
