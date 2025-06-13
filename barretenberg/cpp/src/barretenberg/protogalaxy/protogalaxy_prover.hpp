@@ -13,6 +13,7 @@
 
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1437): Change template params back to DeciderProvingKeys
 template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver_ {
   public:
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
