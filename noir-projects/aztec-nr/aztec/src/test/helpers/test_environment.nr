@@ -60,7 +60,7 @@ impl TestEnvironment {
 
     /// Returns the timestamp of the block currently being built. Since sequencer is executing the public part
     /// of transactions when building blocks, this timestamp is also returned by public_context.timestamp().
-    pub unconstrained fn get_pending_timestamp(_self: Self) -> u64 {
+    pub unconstrained fn pending_timestamp(_self: Self) -> u64 {
         // TODO: This has the same behavior as pending_block_number() so it's also messed up.
         get_timestamp()
     }
