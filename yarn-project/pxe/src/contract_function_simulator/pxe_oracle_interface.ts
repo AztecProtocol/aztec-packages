@@ -22,7 +22,7 @@ import {
   PendingTaggedLog,
   PrivateLogWithTxData,
   PublicLog,
-  PrivateLogWithTxData,
+  PublicLogWithTxData,
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -42,10 +42,10 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
+import { EventValidationRequest } from './noir-structs/event_validation_request.js';
 import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 import { NoteValidationRequest } from './noir-structs/note_validation_request.js';
-import { EventValidationRequest } from './noir-structs/event_validation_request.js';
 import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
@@ -733,7 +733,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-<<<<<<< HEAD
   public async bulkRetrieveLogs(
     contractAddress: AztecAddress,
     logRetrievalRequestsArrayBaseSlot: Fr,

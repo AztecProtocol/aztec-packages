@@ -30,7 +30,6 @@ unconstrained fn validate_enqueued_notes_and_events_oracle(
     event_validation_requests_array_base_slot: Field,
 ) {}
 
-
 pub(crate) unconstrained fn bulk_retrieve_logs(
     contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
