@@ -21,7 +21,7 @@ class AvmProver {
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
 
-    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, PCSCommitmentKey& commitment_key);
+    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, const PCSCommitmentKey& commitment_key);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
 

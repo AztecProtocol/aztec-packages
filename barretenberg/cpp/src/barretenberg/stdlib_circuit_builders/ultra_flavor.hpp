@@ -377,7 +377,7 @@ class UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (proving_key.commitment_key.srs == nullptr) {
+            if (!proving_key.commitment_key.initialized()) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }

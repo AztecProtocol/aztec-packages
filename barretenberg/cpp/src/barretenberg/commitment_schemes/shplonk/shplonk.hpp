@@ -263,7 +263,7 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(CommitmentKey<Curve>& commitment_key,
+    static ProverOpeningClaim<Curve> prove(const CommitmentKey<Curve>& commitment_key,
                                            std::span<ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
                                            std::span<ProverOpeningClaim<Curve>> libra_opening_claims = {},

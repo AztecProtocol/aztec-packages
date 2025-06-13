@@ -37,7 +37,7 @@ template <typename Curve_> class KZG {
      * @param prover_transcript Prover transcript
      */
     template <typename Transcript>
-    static void compute_opening_proof(CK& ck,
+    static void compute_opening_proof(const CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<Transcript>& prover_trancript)
     {

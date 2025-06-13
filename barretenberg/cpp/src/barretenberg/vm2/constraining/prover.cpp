@@ -24,10 +24,10 @@ using FF = Flavor::FF;
  *
  * @tparam settings Settings class.
  */
-AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, PCSCommitmentKey& commitment_key)
+AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, const PCSCommitmentKey& commitment_key)
     : key(std::move(input_key))
     , prover_polynomials(*key)
-    , commitment_key(std::move(commitment_key))
+    , commitment_key(commitment_key)
 {}
 
 /**

@@ -540,7 +540,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
      */
     void commit_to_round_univariate(const size_t round_idx,
                                     bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,
-                                    CommitmentKey& ck)
+                                    const CommitmentKey& ck)
 
     {
         const std::string idx = std::to_string(round_idx);

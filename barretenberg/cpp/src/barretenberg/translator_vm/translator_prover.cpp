@@ -20,7 +20,7 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     PROFILE_THIS();
-    if (key->proving_key->commitment_key.srs == nullptr) {
+    if (!key->proving_key->commitment_key.initialized()) {
         key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }
 }
@@ -144,7 +144,7 @@ void TranslatorProver::execute_relation_check_rounds()
     // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
     // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // //  until we enter the PCS round
-    auto ck = CommitmentKey(1 << (log_subgroup_size + 1));
+    CommitmentKey ck(1 << (log_subgroup_size + 1));
 
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
@@ -167,7 +167,7 @@ void TranslatorProver::execute_pcs_rounds()
 
     // Check whether the commitment key has been deallocated and reinitialise it if necessary
     auto& ck = key->proving_key->commitment_key;
-    if (!ck.srs) {
+    if (!ck.initialized()) {
         ck = CommitmentKey(key->proving_key->circuit_size);
     }
 

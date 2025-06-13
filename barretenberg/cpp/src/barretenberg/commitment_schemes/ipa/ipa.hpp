@@ -966,7 +966,7 @@ template <typename Curve_> class IPA {
         using Builder = typename Curve::Builder;
         using Curve = stdlib::grumpkin<Builder>;
         auto ipa_transcript = std::make_shared<NativeTranscript>();
-        auto ipa_commitment_key = CommitmentKey<NativeCurve>(1 << CONST_ECCVM_LOG_N);
+        CommitmentKey<NativeCurve> ipa_commitment_key(1 << CONST_ECCVM_LOG_N);
         size_t n = 4;
         auto poly = Polynomial<fq>(n);
         for (size_t i = 0; i < n; i++) {

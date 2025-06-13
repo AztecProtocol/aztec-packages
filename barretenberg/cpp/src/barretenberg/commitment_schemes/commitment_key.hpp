@@ -75,14 +75,22 @@ template <class Curve> class CommitmentKey {
     {}
 
     /**
+     * @brief Checks the commitment key is properly initialized.
+     *
+     * @return bool
+     */
+    bool initialized() const { return pippenger_runtime_state.initialized(); }
+
+    /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(PolynomialSpan<const Fr> polynomial)
+    Commitment commit(PolynomialSpan<const Fr> polynomial) const
     {
         PROFILE_THIS_NAME("commit");
+        ASSERT(initialized());
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
         BB_ASSERT_LTE(dyadic_poly_size, dyadic_size, "Polynomial size exceeds commitment key size.");

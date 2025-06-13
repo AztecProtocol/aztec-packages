@@ -71,7 +71,7 @@ template <typename Flavor> struct ZKSumcheckData {
         compute_concatenated_libra_polynomial();
 
         // If proving_key is provided, commit to the concatenated and masked libra polynomial
-        if (commitment_key.srs != nullptr) {
+        if (commitment_key.initialized()) {
             auto libra_commitment = commitment_key.commit(libra_concatenated_monomial_form);
             transcript->template send_to_verifier("Libra:concatenation_commitment", libra_commitment);
         }

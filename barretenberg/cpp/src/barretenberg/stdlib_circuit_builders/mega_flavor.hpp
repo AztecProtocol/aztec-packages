@@ -480,7 +480,7 @@ class MegaFlavor {
         {
             set_metadata(proving_key);
             auto& ck = proving_key.commitment_key;
-            if (!ck.srs || ck.srs->get_monomial_size() < proving_key.circuit_size) {
+            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
                 ck = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {

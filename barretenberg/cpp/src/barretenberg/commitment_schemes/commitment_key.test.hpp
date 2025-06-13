@@ -171,7 +171,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     static void SetUpTestSuite()
     {
         // Avoid reallocating static objects if called in subclasses of FooTest.
-        if (commitment_key.srs == nullptr) {
+        if (!commitment_key.initialized()) {
             commitment_key = create_commitment_key<CK>();
         }
         if (verification_key == nullptr) {

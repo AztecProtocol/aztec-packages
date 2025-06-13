@@ -43,7 +43,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     CommitmentKey commitment_key;
 
-    UltraProver_(const std::shared_ptr<DeciderPK>&, CommitmentKey&);
+    UltraProver_(const std::shared_ptr<DeciderPK>&, const CommitmentKey&);
 
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());

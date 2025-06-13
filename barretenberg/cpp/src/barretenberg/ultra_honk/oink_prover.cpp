@@ -20,7 +20,7 @@ namespace bb {
  */
 template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 {
-    if (proving_key->proving_key.commitment_key.srs == nullptr) {
+    if (!proving_key->proving_key.commitment_key.initialized()) {
         proving_key->proving_key.commitment_key = CommitmentKey(proving_key->proving_key.circuit_size);
     }
     {

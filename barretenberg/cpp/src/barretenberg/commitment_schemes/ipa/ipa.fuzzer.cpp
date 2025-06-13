@@ -25,7 +25,7 @@ std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(CommitmentKey<Curve>& ck,
+    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {

@@ -71,7 +71,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto& ck = proving_key->proving_key.commitment_key;
-    if (!ck.srs) {
+    if (!ck.initialized()) {
         ck = CommitmentKey(proving_key->proving_key.circuit_size);
     }
 

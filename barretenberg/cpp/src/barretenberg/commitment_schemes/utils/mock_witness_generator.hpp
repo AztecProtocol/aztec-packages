@@ -79,7 +79,7 @@ template <typename Curve> struct MockClaimGenerator {
                        const size_t num_to_be_shifted,
                        const size_t num_to_be_right_shifted_by_k,
                        const std::vector<Fr>& mle_opening_point,
-                       CommitmentKey& commitment_key,
+                       const CommitmentKey& commitment_key,
                        size_t num_interleaved = 0,
                        size_t num_to_be_interleaved = 0)
 
@@ -166,7 +166,7 @@ template <typename Curve> struct MockClaimGenerator {
     InterleaveData generate_interleaving_inputs(const std::vector<Fr>& u_challenge,
                                                 const size_t num_interleaved,
                                                 const size_t group_size,
-                                                CommitmentKey& ck)
+                                                const CommitmentKey& ck)
     {
 
         size_t N = 1 << u_challenge.size();
@@ -225,7 +225,7 @@ template <typename Curve> struct MockClaimGenerator {
     void compute_sumcheck_opening_data(const size_t log_n,
                                        const size_t sumcheck_univariate_length,
                                        std::vector<Fr>& challenge,
-                                       CommitmentKey& ck)
+                                       const CommitmentKey& ck)
     {
         // Generate valid sumcheck polynomials of given length
         auto mock_sumcheck_polynomials = ZKSumcheckData<Flavor>(log_n, sumcheck_univariate_length);

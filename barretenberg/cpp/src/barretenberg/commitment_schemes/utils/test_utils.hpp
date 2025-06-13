@@ -21,7 +21,7 @@ static std::tuple<std::vector<std::vector<bb::Polynomial<typename Curve::ScalarF
 generate_concatenation_inputs(const std::vector<typename Curve::ScalarField>& u_challenge,
                               const size_t num_concatenated,
                               const size_t group_size,
-                              CommitmentKey<Curve>& ck)
+                              const CommitmentKey<Curve>& ck)
 {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;

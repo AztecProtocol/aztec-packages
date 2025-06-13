@@ -28,7 +28,7 @@ namespace bb {
 // Default constructor to initialize all common members.
 template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       typename Flavor::CommitmentKey& commitment_key)
+                                                       typename Flavor::CommitmentKey commitment_key)
     : interpolation_domain{}
     , concatenated_polynomial(MASKED_CONCATENATED_WITNESS_LENGTH)
     , concatenated_lagrange_form(SUBGROUP_SIZE)
@@ -60,7 +60,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
                                                        const std::vector<FF>& multivariate_challenge,
                                                        const FF claimed_inner_product,
                                                        const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       typename Flavor::CommitmentKey& commitment_key)
+                                                       const typename Flavor::CommitmentKey& commitment_key)
     : SmallSubgroupIPAProver(transcript, commitment_key)
 {
     this->claimed_inner_product = claimed_inner_product;
@@ -94,7 +94,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
                                                        const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       typename Flavor::CommitmentKey& commitment_key)
+                                                       const typename Flavor::CommitmentKey& commitment_key)
     : SmallSubgroupIPAProver(transcript, commitment_key)
 
 {

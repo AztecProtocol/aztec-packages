@@ -59,7 +59,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-            if (proving_key.commitment_key.srs == nullptr) {
+            if (!proving_key.commitment_key.initialized()) {
                 proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {

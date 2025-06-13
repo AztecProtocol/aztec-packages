@@ -51,7 +51,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     Fr circuit_size,
     PolynomialBatcher& polynomial_batcher,
     std::span<Fr> multilinear_challenge,
-    CommitmentKey<Curve>& commitment_key,
+    const CommitmentKey<Curve>& commitment_key,
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {

@@ -90,7 +90,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (proving_key.commitment_key.srs == nullptr) {
+            if (!proving_key.commitment_key.initialized()) {
                 proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
