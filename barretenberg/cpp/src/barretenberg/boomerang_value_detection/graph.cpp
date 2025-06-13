@@ -210,11 +210,11 @@ inline std::vector<uint32_t> Graph_<FF>::get_sort_constraint_connected_component
 {
     std::vector<uint32_t> gate_variables = {};
     if (!block.q_delta_range()[index].is_zero()) {
-        auto left_idx = block.w_l()[index];
-        auto right_idx = block.w_r()[index];
-        auto out_idx = block.w_o()[index];
-        auto fourth_idx = block.w_4()[index];
-        gate_variables.insert(gate_variables.end(), { left_idx, right_idx, out_idx, fourth_idx });
+        gate_variables.insert(gate_variables.end(),
+                              { block.w_l()[index], block.w_r()[index], block.w_o()[index], block.w_4()[index] });
+        if (index != block.size() - 1) {
+            gate_variables.emplace_back(block.w_l()[index + 1]);
+        }
     }
     gate_variables = this->to_real(ultra_circuit_builder, gate_variables);
     this->process_gate_variables(ultra_circuit_builder, gate_variables, index, blk_idx);
@@ -588,20 +588,9 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
             auto aux_gate_variables = get_auxiliary_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
             connect_all_variables_in_vector(ultra_circuit_constructor, aux_gate_variables);
-            if (arithmetic_gates_variables.empty() && elliptic_gate_variables.empty() &&
-                lookup_gate_variables.empty() && poseidon2_gate_variables.empty() && aux_gate_variables.empty()) {
-                // if all vectors are empty it means that current block is delta range, and it needs another
-                // processing method
-                auto delta_range_gate_variables = get_sort_constraint_connected_component(
-                    ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-                if (delta_range_gate_variables.empty()) {
-                    connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables);
-                    sorted_variables.clear();
-                } else {
-                    sorted_variables.insert(
-                        sorted_variables.end(), delta_range_gate_variables.begin(), delta_range_gate_variables.end());
-                }
-            }
+            auto delta_range_variables = get_sort_constraint_connected_component(
+                ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
+            connect_all_variables_in_vector(ultra_circuit_constructor, delta_range_variables);
         }
     }
 

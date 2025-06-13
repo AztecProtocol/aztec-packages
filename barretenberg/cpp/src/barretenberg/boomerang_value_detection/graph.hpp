@@ -83,7 +83,7 @@ template <typename FF> class Graph_ {
         return real_variable_indices;
     };
 
-    uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
+    uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index) const
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
@@ -92,7 +92,7 @@ template <typename FF> class Graph_ {
                                 std::vector<uint32_t>& gate_variables,
                                 size_t gate_index,
                                 size_t blk_idx);
-    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
+    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
         bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index, size_t block_idx, UltraBlock& blk);
