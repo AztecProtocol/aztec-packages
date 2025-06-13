@@ -1,0 +1,7 @@
+[package]
+name = "double_verify_honk_zk_proof"
+type = "bin"
+authors = [""]
+
+[dependencies]
+bb_proof_verification = { path = "../../../noir/bb_proof_verification" }
