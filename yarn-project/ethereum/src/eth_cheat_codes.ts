@@ -362,7 +362,7 @@ export class EthCheatCodes {
    * Triggers a reorg of the given depth, removing those blocks from the chain.
    * @param depth - The depth of the reorg
    */
-  public async reorg(depth: number): Promise<void> {
+  public reorg(depth: number): Promise<void> {
     return this.execWithPausedAnvil(() => {
       return this.rpcCall('anvil_rollback', [depth]);
     });
@@ -372,7 +372,7 @@ export class EthCheatCodes {
    * Causes Anvil to reorg until the given block number is the new tip
    * @param blockNumber - The block number that's going to be the new tip
    */
-  public async reorgTo(blockNumber: number): Promise<void> {
+  public reorgTo(blockNumber: number): Promise<void> {
     if (blockNumber <= 0) {
       throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }
