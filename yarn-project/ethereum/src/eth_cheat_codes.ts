@@ -363,33 +363,9 @@ export class EthCheatCodes {
    * @param depth - The depth of the reorg
    */
   public async reorg(depth: number): Promise<void> {
-    const wasAutoMining = await this.isAutoMining();
-    try {
-      // disable mining
-      if (wasAutoMining) {
-        await this.setAutomine(false);
-      }
-
-      // reorg
-      await this.rpcCall('anvil_rollback', [depth]);
-
-      // restore automine if necessary
-      if (wasAutoMining) {
-        await this.setAutomine(true);
-      }
-      this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
-    } catch (err) {
-      throw new Error(`Error rolling back: ${err}`);
-    } finally {
-      try {
-        // restore automine if necessary
-        if (wasAutoMining) {
-          await this.setAutomine(true);
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to reenable automining after calling anvil_rollback: ${err}`);
-      }
-    }
+    return this.execWithPausedAnvil(() => {
+      return this.rpcCall('anvil_rollback', [depth]);
+    });
   }
 
   /**
@@ -401,14 +377,7 @@ export class EthCheatCodes {
       throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }
 
-    const wasAutoMining = await this.isAutoMining();
-
-    try {
-      // disable mining
-      if (wasAutoMining) {
-        await this.setAutomine(false);
-      }
-
+    return this.execWithPausedAnvil(async () => {
       const currentTip = await this.publicClient.getBlockNumber();
       if (currentTip < BigInt(blockNumber)) {
         this.logger.warn(
@@ -419,19 +388,7 @@ export class EthCheatCodes {
 
       const depth = Number(currentTip - BigInt(blockNumber) + 1n);
       await this.rpcCall('anvil_rollback', [depth]);
-      this.logger.warn(`Rolled back L1 chain with depth ${depth} to block number: ${blockNumber}`);
-    } catch (err) {
-      throw new Error(`Error rolling back: ${err}`);
-    } finally {
-      try {
-        // restore automine if necessary
-        if (wasAutoMining) {
-          await this.setAutomine(true);
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to reenable automining after calling anvil_rollback: ${err}`);
-      }
-    }
+    });
   }
 
   /**
@@ -458,5 +415,38 @@ export class EthCheatCodes {
 
   public traceTransaction(txHash: Hex): Promise<any> {
     return this.rpcCall('trace_transaction', [txHash]);
+  }
+
+  private async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+    const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
+    try {
+      if (blockInterval !== null) {
+        await this.setIntervalMining(0);
+      }
+
+      if (wasAutoMining) {
+        await this.setAutomine(false);
+      }
+
+      await fn();
+    } finally {
+      try {
+        // restore automine if necessary
+        if (wasAutoMining) {
+          await this.setAutomine(true);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable automining: ${err}`);
+      }
+
+      try {
+        // restore automine if necessary
+        if (blockInterval !== null) {
+          await this.setIntervalMining(blockInterval);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable interval mining: ${err}`);
+      }
+    }
   }
 }
