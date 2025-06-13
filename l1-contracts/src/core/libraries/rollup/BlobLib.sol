@@ -11,7 +11,6 @@ library BlobLib {
   address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   uint256 internal constant VERSIONED_HASH_VERSION_KZG =
     0x0100000000000000000000000000000000000000000000000000000000000000; // 0x01 << 248 to be used in blobHashCheck
-  uint256 internal constant MAX_BLOBS_PER_BLOCK = 6; // Increasing to 9 with Pectra
 
   /**
    * @notice  Get the blob base fee
@@ -54,7 +53,9 @@ library BlobLib {
 
   /**
    * @notice  Validate an L2 block's blobs and return the blobHashes, the hashed blobHashes, and blob commitments.
-   * @notice  We assume that this propose transaction contains only Aztec blobs
+   *
+   *          We assume that the Aztec related blobs will be first in the propose transaction, additional blobs can be at the end.
+   *
    * Input bytes:
    * input[0] - num blobs in block
    * input[1:] - blob commitments (48 bytes * num blobs in block)
@@ -99,11 +100,6 @@ library BlobLib {
         blobHash = blobHashCheck;
       }
       blobHashes[i] = blobHash;
-    }
-    // Ensure no non-Aztec blobs have been emitted in this tx:
-    for (uint256 i = numBlobs; i < MAX_BLOBS_PER_BLOCK; i++) {
-      blobHash = getBlobHash(i);
-      require(blobHash == 0, Errors.Rollup__InvalidBlobHash(blobHash, 0));
     }
     // Hash the EVM blob hashes for the block header
     // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name blobsHashesCommitment is confusingly similar to blobCommitmentsHash

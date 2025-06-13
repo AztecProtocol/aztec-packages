@@ -249,29 +249,24 @@ contract RollupTest is RollupBase {
     rollup.propose(args, attestations, data.blobCommitments);
   }
 
-  function testTooManyBlobs() public setUpFor("mixed_block_1") {
-    DecoderBase.Data memory data = load("mixed_block_1").block;
-    bytes32[] memory realBlobHashes = this.getBlobHashes(data.blobCommitments);
-    bytes32[] memory blobHashes = new bytes32[](realBlobHashes.length + 1);
-    for (uint256 i = 0; i < realBlobHashes.length; i++) {
-      blobHashes[i] = realBlobHashes[i];
+  function testExtraBlobs() public setUpFor("mixed_block_1") {
+    bytes32[] memory extraBlobHashes = new bytes32[](6);
+    for (uint256 i = 0; i < extraBlobHashes.length; i++) {
+      extraBlobHashes[i] = bytes32(
+        uint256(sha256(abi.encode("extraBlob", i)))
+          & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+      ) | 0x0100000000000000000000000000000000000000000000000000000000000000;
     }
-    // Add an extra blob which shouldn't exist
-    blobHashes[realBlobHashes.length] = bytes32(uint256(1));
-    vm.blobhashes(blobHashes);
-    ProposeArgs memory args = ProposeArgs({
-      header: data.header,
-      archive: data.archive,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0),
-      txHashes: new bytes32[](0)
-    });
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidBlobHash.selector, blobHashes[realBlobHashes.length], 0
-      )
-    );
-    rollup.propose(args, attestations, data.blobCommitments);
+
+    _proposeBlockWithExtraBlobs("mixed_block_1", 1, 1e6, extraBlobHashes);
+
+    assertTrue(Rollup(address(rollup)).checkBlob());
+    bytes32[] memory blobs = vm.getBlobhashes();
+    assertEq(blobs.length, 1 + extraBlobHashes.length);
+    assertEq(blobs[0], this.getBlobHashes(load("mixed_block_1").block.blobCommitments)[0]);
+    for (uint256 i = 0; i < extraBlobHashes.length; i++) {
+      assertEq(blobs[i + 1], extraBlobHashes[i]);
+    }
   }
 
   function testRevertPrune() public setUpFor("mixed_block_1") {
