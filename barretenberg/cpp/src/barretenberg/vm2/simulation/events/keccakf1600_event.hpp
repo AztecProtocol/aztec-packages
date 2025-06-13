@@ -32,6 +32,7 @@ struct KeccakF1600RoundData {
 };
 
 struct KeccakF1600Event {
+    uint32_t execution_clk;
     MemoryAddress dst_addr;
     MemoryAddress src_addr;
     KeccakF1600StateMemValues src_mem_values;

@@ -433,6 +433,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
             row,
             { {
                 { C::keccak_memory_sel, 1 },
+                { C::keccak_memory_clk, event.execution_clk },
                 { C::keccak_memory_ctr, i + 1 },
                 { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
                 { C::keccak_memory_ctr_min_state_size_inv,
@@ -476,6 +477,7 @@ void KeccakF1600TraceBuilder::process_permutation(
 
             // Setting the selector, xor operation id, and operation id, round, round cst
             trace.set(C::keccakf1600_sel, row, 1);
+            trace.set(C::keccakf1600_clk, row, event.execution_clk);
             trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
             trace.set(C::keccakf1600_round, row, round_idx + 1); // round is 1-indexed

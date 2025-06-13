@@ -7,10 +7,13 @@
 
 #include "barretenberg/crypto/keccak/keccak.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/bitwise.hpp"
+#include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 
@@ -35,13 +38,15 @@ TEST(KeccakSimulationTest, matchesReferenceImplementation)
     StrictMock<MockContext> context;
     EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory));
 
+    ExecutionIdManager execution_id_manager(1);
+
     NoopEventEmitter<KeccakF1600Event> keccak_event_emitter;
     NoopEventEmitter<BitwiseEvent> bitwise_event_emitter;
     NoopEventEmitter<RangeCheckEvent> range_check_event_emitter;
 
     Bitwise bitwise(bitwise_event_emitter);
     RangeCheck range_check(range_check_event_emitter);
-    KeccakF1600 keccak(keccak_event_emitter, bitwise, range_check);
+    KeccakF1600 keccak(execution_id_manager, keccak_event_emitter, bitwise, range_check);
 
     KeccakF1600State input = {
         { { 0, 1, 2, 3, 4 }, { 5, 6, 7, 8, 9 }, { 10, 11, 12, 13, 14 }, { 15, 16, 17, 18, 19 }, { 20, 21, 22, 23, 24 } }

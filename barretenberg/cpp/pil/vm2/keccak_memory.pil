@@ -57,6 +57,7 @@ sel + last = 0;
 pol commit start;
 start * (1 - start) = 0;
 
+pol commit clk;
 pol commit ctr;
 pol commit addr;
 pol commit tag;
@@ -121,6 +122,9 @@ sel * (1 - last) * (addr + 1 - addr') = 0;
 
 #[SPACEID_PROPAGATION]
 (1 - last) * (space_id - space_id') = 0;
+
+#[CLK_PROPAGATION]
+(1 - last) * (clk' - clk) = 0;
 
 // Check if the tag is U64
 // We constrain single_tag_error == 1 <==> tag is not U64.
@@ -189,6 +193,6 @@ val44 = (1 - last) * val43';
 // TODO: Proper memory permutation (not a lookup), add clks in the tuple and introduce a specific
 // selector for keccak in memory sub-trace.
 #[SLICE_TO_MEM]
-sel {addr, val00, tag, rw, space_id}
+sel {clk, addr, val00, tag, rw, space_id}
 in // TODO: replace with `is` (permutation)
-memory.sel {memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
+memory.sel {memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id};

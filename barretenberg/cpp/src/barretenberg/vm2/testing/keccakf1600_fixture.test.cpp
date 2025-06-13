@@ -50,10 +50,11 @@ void generate_keccak_trace(TestTraceContainer& trace,
     EventEmitter<simulation::KeccakF1600Event> keccak_event_emitter;
     EventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
     EventEmitter<simulation::MemoryEvent> memory_event_emitter;
+    ExecutionIdManagerSimulator execution_id_manager(1);
     RangeCheckSimulator range_check_simulator(range_check_event_emitter);
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
-    KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator, range_check_simulator);
-    ExecutionIdManagerSimulator execution_id_manager(1);
+    KeccakSimulator keccak_simulator(
+        execution_id_manager, keccak_event_emitter, bitwise_simulator, range_check_simulator);
     MemorySimulator memory_simulator(/*space_id=*/0, range_check_simulator, execution_id_manager, memory_event_emitter);
 
     StrictMock<MockContext> context;
@@ -99,10 +100,11 @@ void generate_keccak_trace_with_tag_error(TestTraceContainer& trace,
     EventEmitter<simulation::KeccakF1600Event> keccak_event_emitter;
     EventEmitter<simulation::RangeCheckEvent> range_check_event_emitter;
     EventEmitter<simulation::MemoryEvent> memory_event_emitter;
+    ExecutionIdManagerSimulator execution_id_manager(1);
     RangeCheckSimulator range_check_simulator(range_check_event_emitter);
     BitwiseSimulator bitwise_simulator(bitwise_event_emitter);
-    KeccakSimulator keccak_simulator(keccak_event_emitter, bitwise_simulator, range_check_simulator);
-    ExecutionIdManagerSimulator execution_id_manager(1);
+    KeccakSimulator keccak_simulator(
+        execution_id_manager, keccak_event_emitter, bitwise_simulator, range_check_simulator);
     MemorySimulator memory_simulator(/*space_id=*/0, range_check_simulator, execution_id_manager, memory_event_emitter);
 
     StrictMock<MockContext> context;

@@ -18,7 +18,7 @@ class perm_keccakf1600_read_to_slice_settings {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
 
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 28;
+    constexpr static size_t COLUMNS_PER_SET = 29;
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_read;
@@ -62,6 +62,7 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_in_42),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_44),
+                                     in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::precomputed_zero),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),
                                      in.get(ColumnAndShifts::keccakf1600_tag_error),
@@ -90,6 +91,7 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val42),
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
+                                     in.get(ColumnAndShifts::keccak_memory_clk),
                                      in.get(ColumnAndShifts::keccak_memory_rw),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_tag_error));
@@ -126,6 +128,7 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_in_42),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_44),
+                                     in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::precomputed_zero),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),
                                      in.get(ColumnAndShifts::keccakf1600_tag_error),
@@ -154,6 +157,7 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val42),
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
+                                     in.get(ColumnAndShifts::keccak_memory_clk),
                                      in.get(ColumnAndShifts::keccak_memory_rw),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_tag_error));

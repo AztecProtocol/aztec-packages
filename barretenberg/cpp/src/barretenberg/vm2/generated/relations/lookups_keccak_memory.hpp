@@ -16,23 +16,19 @@ namespace bb::avm2 {
 struct lookup_keccak_memory_slice_to_mem_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_KECCAK_MEMORY_SLICE_TO_MEM";
     static constexpr std::string_view RELATION_NAME = "keccak_memory";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::keccak_memory_sel;
     static constexpr Column DST_SELECTOR = Column::memory_sel;
     static constexpr Column COUNTS = Column::lookup_keccak_memory_slice_to_mem_counts;
     static constexpr Column INVERSES = Column::lookup_keccak_memory_slice_to_mem_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::keccak_memory_addr,
-        ColumnAndShifts::keccak_memory_val00,
-        ColumnAndShifts::keccak_memory_tag,
-        ColumnAndShifts::keccak_memory_rw,
-        ColumnAndShifts::keccak_memory_space_id
+        ColumnAndShifts::keccak_memory_clk, ColumnAndShifts::keccak_memory_addr, ColumnAndShifts::keccak_memory_val00,
+        ColumnAndShifts::keccak_memory_tag, ColumnAndShifts::keccak_memory_rw,   ColumnAndShifts::keccak_memory_space_id
     };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::memory_address,
-                                                                                    ColumnAndShifts::memory_value,
-                                                                                    ColumnAndShifts::memory_tag,
-                                                                                    ColumnAndShifts::memory_rw,
-                                                                                    ColumnAndShifts::memory_space_id };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::memory_clk, ColumnAndShifts::memory_address, ColumnAndShifts::memory_value,
+        ColumnAndShifts::memory_tag, ColumnAndShifts::memory_rw,      ColumnAndShifts::memory_space_id
+    };
 };
 
 using lookup_keccak_memory_slice_to_mem_settings = lookup_settings<lookup_keccak_memory_slice_to_mem_settings_>;

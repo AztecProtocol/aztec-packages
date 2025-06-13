@@ -60,6 +60,7 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
 void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
     KeccakF1600Event keccakf1600_event;
+    keccakf1600_event.execution_clk = execution_id_manager.get_execution_id();
     keccakf1600_event.dst_addr = dst_addr;
     keccakf1600_event.src_addr = src_addr;
 

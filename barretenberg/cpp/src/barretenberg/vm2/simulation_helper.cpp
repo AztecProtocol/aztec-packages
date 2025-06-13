@@ -38,8 +38,8 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
-#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -158,7 +158,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         execution_emitter,
                         context_stack_emitter);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
-    KeccakF1600 keccakf1600(keccakf1600_emitter, bitwise, range_check);
+    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
     tx_execution.simulate(hints.tx);
 

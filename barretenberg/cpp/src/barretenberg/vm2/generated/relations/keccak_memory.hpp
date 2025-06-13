@@ -13,9 +13,9 @@ template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 40> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 3, 5, 3, 4, 3, 3, 3, 3, 4, 3,
-                                                                            5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 41> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 4, 3, 5, 3, 4, 3, 3, 3, 3, 4, 3,
+                                                                            3, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -135,189 +135,196 @@ template <typename FF_> class keccak_memoryImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        { // SINGLE_TAG_ERROR
+        { // CLK_PROPAGATION
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            auto tmp = (FF(1) - in.get(C::keccak_memory_last)) *
+                       (in.get(C::keccak_memory_clk_shift) - in.get(C::keccak_memory_clk));
+            tmp *= scaling_factor;
+            std::get<14>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SINGLE_TAG_ERROR
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = in.get(C::keccak_memory_sel) *
                        (keccak_memory_TAG_MIN_U64 * ((FF(1) - in.get(C::keccak_memory_single_tag_error)) *
                                                          (FF(1) - in.get(C::keccak_memory_tag_min_u64_inv)) +
                                                      in.get(C::keccak_memory_tag_min_u64_inv)) -
                         in.get(C::keccak_memory_single_tag_error));
             tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
-        }
-        { // SINGLE_TAG_ERROR_BOOLEAN
-            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::keccak_memory_single_tag_error) * (FF(1) - in.get(C::keccak_memory_single_tag_error));
-            tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL01
+        { // SINGLE_TAG_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val01) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val00_shift));
+            auto tmp = in.get(C::keccak_memory_single_tag_error) * (FF(1) - in.get(C::keccak_memory_single_tag_error));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL02
+        { // VAL01
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val02) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val01_shift));
+            auto tmp = (in.get(C::keccak_memory_val01) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val00_shift));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL03
+        { // VAL02
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val03) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val02_shift));
+            auto tmp = (in.get(C::keccak_memory_val02) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val01_shift));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL04
+        { // VAL03
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val04) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val03_shift));
+            auto tmp = (in.get(C::keccak_memory_val03) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val02_shift));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL10
+        { // VAL04
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val10) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val04_shift));
+            auto tmp = (in.get(C::keccak_memory_val04) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val03_shift));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL11
+        { // VAL10
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val11) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val10_shift));
+            auto tmp = (in.get(C::keccak_memory_val10) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val04_shift));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL12
+        { // VAL11
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val12) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val11_shift));
+            auto tmp = (in.get(C::keccak_memory_val11) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val10_shift));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL13
+        { // VAL12
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val13) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val12_shift));
+            auto tmp = (in.get(C::keccak_memory_val12) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val11_shift));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL14
+        { // VAL13
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val14) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val13_shift));
+            auto tmp = (in.get(C::keccak_memory_val13) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val12_shift));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL20
+        { // VAL14
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val20) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val14_shift));
+            auto tmp = (in.get(C::keccak_memory_val14) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val13_shift));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL21
+        { // VAL20
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val21) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val20_shift));
+            auto tmp = (in.get(C::keccak_memory_val20) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val14_shift));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL22
+        { // VAL21
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val22) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val21_shift));
+            auto tmp = (in.get(C::keccak_memory_val21) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val20_shift));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL23
+        { // VAL22
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val23) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val22_shift));
+            auto tmp = (in.get(C::keccak_memory_val22) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val21_shift));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL24
+        { // VAL23
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val24) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val23_shift));
+            auto tmp = (in.get(C::keccak_memory_val23) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val22_shift));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL30
+        { // VAL24
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val30) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val24_shift));
+            auto tmp = (in.get(C::keccak_memory_val24) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val23_shift));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL31
+        { // VAL30
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val31) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val30_shift));
+            auto tmp = (in.get(C::keccak_memory_val30) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val24_shift));
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL32
+        { // VAL31
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val32) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val31_shift));
+            auto tmp = (in.get(C::keccak_memory_val31) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val30_shift));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL33
+        { // VAL32
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val33) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val32_shift));
+            auto tmp = (in.get(C::keccak_memory_val32) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val31_shift));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL34
+        { // VAL33
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val34) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val33_shift));
+            auto tmp = (in.get(C::keccak_memory_val33) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val32_shift));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL40
+        { // VAL34
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val40) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val34_shift));
+            auto tmp = (in.get(C::keccak_memory_val34) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val33_shift));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL41
+        { // VAL40
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val41) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val40_shift));
+            auto tmp = (in.get(C::keccak_memory_val40) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val34_shift));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL42
+        { // VAL41
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val42) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val41_shift));
+            auto tmp = (in.get(C::keccak_memory_val41) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val40_shift));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL43
+        { // VAL42
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::keccak_memory_val43) -
-                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val42_shift));
+            auto tmp = (in.get(C::keccak_memory_val42) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val41_shift));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
-        { // VAL44
+        { // VAL43
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::keccak_memory_val43) -
+                        (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val42_shift));
+            tmp *= scaling_factor;
+            std::get<39>(evals) += typename Accumulator::View(tmp);
+        }
+        { // VAL44
+            using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccak_memory_val44) -
                         (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val43_shift));
             tmp *= scaling_factor;
-            std::get<39>(evals) += typename Accumulator::View(tmp);
+            std::get<40>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -348,56 +355,58 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
         case 13:
             return "SPACEID_PROPAGATION";
         case 14:
-            return "SINGLE_TAG_ERROR";
+            return "CLK_PROPAGATION";
         case 15:
-            return "SINGLE_TAG_ERROR_BOOLEAN";
+            return "SINGLE_TAG_ERROR";
         case 16:
-            return "VAL01";
+            return "SINGLE_TAG_ERROR_BOOLEAN";
         case 17:
-            return "VAL02";
+            return "VAL01";
         case 18:
-            return "VAL03";
+            return "VAL02";
         case 19:
-            return "VAL04";
+            return "VAL03";
         case 20:
-            return "VAL10";
+            return "VAL04";
         case 21:
-            return "VAL11";
+            return "VAL10";
         case 22:
-            return "VAL12";
+            return "VAL11";
         case 23:
-            return "VAL13";
+            return "VAL12";
         case 24:
-            return "VAL14";
+            return "VAL13";
         case 25:
-            return "VAL20";
+            return "VAL14";
         case 26:
-            return "VAL21";
+            return "VAL20";
         case 27:
-            return "VAL22";
+            return "VAL21";
         case 28:
-            return "VAL23";
+            return "VAL22";
         case 29:
-            return "VAL24";
+            return "VAL23";
         case 30:
-            return "VAL30";
+            return "VAL24";
         case 31:
-            return "VAL31";
+            return "VAL30";
         case 32:
-            return "VAL32";
+            return "VAL31";
         case 33:
-            return "VAL33";
+            return "VAL32";
         case 34:
-            return "VAL34";
+            return "VAL33";
         case 35:
-            return "VAL40";
+            return "VAL34";
         case 36:
-            return "VAL41";
+            return "VAL40";
         case 37:
-            return "VAL42";
+            return "VAL41";
         case 38:
-            return "VAL43";
+            return "VAL42";
         case 39:
+            return "VAL43";
+        case 40:
             return "VAL44";
         }
         return std::to_string(index);
@@ -413,32 +422,33 @@ template <typename FF> class keccak_memory : public Relation<keccak_memoryImpl<F
     static constexpr size_t SR_TAG_ERROR_PROPAGATION = 11;
     static constexpr size_t SR_MEM_ADDR_INCREMENT = 12;
     static constexpr size_t SR_SPACEID_PROPAGATION = 13;
-    static constexpr size_t SR_SINGLE_TAG_ERROR = 14;
-    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 15;
-    static constexpr size_t SR_VAL01 = 16;
-    static constexpr size_t SR_VAL02 = 17;
-    static constexpr size_t SR_VAL03 = 18;
-    static constexpr size_t SR_VAL04 = 19;
-    static constexpr size_t SR_VAL10 = 20;
-    static constexpr size_t SR_VAL11 = 21;
-    static constexpr size_t SR_VAL12 = 22;
-    static constexpr size_t SR_VAL13 = 23;
-    static constexpr size_t SR_VAL14 = 24;
-    static constexpr size_t SR_VAL20 = 25;
-    static constexpr size_t SR_VAL21 = 26;
-    static constexpr size_t SR_VAL22 = 27;
-    static constexpr size_t SR_VAL23 = 28;
-    static constexpr size_t SR_VAL24 = 29;
-    static constexpr size_t SR_VAL30 = 30;
-    static constexpr size_t SR_VAL31 = 31;
-    static constexpr size_t SR_VAL32 = 32;
-    static constexpr size_t SR_VAL33 = 33;
-    static constexpr size_t SR_VAL34 = 34;
-    static constexpr size_t SR_VAL40 = 35;
-    static constexpr size_t SR_VAL41 = 36;
-    static constexpr size_t SR_VAL42 = 37;
-    static constexpr size_t SR_VAL43 = 38;
-    static constexpr size_t SR_VAL44 = 39;
+    static constexpr size_t SR_CLK_PROPAGATION = 14;
+    static constexpr size_t SR_SINGLE_TAG_ERROR = 15;
+    static constexpr size_t SR_SINGLE_TAG_ERROR_BOOLEAN = 16;
+    static constexpr size_t SR_VAL01 = 17;
+    static constexpr size_t SR_VAL02 = 18;
+    static constexpr size_t SR_VAL03 = 19;
+    static constexpr size_t SR_VAL04 = 20;
+    static constexpr size_t SR_VAL10 = 21;
+    static constexpr size_t SR_VAL11 = 22;
+    static constexpr size_t SR_VAL12 = 23;
+    static constexpr size_t SR_VAL13 = 24;
+    static constexpr size_t SR_VAL14 = 25;
+    static constexpr size_t SR_VAL20 = 26;
+    static constexpr size_t SR_VAL21 = 27;
+    static constexpr size_t SR_VAL22 = 28;
+    static constexpr size_t SR_VAL23 = 29;
+    static constexpr size_t SR_VAL24 = 30;
+    static constexpr size_t SR_VAL30 = 31;
+    static constexpr size_t SR_VAL31 = 32;
+    static constexpr size_t SR_VAL32 = 33;
+    static constexpr size_t SR_VAL33 = 34;
+    static constexpr size_t SR_VAL34 = 35;
+    static constexpr size_t SR_VAL40 = 36;
+    static constexpr size_t SR_VAL41 = 37;
+    static constexpr size_t SR_VAL42 = 38;
+    static constexpr size_t SR_VAL43 = 39;
+    static constexpr size_t SR_VAL44 = 40;
 };
 
 } // namespace bb::avm2
