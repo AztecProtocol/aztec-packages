@@ -12,7 +12,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
+  "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {
   SignatureDomainSeparator, CommitteeAttestation
 } from "@aztec/shared/libraries/SignatureLib.sol";

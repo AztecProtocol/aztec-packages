@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {
   AttesterView, Exit, Status, AttesterConfig
-} from "@aztec/core/libraries/staking/StakingLib.sol";
+} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {
   AppendOnlyTreeSnapshot,
   PartialStateReference,

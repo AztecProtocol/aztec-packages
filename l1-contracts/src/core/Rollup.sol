@@ -25,7 +25,7 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";

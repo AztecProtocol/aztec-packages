@@ -6,7 +6,7 @@ import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {
   SignatureLib, Signature, CommitteeAttestation
