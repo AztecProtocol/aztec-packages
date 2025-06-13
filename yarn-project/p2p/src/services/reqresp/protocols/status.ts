@@ -89,6 +89,7 @@ export function reqRespStatusHandler(
       compressedComponentsVersion,
       (await worldStateSynchronizer.status()).syncSummary,
     );
-    return Promise.resolve(status.toBuffer());
+
+    return status.toBuffer();
   };
 }
