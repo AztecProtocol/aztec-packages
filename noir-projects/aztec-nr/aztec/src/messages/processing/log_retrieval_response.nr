@@ -6,9 +6,10 @@ use protocol_types::{
 global MAX_LOG_CONTENT_LEN: u32 =
     std::cmp::max(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
 
-/// The payload of a log (i.e. the content minus the tag, called plaintext for public logs and ciphertext for private),
-/// plus contextual information about the transaction in which the log was emitted. This is the data required in order
-/// to discover notes that are being delivered in a log.
+/// A response to a `LogRetrievalRequest`, containing the payload of a log (i.e. the content minus the tag, called
+/// plaintext for public logs and ciphertext for private), plus contextual information about the transaction in which
+/// the log was emitted. This is the data required in order to discover notes that are being delivered in a log.
+// TODO(#15053): make this be an Option
 #[derive(Deserialize, Eq)]
 pub(crate) struct LogRetrievalResponse {
     pub log_payload: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
