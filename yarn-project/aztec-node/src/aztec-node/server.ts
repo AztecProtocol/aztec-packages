@@ -29,7 +29,13 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, TxCollector, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import {
+  type P2P,
+  type P2PClientDeps,
+  TxCollector,
+  createP2PClient,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   BlockBuilder,
@@ -167,9 +173,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
+      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
+      dontStartSequencer?: boolean;
     } = {},
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
@@ -248,6 +256,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       packageVersion,
       telemetry,
+      deps.p2pClientDeps,
     );
 
     // Start world state and wait for it to sync to the archiver.
@@ -346,6 +355,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobSinkClient,
       });
+    }
+
+    if (!options.dontStartSequencer && sequencer) {
+      await sequencer.start();
+      log.verbose(`Sequencer started`);
     }
 
     return new AztecNodeService(

@@ -7,17 +7,18 @@ import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import type { Multiaddr } from '@multiformats/multiaddr';
+import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
 import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
+import type { PeerManagerInterface } from './interface.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
@@ -40,7 +41,7 @@ type TimedOutPeer = {
   timeoutUntilMs: number;
 };
 
-export class PeerManager {
+export class PeerManager implements PeerManagerInterface {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
@@ -58,7 +59,7 @@ export class PeerManager {
   };
 
   constructor(
-    private libP2PNode: PubSubLibp2p,
+    private libP2PNode: Libp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     telemetryClient: TelemetryClient,
