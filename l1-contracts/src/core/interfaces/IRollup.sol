@@ -6,7 +6,7 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -14,9 +14,10 @@ import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/r
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 
 struct PublicInputArgs {
   bytes32 previousArchive;
@@ -135,7 +136,7 @@ interface IRollupCore {
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 }
 
-interface IRollup is IRollupCore {
+interface IRollup is IRollupCore, IHaveVersion {
   function validateHeader(
     ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
@@ -222,7 +223,6 @@ interface IRollup is IRollupCore {
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
-  function getVersion() external view returns (uint256);
 
   function getRewardConfig() external view returns (RewardConfig memory);
 }

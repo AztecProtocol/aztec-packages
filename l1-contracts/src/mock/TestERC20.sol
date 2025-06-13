@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Ownable} from "@oz/access/Ownable.sol";
 import {ERC20} from "@oz/token/ERC20/ERC20.sol";
-import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 
 contract TestERC20 is ERC20, IMintableERC20, Ownable {
   mapping(address minter => bool isMinter) public minters;

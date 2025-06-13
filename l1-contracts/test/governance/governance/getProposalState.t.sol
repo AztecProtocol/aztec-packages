@@ -4,13 +4,13 @@ pragma solidity >=0.8.27;
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 import {GovernanceBase} from "./base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract GetProposalStateTest is GovernanceBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
   using stdStorage for StdStorage;
 
   function test_WhenProposalIsOutOfBounds(uint256 _index) external {
@@ -40,8 +40,8 @@ contract GetProposalStateTest is GovernanceBase {
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     governance.execute(proposalId);
 
-    assertEq(proposal.state, DataStructures.ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executed);
+    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executed);
   }
 
   function test_GivenStateIsDropped(address _governanceProposer)
@@ -52,20 +52,20 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Dropped
     _stateDropped("empty", _governanceProposer);
 
-    assertEq(proposal.state, DataStructures.ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
 
     governance.dropProposal(proposalId);
 
-    DataStructures.Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, DataStructures.ProposalState.Dropped);
+    Proposal memory fresh = governance.getProposal(proposalId);
+    assertEq(fresh.state, ProposalState.Dropped);
   }
 
   modifier givenStateIsUnstable() {
     _;
 
-    DataStructures.Proposal memory fresh = governance.getProposal(proposalId);
-    assertEq(fresh.state, DataStructures.ProposalState.Pending);
+    Proposal memory fresh = governance.getProposal(proposalId);
+    assertEq(fresh.state, ProposalState.Pending);
   }
 
   function test_GivenGovernanceProposerHaveChanged(address _governanceProposer)
@@ -76,8 +76,8 @@ contract GetProposalStateTest is GovernanceBase {
     // it return Dropped
     _stateDropped("empty", _governanceProposer);
 
-    assertEq(proposal.state, DataStructures.ProposalState.Pending);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Dropped);
+    assertEq(proposal.state, ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Dropped);
   }
 
   modifier givenGovernanceProposerIsUnchanged() {
@@ -96,7 +96,7 @@ contract GetProposalStateTest is GovernanceBase {
     uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.pendingThrough()));
     vm.warp(time);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Pending);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Pending);
   }
 
   modifier whenVotingDelayHavePassed() {
@@ -116,7 +116,7 @@ contract GetProposalStateTest is GovernanceBase {
     uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.activeThrough()));
     vm.warp(time);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Active);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Active);
   }
 
   modifier whenVotingDurationHavePassed() {
@@ -137,7 +137,7 @@ contract GetProposalStateTest is GovernanceBase {
     uint256 totalPower = governance.totalPowerAt(Timestamp.wrap(block.timestamp));
     (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
     assertEq(vtr, VoteTabulationReturn.Rejected, "invalid return value");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
   function test_GivenVoteTabulationIsInvalid(
@@ -167,7 +167,7 @@ contract GetProposalStateTest is GovernanceBase {
     proposal = governance.getProposal(proposalId);
     (VoteTabulationReturn vtr,) = proposal.voteTabulation(totalPower);
     assertEq(vtr, VoteTabulationReturn.Invalid, "invalid return value");
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Rejected);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Rejected);
   }
 
   modifier givenVoteTabulationIsAccepted(
@@ -199,7 +199,7 @@ contract GetProposalStateTest is GovernanceBase {
     uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.queuedThrough()));
     vm.warp(time);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Queued);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
   }
 
   modifier givenExecutionDelayHavePassed() {
@@ -227,7 +227,7 @@ contract GetProposalStateTest is GovernanceBase {
     uint256 time = bound(_timeJump, block.timestamp, Timestamp.unwrap(proposal.executableThrough()));
     vm.warp(time);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executable);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
   }
 
   function test_GivenGracePeriodHavePassed(
@@ -247,6 +247,6 @@ contract GetProposalStateTest is GovernanceBase {
   {
     // it return Expired
     vm.warp(Timestamp.unwrap(proposal.executableThrough()) + 1);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Expired);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Expired);
   }
 }

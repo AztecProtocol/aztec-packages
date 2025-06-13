@@ -16,7 +16,7 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
@@ -28,7 +28,7 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";

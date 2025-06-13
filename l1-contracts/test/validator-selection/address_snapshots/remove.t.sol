@@ -4,11 +4,10 @@ pragma solidity >=0.8.27;
 
 import {
   AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+  SnapshottedAddressSet,
+  AddressSnapshotLib__IndexOutOfBounds
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
@@ -37,9 +36,7 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     assertTrue(validatorSet.remove(address(1)));
     assertEq(validatorSet.length(), 0);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts2);
 
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts), address(1));
@@ -48,9 +45,7 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
   function test_WhenValidatorRemovingAnIndexLargerThanTheCurrentLength() public {
     // It reverts
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.remove(0);
 
     // Add some validators
@@ -58,9 +53,7 @@ contract AddressSnapshotRemoveTest is AddressSnapshotsBase {
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 10, 3)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 10, 3));
     validatorSet.remove(10);
   }
 

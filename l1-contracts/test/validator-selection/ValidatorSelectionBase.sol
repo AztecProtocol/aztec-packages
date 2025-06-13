@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";

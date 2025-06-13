@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 
 contract FakeRegistry {
   function getGovernance() external pure returns (address) {

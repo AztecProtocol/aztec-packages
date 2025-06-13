@@ -2,7 +2,6 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
@@ -24,6 +23,9 @@ struct Index {
   bool exists;
   uint224 index;
 }
+
+// AddressSnapshotLib
+error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
 
 /**
  * @title AddressSnapshotLib
@@ -96,7 +98,7 @@ library AddressSnapshotLib {
   {
     uint224 size = _self.size.latest();
     if (_index >= size) {
-      revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
+      revert AddressSnapshotLib__IndexOutOfBounds(_index, size);
     }
 
     // To remove from the list, we push the last item into the index and reduce the size
@@ -146,7 +148,7 @@ library AddressSnapshotLib {
     uint32 _timestamp
   ) internal view returns (address) {
     uint256 size = lengthAtTimestamp(_self, _timestamp);
-    require(_index < size, Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size));
+    require(_index < size, AddressSnapshotLib__IndexOutOfBounds(_index, size));
 
     uint224 addr = _self.checkpoints[_index].upperLookup(_timestamp);
     return address(addr.toUint160());

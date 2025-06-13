@@ -2,15 +2,16 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "./base.t.sol";
-import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
+import {
+  IGovernance, Configuration, Withdrawal
+} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
 
 contract FinaliseWithdrawTest is GovernanceBase {
-  using ConfigurationLib for DataStructures.Configuration;
+  using ConfigurationLib for Configuration;
 
   uint256 internal constant WITHDRAWAL_COUNT = 8;
   mapping(address => uint256) internal sums;
@@ -67,7 +68,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
     uint256 withdrawalCount = governance.withdrawalCount();
     for (uint256 i = 0; i < withdrawalCount; i++) {
-      DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(i);
+      Withdrawal memory withdrawal = governance.getWithdrawal(i);
       vm.warp(Timestamp.unwrap(withdrawal.unlocksAt));
       governance.finaliseWithdraw(i);
     }
@@ -97,7 +98,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
     uint256 withdrawalCount = governance.withdrawalCount();
     for (uint256 i = 0; i < withdrawalCount; i++) {
-      DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(i);
+      Withdrawal memory withdrawal = governance.getWithdrawal(i);
       if (Timestamp.unwrap(withdrawal.unlocksAt) <= block.timestamp) {
         continue;
       }
@@ -138,7 +139,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
 
     uint256 withdrawalCount = governance.withdrawalCount();
     for (uint256 i = 0; i < withdrawalCount; i++) {
-      DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(i);
+      Withdrawal memory withdrawal = governance.getWithdrawal(i);
 
       uint256 upper = i + 1 == withdrawalCount
         ? type(uint64).max
@@ -151,7 +152,7 @@ contract FinaliseWithdrawTest is GovernanceBase {
       emit IGovernance.WithdrawFinalised(i);
       governance.finaliseWithdraw(i);
 
-      DataStructures.Withdrawal memory withdrawal2 = governance.getWithdrawal(i);
+      Withdrawal memory withdrawal2 = governance.getWithdrawal(i);
       assertTrue(withdrawal2.claimed);
 
       sum -= withdrawal.amount;

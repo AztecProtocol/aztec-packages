@@ -6,7 +6,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";

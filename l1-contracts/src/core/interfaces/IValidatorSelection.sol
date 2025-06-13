@@ -2,8 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
@@ -18,9 +19,7 @@ interface IValidatorSelectionCore {
   function setupSeedSnapshotForNextEpoch() external;
 }
 
-interface IValidatorSelection is IValidatorSelectionCore {
-  // Likely changing to optimize in Pleistarchus
-  function getCurrentProposer() external returns (address);
+interface IValidatorSelection is IValidatorSelectionCore, IEmporer {
   function getProposerAt(Timestamp _ts) external returns (address);
 
   // Non view as uses transient storage
@@ -31,7 +30,6 @@ interface IValidatorSelection is IValidatorSelectionCore {
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
-  function getCurrentSlot() external view returns (Slot);
 
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);
