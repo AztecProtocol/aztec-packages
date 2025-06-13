@@ -86,12 +86,10 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         range_check.assert_range(dst_abs_diff, AVM_MEMORY_NUM_BITS);
 
         if (src_out_of_range) {
-            vinfo("Read slice out of range: ", src_addr);
-            throw KeccakF1600Exception();
+            throw KeccakF1600Exception(format("Read slice out of range: ", src_addr));
         }
         if (dst_out_of_range) {
-            vinfo("Write slice out of range: ", dst_addr);
-            throw KeccakF1600Exception();
+            throw KeccakF1600Exception(format("Write slice out of range: ", dst_addr));
         }
 
         // We work with MemoryValue as this type is required for bitwise operations handled
@@ -115,8 +113,8 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
                     keccakf1600_event.tag_error = true;
                     keccakf1600_event.src_mem_values = src_mem_values;
 
-                    vinfo("Read slice tag invalid - addr: ", addr, "tag: ", std::to_string(tag));
-                    throw KeccakF1600Exception();
+                    throw KeccakF1600Exception(
+                        format("Read slice tag invalid - addr: ", addr, " tag: ", static_cast<uint8_t>(tag)));
                 }
             }
         }
@@ -127,7 +125,7 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
 
         std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds_data;
 
-        for (uint8_t round = 1; round <= AVM_KECCAKF1600_NUM_ROUNDS; round++) {
+        for (uint8_t round_idx = 0; round_idx < AVM_KECCAKF1600_NUM_ROUNDS; round_idx++) {
             std::array<std::array<MemoryValue, 4>, 5> theta_xor_values;
 
             // Theta xor computations
@@ -207,10 +205,9 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
             // state iota_00 value
             // Recall that round starts with 1
             MemoryValue iota_00_value =
-                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round - 1]));
+                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round_idx]));
 
-            rounds_data[round - 1] = {
-                .round = round,
+            rounds_data[round_idx] = {
                 .state = two_dim_array_to_uint64(state_input_values),
                 .theta_xor = two_dim_array_to_uint64(theta_xor_values),
                 .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
@@ -237,9 +234,9 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         keccakf1600_event.rounds = rounds_data;
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
 
-    } catch (const KeccakF1600Exception&) {
+    } catch (const KeccakF1600Exception& e) {
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
-        throw KeccakF1600Exception();
+        throw e;
     }
 }
 
