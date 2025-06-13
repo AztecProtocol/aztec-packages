@@ -2,6 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.27;
 
+/**
+ * @notice The domain separator for the signatures
+ */
+enum SignatureDomainSeparator {
+  blockProposal,
+  blockAttestation
+}
+
 // Attestation Signature
 struct Signature {
   uint8 v;
@@ -15,14 +23,6 @@ struct Signature {
 struct CommitteeAttestation {
   address addr;
   Signature signature;
-}
-
-/**
- * @notice The domain separator for the signatures
- */
-enum SignatureDomainSeparator {
-  blockProposal,
-  blockAttestation
 }
 
 error SignatureLib__InvalidSignature(address, address);

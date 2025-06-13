@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 library ConfigurationLib {
   uint256 internal constant QUORUM_LOWER = 1;

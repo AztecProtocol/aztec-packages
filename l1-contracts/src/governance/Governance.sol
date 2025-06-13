@@ -2,7 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {
   IGovernance,
   Proposal,
@@ -17,6 +16,7 @@ import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib, VoteTabulationReturn} from "@aztec/governance/libraries/ProposalLib.sol";
 import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 

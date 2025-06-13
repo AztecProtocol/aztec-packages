@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {IEmpire, IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slot, SlotLib} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";

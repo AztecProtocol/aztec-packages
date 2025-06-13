@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
-import {IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set

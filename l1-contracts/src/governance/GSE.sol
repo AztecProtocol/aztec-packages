@@ -2,16 +2,16 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
-import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
-import {Governance} from "@aztec/governance/Governance.sol";
-import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";

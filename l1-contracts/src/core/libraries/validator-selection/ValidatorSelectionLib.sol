@@ -5,12 +5,12 @@ pragma solidity >=0.8.27;
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {ValidatorSelectionStorage} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
-import {
-  SignatureLib, Signature, CommitteeAttestation
-} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {
+  SignatureLib, Signature, CommitteeAttestation
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";

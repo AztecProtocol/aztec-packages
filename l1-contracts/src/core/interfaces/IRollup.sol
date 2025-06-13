@@ -6,7 +6,6 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -14,10 +13,11 @@ import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/r
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct PublicInputArgs {
   bytes32 previousArchive;

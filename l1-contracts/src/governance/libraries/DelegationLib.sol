@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 struct AttesterDelegationData {
   uint256 balance;

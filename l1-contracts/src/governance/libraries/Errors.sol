@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 /**
  * @title Errors Library

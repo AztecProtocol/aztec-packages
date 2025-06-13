@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {ICoinIssuer} from "@aztec/governance/interfaces/ICoinIssuer.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
