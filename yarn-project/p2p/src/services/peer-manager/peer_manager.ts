@@ -168,7 +168,9 @@ export class PeerManager implements PeerManagerInterface {
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
     }
-    void this.exchangeStatusHandshake(peerId);
+    if (!this.config.p2pDisableStatusHandshake) {
+      void this.exchangeStatusHandshake(peerId);
+    }
   }
 
   /**
