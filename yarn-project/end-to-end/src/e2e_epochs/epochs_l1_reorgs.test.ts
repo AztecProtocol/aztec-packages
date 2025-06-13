@@ -72,7 +72,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
     // Wait until we have proven something and the nodes have caught up
     logger.warn(`Waiting for initial proof to land`);
-    const provenBlockEvent = await executeTimeout(async signal => {
+    const provenBlockEvent = await executeTimeout(signal => {
       return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
         const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
           res(ev);
