@@ -15,7 +15,7 @@ import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
-import {Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
@@ -35,7 +35,6 @@ import {stdStorage, StdStorage} from "forge-std/Test.sol";
  */
 contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
   using stdStorage for StdStorage;
 
   struct StructToAvoidDeepStacks {

@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {IEmpire, IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
-import {Slot, SlotLib} from "@aztec/shared/libraries/TimeMath.sol";
+import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
@@ -18,7 +18,6 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
 abstract contract EmpireBase is EIP712, IEmpire {
-  using SlotLib for Slot;
   using SignatureLib for Signature;
 
   struct RoundAccounting {
@@ -156,7 +155,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
-    return _slot.unwrap() / M;
+    return Slot.unwrap(_slot) / M;
   }
 
   // Virtual functions

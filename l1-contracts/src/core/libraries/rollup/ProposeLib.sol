@@ -10,9 +10,8 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {
   SignatureDomainSeparator, CommitteeAttestation
 } from "@aztec/shared/libraries/SignatureLib.sol";
