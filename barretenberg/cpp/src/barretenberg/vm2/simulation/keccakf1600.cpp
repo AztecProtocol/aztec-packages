@@ -115,7 +115,7 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
                     keccakf1600_event.src_mem_values = src_mem_values;
 
                     throw KeccakF1600Exception(
-                        format("Read slice tag invalid - addr: ", addr, " tag: ", static_cast<uint8_t>(tag)));
+                        format("Read slice tag invalid - addr: ", addr, " tag: ", static_cast<uint32_t>(tag)));
                 }
             }
         }
