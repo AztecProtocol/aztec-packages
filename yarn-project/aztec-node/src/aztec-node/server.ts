@@ -747,11 +747,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [index] = await committedDb.findLeafIndices(MerkleTreeId.ARCHIVE, [archive]);
-    if (index === undefined) {
-      return undefined;
-    }
-    return MembershipWitness.fromSiblingPath(index, await committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, index));
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE, typeof ARCHIVE_HEIGHT>(
+      MerkleTreeId.ARCHIVE,
+      [archive],
+    );
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
   public async getNoteHashMembershipWitness(
@@ -759,14 +761,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [index] = await committedDb.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
-    if (index === undefined) {
-      return undefined;
-    }
-    return MembershipWitness.fromSiblingPath(
-      index,
-      await committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, index),
-    );
+    const [pathAndIndex] = await committedDb.findSiblingPaths<
+      MerkleTreeId.NOTE_HASH_TREE,
+      typeof NOTE_HASH_TREE_HEIGHT
+    >(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
   /**
