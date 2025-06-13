@@ -247,6 +247,17 @@ export class TXEService {
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
   }
 
+  async getTimestamp() {
+    if (!this.oraclesEnabled) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
+  }
+
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
   storeInExecutionCache(_length: ForeignCallSingle, values: ForeignCallArray, hash: ForeignCallSingle) {
     if (!this.oraclesEnabled) {

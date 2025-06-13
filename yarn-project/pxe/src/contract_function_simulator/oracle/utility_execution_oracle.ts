@@ -10,6 +10,7 @@ import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from 
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { pickNotes } from '../pick_notes.js';
@@ -33,6 +34,10 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override getBlockNumber(): Promise<number> {
     return this.executionDataProvider.getBlockNumber();
+  }
+
+  public override getTimestamp(): Promise<UInt64> {
+    return this.executionDataProvider.getTimestamp();
   }
 
   public override getContractAddress(): Promise<AztecAddress> {

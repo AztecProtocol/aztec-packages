@@ -147,7 +147,7 @@ import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_so
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
-  private timestamp = 1;
+  private timestamp = 1n;
   private sideEffectCounter = 0;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
