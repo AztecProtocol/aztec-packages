@@ -217,13 +217,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
-    // const auto add_zk_option = [&](CLI::App* subcommand) {
-    //     return subcommand->add_flag("--zk",
-    //                                 flags.zk,
-    //                                 "Use a zk version of --scheme, if available. This flag is deprecated and will be
-    //                                 " "removed in the future. It is set to true by default.");
-    // };
-
     const auto remove_zk_option = [&](CLI::App* subcommand) {
         return subcommand->add_flag("--disable_zk",
                                     flags.disable_zk,
