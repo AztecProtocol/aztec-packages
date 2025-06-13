@@ -746,6 +746,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     const maybeLogRetrievalResponses = await Promise.all(
       logRetrievalRequests.map(async request => {
+        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
           this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
           this.getPrivateLogByTag(await poseidon2Hash([request.contractAddress, request.unsiloedTag])),
@@ -753,7 +754,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
         if (publicLog !== null) {
           if (privateLog !== null) {
-            throw new Error('found both');
+            throw new Error(
+              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+            );
           }
 
           return new LogRetrievalResponse(
@@ -778,6 +781,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // Requests are cleared once we're done.
     await this.capsuleDataProvider.resetCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
 
+    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
     await this.capsuleDataProvider.resetCapsuleArray(
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
@@ -822,6 +826,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
+  // TODO(#14555): delete this function and implement this behavior in the node instead
   async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
@@ -855,6 +860,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
+  // TODO(#14555): delete this function and implement this behavior in the node instead
   async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
     const logs = await this.#getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];

@@ -4,11 +4,10 @@ use crate::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         processing::{
-            enqueue_note_for_validation, log_retrieval_request::LogRetrievalRequest,
+            enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
             log_retrieval_response::LogRetrievalResponse,
         },
     },
-    oracle,
     utils::array,
 };
 
@@ -29,14 +28,6 @@ pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
-);
-
-global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
-);
-
-global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
@@ -76,9 +67,9 @@ pub unconstrained fn process_partial_note_private_msg(
         .push(pending);
 }
 
-/// Searches for public logs that would result in the completion of pending partial notes, ultimately resulting in the
-/// notes being delivered to PXE if completed.
-pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
+/// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
+/// being delivered to PXE if completed.
+pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
@@ -92,25 +83,17 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
         [pending_partial_notes.len() as Field],
     );
 
-    pending_partial_notes.for_each(|_, pending_partial_note: DeliveredPendingPartialNote| {
-        CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT).push(
-            LogRetrievalRequest {
-                contract_address,
-                unsiloed_tag: pending_partial_note.note_completion_log_tag,
-            },
-        );
-    });
+    let maybe_completion_logs =
+        get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
-    oracle::message_processing::bulk_retrieve_logs(
-        contract_address,
-        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
-        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
-    );
+    maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
+        // We clear the completion logs as we read them so that the array is empty by the time we next query it.
+        // TODO(#14943): use volatile arrays to avoid having to manually clear this.
+        maybe_completion_logs.remove(i);
 
-    let responses = CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT);
-    responses.for_each(|i, maybe_log: Option<_>| {
-        responses.remove(i);
-
+        // Note that we're reading an entry from the pending partial notes array using an index from the maybe
+        // completion logs array. This only works because these arrays are related: each log corresponds to the pending
+        // partial note at the same index.
         let pending_partial_note = pending_partial_notes.get(i);
 
         if maybe_log.is_none() {
@@ -127,7 +110,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 "Completion log found for partial note with tag {}",
                 [pending_partial_note.note_completion_log_tag],
             );
-            let log: LogRetrievalResponse = maybe_log.unwrap();
+            let log = maybe_log.unwrap();
 
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
             // private and public packed fields (i.e. the contents of the private message and public log plaintext to get

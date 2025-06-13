@@ -4,7 +4,7 @@ use protocol_types::{address::AztecAddress, traits::Serialize};
 pub(crate) struct LogRetrievalRequest {
     pub contract_address: AztecAddress,
     pub unsiloed_tag: Field,
-    // TODO: choose source: public, private or either
+    // TODO(#15052): choose source: public, private or either (current behavior)
 }
 
 mod test {
