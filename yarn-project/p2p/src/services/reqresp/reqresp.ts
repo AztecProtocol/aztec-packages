@@ -690,9 +690,16 @@ export class ReqResp implements ReqRespInterface {
         errorStatus = e.status;
       }
 
-      if (stream.status === 'open') {
+      const canWriteToStream =
+        stream.status === 'open' && (stream.writeStatus === 'writing' || stream.writeStatus === 'ready');
+      if (!canWriteToStream) {
+        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+        return;
+      }
+
+      // Return and yield the response chunk
+      try {
         const sendErrorChunk = this.sendErrorChunk(errorStatus);
-        // Return and yield the response chunk
         await pipe(
           stream,
           async function* (_source: any) {
@@ -700,15 +707,11 @@ export class ReqResp implements ReqRespInterface {
           },
           stream,
         );
-      } else {
-        this.logger.debug('Stream already closed, not sending error response', { protocol, err: e, errorStatus });
+      } catch (e: any) {
+        this.logger.warn('Error while sending error response', { protocol, err: e, errorStatus });
       }
     } finally {
-      //NOTE: All other status codes indicate closed stream.
-      //Either graceful close (closed/closing) or forced close (aborted/reset)
-      if (stream.status === 'open') {
-        await stream.close();
-      }
+      await stream.close();
     }
   }
 
