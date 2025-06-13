@@ -17,12 +17,12 @@ include "constants_gen.pil";
 // This gadget reads the shared mutable hash, and requires the metadata, pre and post to be passed as hints.
 // NOTE: if hash is zero, then the shared mutable has never been written to. In that case no update applies (current_class_id = original_class_id)
 // Once we constrain the read, we truncate the metadata to 32 bits and compare it with the timestamp.
-// If the current timestamp is less than the timestamp of change, then the update is a future update.
+// If the timestamp is less than the timestamp of change, then the update is a future update.
 // NOTE: zeroes can appear in pre and post. In those cases, zero means original_class_id.
 //
 // Usage:
-// sel { address, current_class_id, original_class_id, public_data_tree_root, current_timestamp }
-// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.current_timestamp };
+// sel { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
+// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
 //
 namespace update_check;
     pol commit sel;
@@ -36,7 +36,7 @@ namespace update_check;
     pol commit current_class_id;
     pol commit original_class_id;
     pol commit public_data_tree_root;
-    pol commit current_timestamp;
+    pol commit timestamp;
 
     // ======== SHARED MUTABLE HASH READ ========
 
@@ -105,20 +105,20 @@ namespace update_check;
     pol TWO_POW_32 = 2**32;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit update_hi_metadata_bit_size;
-    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_BIT_SIZE - update_hi_metadata_bit_size) = 0;
+    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
     // TODO: Remove this as a column when we can lookup with constants
-    pol commit timestamp_bit_size; // 32
-    hash_not_zero * (constants.TIMESTAMP_BIT_SIZE - timestamp_bit_size) = 0;
+    pol commit timestamp_of_change_bit_size; // 32
+    hash_not_zero * (constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - timestamp_of_change_bit_size) = 0;
 
     #[UPDATE_HI_METADATA_RANGE]
     hash_not_zero { update_hi_metadata, update_hi_metadata_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     #[UPDATE_LO_METADATA_RANGE]
-    hash_not_zero { timestamp_of_change, timestamp_bit_size }
+    hash_not_zero { timestamp_of_change, timestamp_of_change_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-    // Overflow safe since update_hi_metadata_bit_size + timestamp_bit_size < field bit size (254)
+    // Overflow safe since update_hi_metadata_bit_size + timestamp_of_change_bit_size < field bit size (254)
     #[UPDATE_METADATA_DECOMPOSITION]
     update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata = 0;
 
@@ -129,12 +129,12 @@ namespace update_check;
     pol commit timestamp_is_lt_timestamp_of_change;
     timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
     pol commit timestamp_of_change_subtraction;
-    pol TIMESTAMP_LT_TIMESTAMP_OF_CHANGE = timestamp_of_change - 1 - current_timestamp;
-    pol TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =  current_timestamp - timestamp_of_change;
+    pol TIMESTAMP_LT_TIMESTAMP_OF_CHANGE = timestamp_of_change - 1 - timestamp;
+    pol TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =  timestamp - timestamp_of_change;
     (TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) * timestamp_is_lt_timestamp_of_change + TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE - timestamp_of_change_subtraction = 0;
 
     #[TIMESTAMP_OF_CHANGE_CMP_RANGE]
-    hash_not_zero { timestamp_of_change_subtraction, timestamp_bit_size }
+    hash_not_zero { timestamp_of_change_subtraction, timestamp_of_change_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     pol commit update_pre_class_id_is_zero;

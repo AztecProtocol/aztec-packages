@@ -42,7 +42,7 @@ void UpdateCheckTraceBuilder::process(
                       { C::update_check_current_class_id, event.current_class_id },
                       { C::update_check_original_class_id, event.original_class_id },
                       { C::update_check_public_data_tree_root, event.public_data_tree_root },
-                      { C::update_check_current_timestamp, event.current_timestamp },
+                      { C::update_check_timestamp, event.current_timestamp },
                       { C::update_check_update_hash, event.update_hash },
                       { C::update_check_update_hash_inv, update_hash_inv },
                       { C::update_check_hash_not_zero, event.update_hash != 0 },
