@@ -19,7 +19,6 @@ pub contract Test {
 
     use dep::aztec::protocol_types::{
         constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_LOG_SIZE_IN_FIELDS},
-        point::Point,
         traits::{Hash, Packable, Serialize},
         utils::arrays::array_concat,
     };
@@ -45,9 +44,7 @@ pub contract Test {
         },
         test::mocks::mock_struct::MockStruct,
     };
-    use dep::token_portal_content_hash_lib::{
-        get_mint_to_private_content_hash, get_mint_to_public_content_hash,
-    };
+    use dep::token_portal_content_hash_lib::get_mint_to_private_content_hash;
     use std::meta::derive;
 
     // We are importing different kinds of notes to test the note type ids
@@ -268,20 +265,6 @@ pub contract Test {
         context.set_as_fee_payer();
     }
 
-    // Purely exists for testing
-    #[public]
-    fn create_l2_to_l1_message_public(
-        amount: Field,
-        secret_hash: Field,
-        portal_address: EthAddress,
-    ) {
-        // Create a commitment to the amount
-        let note = DummyNote::new(amount, secret_hash);
-
-        // Public oracle call to emit new commitment.
-        context.message_portal(portal_address, note.get_commitment());
-    }
-
     #[public]
     fn create_l2_to_l1_message_arbitrary_recipient_public(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
@@ -344,14 +327,6 @@ pub contract Test {
         }
     }
 
-    // docs:start:is-time-equal
-    #[public]
-    fn is_time_equal(time: u64) -> u64 {
-        assert(context.timestamp() == time);
-        time
-    }
-    // docs:end:is-time-equal
-
     #[public]
     fn emit_public(value: Field) {
         // docs:start:emit_public
@@ -359,19 +334,6 @@ pub contract Test {
         context.emit_public_log(/*message=*/ [10, 20, 30]);
         context.emit_public_log(/*message=*/ "Hello, world!");
         // docs:end:emit_public
-    }
-
-    #[public]
-    fn consume_mint_to_public_message(
-        to: AztecAddress,
-        amount: u128,
-        secret: Field,
-        message_leaf_index: Field,
-        portal_address: EthAddress,
-    ) {
-        let content_hash = get_mint_to_public_content_hash(to, amount);
-        // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, portal_address, message_leaf_index);
     }
 
     #[private]
@@ -419,23 +381,6 @@ pub contract Test {
         assert(context.version() == version, "Invalid version");
     }
 
-    #[public]
-    fn assert_public_global_vars(
-        chain_id: Field,
-        version: Field,
-        block_number: u32,
-        timestamp: u64,
-        fee_per_da_gas: u128,
-        fee_per_l2_gas: u128,
-    ) {
-        assert(context.chain_id() == chain_id, "Invalid chain id");
-        assert(context.version() == version, "Invalid version");
-        assert(context.block_number() == block_number, "Invalid block number");
-        assert(context.timestamp() == timestamp, "Invalid timestamp");
-        assert(context.fee_per_da_gas() == fee_per_da_gas, "Invalid fee per da gas");
-        assert(context.fee_per_l2_gas() == fee_per_l2_gas, "Invalid fee per l2 gas");
-    }
-
     #[private]
     fn assert_header_private(header_hash: Field) {
         assert(context.historical_header.hash() == header_hash, "Invalid header hash");
@@ -450,11 +395,6 @@ pub contract Test {
     #[private]
     fn deploy_contract(target: AztecAddress) {
         aztec_deploy_contract(&mut context, target);
-    }
-
-    #[private]
-    fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
-        assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
 
     #[derive(Serialize)]
