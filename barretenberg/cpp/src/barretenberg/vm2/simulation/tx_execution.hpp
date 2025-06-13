@@ -17,10 +17,12 @@ class TxExecution final {
     TxExecution(ExecutionInterface& call_execution,
                 ContextProviderInterface& context_provider,
                 HighLevelMerkleDBInterface& merkle_db,
+                FieldGreaterThanInterface& field_gt,
                 EventEmitterInterface<TxEvent>& event_emitter)
         : call_execution(call_execution)
         , context_provider(context_provider)
         , merkle_db(merkle_db)
+        , field_gt(field_gt)
         , events(event_emitter)
     {}
 
@@ -31,6 +33,7 @@ class TxExecution final {
     ContextProviderInterface& context_provider;
     // More things need to be lifted into the tx execution??
     HighLevelMerkleDBInterface& merkle_db;
+    FieldGreaterThanInterface& field_gt;
     EventEmitterInterface<TxEvent>& events;
 
     void insert_non_revertibles(const Tx& tx);

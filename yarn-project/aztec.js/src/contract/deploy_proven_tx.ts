@@ -25,10 +25,8 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
    * Sends the transaction to the network via the provided wallet.
    */
   public override send(): DeploySentTx<TContract> {
-    const promise = (() => {
-      return this.wallet.sendTx(this.getPlainDataTx());
-    })();
+    const sendTx = () => this.wallet.sendTx(this.getPlainDataTx());
 
-    return new DeploySentTx(this.wallet, promise, this.postDeployCtor, this.instanceGetter);
+    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, this.instanceGetter);
   }
 }

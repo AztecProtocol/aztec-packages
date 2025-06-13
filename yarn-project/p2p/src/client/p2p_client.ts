@@ -313,7 +313,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: proposal.blockNumber,
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
@@ -392,8 +392,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return txs;
   }
 
-  public getPendingTxs(): Promise<Tx[]> {
-    return this.getTxs('pending');
+  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+    return this.getTxs('pending', limit, after);
   }
 
   public getPendingTxCount(): Promise<number> {
@@ -411,23 +411,60 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /**
    * Returns all transactions in the transaction pool.
+   * @param filter - The type of txs to return
+   * @param limit - How many txs to return
+   * @param after - If paginating, the last known tx hash. Will return txs after this hash
    * @returns An array of Txs.
    */
-  public async getTxs(filter: 'all' | 'pending' | 'mined'): Promise<Tx[]> {
+  public async getTxs(filter: 'all' | 'pending' | 'mined', limit?: number, after?: TxHash): Promise<Tx[]> {
+    if (limit !== undefined && limit <= 0) {
+      throw new TypeError('limit must be greater than 0');
+    }
+
+    let txs: Tx[] | undefined = undefined;
+    let txHashes: TxHash[];
+
     if (filter === 'all') {
-      return this.txPool.getAllTxs();
+      txs = await this.txPool.getAllTxs();
+      txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     } else if (filter === 'mined') {
-      const minedHashes = await this.txPool.getMinedTxHashes();
-      const minedTx = await Promise.all(minedHashes.map(([txHash]) => this.txPool.getTxByHash(txHash)));
-      return minedTx.filter((tx): tx is Tx => !!tx);
+      const minedTxHashes = await this.txPool.getMinedTxHashes();
+      txHashes = minedTxHashes.map(([txHash]) => txHash);
     } else if (filter === 'pending') {
-      const pendingHashses = await this.txPool.getPendingTxHashes();
-      const pendingTxs = await Promise.all(pendingHashses.map(txHash => this.txPool.getTxByHash(txHash)));
-      return pendingTxs.filter((tx): tx is Tx => !!tx);
+      txHashes = await this.txPool.getPendingTxHashes();
     } else {
       const _: never = filter;
       throw new Error(`Unknown filter ${filter}`);
     }
+
+    let startIndex = 0;
+    let endIndex: number | undefined = undefined;
+
+    if (after) {
+      startIndex = txHashes.findIndex(txHash => after.equals(txHash));
+
+      // if we can't find the last tx in our set then return an empty array as pagination is no longer valid.
+      if (startIndex === -1) {
+        return [];
+      }
+
+      // increment by one because we don't want to return the same tx again
+      startIndex++;
+    }
+
+    if (limit !== undefined) {
+      endIndex = startIndex + limit;
+    }
+
+    txHashes = txHashes.slice(startIndex, endIndex);
+    if (txs) {
+      txs = txs.slice(startIndex, endIndex);
+    } else {
+      const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+      txs = maybeTxs.filter((tx): tx is Tx => !!tx);
+    }
+
+    return txs;
   }
 
   /**
@@ -741,7 +778,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     // Find transactions that reference pruned blocks in their historical header
     for (const tx of await this.txPool.getAllTxs()) {
       // every tx that's been generated against a block that has now been pruned is no longer valid
-      if (tx.data.constants.historicalHeader.globalVariables.blockNumber.toNumber() > latestBlock) {
+      if (tx.data.constants.historicalHeader.globalVariables.blockNumber > latestBlock) {
         const txHash = await tx.getTxHash();
         txsToDelete.set(txHash.toString(), txHash);
       }

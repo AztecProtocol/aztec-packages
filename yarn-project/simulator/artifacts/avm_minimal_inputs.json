@@ -1,16 +1,16 @@
 {
   "hints": {
     "tx": {
-      "hash": "0x1774e16cbff49ed591df1ae01ad34a4c09d6ce32428a6bd862d6147042cd7e05",
+      "hash": "0x1c7bccdff7c7ea7a528c367bfbd30cde2bce5bc5e687fcaa9b92329811be3716",
       "globalVariables": {
         "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "blockNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "blockNumber": 42,
         "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "timestamp": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "timestamp": "99833",
         "coinbase": "0x0000000000000000000000000000000000000000",
         "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "gasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" }
+        "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
       },
       "gasSettings": {
         "gasLimits": { "daGas": 1000000000, "l2Gas": 6000000 },
@@ -18,7 +18,7 @@
         "maxFeesPerGas": { "feePerDaGas": "10", "feePerL2Gas": "10" },
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
-      "effectiveGasFees": { "feePerDaGas": "0", "feePerL2Gas": "0" },
+      "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
@@ -35,7 +35,8 @@
         }
       ],
       "teardownEnqueuedCall": null,
-      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 }
+      "gasUsedByPrivate": { "daGas": 0, "l2Gas": 0 },
+      "feePayer": "0x000000000000000000000000000000000000000000000000000000000000002a"
     },
     "contractInstances": [
       {
@@ -620,13 +621,13 @@
           "nextAvailableLeafIndex": 129
         },
         "stateAfter": {
-          "root": "0x0bba1f256d9a694bb1d5e583e19d0278e4662ad388386a076cda7a7df89018ae",
+          "root": "0x2d99b2a4b04041a4f09149d6e0cb11e8ea9c0b977acf31864a772fe769b830e2",
           "nextAvailableLeafIndex": 129
         },
         "treeId": 2,
         "leaf": {
           "slot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be3af"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be38b"
         },
         "lowLeavesWitnessData": {
           "leaf": {
@@ -859,9 +860,9 @@
     "globalVariables": {
       "chainId": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "version": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "blockNumber": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "blockNumber": 42,
       "slotNumber": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "timestamp": "0x00000000000000000000000000000000000000000000000000000000000185f9",
+      "timestamp": "99833",
       "coinbase": "0x0000000000000000000000000000000000000000",
       "feeRecipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
@@ -1688,11 +1689,11 @@
         "nextAvailableLeafIndex": 193
       },
       "publicDataTree": {
-        "root": "0x0bba1f256d9a694bb1d5e583e19d0278e4662ad388386a076cda7a7df89018ae",
+        "root": "0x2d99b2a4b04041a4f09149d6e0cb11e8ea9c0b977acf31864a772fe769b830e2",
         "nextAvailableLeafIndex": 129
       }
     },
-    "endGasUsed": { "daGas": 0, "l2Gas": 27 },
+    "endGasUsed": { "daGas": 0, "l2Gas": 39 },
     "accumulatedDataArrayLengths": {
       "noteHashes": 64,
       "nullifiers": 64,
@@ -2048,7 +2049,7 @@
       "publicDataWrites": [
         {
           "leafSlot": "0x07f7092a0dcf9bcea5791da60feb1bf4666ad16590d33d1ca86275efb2e7112e",
-          "value": "0x00000000000000000000000000000000000000000000000000000002540be3af"
+          "value": "0x00000000000000000000000000000000000000000000000000000002540be38b"
         },
         {
           "leafSlot": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -2304,7 +2305,7 @@
         }
       ]
     },
-    "transactionFee": "0x0000000000000000000000000000000000000000000000000000000000000051",
+    "transactionFee": "0x0000000000000000000000000000000000000000000000000000000000000075",
     "reverted": false
   }
 }

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 
+#include "barretenberg/vm2/common/addressing.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
@@ -12,15 +13,15 @@ uint32_t compute_addressing_gas(uint16_t indirect_flag)
     uint32_t relative_operand_count = 0;
 
     for (size_t i = 0; i < AVM_MAX_OPERANDS; i++) {
-        if (((indirect_flag >> (i * 2)) & 1) != 0) {
+        if (is_operand_indirect(indirect_flag, i)) {
             indirect_operand_count++;
         }
-        if (((indirect_flag >> (i * 2 + 1)) & 1) != 0) {
+        if (is_operand_relative(indirect_flag, i)) {
             relative_operand_count++;
         }
     }
 
-    return (indirect_operand_count * AVM_ADDRESSING_INDIRECT_L2_GAS) +
+    return AVM_ADDRESSING_BASE_L2_GAS + (indirect_operand_count * AVM_ADDRESSING_INDIRECT_L2_GAS) +
            (relative_operand_count * AVM_ADDRESSING_RELATIVE_L2_GAS);
 }
 

@@ -137,7 +137,8 @@ case "$cmd" in
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    exec bootstrap_ec2 "false"
+    cmd="${1:-false}"
+    exec bootstrap_ec2 "$cmd"
     ;;
   "shell-container")
     # Drop into a shell in the current running build instance container.

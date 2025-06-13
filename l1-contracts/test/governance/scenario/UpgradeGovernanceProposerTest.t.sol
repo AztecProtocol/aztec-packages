@@ -72,7 +72,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.updateGovernance(address(governance));

@@ -1,4 +1,5 @@
 import {
+  AVM_ADDRESSING_BASE_L2_GAS,
   AVM_CALLDATACOPY_BASE_L2_GAS,
   AVM_CALLDATACOPY_DYN_L2_GAS,
   AVM_RETURNDATACOPY_BASE_L2_GAS,
@@ -472,7 +473,7 @@ describe('Memory instructions', () => {
       await new CalldataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*cdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
 
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_CALLDATACOPY_BASE_L2_GAS - AVM_CALLDATACOPY_DYN_L2_GAS * 3,
+        gasBefore - AVM_ADDRESSING_BASE_L2_GAS - AVM_CALLDATACOPY_BASE_L2_GAS - AVM_CALLDATACOPY_DYN_L2_GAS * 3,
       );
     });
   });
@@ -598,7 +599,7 @@ describe('Memory instructions', () => {
       const gasBefore = context.machineState.l2GasLeft;
       await new ReturndataCopy(/*indirect=*/ 0, /*copySize=*/ 1, /*rdOffset=*/ 0, /*dstOffset=*/ 0).execute(context);
       expect(context.machineState.l2GasLeft).toEqual(
-        gasBefore - AVM_RETURNDATACOPY_BASE_L2_GAS - AVM_RETURNDATACOPY_DYN_L2_GAS * size,
+        gasBefore - AVM_ADDRESSING_BASE_L2_GAS - AVM_RETURNDATACOPY_BASE_L2_GAS - AVM_RETURNDATACOPY_DYN_L2_GAS * size,
       );
     });
   });

@@ -68,7 +68,7 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     signal.wait_for_level();
 }
 
-void check_finalised_block_height(TreeType& tree, index_t expected_finalised_block)
+void check_finalised_block_height(TreeType& tree, block_number_t expected_finalised_block)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
@@ -1302,7 +1302,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
         // Now remove the oldest block if outside of the window
         if (i >= windowSize) {
-            const index_t oldestBlock = (i + 1) - windowSize;
+            const block_number_t oldestBlock = (i + 1) - windowSize;
             // trying to remove a block that is not the most historic should fail
             remove_historic_block(tree, oldestBlock + 1, false);
 
@@ -1423,8 +1423,8 @@ void test_unwind(std::string directory,
         check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
         check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
 
-        for (index_t j = 0; j < numBlocks; j++) {
-            index_t historicBlockNumber = j + 1;
+        for (block_number_t j = 0; j < numBlocks; j++) {
+            block_number_t historicBlockNumber = j + 1;
             bool expectedSuccess = historicBlockNumber <= previousValidBlock;
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[j], historicBlockNumber, expectedSuccess);
             index_t maxSizeAtBlock = ((j + 1) * batchSize) - 1;
@@ -1521,7 +1521,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_unwind_empty_
 
     // The first path stored is the genesis state. This effectively makes everything 1 based.
     std::vector<fr_sibling_path> paths(1, memdb.get_sibling_path(0));
-    index_t blockNumber = 0;
+    block_number_t blockNumber = 0;
     uint32_t batchSize = 64;
 
     std::vector<std::vector<fr>> values;
@@ -1618,7 +1618,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_remove_histor
         check_block_height(tree, blockNumber);
     }
 
-    index_t blockToRemove = 1;
+    block_number_t blockToRemove = 1;
 
     while (blockToRemove < blockNumber) {
         finalise_block(tree, blockToRemove + 1);
@@ -1660,7 +1660,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1674,7 +1674,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1689,7 +1689,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1707,7 +1707,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1721,7 +1721,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1754,12 +1754,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
         add_values(tree, to_add);
         commit_tree(tree);
 
-        index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
+        block_number_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
         check_finalised_block_height(tree, expectedFinalisedBlock);
 
         if (i >= finalisedBlockDelay) {
 
-            index_t blockToFinalise = expectedFinalisedBlock + 1;
+            block_number_t blockToFinalise = expectedFinalisedBlock + 1;
 
             // attempting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
@@ -1800,7 +1800,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 }
@@ -1840,7 +1840,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     finalise_block(tree, numBlocks + 1, false);
 
     // finalise the entire chain
-    index_t blockToFinalise = numBlocks;
+    block_number_t blockToFinalise = numBlocks;
 
     finalise_block(tree, blockToFinalise);
 }
@@ -1949,7 +1949,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_blo
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 
@@ -1987,7 +1987,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 

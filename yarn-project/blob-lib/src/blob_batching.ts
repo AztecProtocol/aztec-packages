@@ -7,7 +7,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import cKzg from 'c-kzg';
 
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
-import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from './blob_batching_public_inputs.js';
 
 const { computeKzgProof, verifyKzgProof } = cKzg;
 
@@ -30,10 +29,6 @@ export class BatchedBlob {
 
   /**
    * Get the final batched opening proof from multiple blobs.
-   *
-   * TODO(MW): Using the old Blob struct means there are ignored values (e.g. blob.evaluationY, because we now evaluate at shared z).
-   * When switching to batching, create new class w/o useless values.
-   *
    * @dev MUST input all blobs to be broadcast. Does not work in multiple calls because z and gamma are calculated
    *      beforehand from ALL blobs.
    *
@@ -222,7 +217,6 @@ export class BatchedBlobAccumulator {
    * - gamma_acc := poseidon2(y_0.limbs)
    * - gamma^(i + 1) = gamma^1 = gamma // denoted gamma_pow_acc
    *
-   * TODO(MW): When moved to batching, we should ONLY evaluate individual blobs at z => won't need finalZ input.
    * @returns An initial blob accumulator.
    */
   static async initialize(
@@ -264,7 +258,6 @@ export class BatchedBlobAccumulator {
   /**
    * Given blob i, accumulate all state.
    * We assume the input blob has not been evaluated at z.
-   * TODO(MW): Currently returning new accumulator. May be better to mutate in future?
    * @returns An updated blob accumulator.
    */
   async accumulate(blob: Blob) {
@@ -294,8 +287,8 @@ export class BatchedBlobAccumulator {
    * @returns An updated blob accumulator.
    */
   async accumulateBlobs(blobs: Blob[]) {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    let acc: BatchedBlobAccumulator = this; // TODO(MW): this.clone()
+    // Initialise the acc to iterate over:
+    let acc: BatchedBlobAccumulator = this.clone();
     for (let i = 0; i < blobs.length; i++) {
       acc = await acc.accumulate(blobs[i]);
     }
@@ -336,30 +329,6 @@ export class BatchedBlobAccumulator {
     return new BatchedBlob(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc, this.qAcc);
   }
 
-  /**
-   * Converts to a struct for the public inputs of our rollup circuits.
-   * @returns A BlobAccumulatorPublicInputs instance.
-   */
-  toBlobAccumulatorPublicInputs() {
-    return new BlobAccumulatorPublicInputs(
-      this.blobCommitmentsHashAcc,
-      this.zAcc,
-      this.yAcc,
-      this.cAcc,
-      this.gammaAcc,
-      this.gammaPow,
-    );
-  }
-
-  /**
-   * Converts to a struct for the public inputs of our root rollup circuit.
-   * Warning: MUST be final accumulator state.
-   * @returns A FinalBlobAccumulatorPublicInputs instance.
-   */
-  toFinalBlobAccumulatorPublicInputs() {
-    return new FinalBlobAccumulatorPublicInputs(this.blobCommitmentsHashAcc, this.zAcc, this.yAcc, this.cAcc);
-  }
-
   isEmptyState() {
     return (
       this.blobCommitmentsHashAcc.isZero() &&
@@ -369,6 +338,19 @@ export class BatchedBlobAccumulator {
       this.qAcc.isZero() &&
       this.gammaAcc.isZero() &&
       this.gammaPow.isZero()
+    );
+  }
+
+  clone() {
+    return new BatchedBlobAccumulator(
+      Fr.fromBuffer(this.blobCommitmentsHashAcc.toBuffer()),
+      Fr.fromBuffer(this.zAcc.toBuffer()),
+      BLS12Fr.fromBuffer(this.yAcc.toBuffer()),
+      BLS12Point.fromBuffer(this.cAcc.toBuffer()),
+      BLS12Point.fromBuffer(this.qAcc.toBuffer()),
+      Fr.fromBuffer(this.gammaAcc.toBuffer()),
+      BLS12Fr.fromBuffer(this.gammaPow.toBuffer()),
+      FinalBlobBatchingChallenges.fromBuffer(this.finalBlobChallenges.toBuffer()),
     );
   }
 }

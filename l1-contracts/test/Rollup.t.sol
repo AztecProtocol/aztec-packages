@@ -189,16 +189,12 @@ contract RollupTest is RollupBase {
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
-    // @note  Get the root and min height that we have in the outbox.
+    // @note  Get the root that we have in the outbox.
     //        We read it directly in storage because it is not yet proven, so the getter will give (0, 0).
     //        The values are stored such that we can check that after pruning, and inserting a new block,
     //        we will override it.
     bytes32 rootMixed = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    uint256 minHeightMixed =
-      uint256(vm.load(address(outbox), bytes32(uint256(keccak256(abi.encode(1, 0))) + 1)));
-
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
-    assertNotEq(minHeightMixed, 0, "Invalid min height");
 
     rollup.prune();
     assertEq(inbox.getInProgress(), 3, "Invalid in progress");
@@ -220,11 +216,7 @@ contract RollupTest is RollupBase {
 
     // We check that the roots in the outbox have correctly been updated.
     bytes32 rootEmpty = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
-    uint256 minHeightEmpty =
-      uint256(vm.load(address(outbox), bytes32(uint256(keccak256(abi.encode(1, 0))) + 1)));
-
     assertEq(rootEmpty, bytes32(0), "Invalid root");
-    assertNotEq(minHeightEmpty, 0, "Invalid min height");
   }
 
   function testTimestamp() public setUpFor("mixed_block_1") {
@@ -739,6 +731,31 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
+    ProposeArgs memory args = ProposeArgs({
+      header: header,
+      archive: archive,
+      stateReference: EMPTY_STATE_REFERENCE,
+      oracleInput: OracleInput(0),
+      txHashes: txHashes
+    });
+    rollup.propose(args, attestations, new bytes(144));
+  }
+
+  function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
+    DecoderBase.Data memory data = load("empty_block_1").block;
+    ProposedHeader memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes32[] memory txHashes = new bytes32[](0);
+
+    Timestamp realTs = header.timestamp;
+
+    vm.warp(max(block.timestamp, Timestamp.unwrap(realTs)));
+
+    // Tweak the coinbase.
+    header.coinbase = address(0);
+
+    skipBlobCheck(address(rollup));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidCoinbase.selector));
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,

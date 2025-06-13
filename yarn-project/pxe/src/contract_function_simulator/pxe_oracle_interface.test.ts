@@ -856,7 +856,7 @@ describe('PXEOracleInterface', () => {
   const setSyncedBlockNumber = (blockNumber: number) => {
     return syncDataProvider.setHeader(
       BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+        globalVariables: GlobalVariables.empty({ blockNumber }),
       }),
     );
   };

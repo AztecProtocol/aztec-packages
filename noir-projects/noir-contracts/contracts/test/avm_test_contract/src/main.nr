@@ -393,7 +393,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 
@@ -606,6 +606,17 @@ pub contract AvmTest {
     #[public]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
+
+    // function with large array as calldata (for benchmarking call interface macros)
+    #[public]
+    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+        // do nothing and return...
+        5
+    }
+    #[public]
+    fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
+        AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
     }
 
     /**
