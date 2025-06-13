@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 struct AttesterDelegationData {
   uint256 balance;
@@ -94,7 +94,7 @@ library DelegationLib {
 
     require(
       powerAt >= powerUsed + _amount,
-      Errors.Staking__InsufficientPower(powerAt, powerUsed + _amount)
+      Errors.Delegation__InsufficientPower(_delegatee, powerAt, powerUsed + _amount)
     );
 
     _self.delegateeData[_delegatee].powerUsed[_proposalId] += _amount;

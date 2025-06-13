@@ -8,13 +8,13 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
   "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
+import {SignatureLib, SignatureDomainSeparator} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
@@ -237,6 +237,6 @@ library ProposeLib {
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
+    return keccak256(abi.encode(SignatureDomainSeparator.blockAttestation, _args));
   }
 }

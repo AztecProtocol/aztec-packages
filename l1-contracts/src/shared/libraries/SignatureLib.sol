@@ -2,7 +2,13 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.27;
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+/**
+ * @notice The domain separator for the signatures
+ */
+enum SignatureDomainSeparator {
+  blockProposal,
+  blockAttestation
+}
 
 // Attestation Signature
 struct Signature {
@@ -19,15 +25,9 @@ struct CommitteeAttestation {
   Signature signature;
 }
 
-library SignatureLib {
-  /**
-   * @notice The domain separator for the signatures
-   */
-  enum SignatureDomainSeparator {
-    blockProposal,
-    blockAttestation
-  }
+error SignatureLib__InvalidSignature(address, address);
 
+library SignatureLib {
   /**
    * @notice Verified a signature, throws if the signature is invalid or empty
    *
@@ -41,7 +41,7 @@ library SignatureLib {
     returns (bool)
   {
     address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
-    require(_signer == recovered, Errors.SignatureLib__InvalidSignature(_signer, recovered));
+    require(_signer == recovered, SignatureLib__InvalidSignature(_signer, recovered));
     return true;
   }
 

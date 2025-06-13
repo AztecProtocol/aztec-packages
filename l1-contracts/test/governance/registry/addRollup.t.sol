@@ -7,7 +7,6 @@ import {Ownable} from "@oz/access/Ownable.sol";
 
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 

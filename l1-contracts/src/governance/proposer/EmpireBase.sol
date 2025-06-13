@@ -3,10 +3,9 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {IEmpire, IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Slot, SlotLib} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
@@ -94,7 +93,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmporer selection = IEmporer(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
@@ -144,7 +143,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function getCurrentRound() external view returns (uint256) {
-    IValidatorSelection selection = IValidatorSelection(getInstance());
+    IEmporer selection = IEmporer(getInstance());
     Slot currentSlot = selection.getCurrentSlot();
     return computeRound(currentSlot);
   }
@@ -169,7 +168,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmporer selection = IEmporer(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);

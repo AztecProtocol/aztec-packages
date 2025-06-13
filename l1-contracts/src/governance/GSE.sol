@@ -2,16 +2,16 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {DelegationLib, DelegationData} from "@aztec/core/libraries/staking/DelegationLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {Governance} from "@aztec/governance/Governance.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
+import {DelegationLib, DelegationData} from "@aztec/governance/libraries/DelegationLib.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -98,7 +98,7 @@ contract GSECore is IGSECore, Ownable {
   using SafeCast for uint224;
   using Checkpoints for Checkpoints.Trace224;
   using DelegationLib for DelegationData;
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
   uint256 public constant DEPOSIT_AMOUNT = 100e18;
   uint256 public constant MINIMUM_STAKE = 50e18;
@@ -114,7 +114,7 @@ contract GSECore is IGSECore, Ownable {
   Governance internal governance;
 
   modifier onlyRollup() {
-    require(isRollupRegistered(msg.sender), Errors.Staking__NotRollup(msg.sender));
+    require(isRollupRegistered(msg.sender), Errors.GSE__NotRollup(msg.sender));
     _;
   }
 
@@ -125,7 +125,7 @@ contract GSECore is IGSECore, Ownable {
 
   function setGovernance(Governance _governance) external override(IGSECore) onlyOwner {
     // Once again desparate times calls for desparate measures.
-    require(address(governance) == address(0), Errors.Staking__GovernanceAlreadySet());
+    require(address(governance) == address(0), Errors.GSE__GovernanceAlreadySet());
     governance = _governance;
   }
 
@@ -136,8 +136,8 @@ contract GSECore is IGSECore, Ownable {
    * @param _rollup - The address of the rollup to add
    */
   function addRollup(address _rollup) external override(IGSECore) onlyOwner {
-    require(_rollup != address(0), Errors.Staking__InvalidRollupAddress(_rollup));
-    require(!instances[_rollup].exists, Errors.Staking__RollupAlreadyRegistered(_rollup));
+    require(_rollup != address(0), Errors.GSE__InvalidRollupAddress(_rollup));
+    require(!instances[_rollup].exists, Errors.GSE__RollupAlreadyRegistered(_rollup));
     instances[_rollup].exists = true;
     canonical.push(block.timestamp.toUint32(), uint224(uint160(_rollup)));
   }
@@ -166,17 +166,17 @@ contract GSECore is IGSECore, Ownable {
   {
     address instanceAddress = msg.sender;
     bool isCanonical = getCanonical() == instanceAddress;
-    require(!_onCanonical || isCanonical, Errors.Staking__NotCanonical(instanceAddress));
+    require(!_onCanonical || isCanonical, Errors.GSE__NotCanonical(instanceAddress));
 
     // Ensure that we are not already attesting on the specific
     require(
       !isRegistered(instanceAddress, _attester),
-      Errors.Staking__AlreadyRegistered(instanceAddress, _attester)
+      Errors.GSE__AlreadyRegistered(instanceAddress, _attester)
     );
     // Ensure that if we are canonical, we are not already attesting on the canonical
     require(
       !isCanonical || !isRegistered(CANONICAL_MAGIC_ADDRESS, _attester),
-      Errors.Staking__AlreadyRegistered(CANONICAL_MAGIC_ADDRESS, _attester)
+      Errors.GSE__AlreadyRegistered(CANONICAL_MAGIC_ADDRESS, _attester)
     );
 
     if (_onCanonical) {
@@ -185,7 +185,7 @@ contract GSECore is IGSECore, Ownable {
 
     require(
       instances[instanceAddress].attesters.add(_attester),
-      Errors.Staking__AlreadyRegistered(instanceAddress, _attester)
+      Errors.GSE__AlreadyRegistered(instanceAddress, _attester)
     );
 
     instances[instanceAddress].configOf[_attester] = AttesterConfig({withdrawer: _withdrawer});
@@ -246,19 +246,17 @@ contract GSECore is IGSECore, Ownable {
       isAttester = true;
     }
 
-    require(isAttester, Errors.Staking__NothingToExit(_attester));
+    require(isAttester, Errors.GSE__NothingToExit(_attester));
 
     uint256 balance = delegation.getBalanceOf(instanceAddress, _attester);
-    require(balance >= _amount, Errors.Staking__InsufficientStake(balance, _amount));
+    require(balance >= _amount, Errors.GSE__InsufficientStake(balance, _amount));
 
     uint256 amountWithdrawn = _amount;
     bool isRemoved = balance - _amount < MINIMUM_STAKE;
 
     // By default, we will be removing, but in the case of slash, we might just reduce.
     if (isRemoved) {
-      require(
-        instanceStaking.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester)
-      );
+      require(instanceStaking.attesters.remove(_attester), Errors.GSE__FailedToRemove(_attester));
       delete instanceStaking.configOf[_attester];
       amountWithdrawn = balance;
 
@@ -307,9 +305,9 @@ contract GSECore is IGSECore, Ownable {
     external
     override(IGSECore)
   {
-    require(isRollupRegistered(_instance), Errors.Staking__InstanceDoesNotExist(_instance));
+    require(isRollupRegistered(_instance), Errors.GSE__InstanceDoesNotExist(_instance));
     address withdrawer = instances[_instance].configOf[_attester].withdrawer;
-    require(msg.sender == withdrawer, Errors.Staking__NotWithdrawer(withdrawer, msg.sender));
+    require(msg.sender == withdrawer, Errors.GSE__NotWithdrawer(withdrawer, msg.sender));
     delegation.delegate(_instance, _attester, _delegatee);
   }
 
@@ -338,7 +336,7 @@ contract GSECore is IGSECore, Ownable {
     override(IGSECore)
   {
     Timestamp ts = _pendingThrough(_proposalId);
-    require(msg.sender == getCanonicalAt(ts), Errors.Staking__NotCanonical(msg.sender));
+    require(msg.sender == getCanonicalAt(ts), Errors.GSE__NotCanonical(msg.sender));
     _vote(CANONICAL_MAGIC_ADDRESS, _proposalId, _amount, _support);
   }
 
@@ -615,7 +613,7 @@ contract GSE is IGSE, GSECore {
 
     for (uint256 i = 0; i < _indices.length; i++) {
       uint256 index = _indices[i];
-      require(index < totalSize, Errors.Staking__OutOfBounds(index, totalSize));
+      require(index < totalSize, Errors.GSE__OutOfBounds(index, totalSize));
 
       if (index < storeSize) {
         attesters[i] = store.attesters.getAddressFromIndexAtTimestamp(index, ts);
@@ -623,7 +621,7 @@ contract GSE is IGSE, GSECore {
         attesters[i] =
           canonicalStore.attesters.getAddressFromIndexAtTimestamp(index - storeSize, ts);
       } else {
-        revert Errors.Staking__FatalError("SHOULD NEVER HAPPEN");
+        revert Errors.GSE__FatalError("SHOULD NEVER HAPPEN");
       }
     }
 

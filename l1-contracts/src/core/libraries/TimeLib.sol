@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 // solhint-disable-next-line no-unused-import
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/shared/libraries/TimeMath.sol";
 
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 

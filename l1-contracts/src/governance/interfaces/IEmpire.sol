@@ -3,9 +3,17 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+
+interface IEmporer {
+  function getCurrentSlot() external view returns (Slot);
+
+  // Not view because it might rely on transient storage.
+  // Calls are essentially trusted
+  function getCurrentProposer() external returns (address);
+}
 
 interface IEmpire {
   event VoteCast(IPayload indexed proposal, uint256 indexed round, address indexed voter);
