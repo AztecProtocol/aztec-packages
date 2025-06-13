@@ -1,0 +1,35 @@
+include "precomputed.pil";
+include "poseidon2_hash.pil";
+
+namespace cd_hashing;
+    
+    #[skippable_if]
+    sel = 0;
+
+    pol commit sel;
+    // If sel = 0, sel' != 1
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+    pol commit context_id;
+    pol commit length_remaining;
+    pol commit latch;
+
+    // TODO: Add more
+    // These will be the inputs to the poseidon2 round
+    pol commit input[3];
+    // At the last round, it is checked against the public inputs/tx trace
+    pol commit output_hash;
+
+    // This is incomplete, probably require round information
+    #[CD_HASH]
+    sel {input[0], input[1], input[2] }
+    in
+    poseidon2_hash.sel {
+        poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2
+    };
+
+    #[CD_HASH_END]
+    latch { output_hash }
+    in
+    poseidon2_hash.sel { poseidon2_hash.output };

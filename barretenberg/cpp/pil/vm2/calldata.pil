@@ -1,0 +1,28 @@
+include "precomputed.pil";
+include "calldata_hashing.pil";
+
+// Calldata is largely going to be constrained by calldata hashing
+namespace calldata;
+
+    #[skippable_if]
+    sel = 0;
+
+    pol commit sel;
+    pol commit value;
+    pol commit context_id;
+    // TODO: Index starts at one
+    pol commit index; // 1 - indexed
+    // Designates end of calldata for that context_id
+    pol commit latch;
+    pol FIRST_OR_LAST_CALLDATA = precomputed.first_row + latch;
+    // Index increments until latch
+    sel * (1 - FIRST_OR_LAST_CALLDATA) * (index' - index - 1) = 0;
+
+
+    // If sel = 0, sel' != 1
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
+    // Context id does not change until we latch
+    #[CONTEXT_ID_CONTINUITY]
+    (1 - precomputed.first_row) * sel * (1 - latch) * (1 - context_id) * context_id' = 0;

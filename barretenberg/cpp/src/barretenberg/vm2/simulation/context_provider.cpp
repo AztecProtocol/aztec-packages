@@ -35,6 +35,8 @@ std::unique_ptr<ContextInterface> ContextProvider::make_enqueued_context(AztecAd
 {
 
     uint32_t context_id = next_context_id++;
+    cd_hash_provider.make_cd_hasher(context_id)->compute_calldata_hash(calldata);
+
     return std::make_unique<EnqueuedCallContext>(context_id,
                                                  address,
                                                  msg_sender,

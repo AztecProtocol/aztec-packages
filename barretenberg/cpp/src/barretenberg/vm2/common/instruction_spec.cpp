@@ -405,10 +405,16 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_JUMPI_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
     { ExecutionOpCode::CALLDATACOPY,
-      { .num_addresses = 3,
+      { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS,
                       .base_da = 0,
                       .dyn_l2 = AVM_CALLDATACOPY_DYN_L2_GAS,
+                      .dyn_da = 0 } } },
+    { ExecutionOpCode::RETURNDATACOPY,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_RETURNDATACOPY_BASE_L2_GAS,
+                      .base_da = 0,
+                      .dyn_l2 = AVM_RETURNDATACOPY_DYN_L2_GAS,
                       .dyn_da = 0 } } },
 };
 

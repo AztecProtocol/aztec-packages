@@ -10,25 +10,21 @@
 
 namespace bb::avm2::simulation {
 
-void TxExecution::emit_public_call_request(const EnqueuedCallHint& call,
+void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                            TransactionPhase phase,
                                            const ExecutionResult& result,
                                            TreeStates&& prev_tree_state,
                                            Gas prev_gas,
                                            Gas gas_limit)
 {
-    // Compute an emit calldata event here eventually, for now just unconstrained
-    std::vector<FF> calldata_with_sep = { GENERATOR_INDEX__PUBLIC_CALLDATA };
-    calldata_with_sep.insert(calldata_with_sep.end(), call.calldata.begin(), call.calldata.end());
-    auto calldata_hash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(calldata_with_sep);
     events.emit(TxPhaseEvent{ .phase = phase,
                               .prev_tree_state = std::move(prev_tree_state),
                               .next_tree_state = merkle_db.get_tree_state(),
                               .event = EnqueuedCallEvent{
-                                  .msg_sender = call.msgSender,
-                                  .contract_address = call.contractAddress,
-                                  .is_static = call.isStaticCall,
-                                  .calldata_hash = calldata_hash,
+                                  .msg_sender = call.request.msgSender,
+                                  .contract_address = call.request.contractAddress,
+                                  .is_static = call.request.isStaticCall,
+                                  .calldata_hash = call.request.calldataHash,
                                   .prev_gas_used = prev_gas,
                                   .gas_used = result.gas_used,
                                   .gas_limit = gas_limit,
@@ -70,10 +66,14 @@ void TxExecution::simulate(const Tx& tx)
 
         // Setup.
         for (const auto& call : tx.setupEnqueuedCalls) {
-            info("[SETUP] Executing enqueued call to ", call.contractAddress);
+            info("[SETUP] Executing enqueued call to ", call.request.contractAddress);
             TreeStates prev_tree_state = merkle_db.get_tree_state();
-            auto context = context_provider.make_enqueued_context(
-                call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
+            auto context = context_provider.make_enqueued_context(call.request.contractAddress,
+                                                                  call.request.msgSender,
+                                                                  call.calldata,
+                                                                  call.request.isStaticCall,
+                                                                  gas_limit,
+                                                                  gas_used);
             ExecutionResult result = call_execution.execute(std::move(context));
             emit_public_call_request(
                 call, TransactionPhase::SETUP, result, std::move(prev_tree_state), gas_used, gas_limit);
@@ -88,10 +88,14 @@ void TxExecution::simulate(const Tx& tx)
 
             // App logic.
             for (const auto& call : tx.appLogicEnqueuedCalls) {
-                info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
+                info("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
                 TreeStates prev_tree_state = merkle_db.get_tree_state();
-                auto context = context_provider.make_enqueued_context(
-                    call.contractAddress, call.msgSender, call.calldata, call.isStaticCall, gas_limit, gas_used);
+                auto context = context_provider.make_enqueued_context(call.request.contractAddress,
+                                                                      call.request.msgSender,
+                                                                      call.calldata,
+                                                                      call.request.isStaticCall,
+                                                                      gas_limit,
+                                                                      gas_used);
                 ExecutionResult result = call_execution.execute(std::move(context));
                 emit_public_call_request(
                     call, TransactionPhase::APP_LOGIC, result, std::move(prev_tree_state), gas_used, gas_limit);
@@ -105,15 +109,14 @@ void TxExecution::simulate(const Tx& tx)
         // Teardown.
         if (tx.teardownEnqueuedCall) {
             try {
-                info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
+                info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
                 TreeStates prev_tree_state = merkle_db.get_tree_state();
-                auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
-                                                                      tx.teardownEnqueuedCall->msgSender,
+                auto context = context_provider.make_enqueued_context(tx.teardownEnqueuedCall->request.contractAddress,
+                                                                      tx.teardownEnqueuedCall->request.msgSender,
                                                                       tx.teardownEnqueuedCall->calldata,
-                                                                      tx.teardownEnqueuedCall->isStaticCall,
+                                                                      tx.teardownEnqueuedCall->request.isStaticCall,
                                                                       tx.gasSettings.teardownGasLimits,
                                                                       Gas{ 0, 0 });
-
                 ExecutionResult result = call_execution.execute(std::move(context));
                 // Check what to do here for GAS
                 emit_public_call_request(*tx.teardownEnqueuedCall,

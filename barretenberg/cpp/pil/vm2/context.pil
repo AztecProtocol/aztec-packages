@@ -38,10 +38,10 @@ namespace execution;
     // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
     pol commit is_static;
 
-    pol commit parent_calldata_offset_addr;
-    pol commit parent_calldata_size_addr;
+    pol commit parent_calldata_addr;
+    pol commit parent_calldata_size;
 
-    pol commit last_child_returndata_offset_addr;
+    pol commit last_child_returndata_addr;
     pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
 
@@ -156,28 +156,28 @@ namespace execution;
     NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
 
     // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_offset_addr' = rop[3] (resolved operand 4 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_offset_addr' = parent_calldata_offset_addr
+    // sel_enter_call   = 1 <==> parent_calldata_addr' = rop[3] (resolved operand 4 from execution trace)
+    // otherwise        = 0 <==> parent_calldata_addr' = parent_calldata_addr
     #[CD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_offset_addr' - parent_calldata_offset_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_offset_addr' - rop[3]) = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_addr' - parent_calldata_addr) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_addr' - rop[3]) = 0;
 
     // nested_exit_call = 1 <==> constraints come from lookup
-    // sel_enter_call   = 1 <==> parent_calldata_size_addr' = rop[4] (resolved operand 5 from execution trace)
-    // otherwise        = 0 <==> parent_calldata_size_addr' = parent_calldata_size_addr
+    // sel_enter_call   = 1 <==> parent_calldata_size' = rop[4] (resolved operand 5 from execution trace)
+    // otherwise        = 0 <==> parent_calldata_siz' = parent_calldata_size
     #[CD_SIZE_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size_addr' - parent_calldata_size_addr) = 0;
-    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size_addr' - rop[4]) = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size' - parent_calldata_size) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size' - rop[4]) = 0;
 
     pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
     // NESTED_RET_REV_ONLY = 1 <==> rop[1] (resolved operand 2 from execution trace)
     // sel_error           = 1 <==> last_child_returndata_size' = 0;
-    // sel_enter_call      = 1 <==> last_child_returndata_offset_addr' = 0;
-    // otherwise           = 0 <==> last_child_returndata_offset_addr' = last_child_returndata_offset_addr
+    // sel_enter_call      = 1 <==> last_child_returndata_addr' = 0;
+    // otherwise           = 0 <==> last_child_returndata_addr' = last_child_returndata_addr
     #[RD_OFFSET_NEXT_ROW]
-    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_offset_addr' - last_child_returndata_offset_addr) = 0;
-    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_offset_addr' - rop[1]) = 0;
-    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_offset_addr' = 0;
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_addr' - last_child_returndata_addr) = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_addr' - rop[1]) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_addr' = 0;
 
     // NESTED_RET_REV_ONLY = 1 <==> register[0] (intermediate register 1 from execution trace)
     // sel_error               = 1 <==> last_child_returndata_size' = 0;
@@ -245,8 +245,8 @@ namespace execution;
         msg_sender,
         contract_address,
         is_static,
-        parent_calldata_offset_addr,
-        parent_calldata_size_addr,
+        parent_calldata_addr,
+        parent_calldata_size,
         parent_l2_gas_limit,
         parent_da_gas_limit,
         parent_l2_gas_used,
@@ -260,8 +260,8 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
@@ -283,8 +283,8 @@ namespace execution;
         msg_sender',
         contract_address',
         is_static',
-        parent_calldata_offset_addr',
-        parent_calldata_size_addr',
+        parent_calldata_addr',
+        parent_calldata_size',
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
@@ -300,8 +300,8 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
@@ -320,8 +320,8 @@ namespace execution;
         msg_sender',
         contract_address',
         is_static',
-        parent_calldata_offset_addr',
-        parent_calldata_size_addr',
+        parent_calldata_addr',
+        parent_calldata_size',
         parent_l2_gas_limit',
         parent_da_gas_limit',
         parent_l2_gas_used',
@@ -334,8 +334,8 @@ namespace execution;
         context_stack.msg_sender,
         context_stack.contract_address,
         context_stack.is_static,
-        context_stack.parent_calldata_offset_addr,
-        context_stack.parent_calldata_size_addr,
+        context_stack.parent_calldata_addr,
+        context_stack.parent_calldata_size,
         context_stack.parent_l2_gas_limit,
         context_stack.parent_da_gas_limit,
         context_stack.parent_l2_gas_used,
