@@ -4,8 +4,9 @@ import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@azte
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
-import type { ChainMonitor, Delayer } from '@aztec/ethereum/test';
+import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
+import { AbortError } from '@aztec/foundation/error';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
@@ -71,15 +72,26 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
     // Wait until we have proven something and the nodes have caught up
     logger.warn(`Waiting for initial proof to land`);
-    const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
-    await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
+    const provenBlockEvent = await executeTimeout(async signal => {
+      return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
+        const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
+          res(ev);
+        };
+
+        signal.onabort = () => {
+          monitor.off('l2-block-proven', handleMsg);
+          rej(new AbortError());
+        };
+        monitor.once('l2-block-proven', handleMsg);
+      });
+    }, 20_000);
 
     // Stop the prover node so it doesn't re-submit the proof after we've removed it
-    logger.warn(`Proof for block ${provenBlock} mined, stopping prover node`);
+    logger.warn(`Proof for block ${provenBlockEvent.l2ProvenBlockNumber} mined, stopping prover node`);
     await proverNode.stop();
 
     // And remove the proof from L1
-    await context.cheatCodes.eth.reorg(2);
+    await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
     expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the end of the proof submission window for the first epoch

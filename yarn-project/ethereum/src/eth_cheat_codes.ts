@@ -363,9 +363,8 @@ export class EthCheatCodes {
    * @param depth - The depth of the reorg
    */
   public async reorg(depth: number): Promise<void> {
+    const wasAutoMining = await this.isAutoMining();
     try {
-      const wasAutoMining = await this.isAutoMining();
-
       // disable mining
       if (wasAutoMining) {
         await this.setAutomine(false);
@@ -378,10 +377,61 @@ export class EthCheatCodes {
       if (wasAutoMining) {
         await this.setAutomine(true);
       }
+      this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
     } catch (err) {
       throw new Error(`Error rolling back: ${err}`);
+    } finally {
+      try {
+        // restore automine if necessary
+        if (wasAutoMining) {
+          await this.setAutomine(true);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable automining after calling anvil_rollback: ${err}`);
+      }
     }
-    this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
+  }
+
+  /**
+   * Causes Anvil to reorg until the given block number is the new tip
+   * @param blockNumber - The block number that's going to be the new tip
+   */
+  public async reorgTo(blockNumber: number): Promise<void> {
+    if (blockNumber <= 0) {
+      throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
+    }
+
+    const wasAutoMining = await this.isAutoMining();
+
+    try {
+      // disable mining
+      if (wasAutoMining) {
+        await this.setAutomine(false);
+      }
+
+      const currentTip = await this.publicClient.getBlockNumber();
+      if (currentTip < BigInt(blockNumber)) {
+        this.logger.warn(
+          `Can't call anvil_rollback, chain tip is behind target block: ${currentTip} < ${BigInt(blockNumber)}`,
+        );
+        return;
+      }
+
+      const depth = Number(currentTip - BigInt(blockNumber) + 1n);
+      await this.rpcCall('anvil_rollback', [depth]);
+      this.logger.warn(`Rolled back L1 chain with depth ${depth} to block number: ${blockNumber}`);
+    } catch (err) {
+      throw new Error(`Error rolling back: ${err}`);
+    } finally {
+      try {
+        // restore automine if necessary
+        if (wasAutoMining) {
+          await this.setAutomine(true);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable automining after calling anvil_rollback: ${err}`);
+      }
+    }
   }
 
   /**

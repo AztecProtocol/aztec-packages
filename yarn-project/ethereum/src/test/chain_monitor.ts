@@ -6,8 +6,15 @@ import { EventEmitter } from 'events';
 
 import type { ViemClient } from '../types.js';
 
+export type ChainMonitorEventMap = {
+  'l1-block': [{ l1BlockNumber: number; timestamp: bigint }];
+  'l2-block': [{ l2BlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  'l2-block-proven': [{ l2ProvenBlockNumber: number; l1BlockNumber: number; timestamp: bigint }];
+  'l2-messages': [{ totalL2Messages: number; l1BlockNumber: number }];
+};
+
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
-export class ChainMonitor extends EventEmitter {
+export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   private readonly l1Client: ViemClient;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
