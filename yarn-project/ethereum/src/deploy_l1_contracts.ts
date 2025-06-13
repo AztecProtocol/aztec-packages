@@ -220,6 +220,9 @@ export const l1Artifacts = {
     contractAbi: GSEAbi,
     contractBytecode: GSEBytecode as Hex,
   },
+};
+
+export const l1ArtifactsVerifiers = {
   honkVerifier: {
     contractAbi: HonkVerifierAbi,
     contractBytecode: HonkVerifierBytecode as Hex,
@@ -519,7 +522,7 @@ export const deploySharedContracts = async (
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
-    return await deployer.deploy(l1Artifacts.mockZkPassportVerifier);
+    return await deployer.deploy(l1ArtifactsVerifiers.mockZkPassportVerifier);
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
@@ -607,10 +610,10 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
+    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.mockVerifier);
+    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.mockVerifier);
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
