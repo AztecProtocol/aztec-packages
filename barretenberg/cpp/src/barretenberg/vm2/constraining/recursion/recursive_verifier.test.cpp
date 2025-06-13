@@ -128,7 +128,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 24; // Current outer_circuit size is 9.6 millions
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
+        outer_circuit, TraceSettings{}, bb::CommitmentKey<curve::BN254>(srs_size));
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
