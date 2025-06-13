@@ -316,7 +316,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
 
     const peerScoring = new PeerScoring(config);
-    const reqresp = new ReqResp(config, node, peerScoring);
+    const reqresp = new ReqResp(config, node, peerScoring, createLogger(`${logger.module}:reqresp`));
 
     const peerManager = new PeerManager(
       node,
@@ -384,7 +384,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
-    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer);
+    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,

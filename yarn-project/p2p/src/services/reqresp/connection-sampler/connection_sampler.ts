@@ -6,11 +6,6 @@ import type { Libp2p, PeerId, Stream } from '@libp2p/interface';
 
 const MAX_SAMPLE_ATTEMPTS = 4;
 
-interface StreamAndPeerId {
-  stream: Stream;
-  peerId: PeerId;
-}
-
 export class RandomSampler {
   random(max: number) {
     return Math.floor(Math.random() * max);
@@ -25,22 +20,25 @@ export class RandomSampler {
  * @dev Close must always be called on connections, else memory leak
  */
 export class ConnectionSampler {
-  private readonly logger = createLogger('p2p:reqresp:connection-sampler');
   private cleanupInterval: NodeJS.Timeout;
   private dialAttempts: AbortController[] = [];
 
   private readonly activeConnectionsCount: Map<PeerId, number> = new Map();
-  private readonly streams: Map<string, StreamAndPeerId> = new Map();
+  private readonly streams: Set<Stream> = new Set();
 
   // Serial queue to ensure that we only dial one peer at a time
   private dialQueue: SerialQueue = new SerialQueue();
 
   constructor(
     private readonly libp2p: Libp2p,
-    private readonly cleanupIntervalMs: number = 60000, // Default to 1 minute
-    private readonly sampler: RandomSampler = new RandomSampler(), // Allow randomness to be mocked for testing
+    private readonly sampler: RandomSampler,
+    private readonly logger = createLogger('p2p:reqresp:connection-sampler'),
+    private readonly opts: { cleanupIntervalMs?: number; p2pOptimisticNegotiation?: boolean } = {},
   ) {
-    this.cleanupInterval = setInterval(() => void this.cleanupStaleConnections(), this.cleanupIntervalMs);
+    this.cleanupInterval = setInterval(
+      () => void this.cleanupStaleConnections(),
+      this.opts.cleanupIntervalMs ?? 60_000,
+    );
 
     this.dialQueue.start();
   }
@@ -59,7 +57,7 @@ export class ConnectionSampler {
     await this.dialQueue.end();
 
     // Close all active streams
-    const closePromises = Array.from(this.streams.keys()).map(streamId => this.close(streamId));
+    const closePromises = Array.from(this.streams.values()).map(stream => this.close(stream));
     await Promise.all(closePromises);
     this.logger.info('Connection sampler stopped');
   }
@@ -204,10 +202,14 @@ export class ConnectionSampler {
 
     try {
       const stream = await this.dialQueue.put(() =>
-        this.libp2p.dialProtocol(peerId, protocol, { signal: abortController.signal }),
+        this.libp2p.dialProtocol(peerId, protocol, {
+          signal: abortController.signal,
+          negotiateFully: !this.opts.p2pOptimisticNegotiation,
+        }),
       );
+      stream.metadata.peerId = peerId;
+      this.streams.add(stream);
 
-      this.streams.set(stream.id, { stream, peerId });
       const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 0) + 1;
       this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
 
@@ -232,34 +234,37 @@ export class ConnectionSampler {
 
   /**
    * Closes a stream and updates the active connections count
-   *
-   * @param streamId - The stream id
    */
-  async close(streamId: string): Promise<void> {
+  async close(stream: Stream): Promise<void> {
+    let peerId = undefined;
+
     try {
-      const streamAndPeerId = this.streams.get(streamId);
-      if (!streamAndPeerId || !streamAndPeerId.stream) {
-        this.logger.debug(`Stream ${streamId} not found`);
-        return;
+      peerId = stream.metadata.peerId;
+      let updatedActiveConnectionsCount = undefined;
+
+      if (!peerId) {
+        this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
+      } else {
+        updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 1) - 1;
+        this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
       }
 
-      const { stream, peerId } = streamAndPeerId;
-
-      const updatedActiveConnectionsCount = (this.activeConnectionsCount.get(peerId) ?? 1) - 1;
-      this.activeConnectionsCount.set(peerId, updatedActiveConnectionsCount);
-
       this.logger.trace('Closing connection', {
-        streamId,
+        streamId: stream.id,
         peerId: peerId.toString(),
         protocol: stream.protocol,
         activeConnectionsCount: updatedActiveConnectionsCount,
       });
 
-      await stream!.close();
+      if (!this.streams.has(stream)) {
+        this.logger.warn(`Stream ${stream.id} is not in the active streams set`);
+      }
+
+      await stream.close();
     } catch (error) {
-      this.logger.error(`Failed to close connection to peer with stream id ${streamId}`, error);
+      this.logger.error(`Failed to close connection to peer ${peerId ?? 'unknown'} with stream id ${stream.id}`, error);
     } finally {
-      this.streams.delete(streamId);
+      this.streams.delete(stream);
     }
   }
 
@@ -269,15 +274,21 @@ export class ConnectionSampler {
   private async cleanupStaleConnections() {
     // Look for streams without anything in the activeConnectionsCount
     // If we find anything, close the stream
-    for (const [streamId, { peerId }] of this.streams.entries()) {
+    for (const stream of this.streams.values()) {
       try {
         // Check if we have lost track of accounting
-        if (this.activeConnectionsCount.get(peerId) === 0) {
-          await this.close(streamId);
-          this.logger.debug('Cleaned up stale connection', { streamId, peerId: peerId.toString() });
+        const peerId = stream.metadata.peerId;
+        if (!peerId) {
+          this.logger.warn(`Stream ${stream.id} does not have a peerId set`);
+        } else if (this.activeConnectionsCount.get(peerId) === 0) {
+          await this.close(stream);
+          this.logger.debug('Cleaned up stale connection', { streamId: stream.id, peerId: peerId.toString() });
         }
       } catch (error) {
-        this.logger.error(`Error cleaning up stale connection ${streamId}`, { error });
+        this.logger.error(
+          `Error cleaning up stale connection to peer ${stream.metadata.peerId?.toString() ?? 'unknown'} stream ${stream.id}`,
+          { error },
+        );
       }
     }
   }
