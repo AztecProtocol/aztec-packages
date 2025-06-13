@@ -8,21 +8,6 @@ type Slot is uint256;
 
 type Epoch is uint256;
 
-library SlotLib {
-  function unwrap(Slot _a) internal pure returns (uint256) {
-    return Slot.unwrap(_a);
-  }
-}
-
-library EpochLib {
-  function unwrap(Epoch _a) internal pure returns (uint256) {
-    return Epoch.unwrap(_a);
-  }
-}
-
-using SlotLib for Slot;
-using EpochLib for Epoch;
-
 function addTimestamp(Timestamp _a, Timestamp _b) pure returns (Timestamp) {
   return Timestamp.wrap(Timestamp.unwrap(_a) + Timestamp.unwrap(_b));
 }

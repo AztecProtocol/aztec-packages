@@ -13,9 +13,7 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
@@ -32,8 +30,6 @@ import {TimeCheater} from "./staking/TimeCheater.sol";
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract IgnitionTest is RollupBase {
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using TimeLib for Timestamp;
   using TimeLib for Slot;

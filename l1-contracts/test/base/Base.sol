@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Test} from "forge-std/Test.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {
@@ -14,8 +14,6 @@ import {
 } from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 contract TestBase is Test {
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using stdStorage for StdStorage;
 
   // Empty values
@@ -166,8 +164,8 @@ contract TestBase is Test {
   function assertEq(Slot a, Slot b) internal {
     if (a != b) {
       emit log("Error: a == b not satisfied [Slot]");
-      emit log_named_uint("      Left", a.unwrap());
-      emit log_named_uint("     Right", b.unwrap());
+      emit log_named_uint("      Left", Slot.unwrap(a));
+      emit log_named_uint("     Right", Slot.unwrap(b));
       fail();
     }
   }
@@ -176,7 +174,7 @@ contract TestBase is Test {
     if (Slot.wrap(a) != b) {
       emit log("Error: a == b not satisfied [Slot]");
       emit log_named_uint("      Left", a);
-      emit log_named_uint("     Right", b.unwrap());
+      emit log_named_uint("     Right", Slot.unwrap(b));
       fail();
     }
   }
@@ -184,7 +182,7 @@ contract TestBase is Test {
   function assertEq(Slot a, uint256 b) internal {
     if (a != Slot.wrap(b)) {
       emit log("Error: a == b not satisfied [Slot]");
-      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("      Left", Slot.unwrap(a));
       emit log_named_uint("     Right", b);
       fail();
     }
@@ -216,8 +214,8 @@ contract TestBase is Test {
   function assertEq(Epoch a, Epoch b) internal {
     if (a != b) {
       emit log("Error: a == b not satisfied [Epoch]");
-      emit log_named_uint("      Left", a.unwrap());
-      emit log_named_uint("     Right", b.unwrap());
+      emit log_named_uint("      Left", Epoch.unwrap(a));
+      emit log_named_uint("     Right", Epoch.unwrap(b));
       fail();
     }
   }
@@ -225,7 +223,7 @@ contract TestBase is Test {
   function assertEq(Epoch a, uint256 b) internal {
     if (a != Epoch.wrap(b)) {
       emit log("Error: a == b not satisfied [Epoch]");
-      emit log_named_uint("      Left", a.unwrap());
+      emit log_named_uint("      Left", Epoch.unwrap(a));
       emit log_named_uint("     Right", b);
       fail();
     }

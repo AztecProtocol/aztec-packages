@@ -7,7 +7,7 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
@@ -25,7 +25,6 @@ import {
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
@@ -44,7 +43,6 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
 
   // Test Block Flags
   struct TestFlags {
