@@ -181,6 +181,22 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setEntryQueueFlushSizeMin(uint256 _entryQueueFlushSizeMin)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.entryQueueFlushSizeMin = _entryQueueFlushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _entryQueueFlushSizeQuotient)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.entryQueueFlushSizeQuotient = _entryQueueFlushSizeQuotient;
+    return this;
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                              Rollup config end                             */
   /* -------------------------------------------------------------------------- */
