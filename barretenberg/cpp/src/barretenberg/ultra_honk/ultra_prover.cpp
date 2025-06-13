@@ -11,8 +11,7 @@
 namespace bb {
 
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
-                                   const std::shared_ptr<CommitmentKey>& commitment_key)
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key, const CommitmentKey& commitment_key)
     : proving_key(std::move(proving_key))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(commitment_key)

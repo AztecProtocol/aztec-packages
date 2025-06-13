@@ -37,7 +37,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
     DeciderProvingKeys_ keys_to_fold;
-    std::shared_ptr<CommitmentKey> commitment_key;
+    CommitmentKey commitment_key;
 
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();

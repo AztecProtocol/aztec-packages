@@ -41,9 +41,9 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
 
     SumcheckOutput<Flavor> sumcheck_output;
 
-    std::shared_ptr<CommitmentKey> commitment_key;
+    CommitmentKey commitment_key;
 
-    UltraProver_(const std::shared_ptr<DeciderPK>&, const std::shared_ptr<CommitmentKey>&);
+    UltraProver_(const std::shared_ptr<DeciderPK>&, const CommitmentKey&);
 
     explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());

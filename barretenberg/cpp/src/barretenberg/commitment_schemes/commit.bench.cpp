@@ -12,11 +12,11 @@
 
 namespace bb {
 
-template <typename Curve> std::shared_ptr<CommitmentKey<Curve>> create_commitment_key(const size_t num_points)
+template <typename Curve> CommitmentKey<Curve> create_commitment_key(const size_t num_points)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     std::string srs_path;
-    return std::make_shared<CommitmentKey<Curve>>(num_points);
+    return CommitmentKey<Curve>(num_points);
 }
 
 // Generate a polynomial with a specified number of nonzero random coefficients
@@ -99,7 +99,7 @@ template <typename Curve> void bench_commit_zero(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     const auto polynomial = Polynomial<typename Curve::ScalarField>(num_points);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -118,7 +118,7 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     }
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -137,7 +137,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
     }
 
     for (auto _ : state) {
-        key->commit_sparse(polynomial);
+        key.commit_sparse(polynomial);
     }
 }
 
@@ -153,7 +153,7 @@ template <typename Curve> void bench_commit_sparse_random(::benchmark::State& st
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -169,7 +169,7 @@ template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchma
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key->commit_sparse(polynomial);
+        key.commit_sparse(polynomial);
     }
 }
 
@@ -182,7 +182,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -196,7 +196,7 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     const size_t num_points = 1 << state.range(0);
     Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points - 1);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -209,7 +209,7 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -222,7 +222,7 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
     for (auto _ : state) {
-        key->commit_structured(polynomial, active_range_endpoints);
+        key.commit_structured(polynomial, active_range_endpoints);
     }
 }
 
@@ -235,7 +235,7 @@ template <typename Curve> void bench_commit_mock_z_perm(::benchmark::State& stat
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -248,7 +248,7 @@ template <typename Curve> void bench_commit_mock_z_perm_preprocessed(::benchmark
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
-        key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
+        key.commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
     }
 }
 

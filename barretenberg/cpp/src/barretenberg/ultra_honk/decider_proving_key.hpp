@@ -62,7 +62,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     DeciderProvingKey_(Circuit& circuit,
                        TraceSettings trace_settings = {},
-                       std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+                       CommitmentKey commitment_key = CommitmentKey())
         : is_structured(trace_settings.structure.has_value())
     {
         PROFILE_THIS_NAME("DeciderProvingKey(Circuit&)");
