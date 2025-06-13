@@ -19,11 +19,20 @@ sleep 2 # Give server time to start
 
 # Run the benchmark.
 name_path="app_proving/$flow/chrome-wasm"
-bench_folder="bench-out/$name_path"
-mkdir -p "$bench_folder"
-BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_client_ivc -i ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$flow/ivc-inputs.msgpack --verbose 2>&1 | tee /dev/tty)
+output="bench-out/$name_path"
+mkdir -p "$output"
+start=$(date +%s%N)
+BROWSER=chrome ../acir_tests/headless-test/bb.js.browser prove_client_ivc -i ../../yarn-project/end-to-end/example-app-ivc-inputs-out/$flow/ivc-inputs.msgpack --verbose 2>&1 \
+  | tee "$output/benchmark.log"
+end=$(date +%s%N)
+elapsed_ns=$(( end - start ))
+elapsed_ms=$(( elapsed_ns / 1000000 ))
+
 # Each output reports the peak memory usage - the last one therefore is usable as the total application peak memory usage.
-memory=$(echo "$output" | grep -o "(mem: [0-9.]*MiB)" | tail -1 | grep -o "[0-9.]*")
+memory=$(cat "$output/benchmark.log" | grep -o "(mem: [0-9.]*MiB)" | tail -1 | grep -o "[0-9.]*")
+memory_mb=${memory:-0}
+
+echo "Benchmark completed in ${elapsed_ms}ms with peak memory usage of ${memory_mb}MB"
 
 # Report memory such that it will be picked up by the CI system.
 cat > "$output/benchmarks.bench.json" <<EOF
@@ -32,6 +41,11 @@ cat > "$output/benchmarks.bench.json" <<EOF
     "name": "$name_path/memory",
     "unit": "MB",
     "value": ${memory_mb}
+  },
+  {
+    "name": "$name_path/time",
+    "unit": "ms",
+    "value": ${elapsed_ms}
   }
 ]
 EOF
