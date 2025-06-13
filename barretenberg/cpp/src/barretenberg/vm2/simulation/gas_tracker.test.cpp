@@ -162,10 +162,9 @@ TEST_F(GasTrackerTest, OutOfGasDynamicPhaseWithOverflow)
     EXPECT_THROW(tracker.consume_dynamic_gas(Gas{ gas_factor, 0 }), OutOfGasException);
 
     // We are over the limit, so we need to do gas_used - limit - 1
-    uint64_t limit_used_l2_comparison_witness =
-        (AVM_ADDRESSING_BASE_L2_GAS + static_cast<uint64_t>(prev_gas_used) + AVM_CALLDATACOPY_BASE_L2_GAS +
-         static_cast<uint64_t>(gas_factor) * AVM_CALLDATACOPY_DYN_L2_GAS) -
-        gas_limit - 1;
+    uint64_t limit_used_l2_comparison_witness = (static_cast<uint64_t>(prev_gas_used) + AVM_CALLDATACOPY_BASE_L2_GAS +
+                                                 static_cast<uint64_t>(gas_factor) * AVM_CALLDATACOPY_DYN_L2_GAS) -
+                                                gas_limit - 1;
     // No da gas was used
     uint64_t limit_used_da_comparison_witness = gas_limit - 0;
 
