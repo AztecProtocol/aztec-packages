@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
@@ -46,12 +47,14 @@ class Execution : public ExecutionInterface {
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
+              ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
               EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , context_provider(context_provider)
+        , execution_id_manager(execution_id_manager)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -109,6 +112,7 @@ class Execution : public ExecutionInterface {
 
     AluInterface& alu;
     ContextProviderInterface& context_provider;
+    ExecutionIdManagerInterface& execution_id_manager;
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 

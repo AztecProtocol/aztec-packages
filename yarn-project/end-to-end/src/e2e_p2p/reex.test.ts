@@ -4,8 +4,8 @@ import { times } from '@aztec/foundation/collection';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorClient } from '@aztec/validator-client';
-import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/validator-client/errors';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';

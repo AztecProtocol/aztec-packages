@@ -470,7 +470,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   public async findSiblingPaths<ID extends MerkleTreeId, N extends number>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],
-  ): Promise<(SiblingPath<N> | undefined)[]> {
+  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]> {
     return await this.db.findSiblingPaths(treeId, values);
   }
 

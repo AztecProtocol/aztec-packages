@@ -1,4 +1,5 @@
 import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
@@ -94,7 +95,15 @@ describe('e2e_epochs/epochs_proof_fails', () => {
         await sleep(L2_SLOT_DURATION_IN_S * test.epochDuration * 1000);
         logger.warn(`Finalise epoch: returning.`);
         finaliseEpochPromise.resolve();
-        return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };
+        const ourPublicInputs = RootRollupPublicInputs.random();
+        const ourBatchedBlob = new BatchedBlob(
+          ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+          ourPublicInputs.blobPublicInputs.z,
+          ourPublicInputs.blobPublicInputs.y,
+          ourPublicInputs.blobPublicInputs.c,
+          ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value for Q
+        );
+        return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });
       return prover;
     });

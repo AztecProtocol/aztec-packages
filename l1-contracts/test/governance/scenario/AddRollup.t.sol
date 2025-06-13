@@ -87,7 +87,7 @@ contract AddRollupTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.updateGovernance(address(governance));
@@ -142,8 +142,8 @@ contract AddRollupTest is TestBase {
       uint256 val = 1;
 
       while (gse.supplyOf(gse.getCanonical()) < gse.totalSupply() / 3) {
-        token.mint(address(this), rollup.getMinimumStake());
-        token.approve(address(rollup), rollup.getMinimumStake());
+        token.mint(address(this), rollup.getDepositAmount());
+        token.approve(address(rollup), rollup.getDepositAmount());
         rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }

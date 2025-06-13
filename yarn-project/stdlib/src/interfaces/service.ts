@@ -16,7 +16,7 @@ export interface Service {
 }
 
 /** Tries to call stop on a given object and awaits it. Logs any errors and does not rethrow. */
-export async function tryStop(service?: Partial<Pick<Service, 'stop'>>, logger?: Logger): Promise<void> {
+export async function tryStop(service?: any, logger?: Logger): Promise<void> {
   try {
     return typeof service === 'object' && service && 'stop' in service && typeof service.stop === 'function'
       ? await service.stop()

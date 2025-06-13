@@ -1,4 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -6,17 +7,18 @@ import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import type { Multiaddr } from '@multiformats/multiaddr';
+import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
 import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
+import type { PeerManagerInterface } from './interface.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
@@ -39,7 +41,7 @@ type TimedOutPeer = {
   timeoutUntilMs: number;
 };
 
-export class PeerManager {
+export class PeerManager implements PeerManagerInterface {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
@@ -57,7 +59,7 @@ export class PeerManager {
   };
 
   constructor(
-    private libP2PNode: PubSubLibp2p,
+    private libP2PNode: Libp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     telemetryClient: TelemetryClient,
@@ -639,23 +641,26 @@ export class PeerManager {
       ReqRespSubProtocol.STATUS,
       ourStatus.toBuffer(),
     );
+
+    const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
     if (status !== ReqRespStatus.SUCCESS) {
       //TODO: maybe hard ban these peers in the future.
       //We could allow this to happen up to N times, and then hard ban?
       //Hard ban: Disallow connection via e.g. libp2p's Gater
-      this.logger.warn(`Peer ${peerId} failed to respond`);
+      this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
       await this.disconnectPeer(peerId);
+      return;
     }
 
     try {
       const peerStatusMessage = StatusMessage.fromBuffer(data);
       if (!ourStatus.validate(peerStatusMessage)) {
-        this.logger.warn(`Status handshake with peer ${peerId} failed`);
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake`, logData);
         await this.disconnectPeer(peerId);
       }
-    } catch {
+    } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
-      this.logger.warn(`Peer ${peerId} sent invalid status message`);
+      this.logger.warn(`Disconnecting peer ${peerId} who sent invalid status message: ${err.message ?? err}`, logData);
       await this.disconnectPeer(peerId);
     }
   }

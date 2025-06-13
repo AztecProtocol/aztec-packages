@@ -204,7 +204,7 @@ class WorldState {
     void find_sibling_paths(const WorldStateRevision& revision,
                             MerkleTreeId tree_id,
                             const std::vector<T>& leaves,
-                            std::vector<std::optional<fr_sibling_path>>& paths) const;
+                            std::vector<std::optional<SiblingPathAndIndex>>& paths) const;
 
     /**
      * @brief Appends a set of leaves to an existing Merkle Tree.
@@ -272,12 +272,12 @@ class WorldState {
      */
     void rollback();
 
-    uint64_t create_fork(const std::optional<index_t>& blockNumber);
+    uint64_t create_fork(const std::optional<block_number_t>& blockNumber);
     void delete_fork(const uint64_t& forkId);
 
-    WorldStateStatusSummary set_finalised_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull unwind_blocks(const index_t& toBlockNumber);
-    WorldStateStatusFull remove_historical_blocks(const index_t& toBlockNumber);
+    WorldStateStatusSummary set_finalised_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull unwind_blocks(const block_number_t& toBlockNumber);
+    WorldStateStatusFull remove_historical_blocks(const block_number_t& toBlockNumber);
 
     void get_status_summary(WorldStateStatusSummary& status) const;
     WorldStateStatusFull sync_block(const StateReference& block_state_ref,
@@ -575,7 +575,7 @@ template <typename T>
 void WorldState::find_sibling_paths(const WorldStateRevision& rev,
                                     MerkleTreeId id,
                                     const std::vector<T>& leaves,
-                                    std::vector<std::optional<fr_sibling_path>>& paths) const
+                                    std::vector<std::optional<SiblingPathAndIndex>>& paths) const
 {
     using namespace crypto::merkle_tree;
 

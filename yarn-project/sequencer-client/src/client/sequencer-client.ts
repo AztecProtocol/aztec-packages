@@ -31,10 +31,13 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  * Encapsulates the full sequencer and publisher.
  */
 export class SequencerClient {
-  constructor(protected sequencer: Sequencer) {}
+  constructor(
+    protected sequencer: Sequencer,
+    protected validatorClient?: ValidatorClient,
+  ) {}
 
   /**
-   * Initializes and starts a new instance.
+   * Initializes a new instance.
    * @param config - Configuration for the sequencer, publisher, and L1 tx sender.
    * @param p2pClient - P2P client that provides the txs to be sequenced.
    * @param validatorClient - Validator client performs attestation duties when rotating proposers.
@@ -169,9 +172,7 @@ export class SequencerClient {
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
-    await validatorClient?.start();
-    await sequencer.start();
-    return new SequencerClient(sequencer);
+    return new SequencerClient(sequencer, validatorClient);
   }
 
   /**
@@ -180,6 +181,12 @@ export class SequencerClient {
    */
   public updateSequencerConfig(config: SequencerConfig) {
     return this.sequencer.updateConfig(config);
+  }
+
+  /** Starts the sequencer. */
+  public async start() {
+    await this.validatorClient?.start();
+    this.sequencer.start();
   }
 
   /**
@@ -197,8 +204,8 @@ export class SequencerClient {
   /**
    * Restarts the sequencer after being stopped.
    */
-  public restart() {
-    this.sequencer.restart();
+  public resume() {
+    this.sequencer.resume();
   }
 
   public getSequencer(): Sequencer {

@@ -39,10 +39,11 @@ contract Governance is IGovernance {
 
   DepositControl internal depositControl;
 
-  mapping(uint256 proposalId => DataStructures.Proposal) internal proposals;
-  mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot)) public ballots;
-  mapping(address => User) internal users;
-  mapping(uint256 withdrawalId => DataStructures.Withdrawal) internal withdrawals;
+  mapping(uint256 proposalId => DataStructures.Proposal proposal) internal proposals;
+  mapping(uint256 proposalId => mapping(address user => DataStructures.Ballot ballot)) public
+    ballots;
+  mapping(address userAddress => User user) internal users;
+  mapping(uint256 withdrawalId => DataStructures.Withdrawal withdrawal) internal withdrawals;
 
   DataStructures.Configuration internal configuration;
   User internal total;

@@ -75,7 +75,7 @@ RUN git clone https://github.com/tpoechtrager/osxcross.git \
 ########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_VERSION=nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
+ENV FOUNDRY_VERSION=nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
@@ -214,6 +214,7 @@ RUN apt update && \
         htop \
         iproute2 \
         iputils-ping \
+        lcov \
         less \
         libfuse2 \
         lldb \

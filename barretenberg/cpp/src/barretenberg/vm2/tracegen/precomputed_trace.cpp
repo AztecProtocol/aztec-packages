@@ -234,29 +234,48 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
         Column::precomputed_rw_4_, Column::precomputed_rw_5_, Column::precomputed_rw_6_,
     };
 
+    constexpr size_t NUM_OPERANDS = 7;
+    constexpr std::array<Column, NUM_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
+        Column::precomputed_sel_op_is_address_0_, Column::precomputed_sel_op_is_address_1_,
+        Column::precomputed_sel_op_is_address_2_, Column::precomputed_sel_op_is_address_3_,
+        Column::precomputed_sel_op_is_address_4_, Column::precomputed_sel_op_is_address_5_,
+        Column::precomputed_sel_op_is_address_6_,
+    };
+
     for (const auto& [exec_opcode, exec_instruction_spec] : EXEC_INSTRUCTION_SPEC) {
+        // Basic information.
+        trace.set(static_cast<uint32_t>(exec_opcode),
+                  { {
+                      { C::precomputed_sel_exec_spec, 1 },
+                      { C::precomputed_exec_opcode_opcode_gas, exec_instruction_spec.gas_cost.opcode_gas },
+                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
+                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
+                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
+                  } });
+
+        // Register information.
+        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
+        for (size_t i = 0; i < NUM_REGISTERS; i++) {
+            trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
+            trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
+        }
+
+        // Whether an operand is an address
+        for (size_t i = 0; i < NUM_OPERANDS; i++) {
+            trace.set(SEL_OP_IS_ADDRESS_COLUMNS.at(i),
+                      static_cast<uint32_t>(exec_opcode),
+                      i < exec_instruction_spec.num_addresses ? 1 : 0);
+        }
+
+        // Gadget / Subtrace Selectors
         auto dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
         uint8_t alu_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0;
         uint8_t bitwise_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0;
         uint8_t poseidon_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0;
         uint8_t to_radix_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0;
         uint8_t ecc_sel = dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0;
-
-        auto register_info = REGISTER_INFO_MAP.at(exec_opcode);
-
-        for (size_t i = 0; i < NUM_REGISTERS; i++) {
-            trace.set(MEM_OP_REG_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_active(i) ? 1 : 0);
-            trace.set(RW_COLUMNS.at(i), static_cast<uint32_t>(exec_opcode), register_info.is_write(i) ? 1 : 0);
-        }
-
         trace.set(static_cast<uint32_t>(exec_opcode),
-                  { { { C::precomputed_sel_exec_spec, 1 },
-                      { C::precomputed_exec_opcode_opcode_gas, exec_instruction_spec.gas_cost.opcode_gas },
-                      { C::precomputed_exec_opcode_base_da_gas, exec_instruction_spec.gas_cost.base_da },
-                      { C::precomputed_exec_opcode_dynamic_l2_gas, exec_instruction_spec.gas_cost.dyn_l2 },
-                      { C::precomputed_exec_opcode_dynamic_da_gas, exec_instruction_spec.gas_cost.dyn_da },
-                      // Gadget / Subtrace Selectors
-                      { C::precomputed_sel_dispatch_alu, alu_sel },
+                  { { { C::precomputed_sel_dispatch_alu, alu_sel },
                       { C::precomputed_sel_dispatch_bitwise, bitwise_sel },
                       { C::precomputed_sel_dispatch_poseidon_perm, poseidon_sel },
                       { C::precomputed_sel_dispatch_to_radix, to_radix_sel },

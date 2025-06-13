@@ -1,3 +1,4 @@
+import { BatchedBlob } from '@aztec/blob-lib';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -38,8 +39,8 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-
-      orchestrator.startNewEpoch(1, 1, 1);
+      const emptyChallenges = await BatchedBlob.precomputeEmptyBatchedBlobChallenges();
+      orchestrator.startNewEpoch(1, 1, 1, emptyChallenges);
       await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await sleep(1);

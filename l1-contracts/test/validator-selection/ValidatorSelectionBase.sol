@@ -96,7 +96,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
 
     if (initialValidators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), rollup.getMinimumStake() * initialValidators.length);
+      testERC20.mint(address(multiAdder), rollup.getDepositAmount() * initialValidators.length);
       multiAdder.addValidators(initialValidators);
     }
 

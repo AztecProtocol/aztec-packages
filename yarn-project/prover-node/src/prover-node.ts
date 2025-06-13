@@ -359,7 +359,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   private async gatherMessages(epochNumber: bigint, blocks: L2Block[]) {
-    const messages = await Promise.all(blocks.map(b => this.l1ToL2MessageSource.getL1ToL2Messages(BigInt(b.number))));
+    const messages = await Promise.all(blocks.map(b => this.l1ToL2MessageSource.getL1ToL2Messages(b.number)));
     const messageCount = sum(messages.map(m => m.length));
     this.log.verbose(`Gathered all ${messageCount} messages for epoch ${epochNumber}`, { epochNumber });
     const messagesByBlock: Record<number, Fr[]> = {};

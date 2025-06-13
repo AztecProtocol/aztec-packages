@@ -7,7 +7,7 @@ import {ERC20} from "@oz/token/ERC20/ERC20.sol";
 import {IMintableERC20} from "./../governance/interfaces/IMintableERC20.sol";
 
 contract TestERC20 is ERC20, IMintableERC20, Ownable {
-  mapping(address => bool) public minters;
+  mapping(address minter => bool isMinter) public minters;
 
   modifier onlyMinter() {
     require(minters[msg.sender], NotMinter(msg.sender));

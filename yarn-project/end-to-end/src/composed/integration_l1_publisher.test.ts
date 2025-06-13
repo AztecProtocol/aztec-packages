@@ -1,7 +1,7 @@
 import type { ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger } from '@aztec/aztec.js';
-import { Blob, BlockBlobPublicInputs } from '@aztec/blob-lib';
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -17,7 +17,7 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
-import { SHA256Trunc, sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
@@ -265,6 +265,7 @@ describe('L1Publisher integration', () => {
     block: L2Block,
     l1ToL2Content: Fr[],
     blobs: Blob[],
+    batchedBlob: BatchedBlob,
     recipientAddress: AztecAddress,
     deployerAddress: `0x${string}`,
   ): Promise<void> => {
@@ -292,7 +293,8 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: asHex(block.archive.root),
-        blobInputs: Blob.getEthBlobEvaluationInputs(blobs),
+        blobCommitments: Blob.getPrefixedEthBlobCommitments(blobs),
+        batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
         blockNumber: block.number,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         header: {
@@ -301,10 +303,9 @@ describe('L1Publisher integration', () => {
             blobsHash: asHex(block.header.contentCommitment.blobsHash),
             inHash: asHex(block.header.contentCommitment.inHash),
             outHash: asHex(block.header.contentCommitment.outHash),
-            numTxs: block.header.contentCommitment.numTxs.toNumber(),
           },
-          slotNumber: block.header.globalVariables.slotNumber.toNumber(),
-          timestamp: block.header.globalVariables.timestamp.toNumber(),
+          slotNumber: Number(block.header.globalVariables.slotNumber),
+          timestamp: Number(block.header.globalVariables.timestamp),
           coinbase: asHex(block.header.globalVariables.coinbase, 40),
           feeRecipient: asHex(block.header.globalVariables.feeRecipient),
           gasFees: {
@@ -358,6 +359,10 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
+      const allBlobs: Blob[] = [];
+      // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
+      // For real usage, always collect ALL epoch blobs first then call .batch().
+      let currentBatch: BatchedBlob | undefined;
 
       for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
         const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
@@ -379,9 +384,9 @@ describe('L1Publisher integration', () => {
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
           new Fr(version),
-          new Fr(1 + i),
+          i + 1, // block number
           new Fr(slot),
-          new Fr(timestamp),
+          timestamp,
           coinbase,
           feeRecipient,
           new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),
@@ -396,28 +401,36 @@ describe('L1Publisher integration', () => {
 
         const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-        const [emptyRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const emptyRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
 
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blobs = await Blob.getBlobs(block.body.toBlobFields());
+        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
-          sha256ToField(blobs.map(b => b.getEthVersionedBlobHash())).toBuffer(),
+          sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
+
+        let prevBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+
+        blocks.push(block);
+        allBlobs.push(...blockBlobs);
+
+        // Batch the blobs so far, so they can be used in the L1 unit tests:
+        currentBatch = await BatchedBlob.batch(allBlobs);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
           block,
           l1ToL2Content,
-          blobs,
+          blockBlobs,
+          currentBatch,
           recipientAddress,
           deployerAccount.address,
         );
 
         await publisher.enqueueProposeL2Block(block);
         await publisher.sendRequests();
-        blocks.push(block);
 
         const logs = await l1Client.getLogs({
           address: rollupAddress,
@@ -429,15 +442,24 @@ describe('L1Publisher integration', () => {
         });
         expect(logs).toHaveLength(i + 1);
         expect(logs[i].args.blockNumber).toEqual(BigInt(i + 1));
+        const thisBlockNumber = BigInt(block.header.globalVariables.blockNumber);
+        const isFirstBlockOfEpoch =
+          thisBlockNumber == 1n ||
+          (await rollup.getEpochNumber(thisBlockNumber)) > (await rollup.getEpochNumber(thisBlockNumber - 1n));
+        // If we are at the first blob of the epoch, we must initialise the hash:
+        prevBlobAccumulatorHash = isFirstBlockOfEpoch ? Buffer.alloc(0) : prevBlobAccumulatorHash;
+        const currentBlobAccumulatorHash = hexStringToBuffer(await rollup.getCurrentBlobCommitmentsHash());
+        let expectedBlobAccumulatorHash = prevBlobAccumulatorHash;
+        blockBlobs
+          .map(b => b.commitment)
+          .forEach(c => {
+            expectedBlobAccumulatorHash = sha256ToField([expectedBlobAccumulatorHash, c]).toBuffer();
+          });
+        expect(currentBlobAccumulatorHash).toEqual(expectedBlobAccumulatorHash);
 
         const ethTx = await l1Client.getTransaction({
           hash: logs[i].transactionHash!,
         });
-
-        const blobPublicInputsHash = await rollup.getBlobPublicInputsHash(BigInt(i + 1));
-        const expectedHash = sha256(Buffer.from(BlockBlobPublicInputs.fromBlobs(blobs).toString().substring(2), 'hex'));
-        expect(blobPublicInputsHash).toEqual(`0x${expectedHash.toString('hex')}`);
-
         const expectedRollupData = encodeFunctionData({
           abi: RollupAbi,
           functionName: 'propose',
@@ -452,7 +474,7 @@ describe('L1Publisher integration', () => {
               txHashes: [],
             },
             [],
-            Blob.getEthBlobEvaluationInputs(blobs),
+            Blob.getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
         const expectedData = encodeFunctionData({
@@ -463,7 +485,7 @@ describe('L1Publisher integration', () => {
         expect(ethTx.input).toEqual(expectedData);
 
         const expectedRoot = !numTxs ? Fr.ZERO : buildL2ToL1MsgTreeRoot(l2ToL1MsgsArray);
-        const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
+        const returnedRoot = await outbox.read.getRootData([BigInt(block.header.globalVariables.blockNumber)]);
 
         // check that values are inserted into the outbox
         expect(Fr.ZERO.toString()).toEqual(returnedRoot);
@@ -516,9 +538,9 @@ describe('L1Publisher integration', () => {
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(version),
-        new Fr(1),
+        1, // block number
         new Fr(slot),
-        new Fr(timestamp),
+        timestamp,
         coinbase,
         feeRecipient,
         new GasFees(0, await rollup.getManaBaseFeeAt(timestamp, true)),

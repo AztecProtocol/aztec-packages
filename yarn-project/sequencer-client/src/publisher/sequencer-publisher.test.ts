@@ -113,7 +113,7 @@ describe('SequencerPublisher', () => {
     governanceProposerContract = mock<GovernanceProposerContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
     epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
 
     publisher = new SequencerPublisher(config, {
@@ -195,7 +195,7 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const kzg = Blob.getViemKzgInstance();
 
-    const expectedBlobs = await Blob.getBlobs(l2Block.body.toBlobFields());
+    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);
@@ -223,7 +223,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.sendRequests();
     expect(forwarder.forward).toHaveBeenCalledTimes(1);
-    const blobInput = Blob.getEthBlobEvaluationInputs(expectedBlobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(expectedBlobs);
 
     const args = [
       {

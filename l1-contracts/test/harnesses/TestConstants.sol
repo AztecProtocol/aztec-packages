@@ -3,8 +3,14 @@
 
 pragma solidity >=0.8.27;
 
-import {RollupConfigInput, GenesisState, EthValue} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  RollupConfigInput,
+  GenesisState,
+  EthValue,
+  RewardConfig
+} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -30,6 +36,17 @@ library TestConstants {
     });
   }
 
+  function getRewardConfig() internal pure returns (RewardConfig memory) {
+    return RewardConfig({
+      sequencerBps: Bps.wrap(5000),
+      increment: 200000,
+      maxScore: 5000000,
+      a: 5000,
+      k: 1000000,
+      minimum: 100000
+    });
+  }
+
   function getRollupConfigInput() internal pure returns (RollupConfigInput memory) {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
@@ -39,7 +56,8 @@ library TestConstants {
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,
-      provingCostPerMana: AZTEC_PROVING_COST_PER_MANA
+      provingCostPerMana: AZTEC_PROVING_COST_PER_MANA,
+      rewardConfig: getRewardConfig()
     });
   }
 }

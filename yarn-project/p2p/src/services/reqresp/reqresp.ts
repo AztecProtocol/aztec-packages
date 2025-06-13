@@ -1,6 +1,6 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
-import { AbortError } from '@aztec/foundation/error';
+import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -25,6 +25,7 @@ import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
@@ -55,7 +56,7 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  *
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
-export class ReqResp {
+export class ReqResp implements ReqRespInterface {
   protected readonly logger: Logger;
 
   private overallRequestTimeoutMs: number;
@@ -510,23 +511,35 @@ export class ReqResp {
    * Categorize the error and log it.
    */
   private categorizeError(e: any, peerId: PeerId, subProtocol: ReqRespSubProtocol): PeerErrorSeverity | undefined {
+    const logTags = { peerId: peerId.toString(), subProtocol };
+
     // Non punishable errors - we do not expect a response for goodbye messages
     if (subProtocol === ReqRespSubProtocol.GOODBYE) {
-      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', {
-        peerId: peerId.toString(),
-        subProtocol,
-      });
+      this.logger.debug('Error encountered on goodbye sub protocol, no penalty', logTags);
       return undefined;
     }
 
     // We do not punish a collective timeout, as the node triggers this interupt, independent of the peer's behaviour
-    const logTags = {
-      peerId: peerId.toString(),
-      subProtocol,
-    };
     if (e instanceof CollectiveReqRespTimeoutError || e instanceof InvalidResponseError) {
+      this.logger.debug(`Non-punishable error in ${subProtocol}: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    // Do not punish if we are stopping the service
+    if (e instanceof AbortError) {
+      this.logger.debug(`Request aborted: ${e.message}`, logTags);
+      return undefined;
+    }
+
+    // Do not punish if we are the ones closing the connection
+    if (
+      e?.code === 'ERR_CONNECTION_BEING_CLOSED' ||
+      e?.code === 'ERR_CONNECTION_CLOSED' ||
+      e?.code === 'ERR_TRANSIENT_CONNECTION' ||
+      e?.message?.includes('Muxer already closed')
+    ) {
       this.logger.debug(
-        `Non-punishable error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
+        `Connection closed to peer from our side: ${peerId.toString()} (${e?.message ?? 'missing error message'})`,
         logTags,
       );
       return undefined;
@@ -546,13 +559,14 @@ export class ReqResp {
       return PeerErrorSeverity.HighToleranceError;
     }
 
-    // Timeout errors are punished with high tolerance, they can be due to a geogrpahically far away peer or an
-    // overloaded peer
-    if (e instanceof IndividualReqRespTimeoutError) {
-      this.logger.debug(
-        `Timeout error: ${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`,
-        logTags,
-      );
+    if (e?.code === 'ERR_UNEXPECTED_EOF') {
+      this.logger.debug(`Connection unexpected EOF: ${peerId.toString()}`, logTags);
+      return PeerErrorSeverity.HighToleranceError;
+    }
+
+    // Timeout errors are punished with high tolerance, they can be due to a geographically far away or overloaded peer
+    if (e instanceof IndividualReqRespTimeoutError || e instanceof TimeoutError) {
+      this.logger.debug(`Timeout error in ${subProtocol}: ${e.message}`, logTags);
       return PeerErrorSeverity.HighToleranceError;
     }
 
@@ -667,7 +681,7 @@ export class ReqResp {
         stream,
       );
     } catch (e: any) {
-      this.logger.warn('Reqresp Response error: ', e);
+      this.logger.warn('Reqresp response error: ', e);
       this.metrics.recordResponseError(protocol);
 
       // If we receive a known error, we use the error status in the response chunk, otherwise we categorize as unknown

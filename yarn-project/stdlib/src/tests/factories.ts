@@ -1,4 +1,5 @@
-import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
@@ -42,11 +43,10 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -162,7 +162,7 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';
@@ -307,7 +307,7 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
+  return new RollupValidationRequests(new MaxBlockNumber(true, seed + 0x31415));
 }
 
 function makeTxConstantData(seed = 1) {
@@ -566,7 +566,7 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
+    maxBlockNumber: new MaxBlockNumber(true, seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -598,9 +598,9 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: new Fr(seed + 2),
+    blockNumber: seed + 2,
     slotNumber: new Fr(seed + 3),
-    timestamp: new Fr(seed + 4),
+    timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),
@@ -719,7 +719,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     fr(seed + 0x600),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x650),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x100),
+    makeBlockBlobPublicInputs(seed),
   );
 }
 
@@ -783,14 +783,16 @@ function makeBlockRootRollupData(seed = 0) {
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     makeHeader(seed + 0x2400),
-    fr(seed + 0x2500),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 0x2500)),
+    makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
+    fr(seed + 0x2700),
   );
 }
 
 function makeBlockRootRollupBlobData(seed = 0) {
   return new BlockRootRollupBlobData(
     makeTuple(FIELDS_PER_BLOB * BLOBS_PER_BLOCK, fr, 0x2500),
-    makeTuple(BLOBS_PER_BLOCK, () => makeTuple(2, fr, 0x2600)),
+    makeTuple(BLOBS_PER_BLOCK, () => BLS12Point.random()),
     fr(seed + 0x2700),
   );
 }
@@ -885,7 +887,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x702),
     fr(seed + 0x703),
     fr(seed + 0x704),
-    makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeBlockBlobPublicInputs(seed), 0x800),
+    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 
@@ -893,12 +895,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
  * Makes content commitment
  */
 export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(
-    new Fr(seed),
-    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
-  );
+  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 /**
@@ -914,7 +911,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+      ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
     fr(seed + 0x800),
@@ -1486,6 +1483,7 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
     makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
     makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
     makeGas(seed + 0x8000), // gasUsedByPrivate
+    makeAztecAddress(seed + 0x9000), // feePayer
   );
 }
 
