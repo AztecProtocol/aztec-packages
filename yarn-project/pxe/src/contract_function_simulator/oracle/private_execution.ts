@@ -164,8 +164,7 @@ export async function verifyCurrentClassId(
   timestamp?: UInt64,
 ) {
   const instance = await executionDataProvider.getContractInstance(contractAddress);
-  // TODO(benesjan): get timestamp here
-  timestamp = timestamp ?? BigInt(await executionDataProvider.getBlockNumber());
+  timestamp = timestamp ?? BigInt(await executionDataProvider.getTimestamp());
   const currentClassId = await readCurrentClassId(contractAddress, instance, executionDataProvider, timestamp);
   if (!instance.currentContractClassId.equals(currentClassId)) {
     throw new Error(

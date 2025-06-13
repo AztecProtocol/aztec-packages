@@ -242,9 +242,8 @@ where
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
-        // TODO(benesjan): expose timestamp in utility context
-        // let current_timestamp = self.context.timestamp() as u32;
-        let current_timestamp = 0 as u32;
+        // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
+        let current_timestamp = self.context.timestamp() as u32;
         smv.svc.get_current_at(current_timestamp)
     }
 }
