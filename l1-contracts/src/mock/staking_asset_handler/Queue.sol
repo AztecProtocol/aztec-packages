@@ -18,7 +18,10 @@ library QueueLib {
     self.last = 1;
   }
 
-  function enqueue(Queue storage self, address _attester, address _proposer) internal returns (uint256) {
+  function enqueue(Queue storage self, address _attester, address _proposer)
+    internal
+    returns (uint256)
+  {
     require(!self.inQueue[_attester], AlreadySeen(_attester));
 
     uint256 queueLocation = self.last;

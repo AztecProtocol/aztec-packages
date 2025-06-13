@@ -104,7 +104,10 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _proposer != address(0) && _attester != unhinged && _caller != unhinged);
+    vm.assume(
+      _attester != address(0) && _proposer != address(0) && _attester != unhinged
+        && _caller != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -154,7 +157,10 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _proposer != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
+    vm.assume(
+      _attester != address(0) && _proposer != address(0) && _caller != address(this)
+        && _attester != address(this) && _caller != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
@@ -308,7 +314,9 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _thirdAttester, _proposer, WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(
+      address(staking), _thirdAttester, _proposer, WITHDRAWER
+    );
 
     IStaking rollup = IStaking(address(IRegistry(registry).getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
@@ -316,7 +324,9 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // Mock that the second add validator call will fail
     vm.mockCallRevert(
       address(staking),
-      abi.encodeWithSelector(IStakingCore.deposit.selector, _secondAttester, _proposer, WITHDRAWER, depositAmount),
+      abi.encodeWithSelector(
+        IStakingCore.deposit.selector, _secondAttester, _proposer, WITHDRAWER, depositAmount
+      ),
       bytes(string(""))
     );
     vm.prank(_caller);

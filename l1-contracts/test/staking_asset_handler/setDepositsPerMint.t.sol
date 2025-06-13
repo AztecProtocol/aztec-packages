@@ -92,7 +92,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     // Added to the queue successfully
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), address(0xbeefdeef), _depositsPerMint + 1);
+    emit IStakingAssetHandler.AddedToQueue(
+      address(0xbeefdeef), address(0xbeefdeef), _depositsPerMint + 1
+    );
     vm.prank(caller);
     stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), address(0xbeefdeef), realProof);
 

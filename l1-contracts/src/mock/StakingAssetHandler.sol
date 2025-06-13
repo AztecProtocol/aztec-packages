@@ -57,7 +57,11 @@ interface IStakingAssetHandler {
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
 
-  function addValidatorToQueue(address _attester, address _proposer, ProofVerificationParams memory _params) external;
+  function addValidatorToQueue(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams memory _params
+  ) external;
   function reenterExitedValidator(address _attester, address _proposer) external;
   function dripQueue() external;
 
@@ -154,10 +158,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function addValidatorToQueue(address _attester, address _proposer, ProofVerificationParams calldata _params)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidatorToQueue(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) external override(IStakingAssetHandler) {
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
@@ -178,7 +183,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function reenterExitedValidator(address _attester, address _proposer) external override(IStakingAssetHandler) {
+  function reenterExitedValidator(address _attester, address _proposer)
+    external
+    override(IStakingAssetHandler)
+  {
     // Validator must not be in the queue
     require(!entryQueue.isInQueue(_attester), InDepositQueue());
 
@@ -297,9 +305,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - The validator's attester address
    * @param _params - ZKPassport proof params
    */
-  function _validatePassportProof(address _attester, address _proposer, ProofVerificationParams calldata _params)
-    internal
-  {
+  function _validatePassportProof(
+    address _attester,
+    address _proposer,
+    ProofVerificationParams calldata _params
+  ) internal {
     // Must NOT be using dev mode - https://docs.zkpassport.id/getting-started/dev-mode
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
     require(_params.devMode == false, InvalidProof());
@@ -352,7 +362,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _depositAmount - the deposit amount
    * @param _attester - the validator's attester address
    */
-  function _triggerDeposit(IStaking _rollup, uint256 _depositAmount, address _attester, address _proposer) internal {
+  function _triggerDeposit(
+    IStaking _rollup,
+    uint256 _depositAmount,
+    address _attester,
+    address _proposer
+  ) internal {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
 

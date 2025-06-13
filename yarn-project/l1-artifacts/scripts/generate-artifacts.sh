@@ -39,7 +39,6 @@ contracts=(
   "UniswapPortal"
   "ValidatorSelectionLib"
   "MultiAdder"
-  "GSE"
   "MockZKPassportVerifier"
 )
 

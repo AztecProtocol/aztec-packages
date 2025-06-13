@@ -5,7 +5,6 @@ import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
-
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
