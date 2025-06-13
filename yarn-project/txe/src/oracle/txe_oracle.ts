@@ -98,14 +98,7 @@ import {
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  PrivateLog,
-  PrivateLogWithTxData,
-  type PublicLog,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import { ContractClassLog, IndexedTaggingSecret, PrivateLog, type PublicLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -1182,12 +1175,16 @@ export class TXE implements TypedOracle {
     await this.pxeOracleInterface.validateEnqueuedNotes(contractAddress, noteValidationRequestsArrayBaseSlot);
   }
 
-  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    return await this.pxeOracleInterface.getPublicLogByTag(tag, contractAddress);
-  }
-
-  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    return await this.pxeOracleInterface.getPrivateLogByTag(siloedTag);
+  async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void> {
+    return await this.pxeOracleInterface.bulkRetrieveLogs(
+      contractAddress,
+      logRetrievalRequestsArrayBaseSlot,
+      logRetrievalResponsesArrayBaseSlot,
+    );
   }
 
   // AVM oracles

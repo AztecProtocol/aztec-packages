@@ -718,7 +718,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  public async bulkRetrieveLogs(logRetrievalRequestsArrayBaseSlot: Fr, logRetrievalResponsesArrayBaseSlot: Fr) {
+  public async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ) {
     // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
     // don't need to wait for the network round-trip.
     const logRetrievalRequests = (
@@ -766,7 +770,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
@@ -799,7 +803,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
     const logs = await this.#getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];
 

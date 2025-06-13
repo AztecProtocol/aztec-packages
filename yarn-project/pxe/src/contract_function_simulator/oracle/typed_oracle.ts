@@ -4,12 +4,7 @@ import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdli
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -227,12 +222,12 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotes'));
   }
 
-  getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPublicLogByTag');
-  }
-
-  getPrivateLogByTag(_siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPrivateLogByTag');
+  bulkRetrieveLogs(
+    _contractAddress: AztecAddress,
+    _logRetrievalRequestsArrayBaseSlot: Fr,
+    _logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('bulkRetrieveLogs');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {

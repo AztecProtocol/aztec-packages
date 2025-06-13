@@ -102,6 +102,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     });
 
     oracle::message_processing::bulk_retrieve_logs(
+        contract_address,
         LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
         LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
     );

@@ -20,10 +20,12 @@ pub(crate) unconstrained fn validate_enqueued_notes(
 unconstrained fn validate_enqueued_notes_oracle(contract_address: AztecAddress, base_slot: Field) {}
 
 pub(crate) unconstrained fn bulk_retrieve_logs(
+    contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
     log_retrieval_responses_array_base_slot: Field,
 ) {
     bulk_retrieve_logs_oracle(
+        contract_address,
         log_retrieval_requests_array_base_slot,
         log_retrieval_responses_array_base_slot,
     );
@@ -31,6 +33,7 @@ pub(crate) unconstrained fn bulk_retrieve_logs(
 
 #[oracle(bulkRetrieveLogs)]
 unconstrained fn bulk_retrieve_logs_oracle(
+    contract_address: AztecAddress,
     log_retrieval_requests_array_base_slot: Field,
     log_retrieval_responses_array_base_slot: Field,
 ) {}
