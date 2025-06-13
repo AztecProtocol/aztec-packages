@@ -57,16 +57,18 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
     return messages;
 }
 
-std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n)
+std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n)
 {
-    std::vector<EnqueuedCallHint> calls;
+    std::vector<PublicCallRequestWithCalldata> calls;
     calls.reserve(n);
     for (size_t i = 0; i < n; ++i) {
-        calls.push_back(EnqueuedCallHint{
-            .msgSender = FF::random_element(),
-            .contractAddress = FF::random_element(),
+        calls.push_back(PublicCallRequestWithCalldata{
+            .request{
+                .msgSender = FF::random_element(),
+                .contractAddress = FF::random_element(),
+                .isStaticCall = rand() % 2 == 0,
+            },
             .calldata = random_fields(5),
-            .isStaticCall = rand() % 2 == 0,
         });
     }
     return calls;

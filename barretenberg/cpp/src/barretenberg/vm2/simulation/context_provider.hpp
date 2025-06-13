@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -36,9 +37,12 @@ class ContextProviderInterface {
 
 class ContextProvider : public ContextProviderInterface {
   public:
-    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager, MemoryProviderInterface& memory_provider)
+    ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
+                    MemoryProviderInterface& memory_provider,
+                    CalldataHashingProviderInterface& cd_hash_provider)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_provider(memory_provider)
+        , cd_hash_provider(cd_hash_provider)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
@@ -60,6 +64,7 @@ class ContextProvider : public ContextProviderInterface {
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
     MemoryProviderInterface& memory_provider;
+    CalldataHashingProviderInterface& cd_hash_provider;
 };
 
 } // namespace bb::avm2::simulation

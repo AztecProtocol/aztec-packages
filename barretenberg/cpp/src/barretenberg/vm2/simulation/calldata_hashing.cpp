@@ -6,7 +6,7 @@
 
 namespace bb::avm2::simulation {
 
-FF CalldataHasher::compute_calldata_hash(const uint32_t context_id, const std::vector<FF>& calldata)
+FF CalldataHasher::compute_calldata_hash(std::span<const FF> calldata)
 {
     if (calldata.empty()) {
         // Based on the noir short circuit, if the calldata is empty we return 0
@@ -21,7 +21,7 @@ FF CalldataHasher::compute_calldata_hash(const uint32_t context_id, const std::v
     events.emit({
         .context_id = context_id,
         .calldata_length = static_cast<uint32_t>(calldata.size()),
-        .calldata = calldata,
+        .calldata = { calldata.begin(), calldata.end() },
         .output_hash = output_hash,
     });
     return output_hash;
