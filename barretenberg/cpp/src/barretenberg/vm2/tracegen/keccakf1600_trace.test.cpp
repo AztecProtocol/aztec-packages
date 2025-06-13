@@ -4,6 +4,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
+#include "barretenberg/vm2/testing/keccakf1600_fixture.test.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -11,7 +12,6 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using ::testing::ElementsAre;
 using ::testing::Field;
 
 using R = TestTraceContainer::Row;
@@ -66,6 +66,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
               ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
               ROW_FIELD_EQ(R, keccak_memory_start, 1),
               ROW_FIELD_EQ(R, keccak_memory_last, 0),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_end, 0),
               ROW_FIELD_EQ(R, keccak_memory_rw, 0),
               ROW_FIELD_EQ(R, keccak_memory_addr, 100),
               ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
@@ -83,6 +84,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(R, keccak_memory_ctr, AVM_KECCAKF1600_STATE_SIZE),
                       ROW_FIELD_EQ(R, keccak_memory_start, 0),
                       ROW_FIELD_EQ(R, keccak_memory_last, 1),
+                      ROW_FIELD_EQ(R, keccak_memory_ctr_end, 1),
                       ROW_FIELD_EQ(R, keccak_memory_rw, 0),
                       ROW_FIELD_EQ(R, keccak_memory_addr, 100 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
@@ -101,6 +103,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
               ROW_FIELD_EQ(R, keccak_memory_ctr, 1),
               ROW_FIELD_EQ(R, keccak_memory_start, 1),
               ROW_FIELD_EQ(R, keccak_memory_last, 0),
+              ROW_FIELD_EQ(R, keccak_memory_ctr_end, 0),
               ROW_FIELD_EQ(R, keccak_memory_rw, 1),
               ROW_FIELD_EQ(R, keccak_memory_addr, 200),
               ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
@@ -118,6 +121,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(R, keccak_memory_ctr, AVM_KECCAKF1600_STATE_SIZE),
                       ROW_FIELD_EQ(R, keccak_memory_start, 0),
                       ROW_FIELD_EQ(R, keccak_memory_last, 1),
+                      ROW_FIELD_EQ(R, keccak_memory_ctr_end, 1),
                       ROW_FIELD_EQ(R, keccak_memory_rw, 1),
                       ROW_FIELD_EQ(R, keccak_memory_addr, 200 + AVM_KECCAKF1600_STATE_SIZE - 1),
                       ROW_FIELD_EQ(R, keccak_memory_space_id, 23),
@@ -131,10 +135,53 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
 }
 
 // We test when the memory tag is not U64 for a read value at index (1, 2).
-// We check that the tag_error is 1 for this index (flattened index7) and that
-// we correctly propagate the error to the the top.
+// We check that the tag_error is 1 for this index (flattened index 7) and that
+// we correctly propagate the error to the top.
 // We also check that tag_min_u64_inv is correctly computed.
-// We also verify that keccak_memory_val00 is set to zero at the same row.
+TEST(KeccakF1600TraceTest, TagErrorHandling)
+{
+    TestTraceContainer trace;
+
+    const MemoryAddress src_addr = 0;
+    const MemoryAddress dst_addr = 200;
+
+    // Position (1,2) in the 5x5 matrix corresponds to index 7 in the flattened array
+    const size_t error_offset = 7;              // (1 * 5) + 2 = 7
+    const MemoryTag error_tag = MemoryTag::U32; // Using U32 instead of U64 to trigger error
+
+    testing::generate_keccak_trace_with_tag_error(trace, dst_addr, src_addr, error_offset, error_tag);
+
+    const auto& rows = trace.as_rows();
+
+    // Checks on the whole active keccak_memory subtrace.
+    for (size_t i = 1; i < error_offset + 2; i++) {
+        EXPECT_THAT(rows.at(i),
+                    AllOf(ROW_FIELD_EQ(R, keccak_memory_ctr, i),
+                          ROW_FIELD_EQ(R, keccak_memory_sel, 1),
+                          ROW_FIELD_EQ(R, keccak_memory_rw, 0),
+                          ROW_FIELD_EQ(R, keccak_memory_ctr_end, 0),
+                          ROW_FIELD_EQ(R, keccak_memory_tag_error, 1)));
+    }
+
+    // Checks on the whole active keccak_memory subtrace except the last row.
+    for (size_t i = 1; i < error_offset + 1; i++) {
+        EXPECT_THAT(rows.at(i),
+                    AllOf(ROW_FIELD_EQ(R, keccak_memory_single_tag_error, 0),
+                          ROW_FIELD_EQ(R, keccak_memory_tag_min_u64_inv, 1),
+                          ROW_FIELD_EQ(R, keccak_memory_last, 0)));
+    }
+
+    // Specific checks on the last row of the active keccak_memory subtrace.
+    EXPECT_THAT(
+        rows.at(error_offset + 1),
+        AllOf(ROW_FIELD_EQ(R,
+                           keccak_memory_tag_min_u64_inv,
+                           (FF(static_cast<uint8_t>(error_tag)) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert()),
+              ROW_FIELD_EQ(R, keccak_memory_last, 1)));
+
+    // Next row is not active in keccak_memory.
+    EXPECT_THAT(rows.at(error_offset + 2), ROW_FIELD_EQ(R, keccak_memory_sel, 0));
+}
 
 } // namespace
 } // namespace bb::avm2::tracegen

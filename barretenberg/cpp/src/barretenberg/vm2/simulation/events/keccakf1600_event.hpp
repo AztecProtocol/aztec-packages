@@ -10,8 +10,8 @@
 namespace bb::avm2::simulation {
 
 struct KeccakF1600Exception : public std::runtime_error {
-    explicit KeccakF1600Exception()
-        : std::runtime_error("Error in KeccakF1600 permutation.")
+    explicit KeccakF1600Exception(const std::string& message)
+        : std::runtime_error("Error in KeccakF1600 permutation: " + message)
     {}
 };
 
@@ -19,7 +19,6 @@ using KeccakF1600State = std::array<std::array<uint64_t, 5>, 5>;
 using KeccakF1600StateMemValues = std::array<std::array<MemoryValue, 5>, 5>;
 
 struct KeccakF1600RoundData {
-    uint8_t round;
     KeccakF1600State state;
     std::array<std::array<uint64_t, 4>, 5> theta_xor;
     std::array<uint64_t, 5> theta_xor_row_rotl1;

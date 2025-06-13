@@ -478,7 +478,7 @@ void KeccakF1600TraceBuilder::process_permutation(
             trace.set(C::keccakf1600_sel, row, 1);
             trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
             trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
-            trace.set(C::keccakf1600_round, row, round_data.round);
+            trace.set(C::keccakf1600_round, row, round_idx + 1); // round is 1-indexed
             trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
             trace.set(C::keccakf1600_thirty_two, row, AVM_MEMORY_NUM_BITS);
 
@@ -495,7 +495,7 @@ void KeccakF1600TraceBuilder::process_permutation(
 
             // Selectors start and last.
             // src_address required on first row
-            if (round_data.round == 1) {
+            if (round_idx == 0) {
                 trace.set(C::keccakf1600_start, row, 1);
                 trace.set(C::keccakf1600_src_addr, row, event.src_addr);
                 trace.set(C::keccakf1600_src_out_of_range_error, row, event.src_out_of_range ? 1 : 0);
@@ -504,28 +504,29 @@ void KeccakF1600TraceBuilder::process_permutation(
                 trace.set(C::keccakf1600_dst_abs_diff, row, event.dst_abs_diff);
                 trace.set(C::keccakf1600_tag_error, row, event.tag_error ? 1 : 0);
                 trace.set(C::keccakf1600_sel_slice_read, row, out_of_range ? 0 : 1);
+                trace.set(C::keccakf1600_error, row, error ? 1 : 0);
 
-            } else if (round_data.round == AVM_KECCAKF1600_NUM_ROUNDS) {
+            } else if (round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1) {
                 trace.set(C::keccakf1600_last, row, 1);
                 trace.set(C::keccakf1600_sel_slice_write, row, error ? 0 : 1);
             };
 
             // dst_address and sel_no_error are required at every row as we propagate
-            // for the slice memory write lookup
+            // for the slice memory write lookup.
             trace.set(C::keccakf1600_dst_addr, row, event.dst_addr);
             trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
 
             // Helper "inverse" columns for sel and last.
-            trace.set(C::keccakf1600_round_inv, row, FF(round_data.round).invert());
+            trace.set(C::keccakf1600_round_inv, row, FF(round_idx + 1).invert());
             trace.set(C::keccakf1600_round_min_num_rounds_inv,
                       row,
-                      round_data.round == AVM_KECCAKF1600_NUM_ROUNDS
+                      round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1
                           ? 1
-                          : (FF(round_data.round) - AVM_KECCAKF1600_NUM_ROUNDS).invert());
+                          : (FF(round_idx + 1) - FF(AVM_KECCAKF1600_NUM_ROUNDS)).invert());
 
             // When no out-of-range value occured but a tag value error, we
             // need to set the initial state values in the first round.
-            if (!out_of_range && event.tag_error && round_data.round == 1) {
+            if (!out_of_range && event.tag_error && round_idx == 0) {
                 for (size_t i = 0; i < 5; i++) {
                     for (size_t j = 0; j < 5; j++) {
                         // In simulation we set src_mem_values[i][j] to be the memory value when

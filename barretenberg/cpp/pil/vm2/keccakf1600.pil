@@ -40,7 +40,7 @@ sel + last = 0;
 // error is defined below after round function
 pol commit sel_no_error;
 #[SEL_NO_ERROR]
-sel_no_error = sel * (1 - error);
+start * (sel_no_error - 1 + error) = 0;
 
 // Round number which starts at 1 and ends at AVM_KECCAKF1600_NUM_ROUNDS (24).
 pol commit round;
@@ -1350,7 +1350,7 @@ error = 1 - (1 - src_out_of_range_error) * (1 - dst_out_of_range_error) * (1 - t
 (1 - last) * (sel_no_error' - sel_no_error) = 0;
 
 // Note that we do not propagate src_out_of_range_error, dst_out_of_range_error, tag_error, error
-// as they are not affecting constraints in the other row. Error propagation to the caller
+// as they are not affecting constraints in the other rows. Error propagation to the caller
 // is performed through a lookup with destination selector `start`.
 
 // We disable slice read and write whenever the read or write slice is out of range.
