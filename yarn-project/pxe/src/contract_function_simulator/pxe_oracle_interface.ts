@@ -42,7 +42,9 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { NoteValidationRequest } from './note_validation_request.js';
+import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
@@ -723,20 +725,33 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
     ).map(LogRetrievalRequest.fromFields);
 
-    const logRetrievalResponses = await Promise.all(
+    const maybeLogRetrievalResponses = await Promise.all(
       logRetrievalRequests.map(async request => {
         const [publicLog, privateLog] = await Promise.all([
           this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
-          this.getPrivateLogByTag(poseidon2Hash([request.contractAddress, request.unsiloedTag])),
+          this.getPrivateLogByTag(await poseidon2Hash([request.contractAddress, request.unsiloedTag])),
         ]);
 
-        if (publicLog !== undefined) {
-          if (privateLog !== undefined) {
+        if (publicLog !== null) {
+          if (privateLog !== null) {
             throw new Error('found both');
           }
-        } else if (privateLog !== undefined) {
+
+          return new LogRetrievalResponse(
+            publicLog.logPayload,
+            publicLog.txHash,
+            publicLog.uniqueNoteHashesInTx,
+            publicLog.firstNullifierInTx,
+          );
+        } else if (privateLog !== null) {
+          return new LogRetrievalResponse(
+            privateLog.logPayload,
+            privateLog.txHash,
+            privateLog.uniqueNoteHashesInTx,
+            privateLog.firstNullifierInTx,
+          );
         } else {
-          // none
+          null;
         }
       }),
     );
@@ -747,7 +762,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await this.capsuleDataProvider.resetCapsuleArray(
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
-      logRetrievalResponses.map(response => response.toFields()),
+      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
     );
   }
 
