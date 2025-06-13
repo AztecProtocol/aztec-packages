@@ -252,11 +252,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [mplex(), yamux()],
+      streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
-
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,

@@ -16,6 +16,7 @@ import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // None -> Does not exist in our setup
@@ -149,20 +150,31 @@ library StakingLib {
         Errors.Staking__CannotSlashExitedStake(_attester)
       );
 
-      if (exit.amount == _amount) {
+      // If the slash amount is greater than the exit amount, bound it to the exit amount
+      uint256 slashAmount = Math.min(_amount, exit.amount);
+
+      if (exit.amount == slashAmount) {
         // If we slashes the entire thing, nuke it entirely
         delete store.exits[_attester];
       } else {
-        exit.amount -= _amount;
+        exit.amount -= slashAmount;
       }
+
+      emit IStakingCore.Slashed(_attester, slashAmount);
     } else {
       (address withdrawer, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
       require(attesterExists, Errors.Staking__NoOneToSlash(_attester));
 
-      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
-        store.gse.withdraw(_attester, _amount);
+      // Get the effective balance of the attester
+      uint256 effectiveBalance = store.gse.effectiveBalanceOf(address(this), _attester);
 
-      uint256 toUser = amountWithdrawn - _amount;
+      // If the slash amount is greater than the effective balance, bound it to the effective balance
+      uint256 slashAmount = Math.min(_amount, effectiveBalance);
+
+      (uint256 amountWithdrawn, bool isRemoved, uint256 withdrawalId) =
+        store.gse.withdraw(_attester, slashAmount);
+
+      uint256 toUser = amountWithdrawn - slashAmount;
       if (isRemoved && toUser > 0) {
         // Only if we remove the attester AND there is something left will we create an exit
         store.exits[_attester] = Exit({
@@ -174,9 +186,9 @@ library StakingLib {
           exists: true
         });
       }
-    }
 
-    emit IStakingCore.Slashed(_attester, _amount);
+      emit IStakingCore.Slashed(_attester, slashAmount);
+    }
   }
 
   function deposit(address _attester, address _withdrawer, bool _onCanonical) internal {

@@ -13,7 +13,7 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<CommitmentKey>& commitment_key)
+                                   const CommitmentKey& commitment_key)
     : proving_key(std::move(proving_key))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())

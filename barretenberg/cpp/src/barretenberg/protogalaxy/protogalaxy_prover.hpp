@@ -39,7 +39,7 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
 
     DeciderProvingKeys keys_to_fold;
     DeciderVerificationKeys vks_to_fold;
-    std::shared_ptr<CommitmentKey> commitment_key;
+    CommitmentKey commitment_key;
 
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();

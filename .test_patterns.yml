@@ -29,6 +29,7 @@ names:
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
   - nico: &nico "U06D2QSLY10"
+  - lucas: &lucas "U05MW7WQ8LQ"
 
 tests:
   # barretenberg
@@ -233,6 +234,10 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
+    error_regex: "Exceeded timeout of"
+    owners:
+      - *lucas
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
