@@ -2003,8 +2003,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         return;
     }
     OriginTag new_tag = get_origin_tag();
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14660): handle situation where some limbs are
-    // constant and others are not constant
     const auto [quotient_value, remainder_value] = get_value().divmod(target_basis.modulus);
 
     bigfield quotient(context);
