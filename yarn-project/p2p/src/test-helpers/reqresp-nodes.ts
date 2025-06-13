@@ -231,8 +231,9 @@ export const createReqResp = async (
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
+    p2pOptimisticNegotiation: false,
   };
-  const req = new ReqResp(config, p2p, peerScoring, rateLimits);
+  const req = new ReqResp(config, p2p, peerScoring, undefined, rateLimits);
   return { p2p, req };
 };
 
