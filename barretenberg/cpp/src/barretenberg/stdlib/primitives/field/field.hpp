@@ -155,11 +155,9 @@ template <typename Builder> class field_t {
 
     field_t sqr() const { return operator*(*this); }
 
+    field_t pow(const uint32_t& exponent) const;
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): Use of this function in ZM verifier is insecure.
-    field_t pow(size_t exponent) const;
 
     field_t operator+=(const field_t& other)
     {

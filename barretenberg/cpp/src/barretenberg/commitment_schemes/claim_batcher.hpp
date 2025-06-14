@@ -52,9 +52,12 @@ template <typename Curve> struct ClaimBatcher_ {
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
     InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
-    size_t get_groups_to_be_interleaved_size() { return (interleaved) ? interleaved->commitments_groups[0].size() : 0; }
+    uint32_t get_groups_to_be_interleaved_size()
+    {
+        return (interleaved) ? static_cast<uint32_t>(interleaved->commitments_groups[0].size()) : 0;
+    }
 
-    size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
+    uint32_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
