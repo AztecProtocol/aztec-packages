@@ -1,1 +1,2 @@
-^acir_tests/scripts/run_test.sh
+^barretenberg/acir_tests/scripts/run_test.sh
+^barretenberg/acir_tests/internal_test_programs/**/*.(nr|toml)$
