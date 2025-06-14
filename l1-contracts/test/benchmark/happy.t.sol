@@ -138,24 +138,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   Forwarder internal baseForwarder = new Forwarder();
 
-  modifier prepare(uint256 _validatorCount) {
+  modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
-    builder.deploy();
-
-    asset = builder.getConfig().testERC20;
-    rollup = builder.getConfig().rollup;
-
-    vm.label(coinbase, "coinbase");
-    vm.label(address(rollup), "ROLLUP");
-    vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
-
-    // We are going to set up all of the validators
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
 
     for (uint256 i = 1; i < _validatorCount + 1; i++) {
@@ -166,9 +152,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
-    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
-    multiAdder.addValidators(initialValidators);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize).setEntryQueueFlushSizeMin(_validatorCount);
+    builder.deploy();
+
+    asset = builder.getConfig().testERC20;
+    rollup = builder.getConfig().rollup;
+
+    vm.label(coinbase, "coinbase");
+    vm.label(address(rollup), "ROLLUP");
+    vm.label(address(asset), "ASSET");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
     _;
   }
@@ -182,17 +179,17 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.warp(l1Metadata[index].timestamp);
   }
 
-  function test_no_validators() public prepare(0) {
+  function test_no_validators() public prepare(0, 0) {
     benchmark();
   }
 
   /// forge-config: default.isolate = true
-  function test_48_validators() public prepare(48) {
+  function test_48_validators() public prepare(48, 48) {
     benchmark();
   }
 
   /// forge-config: default.isolate = true
-  function test_100_validators() public prepare(100) {
+  function test_100_validators() public prepare(100, 48) {
     benchmark();
   }
 

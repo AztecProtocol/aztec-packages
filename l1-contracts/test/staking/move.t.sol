@@ -10,6 +10,8 @@ import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {console} from "forge-std/console.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;
@@ -74,10 +76,17 @@ contract MoveTest is StakingBase {
     assertEq(gse.getAttesterCountAtTime(address(oldRollup), Timestamp.wrap(block.timestamp)), n);
     assertEq(gse.getAttesterCountAtTime(address(newRollup), Timestamp.wrap(block.timestamp)), 0);
 
-    assertEq(
-      oldRollup.getEpochCommittee(epoch).length, Math.min(n, oldRollup.getTargetCommitteeSize())
+    assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
+    console.log("oldRollup.getTargetCommitteeSize()", oldRollup.getTargetCommitteeSize());
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
+        0,
+        newRollup.getTargetCommitteeSize()
+      )
     );
-    assertEq(newRollup.getEpochCommittee(epoch).length, 0);
+    newRollup.getEpochCommittee(epoch);
 
     // Jump to epoch and add the rollup.
     vm.warp(Timestamp.unwrap(ts));
@@ -93,10 +102,15 @@ contract MoveTest is StakingBase {
     // When we look at the committee for that epoch, the setup "depends" on how far in the past we "lock-in"
     // the committee. So for good measure, we will first check at the epoch and then add another 100.
     // That should plenty for the lookup
-    assertEq(
-      oldRollup.getEpochCommittee(epoch).length, Math.min(n, oldRollup.getTargetCommitteeSize())
+    assertEq(oldRollup.getEpochCommittee(epoch).length, oldRollup.getTargetCommitteeSize());
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.ValidatorSelection__InsufficientCommitteeSize.selector,
+        0,
+        newRollup.getTargetCommitteeSize()
+      )
     );
-    assertEq(newRollup.getEpochCommittee(epoch).length, 0);
+    newRollup.getEpochCommittee(epoch);
 
     Epoch epoch2 = epoch + Epoch.wrap(100);
 

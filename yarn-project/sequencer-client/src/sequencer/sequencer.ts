@@ -1,6 +1,6 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { FormattedViemError, type ViemPublicClient } from '@aztec/ethereum';
+import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -317,12 +317,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    // Check that we are a proposer for the next slot
-    const proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
+    let proposerInNextSlot: EthAddress | undefined;
+    try {
+      // Check that we are a proposer for the next slot
+      proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
+    } catch (e) {
+      if (e instanceof NoCommitteeError) {
+        this.log.warn(`Cannot propose block ${newBlockNumber} since the committee does not exist on L1`);
+        return;
+      }
+    }
     const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
-    // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
-    // If we calculate a proposer in the next slot, and it is not us, then stop
+    // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
+    // If the committee is defined and not empty, but none of our validators are the proposer,
+    // then stop.
     if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
@@ -630,6 +639,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   ): Promise<CommitteeAttestation[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
+
+    // We checked above that the committee is defined, so this should never happen.
+    if (!committee) {
+      throw new Error('No committee when collecting attestations');
+    }
 
     if (committee.length === 0) {
       this.log.verbose(`Attesting committee is empty`);

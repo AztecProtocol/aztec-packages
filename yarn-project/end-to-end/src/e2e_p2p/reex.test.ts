@@ -44,12 +44,6 @@ describe('e2e_p2p_reex', () => {
       },
     });
 
-    t.logger.info('Setup account');
-    await t.setupAccount();
-
-    t.logger.info('Deploy spam contract');
-    await t.deploySpamContract();
-
     t.logger.info('Apply base snapshots');
     await t.applyBaseSnapshots();
 
@@ -68,7 +62,7 @@ describe('e2e_p2p_reex', () => {
       {
         ...t.ctx.aztecNodeConfig,
         validatorReexecute: true,
-        minTxsPerBlock: NUM_TXS_PER_NODE + 1,
+        minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
       t.ctx.dateProvider,
@@ -83,7 +77,13 @@ describe('e2e_p2p_reex', () => {
 
     // Wait a bit for peers to discover each other
     t.logger.info('Waiting for peer discovery');
-    await sleep(4000);
+    await sleep(8000);
+
+    t.logger.info('Setup account');
+    await t.setupAccount();
+
+    t.logger.info('Deploy spam contract');
+    await t.deploySpamContract();
 
     // Submit the txs to the mempool. We submit a single set of txs, and then inject different behaviors
     // into the validator nodes to cause them to fail in different ways.

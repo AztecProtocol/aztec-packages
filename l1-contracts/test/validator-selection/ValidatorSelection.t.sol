@@ -61,7 +61,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     invalidCommitteeCommitment: false
   });
 
-  function testInitialCommitteeMatch() public setup(4) progressEpochs(2) {
+  function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 2);
@@ -84,7 +84,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertTrue(_seenCommittee[proposer]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -104,7 +104,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -127,7 +127,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
-  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpochs(2) {
+  function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochs(2) {
     Epoch epoch = rollup.getCurrentEpoch();
 
     uint256 preSize = rollup.getActiveAttesterCount();
@@ -165,7 +165,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   /// forge-config: default.isolate = true
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
-    setup(100)
+    setup(100, 48)
     progressEpochs(2)
   {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
@@ -190,12 +190,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testHappyPath() public setup(4) progressEpochs(2) {
+  function testHappyPath() public setup(4, 4) progressEpochs(2) {
     _testBlock("mixed_block_1", false, 3, NO_FLAGS);
     _testBlock("mixed_block_2", false, 3, NO_FLAGS);
   }
 
-  function testNukeFromOrbit() public setup(4) progressEpochs(2) {
+  function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
@@ -232,7 +232,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testRelayedForProposer() public setup(4) progressEpochs(2) {
+  function testRelayedForProposer() public setup(4, 4) progressEpochs(2) {
     // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
     _testBlock(
       "mixed_block_1",
@@ -247,7 +247,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testProposerNotProvided() public setup(4) progressEpochs(2) {
+  function testProposerNotProvided() public setup(4, 4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -261,7 +261,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidCommitteeCommitment() public setup(4) progressEpochs(2) {
+  function testInvalidCommitteeCommitment() public setup(4, 4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -275,7 +275,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
+  function testInsufficientSigsMove() public setup(4, 4) progressEpochs(2) {
     GSE gse = rollup.getGSE();
     address caller = gse.owner();
     vm.prank(caller);

@@ -64,7 +64,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
   /**
    * @notice Setup contracts needed for the tests with the a given number of validators
    */
-  modifier setup(uint256 _validatorCount) {
+  modifier setup(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     string memory _name = "mixed_block_1";
     {
       DecoderBase.Full memory full = load(_name);
@@ -87,8 +87,9 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setEntryQueueFlushSizeMin(_validatorCount);
+    RollupBuilder builder = new RollupBuilder(address(this)).setEntryQueueFlushSizeMin(
+      _validatorCount
+    ).setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -96,12 +97,6 @@ contract ValidatorSelectionTestBase is DecoderBase {
     testERC20 = builder.getConfig().testERC20;
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-
-    if (initialValidators.length > 0) {
-      MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), rollup.getDepositAmount() * initialValidators.length);
-      multiAdder.addValidators(initialValidators);
-    }
 
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
