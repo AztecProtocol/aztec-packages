@@ -39,6 +39,8 @@ contracts=(
   "UniswapPortal"
   "ValidatorSelectionLib"
   "MultiAdder"
+  "GSE"
+  "MockZKPassportVerifier"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.
