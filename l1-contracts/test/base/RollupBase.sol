@@ -16,13 +16,11 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 

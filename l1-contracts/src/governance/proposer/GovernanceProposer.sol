@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";

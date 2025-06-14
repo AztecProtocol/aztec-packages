@@ -5,7 +5,7 @@ import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {Timestamp, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";

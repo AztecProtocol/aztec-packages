@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
 
 contract Fakerollup {

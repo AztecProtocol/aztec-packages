@@ -3,9 +3,10 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Errors as GSEErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE, IGSECore} from "@aztec/core/staking/GSE.sol";
+import {IGSE, IGSECore} from "@aztec/governance/GSE.sol";
 
 contract DepositTest is StakingBase {
   function test_GivenCallerHasInsufficientAllowance() external {
@@ -57,7 +58,7 @@ contract DepositTest is StakingBase {
     address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
+      abi.encodeWithSelector(GSEErrors.GSE__AlreadyRegistered.selector, magicAddress, ATTESTER)
     );
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
