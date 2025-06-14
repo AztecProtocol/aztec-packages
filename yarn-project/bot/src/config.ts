@@ -35,6 +35,8 @@ export type BotConfig = {
   l1Mnemonic: string | undefined;
   /** The private key for the account to bridge fee juice from L1. */
   l1PrivateKey: string | undefined;
+  /** How long to wait for L1 to L2 messages to become available on L2 */
+  l1ToL2MessageTimeoutSeconds: number;
   /** Signing private key for the sender account. */
   senderPrivateKey: Fr | undefined;
   /** Optional salt to use to deploy the sender account */
@@ -83,6 +85,7 @@ export const BotConfigSchema = z
     l1RpcUrls: z.array(z.string()).optional(),
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
+    l1ToL2MessageTimeoutSeconds: z.number(),
     senderPrivateKey: schemas.Fr.optional(),
     senderSalt: schemas.Fr.optional(),
     recipientEncryptionSecret: schemas.Fr,
@@ -142,6 +145,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   l1PrivateKey: {
     env: 'BOT_L1_PRIVATE_KEY',
     description: 'The private key for the account to bridge fee juice from L1.',
+  },
+  l1ToL2MessageTimeoutSeconds: {
+    env: 'BOT_L1_TO_L2_TIMEOUT_SECONDS',
+    description: 'How long to wait for L1 to L2 messages to become available on L2',
+    ...numberConfigHelper(60),
   },
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
