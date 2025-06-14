@@ -2,7 +2,8 @@ use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
     constants::{
         GENERATOR_INDEX__FUNCTION_ARGS, GENERATOR_INDEX__MESSAGE_NULLIFIER,
-        GENERATOR_INDEX__PUBLIC_CALLDATA, GENERATOR_INDEX__SECRET_HASH,
+        GENERATOR_INDEX__PUBLIC_CALLDATA, GENERATOR_INDEX__SECRET_HASH, MAX_ENQUEUED_CALLS_PER_CALL,
+        MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
     },
     hash::{poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice, sha256_to_field},
     point::Point,
@@ -101,6 +102,11 @@ pub fn hash_args(args: [Field]) -> Field {
 
 // Computes the hash of calldata for public functions.
 pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
+    // Safety: this is only called to detect calls that will result in transactions rejected by the nodes in order to
+    // help developers prevent them. If a call with too much calldata was made, then the resulting transaction would
+    // simply be ignored by most nodes in the network, and likely never included in a block.
+    unsafe { check_calldata_array_len(calldata); };
+
     if calldata.len() == 0 {
         0
     } else {
@@ -110,11 +116,34 @@ pub fn hash_calldata_array<let N: u32>(calldata: [Field; N]) -> Field {
 
 // Same as `hash_calldata_array`, but takes a slice instead of an array.
 pub fn hash_calldata(calldata: [Field]) -> Field {
+    // Safety: this is only called to detect calls that will result in transactions rejected by the nodes in order to
+    // help developers prevent them. If a call with too much calldata was made, then the resulting transaction would
+    // simply be ignored by most nodes in the network, and likely never included in a block.
+    unsafe { check_calldata_len(calldata); };
+
     if calldata.len() == 0 {
         0
     } else {
         poseidon2_hash_with_separator_slice(calldata, GENERATOR_INDEX__PUBLIC_CALLDATA)
     }
+}
+
+unconstrained fn check_calldata_array_len<let N: u32>(calldata: [Field; N]) {
+    check_calldata_len_inner(calldata.len());
+}
+
+unconstrained fn check_calldata_len(calldata: [Field]) {
+    check_calldata_len_inner(calldata.len());
+}
+
+unconstrained fn check_calldata_len_inner(len: u32) {
+    // Technically what's restricted is the length of the sum of the calldata for all enqueued functions. For simplicity
+    // we restrict each enqueued call to not exceed their fair share.
+    let max = (MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / MAX_ENQUEUED_CALLS_PER_CALL);
+    assert(
+        len < max,
+        f"Computing public calldata hash for calldata of length {len}, but the maximum is {max}",
+    );
 }
 
 #[test]
