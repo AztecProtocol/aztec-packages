@@ -8,7 +8,9 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
+import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {GSE, AttesterConfig} from "@aztec/core/staking/GSE.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
@@ -53,6 +55,8 @@ struct StakingStorage {
   GSE gse;
   Timestamp exitDelay;
   mapping(address attester => Exit) exits;
+  StakingQueue entryQueue;
+  Epoch nextFlushableEpoch;
 }
 
 library StakingLib {
@@ -60,6 +64,7 @@ library StakingLib {
   using SafeERC20 for IERC20;
   using AddressSnapshotLib for SnapshottedAddressSet;
   using ProposalLib for DataStructures.Proposal;
+  using StakingQueueLib for StakingQueue;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -71,6 +76,7 @@ library StakingLib {
     store.gse = _gse;
     store.exitDelay = _exitDelay;
     store.slasher = _slasher;
+    store.entryQueue.init();
   }
 
   function setSlasher(address _slasher) internal {
@@ -202,8 +208,38 @@ library StakingLib {
     uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     store.stakingAsset.transferFrom(msg.sender, address(this), amount);
-    store.stakingAsset.approve(address(store.gse), amount);
-    store.gse.deposit(_attester, _withdrawer, _onCanonical);
+    store.entryQueue.enqueue(_attester, _withdrawer, _onCanonical);
+    emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
+  }
+
+  function flushEntryQueue(uint256 _maxAddableValidators) internal {
+    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
+    StakingStorage storage store = getStorage();
+    require(
+      store.nextFlushableEpoch <= currentEpoch, Errors.Staking__QueueAlreadyFlushed(currentEpoch)
+    );
+    store.nextFlushableEpoch = currentEpoch + Epoch.wrap(1);
+    uint256 amount = store.gse.DEPOSIT_AMOUNT();
+
+    uint256 queueLength = store.entryQueue.length();
+    uint256 numToDequeue = _maxAddableValidators > queueLength ? queueLength : _maxAddableValidators;
+    store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
+    for (uint256 i = 0; i < numToDequeue; i++) {
+      DepositArgs memory args = store.entryQueue.dequeue();
+      (bool success, bytes memory data) = address(store.gse).call(
+        abi.encodeWithSelector(
+          IStakingCore.deposit.selector, args.attester, args.withdrawer, args.onCanonical
+        )
+      );
+      if (success) {
+        emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
+      } else {
+        require(data.length > 0, Errors.Staking__DepositOutOfGas());
+        store.stakingAsset.transfer(args.withdrawer, amount);
+        emit IStakingCore.FailedDeposit(args.attester, args.withdrawer);
+      }
+    }
+    store.stakingAsset.approve(address(store.gse), 0);
   }
 
   function initiateWithdraw(address _attester, address _recipient) internal returns (bool) {
@@ -246,6 +282,10 @@ library StakingLib {
     }
 
     return true;
+  }
+
+  function getNextFlushableEpoch() internal view returns (Epoch) {
+    return getStorage().nextFlushableEpoch;
   }
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {

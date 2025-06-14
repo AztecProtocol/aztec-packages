@@ -107,7 +107,11 @@ library Errors {
   error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
 
   // Staking
+  error Staking__AlreadyQueued(address _attester);
+  error Staking__QueueEmpty();
+  error Staking__DepositOutOfGas();
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__QueueAlreadyFlushed(Epoch epoch); // 0x21148c78
   error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab

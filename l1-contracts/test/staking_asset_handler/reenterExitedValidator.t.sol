@@ -43,6 +43,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     emit IStakingAssetHandler.AddedToQueue(_attester, 0);
     stakingAssetHandler.dripQueue();
+    staking.flushEntryQueue();
 
     // 2. Exit the validator
     vm.prank(WITHDRAWER);

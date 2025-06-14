@@ -22,6 +22,10 @@ library ExtRollupLib2 {
     StakingLib.deposit(_attester, _withdrawer, _onCanonical);
   }
 
+  function flushEntryQueue(uint256 _maxAddableValidators) external {
+    StakingLib.flushEntryQueue(_maxAddableValidators);
+  }
+
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {
     return StakingLib.initiateWithdraw(_attester, _recipient);
   }

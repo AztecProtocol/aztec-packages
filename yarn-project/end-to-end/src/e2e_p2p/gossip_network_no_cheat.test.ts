@@ -146,6 +146,10 @@ describe('e2e_p2p_network', () => {
       debugLogger: t.logger,
     });
 
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await rollup.write.flushEntryQueue(),
+    });
+
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
     expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 

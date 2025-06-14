@@ -146,6 +146,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     testERC20.mint(address(this), rollup.getDepositAmount());
     testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();

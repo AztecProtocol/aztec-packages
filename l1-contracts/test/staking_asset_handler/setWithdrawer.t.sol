@@ -50,6 +50,7 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, attester, _newWithdrawer);
     stakingAssetHandler.addValidatorToQueue(attester, realProof);
+    staking.flushEntryQueue();
     assertEq(staking.getAttesterView(attester).config.withdrawer, _newWithdrawer);
   }
 }

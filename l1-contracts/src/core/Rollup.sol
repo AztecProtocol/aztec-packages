@@ -252,10 +252,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().gse;
   }
 
-  function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
-  }
-
   function getManaTarget() external view override(IRollup) returns (uint256) {
     return FeeLib.getStorage().manaTarget;
   }
@@ -744,5 +740,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
     return Timestamp.wrap(block.timestamp).epochFromTimestamp();
+  }
+
+  function getNextFlushableEpoch() public view override(IStaking) returns (Epoch) {
+    return StakingLib.getNextFlushableEpoch();
   }
 }
