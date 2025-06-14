@@ -99,7 +99,7 @@ export -f compile_project format lint get_projects compile_all hash
 function build {
   echo_header "yarn-project build"
   denoise "./bootstrap.sh clean-lite"
-  npm_install_deps
+  npm_install_deps ../noir/noir-repo ../barretenberg/ts
   denoise "compile_all"
 }
 
