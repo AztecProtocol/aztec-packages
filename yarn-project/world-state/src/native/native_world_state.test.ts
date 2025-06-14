@@ -1271,7 +1271,7 @@ describe('NativeWorldState', () => {
           MerkleTreeId.NOTE_HASH_TREE,
           MerkleTreeId.NULLIFIER_TREE,
           MerkleTreeId.PUBLIC_DATA_TREE,
-        ].map(x => fork.getSiblingPath(x, 0n)),
+        ].map(x => fork.getSiblingPath(x, 0n) as Promise<SiblingPath<number>>),
       );
     };
 

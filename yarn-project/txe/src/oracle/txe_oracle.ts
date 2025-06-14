@@ -11,10 +11,8 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -502,10 +500,7 @@ export class TXE implements TypedOracle {
     }
 
     const leafPreimagePromise = snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPathPromise = snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
 
     const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
 
@@ -527,10 +522,7 @@ export class TXE implements TypedOracle {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await snap.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
+      const path = await snap.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       return new PublicDataWitness(lowLeafResult.index, preimage, path);
     }
   }
@@ -551,10 +543,7 @@ export class TXE implements TypedOracle {
     }
     const preimageData = (await snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
-    const siblingPath = await snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPath = await snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
