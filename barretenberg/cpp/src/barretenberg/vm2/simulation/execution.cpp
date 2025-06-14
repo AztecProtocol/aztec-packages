@@ -179,7 +179,7 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             //// Temporality group 2 starts ////
 
             // Gas checking may throw OOG.
-            ex_event.error = ExecutionError::GAS;           // Set preemptively.
+            ex_event.error = ExecutionError::GAS_BASE;      // Set preemptively.
             get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
             get_gas_tracker().consume_base_gas();
 
