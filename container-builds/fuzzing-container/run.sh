@@ -96,6 +96,7 @@ if [ -z "${fuzzer}" ]; then
 fi
 
 [[ -d crash-reports ]] || mkdir crash-reports;
+[[ -d crash-reports/unsorted ]] || mkdir crash-reports/unsorted;
 [[ -d output ]] || mkdir output;
 
 if [[ $verbosity == '1' ]]; then
@@ -109,6 +110,7 @@ if [[ $verbosity == '1' ]]; then
         "$image_name"                                           \
         --verbose                                               \
         --fuzzer "$fuzzer"                                      \
+        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                             
 else
@@ -121,6 +123,7 @@ else
         --entrypoint "./entrypoint.sh"                          \
         "$image_name"                                           \
         --fuzzer "$fuzzer"                                      \
+        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                             
 fi
