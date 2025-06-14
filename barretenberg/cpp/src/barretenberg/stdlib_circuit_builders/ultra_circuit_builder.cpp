@@ -947,6 +947,8 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
                 0,
             },
             ((i == num_limb_triples - 1) ? false : true));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
+        // wire/variable in the circuit, in the last iteration of the loop.
         accumulator_idx = this->add_variable(new_accumulator);
         accumulator = new_accumulator;
     }
