@@ -119,6 +119,65 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     }
 }
 
+void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
+{
+    auto& memory = context.get_memory();
+    TaggedValue result;
+
+    // Check if var_enum is a valid value in EnvironmentVariable enum
+    if (var_enum >= 0 && var_enum <= static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) {
+        EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
+
+        switch (env_var) {
+        case EnvironmentVariable::ADDRESS:
+            result = TaggedValue::from<FF>(context.get_address());
+            break;
+        case EnvironmentVariable::SENDER:
+            result = TaggedValue::from<FF>(context.get_msg_sender());
+            break;
+        case EnvironmentVariable::TRANSACTIONFEE:
+            // TODO(dbanks12): implement transaction fee
+            result = TaggedValue::from<FF>(0);
+            break;
+        case EnvironmentVariable::CHAINID:
+            result = TaggedValue::from<FF>(context.get_globals().chainId);
+            break;
+        case EnvironmentVariable::VERSION:
+            result = TaggedValue::from<FF>(context.get_globals().version);
+            break;
+        case EnvironmentVariable::BLOCKNUMBER:
+            result = TaggedValue::from<uint32_t>(context.get_globals().blockNumber);
+            break;
+        case EnvironmentVariable::TIMESTAMP:
+            result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
+            break;
+        case EnvironmentVariable::FEEPERL2GAS:
+            result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
+            break;
+        case EnvironmentVariable::FEEPERDAGAS:
+            result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
+            break;
+        case EnvironmentVariable::ISSTATICCALL:
+            result = TaggedValue::from<FF>(context.get_is_static() ? 1 : 0);
+            break;
+        case EnvironmentVariable::L2GASLEFT:
+            result = TaggedValue::from<FF>(context.gas_left().l2Gas);
+            break;
+        case EnvironmentVariable::DAGASLEFT:
+            result = TaggedValue::from<FF>(context.gas_left().daGas);
+            break;
+        default:
+            // This should never happen since we checked the range above
+            throw std::runtime_error("Invalid environment variable enum value");
+        }
+    } else {
+        throw std::runtime_error("Invalid environment variable enum value");
+    }
+
+    memory.set(dst_addr, result);
+    set_output(result);
+}
+
 // FIXME: unconstrained!
 void Execution::calldata_copy(ContextInterface& context,
                               MemoryAddress copy_size_offset,
@@ -299,6 +358,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::CALLDATACOPY:
         call_with_operands(&Execution::calldata_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETENVVAR:
+        call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

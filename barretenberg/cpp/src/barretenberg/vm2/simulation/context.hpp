@@ -37,6 +37,7 @@ class ContextInterface {
     virtual const AztecAddress& get_address() const = 0;
     virtual const AztecAddress& get_msg_sender() const = 0;
     virtual bool get_is_static() const = 0;
+    virtual const GlobalVariables& get_globals() const = 0;
 
     // Input / Output
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
@@ -78,11 +79,13 @@ class BaseContext : public ContextInterface {
                 bool is_static,
                 Gas gas_limit,
                 Gas gas_used,
+                GlobalVariables globals,
                 std::unique_ptr<BytecodeManagerInterface> bytecode,
                 std::unique_ptr<MemoryInterface> memory)
         : address(address)
         , msg_sender(msg_sender)
         , is_static(is_static)
+        , globals(globals)
         , context_id(context_id)
         , gas_used(gas_used)
         , gas_limit(gas_limit)
@@ -107,6 +110,7 @@ class BaseContext : public ContextInterface {
     const AztecAddress& get_address() const override { return address; }
     const AztecAddress& get_msg_sender() const override { return msg_sender; }
     bool get_is_static() const override { return is_static; }
+    const GlobalVariables& get_globals() const override { return globals; }
 
     ContextInterface& get_child_context() override { return *child_context; }
     void set_child_context(std::unique_ptr<ContextInterface> child_ctx) override
@@ -151,6 +155,7 @@ class BaseContext : public ContextInterface {
     AztecAddress address;
     AztecAddress msg_sender;
     bool is_static;
+    GlobalVariables globals;
 
     uint32_t context_id;
 
@@ -179,11 +184,19 @@ class EnqueuedCallContext : public BaseContext {
                         bool is_static,
                         Gas gas_limit,
                         Gas gas_used,
+                        GlobalVariables globals,
                         std::unique_ptr<BytecodeManagerInterface> bytecode,
                         std::unique_ptr<MemoryInterface> memory,
                         std::span<const FF> calldata)
-        : BaseContext(
-              context_id, address, msg_sender, is_static, gas_limit, gas_used, std::move(bytecode), std::move(memory))
+        : BaseContext(context_id,
+                      address,
+                      msg_sender,
+                      is_static,
+                      gas_limit,
+                      gas_used,
+                      globals,
+                      std::move(bytecode),
+                      std::move(memory))
         , calldata(calldata.begin(), calldata.end())
     {}
 
@@ -239,6 +252,7 @@ class NestedContext : public BaseContext {
                   AztecAddress msg_sender,
                   bool is_static,
                   Gas gas_limit,
+                  GlobalVariables globals,
                   std::unique_ptr<BytecodeManagerInterface> bytecode,
                   std::unique_ptr<MemoryInterface> memory,
                   ContextInterface& parent_context,
@@ -251,6 +265,7 @@ class NestedContext : public BaseContext {
                       is_static,
                       gas_limit,
                       Gas{ 0, 0 },
+                      globals,
                       std::move(bytecode),
                       std::move(memory))
         , parent_cd_offset(cd_offset_address)

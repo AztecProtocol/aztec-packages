@@ -1,0 +1,64 @@
+include "public_inputs.pil";
+
+/**
+ * Env vars from global variables will always be looked up via public inputs
+ * so there must be a selector derived from the sel_op_getenvvar and the member enum.
+ * This selector will toggle the lookup from public inputs. We will then use the enum
+ * to select a `ROW_IDX` to lookup in the public inputs.
+ * Note that the lookup to public inputs will likely pull 2 values (col0 and col1)
+ * because { feePerDaGas, feePerL2Gas } is in 1 row spanning 2 columns.
+ * This means that while nearly all globalVariables will come from public inputs
+ * col0, feePerL2Gas will come from col1. But we might as well let them share a
+ * single lookup.
+ *
+ * For all other env vars, the value will already be in the current row:
+ * - ADDRESS
+ * - SENDER
+ * - ISSTATICCALL
+ * - L2GASLEFT
+ * - DAGASLEFT
+ * For these cases, we do not need to look the values up, but instead use the member enum
+ * to figure out which column to load into the register to write to memory.
+ * Note: gasLeft will be derived from gasLimits and gasUsed.
+ *
+ * TODO: Transaction fee should be 0 until teardown where it should be set properly.
+ * It is a column in the TX trace. We need to make sure that it is set to 0 for all enqueued calls
+ * except teardown where it is set to match its value at "collect fee". Then we dispatch it to the execution
+ * trace alongside address, sender, and isStaticCall.
+ *
+ * If memberEnum is out of range, or if some other error occurs in an early temporality group
+ * (e.g. address resolution or out-of-gas errors), all of this virtual gadget's selectors should be 0, and it should
+ * set intermediate values and the destination intermediate register to 0.
+ * TODO: for now, let's leave this memberEnum range check unconstrained and instead just add a column for it.
+ * NOTE: Will need some selector that is should_get_env_var that is disabled by an enum-out-of-range or other earlier error.
+ */
+
+namespace execution; // this is a virtual gadget that shares rows with the execution trace
+
+    // No relations will be checked if this identity is satisfied.
+    #[skippable_if]
+    sel = 0; // from execution.pil.
+
+    // Environment variable enum constants
+    pol constant ADDRESS = 0;
+    pol constant SENDER = 1;
+    pol constant TRANSACTIONFEE = 2;
+    pol constant CHAINID = 3;
+    pol constant VERSION = 4;
+    pol constant BLOCKNUMBER = 5;
+    pol constant TIMESTAMP = 6;
+    pol constant FEEPERL2GAS = 7;
+    pol constant FEEPERDAGAS = 8;
+    pol constant ISSTATICCALL = 9;
+    pol constant L2GASLEFT = 10;
+    pol constant DAGASLEFT = 11;
+    pol constant INVALID_ENUM = 12;
+
+    // The environment variable enum value
+    pol commit var_enum;
+
+    // The value to write to memory
+    pol commit value;
+
+    // Error flag for invalid enum
+    pol commit invalid_enum_error;
