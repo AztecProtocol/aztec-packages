@@ -8,9 +8,9 @@ import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/T
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 struct TimeStorage {
-  uint128 genesisTime;
-  uint32 slotDuration; // Number of seconds in a slot
-  uint32 epochDuration; // Number of slots in an epoch
+  uint64 genesisTime;  // Unix timestamp (fits until year 2100)
+  uint8 slotDuration;  // Number of seconds in a slot (max 255)
+  uint8 epochDuration; // Number of slots in an epoch (max 255)
 }
 
 library TimeLib {
@@ -20,9 +20,9 @@ library TimeLib {
 
   function initialize(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration) internal {
     TimeStorage storage store = getStorage();
-    store.genesisTime = _genesisTime.toUint128();
-    store.slotDuration = _slotDuration.toUint32();
-    store.epochDuration = _epochDuration.toUint32();
+    store.genesisTime = _genesisTime.toUint64();
+    store.slotDuration = _slotDuration.toUint8();
+    store.epochDuration = _epochDuration.toUint8();
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {
