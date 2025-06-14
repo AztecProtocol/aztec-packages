@@ -62,6 +62,10 @@ export class Oracle {
     return [toACVMField(await this.typedOracle.getBlockNumber())];
   }
 
+  async getTimestamp(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.getTimestamp())];
+  }
+
   async getContractAddress(): Promise<ACVMField[]> {
     return [toACVMField(await this.typedOracle.getContractAddress())];
   }

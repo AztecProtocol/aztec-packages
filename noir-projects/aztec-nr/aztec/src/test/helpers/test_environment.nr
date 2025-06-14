@@ -24,7 +24,7 @@ use crate::test::helpers::{cheatcodes, utils::Deployer};
 
 use crate::note::note_interface::{NoteHash, NoteType};
 use crate::oracle::{
-    execution::{get_block_number, get_contract_address},
+    execution::{get_block_number, get_contract_address, get_timestamp},
     execution_cache,
     notes::notify_created_note,
 };
@@ -52,7 +52,17 @@ impl TestEnvironment {
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
     /// of transactions when building blocks, this block number is also returned by public_context.block_number().
     pub unconstrained fn pending_block_number(_self: Self) -> u32 {
+        // TODO: This oracle when used in PXE returns the latest synched block number by the node and not the pending
+        // block number! But TXE handles this in some messed up custom way so this might actually be kinda correct.
+        // Terrible.
         get_block_number()
+    }
+
+    /// Returns the timestamp of the block currently being built. Since sequencer is executing the public part
+    /// of transactions when building blocks, this timestamp is also returned by public_context.timestamp().
+    pub unconstrained fn pending_timestamp(_self: Self) -> u64 {
+        // TODO: This has the same behavior as pending_block_number() so it's also messed up.
+        get_timestamp()
     }
 
     /// This does what the above does but should be considered deprecated as the naming is subpar.
