@@ -15,7 +15,7 @@ import {
   zstdDecompressSync,
 } from 'zlib';
 
-import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
+import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
 // Set a 2 minute timeout.
 const TIMEOUT = 120_000;
@@ -104,10 +104,15 @@ describe('transaction compression', () => {
         name: string,
         txType: string,
       ) => {
+        const numIterations = 50;
+        let uncompressed: Buffer = Buffer.alloc(0);
+        let compressed: Buffer = Buffer.alloc(0);
         const timer = new Timer();
-        const compressed = compress(txAsBuffer);
-        const duration = timer.ms();
-        const uncompressed = uncompress(compressed);
+        for (let i = 0; i < numIterations; i++) {
+          compressed = compress(txAsBuffer);
+          uncompressed = uncompress(compressed);
+        }
+        const duration = timer.ms() / numIterations;
         expect(uncompressed).toEqual(txAsBuffer);
 
         logger.info(`Compressed tx size (${name}): ${compressed.length}, timer: ${duration}`);
