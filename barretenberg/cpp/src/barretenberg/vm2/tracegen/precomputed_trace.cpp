@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
 
@@ -501,6 +502,21 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
                       { C::precomputed_write_public_input_offset, pay_gas.write_pi_offset },
                   },
               });
+}
+
+void PrecomputedTraceBuilder::process_keccak_round_constants(TraceContainer& trace)
+{
+    using C = Column;
+
+    uint32_t row = 1;
+    for (const auto& round_constant : simulation::keccak_round_constants) {
+        trace.set(row,
+                  { {
+                      { C::precomputed_sel_keccak, 1 },
+                      { C::precomputed_keccak_round_constant, round_constant },
+                  } });
+        row++;
+    }
 }
 
 } // namespace bb::avm2::tracegen
