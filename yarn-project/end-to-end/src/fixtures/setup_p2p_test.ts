@@ -43,6 +43,7 @@ export async function createNodes(
   prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
+  indexOffset = 0,
 ): Promise<AztecNodeService[]> {
   const nodePromises: Promise<AztecNodeService>[] = [];
   const loggerIdStorage = new AsyncLocalStorage<string>();
@@ -51,16 +52,17 @@ export async function createNodes(
   addLogNameHandler(logNameHandler);
 
   for (let i = 0; i < numNodes; i++) {
+    const index = indexOffset + i;
     // We run on ports from the bootnode upwards
-    const port = bootNodePort + i + 1;
+    const port = bootNodePort + 1 + index;
 
-    const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
+    const dataDir = dataDirectory ? `${dataDirectory}-${index}` : undefined;
     const nodePromise = createNode(
       config,
       dateProvider,
       port,
       bootstrapNodeEnr,
-      i,
+      index,
       prefilledPublicData,
       dataDir,
       metricsPort,
