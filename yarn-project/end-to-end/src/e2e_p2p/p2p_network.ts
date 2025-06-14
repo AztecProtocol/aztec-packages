@@ -77,7 +77,9 @@ export class P2PNetworkTest {
     testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
-    private numberOfNodes: number,
+    public numberOfNodes: number,
+    public numberOfValidators: number,
+    public numberOfPreferredNodes: number,
     initialValidatorConfig: AztecNodeConfig,
     // If set enable metrics collection
     private metricsPort?: number,
@@ -89,7 +91,10 @@ export class P2PNetworkTest {
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
-    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
+    this.attesterPrivateKeys = generatePrivateKeys(
+      ATTESTER_PRIVATE_KEYS_START_INDEX,
+      numberOfNodes + numberOfValidators + numberOfPreferredNodes,
+    );
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.snapshotManager = createSnapshotManager(
@@ -127,6 +132,8 @@ export class P2PNetworkTest {
   static async create({
     testName,
     numberOfNodes,
+    numberOfValidators,
+    numberOfPreferredNodes,
     basePort,
     metricsPort,
     initialConfig,
@@ -135,6 +142,8 @@ export class P2PNetworkTest {
   }: {
     testName: string;
     numberOfNodes: number;
+    numberOfValidators: number;
+    numberOfPreferredNodes: number;
     basePort?: number;
     metricsPort?: number;
     initialConfig?: Partial<AztecNodeConfig>;
@@ -156,6 +165,8 @@ export class P2PNetworkTest {
       bootstrapNodeEnr,
       port,
       numberOfNodes,
+      numberOfValidators,
+      numberOfPreferredNodes,
       initialValidatorConfig,
       metricsPort,
       startProverNode,
