@@ -143,8 +143,37 @@ case ${1:-} in
       export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
       export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
-      exec $(dirname $0)/.aztec-run aztec-start \
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+      set +e
+      while true; do
+        $(dirname $0)/.aztec-run aztec-start \
+          node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+        code=$?
+
+        if [ "${MONITOR:-1}" != "1" ]; then
+          exit $code
+        fi
+
+        if [ "$code" = "0" ]; then
+          exit 0
+        elif [ "$code" = "78" ]; then 
+          echo "Rollup version upgrade detected. Restarting node"
+        elif [ "$code" = "79" ]; then 
+          if [ "$VERSION" == "latest" ]; then
+            echo "Node version upgrade detected. Updating image"
+            docker pull aztecprotocol/aztec:${VERSION}
+            echo "Restaring the node"
+          else
+            echo "Running pinned version $VERSION. Upgrade with 'aztec-up latest' and restart the node"
+            exit $code
+          fi
+        elif [ "$code" = "137" ]; then
+          # don't restart if container was killed with docker kill
+          echo "Container received SIGKILL."
+          exit 1
+        else
+          echo "Node has stopped. Restarting"
+        fi
+      done
     fi
     ;;
   flamegraph)
