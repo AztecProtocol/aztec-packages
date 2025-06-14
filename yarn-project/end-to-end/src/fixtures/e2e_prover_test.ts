@@ -30,17 +30,17 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
-import { getACVMConfig } from '../fixtures/get_acvm_config.js';
-import { getBBConfig } from '../fixtures/get_bb_config.js';
+import { TokenSimulator } from '../simulators/token_simulator.js';
+import { getACVMConfig } from './get_acvm_config.js';
+import { getBBConfig } from './get_bb_config.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
   createSnapshotManager,
   deployAccounts,
   publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEService } from '../fixtures/utils.js';
-import { TokenSimulator } from '../simulators/token_simulator.js';
+} from './snapshot_manager.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEService } from './utils.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
