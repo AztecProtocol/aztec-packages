@@ -38,7 +38,14 @@ export const getBBConfig = async (
     const bbSkipCleanup = ['1', 'true'].includes(BB_SKIP_CLEANUP);
     const cleanup = bbSkipCleanup ? () => Promise.resolve() : () => tryRmDir(directoryToCleanup);
 
-    return { bbSkipCleanup, bbBinaryPath, bbWorkingDirectory, cleanup, numConcurrentIVCVerifiers: 1 };
+    return {
+      bbSkipCleanup,
+      bbBinaryPath,
+      bbWorkingDirectory,
+      cleanup,
+      numConcurrentIVCVerifiers: 1,
+      bbIVCConcurrency: 1,
+    };
   } catch (err) {
     logger.error(`Native BB not available, error: ${err}`);
     return undefined;

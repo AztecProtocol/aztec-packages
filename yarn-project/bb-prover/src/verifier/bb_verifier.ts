@@ -114,6 +114,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           bbWorkingDirectory.concat('/proof'),
           tx.data.forPublic ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
           logFunction,
+          this.config.bbIVCConcurrency,
         );
 
         if (result.status === BB_RESULT.FAILURE) {
