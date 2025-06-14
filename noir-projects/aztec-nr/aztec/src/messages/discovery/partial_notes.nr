@@ -3,15 +3,16 @@ use crate::{
     messages::{
         discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
         encoding::MAX_MESSAGE_CONTENT_LEN,
-        processing::enqueue_note_for_validation,
+        processing::{
+            enqueue_note_for_validation, get_pending_partial_notes_completion_logs,
+            log_retrieval_response::LogRetrievalResponse,
+        },
     },
-    oracle::message_processing::get_log_by_tag,
     utils::array,
 };
 
 use protocol_types::{
     address::AztecAddress,
-    constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PUBLIC_LOG_PLAINTEXT_LEN},
     debug_log::debug_log_format,
     hash::sha256_to_field,
     traits::{Deserialize, Serialize},
@@ -28,12 +29,6 @@ pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
 pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
     "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
 );
-
-/// A partial note completion log's maximum length is the minimum of the public log plaintext length and private log
-/// ciphertext length. While these logs can be transmitted through either the public or private log stream, we standardize
-/// their length to whichever format is shorter. This ensures consistent behavior regardless of the delivery mechanism.
-global MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN: u32 =
-    std::cmp::min(PUBLIC_LOG_PLAINTEXT_LEN, PRIVATE_LOG_CIPHERTEXT_LEN);
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.
@@ -72,9 +67,9 @@ pub unconstrained fn process_partial_note_private_msg(
         .push(pending);
 }
 
-/// Searches for public logs that would result in the completion of pending partial notes, ultimately resulting in the
-/// notes being delivered to PXE if completed.
-pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
+/// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
+/// being delivered to PXE if completed.
+pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
@@ -88,11 +83,19 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
         [pending_partial_notes.len() as Field],
     );
 
-    pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
-        let maybe_log = get_log_by_tag::<MAX_PARTIAL_NOTE_COMPLETION_LOG_LEN>(
-            pending_partial_note.note_completion_log_tag,
-            contract_address,
-        );
+    let maybe_completion_logs =
+        get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+
+    maybe_completion_logs.for_each(|i, maybe_log: Option<LogRetrievalResponse>| {
+        // We clear the completion logs as we read them so that the array is empty by the time we next query it.
+        // TODO(#14943): use volatile arrays to avoid having to manually clear this.
+        maybe_completion_logs.remove(i);
+
+        // Note that we're reading an entry from the pending partial notes array using an index from the maybe
+        // completion logs array. This only works because these arrays are related: each log corresponds to the pending
+        // partial note at the same index.
+        let pending_partial_note = pending_partial_notes.get(i);
+
         if maybe_log.is_none() {
             debug_log_format(
                 "Found no completion logs for partial note with tag {}",

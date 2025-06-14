@@ -96,7 +96,7 @@ pub unconstrained fn discover_new_messages<Env>(
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_public_partial_note_completion_logs(
+    partial_notes::fetch_and_process_partial_note_completion_logs(
         contract_address,
         compute_note_hash_and_nullifier,
     );

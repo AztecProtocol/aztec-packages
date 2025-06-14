@@ -1,5 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -41,8 +42,10 @@ import type { NoteDataProvider } from '../storage/note_data_provider/note_data_p
 import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
-import { EventValidationRequest } from './event_validation_request.js';
-import { NoteValidationRequest } from './note_validation_request.js';
+import { EventValidationRequest } from './noir-structs/event_validation_request.js';
+import { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
+import { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+import { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 import type { ProxiedNode } from './proxied_node.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
 
@@ -730,6 +733,62 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
+  public async bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ) {
+    // We read all log retrieval requests and process them all concurrently. This makes the process much faster as we
+    // don't need to wait for the network round-trip.
+    const logRetrievalRequests = (
+      await this.capsuleDataProvider.readCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot)
+    ).map(LogRetrievalRequest.fromFields);
+
+    const maybeLogRetrievalResponses = await Promise.all(
+      logRetrievalRequests.map(async request => {
+        // TODO(#14555): remove these internal functions and have node endpoints that do this instead
+        const [publicLog, privateLog] = await Promise.all([
+          this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
+          this.getPrivateLogByTag(await poseidon2Hash([request.contractAddress, request.unsiloedTag])),
+        ]);
+
+        if (publicLog !== null) {
+          if (privateLog !== null) {
+            throw new Error(
+              `Found both a public and private log when searching for tag ${request.unsiloedTag} from contract ${request.contractAddress}`,
+            );
+          }
+
+          return new LogRetrievalResponse(
+            publicLog.logPayload,
+            publicLog.txHash,
+            publicLog.uniqueNoteHashesInTx,
+            publicLog.firstNullifierInTx,
+          );
+        } else if (privateLog !== null) {
+          return new LogRetrievalResponse(
+            privateLog.logPayload,
+            privateLog.txHash,
+            privateLog.uniqueNoteHashesInTx,
+            privateLog.firstNullifierInTx,
+          );
+        } else {
+          null;
+        }
+      }),
+    );
+
+    // Requests are cleared once we're done.
+    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+
+    // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
+    await this.capsuleDataProvider.resetCapsuleArray(
+      contractAddress,
+      logRetrievalResponsesArrayBaseSlot,
+      maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
+    );
+  }
+
   async deliverEvent(
     contractAddress: AztecAddress,
     selector: EventSelector,
@@ -767,7 +826,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  async getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
     const logs = await this.#getPublicLogsByTagsFromContract([tag], contractAddress);
     const logsForTag = logs[0];
 
@@ -800,7 +860,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
   }
 
-  public async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
+  // TODO(#14555): delete this function and implement this behavior in the node instead
+  async getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
     const logs = await this.#getPrivateLogsByTags([siloedTag]);
     const logsForTag = logs[0];
 
