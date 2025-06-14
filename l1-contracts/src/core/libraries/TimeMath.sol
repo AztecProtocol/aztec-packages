@@ -2,20 +2,18 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-type Timestamp is uint256;
-
-type Slot is uint256;
-
-type Epoch is uint256;
+type Timestamp is uint64;  // Unix timestamp (fits until year 2100)
+type Slot is uint32;       // Slot number (fits ~136 years at 36s/slot)
+type Epoch is uint32;      // Epoch number (fits ~136 years at 32 slots/epoch)
 
 library SlotLib {
-  function unwrap(Slot _a) internal pure returns (uint256) {
+  function unwrap(Slot _a) internal pure returns (uint32) {
     return Slot.unwrap(_a);
   }
 }
 
 library EpochLib {
-  function unwrap(Epoch _a) internal pure returns (uint256) {
+  function unwrap(Epoch _a) internal pure returns (uint32) {
     return Epoch.unwrap(_a);
   }
 }
