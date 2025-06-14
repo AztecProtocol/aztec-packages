@@ -104,22 +104,34 @@ describe('transaction compression', () => {
         name: string,
         txType: string,
       ) => {
+        logger.info(`Compressing ${txType} tx with ${name}`);
         const numIterations = 50;
-        let uncompressed: Buffer = Buffer.alloc(0);
-        let compressed: Buffer = Buffer.alloc(0);
-        const timer = new Timer();
+        const uncompressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
+        const compressed: Buffer[] = Array.from({ length: numIterations }, () => Buffer.alloc(0));
+        const compressionTimer = new Timer();
         for (let i = 0; i < numIterations; i++) {
-          compressed = compress(txAsBuffer);
-          uncompressed = uncompress(compressed);
+          compressed[i] = compress(txAsBuffer);
         }
-        const duration = timer.ms() / numIterations;
-        expect(uncompressed).toEqual(txAsBuffer);
+        const compressionDuration = compressionTimer.ms() / numIterations;
+        const decompressionTimer = new Timer();
+        for (let i = 0; i < numIterations; i++) {
+          uncompressed[i] = uncompress(compressed[i]);
+        }
+        const decompressionDuration = decompressionTimer.ms() / numIterations;
+        expect(uncompressed[0]).toEqual(txAsBuffer);
 
-        logger.info(`Compressed tx size (${name}): ${compressed.length}, timer: ${duration}`);
+        logger.info(
+          `Compressed tx size (${name}): ${compressed.length}, compression time: ${compressionDuration}ms, decompression time: ${decompressionDuration}ms`,
+        );
 
         results.push({
-          name: `Tx Compression/${txType}/${name}-duration`,
-          value: duration,
+          name: `Tx Compression/${txType}/${name}-compression-duration`,
+          value: compressionDuration,
+          unit: 'ms',
+        });
+        results.push({
+          name: `Tx Compression/${txType}/${name}-decompression-duration`,
+          value: decompressionDuration,
           unit: 'ms',
         });
         results.push({
