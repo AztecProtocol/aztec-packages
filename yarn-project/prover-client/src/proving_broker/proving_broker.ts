@@ -2,16 +2,17 @@ import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import type {
-  GetProvingJobResponse,
-  ProofUri,
-  ProvingJob,
-  ProvingJobConsumer,
-  ProvingJobFilter,
-  ProvingJobId,
-  ProvingJobProducer,
-  ProvingJobSettledResult,
-  ProvingJobStatus,
+import {
+  type GetProvingJobResponse,
+  type ProofUri,
+  type ProvingJob,
+  type ProvingJobConsumer,
+  type ProvingJobFilter,
+  type ProvingJobId,
+  type ProvingJobProducer,
+  type ProvingJobSettledResult,
+  type ProvingJobStatus,
+  tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
@@ -184,7 +185,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.logger.warn('ProvingBroker not started');
       return Promise.resolve();
     }
-    await this.cleanupPromise.stop();
+    await tryStop(this.cleanupPromise);
   }
 
   public enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
