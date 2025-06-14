@@ -64,30 +64,4 @@ using lookup_bc_hashing_iv_is_len_settings = lookup_settings<lookup_bc_hashing_i
 template <typename FF_>
 using lookup_bc_hashing_iv_is_len_relation = lookup_relation_base<FF_, lookup_bc_hashing_iv_is_len_settings>;
 
-/////////////////// lookup_bc_hashing_poseidon2_hash ///////////////////
-
-struct lookup_bc_hashing_poseidon2_hash_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BC_HASHING_POSEIDON2_HASH";
-    static constexpr std::string_view RELATION_NAME = "bc_hashing";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::bc_hashing_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_sel;
-    static constexpr Column COUNTS = Column::lookup_bc_hashing_poseidon2_hash_counts;
-    static constexpr Column INVERSES = Column::lookup_bc_hashing_poseidon2_hash_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_hashing_packed_field,
-        ColumnAndShifts::bc_hashing_incremental_hash,
-        ColumnAndShifts::bc_hashing_output_hash
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_output
-    };
-};
-
-using lookup_bc_hashing_poseidon2_hash_settings = lookup_settings<lookup_bc_hashing_poseidon2_hash_settings_>;
-template <typename FF_>
-using lookup_bc_hashing_poseidon2_hash_relation = lookup_relation_base<FF_, lookup_bc_hashing_poseidon2_hash_settings>;
-
 } // namespace bb::avm2
