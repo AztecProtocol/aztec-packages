@@ -11,14 +11,14 @@ export class Jump extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
 
-  constructor(private jumpOffset: number) {
+  constructor(private loc: number) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     context.machineState.consumeGas(this.baseGasCost(0, 0));
 
-    context.machineState.pc = this.jumpOffset;
+    context.machineState.pc = this.loc;
   }
 
   public override handlesPC(): boolean {

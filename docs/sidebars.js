@@ -402,14 +402,8 @@ const protocolSpecSidebar = [
           type: "doc",
           id: "protocol-specs/public-vm/circuit-index",
         },
-        items: [
-          "protocol-specs/public-vm/avm-circuit",
-          "protocol-specs/public-vm/control-flow",
-          "protocol-specs/public-vm/alu",
-          "protocol-specs/public-vm/bytecode-validation-circuit",
-        ],
+        items: []
       },
-      "protocol-specs/public-vm/type-structs",
     ],
   },
 ];

@@ -7,6 +7,7 @@ const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/vm2/common/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
+const DOCS_JS_AVM_GAS_CONSTANTS_FILE = '../../../../docs/src/preprocess/InstructionSet/avmGasConstants.js';
 
 // Whitelist of constants that will be copied to aztec_constants.hpp.
 // We don't copy everything as just a handful are needed, and updating them breaks the cache and triggers expensive bb builds.
@@ -385,6 +386,35 @@ ${processConstantsSolidity(constants)}
 }
 
 /**
+ * Processes a collection of constants and generates JavaScript code to export all AVM gas constants.
+ *
+ * @param constants - An object containing key-value pairs representing constants.
+ * @returns A string containing JavaScript code that exports the AVM gas constants.
+ */
+function processAvmGasConstantsJS(constants: { [key: string]: string }): string {
+  const code: string[] = ['module.exports = {'];
+  // Filter for AVM gas constants (both BASE and DYN, for both L2 and DA)
+  Object.entries(constants)
+    .filter(([key, _]) => /^AVM_.*_(BASE|DYN)_(L2|DA)_GAS$/.test(key))
+    .forEach(([key, value]) => {
+      code.push(`  ${key}: ${value},`);
+    });
+  code.push('};');
+  return code.join('\n');
+}
+
+/**
+ * Generate the AVM gas constants file in JavaScript.
+ */
+function generateJsAvmGasConstants({ constants }: ParsedContent, targetPath: string) {
+  const resultJs: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
+
+${processAvmGasConstantsJS(constants)}
+`;
+  fs.writeFileSync(targetPath, resultJs);
+}
+
+/**
  * Parse the content of the constants file in Noir.
  */
 function parseNoirFile(fileContent: string): ParsedContent {
@@ -528,6 +558,10 @@ function main(): void {
   const solidityTargetPath = join(__dirname, SOLIDITY_CONSTANTS_FILE);
   fs.mkdirSync(dirname(solidityTargetPath), { recursive: true });
   generateSolidityConstants(parsedContent, solidityTargetPath);
+
+  // JavaScript AVM gas constants
+  const jsAvmGasConstantsPath = join(__dirname, DOCS_JS_AVM_GAS_CONSTANTS_FILE);
+  generateJsAvmGasConstants(parsedContent, jsAvmGasConstantsPath);
 }
 
 main();

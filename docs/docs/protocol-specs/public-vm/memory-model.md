@@ -52,40 +52,34 @@ Memory addresses must be tagged to be a `u32` type.
 - `M[X]`: main memory cell at offset `X`
 - `tag`: a value referring to a memory cell's type (its maximum potential value)
 - `T[X]`: the tag associated with memory cell at offset `X`
-- `inTag`: an instruction's tag to check input operands against. Present for many but not all instructions.
-- `dstTag`: the target type of a `CAST` instruction, also used to tag the destination memory cell
-- `ADD<X>`: shorthand for an `ADD` instruction with `inTag = X`
-- `ADD<X> aOffset bOffset dstOffset`: an full `ADD` instruction with `inTag = X`. See [here](./instruction-set#isa-section-add) for more details.
-- `CAST<X>`: a `CAST` instruction with `dstTag`: `X`. `CAST` is the only instruction with a `dstTag`. See [here](./instruction-set#isa-section-cast) for more details.
+- `SET dstOffset inTag value`: a full `SET` instruction with `inTag`. See [here](./instruction-set#isa-section-set) for more details.
+- `CAST srcOffset dstOffset dstTag`: a `CAST` instruction with `dstTag`. `CAST` is the only instruction with a `dstTag`. See [here](./instruction-set#isa-section-cast) for more details.
 
 ### Tags and tagged memory
 
 A `tag` refers to the maximum potential value of a cell of main memory. The following tags are supported:
 
-| tag value | maximum memory cell value | shorthand     |
-| --------- | ------------------------- | ------------- |
-| 0         | 0                         | uninitialized |
-| 1         | $2^8 - 1$                 | `u8`          |
-| 2         | $2^{16} - 1$              | `u16`         |
-| 3         | $2^{32} - 1$              | `u32`         |
-| 4         | $2^{64} - 1$              | `u64`         |
-| 5         | $2^{128} - 1$             | `u128`        |
-| 6         | $p - 1$                   | `field`       |
-| 7         | reserved                  | reserved      |
+| tag value | bits | maximum memory cell value | shorthand     |
+| --------- | ---- | ------------------------- | ------------- |
+| 0         | 254  | $p - 1$                   | `field`       |
+| 1         | 1    | $2^1 - 1$                 | `u1`          |
+| 2         | 8    | $2^8 - 1$                 | `u8`          |
+| 3         | 16   | $2^{16} - 1$              | `u16`         |
+| 4         | 32   | $2^{32} - 1$              | `u32`         |
+| 5         | 64   | $2^{64} - 1$              | `u64`         |
+| 6         | 128  | $2^{128} - 1$             | `u128`        |
 
+> Note: a read to an uninitialized memory cell will return `field(0)`
 > Note: $p$ describes the modulus of the finite field that the AVM circuit is defined over (i.e. number of points on the BN254 curve).
 > Note: `u32` is used for offsets into the VM's 32-bit addressable main memory
 
 The purpose of a tag is to inform the VM of the maximum possible length of an operand value that has been loaded from memory.
 
-#### Checking input operand tags
+#### Checking tags for instruction input
 
-Many AVM instructions explicitly operate over range-constrained input parameters (e.g. `ADD<inTag>`). The maximum allowable value for an instruction's input parameters is defined via an `inTag` (instruction/input tag). Two potential scenarios result:
+Many AVM instructions explicitly operate over range-constrained inputs. So, most instructions that operate on source memory "offsets" will check that the source memory cells have certain tags. Some will enforce that a source memory cell has a specific tag. For example, [`EMITPUBLICLOG`](./instruction-set#isa-section-emitpubliclog) will enforce that `T[logSizeOffset] == u32`. Others will just check that the sources have matching tags. For example, [`ADD`](./instruction-set#isa-section-add) will check that `T[aOffset] == T[bOffset]`. Finally, others might check that source memory cells are integral. For example, [`Div`](./instruction-set#isa-section-div) will check that `T[aOffset] == T[bOffset] != field`.
 
-1. A VM instruction's tag value matches the input parameter tag values
-2. A VM instruction's tag value does _not_ match the input parameter tag values
-
-If case 2 is triggered, an error flag is raised and the current call's execution reverts.
+If a tag mismatch occurs, an error (exceptional halt) occurs in the current context.
 
 #### Writing into memory
 
@@ -94,10 +88,18 @@ It is required that all VM instructions that write into main memory explicitly d
 #### Standard tagging example: `ADD`
 
 ```
-# ADD<u32> aOffset bOffset dstOffset
-assert T[aOffset] == T[bOffset] == u32 // check inputs against inTag, revert on mismatch
-T[dstOffset] = u32                     // tag destination with inTag
+# ADD aOffset bOffset dstOffset
+assert T[aOffset] == T[bOffset] // enforce that both sources have the same tag, revert on mismatch
+T[dstOffset] = T[aOffset]       // tag destination with same tag as sources
 M[dstOffset] = M[aOffset] + M[bOffset] // perform the addition
+```
+
+#### `SET` and fresh tag assignment
+
+```
+# SET dstOffset inTag value
+T[dstOffset] = inTag // tag destination with inTag
+M[dstOffset] = value // perform the assignment
 ```
 
 #### `MOV` and tag preservation
@@ -124,9 +126,9 @@ For Case 1, range constraints must be applied to ensure the destination value is
 Case 2 is trivial as no additional consistency checks must be performed between source and destination values.
 
 ```
-# CAST<u64> srcOffset dstOffset
-T[dstOffset] = u64                         // tag destination with dstTag
-M[dstOffset] = cast<to: u64>(M[srcOffset]) // perform cast
+# CAST srcOffset dstOffset u64
+T[dstOffset] = u64                     // tag destination with dstTag
+M[dstOffset] = cast<u64>(M[srcOffset]) // perform cast
 ```
 
 #### Indirect `MOV` and extra tag checks
@@ -167,7 +169,7 @@ All elements in calldata/returndata are implicitly tagged as field elements (i.e
 ```
 # Copy calldata to memory and cast a word to u64
 CALLDATACOPY cdOffset size offsetA // copy calldata to memory at offsetA
-CAST<u64> offsetA dstOffset        // cast first copied word to a u64
+CAST offsetA dstOffset u64         // cast first copied word to a u64
 ```
 
 This would perform the following:
@@ -176,7 +178,7 @@ This would perform the following:
 # CALLDATACOPY cdOffset size offsetA
 T[offsetA:offsetA+size] = field                            // CALLDATACOPY assigns the field tag
 M[offsetA:offsetA+size] = calldata[cdOffset:cdOffset+size] // copy calldata to memory
-# CAST<u64> offsetA dstOffset
+# CAST offsetA dstOffset u64
 T[offsetA] = u64                                           // CAST assigns a new tag
 M[dstOffset] = cast<u64>(offsetA)                          // perform the cast operation
 ```

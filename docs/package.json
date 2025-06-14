@@ -7,7 +7,7 @@
     "dev": "PROTOCOL_SPECS=true HOST=0.0.0.0 ENV=dev yarn docs",
     "dev:local": "PROTOCOL_SPECS=true ENV=dev yarn docs",
     "build": "yarn clean && yarn preprocess && yarn typedoc && yarn preprocess:move && docusaurus build",
-    "build:with-specs": "yarn clean &&PROTOCOL_SPECS=true yarn preprocess && yarn typedoc && yarn preprocess:move && PROTOCOL_SPECS=true docusaurus build",
+    "build:with-specs": "yarn clean && PROTOCOL_SPECS=true yarn preprocess && yarn typedoc && yarn preprocess:move && PROTOCOL_SPECS=true docusaurus build",
     "swizzle": "docusaurus swizzle",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
