@@ -177,28 +177,4 @@ template <typename FF_>
 using lookup_bc_retrieval_class_id_derivation_relation =
     lookup_relation_base<FF_, lookup_bc_retrieval_class_id_derivation_settings>;
 
-/////////////////// lookup_bc_retrieval_bytecode_hash_is_correct ///////////////////
-
-struct lookup_bc_retrieval_bytecode_hash_is_correct_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_BYTECODE_HASH_IS_CORRECT";
-    static constexpr std::string_view RELATION_NAME = "bc_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
-    static constexpr Column DST_SELECTOR = Column::bc_hashing_latch;
-    static constexpr Column COUNTS = Column::lookup_bc_retrieval_bytecode_hash_is_correct_counts;
-    static constexpr Column INVERSES = Column::lookup_bc_retrieval_bytecode_hash_is_correct_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_bytecode_id, ColumnAndShifts::bc_retrieval_public_bytecode_commitment
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_hashing_bytecode_id, ColumnAndShifts::bc_hashing_output_hash
-    };
-};
-
-using lookup_bc_retrieval_bytecode_hash_is_correct_settings =
-    lookup_settings<lookup_bc_retrieval_bytecode_hash_is_correct_settings_>;
-template <typename FF_>
-using lookup_bc_retrieval_bytecode_hash_is_correct_relation =
-    lookup_relation_base<FF_, lookup_bc_retrieval_bytecode_hash_is_correct_settings>;
-
 } // namespace bb::avm2
