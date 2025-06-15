@@ -2160,12 +2160,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    if ((max_lo_bits & 1ULL) == 1ULL) {
-        ++max_lo_bits;
-    }
-    if ((max_hi_bits & 1ULL) == 1ULL) {
-        ++max_hi_bits;
-    }
 
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
@@ -2458,14 +2452,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // will need to apply to validate our product
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    // Turbo range checks only work for even bit ranges, so make sure these values are even
-    // TODO: This neccessary anymore? Turbo range checks now work with odd bit ranges...
-    if ((max_lo_bits & 1ULL) == 1ULL) {
-        ++max_lo_bits;
-    }
-    if ((max_hi_bits & 1ULL) == 1ULL) {
-        ++max_hi_bits;
-    }
 
     // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
