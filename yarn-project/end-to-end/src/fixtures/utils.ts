@@ -31,11 +31,11 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  ForwarderContract,
   NULL_KEY,
   type Operator,
   createExtendedL1Client,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
@@ -449,6 +449,9 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(true);
     }
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
+    await deployMulticall3(l1Client, logger);
 
     const deployL1ContractsValues =
       opts.deployL1ContractsValues ??
@@ -870,14 +873,4 @@ function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0
   const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
-}
-
-export async function createForwarderContract(
-  aztecNodeConfig: AztecNodeConfig,
-  privateKey: `0x${string}`,
-  rollupAddress: Hex,
-) {
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
-  return forwarderContract;
 }
