@@ -7,7 +7,7 @@ pragma solidity >=0.8.27;
 
 import {IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 

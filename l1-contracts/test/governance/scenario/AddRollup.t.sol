@@ -4,13 +4,13 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestBase} from "@test/base/Base.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
@@ -22,7 +22,7 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
-import {IGSE, GSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE, GSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
@@ -46,8 +46,7 @@ contract BadRollup {
 }
 
 contract AddRollupTest is TestBase {
-  using ProposalLib for DataStructures.Proposal;
-  using stdStorage for StdStorage;
+  using ProposalLib for Proposal;
 
   IMintableERC20 internal token;
   Registry internal registry;
@@ -56,7 +55,7 @@ contract AddRollupTest is TestBase {
   Rollup internal rollup;
   IGSE internal gse;
 
-  DataStructures.Proposal internal proposal;
+  Proposal internal proposal;
 
   mapping(uint256 => address) internal validators;
   mapping(address validator => uint256 privateKey) internal privateKeys;
@@ -127,16 +126,16 @@ contract AddRollupTest is TestBase {
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Active);
+    assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
     governance.vote(0, 10000 ether, true);
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Queued);
+    assertTrue(governance.getProposalState(0) == ProposalState.Queued);
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Executable);
+    assertTrue(governance.getProposalState(0) == ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 
     if (_break) {
