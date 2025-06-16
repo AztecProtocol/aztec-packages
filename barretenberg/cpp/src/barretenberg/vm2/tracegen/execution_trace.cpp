@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -28,6 +29,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 
 using C = bb::avm2::Column;
 using bb::avm2::simulation::AddressingEventError;
@@ -562,6 +564,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
             { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
             { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
+            { C::execution_sel_keccakf1600,
+              dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0 },
         } });
 
     // Execution Trace opcodes - separating for clarity
@@ -807,7 +811,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
         // External Call
         std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_l2_range_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_da_range_settings>>());
+        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_da_range_settings>>(),
+        // Dispatch to gadget sub-traces
+        std::make_unique<PermutationBuilder<perm_execution_dispatch_keccakf1600_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

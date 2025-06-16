@@ -77,11 +77,13 @@
 #include "relations/lookups_to_radix.hpp"
 #include "relations/lookups_tx.hpp"
 #include "relations/lookups_update_check.hpp"
+#include "relations/perms_execution.hpp"
 #include "relations/perms_keccakf1600.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -228,6 +230,13 @@ struct AvmFlavorVariables {
 =======
     static constexpr size_t NUM_ALL_ENTITIES = 2356;
 >>>>>>> 137aa886c5 (Add clk and execution_id manager)
+=======
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 97;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2031;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 234;
+    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_ALL_ENTITIES = 2362;
+>>>>>>> 517ebaf0f3 (Integration in the execution trace)
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -541,6 +550,7 @@ struct AvmFlavorVariables {
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
         lookup_update_check_update_lo_metadata_range_relation<FF_>,
+        perm_execution_dispatch_keccakf1600_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>>;
 };

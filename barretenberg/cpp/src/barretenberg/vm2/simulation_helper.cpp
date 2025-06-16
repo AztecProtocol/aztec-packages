@@ -116,7 +116,9 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     Alu alu(alu_emitter);
+    Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
+    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
@@ -147,7 +149,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ContextProvider context_provider(
         bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_manager_provider);
     DataCopy data_copy(execution_id_manager, data_copy_emitter);
-    Bitwise bitwise(bitwise_emitter);
 
     Execution execution(alu,
                         data_copy,
@@ -156,9 +157,9 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         instruction_info_db,
                         execution_id_manager,
                         execution_emitter,
-                        context_stack_emitter);
+                        context_stack_emitter,
+                        keccakf1600);
     TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
-    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check);
 
     tx_execution.simulate(hints.tx);
 
@@ -180,7 +181,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         scalar_mul_emitter.dump_events(),
         poseidon2_hash_emitter.dump_events(),
         poseidon2_perm_emitter.dump_events(),
-             keccakf1600_emitter.dump_events(),
+        keccakf1600_emitter.dump_events(),
         to_radix_emitter.dump_events(),
         field_gt_emitter.dump_events(),
         merkle_check_emitter.dump_events(),

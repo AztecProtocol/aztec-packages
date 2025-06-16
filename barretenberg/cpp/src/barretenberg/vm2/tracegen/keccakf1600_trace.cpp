@@ -513,10 +513,11 @@ void KeccakF1600TraceBuilder::process_permutation(
                 trace.set(C::keccakf1600_sel_slice_write, row, error ? 0 : 1);
             };
 
-            // dst_address and sel_no_error are required at every row as we propagate
+            // dst_address, sel_no_error, space_id are required at every row as we propagate
             // for the slice memory write lookup.
             trace.set(C::keccakf1600_dst_addr, row, event.dst_addr);
             trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
+            trace.set(C::keccakf1600_space_id, row, event.space_id);
 
             // Helper "inverse" columns for sel and last.
             trace.set(C::keccakf1600_round_inv, row, FF(round_idx + 1).invert());

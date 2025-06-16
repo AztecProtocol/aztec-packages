@@ -13,12 +13,12 @@ template <typename FF_> class keccakf1600Impl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 158> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 159> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 4, 4, 3, 5, 3, 3, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
         2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 4, 3, 3, 3, 4, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 3, 4, 3, 3, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -1285,27 +1285,34 @@ template <typename FF_> class keccakf1600Impl {
             tmp *= scaling_factor;
             std::get<154>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_NO_ERROR_PROPAGATION
+        { // SPACE_ID_PROPAGATION
             using Accumulator = typename std::tuple_element_t<155, ContainerOverSubrelations>;
             auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
-                       (in.get(C::keccakf1600_sel_no_error_shift) - in.get(C::keccakf1600_sel_no_error));
+                       (in.get(C::keccakf1600_space_id_shift) - in.get(C::keccakf1600_space_id));
             tmp *= scaling_factor;
             std::get<155>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_SLICE_READ
+        { // SEL_NO_ERROR_PROPAGATION
             using Accumulator = typename std::tuple_element_t<156, ContainerOverSubrelations>;
+            auto tmp = (FF(1) - in.get(C::keccakf1600_last)) *
+                       (in.get(C::keccakf1600_sel_no_error_shift) - in.get(C::keccakf1600_sel_no_error));
+            tmp *= scaling_factor;
+            std::get<156>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_SLICE_READ
+            using Accumulator = typename std::tuple_element_t<157, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_sel_slice_read) -
                         in.get(C::keccakf1600_start) * (FF(1) - in.get(C::keccakf1600_src_out_of_range_error)) *
                             (FF(1) - in.get(C::keccakf1600_dst_out_of_range_error)));
             tmp *= scaling_factor;
-            std::get<156>(evals) += typename Accumulator::View(tmp);
+            std::get<157>(evals) += typename Accumulator::View(tmp);
         }
         { // SEL_SLICE_WRITE
-            using Accumulator = typename std::tuple_element_t<157, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<158, ContainerOverSubrelations>;
             auto tmp = (in.get(C::keccakf1600_sel_slice_write) -
                         in.get(C::keccakf1600_sel_no_error) * in.get(C::keccakf1600_last));
             tmp *= scaling_factor;
-            std::get<157>(evals) += typename Accumulator::View(tmp);
+            std::get<158>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -1566,10 +1573,12 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
         case 154:
             return "CLK_PROPAGATION";
         case 155:
-            return "SEL_NO_ERROR_PROPAGATION";
+            return "SPACE_ID_PROPAGATION";
         case 156:
-            return "SEL_SLICE_READ";
+            return "SEL_NO_ERROR_PROPAGATION";
         case 157:
+            return "SEL_SLICE_READ";
+        case 158:
             return "SEL_SLICE_WRITE";
         }
         return std::to_string(index);
@@ -1700,9 +1709,10 @@ template <typename FF> class keccakf1600 : public Relation<keccakf1600Impl<FF>> 
     static constexpr size_t SR_ERROR = 152;
     static constexpr size_t SR_DST_ADDR_PROPAGATION = 153;
     static constexpr size_t SR_CLK_PROPAGATION = 154;
-    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 155;
-    static constexpr size_t SR_SEL_SLICE_READ = 156;
-    static constexpr size_t SR_SEL_SLICE_WRITE = 157;
+    static constexpr size_t SR_SPACE_ID_PROPAGATION = 155;
+    static constexpr size_t SR_SEL_NO_ERROR_PROPAGATION = 156;
+    static constexpr size_t SR_SEL_SLICE_READ = 157;
+    static constexpr size_t SR_SEL_SLICE_WRITE = 158;
 };
 
 } // namespace bb::avm2
