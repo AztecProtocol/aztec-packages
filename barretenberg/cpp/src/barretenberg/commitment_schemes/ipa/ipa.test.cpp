@@ -27,7 +27,7 @@ class IPATest : public CommitmentTest<Curve> {
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
-    static std::shared_ptr<CK> ck;
+    static CK ck;
     static std::shared_ptr<VK> vk;
 
     // Default polynomial size
@@ -56,8 +56,8 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
         p.at(i) = Fr::zero();
     }
     p.at(3) = Fr::one();
-    GroupElement commitment = ck->commit(p);
-    auto srs_elements = ck->srs->get_monomial_points();
+    GroupElement commitment = ck.commit(p);
+    auto srs_elements = ck.srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -74,7 +74,7 @@ TEST_F(IPATest, OpenZeroPolynomial)
 {
     Polynomial poly(small_n);
     // Commit to a zero polynomial
-    Commitment commitment = ck->commit(poly);
+    Commitment commitment = ck.commit(poly);
     EXPECT_TRUE(commitment.is_point_at_infinity());
 
     auto [x, eval] = this->random_eval(poly);
@@ -101,7 +101,7 @@ TEST_F(IPATest, OpenAtZero)
     auto poly = Polynomial::random(n);
     const Fr x = Fr::zero();
     const Fr eval = poly.evaluate(x);
-    const Commitment commitment = ck->commit(poly);
+    const Commitment commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -124,7 +124,7 @@ TEST_F(IPATest, ChallengesAreZero)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -173,7 +173,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
         poly.at(i + (n / 2)) = poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -208,8 +208,8 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 TEST_F(IPATest, Commit)
 {
     auto poly = Polynomial::random(n);
-    const GroupElement commitment = ck->commit(poly);
-    auto srs_elements = ck->srs->get_monomial_points();
+    const GroupElement commitment = ck.commit(poly);
+    auto srs_elements = ck.srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -225,7 +225,7 @@ TEST_F(IPATest, Open)
     // generate a random polynomial, degree needs to be a power of two
     auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
-    auto commitment = ck->commit(poly);
+    auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
@@ -374,5 +374,5 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
     EXPECT_EQ(result, true);
 }
-std::shared_ptr<typename IPATest::CK> IPATest::ck = nullptr;
+typename IPATest::CK IPATest::ck;
 std::shared_ptr<typename IPATest::VK> IPATest::vk = nullptr;

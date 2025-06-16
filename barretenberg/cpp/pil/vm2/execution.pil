@@ -28,6 +28,7 @@ include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
 include "gas.pil";
+include "data_copy.pil";
 
 namespace execution;
 
@@ -201,16 +202,10 @@ pol commit rop[7];
 // The "output we want is" sel_addressing_error from addressing.pil.
 
 /**************************************************************************************************
- *  Temporality group N: Dynamic gas
- **************************************************************************************************/
-
-// TODO: gate this group with sel_addressing_error, etc.
-
-/**************************************************************************************************
  *  Temporality group N: Registers + Dispatch opcode
  **************************************************************************************************/
 
-// TODO: gate this group with oog_dynamic, etc.
+// TODO: gate this group.
 
 // Registers
 pol commit register[7];
@@ -237,6 +232,12 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+
+/**************************************************************************************************
+ *  Temporality group N: Dynamic gas
+ **************************************************************************************************/
+
+// TODO: gate this group. This is actually interleaved with the previous group.
 
 /**************************************************************************************************
  *  Error collection

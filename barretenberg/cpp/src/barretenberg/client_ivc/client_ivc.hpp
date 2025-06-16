@@ -50,7 +50,7 @@ class ClientIVC {
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
@@ -169,7 +169,7 @@ class ClientIVC {
     // Settings related to the use of fixed block sizes for each gate in the execution trace
     TraceSettings trace_settings;
 
-    std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
+    typename MegaFlavor::CommitmentKey bn254_commitment_key;
 
     Goblin goblin;
 

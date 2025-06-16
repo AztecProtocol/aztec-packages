@@ -220,7 +220,8 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -250,12 +251,12 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
     typename TestFixture::Verifier verifier(verification_key);
     HonkProof honk_proof;
     HonkProof ipa_proof;
@@ -330,9 +331,9 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
-    auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
@@ -371,7 +372,8 @@ TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
 
         // Automatically generate a transcript manifest by constructing a proof
         auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        typename TestFixture::Prover prover(proving_key);
+        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+        typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
     }

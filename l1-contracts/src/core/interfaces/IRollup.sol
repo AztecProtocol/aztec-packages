@@ -76,6 +76,8 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
 }
@@ -91,6 +93,8 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
@@ -104,6 +108,7 @@ interface IRollupCore {
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
+  event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
@@ -127,6 +132,7 @@ interface IRollupCore {
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
+  function setRewardConfig(RewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
   // solhint-disable-next-line func-name-mixedcase
@@ -221,4 +227,6 @@ interface IRollup is IRollupCore {
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
   function getVersion() external view returns (uint256);
+
+  function getRewardConfig() external view returns (RewardConfig memory);
 }

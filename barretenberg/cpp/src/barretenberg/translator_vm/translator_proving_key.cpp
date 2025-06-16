@@ -88,7 +88,7 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                                              proving_key->polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(dyadic_circuit_size_without_masking);
 
-    auto sorted_elements = get_sorted_steps();
+    const auto sorted_elements = get_sorted_steps();
     auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
     // Given the polynomials in group_i, transfer their elements, sorted in non-descending order, into the corresponding
@@ -280,7 +280,7 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
 void TranslatorProvingKey::compute_extra_range_constraint_numerator()
 {
 
-    auto sorted_elements = get_sorted_steps();
+    const auto sorted_elements = get_sorted_steps();
     // TODO(#756): can be parallelized further. This will use at most 5 threads
     auto fill_with_shift = [&](size_t shift) {
         for (size_t i = 0; i < sorted_elements.size(); i++) {

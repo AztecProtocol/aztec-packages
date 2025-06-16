@@ -1,5 +1,5 @@
 use crate::macros::utils::{
-    add_to_field_slice, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
+    add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
     size_in_fields,
 };
 use std::meta::{type_of, unquote};
@@ -14,7 +14,7 @@ comptime global FROM_FIELD: TypedExpr = {
         .as_typed_expr()
 };
 
-comptime global SERIALIZED_ARGS_SLICE_NAME: Quoted = quote { serialized_args };
+comptime global SERIALIZED_ARGS_NAME: Quoted = quote { serialized_args };
 
 pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let is_static_call = is_fn_view(f);
@@ -65,21 +65,32 @@ comptime fn create_stub_base(
     let fn_parameters = f.parameters();
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
+    let params_num_fields =
+        fn_parameters.fold(0, |acc, (_, typ)| acc + crate::macros::utils::size_in_fields(typ));
 
+    let serialized_args_index_name = quote { serialized_args_index };
     // Example of what the fold(...) below will generate for `target_address` and `fee_juice_limit_per_tx` function
     // parameters:
     // ```
-    // let mut serialized_args =  &[];
-    // serialized_args = serialized_args.append(aztec::protocol_types::traits::Serialize::serialize(target_address));
-    // serialized_args = serialized_args.push_back(fee_juice_limit_per_tx as Field);
+    // let mut serialized_args = [0;2];
+    // let mut serialized_args_index = 0;
+    // let target_address_serialized = aztec::protocol_types::traits::Serialize::serialize(target_address)
+    // for i in 0..target_address_serialized.len() {
+    //    serialized_args[serialized_args_index] = target_address_serialized[i];
+    //    serialized_args_index += 1;
+    // }
+    // serialized_args[serialized_args_index] = fee_juice_limit_per_tx as Field
+    // serialized_args_index += 1;
     // ```
-    let serialized_args_slice_construction = fn_parameters.fold(
+    let serialized_args_array_construction = fn_parameters.fold(
         quote {
-            let mut $SERIALIZED_ARGS_SLICE_NAME = &[];
+            let mut $SERIALIZED_ARGS_NAME = [0; $params_num_fields];
+            let mut $serialized_args_index_name: u32 = 0;
         },
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
-            let arg_to_append = add_to_field_slice(SERIALIZED_ARGS_SLICE_NAME, name, typ);
+            let arg_to_append =
+                add_to_field_array(SERIALIZED_ARGS_NAME, serialized_args_index_name, name, typ);
             quote {
                 $args
                 $arg_to_append
@@ -92,26 +103,26 @@ comptime fn create_stub_base(
     let fn_selector: Field = compute_fn_selector(f);
 
     (
-        fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len,
+        fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len,
         fn_selector,
     )
 }
 
 comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
     let size = size_in_fields(fn_return_type);
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateCallInterface<$fn_name_len, $fn_return_type, $size> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -132,7 +143,7 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -150,7 +161,7 @@ comptime fn create_private_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -189,7 +200,7 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -210,7 +221,7 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -228,7 +239,7 @@ comptime fn create_public_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -270,7 +281,7 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -291,7 +302,7 @@ comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }

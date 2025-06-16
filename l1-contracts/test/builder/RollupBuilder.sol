@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable comprehensive-interface
 pragma solidity >=0.8.27;
 
 import {Rollup, GenesisState, RollupConfigInput} from "@aztec/core/Rollup.sol";
@@ -13,6 +14,7 @@ import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Test} from "forge-std/Test.sol";
+import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 
 // Stack the layers to avoid the stack too deep 🧌
 struct ConfigFlags {
@@ -40,6 +42,7 @@ struct Config {
   RollupConfigInput rollupConfigInput;
   ConfigValues values;
   ConfigFlags flags;
+  CheatDepositArgs[] validators;
 }
 
 /**
@@ -181,6 +184,29 @@ contract RollupBuilder is Test {
     return this;
   }
 
+  function setEntryQueueFlushSizeMin(uint256 _entryQueueFlushSizeMin)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.entryQueueFlushSizeMin = _entryQueueFlushSizeMin;
+    return this;
+  }
+
+  function setEntryQueueFlushSizeQuotient(uint256 _entryQueueFlushSizeQuotient)
+    public
+    returns (RollupBuilder)
+  {
+    config.rollupConfigInput.entryQueueFlushSizeQuotient = _entryQueueFlushSizeQuotient;
+    return this;
+  }
+
+  function setValidators(CheatDepositArgs[] memory _validators) public returns (RollupBuilder) {
+    for (uint256 i = 0; i < _validators.length; i++) {
+      config.validators.push(_validators[i]);
+    }
+    return this;
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                              Rollup config end                             */
   /* -------------------------------------------------------------------------- */
@@ -243,6 +269,14 @@ contract RollupBuilder is Test {
 
       vm.prank(config.gse.owner());
       config.gse.addRollup(address(config.rollup));
+    }
+
+    if (config.validators.length > 0) {
+      MultiAdder multiAdder = new MultiAdder(address(config.rollup), address(this));
+      config.testERC20.mint(
+        address(multiAdder), config.gse.DEPOSIT_AMOUNT() * config.validators.length
+      );
+      multiAdder.addValidators(config.validators);
     }
 
     if (config.flags.updateOwnerships) {

@@ -45,7 +45,7 @@ contract BoostedHelper {
 
   constructor(RollupConfigInput memory _config) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
-    RewardLib.initialize(_config.rewardConfig);
+    RewardLib.setConfig(_config.rewardConfig);
   }
 
   function markActive(address _prover) public {
