@@ -356,11 +356,16 @@ export async function generateSimulatedProvingResult(
   const sortByCounter = <T>(a: OrderedSideEffect<T>, b: OrderedSideEffect<T>) => a.counter - b.counter;
   const getEffect = <T>(orderedSideEffect: OrderedSideEffect<T>) => orderedSideEffect.sideEffect;
 
+  const sortedNullifiers = nullifiers.sort(sortByCounter).map(getEffect);
+  if (sortedNullifiers.length === 0) {
+    sortedNullifiers.push(nonceGenerator);
+  }
+
   // Private only
   if (privateExecutionResult.publicFunctionCalldata.length === 0) {
     const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(nullifiers.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+      padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
         ScopedL2ToL1Message.empty(),
@@ -378,7 +383,7 @@ export async function generateSimulatedProvingResult(
   } else {
     const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
       padArrayEnd(uniqueNoteHashes.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-      padArrayEnd(nullifiers.sort(sortByCounter).map(getEffect), Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+      padArrayEnd(sortedNullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
       padArrayEnd(
         l2ToL1Messages.sort(sortByCounter).map(getEffect),
         ScopedL2ToL1Message.empty(),
