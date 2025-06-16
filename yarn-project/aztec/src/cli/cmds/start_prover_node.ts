@@ -51,7 +51,7 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  if (!proverConfig.publisherPrivateKey.getValue() || proverConfig.publisherPrivateKey.getValue() === NULL_KEY) {
+  if (proverConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     if (!options.l1Mnemonic) {
       userLog(`--l1-mnemonic is required to start a Prover Node without --node.publisherPrivateKey`);
       process.exit(1);

@@ -151,7 +151,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    if (!config.validatorPrivateKeys?.getValue().length) {
+    if (!config.validatorPrivateKeys.getValue().length) {
       throw new InvalidValidatorPrivateKeyError();
     }
 

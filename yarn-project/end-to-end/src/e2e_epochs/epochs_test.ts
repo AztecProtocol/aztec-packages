@@ -220,7 +220,7 @@ export class EpochsTestContext {
         {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys,
+          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
           p2pEnabled,
           p2pIp,
         },
