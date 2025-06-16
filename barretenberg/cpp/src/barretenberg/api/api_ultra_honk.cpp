@@ -216,17 +216,13 @@ bool UltraHonkAPI::verify(const Flags& flags,
         return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #ifdef STARKNET_GARAGA_FLAVORS
-}
-else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk)
-{
-    return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk)
-    {
+    else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
+        return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    } else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
         return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #endif
-    else
-    {
+    else {
         throw_or_abort("invalid proof type in _verify");
     }
 }
@@ -257,12 +253,9 @@ void UltraHonkAPI::write_vk(const Flags& flags,
         _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
     }
 #ifdef STARKNET_GARAGA_FLAVORS
-}
-else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk)
-{
-    _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
-    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk)
-    {
+    else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
+        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
         _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
     }
 }
