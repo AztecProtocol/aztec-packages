@@ -134,8 +134,9 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
-  # non_recursive_tests include all of the non internal (recursive) test programs 
-  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d)
+  # non_recursive_tests include all of the non recursive test programs 
+  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
+    grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof')
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
@@ -176,7 +177,7 @@ function test_cmds {
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
-  # DISABLE_ZK in prove then verify determines whether the --disable_zk flag is added or not.
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test verify_honk_proof"
   # Run the double_verify_honk_proof test with the --disable_zk flag.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
