@@ -34,7 +34,7 @@ describe('LMDBMap benchmarks', () => {
     await store.delete();
   });
 
-  after(async () => {
+  afterAll(async () => {
     if (process.env.BENCH_OUTPUT) {
       await mkdir(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
       await writeFile(process.env.BENCH_OUTPUT, toGithubActionBenchmarkJSON());
@@ -60,25 +60,25 @@ describe('LMDBMap benchmarks', () => {
     for (let i = 0; i < pairs.length; i++) {
       await map.set(pairs[i].key, pairs[i].value);
     }
-    const duration = (timer.ms() * 1000) / pairs.length;
+    const duration = timer.ms() / pairs.length;
     results.push({
       name: 'Individual insertion',
-      unit: 'us',
+      unit: 'ms',
       value: duration,
     });
   });
 
   it('adds batched values', async () => {
-    const pairs = Array.from({ length: 1000 }, (_, i) => generateKeyValuePairs(1000, i * 1000));
+    const pairs = Array.from({ length: 100 }, (_, i) => generateKeyValuePairs(1000, i * 1000));
 
     const timer = new Timer();
     for (let i = 0; i < pairs.length; i++) {
       await map.setMany(pairs[i]);
     }
-    const duration = (timer.ms() * 1000) / pairs.length;
+    const duration = timer.ms() / pairs.length;
     results.push({
-      name: 'Batch insertion',
-      unit: 'us',
+      name: `Batch insertion of ${pairs[0].length} items`,
+      unit: 'ms',
       value: duration,
     });
   });
@@ -110,7 +110,7 @@ describe('LMDBMap benchmarks', () => {
     }
     const duration = (timer.ms() * 1000) / pairs.length;
     results.push({
-      name: `Iterator read of ${pairs.length} items`,
+      name: `Iterator per item read of ${pairs.length} items`,
       unit: 'us',
       value: duration,
     });
