@@ -32,7 +32,7 @@ export class ProxiedContractDataProviderFactory {
             };
           }
           case 'getContractArtifact': {
-            return async (contractClassId: Fr) => {
+            return (contractClassId: Fr) => {
               if (overrides.artifacts.has(contractClassId.toString())) {
                 return overrides.artifacts.get(contractClassId.toString())!;
               } else {

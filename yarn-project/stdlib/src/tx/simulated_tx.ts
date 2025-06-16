@@ -5,7 +5,6 @@ import { z } from 'zod';
 
 import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type ContractClassWithId, ContractClassWithIdSchema } from '../contract/interfaces/contract_class.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,

@@ -61,7 +61,7 @@ export class CopyCatWallet extends AccountWallet {
     return this.originalAddress;
   }
 
-  override async simulateTx(
+  override simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     skipTxValidation?: boolean,
@@ -135,7 +135,7 @@ describe('Kernelless simulation', () => {
     }
 
     it('adds liquidity without authwits', async () => {
-      const copyCat = await CopyCatWallet.create(pxe, liquidityProvider, []);
+      const copyCat = await CopyCatWallet.create(pxe, liquidityProvider);
 
       const lpBalancesBefore = await getWalletBalances(copyCat);
 
@@ -143,8 +143,6 @@ describe('Kernelless simulation', () => {
       const amount0Min = lpBalancesBefore.token0 / 2n;
       const amount1Max = lpBalancesBefore.token1;
       const amount1Min = lpBalancesBefore.token1 / 2n;
-
-      console.log(`Adding initial liquidity: ${amount0Max} of token0 and ${amount1Max} of token1`);
 
       const nonceForAuthwits = Fr.random();
 

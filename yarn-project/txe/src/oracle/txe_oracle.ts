@@ -88,11 +88,9 @@ import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec
 import {
   type KeyValidationRequest,
   PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   PrivateContextInputs,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
-  PrivateToRollupAccumulatedData,
   PublicCallRequest,
   RollupValidationRequests,
   ScopedLogHash,
@@ -1475,7 +1473,7 @@ export class TXE implements TypedOracle {
     txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
     txEffect.privateLogs = publicInputs.forPublic
       ? publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs
-      : publicInputs.forRollup?.end.privateLogs!;
+      : publicInputs.forRollup!.end.privateLogs;
     txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
     txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
 

@@ -26,7 +26,7 @@ import type { AbiDecoded, FunctionCall } from '@aztec/stdlib/abi';
 import { FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { Gas } from '@aztec/stdlib/gas';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,

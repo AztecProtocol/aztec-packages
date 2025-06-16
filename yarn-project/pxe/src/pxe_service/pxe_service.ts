@@ -28,7 +28,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
-  type ContractClass,
   type ContractClassWithId,
   type ContractInstanceWithAddress,
   type NodeInfo,
@@ -56,7 +55,6 @@ import type {
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
-import { ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type ContractOverrides,
