@@ -81,13 +81,13 @@
     "viem": "2.23.7"
   },
   "devDependencies": {
-    "@jest/globals": "^29.5.0",
+    "@jest/globals": "^30.0.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.groupby": "^4.6.9",
     "@types/lodash.omit": "^4.5.7",
     "@types/node": "^22.15.17",
     "concurrently": "^8.0.1",
-    "jest": "^29.5.0",
+    "jest": "^30.0.0",
     "jest-mock-extended": "^3.0.4",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
