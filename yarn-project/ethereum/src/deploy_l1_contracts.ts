@@ -68,7 +68,7 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import { DefaultRewardConfig, type L1ContractsConfig } from './config.js';
+import { DefaultEntryQueueConfig, DefaultRewardConfig, type L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -224,6 +224,9 @@ export const l1Artifacts = {
     contractAbi: HonkVerifierAbi,
     contractBytecode: HonkVerifierBytecode as Hex,
   },
+};
+
+const mockVerifiers = {
   mockVerifier: {
     contractAbi: MockVerifierAbi,
     contractBytecode: MockVerifierBytecode as Hex,
@@ -519,7 +522,7 @@ export const deploySharedContracts = async (
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
-    return await deployer.deploy(l1Artifacts.mockZkPassportVerifier);
+    return await deployer.deploy(mockVerifiers.mockZkPassportVerifier);
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
@@ -610,7 +613,7 @@ export const deployRollup = async (
     epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.mockVerifier);
+    epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
@@ -622,6 +625,8 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
+    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
+    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: DefaultRewardConfig,
   };
