@@ -118,25 +118,31 @@ describe('transaction compression', () => {
           uncompressed[i] = uncompress(compressed[i]);
         }
         const decompressionDuration = decompressionTimer.ms() / numIterations;
+
+        // Comparing these buffers takes some time, so we compare one in full and the others we compare length
         expect(uncompressed[0]).toEqual(txAsBuffer);
+        for (let i = 0; i < numIterations; i++) {
+          expect(uncompressed[i].length).toEqual(txAsBuffer.length);
+          expect(compressed[0].length).toEqual(compressed[i].length);
+        }
 
         logger.info(
           `Compressed tx size (${name}): ${compressed.length}, compression time: ${compressionDuration}ms, decompression time: ${decompressionDuration}ms`,
         );
 
         results.push({
-          name: `Tx Compression/${txType}/${name}-compression-duration`,
+          name: `Tx Compression/${txType}/${name}/Compression Duration`,
           value: compressionDuration,
           unit: 'ms',
         });
         results.push({
-          name: `Tx Compression/${txType}/${name}-decompression-duration`,
+          name: `Tx Compression/${txType}/${name}/Decompression Duration`,
           value: decompressionDuration,
           unit: 'ms',
         });
         results.push({
-          name: `Tx Compression/${txType}/${name}-size`,
-          value: compressed.length,
+          name: `Tx Compression/${txType}/${name}/Compressed Size`,
+          value: compressed[0].length,
           unit: 'bytes',
         });
       };
