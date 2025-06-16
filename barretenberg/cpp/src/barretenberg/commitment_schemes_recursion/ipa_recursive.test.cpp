@@ -44,8 +44,11 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto prover_transcript = std::make_shared<NativeTranscript>();
         NativeIPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
+        // Export proof
+        auto proof = prover_transcript->export_proof();
+
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<NativeTranscript>(proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
@@ -57,8 +60,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         // Construct stdlib verifier transcript
-        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>(
-            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data));
+        auto recursive_verifier_transcript =
+            std::make_shared<StdlibTranscript>(bb::convert_native_proof_to_stdlib(&builder, proof));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
 

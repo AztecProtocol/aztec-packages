@@ -42,7 +42,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     BB_PROFILE void execute_pcs_rounds();
 
     HonkProof export_proof();
-    HonkProof construct_proof();
+    void construct_proof();
 
     std::shared_ptr<DeciderPK> proving_key;
 

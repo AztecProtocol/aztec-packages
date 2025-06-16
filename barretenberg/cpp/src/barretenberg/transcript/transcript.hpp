@@ -248,6 +248,8 @@ template <typename TranscriptParams> class BaseTranscript {
     };
 
   protected:
+    Proof proof_data; // Contains the raw data sent by the prover.
+
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -300,9 +302,6 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
   public:
-    // Contains the raw data sent by the prover.
-    Proof proof_data;
-
     /**
      * @brief Return the proof data starting at proof_start
      * @details This is useful for when two different provers share a transcript.
@@ -320,6 +319,13 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
+
+    /**
+     * @brief Return the size of proof_data
+     *
+     * @return size_t
+     */
+    size_t size_proof_data() { return proof_data.size(); }
 
     /**
      * @brief Enables the manifest

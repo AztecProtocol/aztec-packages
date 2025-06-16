@@ -57,7 +57,7 @@ template <class Flavor, size_t LENGTH> auto generate_mock_proof_data(auto prover
     prover_transcript.send_to_verifier("univariate", univariate);
     prover_transcript.template get_challenges<FF>("gamma", "delta");
 
-    return prover_transcript.proof_data;
+    return prover_transcript.export_proof();
 }
 
 /**
@@ -155,7 +155,7 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.send_to_verifier("evaluations", evaluations);
     prover_transcript.template get_challenges<FF>("alpha, beta");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
     // Perform the corresponding operations with the native verifier transcript
     NativeTranscript native_transcript(proof_data);
@@ -205,7 +205,7 @@ TEST(RecursiveTranscript, InfinityConsistencyGrumpkin)
     NativeTranscript prover_transcript;
     prover_transcript.send_to_verifier("infinity", infinity);
     NativeFF challenge = prover_transcript.get_challenge<NativeFF>("challenge");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
     NativeTranscript verifier_transcript(proof_data);
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
@@ -243,7 +243,7 @@ TEST(RecursiveTranscript, InfinityConsistencyBN254)
     NativeTranscript prover_transcript;
     prover_transcript.send_to_verifier("infinity", infinity);
     NativeFF challenge = prover_transcript.get_challenge<NativeFF>("challenge");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
     NativeTranscript verifier_transcript(proof_data);
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");

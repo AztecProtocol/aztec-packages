@@ -64,15 +64,15 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
+    proof = transcript->export_proof();
+
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-        proof = transcript->proof_data;
         // The extra calculation is for the IPA proof length.
         BB_ASSERT_EQ(proving_key->proving_key.ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
         proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
-    } else {
-        proof = transcript->export_proof();
     }
+
     return proof;
 }
 

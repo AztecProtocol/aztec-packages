@@ -6,7 +6,9 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include <cstddef>
 namespace bb {
 enum class TamperType {
@@ -35,7 +37,9 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     using InnerFF = typename InnerFlavor::FF;
     static constexpr size_t FIRST_WITNESS_INDEX = InnerFlavor::NUM_PRECOMPUTED_ENTITIES;
 
-    inner_prover.transcript->deserialize_full_transcript(inner_prover.proving_key->proving_key.num_public_inputs);
+    // Deserialize the transcript into the struct so that we can tamper it
+    auto num_public_inputs = inner_prover.proving_key->proving_key.num_public_inputs;
+    inner_prover.transcript->deserialize_full_transcript(num_public_inputs);
 
     switch (type) {
 
@@ -75,10 +79,21 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
         break;
     }
     }
-    inner_prover.transcript->serialize_full_transcript();
-    // Extract the tampered proof
 
-    inner_proof = (HasIPAAccumulator<InnerFlavor>) ? inner_prover.export_proof() : inner_prover.transcript->proof_data;
+    // Serialize transcript
+    // As inner_proof is extracted with export_proof, the internal values of inner_prover.transcript are reset
+    // Therefore, if we were to call export_proof without overriding num_frs_written and proof_start, the proof would
+    // be empty. This is a hack, we should probably have a better way of tampering with proofs.
+    inner_prover.transcript->serialize_full_transcript();
+    inner_prover.transcript->proof_start = 0;
+    inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
+    if (HasIPAAccumulator<InnerFlavor>) {
+        // Exclude the IPA points from the proof - they are added again by export_proof
+        inner_prover.transcript->num_frs_written -= IPA_PROOF_LENGTH;
+    }
+
+    // Extract the tampered proof
+    inner_proof = inner_prover.export_proof();
 }
 
 /**

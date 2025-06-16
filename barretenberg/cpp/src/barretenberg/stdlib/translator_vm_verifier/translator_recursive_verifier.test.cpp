@@ -97,7 +97,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        auto native_verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+        auto native_verifier_transcript = std::make_shared<Transcript>(fake_inital_proof);
         native_verifier_transcript->template receive_from_prover<InnerBF>("init");
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
         bool native_result = native_verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
