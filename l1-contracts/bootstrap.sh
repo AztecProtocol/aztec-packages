@@ -463,10 +463,10 @@ function coverage {
 
   # Build the command
   if [ "$GOVERNANCE" = true ]; then
-    CMD="forge coverage --match-path \"test/governance/**/*.t.sol\" --no-match-coverage \"(test|script|mock|generated|core|periphery)\""
+    CMD="FORGE_COVERAGE=true forge coverage --match-path \"test/governance/**/*.t.sol\" --no-match-coverage \"(test|script|mock|generated|core|periphery)\""
   else
     # Default coverage command
-    CMD="forge coverage --no-match-coverage \"(test|script|mock|generated)\""
+    CMD="FORGE_COVERAGE=true forge coverage --no-match-coverage \"(test|script|mock|generated)\""
   fi
 
   if [ -n "$MATCH_PATH" ] && [ "$GOVERNANCE" = true ]; then
