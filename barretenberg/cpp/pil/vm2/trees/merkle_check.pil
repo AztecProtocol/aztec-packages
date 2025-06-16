@@ -1,5 +1,5 @@
-include "./poseidon2_hash.pil";
-include "./precomputed.pil";
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
 
 /**
  * A gadget that checks a merkle read or a write.

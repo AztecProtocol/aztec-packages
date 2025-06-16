@@ -1,8 +1,9 @@
 include "bc_hashing.pil";
 include "address_derivation.pil";
 include "update_check.pil";
-include "constants_gen.pil";
-include "nullifier_check.pil";
+
+include "../constants_gen.pil";
+include "../trees/nullifier_check.pil";
 
 // Bytecode retrieval.
 namespace bc_retrieval;

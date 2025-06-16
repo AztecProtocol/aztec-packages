@@ -1,7 +1,8 @@
 // Bytecode hashing.
-include "precomputed.pil";
 include "bc_decomposition.pil";
-include "poseidon2_hash.pil";
+
+include "../precomputed.pil";
+include "../poseidon2_hash.pil";
 
 // ###########
 // Design idea

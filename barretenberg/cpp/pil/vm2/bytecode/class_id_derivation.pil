@@ -1,7 +1,8 @@
-include "constants_gen.pil";
-include "poseidon2_hash.pil";
-include "precomputed.pil";
 include "bc_retrieval.pil";
+
+include "../constants_gen.pil";
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
 
 namespace class_id_derivation;
 
