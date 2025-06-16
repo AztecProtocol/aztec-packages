@@ -47,15 +47,21 @@ describe('LMDBMap benchmarks', () => {
     }
   });
 
+  const generateKeyValuePairs = (count: number) => {
+    const keys = Array.from({ length: count }, (_, i) => `key-${i}`);
+    const values = Array.from({ length: count }, (_, i) => `value-${i}`);
+    const pairs = keys.map((key, i) => ({ key: key, value: values[i] }));
+    return pairs;
+  };
+
   it('adds individual values', async () => {
-    const keys = Array.from({ length: 10000 }, (_, i) => `key-${i}`);
-    const values = Array.from({ length: 10000 }, (_, i) => `value-${i}`);
+    const pairs = generateKeyValuePairs(1000);
 
     const timer = new Timer();
-    for (let i = 0; i < keys.length; i++) {
-      await map.set(keys[i], values[i]);
+    for (let i = 0; i < pairs.length; i++) {
+      await map.set(pairs[i].key, pairs[i].value);
     }
-    const duration = (timer.ms() * 1000) / keys.length;
+    const duration = (timer.ms() * 1000) / pairs.length;
     results.push({
       name: 'Individual insertion',
       unit: 'us',
@@ -64,18 +70,14 @@ describe('LMDBMap benchmarks', () => {
   });
 
   it('reads individual values', async () => {
-    const keys = Array.from({ length: 10000 }, (_, i) => `key-${i}`);
-    const values = Array.from({ length: 10000 }, (_, i) => `value-${i}`);
-
-    for (let i = 0; i < keys.length; i++) {
-      await map.set(keys[i], values[i]);
-    }
+    const pairs = generateKeyValuePairs(10000);
+    await map.setMany(pairs);
 
     const timer = new Timer();
-    for (let i = 0; i < keys.length; i++) {
-      await map.getAsync(keys[i]);
+    for (let i = 0; i < pairs.length; i++) {
+      await map.getAsync(pairs[i].key);
     }
-    const duration = (timer.ms() * 1000) / keys.length;
+    const duration = (timer.ms() * 1000) / pairs.length;
     results.push({
       name: 'Individual read',
       unit: 'us',
@@ -84,21 +86,17 @@ describe('LMDBMap benchmarks', () => {
   });
 
   it('reads via a cursor', async () => {
-    const keys = Array.from({ length: 10000 }, (_, i) => `key-${i}`);
-    const values = Array.from({ length: 10000 }, (_, i) => `value-${i}`);
-
-    for (let i = 0; i < keys.length; i++) {
-      await map.set(keys[i], values[i]);
-    }
+    const pairs = generateKeyValuePairs(10000);
+    await map.setMany(pairs);
 
     const timer = new Timer();
     const iterator = map.entriesAsync();
     for await (const _ of iterator) {
       // do nothing
     }
-    const duration = (timer.ms() * 1000) / keys.length;
+    const duration = (timer.ms() * 1000) / pairs.length;
     results.push({
-      name: `Iterator read of ${keys.length} items`,
+      name: `Iterator read of ${pairs.length} items`,
       unit: 'us',
       value: duration,
     });
@@ -106,12 +104,8 @@ describe('LMDBMap benchmarks', () => {
 
   it('reads the size of the map', async () => {
     const numIterations = 1000;
-    const keys = Array.from({ length: 10000 }, (_, i) => `key-${i}`);
-    const values = Array.from({ length: 10000 }, (_, i) => `value-${i}`);
-
-    for (let i = 0; i < keys.length; i++) {
-      await map.set(keys[i], values[i]);
-    }
+    const pairs = generateKeyValuePairs(numIterations);
+    await map.setMany(pairs);
 
     const timer = new Timer();
     for (let i = 0; i < numIterations; i++) {
@@ -119,7 +113,7 @@ describe('LMDBMap benchmarks', () => {
     }
     const duration = (timer.ms() * 1000) / numIterations;
     results.push({
-      name: `Read size of ${keys.length} items`,
+      name: `Read size of ${pairs.length} items`,
       unit: 'us',
       value: duration,
     });
