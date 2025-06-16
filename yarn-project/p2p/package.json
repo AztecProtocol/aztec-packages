@@ -66,6 +66,7 @@
   "dependencies": {
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",

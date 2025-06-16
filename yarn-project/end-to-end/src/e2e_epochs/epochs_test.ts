@@ -115,6 +115,7 @@ export class EpochsTestContext {
       aztecSlotDuration,
       ethereumSlotDuration,
       aztecProofSubmissionWindow,
+      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
