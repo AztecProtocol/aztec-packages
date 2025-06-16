@@ -16,10 +16,10 @@ import { CommitteeAttestation, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
 import {
-  type BuildBlockOptions,
   type IFullNodeBlockBuilder,
   type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
+  type PublicProcessorLimits,
   WorldStateRunningState,
   type WorldStateSyncStatus,
   type WorldStateSynchronizer,
@@ -149,9 +149,9 @@ describe('sequencer', () => {
     globalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(newBlockNumber),
+      newBlockNumber,
       new Fr(newSlotNumber),
-      Fr.ZERO,
+      /*timestamp=*/ 0n,
       coinbase,
       feeRecipient,
       gasFees,
@@ -161,7 +161,7 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     const epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n }));
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -171,7 +171,11 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: BigInt(newSlotNumber),
+      blockNumber: BigInt(newBlockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -258,7 +262,7 @@ describe('sequencer', () => {
       l1Constants,
       new TestDateProvider(),
     );
-    await sequencer.updateConfig(config);
+    sequencer.updateConfig(config);
   });
 
   it('builds a block out of a single tx', async () => {
@@ -308,10 +312,11 @@ describe('sequencer', () => {
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([
-      block.header.globalVariables.slotNumber.toBigInt(),
-      block.header.globalVariables.blockNumber.toBigInt(),
-    ]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: block.header.globalVariables.slotNumber.toBigInt(),
+      blockNumber: BigInt(block.header.globalVariables.blockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
@@ -327,7 +332,7 @@ describe('sequencer', () => {
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
     const txs: Tx[] = await timesParallel(8, i => makeTx(i * 0x10000));
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -355,7 +360,7 @@ describe('sequencer', () => {
   it('builds a block that contains zero real transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -383,7 +388,7 @@ describe('sequencer', () => {
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
     const txs = await timesParallel(8, i => makeTx(i * 0x10000));
 
-    await sequencer.updateConfig({ minTxsPerBlock: 4 });
+    sequencer.updateConfig({ minTxsPerBlock: 4 });
 
     // block is not built with 0 txs
     mockPendingTxs([]);
@@ -550,7 +555,7 @@ class TestSubject extends Sequencer {
     return super.doRealWork();
   }
 
-  public override getDefaultBlockBuilderOptions(slot: number): BuildBlockOptions {
+  public override getDefaultBlockBuilderOptions(slot: number): PublicProcessorLimits {
     return super.getDefaultBlockBuilderOptions(slot);
   }
 }

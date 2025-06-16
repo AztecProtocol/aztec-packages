@@ -3,6 +3,7 @@ import { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import type { TestDateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import { type GetContractReturnType, type Hex, createPublicClient, fallback, getContract, http, keccak256 } from 'viem';
@@ -67,8 +68,8 @@ export class RollupCheatCodes {
     const validators = await rollup.getAttesters();
     const committee = await rollup.getCurrentEpochCommittee();
     const archive = await rollup.archive();
-    const epochNum = await rollup.getEpochNumber();
     const slot = await this.getSlot();
+    const epochNum = await rollup.getEpochNumberForSlotNumber(slot);
 
     this.logger.info(`Pending block num: ${pendingNum}`);
     this.logger.info(`Proven block num: ${provenNum}`);
@@ -94,15 +95,24 @@ export class RollupCheatCodes {
   /**
    * Advances time to the beginning of the given epoch
    * @param epoch - The epoch to advance to
+   * @param opts - Options
    */
-  public async advanceToEpoch(epoch: bigint) {
+  public async advanceToEpoch(
+    epoch: bigint,
+    opts: {
+      /** Whether to reset the L1 block interval so the next block is mined L1-block-time after thie call */
+      resetBlockInterval?: boolean;
+      /** Optional test date provider to update with the epoch timestamp */
+      updateDateProvider?: TestDateProvider;
+    } = {},
+  ) {
     const { epochDuration: slotsInEpoch } = await this.getConfig();
     const timestamp = await this.rollup.read.getTimestampForSlot([epoch * slotsInEpoch]);
     try {
-      await this.ethCheatCodes.warp(Number(timestamp));
+      await this.ethCheatCodes.warp(Number(timestamp), opts);
       this.logger.warn(`Warped to epoch ${epoch}`);
-    } catch {
-      this.logger.debug('Warp failed, time already satisfied');
+    } catch (err) {
+      this.logger.warn(`Warp to epoch ${epoch} failed: ${err}`);
     }
     return timestamp;
   }
@@ -114,7 +124,7 @@ export class RollupCheatCodes {
     const slotsUntilNextEpoch = epochDuration - (slot % epochDuration) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * slotDuration;
     const l1Timestamp = BigInt((await this.client.getBlock()).timestamp);
-    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), true);
+    await this.ethCheatCodes.warp(Number(l1Timestamp + timeToNextEpoch), { silent: true });
     this.logger.warn(`Advanced to next epoch`);
   }
 
@@ -135,7 +145,7 @@ export class RollupCheatCodes {
     const l1Timestamp = (await this.client.getBlock()).timestamp;
     const slotDuration = await this.rollup.read.getSlotDuration();
     const timeToWarp = BigInt(howMany) * slotDuration;
-    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, true);
+    await this.ethCheatCodes.warp(l1Timestamp + timeToWarp, { silent: true });
     const [slot, epoch] = await Promise.all([this.getSlot(), this.getEpoch()]);
     this.logger.warn(`Advanced ${howMany} slots up to slot ${slot} in epoch ${epoch}`);
   }

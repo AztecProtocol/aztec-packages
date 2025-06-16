@@ -36,7 +36,7 @@ contract MinimalDelegationTest is GSEBase {
   function setUp() public override {
     super.setUp();
     canonical = gse.CANONICAL_MAGIC_ADDRESS();
-    depositAmount = ROLLUP.getMinimumStake();
+    depositAmount = ROLLUP.getDepositAmount();
 
     vm.label(canonical, "canonical");
   }
@@ -60,14 +60,14 @@ contract MinimalDelegationTest is GSEBase {
     Timestamps memory ts;
 
     ts.ts1 = block.timestamp;
-    ts.ts2 = ts.ts1 + 10;
-    ts.ts3 = ts.ts2 + 10;
+    ts.ts2 = ts.ts1 + EPOCH_DURATION_SECONDS;
+    ts.ts3 = ts.ts2 + EPOCH_DURATION_SECONDS;
 
-    require(votingTime > ts.ts3, "ts");
-    ts.ts4 = votingTime + 10;
-    ts.ts5 = ts.ts4 + 10;
-    ts.ts6 = ts.ts5 + 10;
-    ts.ts7 = ts.ts6 + 10;
+    require(votingTime > ts.ts3, "voting time not long enough");
+    ts.ts4 = votingTime + EPOCH_DURATION_SECONDS;
+    ts.ts5 = ts.ts4 + EPOCH_DURATION_SECONDS;
+    ts.ts6 = ts.ts5 + EPOCH_DURATION_SECONDS;
+    ts.ts7 = ts.ts6 + EPOCH_DURATION_SECONDS;
 
     // Lets start
     assertEq(gse.getVotingPower(canonical), 0, "votingPowerCanonical");

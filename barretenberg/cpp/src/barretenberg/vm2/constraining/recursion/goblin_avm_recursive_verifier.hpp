@@ -213,7 +213,9 @@ class AvmGoblinRecursiveVerifier {
         // All prover components share a single transcript
         std::shared_ptr<Goblin::Transcript> transcript = std::make_shared<Goblin::Transcript>();
         // Construct Mega proof \pi_M of the AVM recursive verifier circuit
-        MegaProver mega_prover(mega_builder, transcript);
+        auto mega_proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(mega_builder);
+        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_proving_key->proving_key);
+        MegaProver mega_prover(mega_proving_key, mega_vk, transcript);
         HonkProof mega_proof = mega_prover.construct_proof();
         goblin.transcript = transcript;
 
@@ -221,7 +223,6 @@ class AvmGoblinRecursiveVerifier {
         GoblinProof goblin_proof = goblin.prove();
 
         // Recursively verify the goblin proof in the Ultra circuit
-        auto mega_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);
         Goblin::VerificationKey goblin_vk{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
 
         return {

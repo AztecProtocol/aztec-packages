@@ -8,9 +8,12 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {MultiAdder} from "@aztec/mock/MultiAdder.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract SetupEpochTest is ValidatorSelectionTestBase {
   using Checkpoints for Checkpoints.Trace224;
+  using stdStorage for StdStorage;
 
   modifier whenTheRollupIsInGenesisState() {
     // Enforced with setup(0) modifier
@@ -106,6 +109,12 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     );
     assertEq(committeeAfterRepeatedSetup, initialCommittee, "Committee should be the same");
 
+    // Overwrite the flushable epoch to 0 to force our ability to add more validators this epoch
+    // Now reset the next flushable epoch to 0
+    stdstore.enable_packed_slots().target(address(rollup)).sig(
+      IStaking.getNextFlushableEpoch.selector
+    ).depth(0).checked_write(uint256(0));
+
     // Add a couple of extra validators during this epoch, the sampled validator set should not change
     addNumberOfValidators(420420, 2);
 
@@ -198,7 +207,7 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    testERC20.mint(address(multiAdder), rollup.getMinimumStake() * validators.length);
+    testERC20.mint(address(multiAdder), rollup.getDepositAmount() * validators.length);
     multiAdder.addValidators(validators);
   }
 }

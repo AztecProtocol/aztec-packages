@@ -2,17 +2,44 @@
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
 import {GSE} from "@aztec/core/staking/GSE.sol";
 import {Timestamp, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 
 contract MoveTest is StakingBase {
   GSE internal gse;
+
+  uint256 internal n;
+
+  // override the setUp to set the entry queue flush size to n
+  function setUp() public override {
+    // We add n validators. n/2 to the specific and the rest to the canonical one
+    // Should be MORE than 2*48 to ensure that we will end up with enough to sample
+    // on either rollup.
+    n = 101;
+
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
+      .setSlashingRoundSize(1).setEntryQueueFlushSizeMin(n);
+    builder.deploy();
+
+    registry = builder.getConfig().registry;
+
+    RollupConfigInput memory rollupConfig = builder.getConfig().rollupConfigInput;
+
+    EPOCH_DURATION_SECONDS = rollupConfig.aztecEpochDuration * rollupConfig.aztecSlotDuration;
+
+    staking = IStaking(address(builder.getConfig().rollup));
+    stakingAsset = builder.getConfig().testERC20;
+
+    DEPOSIT_AMOUNT = staking.getDepositAmount();
+    MINIMUM_STAKE = staking.getMinimumStake();
+    SLASHER = staking.getSlasher();
+  }
 
   function test_MoveStakingSet() external {
     // This test "moves" the staking set for "canonical" as a new rollup is made canonical
@@ -21,18 +48,13 @@ contract MoveTest is StakingBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
       .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(
       false
-    ).deploy();
+    ).setEntryQueueFlushSizeMin(n).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));
 
-    // We add n validators. n/2 to the specific and the rest to the canonical one
-    // Should be MORE thank 2*48 to ensure that we will end up with enough to sample
-    // on either rollup.
-    uint256 n = 101;
-
-    stakingAsset.mint(address(this), MINIMUM_STAKE * n);
-    stakingAsset.approve(address(oldRollup), MINIMUM_STAKE * n);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT * n);
+    stakingAsset.approve(address(oldRollup), DEPOSIT_AMOUNT * n);
 
     for (uint256 i = 0; i < n; i++) {
       bool onCanonical = i % 2 == 0;
@@ -43,6 +65,7 @@ contract MoveTest is StakingBase {
         _onCanonical: onCanonical
       });
     }
+    oldRollup.flushEntryQueue();
 
     Epoch epoch = Epoch.wrap(5);
     Timestamp ts =
@@ -123,7 +146,7 @@ contract MoveTest is StakingBase {
     vm.warp(Timestamp.unwrap(attesterView.exit.exitableAt));
 
     vm.expectEmit(true, true, true, true, address(newRollup));
-    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, MINIMUM_STAKE);
+    emit IStakingCore.WithdrawFinalised(attesterToExit, RECIPIENT, DEPOSIT_AMOUNT);
     newRollup.finaliseWithdraw(attesterToExit);
 
     attesterView = newRollup.getAttesterView(attesterToExit);
@@ -132,6 +155,6 @@ contract MoveTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE);
 
     assertEq(stakingAsset.balanceOf(address(newRollup)), 0);
-    assertEq(stakingAsset.balanceOf(RECIPIENT), MINIMUM_STAKE);
+    assertEq(stakingAsset.balanceOf(RECIPIENT), DEPOSIT_AMOUNT);
   }
 }

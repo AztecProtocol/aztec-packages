@@ -26,6 +26,8 @@ export type L1ContractsConfig = {
   aztecTargetCommitteeSize: number;
   /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
   aztecProofSubmissionWindow: number;
+  /** The deposit amount for a validator */
+  depositAmount: bigint;
   /** The minimum stake for a validator. */
   minimumStake: bigint;
   /** The slashing quorum */
@@ -48,7 +50,8 @@ export const DefaultL1ContractsConfig = {
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
   aztecProofSubmissionWindow: 64, // you have a full epoch to submit a proof after the epoch to prove ends
-  minimumStake: BigInt(100e18),
+  depositAmount: BigInt(100e18),
+  minimumStake: BigInt(50e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
   governanceProposerQuorum: 51,
@@ -56,6 +59,24 @@ export const DefaultL1ContractsConfig = {
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
+
+// Making a default config here as we are only using it thought the deployment
+// and do not expect to be using different setups, so having environment variables
+// for it seems overkill
+export const DefaultRewardConfig = {
+  sequencerBps: 5000,
+  increment: 200000,
+  maxScore: 5000000,
+  a: 5000,
+  k: 1000000,
+  minimum: 100000,
+};
+
+// Similar to the above, no need for environment variables for this.
+export const DefaultEntryQueueConfig = {
+  flushSizeMin: 48,
+  flushSizeQuotient: 2,
+};
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {
@@ -83,6 +104,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description:
       'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
+  },
+  depositAmount: {
+    env: 'AZTEC_DEPOSIT_AMOUNT',
+    description: 'The deposit amount for a validator',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.depositAmount),
   },
   minimumStake: {
     env: 'AZTEC_MINIMUM_STAKE',

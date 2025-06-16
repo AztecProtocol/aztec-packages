@@ -29,6 +29,7 @@ names:
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
   - nico: &nico "U06D2QSLY10"
+  - lucas: &lucas "U05MW7WQ8LQ"
 
 tests:
   # barretenberg
@@ -185,6 +186,10 @@ tests:
     error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
       - *spyros
+  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+    error_regex: "Failed events from sequencers"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -229,10 +234,10 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
-  - regex: "ethereum/src/eth_cheat_codes.test.ts"
-    error_regex: "Nonce too high"
+  - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
+    error_regex: "Exceeded timeout of"
     owners:
-      - *palla
+      - *lucas
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
@@ -259,15 +264,39 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
 
   # boxes
-  - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
+  - regex: "vanilla-all-browsers box boxes"
     error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test vite-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "toBeVisible" # http://ci.aztec-labs.com/b7b10b95167d5ed6
     owners:
       - *saleel
 
   - regex: "tests/browser.spec.ts"
     error_regex: "Error: locator\\.click: Test timeout of"
+    owners:
+      - *saleel
+
+  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
+    error_regex: "create account and cast vote"
     owners:
       - *saleel
 
@@ -277,3 +306,9 @@ tests:
     owners:
       - *charlie
       - *adam
+
+  # l1-contracts
+  - regex: "cd l1-contracts && forge test"
+    error_regex: "staking_asset_handler/addValidator.t.sol:addValidatorToQueueTest.*FAIL: next call did not revert as expected;"
+    owners:
+      - *lasse

@@ -120,11 +120,12 @@ export class EpochCache implements EpochCacheInterface {
     return this.l1constants;
   }
 
-  public getEpochAndSlotNow(): EpochAndSlot {
-    return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
+  public getEpochAndSlotNow(): EpochAndSlot & { now: bigint } {
+    const now = this.nowInSeconds();
+    return { ...this.getEpochAndSlotAtTimestamp(now), now };
   }
 
-  private nowInSeconds(): bigint {
+  public nowInSeconds(): bigint {
     return BigInt(Math.floor(this.dateProvider.now() / 1000));
   }
 
@@ -134,9 +135,10 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-  public getEpochAndSlotInNextL1Slot(): EpochAndSlot {
-    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.ethereumSlotDuration);
-    return this.getEpochAndSlotAtTimestamp(nextSlotTs);
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
+    const now = this.nowInSeconds();
+    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
+    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {

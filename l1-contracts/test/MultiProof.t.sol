@@ -25,6 +25,8 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -32,6 +34,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract MultiProofTest is RollupBase {
+  using stdStorage for StdStorage;
   using SlotLib for Slot;
   using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
@@ -200,6 +203,77 @@ contract MultiProofTest is RollupBase {
       );
       vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
+    }
+  }
+
+  function testMultipleProversBoostedRewards() public setUpFor("mixed_block_1") {
+    address alice = address(bytes20("alice"));
+    address bob = address(bytes20("bob"));
+
+    // We need to mint some fee asset to the portal to cover the 30M mana spent.
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
+
+    _proposeBlock("mixed_block_1", 1, 15e6);
+    _proposeBlock("mixed_block_2", 2, 15e6);
+
+    assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
+
+    ActivityScore memory activityScore = rollup.getActivityScore(alice);
+
+    assertEq(
+      rollup.getSharesFor(alice), rollup.getSharesFor(bob), "Alice shares not equal to bob shares"
+    );
+
+    uint256 maxActivityScore = TestConstants.getRollupConfigInput().rewardConfig.maxScore;
+    uint256 maxShares = TestConstants.getRollupConfigInput().rewardConfig.k;
+
+    stdstore.clear();
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getActivityScore(address)").depth(1)
+      .with_key(alice).checked_write(maxActivityScore);
+
+    assertGt(
+      rollup.getSharesFor(alice),
+      rollup.getSharesFor(bob),
+      "Alice shares not greater than bob shares"
+    );
+
+    activityScore = rollup.getActivityScore(alice);
+    assertEq(activityScore.value, maxActivityScore, "Activity score not set");
+    assertEq(rollup.getSharesFor(alice), maxShares, "Alice shares not set");
+
+    assertEq(
+      rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), alice), 0, "Alice rewards not zeroed"
+    );
+    assertEq(
+      rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob), 0, "Bob rewards not zeroed"
+    );
+
+    string memory name = "mixed_block_";
+    _proveBlocks(name, 1, 1, alice);
+    _proveBlocks(name, 1, 1, bob);
+
+    logStatus();
+
+    assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, alice));
+    assertTrue(rollup.getHasSubmitted(Epoch.wrap(0), 1, bob));
+    assertEq(rollup.getProvenBlockNumber(), 1, "Block not proven");
+
+    uint256 totalRewards = rollup.getCollectiveProverRewardsForEpoch(Epoch.wrap(0));
+    uint256 totalShares = (rollup.getSharesFor(bob) + rollup.getSharesFor(alice));
+
+    {
+      uint256 aliceRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), alice);
+      assertEq(
+        aliceRewards,
+        totalRewards * rollup.getSharesFor(alice) / totalShares,
+        "Alice rewards not correct"
+      );
+    }
+    {
+      uint256 bobRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob);
+      assertEq(
+        bobRewards, totalRewards * rollup.getSharesFor(bob) / totalShares, "Bob rewards not correct"
+      );
     }
   }
 

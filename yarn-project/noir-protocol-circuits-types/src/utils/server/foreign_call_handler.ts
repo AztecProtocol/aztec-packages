@@ -74,7 +74,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     // const blobsAsFr: Fr[] = args[0].map((field: string) => Fr.fromString(field)).filter(field => !field.isZero());
     // ...but we now have private logs which have a fixed number of fields and may have 0 values.
     // TODO(Miranda): trim 0 fields from private logs
-    const blobs = await Blob.getBlobs(blobsAsFr);
+    const blobs = await Blob.getBlobsPerBlock(blobsAsFr);
     // Checks on injected values:
     const hash = await spongeBlob.squeeze();
     blobs.forEach((blob, i) => {

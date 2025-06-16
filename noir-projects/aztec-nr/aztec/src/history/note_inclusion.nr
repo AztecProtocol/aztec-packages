@@ -30,7 +30,7 @@ impl ProveNoteInclusion for BlockHeader {
 
         // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe {
-            get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash)
+            get_note_hash_membership_witness(self.global_variables.block_number, note_hash)
         };
 
         // Note inclusion is fairly straightforward, since all we need to prove is that a note exists in the note tree -

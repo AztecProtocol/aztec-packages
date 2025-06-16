@@ -385,7 +385,7 @@ export class BotFactory {
     const claim = await portal.bridgeTokensPublic(recipient, mintAmount, true /* mint */);
 
     const isSynced = async () => await this.pxe.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await retryUntil(isSynced, `message ${claim.messageHash} sync`, this.config.l1ToL2MessageTimeoutSeconds, 1);
 
     this.log.info(`Created a claim for ${mintAmount} L1 fee juice to ${recipient}.`, claim);
 

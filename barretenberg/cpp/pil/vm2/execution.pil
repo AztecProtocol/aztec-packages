@@ -22,6 +22,7 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
+include "execution_discard.pil";
 include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
@@ -127,6 +128,9 @@ sel_instruction_fetching_success {
     base_da_gas,
     dynamic_l2_gas,
     dynamic_da_gas,
+    // addressing
+    sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
+    sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
     subtrace_operation_id, sel_alu, sel_bitwise, sel_to_radix, sel_ecc_add, sel_poseidon2_perm,
     mem_op[0], mem_op[1], mem_op[2], mem_op[3], mem_op[4], mem_op[5], mem_op[6],
@@ -140,6 +144,14 @@ precomputed.sel_exec_spec {
     precomputed.exec_opcode_base_da_gas,
     precomputed.exec_opcode_dynamic_l2_gas,
     precomputed.exec_opcode_dynamic_da_gas,
+    // addressing
+    precomputed.sel_op_is_address[0],
+    precomputed.sel_op_is_address[1],
+    precomputed.sel_op_is_address[2],
+    precomputed.sel_op_is_address[3],
+    precomputed.sel_op_is_address[4],
+    precomputed.sel_op_is_address[5],
+    precomputed.sel_op_is_address[6],
     // subtraces
     precomputed.subtrace_operation_id,
     precomputed.sel_dispatch_alu,
@@ -189,16 +201,10 @@ pol commit rop[7];
 // The "output we want is" sel_addressing_error from addressing.pil.
 
 /**************************************************************************************************
- *  Temporality group N: Dynamic gas
- **************************************************************************************************/
-
-// TODO: gate this group with sel_addressing_error, etc.
-
-/**************************************************************************************************
  *  Temporality group N: Registers + Dispatch opcode
  **************************************************************************************************/
 
-// TODO: gate this group with oog_dynamic, etc.
+// TODO: gate this group.
 
 // Registers
 pol commit register[7];
@@ -225,6 +231,12 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+
+/**************************************************************************************************
+ *  Temporality group N: Dynamic gas
+ **************************************************************************************************/
+
+// TODO: gate this group. This is actually interleaved with the previous group.
 
 /**************************************************************************************************
  *  Error collection

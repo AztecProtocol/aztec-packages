@@ -2,7 +2,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -24,11 +24,13 @@ import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import type { LibP2PService } from '../services/libp2p/libp2p_service.js';
 import { ReqRespStatus } from '../services/reqresp/status.js';
 import {
+  type MakeTestP2PClientOptions,
   makeAndStartTestP2PClients,
   makeTestP2PClient,
   makeTestP2PClients,
   startTestP2PClients,
 } from '../test-helpers/make-test-p2p-clients.js';
+import { MockGossipSubNetwork } from '../test-helpers/mock-pubsub.js';
 
 const TEST_TIMEOUT = 120000;
 
@@ -40,6 +42,7 @@ describe('p2p client integration', () => {
   let epochCache: MockProxy<EpochCache>;
   let worldState: MockProxy<WorldStateSynchronizer>;
 
+  let logger: Logger;
   let p2pBaseConfig: P2PConfig;
 
   let clients: P2PClient[] = [];
@@ -51,6 +54,7 @@ describe('p2p client integration', () => {
     epochCache = mock<EpochCache>();
     worldState = mock<WorldStateSynchronizer>();
 
+    logger = createLogger('p2p:test:integration');
     p2pBaseConfig = { ...emptyChainConfig, ...getP2PDefaultConfig() };
 
     txPool.hasTxs.mockResolvedValue([]);
@@ -69,12 +73,15 @@ describe('p2p client integration', () => {
         oldestHistoricBlockNumber: 0,
       },
     });
+    logger.info(`Starting test ${expect.getState().currentTestName}`);
   });
 
   afterEach(async () => {
+    logger.info(`Tearing down state for ${expect.getState().currentTestName}`);
     if (clients.length > 0) {
       await shutdown(clients);
     }
+    logger.info('Shut down p2p clients');
     clients = [];
   });
 
@@ -135,6 +142,80 @@ describe('p2p client integration', () => {
     return handleGossipedAttestationSpy;
   };
 
+  const assertBroadcast = async (clients: P2PClient[]) => {
+    const [client1, client2, client3] = clients;
+    // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
+    const client2TxPromise = promiseWithResolvers<Tx>();
+    const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
+    const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
+
+    const client3TxPromise = promiseWithResolvers<Tx>();
+    const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
+    const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
+
+    // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
+    const client2HandleGossipedTxSpy = replaceTxHandler(client2, client2TxPromise);
+    const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(client2, client2ProposalPromise);
+    const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client2, client2AttestationPromise);
+
+    const client3HandleGossipedTxSpy = replaceTxHandler(client3, client3TxPromise);
+    const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(client3, client3ProposalPromise);
+    const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(client3, client3AttestationPromise);
+
+    // Client 1 sends a transaction, it should propagate to clients 2 and 3
+    const tx = await mockTx();
+    await client1.sendTx(tx);
+
+    // Client 1 sends a block proposal
+    const dummyPayload: MakeConsensusPayloadOptions = {
+      signer: Secp256k1Signer.random(),
+      header: makeHeader(),
+      archive: Fr.random(),
+      txHashes: [TxHash.random()],
+    };
+    const blockProposal = makeBlockProposal(dummyPayload);
+    await client1.broadcastProposal(blockProposal);
+
+    // client 1 sends an attestation
+    const attestation = mockAttestation(
+      Secp256k1Signer.random(),
+      Number(dummyPayload.header!.getSlot()),
+      dummyPayload.archive,
+      dummyPayload.txHashes,
+    );
+    await (client1 as any).p2pService.broadcastAttestation(attestation);
+
+    // Clients 2 and 3 should receive all messages
+    const messagesPromise = Promise.all([
+      client2TxPromise.promise,
+      client3TxPromise.promise,
+      client2ProposalPromise.promise,
+      client3ProposalPromise.promise,
+      client2AttestationPromise.promise,
+      client3AttestationPromise.promise,
+    ]);
+
+    const messages = await Promise.race([messagesPromise, sleep(6000).then(() => undefined)]);
+    expect(messages).toBeDefined();
+    expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
+    expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
+    expect(client2HandleGossipedAttestationSpy).toHaveBeenCalled();
+    expect(client3HandleGossipedTxSpy).toHaveBeenCalled();
+    expect(client3HandleGossipedProposalSpy).toHaveBeenCalled();
+    expect(client3HandleGossipedAttestationSpy).toHaveBeenCalled();
+
+    if (messages) {
+      const hashes = await Promise.all([tx, messages[0], messages[1]].map(tx => tx!.getTxHash()));
+      expect(hashes[0].toString()).toEqual(hashes[1].toString());
+      expect(hashes[0].toString()).toEqual(hashes[2].toString());
+
+      expect(messages[2].payload.toString()).toEqual(blockProposal.payload.toString());
+      expect(messages[3].payload.toString()).toEqual(blockProposal.payload.toString());
+      expect(messages[4].payload.toString()).toEqual(attestation.payload.toString());
+      expect(messages[5].payload.toString()).toEqual(attestation.payload.toString());
+    }
+  };
+
   it(
     'returns undefined if unable to find a transaction from another peer',
     async () => {
@@ -147,11 +228,13 @@ describe('p2p client integration', () => {
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,
+          logger,
         })
       ).map(x => x.client);
       const [client1] = clients;
 
       await sleep(2000);
+      logger.info(`Finished waiting for clients to connect`);
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
@@ -160,7 +243,6 @@ describe('p2p client integration', () => {
       const requestedTx = await client1.requestTxByHash(txHash);
       expect(requestedTx).toBeUndefined();
 
-      // await shutdown(clients, bootstrapNode);
       await shutdown(clients);
     },
     TEST_TIMEOUT,
@@ -177,12 +259,14 @@ describe('p2p client integration', () => {
           mockTxPool: txPool,
           mockEpochCache: epochCache,
           mockWorldState: worldState,
+          logger,
         })
       ).map(x => x.client);
       const [client1] = clients;
 
       // Give the nodes time to discover each other
       await sleep(6000);
+      logger.info(`Finished waiting for clients to connect`);
 
       // Perform a get tx request from client 1
       const tx = await mockTx();
@@ -212,6 +296,7 @@ describe('p2p client integration', () => {
           mockEpochCache: epochCache,
           mockWorldState: worldState,
           alwaysTrueVerifier: false,
+          logger,
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
@@ -219,6 +304,7 @@ describe('p2p client integration', () => {
 
       // Give the nodes time to discover each other
       await sleep(6000);
+      logger.info(`Finished waiting for clients to connect`);
 
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
@@ -253,6 +339,7 @@ describe('p2p client integration', () => {
           mockEpochCache: epochCache,
           mockWorldState: worldState,
           alwaysTrueVerifier: true,
+          logger,
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
@@ -260,6 +347,7 @@ describe('p2p client integration', () => {
 
       // Give the nodes time to discover each other
       await sleep(6000);
+      logger.info(`Finished waiting for clients to connect`);
 
       const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
@@ -294,13 +382,14 @@ describe('p2p client integration', () => {
       // Create a set of nodes, client 1 will send a messages to other peers
       const numberOfNodes = 3;
       // We start at rollup version 1
-      const testConfig = {
+      const testConfig: MakeTestP2PClientOptions = {
         p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
         mockAttestationPool: attestationPool,
         mockTxPool: txPool,
         mockEpochCache: epochCache,
         mockWorldState: worldState,
         alwaysTrueVerifier: true,
+        logger,
       };
 
       const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
@@ -312,87 +401,13 @@ describe('p2p client integration', () => {
 
       // Give the nodes time to discover each other
       await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers discovered', 10, 0.5);
+      logger.info(`Finished waiting for clients to discover each other`);
 
-      // Client 1 sends a tx a block proposal and an attestation and both clients 2 and 3 should receive them
-      {
-        const client2TxPromise = promiseWithResolvers<Tx>();
-        const client2ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client2AttestationPromise = promiseWithResolvers<BlockAttestation>();
-
-        const client3TxPromise = promiseWithResolvers<Tx>();
-        const client3ProposalPromise = promiseWithResolvers<BlockProposal>();
-        const client3AttestationPromise = promiseWithResolvers<BlockAttestation>();
-
-        // Replace the handlers on clients 2 and 3 so we can detect when they receive messages
-        const client2HandleGossipedTxSpy = replaceTxHandler(client2.client, client2TxPromise);
-        const client2HandleGossipedProposalSpy = replaceBlockProposalHandler(client2.client, client2ProposalPromise);
-        const client2HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
-          client2.client,
-          client2AttestationPromise,
-        );
-
-        const client3HandleGossipedTxSpy = replaceTxHandler(client3.client, client3TxPromise);
-        const client3HandleGossipedProposalSpy = replaceBlockProposalHandler(client3.client, client3ProposalPromise);
-        const client3HandleGossipedAttestationSpy = replaceBlockAttestationHandler(
-          client3.client,
-          client3AttestationPromise,
-        );
-
-        // Client 1 sends a transaction, it should propagate to clients 2 and 3
-        const tx = await mockTx();
-        await client1.client.sendTx(tx);
-
-        // Client 1 sends a block proposal
-        const dummyPayload: MakeConsensusPayloadOptions = {
-          signer: Secp256k1Signer.random(),
-          header: makeHeader(),
-          archive: Fr.random(),
-          txHashes: [TxHash.random()],
-        };
-        const blockProposal = makeBlockProposal(dummyPayload);
-        await client1.client.broadcastProposal(blockProposal);
-
-        // client 1 sends an attestation
-        const attestation = mockAttestation(
-          Secp256k1Signer.random(),
-          Number(dummyPayload.header!.getSlot()),
-          dummyPayload.archive,
-          dummyPayload.txHashes,
-        );
-        await (client1.client as any).p2pService.broadcastAttestation(attestation);
-
-        // Clients 2 and 3 should receive all messages
-        const messagesPromise = Promise.all([
-          client2TxPromise.promise,
-          client3TxPromise.promise,
-          client2ProposalPromise.promise,
-          client3ProposalPromise.promise,
-          client2AttestationPromise.promise,
-          client3AttestationPromise.promise,
-        ]);
-
-        const messages = await Promise.race([messagesPromise, sleep(6000).then(() => undefined)]);
-        expect(messages).toBeDefined();
-        expect(client2HandleGossipedTxSpy).toHaveBeenCalled();
-        expect(client2HandleGossipedProposalSpy).toHaveBeenCalled();
-        expect(client2HandleGossipedAttestationSpy).toHaveBeenCalled();
-        expect(client3HandleGossipedTxSpy).toHaveBeenCalled();
-        expect(client3HandleGossipedProposalSpy).toHaveBeenCalled();
-        expect(client3HandleGossipedAttestationSpy).toHaveBeenCalled();
-
-        if (messages) {
-          const hashes = await Promise.all([tx, messages[0], messages[1]].map(tx => tx!.getTxHash()));
-          expect(hashes[0].toString()).toEqual(hashes[1].toString());
-          expect(hashes[0].toString()).toEqual(hashes[2].toString());
-
-          expect(messages[2].payload.toString()).toEqual(blockProposal.payload.toString());
-          expect(messages[3].payload.toString()).toEqual(blockProposal.payload.toString());
-          expect(messages[4].payload.toString()).toEqual(attestation.payload.toString());
-          expect(messages[5].payload.toString()).toEqual(attestation.payload.toString());
-        }
-      }
+      // Assert that messages get propagated
+      await assertBroadcast(clientsAndConfig.map(c => c.client));
 
       // Now stop clients 2 and 3
+      logger.info(`Restarting clients 2 and 3`);
       await Promise.all([client2.client.stop(), client3.client.stop()]);
 
       // We set client 3 to rollup version 2
@@ -424,6 +439,7 @@ describe('p2p client integration', () => {
       // Give everyone time to connect again
       await sleep(5000);
       await retryUntil(async () => (await client1.client.getPeers()).length >= 2, 'peers rediscovered', 5, 0.5);
+      logger.info(`Finished waiting for clients to rediscover each other`);
 
       // Client 1 sends a tx a block proposal and an attestation and only client 2 should receive them, client 3 is now on a new version
       {
@@ -535,6 +551,7 @@ describe('p2p client integration', () => {
 
       await startTestP2PClients(clients);
       await sleep(5000);
+      logger.info(`Finished waiting for clients to connect`);
 
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
@@ -571,6 +588,7 @@ describe('p2p client integration', () => {
 
       await startTestP2PClients(clients);
       await sleep(5000);
+      logger.info(`Finished waiting for clients to connect`);
 
       for (const handshakeSpy of statusHandshakeSpies) {
         expect(handshakeSpy).toHaveBeenCalled();
@@ -597,36 +615,34 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [_c0, c1, _c2] = clients;
+      logger.info(`Created p2p clients`);
 
       const statusHandshakeSpies = clients.map(c =>
         jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
       );
       const disconnectSpies = clients.map(c => jest.spyOn((c as any).p2pService.peerManager, 'disconnectPeer'));
 
+      const badPeerId = (clients[0] as any).p2pService.node.peerId;
       const c1PeerManager = (c1 as any).p2pService.peerManager;
       const realSend = c1PeerManager.reqresp.sendRequestToPeer.bind(c1PeerManager.reqresp);
 
-      jest
-        .spyOn(c1PeerManager.reqresp, 'sendRequestToPeer')
-        // mock single Invalid Status message c1 receives
-        //eslint-disable-next-line require-await
-        .mockImplementationOnce(async () => ({
-          status: ReqRespStatus.SUCCESS,
-          data: Buffer.from('invalid status'),
-        }))
-        //eslint-disable-next-line require-await
-        .mockImplementation(async (...args) => {
-          // all other calls behave normally
-          return realSend(...args);
-        });
+      //@ts-expect-error arguments not expected
+      jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async (peerId: PeerId, ...rest) => {
+        if (peerId.toString() === badPeerId.toString()) {
+          logger.debug(`Client 1 returning invalid status handshake for peer ${peerId.toString()}`);
+          return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
+        }
+        logger.debug(`Client 1 returning valid status handshake for peer ${peerId.toString()}`);
+        return await realSend(peerId, ...rest);
+      });
 
       await startTestP2PClients(clients);
-
+      logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
       await sleep(5000);
+      logger.info(`Finished waiting for clients to connect`);
 
-      expect(disconnectSpies[0]).not.toHaveBeenCalled();
-      expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 disconnected
-      expect(disconnectSpies[2]).not.toHaveBeenCalled();
+      expect(disconnectSpies[1]).toHaveBeenCalled(); // c1 <> C0 disconnected
+      expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
 
       const expectedHandshakeCount = peerTestCount - 1;
       // c2 established connection exactly once with both c0 and c1
@@ -638,6 +654,34 @@ describe('p2p client integration', () => {
       // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
       expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
       expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+
+      await shutdown(clients);
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'propagates messages using mocked gossip sub network',
+    async () => {
+      const numberOfNodes = 3;
+      const mockGossipSubNetwork = new MockGossipSubNetwork();
+
+      const testConfig = {
+        p2pBaseConfig: { ...p2pBaseConfig, rollupVersion: 1 },
+        mockAttestationPool: attestationPool,
+        mockTxPool: txPool,
+        mockEpochCache: epochCache,
+        mockWorldState: worldState,
+        alwaysTrueVerifier: true,
+        mockGossipSubNetwork,
+      };
+
+      const clientsAndConfig = await makeAndStartTestP2PClients(numberOfNodes, testConfig);
+      const clients = clientsAndConfig.map(c => c.client);
+
+      await sleep(1000);
+
+      await assertBroadcast(clients);
 
       await shutdown(clients);
     },

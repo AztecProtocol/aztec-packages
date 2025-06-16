@@ -13,6 +13,7 @@ import {
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
+import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -51,17 +52,6 @@ struct ChainTips {
   uint256 provenBlockNumber;
 }
 
-struct SubEpochRewards {
-  uint256 summedCount;
-  mapping(address prover => bool proofSubmitted) hasSubmitted;
-}
-
-struct EpochRewards {
-  uint256 longestProvenLength;
-  uint256 rewards;
-  mapping(uint256 length => SubEpochRewards) subEpoch;
-}
-
 /**
  * @notice Struct for storing flags for block header validation
  * @param ignoreDA - True will ignore DA check, otherwise checks
@@ -86,7 +76,10 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
+  RewardConfig rewardConfig;
 }
 
 struct RollupConfig {
@@ -100,16 +93,13 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
-  mapping(address => uint256) sequencerRewards;
-  mapping(Epoch => EpochRewards) epochRewards;
-  // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
-  // to one another.
-  mapping(address prover => mapping(Epoch epoch => bool claimed)) proverClaimed;
   RollupConfig config;
 }
 
@@ -118,6 +108,7 @@ interface IRollupCore {
     uint256 indexed blockNumber, bytes32 indexed archive, bytes32[] versionedBlobHashes
   );
   event L2ProofVerified(uint256 indexed blockNumber, address indexed proverId);
+  event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event RewardsClaimableUpdated(bool isRewardsClaimable);
@@ -141,6 +132,7 @@ interface IRollupCore {
 
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) external;
 
+  function setRewardConfig(RewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
   // solhint-disable-next-line func-name-mixedcase
@@ -206,6 +198,8 @@ interface IRollup is IRollupCore {
   function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
+  function getActivityScore(address _prover) external view returns (ActivityScore memory);
+  function getSharesFor(address _prover) external view returns (uint256);
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
@@ -216,6 +210,7 @@ interface IRollup is IRollupCore {
     external
     view
     returns (bool);
+  function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
   function getProofSubmissionWindow() external view returns (uint256);
   function getManaTarget() external view returns (uint256);
@@ -232,4 +227,6 @@ interface IRollup is IRollupCore {
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
   function getVersion() external view returns (uint256);
+
+  function getRewardConfig() external view returns (RewardConfig memory);
 }

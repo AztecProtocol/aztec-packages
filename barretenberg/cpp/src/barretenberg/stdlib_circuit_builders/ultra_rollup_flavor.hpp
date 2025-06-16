@@ -34,7 +34,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             UltraFlavor::VerificationKey::VERIFICATION_KEY_LENGTH + /* IPA Claim PI start index */ 1;
@@ -45,7 +45,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         /**
@@ -90,11 +90,11 @@ class UltraRollupFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (proving_key.commitment_key == nullptr) {
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            if (!proving_key.commitment_key.initialized()) {
+                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = proving_key.commitment_key.commit(polynomial);
             }
         }
 

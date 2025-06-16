@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
+import { EthAddress, sleep } from '@aztec/aztec.js';
 import { addL1ValidatorToQueue, dripQueue } from '@aztec/cli/l1';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -146,6 +146,10 @@ describe('e2e_p2p_network', () => {
       debugLogger: t.logger,
     });
 
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await rollup.write.flushEntryQueue(),
+    });
+
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
     expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
 
@@ -223,7 +227,7 @@ describe('e2e_p2p_network', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 

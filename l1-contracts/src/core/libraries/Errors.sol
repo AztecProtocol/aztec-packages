@@ -40,7 +40,6 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0x5e789f34
-  error Outbox__InvalidPathLength(uint256 expected, uint256 actual); // 0x481bcd9c
   error Outbox__RootAlreadySetAtBlock(uint256 l2BlockNumber); // 0x3eccfd3e
   error Outbox__InvalidRecipient(address expected, address actual); // 0x57aad581
   error Outbox__AlreadyNullified(uint256 l2BlockNumber, uint256 leafIndex); // 0xfd71c2d4
@@ -81,6 +80,8 @@ library Errors {
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
   error Rollup__RewardsNotClaimable();
+  error Rollup__InvalidFirstEpochProof();
+  error Rollup__InvalidCoinbase();
 
   // ProposedHeaderLib
   error HeaderLib__InvalidHeaderSize(uint256 expected, uint256 actual); // 0xf3ccb247
@@ -106,7 +107,11 @@ library Errors {
   error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
 
   // Staking
+  error Staking__AlreadyQueued(address _attester);
+  error Staking__QueueEmpty();
+  error Staking__DepositOutOfGas();
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__QueueAlreadyFlushed(Epoch epoch); // 0x21148c78
   error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab

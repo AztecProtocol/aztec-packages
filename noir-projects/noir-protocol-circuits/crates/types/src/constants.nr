@@ -126,9 +126,11 @@ pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The genesis value is taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+// The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HEADER_HASH: Field =
+    0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
+    0x1f9c798be7975bb34c3e605a4c92c75796eae7b9a08644bc9a6a55354ed470be;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -216,7 +218,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
+pub global CONTENT_COMMITMENT_LENGTH: u32 = 3;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
@@ -459,7 +461,6 @@ pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + 1 /* prover_id */;
 
-// + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
 pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
     + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
@@ -653,12 +654,12 @@ pub global AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX: u32
 // Note: each of these gas settings ^, despite being 2 entries each, are split across 2 columns. So we only bump by 1 for each.
 
 // Effective Gas Fees
-pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
+pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
 
 // Fee Payer
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
@@ -937,8 +938,9 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
 
 // Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;

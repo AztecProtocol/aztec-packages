@@ -42,7 +42,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
      */
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation to the verifier contract so the
     // VerificationKey from UltraFlavor can be used
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         static constexpr size_t VERIFICATION_KEY_LENGTH =
             /* 1. Metadata (circuit_size, num_public_inputs, pub_inputs_offset) */ (3 * num_frs_fr) +
@@ -50,7 +50,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
         {
@@ -59,12 +59,11 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->num_public_inputs = proving_key.num_public_inputs;
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
-            if (proving_key.commitment_key == nullptr) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            if (!proving_key.commitment_key.initialized()) {
+                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = proving_key.commitment_key.commit(polynomial);
             }
         }
 

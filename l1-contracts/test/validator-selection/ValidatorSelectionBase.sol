@@ -26,6 +26,7 @@ import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 
 import {TimeCheater} from "../staking/TimeCheater.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -35,6 +36,7 @@ import {TimeCheater} from "../staking/TimeCheater.sol";
 contract ValidatorSelectionTestBase is DecoderBase {
   using MessageHashUtils for bytes32;
   using EpochLib for Epoch;
+  using stdStorage for StdStorage;
 
   struct StructToAvoidDeepStacks {
     uint256 needed;
@@ -85,7 +87,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
       initialValidators[i - 1] = createDepositArgs(i);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setEntryQueueFlushSizeMin(_validatorCount);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -96,7 +99,7 @@ contract ValidatorSelectionTestBase is DecoderBase {
 
     if (initialValidators.length > 0) {
       MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-      testERC20.mint(address(multiAdder), rollup.getMinimumStake() * initialValidators.length);
+      testERC20.mint(address(multiAdder), rollup.getDepositAmount() * initialValidators.length);
       multiAdder.addValidators(initialValidators);
     }
 
