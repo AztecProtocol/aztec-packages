@@ -124,9 +124,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   if (!aztecNodeConfig.validatorPrivateKeys?.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
-  if (!aztecNodeConfig.validatorPrivateKey.getValue() || aztecNodeConfig.validatorPrivateKey.getValue() === NULL_KEY) {
-    const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
 
   const initialAccounts = await (async () => {

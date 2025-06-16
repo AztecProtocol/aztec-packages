@@ -368,7 +368,7 @@ export async function setup(
 
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
+    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested

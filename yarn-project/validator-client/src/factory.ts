@@ -27,13 +27,8 @@ export function createValidatorClient(
   if (config.disableValidator) {
     return undefined;
   }
-<<<<<<< HEAD
-  if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys?.length) {
-    config.validatorPrivateKeys = [generatePrivateKey()];
-=======
-  if (!config.validatorPrivateKey.getValue()) {
-    config.validatorPrivateKey = new SecretValue(generatePrivateKey());
->>>>>>> 616633765c (feat: prevent secret values from leaking in log messages)
+  if (config.validatorPrivateKeys === undefined || !config.validatorPrivateKeys.getValue().length) {
+    config.validatorPrivateKeys = new SecretValue([generatePrivateKey()]);
   }
 
   return ValidatorClient.new(

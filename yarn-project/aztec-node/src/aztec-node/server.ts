@@ -329,7 +329,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     if (config.publisherPrivateKey) {
       // we can still run a slasher client if a private key is provided
-      l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+      l1Client = createExtendedL1Client(
+        config.l1RpcUrls,
+        config.publisherPrivateKey.getValue(),
+        ethereumChain.chainInfo,
+      );
       l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
       slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
       slasherClient.start();

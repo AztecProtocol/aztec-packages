@@ -5,10 +5,13 @@ import type { ZodType } from 'zod';
  * A class wrapping a secret value to protect it from accidently being leaked in logs
  */
 export class SecretValue<T> {
-  /** The secret value */
+  /** The secret value. Use a private member field so that it's not visible to the outside */
   #value: T;
 
-  constructor(value: T, private readonly redactedValue = '[Redacted]') {
+  constructor(
+    value: T,
+    private readonly redactedValue = '[Redacted]',
+  ) {
     this.#value = value;
   }
 
