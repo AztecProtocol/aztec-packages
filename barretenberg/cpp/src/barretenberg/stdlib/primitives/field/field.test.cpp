@@ -659,31 +659,33 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
         std::array<bool_ct, 4> predicates{
-            bool_ct(true), bool_ct(false), bool_ct(&builder, true), bool_ct(&builder, false)
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
         };
         field_ct constant_summand(bb::fr::random_element());
         field_ct witness_summand(witness_ct(&builder, bb::fr::random_element()));
         for (auto& predicate : predicates) {
-            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
 
+            const bool predicate_is_witness = !predicate.is_constant();
+
+            // Conditionally negate a constant
+            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
             auto result = constant_summand.conditional_negate(predicate);
             auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
-            // Check that result is constant only if both the predicate and (*this) are constant.
+            // Check that `result` is constant if and only if both the predicate and (*this) are constant.
             EXPECT_TRUE(result.is_constant() == predicate.is_constant());
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
 
+            // Conditionally negate a witness
+            num_gates_before = builder.get_estimated_num_finalized_gates();
             result = witness_summand.conditional_negate(predicate);
             expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
-            // Check that result is constant only if both the predicate and (*this) are constant.
+            // The result must be a witness
             EXPECT_FALSE(result.is_constant());
-
-            if (predicate.is_constant()) {
-                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates_before);
-            } else {
-                // Each conditional_negate calls `madd` that creates a single gate.
-                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 2);
-            }
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
         }
     }
     static void two_bit_table()
@@ -1565,4 +1567,9 @@ TYPED_TEST(stdlib_field, test_assert_is_zero)
 TYPED_TEST(stdlib_field, test_accumulate)
 {
     TestFixture::test_accumulate();
+}
+
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
 }

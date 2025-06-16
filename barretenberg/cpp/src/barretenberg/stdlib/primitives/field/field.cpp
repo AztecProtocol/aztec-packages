@@ -596,15 +596,15 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
+    ASSERT(context);
 
     // Value of this = this.v * this.mul + this.add; // where this.v = context->variables[this.witness_index]
     // Normalised result = result.v * 1 + 0;         // where result.v = this.v * this.mul + this.add
     // We need a new gate to enforce that the `result` was correctly calculated from `this`.
-
     field_t<Builder> result(context);
     bb::fr value = context->get_variable(witness_index);
 
-    result.witness_index = context->add_variable(get_value());
+    result.witness_index = context->add_variable(value * multiplicative_constant + additive_constant);
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
@@ -792,9 +792,10 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
         return result;
     }
     // Compute
-    //  `predicate` * (-a) + a.
+    //      `predicate` * ( -2 * a ) + a.
     // If predicate's value == true, then the output is `-a`, else it's `a`
-    return field_t(predicate).madd(-*this, *this);
+    static constexpr bb::fr minus_two(-2);
+    return field_t(predicate).madd(*this * minus_two, *this);
 }
 
 /**
@@ -1188,7 +1189,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
     Builder* ctx = get_context();
     const uint256_t one(1);
 
-    const uint256_t value = static_cast<uint256_t>(get_value());
+    const uint256_t value = get_value();
     const uint8_t msb_plus_one = msb + 1;
     // Slice the bits of `*this` in the range [msb + 1, 255]
     const auto hi_mask = (one << (256 - msb)) - 1;
@@ -1243,7 +1244,10 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  *
  *   y_lo    := (2^128 + p_lo) - sum + shifted_high_limb =
  *            = (2^128 + p_lo) - sum_lo
- *            = y_lo_lo + y_lo_hi * 2^128 + zeros * 2^129
+ * Use the method `slice` to split `y_lo` into the chunks `y_lo_lo`, `y_lo_hi`, and `zeros` of sizes 128, 1, and 127,
+ * respectively, set
+ *   y_lo     := y_lo_lo + y_lo_hi * 2^128 + zeros * 2^129
+ *
  * It follows that
  *     p_lo - sum_lo = y_lo_lo + (y_lo_hi - 1) * 2^128 + zeros * 2^129
  *
@@ -1281,17 +1285,18 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     std::vector<field_t> accumulator_lo;
     std::vector<field_t> accumulator_hi;
 
-    const uint256_t val_u256 = static_cast<uint256_t>(get_value());
+    const uint256_t val_u256 = get_value();
     for (size_t i = 0; i < num_bits; ++i) {
+        const size_t bit_index = num_bits - 1 - i;
         // Create a witness `bool_t` bit
-        bool_t bit = get_bit(context, num_bits - 1 - i, val_u256);
+        bool_t bit = get_bit(context, bit_index, val_u256);
         bit.set_origin_tag(tag);
-        result[num_bits - 1 - i] = bit;
-        const field_t scaling_factor(uint256_t(1) << (num_bits - 1 - i));
+        result[bit_index] = bit;
+        const field_t scaling_factor(uint256_t(1) << bit_index);
 
         field_t summand = scaling_factor * bit;
 
-        if (num_bits - 1 - midpoint >= i) {
+        if (bit_index >= midpoint) {
             accumulator_hi.push_back(summand);
         } else {
             accumulator_lo.push_back(summand);
@@ -1321,7 +1326,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         zeros.assert_is_zero("field_t: bit decomposition_fails: high limb non-zero");
 
         // Ensure that y_hi is "non-negative"
-        const field_t y_borrow = -(y_lo_hi - 1);
+        const field_t y_borrow = -y_lo_hi + 1;
         // If a carry was necessary, subtract that carry from p_hi
         // y_hi = (p_hi - y_borrow) - sum_hi
         const field_t y_hi = (-(sum_hi_shift / shift)).add_two(p_hi, -y_borrow);
