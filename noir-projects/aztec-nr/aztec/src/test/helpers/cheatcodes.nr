@@ -30,6 +30,10 @@ pub unconstrained fn advance_blocks_by(blocks: u32) {
     oracle_advance_blocks_by(blocks);
 }
 
+pub unconstrained fn advance_timestamp_by(duration: u64) {
+    oracle_advance_timestamp_by(duration);
+}
+
 pub unconstrained fn get_private_context_inputs(
     historical_block_number: u32,
 ) -> PrivateContextInputs {
@@ -160,6 +164,9 @@ unconstrained fn oracle_get_side_effects_counter() -> u32 {}
 
 #[oracle(advanceBlocksBy)]
 unconstrained fn oracle_advance_blocks_by(blocks: u32) {}
+
+#[oracle(advanceTimestampBy)]
+unconstrained fn oracle_advance_timestamp_by(duration: u64) {}
 
 #[oracle(getPrivateContextInputs)]
 unconstrained fn oracle_get_private_context_inputs(

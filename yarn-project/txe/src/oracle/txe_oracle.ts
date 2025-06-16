@@ -168,6 +168,8 @@ export class TXE implements TypedOracle {
 
   private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
+  // This slot duration is copied from TestConstants.sol.
+  private AZTEC_SLOT_DURATION = 36n;
 
   private node: AztecNode;
 
@@ -306,11 +308,10 @@ export class TXE implements TypedOracle {
 
   setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
-    const AZTEC_SLOT_DURATION = 36n; // Copied over from `TestConstants.sol`
-    // Currently we assume genesis time to be 0 which points to the beginning of unix timestamp so year 1970.
-    // TODO: After mainnet we might want to define a mainnet genesis time here.
-    // We also assume that in each slot a block was proposed. This is not a problem for TXE.
-    this.timestamp = BigInt(blockNumber) * AZTEC_SLOT_DURATION;
+  }
+
+  advanceTimestampBy(duration: bigint) {
+    this.timestamp = this.timestamp + duration;
   }
 
   getContractDataProvider() {
@@ -1637,6 +1638,7 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
+    this.advanceTimestampBy(this.timestamp + this.AZTEC_SLOT_DURATION);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
@@ -1800,6 +1802,7 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
+    this.advanceTimestampBy(this.AZTEC_SLOT_DURATION);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,

@@ -69,6 +69,13 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  advanceTimestampBy(duration: ForeignCallSingle) {
+    const durationBigInt = fromSingle(duration).toBigInt();
+    this.logger.debug(`time traveling ${durationBigInt} seconds`);
+    (this.typedOracle as TXE).advanceTimestampBy(durationBigInt);
+    return toForeignCallResult([]);
+  }
+
   setContractAddress(address: ForeignCallSingle) {
     const typedAddress = addressFromSingle(address);
     (this.typedOracle as TXE).setContractAddress(typedAddress);
