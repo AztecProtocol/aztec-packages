@@ -3,7 +3,6 @@ import {
   type AccountInterface,
   AccountWallet,
   AuthWitness,
-  AztecAddress,
   type ContractArtifact,
   Fr,
   type Logger,
