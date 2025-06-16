@@ -64,7 +64,7 @@ template <typename FF> class StaticAnalyzer_ {
     StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
     StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
     StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
-    StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph = true);
+    StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool connect_variables = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices
