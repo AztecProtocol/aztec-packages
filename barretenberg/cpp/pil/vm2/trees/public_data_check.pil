@@ -1,8 +1,9 @@
 include "merkle_check.pil";
-include "ff_gt.pil";
-include "poseidon2_hash.pil";
-include "constants_gen.pil";
-include "precomputed.pil";
+
+include "../ff_gt.pil";
+include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
 
 /**
  * This gadget reads or writes in the public data tree. The public data tree is an indexed tree where leaves

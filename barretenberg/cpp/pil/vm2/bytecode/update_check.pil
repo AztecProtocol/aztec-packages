@@ -1,7 +1,8 @@
-include "poseidon2_hash.pil";
-include "range_check.pil";
-include "public_data_check.pil";
-include "constants_gen.pil";
+include "../poseidon2_hash.pil";
+include "../range_check.pil";
+include "../constants_gen.pil";
+
+include "../trees/public_data_check.pil";
 
 // Validates current class id taking into account contract updates.
 // Contract updates are written to the public data tree using the `shared mutable` structure.

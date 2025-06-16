@@ -1,6 +1,7 @@
 include "bc_decomposition.pil";
-include "range_check.pil";
-include "constants_gen.pil";
+
+include "../range_check.pil";
+include "../constants_gen.pil";
 
 // Explanations
 // *****************************************************************************

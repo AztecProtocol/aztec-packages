@@ -9,7 +9,6 @@
 #include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
-#include "relations/call_opcode.hpp"
 #include "relations/calldata.hpp"
 #include "relations/calldata_hashing.hpp"
 #include "relations/class_id_derivation.hpp"
@@ -19,6 +18,7 @@
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/execution_discard.hpp"
+#include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
@@ -45,12 +45,12 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_call_opcode.hpp"
 #include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
 #include "relations/lookups_data_copy.hpp"
 #include "relations/lookups_execution.hpp"
+#include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
@@ -86,7 +86,6 @@ struct AvmFlavorVariables {
         avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
-        avm2::call_opcode<FF_>,
         avm2::calldata<FF_>,
         avm2::calldata_hashing<FF_>,
         avm2::class_id_derivation<FF_>,
@@ -96,6 +95,7 @@ struct AvmFlavorVariables {
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::execution_discard<FF_>,
+        avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
@@ -158,8 +158,6 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_call_opcode_call_allocated_left_da_range_relation<FF_>,
-        lookup_call_opcode_call_allocated_left_l2_range_relation<FF_>,
         lookup_calldata_hashing_cd_hash_relation<FF_>,
         lookup_calldata_hashing_cd_hash_end_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
@@ -173,6 +171,8 @@ struct AvmFlavorVariables {
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
+        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
+        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
