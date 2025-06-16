@@ -12,6 +12,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
 #include "barretenberg/common/mem.hpp"
@@ -55,7 +56,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 {
     const size_t num_cpus = get_num_cpus();
 
-    const size_t scalars_per_thread = (scalars.size() + num_cpus - 1) / num_cpus;
+    const size_t scalars_per_thread = numeric::ceil_div(scalars.size(), num_cpus);
     std::vector<std::vector<uint32_t>> thread_indices(num_cpus);
     parallel_for(num_cpus, [&](size_t thread_idx) {
         bool empty_thread = (thread_idx * scalars_per_thread >= scalars.size());
@@ -131,7 +132,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     const size_t num_threads = get_num_cpus();
     std::vector<ThreadWorkUnits> work_units(num_threads);
 
-    const size_t work_per_thread = (total_work + num_threads - 1) / num_threads;
+    const size_t work_per_thread = numeric::ceil_div(total_work, num_threads);
     size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
 
     // [(MSMs + T - 1) / T] * [T - 1] > MSMs
@@ -234,7 +235,7 @@ template <typename Curve> size_t MSM<Curve>::get_optimal_log_num_buckets(const s
     size_t cached_cost = static_cast<size_t>(-1);
     size_t target_bit_slice = 0;
     for (size_t bit_slice = 1; bit_slice < 20; ++bit_slice) {
-        const size_t num_rounds = (NUM_BITS_IN_FIELD + (bit_slice - 1)) / bit_slice;
+        const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bit_slice);
         const size_t num_buckets = 1 << bit_slice;
         const size_t addition_cost = num_rounds * num_points;
         const size_t bucket_cost = num_rounds * num_buckets * COST_OF_BUCKET_OP_RELATIVE_TO_POINT;
@@ -378,7 +379,7 @@ typename Curve::Element MSM<Curve>::small_pippenger_low_memory_with_transformed_
     JacobianBucketAccumulators bucket_data = JacobianBucketAccumulators(num_buckets);
     Element round_output = Curve::Group::point_at_infinity;
 
-    const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+    const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
 
     for (size_t i = 0; i < num_rounds; ++i) {
         round_output = evaluate_small_pippenger_round(msm_data, i, bucket_data, round_output, bits_per_slice);
@@ -408,7 +409,7 @@ typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalar
 
     Element round_output = Curve::Group::point_at_infinity;
 
-    const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+    const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     for (size_t i = 0; i < num_rounds; ++i) {
         round_output = evaluate_pippenger_round(msm_data, i, affine_data, bucket_data, round_output, bits_per_slice);
     }
@@ -459,7 +460,7 @@ typename Curve::Element MSM<Curve>::evaluate_small_pippenger_round(MSMData& msm_
     round_output = accumulate_buckets(bucket_data);
     bucket_data.bucket_exists.clear();
     Element result = previous_round_output;
-    const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+    const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
                                ? NUM_BITS_IN_FIELD % bits_per_slice
                                : bits_per_slice;
