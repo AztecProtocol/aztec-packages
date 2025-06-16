@@ -7,7 +7,7 @@ import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
-interface IEmporer {
+interface IEmperor {
   // Not view because it might rely on transient storage.
   // Calls are essentially trusted
   function getCurrentProposer() external returns (address);

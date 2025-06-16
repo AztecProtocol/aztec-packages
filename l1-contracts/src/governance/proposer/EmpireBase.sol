@@ -4,7 +4,7 @@
 pragma solidity >=0.8.27;
 
 import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
-import {IEmpire, IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
+import {IEmpire, IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
 import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -92,7 +92,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IEmporer selection = IEmporer(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
@@ -142,7 +142,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function getCurrentRound() external view returns (uint256) {
-    IEmporer selection = IEmporer(getInstance());
+    IEmperor selection = IEmperor(getInstance());
     Slot currentSlot = selection.getCurrentSlot();
     return computeRound(currentSlot);
   }
@@ -167,7 +167,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IEmporer selection = IEmporer(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);

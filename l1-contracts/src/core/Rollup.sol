@@ -18,7 +18,7 @@ import {
 import {
   IStaking, AttesterConfig, Exit, AttesterView, Status
 } from "@aztec/core/interfaces/IStaking.sol";
-import {IValidatorSelection, IEmporer} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
@@ -169,7 +169,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The address of the proposer
    */
-  function getCurrentProposer() external override(IEmporer) returns (address) {
+  function getCurrentProposer() external override(IEmperor) returns (address) {
     return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
@@ -449,7 +449,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The current slot number
    */
-  function getCurrentSlot() external view override(IEmporer) returns (Slot) {
+  function getCurrentSlot() external view override(IEmperor) returns (Slot) {
     return Timestamp.wrap(block.timestamp).slotFromTimestamp();
   }
 

@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IEmporer} from "@aztec/governance/interfaces/IEmpire.sol";
+import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
@@ -19,7 +19,7 @@ interface IValidatorSelectionCore {
   function setupSeedSnapshotForNextEpoch() external;
 }
 
-interface IValidatorSelection is IValidatorSelectionCore, IEmporer {
+interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getProposerAt(Timestamp _ts) external returns (address);
 
   // Non view as uses transient storage
