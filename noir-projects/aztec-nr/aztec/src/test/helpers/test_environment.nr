@@ -76,6 +76,12 @@ impl TestEnvironment {
         self.pending_block_number() - 1
     }
 
+    pub unconstrained fn committed_timestamp(self: Self) -> u64 {
+        // Aztec slot duration is copied from TestConstants.sol.
+        let AZTEC_SLOT_DURATION: u64 = 36;
+        self.pending_timestamp() - AZTEC_SLOT_DURATION
+    }
+
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
     /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
     /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
@@ -156,7 +162,27 @@ impl TestEnvironment {
             self.advance_block_to(historical_block_number + 1);
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs(historical_block_number);
+        let mut inputs = cheatcodes::get_private_context_inputs(
+            historical_block_number,
+            self.committed_timestamp(),
+        );
+
+        PrivateContext::new(inputs, 0)
+    }
+
+    /// Instantiates a private context at a specific historical timestamp.
+    pub unconstrained fn private_at_timestamp(
+        &mut self,
+        historical_timestamp: u64,
+    ) -> PrivateContext {
+        if historical_timestamp > get_timestamp() {
+            self.advance_timestamp_to(historical_timestamp);
+        }
+
+        let mut inputs = cheatcodes::get_private_context_inputs(
+            self.committed_block_number(),
+            historical_timestamp,
+        );
 
         PrivateContext::new(inputs, 0)
     }

@@ -17,6 +17,7 @@ use crate::test::helpers::cheatcodes;
 use crate::context::gas::GasOpts;
 use crate::hash::hash_args;
 use crate::oracle::execution::get_block_number;
+use crate::oracle::execution::get_timestamp;
 use crate::oracle::execution_cache;
 
 pub struct Deployer<let N: u32, let M: u32> {
@@ -42,7 +43,12 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.secret,
         );
 
-        let inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
+        // Aztec slot duration is copied from TestConstants.sol.
+        let AZTEC_SLOT_DURATION = 36;
+        let inputs = cheatcodes::get_private_context_inputs(
+            get_block_number() - 1,
+            get_timestamp() - AZTEC_SLOT_DURATION,
+        );
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };

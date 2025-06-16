@@ -36,8 +36,9 @@ pub unconstrained fn advance_timestamp_by(duration: u64) {
 
 pub unconstrained fn get_private_context_inputs(
     historical_block_number: u32,
+    historical_timestamp: u64,
 ) -> PrivateContextInputs {
-    oracle_get_private_context_inputs(historical_block_number)
+    oracle_get_private_context_inputs(historical_block_number, historical_timestamp)
 }
 
 pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(
@@ -171,6 +172,7 @@ unconstrained fn oracle_advance_timestamp_by(duration: u64) {}
 #[oracle(getPrivateContextInputs)]
 unconstrained fn oracle_get_private_context_inputs(
     historical_block_number: u32,
+    historical_timestamp: u64,
 ) -> PrivateContextInputs {}
 
 #[oracle(deploy)]

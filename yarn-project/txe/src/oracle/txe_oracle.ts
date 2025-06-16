@@ -139,6 +139,7 @@ import {
   TxHash,
   collectNested,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXEStateMachine } from '../state_machine/index.js';
@@ -168,7 +169,7 @@ export class TXE implements TypedOracle {
 
   private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
-  // This slot duration is copied from TestConstants.sol.
+  // Aztec slot duration is copied from TestConstants.sol.
   private AZTEC_SLOT_DURATION = 36n;
 
   private node: AztecNode;
@@ -340,6 +341,7 @@ export class TXE implements TypedOracle {
 
   async getPrivateContextInputs(
     blockNumber: number,
+    timestamp: UInt64,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
@@ -351,7 +353,18 @@ export class TXE implements TypedOracle {
       this.logger.debug(
         `Tried to request private context inputs for ${blockNumber}, equal to current block of ${this.blockNumber}. Clamping to current block - 1.`,
       );
+      // TODO: Auto-modifying the block number here seems wrong. Would just throw instead.
       blockNumber = this.blockNumber - 1;
+    }
+
+    if (timestamp > this.timestamp) {
+      throw new Error(
+        `Tried to request private context inputs for timestamp ${timestamp}, which is greater than our current timestamp of ${this.timestamp}`,
+      );
+    } else if (timestamp === this.timestamp) {
+      throw new Error(
+        `Tried to request private context inputs for timestamp ${timestamp}, equal to current timestamp of ${this.timestamp}. Timestamp must be less than current timestamp.`,
+      );
     }
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
@@ -362,6 +375,7 @@ export class TXE implements TypedOracle {
     inputs.txContext.chainId = new Fr(this.CHAIN_ID);
     inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
     inputs.historicalHeader.globalVariables.blockNumber = blockNumber;
+    inputs.historicalHeader.globalVariables.timestamp = timestamp;
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
@@ -995,6 +1009,7 @@ export class TXE implements TypedOracle {
 
     const privateContextInputs = await this.getPrivateContextInputs(
       this.blockNumber - 1,
+      this.timestamp - this.AZTEC_SLOT_DURATION,
       sideEffectCounter,
       isStaticCall,
     );
