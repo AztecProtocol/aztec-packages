@@ -78,10 +78,16 @@ export class SnappyTransform implements DataTransform {
   }
 
   public outboundTransformAsync(data: Buffer): Promise<Buffer> {
+    if (data.length === 0) {
+      return Promise.resolve(data);
+    }
     return compress(data);
   }
 
   public inboundTransformAsync(data: Buffer): Promise<Buffer> {
+    if (data.length === 0) {
+      return Promise.resolve(data);
+    }
     return uncompress(data, { asBuffer: true }) as Promise<Buffer>;
   }
 }
