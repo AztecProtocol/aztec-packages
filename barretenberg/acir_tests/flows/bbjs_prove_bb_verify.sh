@@ -41,7 +41,8 @@ echo "$BIN verify \
 # Verify the proof with bb cli
 $BIN verify \
   --scheme ultra_honk \
-  --disable_zk \
+  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
+  --disable_zk \ 
   -k $output_dir/vk \
   -p $output_dir/proof \
   -i $output_dir/public_inputs

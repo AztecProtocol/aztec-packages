@@ -18,6 +18,7 @@ trap "rm -rf $output_dir" EXIT
 # Generate the VK using BB CLI
 $BIN write_vk \
   --scheme ultra_honk \
+  # TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
   --disable_zk \
   -b $artifact_dir/program.json \
   -o $output_dir
