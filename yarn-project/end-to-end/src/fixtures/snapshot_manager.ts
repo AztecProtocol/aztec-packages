@@ -307,7 +307,11 @@ async function setupFromFresh(
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
   aztecNodeConfig.enforceTimeTable = !!opts.enforceTimeTable;
+  // Only set the target committee size if it is explicitly set
+  aztecNodeConfig.aztecTargetCommitteeSize = opts.aztecTargetCommitteeSize ?? 0;
   aztecNodeConfig.listenAddress = '127.0.0.1';
+
+  deployL1ContractsArgs.aztecTargetCommitteeSize ??= aztecNodeConfig.aztecTargetCommitteeSize;
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));

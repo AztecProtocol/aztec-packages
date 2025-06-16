@@ -285,8 +285,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel && config.slashInactivityEnabled) {
-      watchers.push(validatorsSentinel);
+    if (validatorsSentinel) {
+      // we can run a sentinel without trying to slash.
+      await validatorsSentinel.start();
+      if (config.slashInactivityEnabled) {
+        watchers.push(validatorsSentinel);
+      }
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
