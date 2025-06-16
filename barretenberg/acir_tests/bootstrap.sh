@@ -134,8 +134,8 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
-  local honk_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
-    grep -vE 'verify_rollup_honk_proof')
+  # non_recursive_tests include all of the non internal (recursive) test programs 
+  local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d)
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
   local run_test_browser=$(realpath --relative-to=$root ./scripts/run_test_browser.sh)
   local bbjs_bin="../ts/dest/node/main.js"
@@ -172,19 +172,21 @@ function test_cmds {
   # barretenberg-acir-tests-bb-ultra-honk:
   # SYS decides which scheme will be used for the test.
   # FLOW decides which script (prove, verify, prove_then_verify, etc.) will be ran
-  for t in $honk_tests; do
+  for t in $non_recursive_tests; do
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
-  # variable DISABLE_ZK in prove then verify determins whether the a --disable_zk flag is added or not.
-  # we are running the double_verify_honk_proof test with the --disable_zk flag.
-  # the zeroknowledge version of this test is given in the internal test programs.
+  # DISABLE_ZK in prove then verify determines whether the --disable_zk flag is added or not.
+  # Run the double_verify_honk_proof test with the --disable_zk flag.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
-  # we are running the assert_statement test with the --disable_zk flag.
+  # Run the assert_statement test with the --disable_zk flag.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
+  # Run the recursive zk tests
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test verify_honk_zk_proof"
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify$run_test double_verify_honk_zk_proof"
 
   # prove and verify using bb.js classes
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"
