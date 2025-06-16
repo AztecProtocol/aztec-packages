@@ -552,7 +552,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF>::get_ram_table_connected_compon
  *          4) Special handling for sorted constraints in delta range blocks
  */
 template <typename FF>
-StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool graph)
+StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool connect_variables)
 {
     this->variables_gate_counts =
         std::unordered_map<uint32_t, size_t>(ultra_circuit_constructor.real_variable_index.size());
@@ -575,29 +575,29 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
         for (size_t gate_idx = 0; gate_idx < block_data[blk_idx].size(); gate_idx++) {
             auto arithmetic_gates_variables = get_arithmetic_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-            if (!arithmetic_gates_variables.empty() && graph) {
+            if (!arithmetic_gates_variables.empty() && connect_variables) {
                 for (const auto& gate_variables : arithmetic_gates_variables) {
                     connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables);
                 }
             }
             auto elliptic_gate_variables = get_elliptic_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-            if (graph) {
+            if (connect_variables) {
                 connect_all_variables_in_vector(ultra_circuit_constructor, elliptic_gate_variables);
             }
             auto lookup_gate_variables =
                 get_plookup_gate_connected_component(ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-            if (graph) {
+            if (connect_variables) {
                 connect_all_variables_in_vector(ultra_circuit_constructor, lookup_gate_variables);
             }
             auto poseidon2_gate_variables = get_poseido2s_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-            if (graph) {
+            if (connect_variables) {
                 connect_all_variables_in_vector(ultra_circuit_constructor, poseidon2_gate_variables);
             }
             auto aux_gate_variables = get_auxiliary_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
-            if (graph) {
+            if (connect_variables) {
                 connect_all_variables_in_vector(ultra_circuit_constructor, aux_gate_variables);
             }
             if (arithmetic_gates_variables.empty() && elliptic_gate_variables.empty() &&
@@ -607,7 +607,7 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
                 auto delta_range_gate_variables = get_sort_constraint_connected_component(
                     ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
                 if (delta_range_gate_variables.empty()) {
-                    if (graph) {
+                    if (connect_variables) {
                         connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables);
                     }
                     sorted_variables.clear();
@@ -624,7 +624,7 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
         for (const auto& rom_array : rom_arrays) {
             std::vector<uint32_t> variable_indices =
                 this->get_rom_table_connected_component(ultra_circuit_constructor, rom_array);
-            if (graph) {
+            if (connect_variables) {
                 this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices);
             }
         }
@@ -635,7 +635,7 @@ StaticAnalyzer_<FF>::StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_cons
         for (const auto& ram_array : ram_arrays) {
             std::vector<uint32_t> variable_indices =
                 this->get_ram_table_connected_component(ultra_circuit_constructor, ram_array);
-            if (graph) {
+            if (connect_variables) {
                 this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices);
             }
         }
