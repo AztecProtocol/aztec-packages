@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
@@ -54,6 +55,7 @@ struct EventsContainer {
     EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
     EventEmitterInterface<DataCopyEvent>::Container data_copy_events;
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
+    EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
 };
 
 } // namespace bb::avm2::simulation

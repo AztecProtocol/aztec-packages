@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
+#include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
@@ -341,6 +342,12 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     AVM_TRACK_TIME("tracegen/calldata_retrieval",
                                    calldata_builder.process_retrieval(events.calldata_events, trace));
                     clear_events(events.calldata_events);
+                },
+                [&]() {
+                    InternalCallStackBuilder internal_call_stack_builder;
+                    AVM_TRACK_TIME("tracegen/internal_call_stack",
+                                   internal_call_stack_builder.process(events.internal_call_stack_events, trace));
+                    clear_events(events.internal_call_stack_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -352,6 +359,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     // Now we can compute lookups and permutations.
     {
         auto jobs_interactions = concatenate_jobs(TxTraceBuilder::lookup_jobs(),
+                                                  ExecutionTraceBuilder::lookup_jobs(),
                                                   Poseidon2TraceBuilder::lookup_jobs(),
                                                   RangeCheckTraceBuilder::lookup_jobs(),
                                                   BitwiseTraceBuilder::lookup_jobs(),
@@ -367,7 +375,6 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   UpdateCheckTraceBuilder::lookup_jobs(),
                                                   NullifierTreeCheckTraceBuilder::lookup_jobs(),
                                                   MemoryTraceBuilder::lookup_jobs(),
-                                                  ExecutionTraceBuilder::lookup_jobs(),
                                                   DataCopyTraceBuilder::lookup_jobs(),
                                                   CalldataTraceBuilder::lookup_jobs());
 
