@@ -18,6 +18,7 @@ template <typename FF_> class internal_call_stackImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::internal_call_stack_sel)).is_zero();
     }
 

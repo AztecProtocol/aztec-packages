@@ -18,6 +18,7 @@ template <typename FF_> class calldataImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::calldata_sel)).is_zero();
     }
 

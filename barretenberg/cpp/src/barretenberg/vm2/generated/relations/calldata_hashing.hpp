@@ -18,6 +18,7 @@ template <typename FF_> class calldata_hashingImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::cd_hashing_sel)).is_zero();
     }
 
