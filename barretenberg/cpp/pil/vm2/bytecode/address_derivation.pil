@@ -1,8 +1,8 @@
-include "constants_gen.pil";
-include "ecc.pil";
-include "poseidon2_hash.pil";
-include "precomputed.pil";
-include "scalar_mul.pil";
+include "../constants_gen.pil";
+include "../ecc.pil";
+include "../poseidon2_hash.pil";
+include "../precomputed.pil";
+include "../scalar_mul.pil";
 
 namespace address_derivation;
 

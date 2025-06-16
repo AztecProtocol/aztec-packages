@@ -5,7 +5,7 @@ include "precomputed.pil";
 // This trace handles CALLDATACOPY and RETURNDATACOPY
 // It is memory aware and so is expected to call the memory subtrace directly
 // Example: Lookup to execution trace
-//  execution.sel_data_copy { 
+//  execution.sel_data_copy {
 //      clk, context_id,
 //      context_id, parent_id
 //      reg1, reg2, rop3
@@ -21,7 +21,7 @@ include "precomputed.pil";
 //      operation_id
 //  }
 
-// Reading from calldata column 
+// Reading from calldata column
 // Calldata Trace
 // +-----+-------+-------+------------+
 // | sel | value | index | context_id |
@@ -48,8 +48,10 @@ include "precomputed.pil";
 
 namespace data_copy;
 
+    pol SEL = sel_rd_copy + sel_cd_copy;
+
     #[skippable_if]
-    sel_rd_copy + sel_cd_copy = 0;
+    SEL = 0;
 
     // Selectors for calldata_copy and returndata_copy, mutually exclusive given a constrained gadget id
     pol commit sel_cd_copy;
@@ -62,8 +64,6 @@ namespace data_copy;
     pol commit operation_id;
     // Bitwise decomposition
     operation_id = sel_cd_copy + (2 ** 1) * sel_rd_copy;
-    
-    pol SEL = sel_rd_copy + sel_cd_copy;
 
     // TODO: Since we are memory aware, we need some kind of timestamp
     pol commit clk;
@@ -79,11 +79,11 @@ namespace data_copy;
 
     pol commit write_addr; // The dst addr, comes from lookup to main trace
 
-    // Control flow management 
+    // Control flow management
     // These selectors should be implied to be 1 if SEL = 1;
     pol commit sel_start;
     sel_start * (1 - sel_start) = 0;
-    // An active row succeeding sel_end has to be a sel_start 
+    // An active row succeeding sel_end has to be a sel_start
     #[END_AFTER_START]
     (sel_cd_copy' + sel_rd_copy') * sel_end * (sel_start' - 1) = 0;
 

@@ -9,7 +9,7 @@
 
 namespace bb::avm2 {
 
-template <typename FF_> class call_opcodeImpl {
+template <typename FF_> class external_callImpl {
   public:
     using FF = FF_;
 
@@ -95,9 +95,9 @@ template <typename FF_> class call_opcodeImpl {
     }
 };
 
-template <typename FF> class call_opcode : public Relation<call_opcodeImpl<FF>> {
+template <typename FF> class external_call : public Relation<external_callImpl<FF>> {
   public:
-    static constexpr const std::string_view NAME = "call_opcode";
+    static constexpr const std::string_view NAME = "external_call";
 
     static std::string get_subrelation_label(size_t index)
     {

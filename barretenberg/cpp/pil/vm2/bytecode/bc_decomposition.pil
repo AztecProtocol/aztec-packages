@@ -1,4 +1,4 @@
-include "precomputed.pil";
+include "../precomputed.pil";
 
 // This file owns the bytecode columns, and other helper columns.
 //
