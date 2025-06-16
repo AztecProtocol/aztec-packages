@@ -118,7 +118,8 @@ describe('LMDBMap benchmarks', () => {
 
   it('reads the size of the map', async () => {
     const numIterations = 1000;
-    const pairs = generateKeyValuePairs(numIterations);
+    const numItems = 10000;
+    const pairs = generateKeyValuePairs(numItems);
     await map.setMany(pairs);
 
     const timer = new Timer();
