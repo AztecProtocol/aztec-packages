@@ -177,17 +177,21 @@ function test_cmds {
     echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)"
   done
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement"
+  # Run the UH recursive verifier tests with ZK.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test verify_honk_proof"
-  # Run the double_verify_honk_proof test with the --disable_zk flag.
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof"
+  # Run the UH recursive verifier tests without ZK.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_proof"
+  # Run the ZK UH recursive verifier tests.
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_zk_proof"
+  # Run the ZK UH recursive verifier tests without ZK.
+  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test double_verify_honk_zk_proof"
+
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement"
   # echo "$prefix SYS=ultra_honk FLOW=prove_then_verify HASH=starknet $run_test assert_statement"
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof"
   # Run the assert_statement test with the --disable_zk flag.
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
-  # Run the recursive zk tests
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test verify_honk_zk_proof"
-  echo "$prefix SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_zk_proof"
 
   # prove and verify using bb.js classes
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"
