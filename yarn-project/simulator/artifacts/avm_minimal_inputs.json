@@ -28,10 +28,13 @@
       "setupEnqueuedCalls": [],
       "appLogicEnqueuedCalls": [
         {
-          "msgSender": "0x000000000000000000000000000000000000000000000000000000000000002a",
-          "contractAddress": "0x2d6dffffb653a0014ef4e72d474c878a4df9c2d05cedd2a03160bfc3f926b87d",
-          "calldata": ["0x000000000000000000000000000000000000000000000000000000000d6ab3ae"],
-          "isStaticCall": false
+          "request": {
+            "msgSender": "0x000000000000000000000000000000000000000000000000000000000000002a",
+            "contractAddress": "0x2d6dffffb653a0014ef4e72d474c878a4df9c2d05cedd2a03160bfc3f926b87d",
+            "isStaticCall": false,
+            "calldataHash": "0x210b9efa10b8e4522089aa9b227e18fb47dbf4c9a53b37225416d7900600be65"
+          },
+          "calldata": ["0x000000000000000000000000000000000000000000000000000000000d6ab3ae"]
         }
       ],
       "teardownEnqueuedCall": null,
