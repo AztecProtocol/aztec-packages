@@ -5,10 +5,9 @@ pragma solidity >=0.8.27;
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {
   AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+  SnapshottedAddressSet,
+  AddressSnapshotLib__IndexOutOfBounds
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
@@ -17,9 +16,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
 
   function test_WhenNoValidatorsAreRegistered() public {
     // It throws out of bounds
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, block.timestamp.toUint32());
   }
 
@@ -77,7 +74,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
 
     // In a past epoch, it is out of bounds
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
+      abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
     );
     validatorSet.getAddressFromIndexAtTimestamp(_index, (ts - 1).toUint32());
   }
@@ -99,9 +96,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
     validatorSet.remove(lastIndex);
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__IndexOutOfBounds.selector, lastIndex, lastIndex
-      )
+      abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, lastIndex, lastIndex)
     );
     validatorSet.getAddressFromIndexAtTimestamp(lastIndex, (block.timestamp).toUint32());
 
@@ -112,7 +107,7 @@ contract GetAddressFromIndexAtTimestampTest is AddressSnapshotsBase {
     // It should throw out of bounds
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _addrs.length, _addrs.length
+        AddressSnapshotLib__IndexOutOfBounds.selector, _addrs.length, _addrs.length
       )
     );
     validatorSet.getAddressFromIndexAtTimestamp(_addrs.length, block.timestamp.toUint32());

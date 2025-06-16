@@ -4,16 +4,11 @@ pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
-import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {GSE, AttesterConfig} from "@aztec/core/staking/GSE.sol";
+import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
+import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -62,9 +57,8 @@ struct StakingStorage {
 library StakingLib {
   using SafeCast for uint256;
   using SafeERC20 for IERC20;
-  using AddressSnapshotLib for SnapshottedAddressSet;
-  using ProposalLib for DataStructures.Proposal;
   using StakingQueueLib for StakingQueue;
+  using ProposalLib for Proposal;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -106,7 +100,7 @@ library StakingLib {
       address(this) == proposalProposer,
       Errors.Staking__NotOurProposal(_proposalId, address(this), proposalProposer)
     );
-    DataStructures.Proposal memory proposal = gov.getProposal(_proposalId);
+    Proposal memory proposal = gov.getProposal(_proposalId);
     require(
       proposal.proposer == address(govProposer), Errors.Staking__IncorrectGovProposer(_proposalId)
     );
