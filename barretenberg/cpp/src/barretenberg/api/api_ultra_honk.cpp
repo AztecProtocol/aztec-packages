@@ -206,17 +206,13 @@ bool UltraHonkAPI::verify(const Flags& flags,
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (ipa_accumulation) {
         return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    }
-    // if we have disabled zk:
-    // if the hash type is poseidon 2 we are using UltraFlavor
-    if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
+    } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
         return _verify<UltraZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
         return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
         return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
-        // if the hash type is keccak we are using UltraKeccakFlavor
         return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -251,20 +247,23 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 
     if (flags.ipa_accumulation) {
         _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
-        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
         _write(_compute_vk<UltraZKFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
-        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
+        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
         _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
+        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
     }
 #ifdef STARKNET_GARAGA_FLAVORS
-    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
+}
+else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk)
+{
+    _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
+    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk)
+    {
         _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
-    } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
-        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
     }
 }
 #endif
