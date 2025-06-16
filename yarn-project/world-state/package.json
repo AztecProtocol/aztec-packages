@@ -21,7 +21,7 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8} --testEnvironment=node --detectOpenHandles --forceExit"
   },
   "inherits": [
     "../package.common.json"
@@ -58,7 +58,14 @@
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ],
-    "testEnvironment": "../../foundation/src/jest/env.mjs"
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "testEnvironmentOptions": {
+      "url": "http://localhost"
+    },
+    "injectGlobals": true,
+    "verbose": true,
+    "forceExit": true,
+    "detectOpenHandles": true
   },
   "dependencies": {
     "@aztec/constants": "workspace:^",
