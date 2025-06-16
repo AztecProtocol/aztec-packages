@@ -8,6 +8,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
+#include <unordered_set>
 
 namespace bb::stdlib::recursion::honk {
 
@@ -20,6 +21,7 @@ namespace bb::stdlib::recursion::honk {
  * @tparam RecursiveFlavor defines the recursive verifier, what the arithmetisation of its circuit should be and what
  * types of proofs it recursively verifies.
  */
+
 template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : public testing::Test {
 
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
@@ -134,6 +136,20 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 2);
+        for (const auto& cc : connected_components) {
+            info("size of the connected component == ", cc.size());
+        }
+        const auto fst_cc = connected_components[0];
+        const auto snd_cc = connected_components[1];
+        const auto thd_cc = connected_components[2];
+        const auto frth_cc = connected_components[3];
+
+        const auto variable_gate_counts = graph.get_variables_gate_counts();
+        for (size_t i = 0; i < 10; i++) {
+            info("variable index in the third connected component == ", fst_cc[i]);
+            info(
+                "a number of gates for variable with index == ", fst_cc[i], " == ", variable_gate_counts.at(fst_cc[i]));
+        }
     }
 };
 

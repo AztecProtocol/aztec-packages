@@ -175,6 +175,8 @@ template <typename FF> class Graph_ {
                                                      size_t gate_index);
     void remove_record_witness_variables(bb::UltraCircuitBuilder& ultra_builder);
 
+    void find_process_range_list_connected_component(bb::UltraCircuitBuilder& ultra_builder);
+
     void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();
@@ -183,6 +185,7 @@ template <typename FF> class Graph_ {
     ~Graph_() = default;
 
   private:
+    std::vector<std::vector<uint32_t>> connected_components;
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other

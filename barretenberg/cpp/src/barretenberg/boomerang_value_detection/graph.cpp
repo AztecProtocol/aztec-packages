@@ -730,14 +730,13 @@ void Graph_<FF>::depth_first_search(const uint32_t& variable_index,
 template <typename FF> std::vector<std::vector<uint32_t>> Graph_<FF>::find_connected_components()
 {
     std::unordered_set<uint32_t> is_used;
-    std::vector<std::vector<uint32_t>> connected_components;
     for (const auto& pair : variable_adjacency_lists) {
         if (pair.first != 0 && variables_degree[pair.first] > 0) {
             if (!is_used.contains(pair.first)) {
                 std::vector<uint32_t> connected_component;
                 this->depth_first_search(pair.first, is_used, connected_component);
                 std::sort(connected_component.begin(), connected_component.end());
-                connected_components.emplace_back(connected_component);
+                this->connected_components.emplace_back(connected_component);
             }
         }
     }
