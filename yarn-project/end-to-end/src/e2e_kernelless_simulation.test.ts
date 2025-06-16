@@ -9,24 +9,16 @@ import {
   type Logger,
   type PXE,
   TxExecutionRequest,
-  getContractClassFromArtifact,
+  type Wallet,
   getContractInstanceFromDeployParams,
-  loadContractArtifact,
 } from '@aztec/aztec.js';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type {
-  CompleteAddress,
-  ContractClass,
-  ContractClassWithId,
-  ContractInstance,
-  ContractInstanceWithAddress,
-} from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { SimulationOverrides, TxSimulationResult } from '@aztec/stdlib/tx';
 
-import { deployToken } from './fixtures/token_utils.js';
+import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
-
-const INITIAL_TOKEN_BALANCE = 100n;
 
 export class CopyCatWallet extends AccountWallet {
   constructor(
@@ -34,18 +26,13 @@ export class CopyCatWallet extends AccountWallet {
     account: AccountInterface,
     private originalContractClassId: Fr,
     private originalAddress: CompleteAddress,
-    private additionalAddresses: AztecAddress[],
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {
     super(pxe, account);
   }
 
-  static async create(
-    pxe: PXE,
-    originalAccount: AccountWallet,
-    additionalAccounts: AztecAddress[],
-  ): Promise<CopyCatWallet> {
+  static async create(pxe: PXE, originalAccount: AccountWallet): Promise<CopyCatWallet> {
     const simulatedAuthWitnessProvider = {
       createAuthWit(messageHash: Fr): Promise<AuthWitness> {
         return Promise.resolve(new AuthWitness(messageHash, []));
@@ -66,7 +53,6 @@ export class CopyCatWallet extends AccountWallet {
       accountInterface,
       originalContractClassId,
       originalAddress,
-      additionalAccounts,
       SimulatedAccountContractArtifact,
       instance,
     );
@@ -85,9 +71,7 @@ export class CopyCatWallet extends AccountWallet {
   ): Promise<TxSimulationResult> {
     const instanceOverrides = new Map();
     const artifactOverrides = new Map();
-    for (const address of [this.originalAddress.address, ...this.additionalAddresses]) {
-      instanceOverrides.set(address.toString(), this.instance);
-    }
+    instanceOverrides.set(this.originalAddress.toString(), this.instance);
     artifactOverrides.set(this.originalContractClassId.toString(), this.artifact);
     return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
       contracts: { instances: instanceOverrides, artifacts: artifactOverrides },
@@ -101,54 +85,120 @@ describe('Kernelless simulation', () => {
   let logger: Logger;
 
   let adminWallet: AccountWallet;
-  let recipientWallet: AccountWallet;
+  let liquidityProvider: AccountWallet;
 
-  let token: TokenContract;
+  let token0: TokenContract;
+  let token1: TokenContract;
+  let liquidityToken: TokenContract;
+
+  let amm: AMMContract;
 
   let pxe: PXE;
+
+  const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
   beforeAll(async () => {
     ({
       pxe,
       teardown,
-      wallets: [adminWallet, recipientWallet],
+      wallets: [adminWallet, liquidityProvider],
       logger,
     } = await setup(2));
 
-    token = await deployToken(adminWallet, INITIAL_TOKEN_BALANCE, logger);
+    token0 = await deployToken(adminWallet, 0n, logger);
+    token1 = await deployToken(adminWallet, 0n, logger);
+    liquidityToken = await deployToken(adminWallet, 0n, logger);
+
+    amm = await AMMContract.deploy(adminWallet, token0.address, token1.address, liquidityToken.address)
+      .send()
+      .deployed();
+
+    await liquidityToken.methods.set_minter(amm.address, true).send().wait();
+
+    // We mint the tokens to the liquidity provider
+    await mintTokensToPrivate(token0, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
+    await mintTokensToPrivate(token1, adminWallet, liquidityProvider.getAddress(), INITIAL_TOKEN_BALANCE);
   });
 
   afterAll(() => teardown());
-  it('transfer on behalf of other', async () => {
-    const balance0 = await token.methods.balance_of_private(adminWallet.getAddress()).simulate();
-    const amount = balance0 / 2n;
-    const authwitNonce = Fr.random();
-    expect(amount).toBeGreaterThan(0n);
 
-    const copyCat = await CopyCatWallet.create(pxe, recipientWallet, [adminWallet.getAddress()]);
+  describe('AMM', () => {
+    type Balance = {
+      token0: bigint;
+      token1: bigint;
+    };
 
-    const { offchainMessages } = await token
-      .withWallet(copyCat)
-      .methods.transfer_in_private(adminWallet.getAddress(), recipientWallet.getAddress(), amount, authwitNonce)
-      .simulate({ includeMetadata: true });
+    async function getWalletBalances(lp: Wallet): Promise<Balance> {
+      return {
+        token0: await token0.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
+        token1: await token1.withWallet(lp).methods.balance_of_private(lp.getAddress()).simulate(),
+      };
+    }
 
-    expect(offchainMessages.length).toBe(1);
+    it('adds liquidity without authwits', async () => {
+      const copyCat = await CopyCatWallet.create(pxe, liquidityProvider, []);
 
-    const [authwitRequest] = offchainMessages;
+      const lpBalancesBefore = await getWalletBalances(copyCat);
 
-    expect(authwitRequest.recipient).toEqual(token.address);
-    expect(authwitRequest.contractAddress).toEqual(adminWallet.getAddress());
+      const amount0Max = lpBalancesBefore.token0;
+      const amount0Min = lpBalancesBefore.token0 / 2n;
+      const amount1Max = lpBalancesBefore.token1;
+      const amount1Min = lpBalancesBefore.token1 / 2n;
 
-    expect(authwitRequest.message).toHaveLength(1);
+      console.log(`Adding initial liquidity: ${amount0Max} of token0 and ${amount1Max} of token1`);
 
-    const [authwitHash] = authwitRequest.message;
+      const nonceForAuthwits = Fr.random();
 
-    // Compute the real authwitness
-    const action = token
-      .withWallet(recipientWallet)
-      .methods.transfer_in_private(adminWallet.getAddress(), recipientWallet.getAddress(), amount, authwitNonce);
-    const witness = await adminWallet.createAuthWit({ caller: recipientWallet.getAddress(), action });
+      // This interaction requires 2 authwitnesses, one for each token so they can be transfered from the provider's
+      // private balance to the AMM's public balance. Using the copycat wallet, we collect the request hashes
+      // for later comparison
 
-    expect(authwitHash).toEqual(witness.requestHash);
+      const addLiquidityInteraction = amm
+        .withWallet(copyCat)
+        .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits);
+
+      const { offchainMessages } = await addLiquidityInteraction.simulate({ includeMetadata: true });
+
+      expect(offchainMessages.length).toBe(2);
+
+      const [token0AuthwitRequest, token1AuthwitRequest] = offchainMessages;
+
+      // We reuse the offchain message's recipient to also emit the address of the contract that requires the authwit
+      expect(token0AuthwitRequest.recipient).toEqual(token0.address);
+      expect(token1AuthwitRequest.recipient).toEqual(token1.address);
+      // The account contract that generates the authwit request
+      expect(token0AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
+      expect(token1AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
+
+      expect(token0AuthwitRequest.message).toHaveLength(1);
+      expect(token1AuthwitRequest.message).toHaveLength(1);
+
+      const [token0AuthwitHash] = token0AuthwitRequest.message;
+      const [token1AuthwitHash] = token1AuthwitRequest.message;
+
+      // Compute the real authwitness
+      const token0Authwit = await liquidityProvider.createAuthWit({
+        caller: amm.address,
+        action: token0.methods.transfer_to_public_and_prepare_private_balance_increase(
+          liquidityProvider.getAddress(),
+          amm.address,
+          amount0Max,
+          nonceForAuthwits,
+        ),
+      });
+
+      const token1Authwit = await liquidityProvider.createAuthWit({
+        caller: amm.address,
+        action: token1.methods.transfer_to_public_and_prepare_private_balance_increase(
+          liquidityProvider.getAddress(),
+          amm.address,
+          amount1Max,
+          nonceForAuthwits,
+        ),
+      });
+
+      expect(token0AuthwitHash).toEqual(token0Authwit.requestHash);
+      expect(token1AuthwitHash).toEqual(token1Authwit.requestHash);
+    });
   });
 });

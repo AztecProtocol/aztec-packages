@@ -872,10 +872,13 @@ export class PXEService implements PXE {
         let executionSteps: PrivateExecutionStep[] = [];
 
         if (skipKernels) {
+          const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
+            ? await txRequest.toTxRequest().hash()
+            : privateExecutionResult.firstNullifier;
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
+            nonceGenerator,
             this.contractDataProvider,
-            this.syncDataProvider,
           ));
         } else {
           ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
