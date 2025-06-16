@@ -209,67 +209,69 @@ bool UltraHonkAPI::verify(const Flags& flags,
     }
     // if we have disabled zk:
     // if the hash type is poseidon 2 we are using UltraFlavor
-    if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
+    if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
+        return _verify<UltraZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
         return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
+        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
         // if the hash type is keccak we are using UltraKeccakFlavor
         return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
-        return _verify<UltraZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
-        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
 #ifdef STARKNET_GARAGA_FLAVORS
-    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
+}
+else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk)
+{
+    return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
+    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk)
+    {
         return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-    } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
-        else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk)
-        {
-            return _verify<UltraStarknetZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
-        }
-#endif
-        else
-        {
-            throw_or_abort("invalid proof type in _verify");
-        }
-    }
-
-    bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
-                                        [[maybe_unused]] const std::filesystem::path& bytecode_path,
-                                        [[maybe_unused]] const std::filesystem::path& witness_path)
-    {
-        throw_or_abort("API function prove_and_verify not implemented");
-        return false;
-    }
-
-    void UltraHonkAPI::write_vk(
-        const Flags& flags, const std::filesystem::path& bytecode_path, const std::filesystem::path& output_path)
-    {
-        const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
-
-        if (flags.ipa_accumulation) {
-            _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
-        } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
-            _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
-        } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
-            _write(_compute_vk<UltraZKFlavor>(bytecode_path, ""));
-        } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
-            _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
-        } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
-            _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
-        }
-#ifdef STARKNET_GARAGA_FLAVORS
-        else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
-            _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
-        } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
-            _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
-        }
     }
 #endif
     else
     {
-        throw_or_abort("invalid proof type in _write_vk");
+        throw_or_abort("invalid proof type in _verify");
     }
+}
+
+bool UltraHonkAPI::prove_and_verify([[maybe_unused]] const Flags& flags,
+                                    [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                                    [[maybe_unused]] const std::filesystem::path& witness_path)
+{
+    throw_or_abort("API function prove_and_verify not implemented");
+    return false;
+}
+
+void UltraHonkAPI::write_vk(const Flags& flags,
+                            const std::filesystem::path& bytecode_path,
+                            const std::filesystem::path& output_path)
+{
+    const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
+
+    if (flags.ipa_accumulation) {
+        _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
+        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
+        _write(_compute_vk<UltraZKFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
+        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
+        _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
+    }
+#ifdef STARKNET_GARAGA_FLAVORS
+    else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
+        _write(_compute_vk<UltraStarknetFlavor>(bytecode_path, ""));
+    } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
+        _write(_compute_vk<UltraStarknetZKFlavor>(bytecode_path, ""));
+    }
+}
+#endif
+else
+{
+    throw_or_abort("invalid proof type in _write_vk");
+}
 }
 
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
