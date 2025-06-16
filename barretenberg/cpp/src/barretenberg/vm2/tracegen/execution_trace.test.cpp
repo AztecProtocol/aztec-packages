@@ -510,7 +510,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
     EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
 }
 
-TEST(ExecutionTraceGenTest, InternalCallRet)
+TEST(ExecutionTraceGenTest, InternalCall)
 {
     TestTraceContainer trace;
     ExecutionTraceBuilder builder;
@@ -549,6 +549,42 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
                           ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
+TEST(ExecutionTraceGenTest, InternalRetError)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // Use the instruction builder - we can make the operands more complex
+    const auto instr = InstructionBuilder(WireOpCode::INTERNALRETURN).build();
+
+    simulation::ExecutionEvent ex_event = {
+        .error = simulation::ExecutionError::DISPATCHING,
+        .wire_instruction = instr,
+        .addressing_event = {
+            .instruction = instr,
+        },
+        .before_context_event {
+        .internal_call_id = 1,
+        .internal_call_return_id = 0,
+        .next_internal_call_id = 2,
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the internal call
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_internal_return, 1),
+                          ROW_FIELD_EQ(execution_next_internal_call_id, 2),
+                          ROW_FIELD_EQ(execution_internal_call_id, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id, 0),
+                          ROW_FIELD_EQ(execution_sel_opcode_error, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id_inv, 0))));
 }
 
 TEST(ExecutionTraceGenTest, Jump)
