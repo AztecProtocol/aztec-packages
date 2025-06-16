@@ -23,8 +23,8 @@ export class CopyCatWallet extends AccountWallet {
   constructor(
     pxe: PXE,
     account: AccountInterface,
-    private originalContractClassId: Fr,
     private originalAddress: CompleteAddress,
+    private originalContractClassId: Fr,
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {
@@ -50,8 +50,8 @@ export class CopyCatWallet extends AccountWallet {
     return new CopyCatWallet(
       pxe,
       accountInterface,
-      originalContractClassId,
       originalAddress,
+      originalContractClassId,
       SimulatedAccountContractArtifact,
       instance,
     );
@@ -68,7 +68,7 @@ export class CopyCatWallet extends AccountWallet {
     skipFeeEnforcement?: boolean,
     _overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
-    const instanceOverrides = { [this.originalAddress.toString()]: this.instance };
+    const instanceOverrides = { [this.originalAddress.address.toString()]: this.instance };
     const artifactOverrides = { [this.originalContractClassId.toString()]: this.artifact };
     return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
       contracts: { instances: instanceOverrides, artifacts: artifactOverrides },
