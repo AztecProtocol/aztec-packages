@@ -68,10 +68,8 @@ export class CopyCatWallet extends AccountWallet {
     skipFeeEnforcement?: boolean,
     _overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
-    const instanceOverrides = new Map();
-    const artifactOverrides = new Map();
-    instanceOverrides.set(this.originalAddress.toString(), this.instance);
-    artifactOverrides.set(this.originalContractClassId.toString(), this.artifact);
+    const instanceOverrides = { [this.originalAddress.toString()]: this.instance };
+    const artifactOverrides = { [this.originalContractClassId.toString()]: this.artifact };
     return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, {
       contracts: { instances: instanceOverrides, artifacts: artifactOverrides },
     });

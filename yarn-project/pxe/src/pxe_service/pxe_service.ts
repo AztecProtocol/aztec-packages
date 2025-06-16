@@ -858,7 +858,7 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        const skipKernels = overrides?.contracts !== undefined && overrides.contracts.instances.size > 0;
+        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts.instances).length > 0;
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,

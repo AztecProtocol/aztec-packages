@@ -16,8 +16,8 @@ export class ProxiedContractDataProviderFactory {
         switch (prop) {
           case 'getContractInstance': {
             return async (address: AztecAddress) => {
-              if (overrides.instances.has(address.toString())) {
-                const instance = overrides.instances.get(address.toString())!;
+              if (overrides.instances[address.toString()]) {
+                const instance = overrides.instances[address.toString()]!;
                 instance.address = address;
                 const realInstance = await target.getContractInstance(address);
                 if (!realInstance) {
@@ -33,8 +33,8 @@ export class ProxiedContractDataProviderFactory {
           }
           case 'getContractArtifact': {
             return (contractClassId: Fr) => {
-              if (overrides.artifacts.has(contractClassId.toString())) {
-                return overrides.artifacts.get(contractClassId.toString())!;
+              if (overrides.artifacts[contractClassId.toString()]) {
+                return Promise.resolve(overrides.artifacts[contractClassId.toString()]!);
               } else {
                 return target.getContractArtifact(contractClassId);
               }
@@ -42,12 +42,12 @@ export class ProxiedContractDataProviderFactory {
           }
           case 'getFunctionArtifact': {
             return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
-              if (overrides.instances.has(contractAddress.toString())) {
+              if (overrides.instances[contractAddress.toString()]) {
                 const realInstance = await target.getContractInstance(contractAddress);
                 if (!realInstance) {
                   throw new Error(`Contract instance not found for address: ${contractAddress}`);
                 }
-                const artifact = overrides.artifacts.get(realInstance.currentContractClassId.toString())!;
+                const artifact = overrides.artifacts[realInstance.currentContractClassId.toString()]!;
                 const functions = artifact.functions;
                 for (let i = 0; i < functions.length; i++) {
                   const fn = functions[i];

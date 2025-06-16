@@ -23,8 +23,8 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simu
 import { Tx } from './tx.js';
 
 export type ContractOverrides = {
-  instances: Map<string /* AztecAddress as string */, ContractInstanceWithAddress>;
-  artifacts: Map<string /* ContractClassId as string */, ContractArtifact>;
+  instances: Record<string /* AztecAddress as string */, ContractInstanceWithAddress>;
+  artifacts: Record<string /* ContractClassId as string */, ContractArtifact>;
 };
 
 export class SimulationOverrides {
@@ -38,8 +38,8 @@ export class SimulationOverrides {
       .object({
         contracts: optional(
           z.object({
-            instances: z.map(z.string(), ContractInstanceWithAddressSchema),
-            artifacts: z.map(z.string(), ContractArtifactSchema),
+            instances: z.record(z.string(), ContractInstanceWithAddressSchema),
+            artifacts: z.record(z.string(), ContractArtifactSchema),
           }),
         ),
         msgSender: optional(AztecAddress.schema),
