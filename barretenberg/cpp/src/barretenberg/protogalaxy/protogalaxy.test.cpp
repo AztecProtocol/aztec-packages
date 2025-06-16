@@ -25,7 +25,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor, 2>;
-    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
     using Projective = typename Flavor::GroupElement;
@@ -38,7 +38,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using GateSeparatorPolynomial = bb::GateSeparatorPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
@@ -86,7 +86,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
-        FoldingProver folding_prover(proving_keys, trace_usage_tracker);
+        FoldingProver folding_prover(proving_keys, verification_keys, trace_usage_tracker);
         FoldingVerifier folding_verifier(verification_keys);
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
@@ -578,7 +578,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfKeys insts = construct_keys(total_insts);
 
-        ProtogalaxyProver_<DeciderProvingKeys_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        ProtogalaxyProver_<Flavor, total_insts> folding_prover(get<0>(insts), get<1>(insts));
         ProtogalaxyVerifier_<DeciderVerificationKeys_<Flavor, total_insts>> folding_verifier(get<1>(insts));
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();

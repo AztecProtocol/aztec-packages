@@ -29,7 +29,13 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, TxCollector, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import {
+  type P2P,
+  type P2PClientDeps,
+  TxCollector,
+  createP2PClient,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   BlockBuilder,
@@ -167,9 +173,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
+      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
+      dontStartSequencer?: boolean;
     } = {},
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
@@ -248,6 +256,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       packageVersion,
       telemetry,
+      deps.p2pClientDeps,
     );
 
     // Start world state and wait for it to sync to the archiver.
@@ -276,8 +285,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel && config.slashInactivityEnabled) {
-      watchers.push(validatorsSentinel);
+    if (validatorsSentinel) {
+      // we can run a sentinel without trying to slash.
+      await validatorsSentinel.start();
+      if (config.slashInactivityEnabled) {
+        watchers.push(validatorsSentinel);
+      }
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
@@ -346,6 +359,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         dateProvider,
         blobSinkClient,
       });
+    }
+
+    if (!options.dontStartSequencer && sequencer) {
+      await sequencer.start();
+      log.verbose(`Sequencer started`);
     }
 
     return new AztecNodeService(
@@ -747,11 +765,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [index] = await committedDb.findLeafIndices(MerkleTreeId.ARCHIVE, [archive]);
-    if (index === undefined) {
-      return undefined;
-    }
-    return MembershipWitness.fromSiblingPath(index, await committedDb.getSiblingPath(MerkleTreeId.ARCHIVE, index));
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE, typeof ARCHIVE_HEIGHT>(
+      MerkleTreeId.ARCHIVE,
+      [archive],
+    );
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
   public async getNoteHashMembershipWitness(
@@ -759,14 +779,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [index] = await committedDb.findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
-    if (index === undefined) {
-      return undefined;
-    }
-    return MembershipWitness.fromSiblingPath(
-      index,
-      await committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, index),
-    );
+    const [pathAndIndex] = await committedDb.findSiblingPaths<
+      MerkleTreeId.NOTE_HASH_TREE,
+      typeof NOTE_HASH_TREE_HEIGHT
+    >(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
   }
 
   /**
@@ -989,7 +1008,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      new Fr(blockNumber),
+      blockNumber,
       coinbase,
       feeRecipient,
     );

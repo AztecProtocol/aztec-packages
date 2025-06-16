@@ -9,10 +9,8 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
-  Signature,
-  CommitteeAttestation
-} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+  SignatureLib, Signature, CommitteeAttestation
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -61,9 +59,7 @@ import {
   ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
@@ -108,9 +104,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
-
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
@@ -138,24 +131,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   Forwarder internal baseForwarder = new Forwarder();
 
-  modifier prepare(uint256 _validatorCount) {
+  modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
-    builder.deploy();
-
-    asset = builder.getConfig().testERC20;
-    rollup = builder.getConfig().rollup;
-
-    vm.label(coinbase, "coinbase");
-    vm.label(address(rollup), "ROLLUP");
-    vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
-
-    // We are going to set up all of the validators
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
 
     for (uint256 i = 1; i < _validatorCount + 1; i++) {
@@ -166,9 +145,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
-    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
-    multiAdder.addValidators(initialValidators);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30).setValidators(
+      initialValidators
+    ).setTargetCommitteeSize(_targetCommitteeSize).setEntryQueueFlushSizeMin(_validatorCount);
+    builder.deploy();
+
+    asset = builder.getConfig().testERC20;
+    rollup = builder.getConfig().rollup;
+
+    vm.label(coinbase, "coinbase");
+    vm.label(address(rollup), "ROLLUP");
+    vm.label(address(asset), "ASSET");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
     _;
   }
@@ -182,17 +172,17 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.warp(l1Metadata[index].timestamp);
   }
 
-  function test_no_validators() public prepare(0) {
+  function test_no_validators() public prepare(0, 0) {
     benchmark();
   }
 
   /// forge-config: default.isolate = true
-  function test_48_validators() public prepare(48) {
+  function test_48_validators() public prepare(48, 48) {
     benchmark();
   }
 
   /// forge-config: default.isolate = true
-  function test_100_validators() public prepare(100) {
+  function test_100_validators() public prepare(100, 48) {
     benchmark();
   }
 
@@ -209,7 +199,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
-    TestPoint memory point = points[slotNumber.unwrap() - 1];
+    TestPoint memory point = points[Slot.unwrap(slotNumber) - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 

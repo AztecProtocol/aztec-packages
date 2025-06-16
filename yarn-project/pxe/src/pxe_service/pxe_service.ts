@@ -621,7 +621,7 @@ export class PXEService implements PXE {
         contractAddress,
         currentInstance,
         this.node,
-        header.globalVariables.blockNumber.toNumber(),
+        header.globalVariables.blockNumber,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');

@@ -335,6 +335,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
+    add_vk_path_option(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -690,7 +691,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
             if (prove->parsed()) {
-                api.prove(flags, bytecode_path, witness_path, output_path);
+                api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);

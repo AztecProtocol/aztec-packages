@@ -12,7 +12,6 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
@@ -31,9 +30,7 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {L1_GAS_PER_EPOCH_VERIFIED} from "@aztec/core/libraries/rollup/FeeLib.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
@@ -48,8 +45,6 @@ import {Ownable} from "@oz/access/Ownable.sol";
  */
 contract RollupTest is RollupBase {
   using stdStorage for StdStorage;
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -83,7 +78,7 @@ contract RollupTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setTargetCommitteeSize(0);
     builder.deploy();
 
     testERC20 = builder.getConfig().testERC20;
@@ -207,7 +202,7 @@ contract RollupTest is RollupBase {
     //        as if it was the first block, even after we had originally inserted the mixed block.
     //        An example where this could happen would be if no-one could prove the mixed block.
     // @note  We prune the pending chain as part of the propose call.
-    _proposeBlock("empty_block_1", prunableAt.unwrap());
+    _proposeBlock("empty_block_1", Slot.unwrap(prunableAt));
 
     assertEq(inbox.getInProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");

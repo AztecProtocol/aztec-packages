@@ -938,8 +938,9 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
 
 // Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;

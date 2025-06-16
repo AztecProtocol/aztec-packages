@@ -393,7 +393,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 

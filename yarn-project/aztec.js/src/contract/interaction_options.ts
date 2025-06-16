@@ -57,9 +57,11 @@ export type SimulateMethodOptions = Pick<
 /**
  * Represents the options for profiling an interaction.
  */
+// docs:start:profile-method-options
 export type ProfileMethodOptions = SimulateMethodOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** Whether to generate a ClientIVC proof or not */
   skipProofGeneration?: boolean;
 };
+// docs:end:profile-method-options

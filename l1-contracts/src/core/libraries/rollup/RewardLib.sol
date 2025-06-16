@@ -140,7 +140,7 @@ library RewardLib {
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
-  function initialize(RewardConfig memory _config) internal {
+  function setConfig(RewardConfig memory _config) internal {
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
   }

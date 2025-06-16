@@ -113,7 +113,7 @@ describe('SequencerPublisher', () => {
     governanceProposerContract = mock<GovernanceProposerContract>();
 
     const epochCache = mock<EpochCache>();
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: 1n, slot: 2n, ts: 3n, now: 3n });
     epochCache.getCommittee.mockResolvedValue({ committee: [], seed: 1n, epoch: 1n });
 
     publisher = new SequencerPublisher(config, {

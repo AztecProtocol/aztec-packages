@@ -63,7 +63,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -92,7 +91,6 @@ describe('e2e_p2p_data_withholding_slash', () => {
       const newTime = await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
       t.ctx.dateProvider.setTime(Number(newTime * 1000n));
       // Send tx
-      await t.sendDummyTx();
       await debugRollup();
     }
 

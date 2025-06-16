@@ -19,10 +19,15 @@ template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
 Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
 {
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraZKFlavor>) {
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1326): Get rid of honk_recursion and just use
+    // ipa_accumulation.
+    // bool ipa_accumulation = false;
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
+        // ipa_accumulation = true;
     }
 #ifdef STARKNET_GARAGA_FLAVORS
     if constexpr (IsAnyOf<Flavor, UltraStarknetFlavor, UltraStarknetZKFlavor>) {
@@ -30,7 +35,9 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
     }
 #endif
 
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{
+        .honk_recursion = honk_recursion,
+    };
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path) };
 
     if (!witness_path.empty()) {
@@ -40,25 +47,42 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
 }
 
 template <typename Flavor>
-UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
+std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::string& bytecode_path,
+                                                                 const std::string& witness_path)
 {
-    return UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path) };
+    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
+    auto decider_proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    return decider_proving_key;
 }
 
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
-                                     const std::filesystem::path& witness_path)
+template <typename Flavor>
+PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::filesystem::path& bytecode_path,
+                                                                   const std::filesystem::path& witness_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
-    return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
+    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
+    return { PublicInputsVector{},
+             HonkProof{},
+             std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
 }
 
-template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _prove(const bool compute_vk,
-                                const std::filesystem::path& bytecode_path,
-                                const std::filesystem::path& witness_path)
+template <typename Flavor>
+PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute_vk,
+                                                              const std::filesystem::path& bytecode_path,
+                                                              const std::filesystem::path& witness_path,
+                                                              const std::filesystem::path& vk_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
+    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
+    std::shared_ptr<typename Flavor::VerificationKey> vk;
+    if (compute_vk) {
+        info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
+        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    } else {
+        vk = std::make_shared<typename Flavor::VerificationKey>(
+            from_buffer<typename Flavor::VerificationKey>(read_file(vk_path)));
+    }
+
+    UltraProver_<Flavor> prover{ proving_key, vk };
+
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
     // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
@@ -78,9 +102,7 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
         HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
                   concat_pi_and_proof.end())
     };
-    return { public_inputs_and_proof.public_inputs,
-             public_inputs_and_proof.proof,
-             compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
+    return { public_inputs_and_proof.public_inputs, public_inputs_and_proof.proof, vk };
 }
 
 template <typename Flavor>
@@ -144,6 +166,7 @@ bool UltraHonkAPI::check([[maybe_unused]] const Flags& flags,
 void UltraHonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& bytecode_path,
                          const std::filesystem::path& witness_path,
+                         const std::filesystem::path& vk_path,
                          const std::filesystem::path& output_dir)
 {
     const auto _write = [&](auto&& _prove_output) {
@@ -151,23 +174,23 @@ void UltraHonkAPI::prove(const Flags& flags,
     };
     // if the ipa accumulation flag is set we are using the UltraRollupFlavor
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "poseidon2" && !flags.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
-        _write(_prove<UltraZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "poseidon2" && flags.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
-        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is keccak, we are using the UltraKeccakZKFlavor
-        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.disable_zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
 #ifdef STARKNET_GARAGA_FLAVORS
     } else if (flags.oracle_hash_type == "starknet" && flags.disable_zk) {
-        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
     } else if (flags.oracle_hash_type == "starknet" && !flags.disable_zk) {
-        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path));
+        _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
 #endif
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
@@ -276,30 +299,19 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                                        const std::string& witness_path,
                                        const std::string& output_path)
 {
-    using Builder = typename Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using FF = typename Flavor::FF;
 
-    uint32_t honk_recursion = 0;
+    std::shared_ptr<DeciderProvingKey_<Flavor>> proving_key = _compute_proving_key<Flavor>(bytecode_path, witness_path);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    Prover prover{ proving_key, verification_key };
+    std::vector<FF> proof = prover.construct_proof();
+
     bool ipa_accumulation = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraZKFlavor>) {
-        honk_recursion = 1;
-    } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
-        honk_recursion = 2;
+    if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         ipa_accumulation = true;
     }
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
-
-    acir_format::AcirProgram program;
-    program.constraints = get_constraint_system(bytecode_path);
-    program.witness = get_witness(witness_path);
-    auto builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    Prover prover{ builder };
-    std::vector<FF> proof = prover.construct_proof();
-    VerificationKey verification_key(prover.proving_key->proving_key);
-
     const std::string toml_content =
         acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
 

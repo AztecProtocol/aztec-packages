@@ -149,7 +149,7 @@ describe('sequencer', () => {
     globalVariables = new GlobalVariables(
       chainId,
       version,
-      new Fr(newBlockNumber),
+      newBlockNumber,
       new Fr(newSlotNumber),
       /*timestamp=*/ 0n,
       coinbase,
@@ -161,7 +161,7 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     const epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n }));
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -171,7 +171,11 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: BigInt(newSlotNumber),
+      blockNumber: BigInt(newBlockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -308,10 +312,11 @@ describe('sequencer', () => {
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([
-      block.header.globalVariables.slotNumber.toBigInt(),
-      block.header.globalVariables.blockNumber.toBigInt(),
-    ]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: block.header.globalVariables.slotNumber.toBigInt(),
+      blockNumber: BigInt(block.header.globalVariables.blockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
