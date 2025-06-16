@@ -76,6 +76,8 @@ struct RollupConfigInput {
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
 }
@@ -91,6 +93,8 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
