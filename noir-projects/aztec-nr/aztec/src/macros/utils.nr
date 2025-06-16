@@ -67,27 +67,55 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
-pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+/// Adds a value to a field array. Structs and values inside arrays are required to implement the Serialize trait.
+///
+/// The function takes the name of the array, the index in the array where the value should be added, the name of the
+/// variable to be added, and the type of the variable. It returns a quoted expression that can be used in a function body.
+///
+/// The returned quoted expression will increment the `index_name` variable by the number of fields added to the array,
+/// which is typically 1 for simple types, but can be more for complex types like structs or arrays.
+pub(crate) comptime fn add_to_field_array(
+    array_name: Quoted,
+    index_name: Quoted,
+    name: Quoted,
+    typ: Type,
+) -> Quoted {
+    let serialized_name = f"{name}_serialized".quoted_contents();
+
     if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-        quote { $slice_name = $slice_name.push_back($name as Field); }
+        quote { 
+            $array_name[$index_name] = $name as Field;
+            $index_name += 1;
+        }
     } else if typ.as_data_type().is_some() {
         // We invoke serialize as a static trait function rather than calling $name.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
-        quote { $slice_name = $slice_name.append(aztec::protocol_types::traits::Serialize::serialize($name)); }
+        quote { 
+            let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name);
+            for i in 0..$serialized_name.len() {
+                $array_name[$index_name] = $serialized_name[i];
+                $index_name += 1;
+            }
+        }
     } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
-        let serialized_name = f"{name}_serialized".quoted_contents();
         // We invoke serialize as a static trait function rather than calling x.serialize() directly in the quote
         // to avoid "trait not in scope" compiler warnings.
         quote {
-            let $serialized_name = $name.map(|x: $element_type | aztec::protocol_types::traits::Serialize::serialize(x));
             for i in 0..$name.len() {
-                $slice_name = $slice_name.append($serialized_name[i].as_slice());
+                let $serialized_name = aztec::protocol_types::traits::Serialize::serialize($name[i]);
+                for i in 0..$serialized_name.len() {
+                    $array_name[$index_name] = $serialized_name[i];
+                    $index_name += 1;
+                }
             }
         }
     } else if typ.as_str().is_some() {
         quote {
-            $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
+            let $serialized_name = $name.as_bytes();
+            for i in 0..$serialized_name.len() {
+                $array_name[$index_name] = $serialized_name[i] as Field;
+                $index_name += 1;
+            }
         }
     } else {
         panic(
@@ -111,6 +139,14 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
                 $hasher_name.add_multiple($serialized_name[i]);
             }
         }
+    } else if typ.as_tuple().is_some() {
+        let tuple_len = typ.as_tuple().unwrap().len();
+        let mut tuple_quotes: [Quoted] = [];
+        for i in 0..tuple_len {
+            let element_quote = quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name.$i)); };
+            tuple_quotes = tuple_quotes.push_back(element_quote);
+        }
+        tuple_quotes.join(quote {})
     } else if typ.as_str().is_some() {
         quote {
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
@@ -279,4 +315,77 @@ pub(crate) comptime fn get_trait_impl_method(
         .methods()
         .filter(|m| m.name() == target_method)[0]
         .as_typed_expr()
+}
+
+pub comptime fn size_in_fields(typ: Type) -> u32 {
+    array_size_in_fields(typ)
+        .or_else(|| bool_size_in_fields(typ))
+        .or_else(|| constant_size_in_fields(typ))
+        .or_else(|| field_size_in_fields(typ))
+        .or_else(|| int_size_in_fields(typ))
+        .or_else(|| str_size_in_fields(typ))
+        .or_else(|| struct_size_in_fields(typ))
+        .or_else(|| tuple_size_in_fields(typ))
+        .expect(f"Can't determine size in fields of {typ}")
+}
+
+comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_array().and_then(|typ: (Type, Type)| {
+        let (typ, element_size) = typ;
+        element_size.as_constant().map(|x: u32| x * size_in_fields(typ))
+    })
+}
+
+comptime fn bool_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_bool() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn field_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.is_field() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn int_size_in_fields(typ: Type) -> Option<u32> {
+    if typ.as_integer().is_some() {
+        Option::some(1)
+    } else {
+        Option::none()
+    }
+}
+
+comptime fn constant_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_constant()
+}
+
+comptime fn str_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_str().map(|typ| size_in_fields(typ))
+}
+
+comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_data_type().map(|typ: (TypeDefinition, [Type])| {
+        let struct_type = typ.0;
+        let generics = typ.1;
+        let mut size = 0;
+        for field in struct_type.fields(generics) {
+            size += size_in_fields(field.1);
+        }
+        size
+    })
+}
+
+comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
+    typ.as_tuple().map(|types: [Type]| {
+        let mut size = 0;
+        for typ in types {
+            size += size_in_fields(typ);
+        }
+        size
+    })
 }

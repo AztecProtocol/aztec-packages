@@ -23,6 +23,7 @@ import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
 import {IGSE} from "@aztec/core/staking/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
+import {TimeCheater} from "../../staking/TimeCheater.sol";
 
 /**
  * @title UpgradeGovernanceProposerTest
@@ -38,6 +39,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   GovernanceProposer internal governanceProposer;
   Rollup internal rollup;
   IGSE internal gse;
+  TimeCheater internal timeCheater;
 
   DataStructures.Proposal internal proposal;
 
@@ -50,17 +52,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    vm.warp(1000);
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
-    builder.deploy();
-
-    rollup = builder.getConfig().rollup;
-    registry = builder.getConfig().registry;
-    token = builder.getConfig().testERC20;
-    governance = builder.getConfig().governance;
-    governanceProposer = GovernanceProposer(governance.governanceProposer());
-    gse = IGSE(address(rollup.getGSE()));
-
+    // We do a timejump to ensure that we don't underflow with time when looking up sample
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
     for (uint256 i = 1; i <= VALIDATOR_COUNT; i++) {
       uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
@@ -70,17 +62,31 @@ contract UpgradeGovernanceProposerTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: validator, withdrawer: validator});
     }
 
-    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
-    multiAdder.addValidators(initialValidators);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
+      .setValidators(initialValidators).setTargetCommitteeSize(4).setEpochDuration(1);
+    builder.deploy();
+
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    token = builder.getConfig().testERC20;
+    governance = builder.getConfig().governance;
+    governanceProposer = GovernanceProposer(governance.governanceProposer());
+    gse = IGSE(address(rollup.getGSE()));
 
     registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
+
+    timeCheater = new TimeCheater(
+      address(rollup),
+      block.timestamp,
+      builder.getConfig().rollupConfigInput.aztecSlotDuration,
+      builder.getConfig().rollupConfigInput.aztecEpochDuration
+    );
   }
 
   function test_UpgradeIntoNewVersion() external {
+    timeCheater.cheat__jumpForwardEpochs(2);
     payload = IPayload(address(new NewGovernanceProposerPayload(registry, gse)));
-    vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(Slot.wrap(1))));
 
     for (uint256 i = 0; i < 10; i++) {
       address proposer = rollup.getCurrentProposer();

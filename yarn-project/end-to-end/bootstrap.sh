@@ -3,6 +3,10 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+fi
+
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 
@@ -11,10 +15,19 @@ function test_cmds {
   local prefix="$hash:ISOLATE=1"
 
   # Longest-running tests first
-  if [ "$CI_FULL" -eq 1 ]; then
-    echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+  # Can't run full prover tests on ARM because AVM is disabled.
+  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_client_real $run_test_script simple e2e_prover/client"
+    else
+      echo "$prefix:NAME=e2e_prover_client_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/client"
+    fi
   else
-    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    if [ "$CI_FULL" -eq 1 ]; then
+      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+    else
+      echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    fi
   fi
   echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $run_test_script simple e2e_block_building"
 

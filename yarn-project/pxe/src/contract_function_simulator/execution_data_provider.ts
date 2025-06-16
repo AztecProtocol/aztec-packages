@@ -1,19 +1,14 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type {
-  EventSelector,
-  FunctionArtifact,
-  FunctionArtifactWithContractName,
-  FunctionSelector,
-} from '@aztec/stdlib/abi';
+import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, NodeStats, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 import type { NoteData } from './oracle/typed_oracle.js';
@@ -120,13 +115,6 @@ export interface ExecutionDataProvider {
    * @returns The corresponding function's artifact as an object.
    */
   getFunctionArtifactByName(contractAddress: AztecAddress, functionName: string): Promise<FunctionArtifact | undefined>;
-
-  /**
-   * Gets the index of a nullifier in the nullifier tree.
-   * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
-   */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.
@@ -279,19 +267,20 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
-   * oracle.
+   * Validates all note and event validation requests enqueued via `enqueue_note_for_validation` and
+   * `enqueue_event_for_validation`, inserting them into the note database and event store respectively, making them
+   * queryable via `get_notes` and `getPrivateEvents`.
    *
-   * @param contractAddress - The address of the contract that created the note (i.e. the siloing contract)
-   * @param storageSlot - The storage slot of the note - used for indexing in `getNotes`
-   * @param nonce - The nonce of the note used by the kernel to compute the unique note hash
-   * @param content - The note's content: this is the primary item to return in `getNotes`
-   * @param noteHash - The non-unique non-siloed note hash
-   * @param nullifier - The inner (non-siloed) note nullifier
-   * @param txHash - The transaction in which the note was added to the note hash tree
-   * @param recipient - The account that discovered the note
+   * This automatically clears both validation request queues, so no further work needs to be done by the caller.
+   * @param contractAddress - The address of the contract that the logs are tagged for.
+   * @param noteValidationRequestsArrayBaseSlot - The base slot of capsule array containing note validation requests.
+   * @param eventValidationRequestsArrayBaseSlot - The base slot of capsule array containing event validation requests.
    */
-  validateEnqueuedNotes(contractAddress: AztecAddress, notePendingValidationArrayBaseSlot: Fr): Promise<void>;
+  validateEnqueuedNotesAndEvents(
+    contractAddress: AztecAddress,
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
+  ): Promise<void>;
 
   /**
    * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
@@ -303,6 +292,15 @@ export interface ExecutionDataProvider {
    * @throws If more than one log with that tag exists.
    */
   getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
+
+  /**
+   * Searches for a private log with the corresponding `siloedTag` and returns it along with contextual transaction
+   * information.
+   *
+   * @param siloedTag - The siloed log tag to search for.
+   * @returns The private log with transaction data if found, null otherwise.
+   */
+  getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.
@@ -356,26 +354,6 @@ export interface ExecutionDataProvider {
    * @returns The secret for the given address.
    */
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
-
-  /**
-   * Stores an event log in the database.
-   * @param contractAddress - The address of the contract that emitted the log.
-   * @param recipient - The address of the recipient.
-   * @param eventSelector - The event selector of the event.
-   * @param msgContent - The content of the private event message.
-   * @param txHash - The hash of the transaction that emitted the log.
-   * @param logIndexInTx - The index of the log within the transaction.
-   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
-   */
-  storePrivateEventLog(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    eventSelector: EventSelector,
-    msgContent: Fr[],
-    txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
-  ): Promise<void>;
 
   /**
    * Returns the execution statistics collected during the simulator run.

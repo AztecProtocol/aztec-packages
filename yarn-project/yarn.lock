@@ -330,13 +330,11 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
-    "@types/pidusage": "npm:^2.0.5"
     "@types/source-map-support": "npm:^0.5.10"
     commander: "npm:^12.1.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
     pako: "npm:^2.1.0"
-    pidusage: "npm:^4.0.1"
     source-map-support: "npm:^0.5.21"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -704,6 +702,7 @@ __metadata:
     dotenv: "npm:^16.0.3"
     get-port: "npm:^7.1.0"
     jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
     lodash.omit: "npm:^4.5.0"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -735,7 +734,7 @@ __metadata:
     "@types/node": "npm:^22.15.17"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
-    c-kzg: "npm:4.0.0-alpha.1"
+    bn.js: "npm:^5.2.1"
     colorette: "npm:^2.0.20"
     comlink: "npm:^4.4.1"
     detect-node: "npm:^2.1.0"
@@ -974,7 +973,7 @@ __metadata:
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-types": "npm:1.0.0-beta.6"
-    glob: "npm:^11.0.1"
+    glob: "npm:^11.0.2"
     ts-command-line-args: "npm:^2.5.1"
   bin:
     noir-codegen: lib/main.js
@@ -983,13 +982,13 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.6
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=354553&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=6efb87&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.6"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.6"
     "@aztec/noir-types": "npm:1.0.0-beta.6"
     pako: "npm:^2.1.0"
-  checksum: 10/7ed4c3721b60d1a88775e9f0892103164ab6de1828dca033225a48f4f1fde2e39a1b33aad66320fb9182b8aa3df146a416214443dfc657039266f1030cbc7af6
+  checksum: 10/11f477af9793d63309e2e107ce774e266257910f56511935d16cd11cf6263ecf6d95097bd7f15b7a5f83fb85a0fea3352e11172e0191fc7ce221d90e80b903f0
   languageName: node
   linkType: hard
 
@@ -1078,6 +1077,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
@@ -1106,6 +1106,7 @@ __metadata:
     "@multiformats/multiaddr": "npm:12.1.14"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^22.15.17"
+    abortable-iterator: "npm:^5.1.0"
     get-port: "npm:^7.1.0"
     interface-datastore: "npm:^8.2.11"
     interface-store: "npm:^5.1.8"
@@ -1193,6 +1194,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
@@ -1504,6 +1506,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/p2p": "workspace:^"
+    "@aztec/slasher": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
@@ -6403,13 +6406,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/pidusage@npm:^2.0.5":
-  version: 2.0.5
-  resolution: "@types/pidusage@npm:2.0.5"
-  checksum: 10/24188bf108b9b5a2ccb16155a492ff1cca7d7bf07aa4e2649cce421e0940dd5b0cd06baa48da9b8bde46343463fc500a7070c0788a0ed3f3f57d3e3bcf4ac64d
-  languageName: node
-  linkType: hard
-
 "@types/qs@npm:*":
   version: 6.9.15
   resolution: "@types/qs@npm:6.9.15"
@@ -7388,6 +7384,16 @@ __metadata:
     get-iterator: "npm:^2.0.0"
     it-stream-types: "npm:^2.0.1"
   checksum: 10/05b9e2601ae4e03ea2038f55013b8dfa074f3c7fa898cbc996107f99098b4c8338c8efececa36a953ef75cd8e4af7859b152d98c14b4472a6c79307fe94d369e
+  languageName: node
+  linkType: hard
+
+"abortable-iterator@npm:^5.1.0":
+  version: 5.1.0
+  resolution: "abortable-iterator@npm:5.1.0"
+  dependencies:
+    get-iterator: "npm:^2.0.0"
+    it-stream-types: "npm:^2.0.1"
+  checksum: 10/5d7d255f5314ac485ae7c8bd64e4cb035f2198038990bfd10b6d1a3e7aa8b4b5409baf67819f7190cb045db5438518249776f49c6d328c85528ede1b1e8f4581
   languageName: node
   linkType: hard
 
@@ -13014,7 +13020,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:^11.0.1":
+"glob@npm:^11.0.2":
   version: 11.0.2
   resolution: "glob@npm:11.0.2"
   dependencies:
@@ -18430,15 +18436,6 @@ __metadata:
   version: 4.0.2
   resolution: "picomatch@npm:4.0.2"
   checksum: 10/ce617b8da36797d09c0baacb96ca8a44460452c89362d7cb8f70ca46b4158ba8bc3606912de7c818eb4a939f7f9015cef3c766ec8a0c6bfc725fdc078e39c717
-  languageName: node
-  linkType: hard
-
-"pidusage@npm:^4.0.1":
-  version: 4.0.1
-  resolution: "pidusage@npm:4.0.1"
-  dependencies:
-    safe-buffer: "npm:^5.2.1"
-  checksum: 10/ce791293a32c3c9a89ffe1033d0fd132606278adc68cbfd24c201562edec1b8fdc6df86e89fda1e0f9be7906449cc6173aaade7853c6dec22080258bc694e548
   languageName: node
   linkType: hard
 

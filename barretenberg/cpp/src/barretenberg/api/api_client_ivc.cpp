@@ -60,30 +60,28 @@ void write_standalone_vk(const std::string& output_data_type,
 
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
     std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
-    ClientIVC::MegaProver prover{ proving_key };
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
     PubInputsProofAndKey<ClientIVC::MegaVerificationKey> to_write{ PublicInputsVector{},
                                                                    HonkProof{},
-                                                                   std::make_shared<ClientIVC::MegaVerificationKey>(
-                                                                       prover.proving_key->proving_key) };
+                                                                   verification_key };
 
     write(to_write, output_data_type, "vk", output_path);
 }
 
-size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input_path)
+size_t get_num_public_inputs_in_circuit(const std::filesystem::path& bytecode_path)
 {
     using namespace acir_format;
-    auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
-    const PrivateExecutionStepRaw& last_step = steps.back();
-    std::vector<uint8_t> bytecode_buf(last_step.bytecode.begin(), last_step.bytecode.end());
-    const AcirFormat constraints = circuit_buf_to_acir_format(std::move(bytecode_buf));
-    return constraints.public_inputs.size();
+    acir_format::AcirProgram program{ get_constraint_system(bytecode_path), /*witness=*/{} };
+    return program.constraints.public_inputs.size();
 }
 
-void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path& output_dir)
+void write_vk_for_ivc(const std::string& output_format,
+                      size_t num_public_inputs_in_final_circuit,
+                      const std::filesystem::path& output_dir)
 {
-    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(input_path);
-    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-
+    if (output_format != "bytes") {
+        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
+    }
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
@@ -109,6 +107,15 @@ void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path
     } else {
         write_file(output_dir / "vk", buf);
     }
+}
+
+void write_vk_for_ivc(const std::string& output_data_type,
+                      const std::string& bytecode_path,
+                      const std::filesystem::path& output_dir)
+{
+    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_circuit(bytecode_path);
+    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
+    write_vk_for_ivc(output_data_type, num_public_inputs_in_final_circuit, output_dir);
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
@@ -148,7 +155,8 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_vk_for_ivc(input_path, output_dir);
+        const size_t num_public_inputs_in_final_circuit = steps.folding_stack.back().constraints.public_inputs.size();
+        write_vk_for_ivc("bytes", num_public_inputs_in_final_circuit, output_dir);
     }
 }
 
@@ -210,16 +218,14 @@ bool ClientIVCAPI::check_precomputed_vks(const std::filesystem::path& input_path
     return true;
 }
 
-void ClientIVCAPI::write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path)
-{
-    write_vk_for_ivc(input_path, output_path);
-}
-
 void ClientIVCAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    if (flags.verifier_type == "standalone") {
+
+    if (flags.verifier_type == "ivc") {
+        write_vk_for_ivc(flags.output_format, bytecode_path, output_path);
+    } else if (flags.verifier_type == "standalone") {
         write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;

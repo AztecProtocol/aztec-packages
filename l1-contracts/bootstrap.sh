@@ -56,7 +56,7 @@ function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
-  if [ "$CI" -eq 0 ] || [ "${TARGET_BRANCH:-}" == "master" ]; then
+  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
     echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi
 }
@@ -408,6 +408,22 @@ function release_git_push {
   echo "Release complete ($tag_name) on branch $branch_name."
 }
 
+function coverage {
+  echo_header "l1-contracts coverage"
+  local report_type=${1:-}
+  local fancy=${2:-}
+  if [ "$report_type" = "lcov" ]; then
+    forge coverage --no-match-coverage "(test|script|mock|generated)" --report lcov
+    if [ "$fancy" = "fancy" ]; then
+      mkdir -p coverage
+      genhtml lcov.info --branch-coverage --output-dir coverage
+      python3 -m http.server --directory "coverage"
+    fi
+  else
+    forge coverage --no-match-coverage "(test|script|mock|generated)"
+  fi
+}
+
 function release {
   echo_header "l1-contracts release"
   local branch=$(dist_tag)
@@ -436,6 +452,10 @@ case "$cmd" in
   "gas_benchmark")
     shift
     gas_benchmark "$@"
+    ;;
+  "coverage")
+    shift
+    coverage "$@"
     ;;
   test|test_cmds|bench|bench_cmds|inspect|release)
     $cmd

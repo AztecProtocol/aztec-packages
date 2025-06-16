@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/ecc.hpp"
@@ -30,12 +31,15 @@
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
@@ -70,6 +74,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
+    typename S::template DefaultEventEmitter<DataCopyEvent> data_copy_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
     typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
@@ -91,9 +96,12 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
     typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
+    typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
 
-    uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
+    uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
 
+    ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
@@ -102,6 +110,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+    Alu alu(alu_emitter);
+    Sha256 sha256(execution_id_manager, sha256_compression_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
@@ -124,40 +134,53 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(
-        bytecode_manager, range_check, memory_emitter, instruction_info_db);
+    ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
 
-    Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution, merkle_db);
-    Sha256 sha256(sha256_compression_emitter);
+    MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
+    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    ContextProvider context_provider(bytecode_manager, memory_provider, calldata_hashing_provider);
+    DataCopy data_copy(execution_id_manager, data_copy_emitter);
+    Execution execution(alu,
+                        data_copy,
+                        execution_components,
+                        context_provider,
+                        instruction_info_db,
+                        execution_id_manager,
+                        execution_emitter,
+                        context_stack_emitter);
+    TxExecution tx_execution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
 
-    return { execution_emitter.dump_events(),
-             alu_emitter.dump_events(),
-             bitwise_emitter.dump_events(),
-             memory_emitter.dump_events(),
-             bytecode_retrieval_emitter.dump_events(),
-             bytecode_hashing_emitter.dump_events(),
-             bytecode_decomposition_emitter.dump_events(),
-             instruction_fetching_emitter.dump_events(),
-             address_derivation_emitter.dump_events(),
-             class_id_derivation_emitter.dump_events(),
-             siloing_emitter.dump_events(),
-             sha256_compression_emitter.dump_events(),
-             ecc_add_emitter.dump_events(),
-             scalar_mul_emitter.dump_events(),
-             poseidon2_hash_emitter.dump_events(),
-             poseidon2_perm_emitter.dump_events(),
-             to_radix_emitter.dump_events(),
-             field_gt_emitter.dump_events(),
-             merkle_check_emitter.dump_events(),
-             range_check_emitter.dump_events(),
-             context_stack_emitter.dump_events(),
-             public_data_tree_check_emitter.dump_events(),
-             update_check_emitter.dump_events(),
-             nullifier_tree_check_emitter.dump_events() };
+    return {
+        tx_event_emitter.dump_events(),
+        execution_emitter.dump_events(),
+        alu_emitter.dump_events(),
+        bitwise_emitter.dump_events(),
+        memory_emitter.dump_events(),
+        bytecode_retrieval_emitter.dump_events(),
+        bytecode_hashing_emitter.dump_events(),
+        bytecode_decomposition_emitter.dump_events(),
+        instruction_fetching_emitter.dump_events(),
+        address_derivation_emitter.dump_events(),
+        class_id_derivation_emitter.dump_events(),
+        siloing_emitter.dump_events(),
+        sha256_compression_emitter.dump_events(),
+        ecc_add_emitter.dump_events(),
+        scalar_mul_emitter.dump_events(),
+        poseidon2_hash_emitter.dump_events(),
+        poseidon2_perm_emitter.dump_events(),
+        to_radix_emitter.dump_events(),
+        field_gt_emitter.dump_events(),
+        merkle_check_emitter.dump_events(),
+        range_check_emitter.dump_events(),
+        context_stack_emitter.dump_events(),
+        public_data_tree_check_emitter.dump_events(),
+        update_check_emitter.dump_events(),
+        nullifier_tree_check_emitter.dump_events(),
+        data_copy_emitter.dump_events(),
+        calldata_emitter.dump_events(),
+    };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

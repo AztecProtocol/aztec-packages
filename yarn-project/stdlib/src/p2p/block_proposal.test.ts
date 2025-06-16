@@ -1,7 +1,6 @@
 // Serde test for the block proposal type
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { makeBlockProposal } from '../tests/mocks.js';
@@ -11,7 +10,7 @@ import { ConsensusPayload } from './consensus_payload.js';
 
 class BackwardsCompatibleBlockProposal extends BlockProposal {
   constructor(payload: ConsensusPayload, signature: Signature) {
-    super(new Fr(1), payload, signature, undefined);
+    super(1, payload, signature, undefined);
   }
 
   oldToBuffer(): Buffer {
@@ -20,7 +19,7 @@ class BackwardsCompatibleBlockProposal extends BlockProposal {
 
   static oldFromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
-    return new BlockProposal(reader.readObject(Fr), reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockProposal(reader.readNumber(), reader.readObject(ConsensusPayload), reader.readObject(Signature));
   }
 }
 

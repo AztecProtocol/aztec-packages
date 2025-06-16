@@ -53,9 +53,9 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     void prove_and_verify(auto& circuit_builder, bool expected_result)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
-        Prover prover(proving_key);
-        auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover(proving_key, verification_key);
+        auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto ipa_verification_key =
                 std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
@@ -93,8 +93,8 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
  * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
  * - Proof length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
  * - ultra_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, various main.nr files of programs
- * with recursive verification circuits
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
  * - Places that define SIZE_OF_PROOF_IF_LOGN_IS_28
  */
 TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
@@ -105,13 +105,34 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    UltraProver_<Flavor> prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof ultra_proof = prover.construct_proof();
     size_t expected_proof_length = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE;
     if (HasIPAAccumulator<Flavor>) {
         expected_proof_length += IPA_CLAIM_SIZE;
     }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
+}
+
+/**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - ultra_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
+ */
+TYPED_TEST(UltraHonkTests, UltraVKSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**
@@ -127,7 +148,8 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
-    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
     auto& polynomials = proving_key->proving_key.polynomials;
 
@@ -277,9 +299,9 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     };
 
     auto prove_and_verify = [](auto& proving_key) {
-        typename TestFixture::Prover prover(proving_key);
-        auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        typename TestFixture::Prover prover(proving_key, verification_key);
+        auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {
             auto ipa_verification_key =
                 std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);

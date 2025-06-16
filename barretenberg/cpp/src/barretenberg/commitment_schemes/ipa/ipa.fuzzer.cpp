@@ -16,7 +16,7 @@ namespace bb {
 // We actually only use 4, because fuzzing is very slow
 constexpr size_t COMMITMENT_TEST_NUM_POINTS = 32;
 using Curve = curve::Grumpkin;
-std::shared_ptr<CommitmentKey<Curve>> ck;
+CommitmentKey<Curve> ck;
 std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 /**
  * @brief Class that allows us to call internal IPA methods, because it's friendly
@@ -25,7 +25,7 @@ std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(const std::shared_ptr<CommitmentKey<Curve>>& ck,
+    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
@@ -50,7 +50,7 @@ using namespace bb;
 extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
     srs::init_file_crs_factory(srs::bb_crs_path());
-    ck = std::make_shared<CommitmentKey<Curve>>(COMMITMENT_TEST_NUM_POINTS);
+    ck = CommitmentKey<Curve>(COMMITMENT_TEST_NUM_POINTS);
     vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS);
 }
 
@@ -148,7 +148,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
         x.self_from_montgomery_form();
     }
     auto const opening_pair = OpeningPair<Curve>{ x, poly.evaluate(x) };
-    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck->commit(poly) };
+    auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck.commit(poly) };
     ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript);
 
     // Reset challenge indices

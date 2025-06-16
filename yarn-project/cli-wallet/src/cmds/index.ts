@@ -328,7 +328,7 @@ export function injectCommands(
       log,
     );
     if (db && sentTx) {
-      const txAlias = alias ? alias : `${functionName}-${sentTx.nonce.toString().slice(-4)}`;
+      const txAlias = alias ? alias : `${functionName}-${sentTx.txNonce.toString().slice(-4)}`;
       await db.storeTx(sentTx, log, txAlias);
     }
   });

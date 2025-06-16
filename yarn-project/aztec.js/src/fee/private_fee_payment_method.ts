@@ -85,13 +85,13 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
     const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
-    const nonce = Fr.random();
+    const txNonce = Fr.random();
 
     const witness = await this.wallet.createAuthWit({
       caller: this.paymentContract,
       action: {
         name: 'transfer_to_public',
-        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, nonce],
+        args: [this.wallet.getAddress().toField(), this.paymentContract.toField(), maxFee, txNonce],
         selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
         type: FunctionType.PRIVATE,
         isStatic: false,
@@ -108,7 +108,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
           selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
           type: FunctionType.PRIVATE,
           isStatic: false,
-          args: [maxFee, nonce],
+          args: [maxFee, txNonce],
           returnTypes: [],
         },
       ],

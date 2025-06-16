@@ -27,6 +27,7 @@ import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {FakeRollup} from "../governance/TestPayloads.sol";
 import {RegisterNewRollupVersionPayload} from "./RegisterNewRollupVersionPayload.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
+import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 
 contract BadRollup {
   IGSE public immutable gse;
@@ -46,6 +47,7 @@ contract BadRollup {
 
 contract AddRollupTest is TestBase {
   using ProposalLib for DataStructures.Proposal;
+  using stdStorage for StdStorage;
 
   IMintableERC20 internal token;
   Registry internal registry;
@@ -65,8 +67,10 @@ contract AddRollupTest is TestBase {
   address internal constant EMPEROR = address(uint160(bytes20("EMPEROR")));
 
   function setUp() external {
-    vm.warp(1000);
-    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10);
+    // We need to make a timejump that is far enough that we can go at least 2 epochs in the past
+    vm.warp(100000);
+    RollupBuilder builder = new RollupBuilder(address(this)).setGovProposerN(7).setGovProposerM(10)
+      .setEntryQueueFlushSizeMin(VALIDATOR_COUNT * 2).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -86,7 +90,7 @@ contract AddRollupTest is TestBase {
     }
 
     MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    token.mint(address(multiAdder), rollup.getMinimumStake() * VALIDATOR_COUNT);
+    token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
     registry.updateGovernance(address(governance));
@@ -140,12 +144,18 @@ contract AddRollupTest is TestBase {
       // is > 1/3, such that it cannot pass.
       uint256 val = 1;
 
-      while (gse.supplyOf(gse.getCanonical()) < gse.totalSupply() / 3) {
-        token.mint(address(this), rollup.getMinimumStake());
-        token.approve(address(rollup), rollup.getMinimumStake());
+      // We need 1/3 of the total supply to be off canonical
+      // So we add 1/2 of the initial supply to the specific instance
+      // The result is that 1/3 of the new total supply is off canonical
+      uint256 validatorsNeeded = (gse.totalSupply() / 2) / rollup.getDepositAmount() + 1;
+
+      while (val <= validatorsNeeded) {
+        token.mint(address(this), rollup.getDepositAmount());
+        token.approve(address(rollup), rollup.getDepositAmount());
         rollup.deposit(address(uint160(val)), address(this), false);
         val++;
       }
+      rollup.flushEntryQueue();
 
       // While Errors.GovernanceProposer__GSEPayloadInvalid.selector is the error, we are catching it
       // So the expected error is that the call failed and the address of it.

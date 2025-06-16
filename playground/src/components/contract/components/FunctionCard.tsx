@@ -152,9 +152,11 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
             return { ...step, subtotal: acc };
           });
 
+          const totalRPCCalls = Object.values(profileResult.stats.nodeRPCCalls ?? {}).reduce((acc, calls) => acc + calls.times.length, 0);
+
           setProfileResults({
             ...profileResults,
-            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest } },
+            ...{ [name]: { success: true, ...profileResult, executionSteps, biggest, totalRPCCalls } },
           });
         } catch (e) {
           console.error(e);
@@ -311,23 +313,26 @@ export function FunctionCard({ fn, contract, contractArtifact, onSendTxRequested
                         </Typography>
                       </Typography>
                       <Typography variant="caption">
-                        Sync time: {profileResults[fn.name].timings.sync?.toFixed(2)}ms
+                        Sync time: {profileResults[fn.name].stats.timings.sync?.toFixed(2)}ms
                       </Typography>
                       <Typography variant="caption">
                         Total simulation time:{' '}
-                        {profileResults[fn.name].timings.perFunction
+                        {profileResults[fn.name].stats.timings.perFunction
                           .reduce((acc, { time }) => acc + time, 0)
                           .toFixed(2)}
                         ms
                       </Typography>
                       <Typography variant="caption">
-                        Proving time: {profileResults[fn.name].timings.proving?.toFixed(2)}ms
+                        Proving time: {profileResults[fn.name].stats.timings.proving?.toFixed(2)}ms
                       </Typography>
                       <Typography variant="caption">
-                        Total time: {profileResults[fn.name].timings.total.toFixed(2)}ms
+                        Total time: {profileResults[fn.name].stats.timings.total.toFixed(2)}ms
                         <Typography variant="caption" sx={{ color: 'grey', fontSize: '0.6rem', marginLeft: '0.5rem' }}>
-                          ({profileResults[fn.name].timings.unaccounted.toFixed(2)}ms unaccounted)
+                          ({profileResults[fn.name].stats.timings.unaccounted.toFixed(2)}ms unaccounted)
                         </Typography>
+                      </Typography>
+                      <Typography variant="caption">
+                        Total RPC calls: {profileResults[fn.name].totalRPCCalls}
                       </Typography>
                     </Box>
                     <Box sx={{ margin: '0.5rem', fontSize: '0.8rem' }}>

@@ -12,6 +12,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_recursive_flavor.hpp"
 #include <utility>
 
 namespace bb::stdlib::recursion::honk {
@@ -49,15 +50,14 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    FF circuit_size = verification_key->verification_key->circuit_size;
-    FF public_input_size = verification_key->verification_key->num_public_inputs;
-    FF pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
-    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
-    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
+    verification_key->verification_key->add_to_transcript(domain_separator, transcript);
+    auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
+    vinfo("vkey hash in Oink recursive verifier: ", vkey_hash);
 
+    size_t num_public_inputs =
+        static_cast<size_t>(static_cast<uint32_t>(verification_key->verification_key->num_public_inputs.get_value()));
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < static_cast<size_t>(static_cast<uint32_t>(public_input_size.get_value())); ++i) {
+    for (size_t i = 0; i < num_public_inputs; ++i) {
         public_inputs.emplace_back(
             transcript->template receive_from_prover<FF>(domain_separator + "public_input_" + std::to_string(i)));
     }
@@ -109,7 +109,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         public_inputs,
         beta,
         gamma,
-        circuit_size,
+        verification_key->verification_key->circuit_size,
         static_cast<uint32_t>(verification_key->verification_key->pub_inputs_offset.get_value()));
 
     // Get commitment to permutation and lookup grand products
@@ -136,4 +136,6 @@ template class OinkRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilde
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class OinkRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

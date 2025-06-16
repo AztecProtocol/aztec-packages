@@ -7,10 +7,9 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { PublicDataWrite } from '@aztec/stdlib/avm';
@@ -27,7 +26,12 @@ import {
   ScopedLogHash,
 } from '@aztec/stdlib/kernel';
 import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
-import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  CountedL2ToL1Message,
+  L2ToL1Message,
+  ScopedCountedL2ToL1Message,
+  ScopedL2ToL1Message,
+} from '@aztec/stdlib/messaging';
 import {
   AppendOnlyTreeSnapshot,
   type NullifierLeafPreimage,
@@ -39,7 +43,6 @@ import {
   ContentCommitment,
   GlobalVariables,
   MaxBlockNumber,
-  NUM_BYTES_PER_SHA256,
   PartialStateReference,
   StateReference,
   TxContext,
@@ -51,7 +54,6 @@ import type {
   BlockHeader as BlockHeaderNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
-  Field,
   FixedLengthArray,
   FunctionSelector as FunctionSelectorNoir,
   GasFees as GasFeesNoir,
@@ -79,7 +81,6 @@ import type {
   PublicDataWrite as PublicDataWriteNoir,
   PublicLog as PublicLogNoir,
   Scoped,
-  ScopedL2ToL1Message as ScopedL2ToL1MessageNoir,
   StateReference as StateReferenceNoir,
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
@@ -104,6 +105,24 @@ export function mapFieldToNoir(field: Fr): NoirField {
  */
 export function mapFieldFromNoir(field: NoirField): Fr {
   return Fr.fromHexString(field);
+}
+
+/**
+ * Maps a bigint to a noir field.
+ * @param bigInt - The bigint.
+ * @returns The noir field.
+ */
+export function mapBigIntToNoir(bigInt: bigint): NoirField {
+  return new Fr(bigInt).toString();
+}
+
+/**
+ * Maps a noir field to a bigint.
+ * @param field - The noir field.
+ * @returns The bigint.
+ */
+export function mapBigIntFromNoir(field: NoirField): bigint {
+  return Fr.fromHexString(field).toBigInt();
 }
 
 /** Maps a field to a noir wrapped field type (ie any type implemented as struct with an inner Field). */
@@ -246,13 +265,13 @@ export function mapGasSettingsToNoir(gasSettings: GasSettings): GasSettingsNoir 
 
 export function mapGasFeesToNoir(gasFees: GasFees): GasFeesNoir {
   return {
-    fee_per_da_gas: mapFieldToNoir(gasFees.feePerDaGas),
-    fee_per_l2_gas: mapFieldToNoir(gasFees.feePerL2Gas),
+    fee_per_da_gas: mapBigIntToNoir(gasFees.feePerDaGas),
+    fee_per_l2_gas: mapBigIntToNoir(gasFees.feePerL2Gas),
   };
 }
 
 export function mapGasFeesFromNoir(gasFees: GasFeesNoir): GasFees {
-  return new GasFees(mapFieldFromNoir(gasFees.fee_per_da_gas), mapFieldFromNoir(gasFees.fee_per_l2_gas));
+  return new GasFees(mapBigIntFromNoir(gasFees.fee_per_da_gas), mapBigIntFromNoir(gasFees.fee_per_l2_gas));
 }
 
 export function mapPrivateLogToNoir(log: PrivateLog): LogNoir<typeof PRIVATE_LOG_SIZE_IN_FIELDS> {
@@ -349,10 +368,9 @@ export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot
  */
 export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment): ContentCommitmentNoir {
   return {
-    num_txs: mapFieldToNoir(contentCommitment.numTxs),
-    blobs_hash: mapSha256HashToNoir(contentCommitment.blobsHash),
-    in_hash: mapSha256HashToNoir(contentCommitment.inHash),
-    out_hash: mapSha256HashToNoir(contentCommitment.outHash),
+    blobs_hash: mapFieldToNoir(contentCommitment.blobsHash),
+    in_hash: mapFieldToNoir(contentCommitment.inHash),
+    out_hash: mapFieldToNoir(contentCommitment.outHash),
   };
 }
 
@@ -362,10 +380,9 @@ export function mapContentCommitmentToNoir(contentCommitment: ContentCommitment)
  */
 export function mapContentCommitmentFromNoir(contentCommitment: ContentCommitmentNoir): ContentCommitment {
   return new ContentCommitment(
-    mapFieldFromNoir(contentCommitment.num_txs),
-    mapSha256HashFromNoir(contentCommitment.blobs_hash),
-    mapSha256HashFromNoir(contentCommitment.in_hash),
-    mapSha256HashFromNoir(contentCommitment.out_hash),
+    mapFieldFromNoir(contentCommitment.blobs_hash),
+    mapFieldFromNoir(contentCommitment.in_hash),
+    mapFieldFromNoir(contentCommitment.out_hash),
   );
 }
 
@@ -401,24 +418,6 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-/**
- * Maps a SHA256 hash from noir to the parsed type.
- * @param hash - The hash as it is represented in Noir (1 fields).
- * @returns The hash represented as a 31 bytes long buffer.
- */
-export function mapSha256HashFromNoir(hash: Field): Buffer {
-  return toBufferBE(mapFieldFromNoir(hash).toBigInt(), NUM_BYTES_PER_SHA256);
-}
-
-/**
- * Maps a sha256 to the representation used in noir.
- * @param hash - The hash represented as a 32 bytes long buffer.
- * @returns The hash as it is represented in Noir (1 field, truncated).
- */
-export function mapSha256HashToNoir(hash: Buffer): Field {
-  return mapFieldToNoir(toTruncField(hash));
-}
-
 export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
   return {
     _is_some: option.isSome,
@@ -434,13 +433,13 @@ export function mapMaxBlockNumberToNoir(maxBlockNumber: MaxBlockNumber): MaxBloc
   return {
     _opt: {
       _is_some: maxBlockNumber.isSome,
-      _value: mapFieldToNoir(maxBlockNumber.value),
+      _value: mapNumberToNoir(maxBlockNumber.value),
     },
   };
 }
 
 export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): MaxBlockNumber {
-  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapFieldFromNoir(maxBlockNumber._opt._value));
+  return new MaxBlockNumber(maxBlockNumber._opt._is_some, mapNumberFromNoir(maxBlockNumber._opt._value));
 }
 
 /**
@@ -448,25 +447,54 @@ export function mapMaxBlockNumberFromNoir(maxBlockNumber: MaxBlockNumberNoir): M
  * @param message - The L2 to L1 message.
  * @returns The noir L2 to L1 message.
  */
-export function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
+function mapL2ToL1MessageToNoir(message: L2ToL1Message): L2ToL1MessageNoir {
   return {
     recipient: mapEthAddressToNoir(message.recipient),
     content: mapFieldToNoir(message.content),
+  };
+}
+
+function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
+  return new L2ToL1Message(mapEthAddressFromNoir(message.recipient), mapFieldFromNoir(message.content));
+}
+
+export function mapCountedL2ToL1MessageToNoir(message: CountedL2ToL1Message): Counted<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
     counter: mapNumberToNoir(message.counter),
   };
 }
 
-export function mapL2ToL1MessageFromNoir(message: L2ToL1MessageNoir) {
-  return new L2ToL1Message(
-    mapEthAddressFromNoir(message.recipient),
-    mapFieldFromNoir(message.content),
-    mapNumberFromNoir(message.counter),
+function mapCountedL2ToL1MessageFromNoir(message: Counted<L2ToL1MessageNoir>) {
+  return new CountedL2ToL1Message(mapL2ToL1MessageFromNoir(message.inner), mapNumberFromNoir(message.counter));
+}
+
+export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): Scoped<L2ToL1MessageNoir> {
+  return {
+    inner: mapL2ToL1MessageToNoir(message.message),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedL2ToL1MessageFromNoir(message: Scoped<L2ToL1MessageNoir>) {
+  return new ScopedL2ToL1Message(
+    mapL2ToL1MessageFromNoir(message.inner),
+    mapAztecAddressFromNoir(message.contract_address),
   );
 }
 
-export function mapScopedL2ToL1MessageFromNoir(message: ScopedL2ToL1MessageNoir) {
-  return new ScopedL2ToL1Message(
-    mapL2ToL1MessageFromNoir(message.message),
+export function mapScopedCountedL2ToL1MessageToNoir(
+  message: ScopedCountedL2ToL1Message,
+): Scoped<Counted<L2ToL1MessageNoir>> {
+  return {
+    inner: mapCountedL2ToL1MessageToNoir(message.inner),
+    contract_address: mapAztecAddressToNoir(message.contractAddress),
+  };
+}
+
+export function mapScopedCountedL2ToL1MessageFromNoir(message: Scoped<Counted<L2ToL1MessageNoir>>) {
+  return new ScopedCountedL2ToL1Message(
+    mapCountedL2ToL1MessageFromNoir(message.inner),
     mapAztecAddressFromNoir(message.contract_address),
   );
 }
@@ -519,13 +547,6 @@ export function mapPublicCallRequestArrayLengthsToNoir(
   };
 }
 
-export function mapScopedL2ToL1MessageToNoir(message: ScopedL2ToL1Message): ScopedL2ToL1MessageNoir {
-  return {
-    message: mapL2ToL1MessageToNoir(message.message),
-    contract_address: mapAztecAddressToNoir(message.contractAddress),
-  };
-}
-
 export function mapVerificationKeyToNoir<N extends number>(
   key: VerificationKeyAsFields,
   length: N,
@@ -556,9 +577,9 @@ export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): Glob
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
     version: mapFieldToNoir(globalVariables.version),
-    block_number: mapFieldToNoir(globalVariables.blockNumber),
+    block_number: mapNumberToNoir(globalVariables.blockNumber),
     slot_number: mapFieldToNoir(globalVariables.slotNumber),
-    timestamp: mapFieldToNoir(globalVariables.timestamp),
+    timestamp: mapBigIntToNoir(globalVariables.timestamp),
     coinbase: mapEthAddressToNoir(globalVariables.coinbase),
     fee_recipient: mapAztecAddressToNoir(globalVariables.feeRecipient),
     gas_fees: mapGasFeesToNoir(globalVariables.gasFees),
@@ -574,9 +595,9 @@ export function mapGlobalVariablesFromNoir(globalVariables: GlobalVariablesNoir)
   return new GlobalVariables(
     mapFieldFromNoir(globalVariables.chain_id),
     mapFieldFromNoir(globalVariables.version),
-    mapFieldFromNoir(globalVariables.block_number),
+    mapNumberFromNoir(globalVariables.block_number),
     mapFieldFromNoir(globalVariables.slot_number),
-    mapFieldFromNoir(globalVariables.timestamp),
+    mapBigIntFromNoir(globalVariables.timestamp),
     mapEthAddressFromNoir(globalVariables.coinbase),
     mapAztecAddressFromNoir(globalVariables.fee_recipient),
     mapGasFeesFromNoir(globalVariables.gas_fees),

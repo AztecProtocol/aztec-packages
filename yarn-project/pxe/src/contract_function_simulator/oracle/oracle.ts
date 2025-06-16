@@ -4,17 +4,20 @@ import {
   type ACVMField,
   arrayOfArraysToBoundedVecOfArrays,
   bufferToBoundedVec,
-  fromBoundedVec,
   fromUintArray,
   fromUintBoundedVec,
   toACVMField,
   toACVMFieldSingleOrArray,
 } from '@aztec/simulator/client';
-import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractClassLog, ContractClassLogFields, PublicLogWithTxData } from '@aztec/stdlib/logs';
+import {
+  ContractClassLog,
+  ContractClassLogFields,
+  PrivateLogWithTxData,
+  PublicLogWithTxData,
+} from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { TxHash } from '@aztec/stdlib/tx';
 
 import type { TypedOracle } from './typed_oracle.js';
 
@@ -220,15 +223,15 @@ export class Oracle {
     }
 
     // The expected return type is a BoundedVec<[Field; packedRetrievedNoteLength], maxNotes> where each
-    // array is structured as [contract_address, nonce, nonzero_note_hash_counter, ...packed_note].
+    // array is structured as [contract_address, note_nonce, nonzero_note_hash_counter, ...packed_note].
 
-    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, nonce, index, note }) => {
+    const returnDataAsArrayOfArrays = noteDatas.map(({ contractAddress, noteNonce, index, note }) => {
       // If index is undefined, the note is transient which implies that the nonzero_note_hash_counter has to be true
       const noteIsTransient = index === undefined;
       const nonzeroNoteHashCounter = noteIsTransient ? true : false;
       // If you change the array on the next line you have to change the `unpack_retrieved_note` function in
       // `aztec/src/note/retrieved_note.nr`
-      return [contractAddress, nonce, nonzeroNoteHashCounter, ...note.items];
+      return [contractAddress, noteNonce, nonzeroNoteHashCounter, ...note.items];
     });
 
     // Now we convert each sub-array to an array of ACVMField
@@ -402,13 +405,15 @@ export class Oracle {
     return [];
   }
 
-  async validateEnqueuedNotes(
+  async validateEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
-    [notePendingValidationArrayBaseSlot]: ACVMField[],
+    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
   ): Promise<ACVMField[]> {
-    await this.typedOracle.validateEnqueuedNotes(
+    await this.typedOracle.validateEnqueuedNotesAndEvents(
       AztecAddress.fromString(contractAddress),
-      Fr.fromString(notePendingValidationArrayBaseSlot),
+      Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(eventValidationRequestsArrayBaseSlot),
     );
 
     return [];
@@ -419,6 +424,16 @@ export class Oracle {
 
     if (log == null) {
       return [toACVMField(0), ...PublicLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
+    } else {
+      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
+    }
+  }
+
+  async getPrivateLogByTag([siloedTag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
+    const log = await this.typedOracle.getPrivateLogByTag(Fr.fromString(siloedTag));
+
+    if (log == null) {
+      return [toACVMField(0), ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
     } else {
       return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
     }
@@ -501,24 +516,10 @@ export class Oracle {
     return secret.toFields().map(toACVMField);
   }
 
-  async storePrivateEventLog(
-    [contractAddress]: ACVMField[],
-    [recipient]: ACVMField[],
-    [eventSelector]: ACVMField[],
-    msgContentBVecStorage: ACVMField[],
-    [msgContentLength]: ACVMField[],
-    [txHash]: ACVMField[],
-    [logIndexInTx]: ACVMField[],
-    [txIndexInBlock]: ACVMField[],
-  ) {
-    await this.typedOracle.storePrivateEventLog(
-      AztecAddress.fromField(Fr.fromString(contractAddress)),
+  async emitOffchainMessage(message: ACVMField[], [recipient]: ACVMField[]) {
+    await this.typedOracle.emitOffchainMessage(
+      message.map(Fr.fromString),
       AztecAddress.fromField(Fr.fromString(recipient)),
-      EventSelector.fromField(Fr.fromString(eventSelector)),
-      fromBoundedVec(msgContentBVecStorage, msgContentLength),
-      new TxHash(Fr.fromString(txHash)),
-      Fr.fromString(logIndexInTx).toNumber(),
-      Fr.fromString(txIndexInBlock).toNumber(),
     );
     return [];
   }

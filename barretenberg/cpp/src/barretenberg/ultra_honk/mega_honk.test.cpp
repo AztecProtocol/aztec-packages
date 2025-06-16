@@ -40,8 +40,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     bool construct_and_verify_honk_proof(auto& builder)
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        Prover prover(proving_key);
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -62,8 +62,8 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
 
-        Prover prover(proving_key);
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover(proving_key, verification_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -106,9 +106,31 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
 
     // Construct a mega proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    UltraProver_<Flavor> prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    UltraProver_<Flavor> prover(proving_key, verification_key);
     HonkProof mega_proof = prover.construct_proof();
     EXPECT_EQ(mega_proof.size(), Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + PAIRING_POINTS_SIZE);
+}
+
+/**
+ * @brief Check that size of a ultra honk proof matches the corresponding constant
+ * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
+ * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
+ * - ultra_transcript.test.cpp
+ * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
+ * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
+ */
+TYPED_TEST(MegaHonkTests, MegaVKSizeCheck)
+{
+    using Flavor = TypeParam;
+
+    auto builder = typename Flavor::CircuitBuilder{};
+    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+
+    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
+    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**
@@ -171,8 +193,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     // Construct and verify Honk proof using a structured trace
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
-    Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
@@ -219,11 +241,11 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1158)
     // proving_key_copy->proving_key.circuit_size = doubled_circuit_size;
 
-    Prover prover(proving_key);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
 
-    Prover prover_copy(proving_key_copy);
     auto verification_key_copy = std::make_shared<typename Flavor::VerificationKey>(proving_key_copy->proving_key);
+    Prover prover_copy(proving_key_copy, verification_key_copy);
 
     for (auto [entry, entry_copy] : zip_view(verification_key->get_all(), verification_key_copy->get_all())) {
         EXPECT_EQ(entry, entry_copy);
@@ -448,16 +470,16 @@ TYPED_TEST(MegaHonkTests, PolySwap)
     std::swap(proving_key_1->proving_key.polynomials, proving_key_2->proving_key.polynomials);
 
     { // Verification based on pkey 1 should succeed
-        typename TestFixture::Prover prover(proving_key_1);
         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->proving_key);
+        typename TestFixture::Prover prover(proving_key_1, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         EXPECT_TRUE(verifier.verify_proof(proof));
     }
 
     { // Verification based on pkey 2 should fail
-        typename TestFixture::Prover prover(proving_key_2);
         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->proving_key);
+        typename TestFixture::Prover prover(proving_key_2, verification_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         EXPECT_FALSE(verifier.verify_proof(proof));

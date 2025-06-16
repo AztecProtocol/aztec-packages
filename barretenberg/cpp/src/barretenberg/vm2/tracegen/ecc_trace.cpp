@@ -59,6 +59,8 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
         bool result_is_infinity = infinity_predicate && (!p.is_infinity() && !q.is_infinity());
         result_is_infinity = result_is_infinity || (p.is_infinity() && q.is_infinity());
 
+        bool use_computed_result = !infinity_predicate && (!p.is_infinity() && !q.is_infinity());
+
         assert(result_is_infinity == result.is_infinity() && "Inconsistent infinity result assumption");
 
         FF lambda = compute_lambda(double_predicate, add_predicate, result_is_infinity, p, q);
@@ -78,6 +80,9 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
                       { C::ecc_r_x, result.x() },
                       { C::ecc_r_y, result.y() },
                       { C::ecc_r_is_inf, result.is_infinity() },
+
+                      // Temporary result boolean to decrease relation degree
+                      { C::ecc_use_computed_result, use_computed_result },
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },

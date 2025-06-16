@@ -1,10 +1,13 @@
+import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
+import { map, sort, toArray } from '@aztec/foundation/iterable';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MaxBlockNumber, Tx, type TxValidationResult } from '@aztec/stdlib/tx';
+import { MaxBlockNumber, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ArchiveCache, GasTxValidator } from '../../msg_validators/index.js';
@@ -15,6 +18,8 @@ describe('KV TX pool', () => {
   let txPool: TestAztecKVTxPool;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
+  let nextTxSeed: number;
+  let mockTxSize: number;
 
   const checkPendingTxConsistency = async () => {
     const pendingTxHashCount = await txPool.getPendingTxHashes().then(h => h.length);
@@ -22,6 +27,9 @@ describe('KV TX pool', () => {
   };
 
   beforeEach(async () => {
+    nextTxSeed = 1;
+    mockTxSize = 100;
+
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
     worldState.getCommitted.mockReturnValue(db);
@@ -36,6 +44,12 @@ describe('KV TX pool', () => {
   afterEach(checkPendingTxConsistency);
 
   describeTxPool(() => txPool);
+
+  const mockFixedSizeTx = async (maxPriorityFeesPerGas?: GasFees) => {
+    const tx = await mockTx(nextTxSeed++, { maxPriorityFeesPerGas });
+    jest.spyOn(tx, 'getSize').mockReturnValue(mockTxSize);
+    return tx;
+  };
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
@@ -140,6 +154,62 @@ describe('KV TX pool', () => {
     ]);
   });
 
+  it('respects the overflow factor configured', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+      txPoolOverflowFactor: 1.5, // but allow it to grow up to 15, but then when it evicts, it evicts until it's left to 10
+    });
+
+    const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
+
+    const firstBatch = await timesAsync(10, () => mockFixedSizeTx());
+    await txPool.addTxs(firstBatch);
+
+    // we've just added 10 txs. They should all be availble
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(firstBatch, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    const secondBatch = await timesAsync(2, () => mockFixedSizeTx());
+    await txPool.addTxs(secondBatch);
+
+    // we've added two more txs. At this point the pool contains more txs than the limit
+    // but it still hasn't evicted anything
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map([...firstBatch, ...secondBatch], tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    const thirdBatch = await timesAsync(3, () => mockFixedSizeTx());
+    await txPool.addTxs(thirdBatch);
+
+    // add another 3 txs. The pool has reached the limit. All txs should be available still
+    // another txs would trigger evictions
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map([...firstBatch, ...secondBatch, ...thirdBatch], tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    const lastTx = await mockFixedSizeTx();
+    await txPool.addTxs([lastTx]);
+
+    // the pool should evict enough txs to stay under the size limit
+    expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
+  });
+
   it('Evicts txs with nullifiers that are already included in the mined block', async () => {
     const tx1 = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     const tx2 = await mockTx(2, { numberOfNonRevertiblePublicCallRequests: 1 });
@@ -181,11 +251,11 @@ describe('KV TX pool', () => {
 
   it('Evicts txs with a max block number lower than or equal to the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(1));
+    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 1);
     const tx2 = await mockTx(2);
-    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(2));
+    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 2);
     const tx3 = await mockTx(3);
-    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(3));
+    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 3);
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([await tx1.getTxHash()], 2);
@@ -198,7 +268,7 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
+    tx1.data.constants.historicalHeader.globalVariables.blockNumber = 1;
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {

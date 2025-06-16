@@ -1,3 +1,4 @@
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -10,7 +11,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -153,7 +154,7 @@ describe('ReqResp', () => {
   });
 
   describe('Tx req protocol', () => {
-    it('Can request a Tx from TxHash', async () => {
+    it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -179,7 +180,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(tx);
     });
 
-    it('Handle returning empty buffers', async () => {
+    it('handles returning empty buffers', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -202,7 +203,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(undefined);
     });
 
-    it('Does not crash if tx hash returns undefined', async () => {
+    it('does not crash if tx hash returns undefined', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -246,13 +247,8 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
-        `Timeout error: ${new IndividualReqRespTimeoutError().message} | peerId: ${peerId} | subProtocol: ${
-          ReqRespSubProtocol.TX
-        }`,
-        expect.objectContaining({
-          peerId: peerId,
-          subProtocol: ReqRespSubProtocol.TX,
-        }),
+        expect.stringContaining('Request to peer timed out'),
+        expect.objectContaining({ peerId, subProtocol: ReqRespSubProtocol.TX }),
       );
 
       // Expect the peer to be penalized for timing out
@@ -363,7 +359,7 @@ describe('ReqResp', () => {
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
 
-    it('should not close stream when handling a goodbye message received from peer', async () => {
+    it('should not yield any warnings when handling a goodbye message received from peer', async () => {
       nodes = await createNodes(peerScoring, 2);
       const sendingNode = nodes[0];
       const receivingNode = nodes[1];
@@ -371,27 +367,6 @@ describe('ReqResp', () => {
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Req Goodbye Handler is defined in the reqresp.ts file
       protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
-
-      // Track stream.close() calls
-      let streamCloseCallCount = 0;
-      let capturedStream: any = null;
-
-      // Spy on streamHandler to intercept the stream
-      const originalStreamHandler = (receivingNode.req as any).streamHandler.bind(receivingNode.req);
-      //eslint-disable-next-line require-await
-      (receivingNode.req as any).streamHandler = async function (protocol: ReqRespSubProtocol, data: any) {
-        capturedStream = data.stream;
-        const originalClose = data.stream.close;
-
-        //eslint-disable-next-line require-await
-        data.stream.close = jest.fn(async () => {
-          streamCloseCallCount++;
-          return originalClose.call(data.stream);
-        });
-
-        return originalStreamHandler.call(this, protocol, data);
-      };
-
       const warnSpy = jest.spyOn((receivingNode.req as any).logger, 'warn');
 
       await startNodes(nodes, protocolHandlers);
@@ -415,12 +390,6 @@ describe('ReqResp', () => {
 
       // Expect no response to be sent - we categorize as unknown
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
-
-      // Make sure when handling Goodbye we don't call stream close
-      // because it has been implicitly closed by the peer manager
-      expect(streamCloseCallCount).toBe(0);
-      expect(capturedStream).not.toBeNull();
-      expect(capturedStream.close).toHaveBeenCalledTimes(0);
 
       // make sure warn was NOT called
       expect(warnSpy).not.toHaveBeenCalled();
@@ -468,7 +437,7 @@ describe('ReqResp', () => {
       const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
       const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
 
       // Expect one request to have been sent to each peer
@@ -489,6 +458,52 @@ describe('ReqResp', () => {
       );
     });
 
+    it('should send a batch request with a pinned peer', async () => {
+      const batchSize = 9;
+      nodes = await createNodes(peerScoring, 4, {
+        // Bump rate limits so the pinned peer can respond
+        [ReqRespSubProtocol.PING]: {
+          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+        },
+      });
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
+      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
+      expect(res).toEqual(expectResponses);
+
+      // Expect pinned peer to have received all requests
+      for (let i = 0; i < batchSize; i++) {
+        expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
+          ReqRespSubProtocol.PING,
+          Buffer.from(`ping${i}`),
+        );
+      }
+
+      // Expect at least one request to have been sent to each other peer
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[2].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[3].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+    });
+
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
       nodes = await createNodes(peerScoring, 3);
@@ -506,7 +521,7 @@ describe('ReqResp', () => {
         RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
       );
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
 
       // Check that we did detect hitting a rate limit

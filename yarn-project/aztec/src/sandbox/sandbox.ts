@@ -77,10 +77,13 @@ export async function deployContractsToL1(
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      aztecTargetCommitteeSize: 0, // no committee in sandbox
+      realVerifier: false,
     },
   );
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
   return aztecNodeConfig.l1Contracts;
 }

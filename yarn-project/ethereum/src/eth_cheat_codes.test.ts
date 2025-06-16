@@ -25,7 +25,7 @@ describe('EthCheatCodes', () => {
   let logger: Logger;
   let sender: Hex;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     if (ANVIL_RPC_URL) {
       rpcUrl = ANVIL_RPC_URL;
     } else {
@@ -44,7 +44,7 @@ describe('EthCheatCodes', () => {
     sender = account.address;
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await cheatCodes?.setIntervalMining(0); // Disable interval mining
     await anvil?.stop().catch(err => logger?.error(err));
   }, 5_000);
@@ -161,16 +161,16 @@ describe('EthCheatCodes', () => {
 
     it('reorgs with blocks with serialized replacement txs', async () => {
       const token = await deployToken();
+      const initialNonce = await l1Client.getTransactionCount({ address: sender });
       await timesAsync(4, () => mint(token, 100n));
 
       await expect(token.read.balanceOf([sender])).resolves.toEqual(400n);
       await expect(getEvents(token)).resolves.toHaveLength(4);
 
       const data = encodeFunctionData({ abi: TestERC20Abi, functionName: 'mint', args: [sender, 1000n] });
-      const newTx = { data, to: token.address, from: sender, value: 0n };
-      const initialNonce = await l1Client.getTransactionCount({ address: sender });
+      const newTx = { data, to: token.address, from: sender, value: 0n, gas: 1_000_000n };
       const txs = await timesAsync(4, async i =>
-        l1Client.signTransaction(await l1Client.prepareTransactionRequest({ ...newTx, nonce: initialNonce + i })),
+        l1Client.signTransaction(await l1Client.prepareTransactionRequest({ ...newTx, nonce: initialNonce + 1 + i })),
       );
 
       const blockNumber = await getBlockNumber();
@@ -188,8 +188,7 @@ describe('EthCheatCodes', () => {
       ).resolves.toEqual([3, 0, 1]);
     });
 
-    // Requires https://github.com/foundry-rs/foundry/pull/10442
-    it.skip('reorgs with blocks with replacement txs with blobs', async () => {
+    it('reorgs with blocks with replacement txs with blobs', async () => {
       await cheatCodes.mine(5);
 
       const blobs = [new Uint8Array(131072).fill(1)];

@@ -23,7 +23,7 @@ import { promises as fs } from 'fs';
 // TODO(#12613) This means of sharing test code is not ideal.
 // eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { buildBlockWithCleanDB } from '../block_builder/light.js';
+import { buildBlockWithCleanDB } from '../block-factory/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
@@ -95,6 +95,7 @@ export class TestContext {
         bbBinaryPath: config.expectedBBPath,
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
+        numConcurrentIVCVerifiers: 2,
       };
       localProver = await createProver(bbConfig);
     }
@@ -137,6 +138,10 @@ export class TestContext {
     return blockNumber === 0 ? this.worldState.getCommitted().getInitialHeader() : this.headers.get(blockNumber);
   }
 
+  public setBlockHeader(header: BlockHeader, blockNumber: number) {
+    this.headers.set(blockNumber, header);
+  }
+
   public getPreviousBlockHeader(currentBlockNumber = this.blockNumber): BlockHeader {
     return this.getBlockHeader(currentBlockNumber - 1)!;
   }
@@ -159,7 +164,7 @@ export class TestContext {
     seedOrOpts?: Parameters<typeof makeBloatedProcessedTx>[0] | number,
   ): Promise<ProcessedTx> {
     const opts = typeof seedOrOpts === 'number' ? { seed: seedOrOpts } : seedOrOpts;
-    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber.toNumber();
+    const blockNum = (opts?.globalVariables ?? this.globalVariables).blockNumber;
     const header = this.getBlockHeader(blockNum - 1);
     const tx = await makeBloatedProcessedTx({
       header,
@@ -185,7 +190,7 @@ export class TestContext {
     makeProcessedTxOpts: (index: number) => Partial<Parameters<typeof makeBloatedProcessedTx>[0]> = () => ({}),
   ) {
     const globalVariables = typeof blockNumOrGlobals === 'number' ? makeGlobals(blockNumOrGlobals) : blockNumOrGlobals;
-    const blockNum = globalVariables.blockNumber.toNumber();
+    const blockNum = globalVariables.blockNumber;
     const db = await this.worldState.fork();
     const msgs = times(numMsgs, i => new Fr(blockNum * 100 + i));
     const txs = await timesParallel(numTxs, i =>

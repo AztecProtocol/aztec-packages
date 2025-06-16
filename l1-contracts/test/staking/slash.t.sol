@@ -8,12 +8,10 @@ import {
 } from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
-  uint256 internal DEPOSIT_AMOUNT;
   uint256 internal slashingAmount = 1;
 
   function setUp() public override {
     super.setUp();
-    DEPOSIT_AMOUNT = MINIMUM_STAKE;
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
@@ -41,6 +39,7 @@ contract SlashTest is StakingBase {
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
     _;
   }
 
@@ -98,37 +97,54 @@ contract SlashTest is StakingBase {
     // it reduce stake by amount
     // it emits {Slashed} event
 
-    for (uint256 i = 0; i < 2; i++) {
-      bool isValidating = i == 0;
-
+    for (uint256 i = 0; i < 3; i++) {
+      bool isAlive = i != 2;
       // Prepare the status and state
       AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
       assertTrue(
-        attesterView.status == (isValidating ? Status.VALIDATING : Status.LIVING), "Invalid status"
+        attesterView.status == (isAlive ? Status.VALIDATING : Status.LIVING), "Invalid status"
       );
-      assertEq(
-        staking.getActiveAttesterCount(), isValidating ? 1 : 0, "Invalid active attester count"
-      );
-      uint256 balance = isValidating ? attesterView.effectiveBalance : attesterView.exit.amount;
+      assertEq(staking.getActiveAttesterCount(), isAlive ? 1 : 0, "Invalid active attester count");
+
+      uint256 balance = isAlive ? attesterView.effectiveBalance : attesterView.exit.amount;
+      slashingAmount = isAlive ? DEPOSIT_AMOUNT / 3 : balance;
 
       vm.expectEmit(true, true, true, true, address(staking));
-      emit IStakingCore.Slashed(ATTESTER, 2);
+      emit IStakingCore.Slashed(ATTESTER, slashingAmount);
       vm.prank(SLASHER);
-      staking.slash(ATTESTER, 2);
+      staking.slash(ATTESTER, slashingAmount);
 
       attesterView = staking.getAttesterView(ATTESTER);
 
-      assertEq(attesterView.effectiveBalance, 0, "Invalid effective balance");
-      assertEq(attesterView.exit.amount, balance - 2, "Invalid exit amount");
-
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status after slash");
-      assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
+      if (i == 0) {
+        // The first round, we are still active, not slashing enough yet!
+        assertEq(
+          attesterView.effectiveBalance, balance - slashingAmount, "Invalid effective balance"
+        );
+        assertEq(attesterView.exit.amount, 0, "Invalid exit amount");
+        assertTrue(attesterView.status == Status.VALIDATING, "Invalid status after slash");
+        assertEq(staking.getActiveAttesterCount(), 1, "Invalid active attester count");
+      } else if (i == 1) {
+        // The second round, we are not longer active, but there are money left
+        assertEq(attesterView.effectiveBalance, 0, "Invalid effective balance");
+        assertEq(attesterView.exit.amount, balance - slashingAmount, "Invalid exit amount");
+        assertTrue(attesterView.status == Status.LIVING, "Invalid status after slash");
+        assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
+      } else {
+        // Fully slashed! NUKE IT.
+        assertEq(attesterView.effectiveBalance, 0, "Invalid effective balance");
+        assertEq(attesterView.exit.amount, 0, "Invalid exit amount");
+        assertTrue(attesterView.status == Status.NONE, "Invalid status after slash");
+        assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
+      }
     }
   }
 
   modifier whenAttesterIsValidatingAndStakeIsBelowMinimumStake() {
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    slashingAmount = attesterView.effectiveBalance - MINIMUM_STAKE + 1;
+    uint256 targetBalance = MINIMUM_STAKE - 1;
+
+    slashingAmount = attesterView.effectiveBalance - targetBalance;
     _;
   }
 
@@ -171,5 +187,54 @@ contract SlashTest is StakingBase {
     assertTrue(attesterView.status == Status.LIVING);
 
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
+  }
+
+  function test_SlashingMoreThanBalance() external whenCallerIsTheSlasher whenAttesterIsRegistered {
+    // it should slash only up to the available balance
+    // it emits {Slashed} event with the actual slashed amount
+
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.VALIDATING);
+    uint256 balance = attesterView.effectiveBalance;
+
+    // Try to slash more than the balance
+    uint256 amountToSlash = balance * 2;
+
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit IStakingCore.Slashed(ATTESTER, balance);
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, amountToSlash);
+
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0, "Effective balance should be 0");
+    assertEq(attesterView.exit.amount, 0, "Exit amount should be 0");
+    assertTrue(attesterView.status == Status.NONE, "Status should be NONE");
+  }
+
+  function test_SlashingMoreThanExitBalance()
+    external
+    whenCallerIsTheSlasher
+    whenAttesterIsRegistered
+    whenAttesterIsExiting
+  {
+    // it should slash only up to the available exit balance
+    // it emits {Slashed} event with the actual slashed amount
+
+    AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.EXITING);
+    uint256 exitAmount = attesterView.exit.amount;
+
+    // Try to slash more than the exit balance
+    uint256 amountToSlash = exitAmount * 2;
+
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit IStakingCore.Slashed(ATTESTER, exitAmount);
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, amountToSlash);
+
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertEq(attesterView.effectiveBalance, 0, "Effective balance should be 0");
+    assertEq(attesterView.exit.amount, 0, "Exit amount should be 0");
+    assertTrue(attesterView.status == Status.NONE, "Status should be NONE");
   }
 }

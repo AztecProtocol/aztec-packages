@@ -88,8 +88,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
             // Compute native verification key
             auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
-            UltraProver prover(proving_key); // A prerequisite for computing VK
             auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+            UltraProver prover(proving_key, honk_vk); // A prerequisite for computing VK
             auto inner_proof = prover.construct_proof();
 
             if (tamper_vk) {
@@ -185,9 +185,10 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
-        MegaProver prover(proving_key);
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        MegaProver prover(proving_key, verification_key);
 
-        return std::make_shared<ClientIVC::MegaVerificationKey>(prover.proving_key->proving_key);
+        return verification_key;
     }
 
   protected:
@@ -199,7 +200,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, MockMergeProofSize)
 {
-    ClientIVC::MergeProof merge_proof = create_dummy_merge_proof();
+    Goblin::MergeProof merge_proof = create_dummy_merge_proof();
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
 }
 

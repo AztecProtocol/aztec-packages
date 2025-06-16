@@ -21,7 +21,6 @@ const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 10;
 const SLASHING_QUORUM = 3;
 const SLASHING_ROUND_SIZE = 5;
-const SLASH_AMOUNT = 10n ** 18n;
 const AZTEC_SLOT_DURATION = 12;
 const ETHEREUM_SLOT_DURATION = 4;
 
@@ -32,6 +31,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let slashingAmount: bigint;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -50,16 +50,21 @@ describe('e2e_p2p_validators_sentinel', () => {
         sentinelEnabled: true,
         slashingQuorum: SLASHING_QUORUM,
         slashingRoundSize: SLASHING_ROUND_SIZE,
-        slashInactivityCreatePenalty: SLASH_AMOUNT,
         slashInactivityCreateTargetPercentage: 0.5,
         slashInactivitySignalTargetPercentage: 0.1,
         slashProposerRoundPollingIntervalSeconds: 1,
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
+
+    const { rollup } = await t.getContracts();
+    slashingAmount = (await rollup.getDepositAmount()) - (await rollup.getMinimumStake()) + 1n;
+    t.ctx.aztecNodeConfig.slashInactivityEnabled = true;
+    t.ctx.aztecNodeConfig.slashInactivityCreatePenalty = slashingAmount;
+    t.ctx.aztecNodeConfig.slashInactivityMaxPenalty = slashingAmount;
+
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
       t.ctx.dateProvider,
@@ -239,7 +244,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       const { attester, amount } = slashEvents[0].args;
       expect(slashEvents.length).toBe(1);
       expect(attester?.toLowerCase()).toBe(t.validators.at(-1)!.attester.toString().toLowerCase());
-      expect(amount).toBe(SLASH_AMOUNT);
+      expect(amount).toBe(slashingAmount);
     });
   });
 });

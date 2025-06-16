@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { PeerManager } from '../../peer-manager/peer_manager.js';
+import type { PeerManagerInterface } from '../../peer-manager/interface.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../interface.js';
 import type { ReqResp } from '../reqresp.js';
 
@@ -89,7 +89,7 @@ export class GoodbyeProtocolHandler {
  * @param peerManager - The peer manager.
  * @returns A resolved promise with the goodbye response.
  */
-export function reqGoodbyeHandler(peerManager: PeerManager): ReqRespSubProtocolHandler {
+export function reqGoodbyeHandler(peerManager: PeerManagerInterface): ReqRespSubProtocolHandler {
   return (peerId: PeerId, _msg: Buffer) => {
     const reason = decodeGoodbyeReason(_msg);
 
