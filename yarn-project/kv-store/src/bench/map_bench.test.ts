@@ -47,11 +47,10 @@ describe('LMDBMap benchmarks', () => {
     }
   });
 
-  const generateKeyValuePairs = (count: number) => {
-    const keys = Array.from({ length: count }, (_, i) => `key-${i}`);
-    const values = Array.from({ length: count }, (_, i) => `value-${i}`);
-    const pairs = keys.map((key, i) => ({ key: key, value: values[i] }));
-    return pairs;
+  const generateKeyValuePairs = (count: number, offset = 0) => {
+    const keys = Array.from({ length: count }, (_, i) => `key-${i + offset}`);
+    const values = Array.from({ length: count }, (_, i) => `value-${i + offset}`);
+    return keys.map((key, i) => ({ key: key, value: values[i] }));
   };
 
   it('adds individual values', async () => {
@@ -64,6 +63,21 @@ describe('LMDBMap benchmarks', () => {
     const duration = (timer.ms() * 1000) / pairs.length;
     results.push({
       name: 'Individual insertion',
+      unit: 'us',
+      value: duration,
+    });
+  });
+
+  it('adds batched values', async () => {
+    const pairs = Array.from({ length: 1000 }, (_, i) => generateKeyValuePairs(1000, i * 1000));
+
+    const timer = new Timer();
+    for (let i = 0; i < pairs.length; i++) {
+      await map.setMany(pairs[i]);
+    }
+    const duration = (timer.ms() * 1000) / pairs.length;
+    results.push({
+      name: 'Batch insertion',
       unit: 'us',
       value: duration,
     });
