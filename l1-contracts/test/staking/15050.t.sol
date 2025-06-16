@@ -16,18 +16,15 @@ import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
 contract Test15050 is StakingBase {
   using stdStorage for StdStorage;
 
-  uint256 internal slashingAmount = 1;
-
   function setUp() public override {
     super.setUp();
   }
 
   function test_15050() external {
-    stakingAsset.mint(address(this), DEPOSIT_AMOUNT * 2);
-    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT * 2);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
-    staking.deposit({_attester: WITHDRAWER, _withdrawer: WITHDRAWER, _onCanonical: true});
     staking.flushEntryQueue();
 
     address[] memory validators = new address[](1);
@@ -67,11 +64,31 @@ contract Test15050 is StakingBase {
     (,, bool executed) = caller.rounds(address(staking), 0);
     assertFalse(executed);
 
+    address target = payload.getActions()[0].target;
+    bytes memory data = payload.getActions()[0].data;
+    bytes memory returnData = ""; // empty because oog won't give anything back.
+    vm.expectRevert(
+      abi.encodeWithSelector(Slasher.Slasher__SlashFailed.selector, target, data, returnData)
+    );
     // We execute the proposal with some gas amount that is insufficient to execute all
     // the accounting. And then we see that the proposal is marked as executed, so we cannot
     // execute it again, but at the same time, the attester was not actually slashes!
     // It can require a bit of fiddling here to get the correct one going gas-wise.
     caller.executeProposal{gas: 200000}(0);
+
+    (,, executed) = caller.rounds(address(staking), 0);
+    assertFalse(executed);
+
+    attesterView = staking.getAttesterView(ATTESTER);
+    assertTrue(attesterView.status == Status.VALIDATING);
+    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT);
+    assertEq(attesterView.exit.amount, 0);
+    assertEq(attesterView.exit.exitableAt, 0);
+    assertEq(attesterView.exit.isRecipient, false);
+
+    // Because it failed to execute, we can execute it now with more gas
+
+    caller.executeProposal(0);
 
     (,, executed) = caller.rounds(address(staking), 0);
     assertTrue(executed);
