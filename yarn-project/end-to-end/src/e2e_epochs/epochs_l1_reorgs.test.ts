@@ -3,7 +3,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum';
 import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
@@ -37,8 +37,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   let test: EpochsTestContext;
 
-  let l1ClientForMessages: ExtendedViemWalletClient;
-
   beforeEach(async () => {
     test = await EpochsTestContext.setup({
       l1PublishRetryIntervalMS: 300_000, // Do not retry l1 txs, we dont want them to land
@@ -49,25 +47,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     node = context.aztecNode;
     archiver = (node as AztecNodeService).getBlockSource() as Archiver;
     proverNode = context.proverNode!;
-
-    const account = privateKeyToAccount(generatePrivateKey());
-    l1ClientForMessages = createExtendedL1Client(
-      [...test.l1Client.chain.rpcUrls.default.http],
-      account,
-      test.l1Client.chain,
-    );
-
-    while (true) {
-      const fundingTx = await test.l1Client.sendTransaction({
-        to: l1ClientForMessages.account.address,
-        value: BigInt(1e18),
-      });
-
-      const receipt = await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
-      if (receipt.transactionHash === fundingTx && receipt.status === 'success') {
-        break;
-      }
-    }
   });
 
   afterEach(async () => {
@@ -268,6 +247,25 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const l1ClientForMessages = createExtendedL1Client(
+      [...test.l1Client.chain.rpcUrls.default.http],
+      account,
+      test.l1Client.chain,
+    );
+
+    while (true) {
+      const fundingTx = await test.l1Client.sendTransaction({
+        to: l1ClientForMessages.account.address,
+        value: BigInt(1e18),
+      });
+
+      const receipt = await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
+      if (receipt.transactionHash === fundingTx && receipt.status === 'success') {
+        break;
+      }
+    }
+
     const sendMessage = async () =>
       sendL1ToL2Message(
         { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
