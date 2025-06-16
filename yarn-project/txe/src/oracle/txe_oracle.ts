@@ -1471,9 +1471,7 @@ export class TXE implements TypedOracle {
 
     txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
     txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = publicInputs.forPublic
-      ? publicInputs.forPublic.nonRevertibleAccumulatedData.privateLogs
-      : publicInputs.forRollup!.end.privateLogs;
+    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
     txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
     txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
 
