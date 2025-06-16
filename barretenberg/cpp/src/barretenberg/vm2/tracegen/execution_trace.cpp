@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -244,37 +245,43 @@ void ExecutionTraceBuilder::process(
          *  Setup.
          **************************************************************************************************/
 
-        trace.set(
-            row,
-            { {
-                // Context
-                { C::execution_context_id, ex_event.after_context_event.id },
-                { C::execution_parent_id, ex_event.after_context_event.parent_id },
-                { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_next_pc, ex_event.after_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
-                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
-                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
-                { C::execution_parent_calldata_offset_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size_addr, ex_event.after_context_event.parent_cd_size_addr },
-                { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
-                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
-                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
-                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
-                { C::execution_next_context_id, ex_event.next_context_id },
-                // Context - gas.
-                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
-            } });
+        trace.set(row,
+                  { {
+                      // Context
+                      { C::execution_context_id, ex_event.after_context_event.id },
+                      { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                      { C::execution_pc, ex_event.before_context_event.pc },
+                      { C::execution_is_static, ex_event.after_context_event.is_static },
+                      { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                      { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                      { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                      { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                      { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                      { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                      { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                      { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                      { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                      { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                      { C::execution_next_context_id, ex_event.next_context_id },
+                      // Context - gas.
+                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Other.
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        // Internal stack
+        trace.set(row,
+                  { {
+                      { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
+                  } });
 
         /**************************************************************************************************
          *  Temporality group 1: Instruction fetching.
@@ -287,6 +294,12 @@ void ExecutionTraceBuilder::process(
         if (!instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
+            // If we fetched an instruction successfully, we can set the next PC.
+            trace.set(row,
+                      { {
+                          { C::execution_next_pc,
+                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
+                      } });
         }
 
         /**************************************************************************************************
@@ -550,6 +563,15 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
             { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
             { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
         } });
+
+    // Execution Trace opcodes - separating for clarity
+    trace.set(row,
+              { {
+                  { C::execution_sel_internal_call, exec_opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
+                  { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
+                  { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
+                  { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+              } });
 }
 
 void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,
@@ -776,6 +798,9 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
+        // Internal Call Stack
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_push_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_internal_call_unwind_call_stack_settings_>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),

@@ -51,7 +51,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -86,8 +85,6 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
 
     // Jump forward to an epoch in the future such that the validator set is not empty
     await t.ctx.cheatCodes.rollup.advanceToEpoch(4n);
-    // Send tx
-    await t.sendDummyTx();
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup

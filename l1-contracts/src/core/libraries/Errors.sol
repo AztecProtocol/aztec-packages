@@ -105,9 +105,14 @@ library Errors {
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
+  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected);
 
   // Staking
+  error Staking__AlreadyQueued(address _attester);
+  error Staking__QueueEmpty();
+  error Staking__DepositOutOfGas();
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__QueueAlreadyFlushed(Epoch epoch); // 0x21148c78
   error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab

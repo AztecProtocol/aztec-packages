@@ -9,7 +9,7 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import type { ViemClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -64,7 +64,7 @@ export type EpochsTestOpts = Partial<
  */
 export class EpochsTestContext {
   public context!: EndToEndContext;
-  public l1Client!: ViemClient;
+  public l1Client!: ExtendedViemWalletClient;
   public rollup!: RollupContract;
   public constants!: L1RollupConstants;
   public logger!: Logger;
@@ -115,6 +115,7 @@ export class EpochsTestContext {
       aztecSlotDuration,
       ethereumSlotDuration,
       aztecProofSubmissionWindow,
+      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,

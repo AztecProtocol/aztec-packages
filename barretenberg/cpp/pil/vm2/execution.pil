@@ -28,8 +28,15 @@ include "update_check.pil";
 include "nullifier_check.pil";
 include "public_inputs.pil";
 include "gas.pil";
+include "data_copy.pil";
+include "internal_call_stack.pil";
+include "opcodes/internal_call.pil";
 
 namespace execution;
+
+// If `sel` is 0, then the Execution relation should pass.
+#[skippable_if]
+sel = 0;
 
 pol commit sel; // subtrace selector
 pol commit last; // last row selector
@@ -40,9 +47,6 @@ last * (1 - last) = 0;
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
 
-// If `sel` is 0, then the Execution relation should pass.
-#[skippable_if]
-sel = 0;
 
 /**************************************************************************************************
  *  Setup (some general constraints)
@@ -231,6 +235,13 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_jump;
+pol commit sel_jumpi;
+
+// This is used in context.pil
+pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
 
 /**************************************************************************************************
  *  Temporality group N: Dynamic gas
@@ -249,3 +260,4 @@ sel_error * (1 - sel_error) = 0;
 // TODO: complete.
 // This implies mutual exclusivity of the failure selectors.
 // sel_error = sel_gas_failure + sel_instruction_fetching_failure;
+

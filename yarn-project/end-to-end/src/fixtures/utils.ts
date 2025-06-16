@@ -363,6 +363,8 @@ export async function setup(
 ): Promise<EndToEndContext> {
   let anvil: Anvil | undefined;
   try {
+    opts.aztecTargetCommitteeSize ??= 0;
+
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
     config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
@@ -560,7 +562,7 @@ export async function setup(
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
-      { dateProvider, blobSinkClient, telemetry, p2pClientDeps },
+      { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
     const sequencer = aztecNode.getSequencer();
@@ -589,6 +591,17 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+
+    if (
+      (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
+      (opts.initialValidators && opts.initialValidators.length > 0)
+    ) {
+      // We need to advance to epoch 2 such that the committee is set up.
+      logger.info(`Advancing to epoch 2`);
+      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+    }
+
     const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
@@ -597,8 +610,6 @@ export async function setup(
         `Unable to deploy ${numberOfAccounts} accounts. Only ${initialFundedAccounts.length} accounts were funded.`,
       );
     }
-
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
     const teardown = async () => {
       try {

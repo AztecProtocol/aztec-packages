@@ -9,7 +9,7 @@ import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.so
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
 contract SetupSampleSeedTest is ValidatorSelectionTestBase {
-  function test_setupSampleSeed(uint16 _epochToTest) public setup(4) {
+  function test_setupSampleSeed(uint16 _epochToTest) public setup(4, 4) {
     // Check that the epoch is not set
     _epochToTest = uint16(bound(_epochToTest, 2, type(uint16).max));
 
