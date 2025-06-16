@@ -562,7 +562,7 @@ export async function setup(
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
       config, // REFACTOR: createAndSync mutates this config
-      { dateProvider, blobSinkClient, telemetry, p2pClientDeps },
+      { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
     const sequencer = aztecNode.getSequencer();
