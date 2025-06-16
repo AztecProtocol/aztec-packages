@@ -22,7 +22,7 @@ RegisterMemInfo& RegisterMemInfo::has_inputs(uint16_t num_inputs)
     for (uint16_t i = 0; i < num_inputs; ++i) {
         encoded_register_info |= (read_encoding << (i * 2));
     }
-    write_index = num_inputs != 0 ? num_inputs : 2; // Hack in case of no inputs
+    write_index = num_inputs;
     return *this;
 }
 
