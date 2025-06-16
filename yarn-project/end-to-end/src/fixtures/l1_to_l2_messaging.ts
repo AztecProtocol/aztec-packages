@@ -42,7 +42,7 @@ export async function sendL1ToL2Message(
     throw new Error(`L1 to L2 message failed to be sent in tx ${txHash}. Status: ${txReceipt.status}`);
   }
 
-  logger.info(`L1 to L2 message receipt retrieved for tx ${txReceipt.transactionHash}`);
+  logger.info(`L1 to L2 message receipt retrieved for tx ${txReceipt.transactionHash}`, txReceipt);
 
   if (txReceipt.transactionHash !== txHash) {
     throw new Error(`Receipt transaction hash mismatch: ${txReceipt.transactionHash} !== ${txHash}`);

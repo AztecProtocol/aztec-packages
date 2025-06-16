@@ -57,12 +57,17 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       test.l1Client.chain,
     );
 
-    const fundingTx = await test.l1Client.sendTransaction({
-      to: l1ClientForMessages.account.address,
-      value: BigInt(1e16),
-    });
+    while (true) {
+      const fundingTx = await test.l1Client.sendTransaction({
+        to: l1ClientForMessages.account.address,
+        value: BigInt(1e18),
+      });
 
-    await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
+      const receipt = await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
+      if (receipt.transactionHash === fundingTx && receipt.status === 'success') {
+        break;
+      }
+    }
   });
 
   afterEach(async () => {
