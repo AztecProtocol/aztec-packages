@@ -654,12 +654,12 @@ pub global AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX: u32
 // Note: each of these gas settings ^, despite being 2 entries each, are split across 2 columns. So we only bump by 1 for each.
 
 // Effective Gas Fees
-pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
+pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
 
 // Fee Payer
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
 
 // Public Call Request Array Lengths
 pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
@@ -938,8 +938,9 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
 
 // Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;

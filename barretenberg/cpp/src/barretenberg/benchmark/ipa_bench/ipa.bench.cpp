@@ -13,7 +13,7 @@ using Polynomial = Polynomial<Fr>;
 constexpr size_t MIN_POLYNOMIAL_DEGREE_LOG2 = 10;
 constexpr size_t MAX_POLYNOMIAL_DEGREE_LOG2 = 16;
 
-std::shared_ptr<CommitmentKey<Curve>> ck;
+CommitmentKey<Curve> ck;
 std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
 std::vector<std::shared_ptr<NativeTranscript>> prover_transcripts(MAX_POLYNOMIAL_DEGREE_LOG2 -
                                                                   MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
@@ -21,7 +21,7 @@ std::vector<OpeningClaim<Curve>> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN
 static void DoSetup(const benchmark::State&)
 {
     srs::init_file_crs_factory(srs::bb_crs_path());
-    ck = std::make_shared<CommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2);
+    ck = CommitmentKey<Curve>(1 << MAX_POLYNOMIAL_DEGREE_LOG2);
     vk = std::make_shared<VerifierCommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2,
                                                         srs::get_grumpkin_crs_factory());
 }
@@ -40,7 +40,7 @@ void ipa_open(State& state) noexcept
         auto x = Fr::random_element(&engine);
         auto eval = poly.evaluate(x);
         const OpeningPair<Curve> opening_pair = { x, eval };
-        const OpeningClaim<Curve> opening_claim{ opening_pair, ck->commit(poly) };
+        const OpeningClaim<Curve> opening_claim{ opening_pair, ck.commit(poly) };
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<NativeTranscript>();
         state.ResumeTiming();

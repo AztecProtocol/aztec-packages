@@ -72,6 +72,12 @@ export const DefaultRewardConfig = {
   minimum: 100000,
 };
 
+// Similar to the above, no need for environment variables for this.
+export const DefaultEntryQueueConfig = {
+  flushSizeMin: 48,
+  flushSizeQuotient: 2,
+};
+
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',

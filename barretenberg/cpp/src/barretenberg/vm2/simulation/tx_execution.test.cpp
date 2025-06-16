@@ -1,11 +1,9 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/generated/relations/execution.hpp"
-#include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -15,12 +13,8 @@
 namespace bb::avm2::simulation {
 namespace {
 
-using ::testing::_;
-using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
 using ::testing::Return;
-using ::testing::ReturnRef;
-using ::testing::StrictMock;
 
 class TxExecutionTest : public ::testing::Test {
   protected:
@@ -30,7 +24,8 @@ class TxExecutionTest : public ::testing::Test {
     EventEmitter<TxEvent> tx_event_emitter;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
     NiceMock<MockExecution> execution;
-    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, tx_event_emitter);
+    NiceMock<MockFieldGreaterThan> field_gt;
+    TxExecution tx_execution = TxExecution(execution, context_provider, merkle_db, field_gt, tx_event_emitter);
 };
 
 TEST_F(TxExecutionTest, simulateTx)
@@ -88,6 +83,7 @@ TEST_F(TxExecutionTest, simulateTx)
     tx_execution.simulate(tx);
 
     // Check the event counts
+    bool has_startup_event = false;
     auto expected_private_append_tree_events =
         tx.nonRevertibleAccumulatedData.noteHashes.size() + tx.nonRevertibleAccumulatedData.nullifiers.size() +
         tx.revertibleAccumulatedData.noteHashes.size() + tx.revertibleAccumulatedData.nullifiers.size();
@@ -100,10 +96,16 @@ TEST_F(TxExecutionTest, simulateTx)
     auto expected_public_call_events = 3; // setup, app logic, teardown
     auto actual_public_call_events = 0;
 
+    bool has_collect_fee_event = false;
+
     // Get PrivateAppendTreeEvent from tx event dump events
     auto events = tx_event_emitter.get_events();
     for (const auto& tx_event : events) {
-        auto event = tx_event.event;
+        if (std::holds_alternative<TxStartupEvent>(tx_event)) {
+            has_startup_event = true;
+            continue;
+        }
+        auto event = std::get<TxPhaseEvent>(tx_event).event;
         if (std::holds_alternative<PrivateAppendTreeEvent>(event)) {
             actual_private_append_tree_events++;
         }
@@ -113,11 +115,16 @@ TEST_F(TxExecutionTest, simulateTx)
         if (std::holds_alternative<EnqueuedCallEvent>(event)) {
             actual_public_call_events++;
         }
+        if (std::holds_alternative<CollectGasFeeEvent>(event)) {
+            has_collect_fee_event = true;
+        }
     }
 
+    EXPECT_TRUE(has_startup_event);
     EXPECT_EQ(actual_private_append_tree_events, expected_private_append_tree_events);
     EXPECT_EQ(expected_l2_l1_msg_events, actual_l2_l1_msg_events);
     EXPECT_EQ(expected_public_call_events, actual_public_call_events);
+    EXPECT_TRUE(has_collect_fee_event);
 }
 
 } // namespace

@@ -53,7 +53,7 @@ resource "google_storage_bucket_object" "alpha_testnet_json" {
     version = "0.87.8"
     config = {
       maxTxsPerBlock            = 8
-      publishTxsWithProposals   = true
+      publishTxsWithProposals   = false
       governanceProposerPayload = "0x0000000000000000000000000000000000000000"
     }
   })

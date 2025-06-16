@@ -140,7 +140,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
       const [noMessageReceipt, messageReceipt] = await Promise.all([
-        contract.methods.set_constant(Fr.random()).send().wait(),
+        contract.methods.emit_nullifier(Fr.random()).send().wait(),
         contract.methods.create_l2_to_l1_message_arbitrary_recipient_private(content, recipient).send().wait(),
       ]);
 

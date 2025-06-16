@@ -182,7 +182,7 @@ impl PublicContext {
             version()
         }
     }
-    pub fn block_number(_self: Self) -> Field {
+    pub fn block_number(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             block_number()
@@ -271,7 +271,7 @@ unconstrained fn chain_id() -> Field {
 unconstrained fn version() -> Field {
     version_opcode()
 }
-unconstrained fn block_number() -> Field {
+unconstrained fn block_number() -> u32 {
     block_number_opcode()
 }
 unconstrained fn timestamp() -> u64 {
@@ -391,7 +391,7 @@ unconstrained fn chain_id_opcode() -> Field {}
 unconstrained fn version_opcode() -> Field {}
 
 #[oracle(avmOpcodeBlockNumber)]
-unconstrained fn block_number_opcode() -> Field {}
+unconstrained fn block_number_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}

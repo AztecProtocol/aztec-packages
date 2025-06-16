@@ -43,10 +43,10 @@ export async function buildBlock(
   telemetryClient: TelemetryClient = getTelemetryClient(),
 ): Promise<BuildBlockResult> {
   const blockBuildingTimer = new Timer();
-  const blockNumber = newGlobalVariables.blockNumber.toNumber();
+  const blockNumber = newGlobalVariables.blockNumber;
   const slot = newGlobalVariables.slotNumber.toBigInt();
   log.debug(`Requesting L1 to L2 messages from contract for block ${blockNumber}`);
-  const l1ToL2Messages = await l1ToL2MessageSource.getL1ToL2Messages(BigInt(blockNumber));
+  const l1ToL2Messages = await l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
   const msgCount = l1ToL2Messages.length;
 
   log.verbose(`Building block ${blockNumber} for slot ${slot}`, {
@@ -164,7 +164,7 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
     opts: PublicProcessorLimits,
     suppliedFork?: MerkleTreeWriteOperations,
   ): Promise<BuildBlockResult> {
-    const parentBlockNumber = globalVariables.blockNumber.toNumber() - 1;
+    const parentBlockNumber = globalVariables.blockNumber - 1;
     const syncTimeout = opts.deadline ? (opts.deadline.getTime() - this.dateProvider.now()) / 1000 : undefined;
     await this.syncToPreviousBlock(parentBlockNumber, syncTimeout);
     const fork = suppliedFork ?? (await this.worldState.fork(parentBlockNumber));

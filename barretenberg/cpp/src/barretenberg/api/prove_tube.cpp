@@ -47,7 +47,13 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     using Prover = UltraProver_<UltraRollupFlavor>;
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
-    Prover tube_prover{ *builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(*builder);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Precompute tube vk and pass it in.
+    info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
+    auto tube_verification_key =
+        std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->proving_key);
+
+    Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
     std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
@@ -73,8 +79,6 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = output_path + "/vk";
-    auto tube_verification_key =
-        std::make_shared<typename UltraRollupFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";

@@ -4,8 +4,6 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./base/DecoderBase.sol";
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -17,12 +15,9 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
-import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {TimeCheater} from "./staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
@@ -71,7 +66,8 @@ contract IgnitionTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(0);
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setManaTarget(0).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = IInstance(address(builder.getConfig().rollup));

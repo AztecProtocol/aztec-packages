@@ -236,6 +236,7 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
+    // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
       '--output_format',
       'bytes_and_fields',

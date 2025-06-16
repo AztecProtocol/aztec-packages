@@ -6,6 +6,7 @@
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/op_count.hpp"
+#include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
@@ -24,7 +25,7 @@ ClientIVC::ClientIVC(TraceSettings trace_settings)
         std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     info("BN254 commitment key size: ", commitment_key_size);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+    bn254_commitment_key = CommitmentKey<curve::BN254>(commitment_key_size);
 }
 
 /**
@@ -200,9 +201,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
-    if (proving_key->proving_key.circuit_size > bn254_commitment_key->dyadic_size) {
+    if (proving_key->proving_key.circuit_size > bn254_commitment_key.dyadic_size) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
+        bn254_commitment_key = CommitmentKey<curve::BN254>(proving_key->proving_key.circuit_size);
         goblin.commitment_key = bn254_commitment_key;
     }
     proving_key->proving_key.commitment_key = bn254_commitment_key;
@@ -224,7 +225,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     if (!initialized) {
         // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink
         // proof
-        MegaOinkProver oink_prover{ proving_key };
+        MegaOinkProver oink_prover{ proving_key, honk_vk };
         vinfo("computing oink proof...");
         HonkProof oink_proof = oink_prover.prove();
         vinfo("oink proof constructed");
@@ -240,7 +241,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         vinfo("computing folding proof");
-        FoldingProver folding_prover({ fold_output.accumulator, proving_key }, trace_usage_tracker);
+        auto vk = std::make_shared<DeciderVerificationKey_<Flavor>>(honk_vk);
+        FoldingProver folding_prover(
+            { fold_output.accumulator, proving_key }, { verifier_accumulator, vk }, trace_usage_tracker);
         fold_output = folding_prover.prove();
         vinfo("constructed folding proof");
 
@@ -346,9 +349,12 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
 HonkProof ClientIVC::construct_and_prove_hiding_circuit()
 {
     // Create a transcript to be shared by final merge prover, ECCVM, Translator, and Hiding Circuit provers.
-    auto decider_pk = construct_hiding_circuit_key();
+    std::shared_ptr<DeciderZKProvingKey> hiding_decider_pk = construct_hiding_circuit_key();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1431): Avoid computing the hiding circuit verification
+    // key during proving. Precompute instead.
+    auto hiding_circuit_vk = std::make_shared<MegaZKVerificationKey>(hiding_decider_pk->proving_key);
     // Hiding circuit is proven by a MegaZKProver
-    MegaZKProver prover(decider_pk, transcript);
+    MegaZKProver prover(hiding_decider_pk, hiding_circuit_vk, transcript);
     HonkProof proof = prover.construct_proof();
 
     return proof;

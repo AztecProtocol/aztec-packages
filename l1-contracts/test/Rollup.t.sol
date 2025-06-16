@@ -12,7 +12,6 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
@@ -83,7 +82,7 @@ contract RollupTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setTargetCommitteeSize(0);
     builder.deploy();
 
     testERC20 = builder.getConfig().testERC20;

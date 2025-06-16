@@ -5,17 +5,18 @@
 // =====================
 
 #include "goblin.hpp"
+
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include <utility>
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key,
-               const std::shared_ptr<Transcript>& transcript)
-    : commitment_key(bn254_commitment_key)
+Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shared_ptr<Transcript>& transcript)
+    : commitment_key(std::move(bn254_commitment_key))
     , transcript(transcript)
 {}
 

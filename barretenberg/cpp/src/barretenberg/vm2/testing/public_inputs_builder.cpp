@@ -119,7 +119,7 @@ PublicInputsBuilder& PublicInputsBuilder::rand_global_variables()
 {
     public_inputs.globalVariables = { .chainId = FF::random_element(&engine),
                                       .version = FF::random_element(&engine),
-                                      .blockNumber = FF::random_element(&engine),
+                                      .blockNumber = static_cast<uint32_t>(std::rand()),
                                       .slotNumber = FF::random_element(&engine),
                                       .timestamp = static_cast<uint64_t>(std::rand()),
                                       .coinbase = EthAddress::random_element(&engine),
@@ -282,6 +282,8 @@ PublicInputsBuilder& PublicInputsBuilder::rand_public_teardown_call_request()
         .isStaticCall = engine.get_random_uint8() % 2 == 0,
         .calldataHash = FF::random_element(&engine), // Placeholder for actual calldata hash
     };
+
+    public_inputs.publicCallRequestArrayLengths.teardownCall = true;
 
     return *this;
 }

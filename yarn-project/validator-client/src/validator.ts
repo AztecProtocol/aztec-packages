@@ -51,7 +51,7 @@ export interface Validator {
 
   // Block validation responsibilities
   createBlockProposal(
-    blockNumber: Fr,
+    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
@@ -117,6 +117,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private async handleEpochCommitteeUpdate() {
     try {
       const { committee, epoch } = await this.epochCache.getCommittee('now');
+      if (!committee) {
+        this.log.trace(`No committee found for slot`);
+        return;
+      }
       if (epoch !== this.lastEpoch) {
         const me = this.myAddresses;
         const committeeSet = new Set(committee.map(v => v.toString()));
@@ -214,7 +218,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
-    const blockNumber = proposal.blockNumber.toNumber();
+    const blockNumber = proposal.blockNumber;
     const proposalInfo = {
       slotNumber,
       blockNumber,
@@ -407,7 +411,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   async createBlockProposal(
-    blockNumber: Fr,
+    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
