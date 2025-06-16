@@ -22,6 +22,8 @@
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/internal_call.hpp"
+#include "relations/internal_call_stack.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
@@ -52,6 +54,7 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -67,10 +70,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2443;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 175;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2462;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2712;
+    static constexpr size_t NUM_ALL_ENTITIES = 2734;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -96,6 +99,8 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::internal_call<FF_>,
+        avm2::internal_call_stack<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
@@ -179,6 +184,8 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_internal_call_push_call_stack_relation<FF_>,
+        lookup_internal_call_unwind_call_stack_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,

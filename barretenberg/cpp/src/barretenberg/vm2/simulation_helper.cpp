@@ -98,6 +98,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
     typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
     typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
+    typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
 
     uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
 
@@ -138,8 +139,11 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
-    ContextProvider context_provider(bytecode_manager, memory_provider, calldata_hashing_provider);
+    InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
+    ContextProvider context_provider(
+        bytecode_manager, memory_provider, calldata_hashing_provider, internal_call_stack_manager_provider);
     DataCopy data_copy(execution_id_manager, data_copy_emitter);
+
     Execution execution(alu,
                         data_copy,
                         execution_components,
@@ -180,6 +184,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         nullifier_tree_check_emitter.dump_events(),
         data_copy_emitter.dump_events(),
         calldata_emitter.dump_events(),
+        internal_call_stack_emitter.dump_events(),
     };
 }
 
