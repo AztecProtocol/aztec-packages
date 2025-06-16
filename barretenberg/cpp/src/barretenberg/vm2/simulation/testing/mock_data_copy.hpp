@@ -16,15 +16,15 @@ class MockDataCopy : public DataCopyInterface {
     MOCK_METHOD(void,
                 cd_copy,
                 (ContextInterface & context,
-                 const uint32_t cd_copy_size,
-                 const MemoryAddress cd_offset,
+                 const MemoryValue& cd_copy_size,
+                 const MemoryValue& cd_offset,
                  const MemoryAddress dst_addr),
                 (override));
     MOCK_METHOD(void,
                 rd_copy,
                 (ContextInterface & context,
-                 const uint32_t rd_copy_size,
-                 const MemoryAddress rd_offset,
+                 const MemoryValue& rd_copy_size,
+                 const MemoryValue& rd_offset,
                  const MemoryAddress dst_addr),
                 (override));
 };

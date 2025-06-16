@@ -11,6 +11,73 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_data_copy_range_count_diff ///////////////////
+
+struct lookup_data_copy_range_count_diff_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_COUNT_DIFF";
+    static constexpr std::string_view RELATION_NAME = "data_copy";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_data_copy_range_count_diff_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_range_count_diff_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::data_copy_abs_read_count_diff, ColumnAndShifts::data_copy_thirty_two
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_data_copy_range_count_diff_settings = lookup_settings<lookup_data_copy_range_count_diff_settings_>;
+template <typename FF_>
+using lookup_data_copy_range_count_diff_relation =
+    lookup_relation_base<FF_, lookup_data_copy_range_count_diff_settings>;
+
+/////////////////// lookup_data_copy_range_read ///////////////////
+
+struct lookup_data_copy_range_read_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_READ";
+    static constexpr std::string_view RELATION_NAME = "data_copy";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_data_copy_range_read_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_range_read_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::data_copy_abs_read_diff, ColumnAndShifts::data_copy_thirty_two
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_data_copy_range_read_settings = lookup_settings<lookup_data_copy_range_read_settings_>;
+template <typename FF_>
+using lookup_data_copy_range_read_relation = lookup_relation_base<FF_, lookup_data_copy_range_read_settings>;
+
+/////////////////// lookup_data_copy_range_write ///////////////////
+
+struct lookup_data_copy_range_write_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_WRITE";
+    static constexpr std::string_view RELATION_NAME = "data_copy";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_data_copy_range_write_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_range_write_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::data_copy_abs_write_diff, ColumnAndShifts::data_copy_thirty_two
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_data_copy_range_write_settings = lookup_settings<lookup_data_copy_range_write_settings_>;
+template <typename FF_>
+using lookup_data_copy_range_write_relation = lookup_relation_base<FF_, lookup_data_copy_range_write_settings>;
+
 /////////////////// lookup_data_copy_mem_write ///////////////////
 
 struct lookup_data_copy_mem_write_settings_ {

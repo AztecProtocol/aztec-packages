@@ -131,8 +131,11 @@ void Execution::call(ContextInterface& context,
 
     set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
 
+    // Tag Check allocations
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
+
+    // Tag check contract address + cd_size
 
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
@@ -158,9 +161,15 @@ void Execution::cd_copy(ContextInterface& context,
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
+    // todo: this cant be guarateed to be a u32
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
 
-    data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
+    try {
+        data_copy.cd_copy(context, cd_copy_size, cd_offset_read, dst_addr);
+    } catch (const std::exception& e) {
+        // re throw - change to a more specific exception later
+        throw std::runtime_error("cd copy failed: " + std::string(e.what()));
+    }
 }
 
 void Execution::rd_copy(ContextInterface& context,
@@ -174,9 +183,15 @@ void Execution::rd_copy(ContextInterface& context,
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
     set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
+    // todo: this cant be guarateed to be a u32
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
 
-    data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
+    try {
+        data_copy.rd_copy(context, rd_copy_size, rd_offset_read, dst_addr);
+    } catch (const std::exception& e) {
+        // re throw - change to a more specific exception later
+        throw std::runtime_error("rd copy failed: " + std::string(e.what()));
+    }
 }
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)

@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -47,7 +48,9 @@ TestTraceContainer calldata_rows(const std::vector<FF>& calldata)
             { C::data_copy_src_context_id, 2 },
             { C::data_copy_dst_context_id, 3 },
             { C::data_copy_data_copy_size, calldata.size() - i },
+            { C::data_copy_data_copy_size_mem_tag, 4 },
             { C::data_copy_data_offset, 0 },
+            { C::data_copy_data_offset_mem_tag, 4 },
             { C::data_copy_data_addr, 0 },
             { C::data_copy_data_size, calldata.size() },
             { C::data_copy_write_addr, i }, // Write to sequential addr from 0
@@ -64,12 +67,17 @@ TestTraceContainer calldata_rows(const std::vector<FF>& calldata)
             { C::data_copy_sel_mem_read, 1 },
             { C::data_copy_read_addr, i }, // Read from sequential addr from 0
             { C::data_copy_read_count, read_count },
+            { C::data_copy_data_size_is_lt, 0 },
             { C::data_copy_read_count_inv, read_count_inv },
             { C::data_copy_padding, is_padding_row ? 1 : 0 },
             { C::data_copy_value, calldata[i] },
 
+            { C::data_copy_abs_read_diff, MAX_MEM_ADDR - read_count },
+            { C::data_copy_abs_write_diff, MAX_MEM_ADDR - calldata.size() },
+
             { C::data_copy_cd_copy_col_read, 0 },
             { C::data_copy_cd_index, i },
+            { C::data_copy_thirty_two, 32 },
         } });
     }
     return TestTraceContainer(rows);
@@ -104,7 +112,9 @@ TEST(DataCopyConstrainingTest, EnqueuedCallCdCopy)
           { C::data_copy_src_context_id, 0 },
           { C::data_copy_dst_context_id, 1 },
           { C::data_copy_data_copy_size, 1 },
+          { C::data_copy_data_offset_mem_tag, 4 },
           { C::data_copy_data_offset, 0 },
+          { C::data_copy_data_copy_size_mem_tag, 4 },
           { C::data_copy_data_addr, 0 },
           { C::data_copy_data_size, static_cast<uint32_t>(calldata.size()) },
           { C::data_copy_write_addr, 0 },
@@ -121,12 +131,18 @@ TEST(DataCopyConstrainingTest, EnqueuedCallCdCopy)
           { C::data_copy_sel_mem_read, 0 },
           { C::data_copy_read_addr, 0 },
           { C::data_copy_read_count, 1 },
+          { C::data_copy_data_size_is_lt, 0 },
+          { C::data_copy_abs_read_count_diff, static_cast<uint32_t>(calldata.size()) - 1 },
+          { C::data_copy_abs_read_diff, MAX_MEM_ADDR },
+          { C::data_copy_abs_write_diff, MAX_MEM_ADDR - (0 + 1) },
           { C::data_copy_read_count_inv, 1 },
           { C::data_copy_padding, 0 },
           { C::data_copy_value, calldata[0] },
 
           { C::data_copy_cd_copy_col_read, 1 },
-          { C::data_copy_cd_index, 1 } },
+          { C::data_copy_cd_index, 1 },
+
+          { C::data_copy_thirty_two, 32 } },
     });
     check_relation<data_copy>(trace);
 }

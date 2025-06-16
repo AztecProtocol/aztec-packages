@@ -270,7 +270,7 @@ class NestedContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset_addr, uint32_t cd_copy_size) const override;
+    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     MemoryAddress get_parent_cd_addr() const override { return parent_cd_addr; }
     uint32_t get_parent_cd_size() const override { return parent_cd_size; }
