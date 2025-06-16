@@ -106,6 +106,17 @@ impl TestEnvironment {
         self.advance_block_by(difference);
     }
 
+    /// Advances the internal TXe timestamp to the specified timestamp.
+    pub unconstrained fn advance_timestamp_to(&mut self, timestamp: u64) {
+        let pending_timestamp = self.pending_timestamp();
+        assert(
+            pending_timestamp <= timestamp,
+            "Cannot go back in time. Timestamp cannot be less than current timestamp.",
+        );
+        let difference: u64 = timestamp - pending_timestamp;
+        self.advance_timestamp_by(difference);
+    }
+
     /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
     /// block advanced, and we are able to fetch historical data from warped over blocks.
     pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
