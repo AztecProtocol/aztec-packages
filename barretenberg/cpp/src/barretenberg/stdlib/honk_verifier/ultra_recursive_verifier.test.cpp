@@ -219,8 +219,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         bool native_result;
         InnerVerifier native_verifier(verification_key);
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            native_verifier.ipa_verification_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
             native_result = native_verifier.verify_proof(inner_proof, convert_stdlib_proof_to_native(output.ipa_proof));
         } else {
             native_result = native_verifier.verify_proof(inner_proof);
@@ -249,8 +248,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterProver prover(proving_key, verification_key);
             auto proof = prover.construct_proof();
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
-                auto ipa_verification_key =
-                    std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+                VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
                 OuterVerifier verifier(verification_key, ipa_verification_key);
                 ASSERT(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
             } else {
