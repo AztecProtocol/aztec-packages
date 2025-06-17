@@ -98,7 +98,7 @@ describe('SequencerPublisher', () => {
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
-    rollup.validateHeader.mockResolvedValue(Promise.resolve());
+    rollup.validateHeader.mockReturnValue(Promise.resolve());
     (rollup as any).address = mockRollupAddress;
 
     forwarder = mock<ForwarderContract>();
