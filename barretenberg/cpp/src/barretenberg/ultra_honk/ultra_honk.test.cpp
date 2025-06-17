@@ -57,8 +57,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
-            auto ipa_verification_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
             bool verified = verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
             EXPECT_EQ(verified, expected_result);
@@ -303,8 +302,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {
-            auto ipa_verification_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
             typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
             return verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
         } else {
