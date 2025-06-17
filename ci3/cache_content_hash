@@ -26,7 +26,7 @@ for arg in "$@"; do
   elif [[ "$arg" == ^* ]]; then
     # Add as pattern literally
     rebuild_patterns+="$arg"$'\n'
-  elif
+  else
     # Ensure the folder exists, and add folder as pattern relative to repo root
     if [[ ! -d "$arg" ]]; then
       echo_stderr "Error: Directory '$arg' does not exist."
