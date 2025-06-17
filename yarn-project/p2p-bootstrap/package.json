@@ -79,7 +79,10 @@
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ],
-    "testEnvironment": "../../foundation/src/jest/env.mjs"
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
   },
   "engines": {
     "node": ">=20.10"
