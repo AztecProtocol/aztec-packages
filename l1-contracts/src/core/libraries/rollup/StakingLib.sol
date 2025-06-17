@@ -138,6 +138,14 @@ library StakingLib {
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
+  function trySlash(address _attester, uint256 _amount) internal returns (bool) {
+    if (!isSlashable(_attester)) {
+      return false;
+    }
+    slash(_attester, _amount);
+    return true;
+  }
+
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
     require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
@@ -286,6 +294,18 @@ library StakingLib {
 
   function getNextFlushableEpoch() internal view returns (Epoch) {
     return getStorage().nextFlushableEpoch;
+  }
+
+  function isSlashable(address _attester) internal view returns (bool) {
+    StakingStorage storage store = getStorage();
+    Exit storage exit = store.exits[_attester];
+
+    if (exit.exists) {
+      return exit.exitableAt > Timestamp.wrap(block.timestamp);
+    }
+
+    (, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
+    return attesterExists;
   }
 
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {

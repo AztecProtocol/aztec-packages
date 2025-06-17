@@ -195,8 +195,8 @@ contract RollupCore is
     StakingLib.finaliseWithdraw(_attester);
   }
 
-  function slash(address _attester, uint256 _amount) external override(IStakingCore) {
-    StakingLib.slash(_attester, _amount);
+  function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
+    return StakingLib.trySlash(_attester, _amount);
   }
 
   function prune() external override(IRollupCore) {
