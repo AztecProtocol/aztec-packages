@@ -140,8 +140,8 @@ pub(crate) unconstrained fn validate_enqueued_notes_and_events(contract_address:
     );
 }
 
-/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in a
-/// `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options for
+/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
+/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options for
 /// the responses that correspond to the pending partial notes at the same index.
 ///
 /// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
