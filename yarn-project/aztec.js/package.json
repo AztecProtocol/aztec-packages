@@ -97,7 +97,7 @@
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.3",
+    "jest-mock-extended": "^4.0.0",
     "process": "^0.11.10",
     "resolve-typescript-plugin": "^2.0.1",
     "stream-browserify": "^3.0.0",
