@@ -87,7 +87,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@jest/expect": "^29.5.0",
+    "@jest/expect": "^30.0.0",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.chunk": "^4.2.9",
@@ -98,7 +98,7 @@
     "@types/pako": "^2.0.3",
     "eslint": "^9.26.0",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^4.0.0-beta1",
+    "jest-mock-extended": "^4.0.0",
     "prettier": "^3.5.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

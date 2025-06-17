@@ -91,7 +91,7 @@
     "@types/node": "^22.15.17",
     "concurrently": "^8.0.1",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.4",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },
