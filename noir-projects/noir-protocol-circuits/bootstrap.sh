@@ -114,8 +114,8 @@ function compile {
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk -k - -o $verifier_path
-      echo_stderr "VK output at: $verifier_path (${SECONDS}s)"
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null
     elif echo "$name" | grep -qE "${private_tail_regex}"; then
