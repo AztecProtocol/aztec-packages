@@ -497,6 +497,7 @@ template <typename Builder, typename T> class bigfield {
      * @return bigfield
      *
      * @details Costs the same as operator* as it just sets a = b.
+     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/15089): can optimise this further.
      */
     bigfield sqr() const;
 
