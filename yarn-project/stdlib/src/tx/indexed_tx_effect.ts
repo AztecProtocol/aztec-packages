@@ -1,7 +1,7 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { L2BlockHash } from '../block/block_hash.js';
 import { type InBlock, inBlockSchemaFor, randomInBlock } from '../block/in_block.js';
 import { TxEffect } from './tx_effect.js';
 
@@ -19,18 +19,13 @@ export async function randomIndexedTxEffect(): Promise<IndexedTxEffect> {
 }
 
 export function serializeIndexedTxEffect(effect: IndexedTxEffect): Buffer {
-  return serializeToBuffer(
-    Buffer32.fromString(effect.l2BlockHash),
-    effect.l2BlockNumber,
-    effect.txIndexInBlock,
-    effect.data,
-  );
+  return serializeToBuffer(effect.l2BlockHash, effect.l2BlockNumber, effect.txIndexInBlock, effect.data);
 }
 
 export function deserializeIndexedTxEffect(buffer: Buffer): IndexedTxEffect {
   const reader = BufferReader.asReader(buffer);
 
-  const l2BlockHash = reader.readObject(Buffer32).toString();
+  const l2BlockHash = reader.readObject(L2BlockHash);
   const l2BlockNumber = reader.readNumber();
   const txIndexInBlock = reader.readNumber();
   const data = reader.readObject(TxEffect);

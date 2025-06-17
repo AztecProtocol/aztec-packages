@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, CommitteeAttestation, L2Block, L2BlockHash } from '@aztec/stdlib/block';
@@ -95,11 +96,11 @@ export class BlockStore {
           throw new BlockNumberNotSequentialError(block.block.number, previousBlock.block.number);
         }
         previousBlock = block;
-        const blockHash = (await block.block.hash()).toBuffer();
+        const blockHash = L2BlockHash.fromField(await block.block.hash());
 
         await this.#blocks.set(block.block.number, {
           header: block.block.header.toBuffer(),
-          blockHash: blockHash,
+          blockHash: blockHash.toBuffer(),
           archive: block.block.archive.toBuffer(),
           l1: block.l1,
           attestations: block.attestations.map(attestation => attestation.toBuffer()),
@@ -109,7 +110,7 @@ export class BlockStore {
           const txEffect: IndexedTxEffect = {
             data: block.block.body.txEffects[i],
             l2BlockNumber: block.block.number,
-            l2BlockHash: blockHash.toString(),
+            l2BlockHash: blockHash,
             txIndexInBlock: i,
           };
           await this.#txEffects.set(txEffect.data.txHash.toString(), serializeIndexedTxEffect(txEffect));
@@ -227,7 +228,7 @@ export class BlockStore {
     const header = BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
-    const blockHashString = blockHash.toString();
+    const blockHashString = bufferToHex(blockHash);
     const blockTxsBuffer = await this.#blockTxs.getAsync(blockHashString);
     if (blockTxsBuffer === undefined) {
       this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber} ${blockHash}`);
@@ -288,7 +289,7 @@ export class BlockStore {
       TxReceipt.statusFromRevertCode(txEffect.data.revertCode),
       '',
       txEffect.data.transactionFee.toBigInt(),
-      L2BlockHash.fromString(txEffect.l2BlockHash),
+      txEffect.l2BlockHash,
       txEffect.l2BlockNumber,
     );
   }
