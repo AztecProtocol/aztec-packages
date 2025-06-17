@@ -19,6 +19,14 @@ import type { SimulationOverrides, TxSimulationResult } from '@aztec/stdlib/tx';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
+/*
+ * An AccountWallet that copies the address of another account, and then
+ * uses the simulation overrides feature to execute different contract code under
+ * the copied address. This is used to bypass authwit verification entirely
+ * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain messages
+ * so they can later be compared to the ones that would actually be verified by the real
+ * account contract.
+ */
 export class CopyCatWallet extends AccountWallet {
   constructor(
     pxe: PXE,
@@ -76,6 +84,11 @@ export class CopyCatWallet extends AccountWallet {
   }
 }
 
+/*
+ * Demonstrates the capability of simulating a transaction without executing the kernels, allowing
+ * the bypass of many checks and a healthy improvement in speed. Kernelless simulations should aim
+ * to be as close as possible to reality, so their output can be used to calculate gas usage
+ */
 describe('Kernelless simulation', () => {
   let teardown: () => Promise<void>;
 

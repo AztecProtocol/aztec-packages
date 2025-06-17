@@ -22,11 +22,19 @@ import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
+/*
+ * If passed during the execution of a user circuit, the contract function simulator will replace the bytecode
+ * of the provided contracts with the bytecode of the provided artifacts.
+ */
 export type ContractOverrides = {
   instances: Record<string /* AztecAddress as string */, ContractInstanceWithAddress>;
   artifacts: Record<string /* ContractClassId as string */, ContractArtifact>;
 };
 
+/*
+ * Optional values that can be overridden during simulation. In order to simulate a transaction with these
+ * set, it *must* be run without the kernel circuits, or validations will fail
+ */
 export class SimulationOverrides {
   constructor(
     public contracts?: ContractOverrides,

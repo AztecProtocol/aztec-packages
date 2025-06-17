@@ -870,6 +870,9 @@ export class PXEService implements PXE {
         let executionSteps: PrivateExecutionStep[] = [];
 
         if (skipKernels) {
+          // According to the protocol rules, the nonce generator for the note hashes
+          // can either be the first nullifier in the tx or the hash of the initial tx request
+          // if there are none.
           const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
             ? await txRequest.toTxRequest().hash()
             : privateExecutionResult.firstNullifier;

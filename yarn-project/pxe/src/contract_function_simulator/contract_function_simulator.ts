@@ -241,6 +241,18 @@ class OrderedSideEffect<T> {
   }
 }
 
+/**
+ * Generates the final public inputs of the tail kernel circuit, an empty ClientIVC proof
+ * and the execution steps for a `PrivateExecutionResult` as if it had been
+ * processed by the private kernel prover. This skips many of the checks performed by the kernels
+ * (allowing state overrides) and is much faster, while still generating a valid
+ * output that can be sent to the node for public simulation
+ * @param privateExecutionResult - The result of the private execution.
+ * @param nonceGenerator - A nonce generator for note hashes. According to the protocol rules,
+ * it can either be the first nullifier in the tx or the hash of the initial tx request if there are none.
+ * @param contractDataProvider - A provider for contract data in order to get function names and debug info.
+ * @returns The simulated proving result.
+ */
 export async function generateSimulatedProvingResult(
   privateExecutionResult: PrivateExecutionResult,
   nonceGenerator: Fr,
@@ -417,7 +429,6 @@ export async function generateSimulatedProvingResult(
   return {
     publicInputs,
     clientIvcProof: ClientIvcProof.empty(),
-    vk: privateExecutionResult.entrypoint.vk,
     executionSteps: executionSteps,
   };
 }

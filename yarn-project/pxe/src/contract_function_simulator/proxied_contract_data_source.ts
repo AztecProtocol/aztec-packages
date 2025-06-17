@@ -31,15 +31,15 @@ export class ProxiedContractDataProviderFactory {
               }
             };
           }
-          case 'getContractArtifact': {
-            return (contractClassId: Fr) => {
-              if (overrides.artifacts[contractClassId.toString()]) {
-                return Promise.resolve(overrides.artifacts[contractClassId.toString()]!);
-              } else {
-                return target.getContractArtifact(contractClassId);
-              }
-            };
-          }
+          // case 'getContractArtifact': {
+          //   return (contractClassId: Fr) => {
+          //     if (overrides.artifacts[contractClassId.toString()]) {
+          //       return Promise.resolve(overrides.artifacts[contractClassId.toString()]!);
+          //     } else {
+          //       return target.getContractArtifact(contractClassId);
+          //     }
+          //   };
+          // }
           case 'getFunctionArtifact': {
             return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
               if (overrides.instances[contractAddress.toString()]) {

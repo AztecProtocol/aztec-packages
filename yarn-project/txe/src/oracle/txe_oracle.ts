@@ -1426,6 +1426,9 @@ export class TXE implements TypedOracle {
       this.storeInExecutionCache(returnValues, returnValuesHash);
     }
 
+    // According to the protocol rules, the nonce generator for the note hashes
+    // can either be the first nullifier in the tx or the hash of the initial tx request
+    // if there are none.
     const nonceGenerator = result.firstNullifier.equals(Fr.ZERO) ? this.getTxRequestHash() : result.firstNullifier;
     const { publicInputs } = await generateSimulatedProvingResult(result, nonceGenerator, this.contractDataProvider);
 
