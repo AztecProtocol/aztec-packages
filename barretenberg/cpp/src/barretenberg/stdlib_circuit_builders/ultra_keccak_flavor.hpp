@@ -72,7 +72,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          *
          * @return std::vector<FF>
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::field_conversion;
 

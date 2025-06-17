@@ -187,7 +187,7 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
      *
      * @return std::vector<FF>
      */
-    std::vector<fr> to_field_elements() const
+    virtual std::vector<fr> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
@@ -214,7 +214,7 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
     // transcript produced hash.
     fr hash()
     {
-        fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(to_field_elements());
+        fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
         // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
         static constexpr size_t LO_BITS = fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
 

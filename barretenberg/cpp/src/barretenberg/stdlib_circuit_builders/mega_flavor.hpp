@@ -491,7 +491,7 @@ class MegaFlavor {
         /**
          * @brief Serialize verification key to field elements
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::field_conversion;
 
