@@ -568,7 +568,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     auto& affine_addition_output_bucket_destinations = affine_data.addition_result_bucket_destinations;
     auto& scalar_scratch_space = affine_data.scalar_scratch_space;
     auto& output_point_schedule = affine_data.addition_result_bucket_destinations;
-    std::vector<AffineElement> null_location = std::vector<AffineElement>(2);
+    AffineElement null_location{};
     // We do memory prefetching, `prefetch_max` ensures we do not overflow our containers
     size_t prefetch_max = (num_points - 32);
     if (num_points < 32) {
@@ -584,22 +584,9 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
 
         // we prefetchin'
         if ((point_it < prefetch_max) && ((point_it & 0x0f) == 0)) {
-            __builtin_prefetch(&points[(point_schedule[point_it + 16] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 17] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 18] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 19] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 20] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 21] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 22] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 23] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 24] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 25] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 26] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 27] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 28] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 29] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 30] >> 32ULL)]);
-            __builtin_prefetch(&points[(point_schedule[point_it + 31] >> 32ULL)]);
+            for (size_t i = 16; i < 32; ++i) {
+                __builtin_prefetch(&points[(point_schedule[point_it + i] >> 32ULL)]);
+            }
         }
 
         // We do some branchless programming here to minimize instruction pipeline flushes
@@ -632,7 +619,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         AffineElement* lhs_destination =
             do_affine_add ? &affine_addition_scratch_space[affine_input_it] : &bucket_accumulators[lhs_bucket];
         AffineElement* rhs_destination =
-            do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location[0];
+            do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location;
 
         uint64_t source_bucket_destinations = affine_addition_output_bucket_destinations[affine_input_it >> 1];
         affine_addition_output_bucket_destinations[affine_input_it >> 1] =
@@ -698,7 +685,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         AffineElement* lhs_destination =
             do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it] : &bucket_accumulators[lhs_bucket];
         AffineElement* rhs_destination =
-            do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it + 1] : &null_location[0];
+            do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it + 1] : &null_location;
 
         uint64_t source_bucket_destinations = output_point_schedule[new_scratch_space_it >> 1];
         output_point_schedule[new_scratch_space_it >> 1] = do_affine_add ? lhs_bucket : source_bucket_destinations;
