@@ -51,6 +51,12 @@ export class LmdbAztecMap<K extends Key, V extends Value> implements AztecMap<K,
     await this.db.put(this.slot(key), [key, val]);
   }
 
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    for (const { key, value } of entries) {
+      await this.set(key, value);
+    }
+  }
+
   swap(key: K, fn: (val: V | undefined) => V): Promise<void> {
     return this.db.childTransaction(() => {
       const slot = this.slot(key);

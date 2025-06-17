@@ -22,7 +22,7 @@ import { PublicPersistableStateManager } from '../../state_manager/state_manager
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 
-const TIMESTAMP = new Fr(99833);
+const TIMESTAMP = 99833n;
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 /**

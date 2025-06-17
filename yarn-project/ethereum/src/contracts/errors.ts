@@ -4,3 +4,10 @@ export class BlockTagTooOldError extends Error {
     this.name = 'BlockTagTooOldError';
   }
 }
+
+export class NoCommitteeError extends Error {
+  constructor() {
+    super('The committee does not exist on L1');
+    this.name = 'NoCommitteeError';
+  }
+}

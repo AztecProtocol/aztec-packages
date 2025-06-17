@@ -33,8 +33,13 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         // The complexity is O(|src_selector|) * O(find_in_dst).
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
-            uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
-            assert(src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row));
+            uint32_t dst_row = 0;
+            try {
+                dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            } catch (const std::runtime_error& e) {
+                // Add row information and rethrow.
+                throw std::runtime_error(std::string(e.what()) + " at row " + std::to_string(row));
+            }
 
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
@@ -75,16 +80,9 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
         if (it != row_idx.end()) {
             return it->second;
         }
-        vinfo(
-            "Failed computing counts for ",
-            std::string(LookupSettings::NAME),
-            " with src tuple: {",
-            [&tup]<size_t... Is>(std::index_sequence<Is...>) {
-                return ((field_to_string(tup[Is]) + ", ") + ...);
-            }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
-            "}");
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                 ". Could not find tuple in destination.");
+                                 ". Could not find tuple in destination. " +
+                                 "SRC tuple: " + column_values_to_string(tup, LookupSettings::SRC_COLUMNS));
     }
 
   private:
@@ -137,16 +135,11 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
 
             if (!found) {
-                info(
-                    "Failed computing counts for ",
-                    std::string(LookupSettings::NAME),
-                    " with src tuple: {",
-                    [&src_values]<size_t... Is>(std::index_sequence<Is...>) {
-                        return ((field_to_string(src_values[Is]) + ", ") + ...);
-                    }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
-                    "}");
-                throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                         ". Could not find tuple in destination.");
+                throw std::runtime_error(
+                    "Failed computing counts for " + std::string(LookupSettings::NAME) +
+                    ". Could not find tuple in destination.\nSRC tuple (row " + std::to_string(row) +
+                    "): " + column_values_to_string(src_values, LookupSettings::SRC_COLUMNS) +
+                    "\nNOTE: Remember that you cannot use LookupIntoDynamicTableSequential with a deduplicated trace!");
             }
         }
     }

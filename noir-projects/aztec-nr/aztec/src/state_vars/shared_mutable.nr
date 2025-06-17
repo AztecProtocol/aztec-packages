@@ -72,7 +72,7 @@ where
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
 
-        let block_number = self.context.block_number() as u32;
+        let block_number = self.context.block_number();
         let current_delay = delay_change.get_current(block_number);
 
         // TODO: make this configurable
@@ -91,7 +91,7 @@ where
     {
         let mut delay_change = self.read_delay_change();
 
-        let block_number = self.context.block_number() as u32;
+        let block_number = self.context.block_number();
 
         delay_change.schedule_change(new_delay, block_number);
 
@@ -102,7 +102,7 @@ where
     where
         T: Packable<N>,
     {
-        let block_number = self.context.block_number() as u32;
+        let block_number = self.context.block_number();
         self.read_value_change().get_current_at(block_number)
     }
 
@@ -110,7 +110,7 @@ where
     where
         T: Packable<N>,
     {
-        let block_number = self.context.block_number() as u32;
+        let block_number = self.context.block_number();
         self.read_delay_change().get_current(block_number)
     }
 
@@ -216,7 +216,7 @@ where
         let header = self.context.get_block_header();
         let address = self.context.this_address();
 
-        let historical_block_number = header.global_variables.block_number as u32;
+        let historical_block_number = header.global_variables.block_number;
 
         let values: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::historical_public_storage_read(header, address, self.storage_slot);
@@ -236,7 +236,7 @@ where
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
             WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
-        let block_number = self.context.block_number() as u32;
+        let block_number = self.context.block_number();
         smv.svc.get_current_at(block_number)
     }
 }

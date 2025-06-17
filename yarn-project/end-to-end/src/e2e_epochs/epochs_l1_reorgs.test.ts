@@ -3,8 +3,10 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import type { ChainMonitor, Delayer } from '@aztec/ethereum/test';
+import { createExtendedL1Client } from '@aztec/ethereum';
+import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
+import { AbortError } from '@aztec/foundation/error';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
@@ -12,6 +14,7 @@ import type { ProverNode } from '@aztec/prover-node';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../fixtures/utils.js';
@@ -52,16 +55,34 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
     // Wait until we have proven something and the nodes have caught up
+    const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
     logger.warn(`Waiting for initial proof to land`);
-    const provenBlock = await test.waitUntilProvenL2BlockNumber(1);
-    await retryUntil(() => node.getProvenBlockNumber().then(p => p >= provenBlock), 'node sync', 10, 0.1);
+    const provenBlockEvent = await executeTimeout(
+      signal => {
+        return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
+          const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
+            if (ev.l2ProvenBlockNumber !== 0) {
+              res(ev);
+              monitor.off('l2-block-proven', handleMsg);
+            }
+          };
+
+          signal.onabort = () => {
+            monitor.off('l2-block-proven', handleMsg);
+            rej(new AbortError());
+          };
+          monitor.on('l2-block-proven', handleMsg);
+        });
+      },
+      epochDurationSeconds * 4 * 1000,
+    );
 
     // Stop the prover node so it doesn't re-submit the proof after we've removed it
-    logger.warn(`Proof for block ${provenBlock} mined, stopping prover node`);
+    logger.warn(`Proof for block ${provenBlockEvent.l2ProvenBlockNumber} mined, stopping prover node`);
     await proverNode.stop();
 
     // And remove the proof from L1
-    await context.cheatCodes.eth.reorg(2);
+    await context.cheatCodes.eth.reorgTo(provenBlockEvent.l1BlockNumber - 1);
     expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
     // Wait until the end of the proof submission window for the first epoch
@@ -233,15 +254,40 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   });
 
   it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
+    const account = privateKeyToAccount(generatePrivateKey());
+    const l1ClientForMessages = createExtendedL1Client(
+      [...test.l1Client.chain.rpcUrls.default.http],
+      account,
+      test.l1Client.chain,
+    );
+
+    while (true) {
+      const fundingTx = await test.l1Client.sendTransaction({
+        to: l1ClientForMessages.account.address,
+        value: BigInt(1e18),
+      });
+
+      const receipt = await test.l1Client.waitForTransactionReceipt({ hash: fundingTx });
+      if (receipt.transactionHash === fundingTx && receipt.status === 'success') {
+        break;
+      }
+    }
+
     const sendMessage = async () =>
       sendL1ToL2Message(
         { recipient: await AztecAddress.random(), content: Fr.random(), secretHash: Fr.random() },
-        context.deployL1ContractsValues,
+        {
+          l1Client: l1ClientForMessages,
+          l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses,
+        },
       );
 
     // Send 3 messages and wait for archiver sync
     logger.warn(`Sending 3 cross chain messages`);
-    const msgs = await timesAsync(3, sendMessage);
+    const msgs = await timesAsync(3, async (i: number) => {
+      logger.warn(`Sending message ${i + 1}`);
+      return await sendMessage();
+    });
     logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
 
     await retryUntil(

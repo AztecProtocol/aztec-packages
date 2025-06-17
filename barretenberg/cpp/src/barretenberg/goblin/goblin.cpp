@@ -5,17 +5,18 @@
 // =====================
 
 #include "goblin.hpp"
+
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include <utility>
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key,
-               const std::shared_ptr<Transcript>& transcript)
-    : commitment_key(bn254_commitment_key)
+Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shared_ptr<Transcript>& transcript)
+    : commitment_key(std::move(bn254_commitment_key))
     , transcript(transcript)
 {}
 
@@ -71,20 +72,20 @@ GoblinProof Goblin::prove()
     return goblin_proof;
 }
 
-Goblin::PairingPoints Goblin::perform_merge_recursive_verification(MegaBuilder& builder)
+Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder)
 {
+    ASSERT(!merge_verification_queue.empty());
     PairingPoints points_accumulator;
-    // Recursively verify each merge proof in the verification queue; aggregate and return the resulting pairing points.
-    for (const auto& merge_proof : merge_verification_queue) {
-        const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
-        MergeRecursiveVerifier merge_verifier{ &builder };
-        PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+    // Recursively verify the next merge proof in the verification queue in a FIFO manner
+    const MergeProof& merge_proof = merge_verification_queue.front();
+    const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
 
-        points_accumulator.aggregate(pairing_points);
-    }
-    merge_verification_queue.clear();
+    MergeRecursiveVerifier merge_verifier{ &builder };
+    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
 
-    return points_accumulator;
+    merge_verification_queue.pop_front(); // remove the processed proof from the queue
+
+    return pairing_points;
 }
 
 bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)

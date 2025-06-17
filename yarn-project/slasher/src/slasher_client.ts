@@ -8,6 +8,7 @@ import {
 } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts';
 
@@ -65,6 +66,7 @@ type MonitoredSlashPayload = {
 export class SlasherClient {
   private monitoredPayloads: MonitoredSlashPayload[] = [];
   private unwatchCallbacks: (() => void)[] = [];
+  private overridePayloadActive = false;
 
   static async new(
     config: SlasherConfig,
@@ -99,7 +101,9 @@ export class SlasherClient {
     private watchers: Watcher[],
     private dateProvider: DateProvider,
     private log = createLogger('slasher'),
-  ) {}
+  ) {
+    this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
+  }
 
   //////////////////// Public methods ////////////////////
 
@@ -127,11 +131,18 @@ export class SlasherClient {
    * Allows consumers to stop the instance of the slasher client.
    * 'ready' will now return 'false' and the running promise that keeps the client synced is interrupted.
    */
-  public stop() {
+  public async stop() {
     this.log.debug('Stopping Slasher client...');
     for (const cb of this.unwatchCallbacks) {
       cb();
     }
+    // Viem calls eth_uninstallFilter under the hood when uninstalling event watchers, but these calls are not awaited,
+    // meaning that any error that happens during the uninstallation will not be caught. This causes errors during jest teardowns,
+    // where we stop anvil after all other processes are stopped, so sometimes the eth_uninstallFilter call fails because anvil
+    // is already stopped. We add a sleep here to give the uninstallation some time to complete, but the proper fix is for
+    // viem to await the eth_uninstallFilter calls, or to catch any errors that happen during the uninstallation.
+    // See https://github.com/wevm/viem/issues/3714.
+    await sleep(2000);
     this.log.info('Slasher client stopped.');
   }
 
@@ -156,6 +167,7 @@ export class SlasherClient {
       slashProposerRoundPollingIntervalSeconds:
         config.slashProposerRoundPollingIntervalSeconds ?? this.config.slashProposerRoundPollingIntervalSeconds,
     };
+    this.overridePayloadActive = config.slashOverridePayload !== undefined && !config.slashOverridePayload.isZero();
     this.config = newConfig;
   }
 
@@ -166,7 +178,7 @@ export class SlasherClient {
    * @returns the payload to slash or undefined if there is no payload to slash
    */
   public getSlashPayload(_slotNumber: bigint): Promise<EthAddress | undefined> {
-    if (this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
+    if (this.overridePayloadActive && this.config.slashOverridePayload && !this.config.slashOverridePayload.isZero()) {
       this.log.info(`Overriding slash payload to: ${this.config.slashOverridePayload.toString()}`);
       return Promise.resolve(this.config.slashOverridePayload);
     }
@@ -194,6 +206,32 @@ export class SlasherClient {
    */
   public getMonitoredPayloads(): MonitoredSlashPayload[] {
     return this.monitoredPayloads;
+  }
+
+  //////////////////// Protected methods ////////////////////
+
+  /**
+   * Handler for when a proposal is executed.
+   *
+   * Removes the first matching payload from the list of monitored payloads.
+   *
+   * Bound to the slashing proposer contract's listenToProposalExecuted method in `.start()`.
+   *
+   * @param {round: bigint; proposal: `0x${string}`} param0
+   */
+  protected proposalExecuted({ round, proposal }: { round: bigint; proposal: `0x${string}` }) {
+    this.log.info('Proposal executed', { round, proposal });
+    const payload = EthAddress.fromString(proposal);
+    // Stop signaling for the override payload if it was executed
+    if (this.overridePayloadActive && this.config.slashOverridePayload?.equals(payload)) {
+      this.overridePayloadActive = false;
+    }
+
+    const index = this.monitoredPayloads.findIndex(p => p.payloadAddress.equals(payload));
+    if (index === -1) {
+      return;
+    }
+    this.monitoredPayloads.splice(index, 1);
   }
 
   //////////////////// Private methods ////////////////////
@@ -252,6 +290,7 @@ export class SlasherClient {
         if (!added) {
           this.log.warn('Failed to add monitored payload that we created');
         } else {
+          this.sortMonitoredPayloads();
           this.log.info('Added monitored payload that we created');
         }
       })
@@ -427,24 +466,6 @@ export class SlasherClient {
           throw err;
         }
       });
-  }
-
-  /**
-   * Handler for when a proposal is executed.
-   *
-   * Removes the first matching payload from the list of monitored payloads.
-   *
-   * Bound to the slashing proposer contract's listenToProposalExecuted method in the constructor.
-   *
-   * @param {round: bigint; proposal: `0x${string}`} param0
-   */
-  private proposalExecuted({ round, proposal }: { round: bigint; proposal: `0x${string}` }) {
-    this.log.info('Proposal executed', { round, proposal });
-    const index = this.monitoredPayloads.findIndex(p => p.payloadAddress.equals(EthAddress.fromString(proposal)));
-    if (index === -1) {
-      return;
-    }
-    this.monitoredPayloads.splice(index, 1);
   }
 
   private async getAddressAndIsDeployed(

@@ -8,7 +8,7 @@
   "scripts": {
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
     "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "dev": "yarn prep && webpack serve --mode development",
     "build": "yarn prep && webpack",

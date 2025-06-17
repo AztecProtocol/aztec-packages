@@ -38,7 +38,7 @@ class Goblin {
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
-    std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
+    CommitmentKey<curve::BN254> commitment_key;
 
     GoblinProof goblin_proof;
 
@@ -46,7 +46,7 @@ class Goblin {
     fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-    std::vector<MergeProof> merge_verification_queue; // set of merge proofs to be verified
+    std::deque<MergeProof> merge_verification_queue; // queue of merge proofs to be verified
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -54,7 +54,7 @@ class Goblin {
             std::make_shared<TranslatorVerificationKey>();
     };
 
-    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr,
+    Goblin(CommitmentKey<curve::BN254> bn254_commitment_key = CommitmentKey<curve::BN254>(),
            const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
@@ -84,12 +84,13 @@ class Goblin {
     GoblinProof prove();
 
     /**
-     * @brief Recursively verify each merge proof in the verification queue.
+     * @brief Recursively verify the next merge proof in the merge verification queue.
+     * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
      * @return PairingPoints
      */
-    PairingPoints perform_merge_recursive_verification(MegaBuilder& builder);
+    PairingPoints recursively_verify_merge(MegaBuilder& builder);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)

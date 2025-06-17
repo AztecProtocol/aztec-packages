@@ -57,16 +57,18 @@ std::vector<ScopedL2ToL1Message> random_l2_to_l1_messages(size_t n)
     return messages;
 }
 
-std::vector<EnqueuedCallHint> random_enqueued_calls(size_t n)
+std::vector<PublicCallRequestWithCalldata> random_enqueued_calls(size_t n)
 {
-    std::vector<EnqueuedCallHint> calls;
+    std::vector<PublicCallRequestWithCalldata> calls;
     calls.reserve(n);
     for (size_t i = 0; i < n; ++i) {
-        calls.push_back(EnqueuedCallHint{
-            .msgSender = FF::random_element(),
-            .contractAddress = FF::random_element(),
+        calls.push_back(PublicCallRequestWithCalldata{
+            .request{
+                .msgSender = FF::random_element(),
+                .contractAddress = FF::random_element(),
+                .isStaticCall = rand() % 2 == 0,
+            },
             .calldata = random_fields(5),
-            .isStaticCall = rand() % 2 == 0,
         });
     }
     return calls;
@@ -172,7 +174,7 @@ ContractInstance random_contract_instance()
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
     // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/common/minimal_tx.testdata.bin");
+    auto data = read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
     AvmProvingInputs inputs = AvmProvingInputs::from(data);
 
     AvmSimulationHelper simulation_helper(inputs.hints);

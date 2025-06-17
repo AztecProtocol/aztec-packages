@@ -18,6 +18,7 @@ template <typename FF_> class memoryImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::memory_sel)).is_zero();
     }
 

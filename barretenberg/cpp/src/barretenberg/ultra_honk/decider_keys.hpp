@@ -10,9 +10,9 @@
 
 namespace bb {
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
   public:
-    static_assert(NUM_ > 1, "Must have at least two deicder proving keys.");
+    static_assert(NUM_ > 1, "Must have at least two decider proving keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
@@ -104,7 +104,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
     }
 };
 
-template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
+template <IsUltraOrMegaHonk Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two decider verification keys.");
     using Flavor = Flavor_;
     using FF = typename Flavor_::FF;

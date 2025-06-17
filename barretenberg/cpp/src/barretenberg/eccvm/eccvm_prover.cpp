@@ -32,7 +32,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
+    key->commitment_key = CommitmentKey(key->circuit_size);
 }
 
 /**
@@ -319,6 +319,6 @@ void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
     // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
     // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key->commit_with_type(polynomial, commit_type, active_ranges));
+    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
 }
 } // namespace bb

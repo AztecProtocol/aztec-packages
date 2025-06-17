@@ -3,7 +3,7 @@ use crate::{
     messages::encryption::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array,
 };
 
-global MAX_MESSAGE_LEN: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+pub global MAX_MESSAGE_LEN: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 global MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
 

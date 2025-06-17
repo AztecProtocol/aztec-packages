@@ -19,11 +19,11 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
     {
         size_t num_points = 4096;
         Builder builder;
-        auto native_vk = std::make_shared<native_VK>(num_points);
-        auto recursive_vk = std::make_shared<VK>(&builder, num_points, native_vk);
-        EXPECT_EQ(native_vk->get_g1_identity(), recursive_vk->get_g1_identity().get_value());
-        auto native_monomial_points = native_vk->get_monomial_points();
-        auto recursive_monomial_points = recursive_vk->get_monomial_points();
+        native_VK native_vk(num_points);
+        VK recursive_vk(&builder, num_points, native_vk);
+        EXPECT_EQ(native_vk.get_g1_identity(), recursive_vk.get_g1_identity().get_value());
+        auto native_monomial_points = native_vk.get_monomial_points();
+        auto recursive_monomial_points = recursive_vk.get_monomial_points();
 
         // The recursive verifier commitment key only stores the SRS so we verify against the even indices of the native
         // key (the odd containt elements produced after applying the pippenger point table).

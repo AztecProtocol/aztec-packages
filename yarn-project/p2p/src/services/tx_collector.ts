@@ -1,5 +1,6 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { ITxCollector } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -9,9 +10,8 @@ import type { PeerId } from '@libp2p/interface';
 import type { P2PClient } from '../client/p2p_client.js';
 import { TxCollectorInstrumentation } from './tx_collect_instrumentation.js';
 
-export class TxCollector {
+export class TxCollector implements ITxCollector {
   private instrumentation: TxCollectorInstrumentation;
-
   constructor(
     private p2pClient: Pick<
       P2PClient,
@@ -93,7 +93,30 @@ export class TxCollector {
 
     // Now get the txs we need, either from the pool or the p2p network
     const txHashes: TxHash[] = proposal.payload.txHashes;
+    const { txs, missing } = await this.collectTransactions(txHashes, peerWhoSentTheProposal);
 
+    this.instrumentation.incMissingTxs(missing?.length ?? 0);
+
+    const txsFromP2P = txHashes.length - txTakenFromProposal - txsInMempool - (missing?.length ?? 0);
+    this.instrumentation.incTxsFromP2P(txsFromP2P);
+
+    this.log.info(`Retrieved ${txs.length}/${txHashes.length} txs for block proposal`, {
+      blockNumber: proposal.blockNumber,
+      slotNumber: proposal.slotNumber.toNumber(),
+      totalTxsInProposal: txHashes.length,
+      txsFromProposal: txTakenFromProposal,
+      txsFromMempool: txsInMempool,
+      txsFromP2P,
+      missingTxs: missing?.length ?? 0,
+    });
+
+    return { txs, missing };
+  }
+
+  async collectTransactions(
+    txHashes: TxHash[],
+    peerWhoSentTheProposal: PeerId | undefined,
+  ): Promise<{ txs: Tx[]; missing?: TxHash[] }> {
     // This will request from the network any txs that are missing
     // NOTE: this could still return missing txs so we need to (1) be careful to handle undefined and (2) keep the txs in the correct order for re-execution
     const maybeRetrievedTxs = await this.p2pClient.getTxsByHash(txHashes, peerWhoSentTheProposal);
@@ -102,23 +125,10 @@ export class TxCollector {
     const missingTxs = compactArray(
       maybeRetrievedTxs.map((tx, index) => (tx === undefined ? txHashes[index] : undefined)),
     );
-    this.instrumentation.incMissingTxs(missingTxs.length);
-
-    const txsFromP2P = txHashes.length - txTakenFromProposal - txsInMempool - missingTxs.length;
-    this.instrumentation.incTxsFromP2P(txsFromP2P);
 
     // if we found all txs, this is a noop. If we didn't find all txs then tell the validator to skip attestations because missingTxs.length > 0
     const retrievedTxs = compactArray(maybeRetrievedTxs);
 
-    this.log.info(`Retrieved ${retrievedTxs.length}/${txHashes.length} txs for block proposal`, {
-      blockNumber: proposal.blockNumber.toNumber(),
-      slotNumber: proposal.slotNumber.toNumber(),
-      totalTxsInProposal: txHashes.length,
-      txsFromProposal: txTakenFromProposal,
-      txsFromMempool: txsInMempool,
-      txsFromP2P,
-      missingTxs: missingTxs.length,
-    });
     return { txs: retrievedTxs, missing: missingTxs };
   }
 }
