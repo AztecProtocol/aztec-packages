@@ -74,8 +74,8 @@ library Errors {
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
   error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
-  error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
-  error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__NotPastDeadline(Epoch deadline, Epoch currentEpoch);
+  error Rollup__PastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();

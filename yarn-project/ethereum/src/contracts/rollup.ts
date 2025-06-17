@@ -145,8 +145,8 @@ export class RollupContract {
   }
 
   @memoize
-  getProofSubmissionWindow() {
-    return this.rollup.read.getProofSubmissionWindow();
+  getProofSubmissionEpochs() {
+    return this.rollup.read.getProofSubmissionEpochs();
   }
 
   @memoize
