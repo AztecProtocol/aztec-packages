@@ -278,7 +278,11 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
         std::cout << contract;
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
-        info("Solidity verifier saved to ", output_path);
+        if (flags.disable_zk) {
+            info("ZK Honk solidity verifier saved to ", output_path);
+        } else {
+            info("Honk solidity verifier saved to ", output_path);
+        }
     }
 }
 
