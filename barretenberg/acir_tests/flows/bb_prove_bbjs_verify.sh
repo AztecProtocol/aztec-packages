@@ -19,7 +19,6 @@ trap "rm -rf $output_dir" EXIT
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
 $BIN write_vk \
   --scheme ultra_honk \
-  --disable_zk \
   -b $artifact_dir/program.json \
   -o $output_dir
 
