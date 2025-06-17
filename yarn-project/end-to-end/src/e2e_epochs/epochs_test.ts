@@ -9,9 +9,10 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import type { ViemClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -64,7 +65,7 @@ export type EpochsTestOpts = Partial<
  */
 export class EpochsTestContext {
   public context!: EndToEndContext;
-  public l1Client!: ViemClient;
+  public l1Client!: ExtendedViemWalletClient;
   public rollup!: RollupContract;
   public constants!: L1RollupConstants;
   public logger!: Logger;
@@ -115,6 +116,7 @@ export class EpochsTestContext {
       aztecSlotDuration,
       ethereumSlotDuration,
       aztecProofSubmissionWindow,
+      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
@@ -204,7 +206,7 @@ export class EpochsTestContext {
     opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
-    return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: privateKeys });
+    return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
   private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
@@ -218,7 +220,7 @@ export class EpochsTestContext {
         {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys,
+          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
           p2pEnabled,
           p2pIp,
         },

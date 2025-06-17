@@ -47,6 +47,9 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
+  // We deduplicate contract classes because they include the whole bytecode.
+  private contractClassIds: Set<bigint> = new Set();
+
   constructor(
     private readonly db: PublicContractsDBInterface,
     private hints: AvmExecutionHints,
@@ -76,7 +79,8 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
     const contractClass = await this.db.getContractClass(contractClassId);
-    if (contractClass) {
+    if (contractClass && !this.contractClassIds.has(contractClassId.toBigInt())) {
+      this.contractClassIds.add(contractClassId.toBigInt());
       this.hints.contractClasses.push(
         new AvmContractClassHint(
           contractClass.id,

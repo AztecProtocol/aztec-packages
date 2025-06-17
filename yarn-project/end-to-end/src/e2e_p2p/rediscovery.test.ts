@@ -33,12 +33,8 @@ describe('e2e_p2p_rediscovery', () => {
         listenAddress: '127.0.0.1',
       },
     });
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-
-    // We remove the initial node such that it will no longer attempt to build blocks / be in the sequencing set
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -65,7 +61,12 @@ describe('e2e_p2p_rediscovery', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(3000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     // stop bootstrap node
     await t.bootstrapNode?.stop();

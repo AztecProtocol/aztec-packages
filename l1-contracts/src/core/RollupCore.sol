@@ -16,24 +16,25 @@ import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelectio
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {Math} from "@oz/utils/math/Math.sol";
 
 /**
  * @title Rollup
@@ -91,6 +92,8 @@ contract RollupCore is
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
+    rollupStore.config.entryQueueFlushSizeMin = _config.entryQueueFlushSizeMin;
+    rollupStore.config.entryQueueFlushSizeQuotient = _config.entryQueueFlushSizeQuotient;
 
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
@@ -175,6 +178,11 @@ contract RollupCore is
     ExtRollupLib2.deposit(_attester, _withdrawer, _onCanonical);
   }
 
+  function flushEntryQueue() external override(IStakingCore) {
+    uint256 maxAddableValidators = getEntryQueueFlushSize();
+    ExtRollupLib2.flushEntryQueue(maxAddableValidators);
+  }
+
   function initiateWithdraw(address _attester, address _recipient)
     external
     override(IStakingCore)
@@ -225,5 +233,20 @@ contract RollupCore is
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
     FeeLib.updateL1GasFeeOracle();
+  }
+
+  // TODO: add test.
+  function getEntryQueueFlushSize() public view override(IStakingCore) returns (uint256) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 activeAttesterCount = getActiveAttesterCount();
+    uint256 maxAddableValidators = Math.max(
+      activeAttesterCount / rollupStore.config.entryQueueFlushSizeQuotient,
+      rollupStore.config.entryQueueFlushSizeMin
+    );
+    return maxAddableValidators;
+  }
+
+  function getActiveAttesterCount() public view override(IStakingCore) returns (uint256) {
+    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
   }
 }

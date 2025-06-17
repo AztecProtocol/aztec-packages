@@ -285,8 +285,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const watchers: Watcher[] = [];
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel && config.slashInactivityEnabled) {
-      watchers.push(validatorsSentinel);
+    if (validatorsSentinel) {
+      // we can run a sentinel without trying to slash.
+      await validatorsSentinel.start();
+      if (config.slashInactivityEnabled) {
+        watchers.push(validatorsSentinel);
+      }
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
@@ -325,7 +329,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     if (config.publisherPrivateKey) {
       // we can still run a slasher client if a private key is provided
-      l1Client = createExtendedL1Client(config.l1RpcUrls, config.publisherPrivateKey, ethereumChain.chainInfo);
+      l1Client = createExtendedL1Client(
+        config.l1RpcUrls,
+        config.publisherPrivateKey.getValue(),
+        ethereumChain.chainInfo,
+      );
       l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
       slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
       slasherClient.start();

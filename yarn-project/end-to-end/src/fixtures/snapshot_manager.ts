@@ -26,6 +26,7 @@ import {
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
@@ -307,7 +308,11 @@ async function setupFromFresh(
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
   aztecNodeConfig.enforceTimeTable = !!opts.enforceTimeTable;
+  // Only set the target committee size if it is explicitly set
+  aztecNodeConfig.aztecTargetCommitteeSize = opts.aztecTargetCommitteeSize ?? 0;
   aztecNodeConfig.listenAddress = '127.0.0.1';
+
+  deployL1ContractsArgs.aztecTargetCommitteeSize ??= aztecNodeConfig.aztecTargetCommitteeSize;
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -334,8 +339,8 @@ async function setupFromFresh(
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
-  aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  aztecNodeConfig.validatorPrivateKeys = [`0x${validatorPrivKey!.toString('hex')}`];
+  aztecNodeConfig.publisherPrivateKey = new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`);
+  aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 

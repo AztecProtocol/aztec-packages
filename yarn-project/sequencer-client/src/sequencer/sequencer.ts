@@ -1,6 +1,6 @@
 import type { L2Block } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { FormattedViemError, type ViemPublicClient } from '@aztec/ethereum';
+import { FormattedViemError, NoCommitteeError, type ViemPublicClient } from '@aztec/ethereum';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -33,6 +33,7 @@ import {
   Tx,
   type TxHash,
 } from '@aztec/stdlib/tx';
+import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import {
   Attributes,
   L1Metrics,
@@ -317,12 +318,21 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    // Check that we are a proposer for the next slot
-    const proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
+    let proposerInNextSlot: EthAddress | undefined;
+    try {
+      // Check that we are a proposer for the next slot
+      proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
+    } catch (e) {
+      if (e instanceof NoCommitteeError) {
+        this.log.warn(`Cannot propose block ${newBlockNumber} since the committee does not exist on L1`);
+        return;
+      }
+    }
     const validatorAddresses = this.validatorClient!.getValidatorAddresses();
 
-    // If get proposer in next slot is undefined, then there is no proposer set, and it is in free for all (sandbox) so we continue
-    // If we calculate a proposer in the next slot, and it is not us, then stop
+    // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
+    // If the committee is defined and not empty, but none of our validators are the proposer,
+    // then stop.
     if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
       this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
         us: validatorAddresses,
@@ -562,7 +572,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
-      this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
+      const blockBuildDuration = workTimer.ms();
       await this.dropFailedTxsFromP2P(failedTxs);
 
       const minTxsPerBlock = this.isFlushing ? 0 : this.minTxsPerBlock;
@@ -603,14 +613,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       );
 
       this.log.debug('Collecting attestations');
-      const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
-      stopCollectingAttestationsTimer();
 
       await this.enqueuePublishL2Block(block, attestations, txHashes);
+      this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
       this.metrics.recordFailedBlock();
@@ -631,6 +640,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
 
+    // We checked above that the committee is defined, so this should never happen.
+    if (!committee) {
+      throw new Error('No committee when collecting attestations');
+    }
+
     if (committee.length === 0) {
       this.log.verbose(`Attesting committee is empty`);
       return undefined;
@@ -645,6 +659,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
+
     const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
@@ -670,15 +685,32 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!
       : this.aztecSlotDuration;
-    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
-    const attestations = await this.validatorClient.collectAttestations(
-      proposal,
-      numberOfRequiredAttestations,
-      attestationDeadline,
-    );
 
-    // note: the smart contract requires that the signatures are provided in the order of the committee
-    return orderAttestations(attestations, committee);
+    this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
+
+    const timer = new Timer();
+    let collectedAttestionsCount: number = 0;
+    try {
+      const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+      const attestations = await this.validatorClient.collectAttestations(
+        proposal,
+        numberOfRequiredAttestations,
+        attestationDeadline,
+      );
+
+      collectedAttestionsCount = attestations.length;
+
+      // note: the smart contract requires that the signatures are provided in the order of the committee
+      return orderAttestations(attestations, committee);
+    } catch (err) {
+      if (err && err instanceof AttestationTimeoutError) {
+        collectedAttestionsCount = err.collectedCount;
+      }
+
+      throw err;
+    } finally {
+      this.metrics.recordCollectedAttestations(collectedAttestionsCount, timer.ms());
+    }
   }
 
   /**

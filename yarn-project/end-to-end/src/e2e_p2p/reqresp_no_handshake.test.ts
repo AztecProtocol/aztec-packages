@@ -42,7 +42,6 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
   });
@@ -71,18 +70,6 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
      *       from the other pxes.
      */
 
-    if (!t.bootstrapNodeEnr) {
-      throw new Error('Bootstrap node ENR is not available');
-    }
-
-    t.logger.info('Preparing transactions to send');
-    const contexts = await timesAsync(2, () =>
-      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
-    );
-
-    t.logger.info('Removing initial node');
-    await t.removeInitialNode();
-
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, p2pDisableStatusHandshake: true }, // DIFFERENCE FROM reqresp.test.ts
@@ -95,8 +82,22 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
       shouldCollectMetrics(),
     );
 
+    if (!t.bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
+
     t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
+
+    await t.setupAccount();
+
+    t.logger.info('Preparing transactions to send');
+    const contexts = await timesAsync(2, () =>
+      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
+    );
+
+    t.logger.info('Removing initial node');
+    await t.removeInitialNode();
 
     t.logger.info('Starting fresh slot');
     const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
