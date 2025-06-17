@@ -58,7 +58,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.7",
     "@types/lodash.pick": "^4.4.7",
     "@types/node": "^22.15.17",

@@ -76,7 +76,7 @@
     "@swc/core": "^1.10.1",
     "@swc/jest": "^0.2.37",
     "@types/detect-node": "^2.0.0",
-    "@types/jest": "^29.4.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
     "@types/source-map-support": "^0.5.6",

@@ -82,7 +82,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
     "jest": "^30.0.0",

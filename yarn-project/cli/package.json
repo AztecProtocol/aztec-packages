@@ -93,7 +93,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
     "@types/lodash.groupby": "^4.6.9",
     "@types/lodash.startcase": "^4.4.7",

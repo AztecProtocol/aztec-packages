@@ -82,7 +82,7 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-test-contracts.js": "workspace:^",
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.15.17",
