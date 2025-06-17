@@ -16,8 +16,8 @@ export class ProxiedContractDataProviderFactory {
         switch (prop) {
           case 'getContractInstance': {
             return async (address: AztecAddress) => {
-              if (overrides.instances[address.toString()]) {
-                const instance = overrides.instances[address.toString()]!;
+              if (overrides[address.toString()]) {
+                const { instance } = overrides[address.toString()]!;
                 instance.address = address;
                 const realInstance = await target.getContractInstance(address);
                 if (!realInstance) {
@@ -31,23 +31,14 @@ export class ProxiedContractDataProviderFactory {
               }
             };
           }
-          // case 'getContractArtifact': {
-          //   return (contractClassId: Fr) => {
-          //     if (overrides.artifacts[contractClassId.toString()]) {
-          //       return Promise.resolve(overrides.artifacts[contractClassId.toString()]!);
-          //     } else {
-          //       return target.getContractArtifact(contractClassId);
-          //     }
-          //   };
-          // }
           case 'getFunctionArtifact': {
             return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
-              if (overrides.instances[contractAddress.toString()]) {
+              if (overrides[contractAddress.toString()]) {
                 const realInstance = await target.getContractInstance(contractAddress);
                 if (!realInstance) {
                   throw new Error(`Contract instance not found for address: ${contractAddress}`);
                 }
-                const artifact = overrides.artifacts[realInstance.currentContractClassId.toString()]!;
+                const { artifact } = overrides[realInstance.currentContractClassId.toString()]!;
                 const functions = artifact.functions;
                 for (let i = 0; i < functions.length; i++) {
                   const fn = functions[i];

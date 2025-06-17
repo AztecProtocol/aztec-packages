@@ -23,13 +23,13 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simu
 import { Tx } from './tx.js';
 
 /*
- * If passed during the execution of a user circuit, the contract function simulator will replace the bytecode
- * of the provided contracts with the bytecode of the provided artifacts.
+ * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
+ * of the contract with the one provided in the overrides for that address
  */
-export type ContractOverrides = {
-  instances: Record<string /* AztecAddress as string */, ContractInstanceWithAddress>;
-  artifacts: Record<string /* ContractClassId as string */, ContractArtifact>;
-};
+export type ContractOverrides = Record<
+  string /* AztecAddress as string */,
+  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
+>;
 
 /*
  * Optional values that can be overridden during simulation. In order to simulate a transaction with these
@@ -45,10 +45,10 @@ export class SimulationOverrides {
     return z
       .object({
         contracts: optional(
-          z.object({
-            instances: z.record(z.string(), ContractInstanceWithAddressSchema),
-            artifacts: z.record(z.string(), ContractArtifactSchema),
-          }),
+          z.record(
+            z.string(),
+            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
+          ),
         ),
         msgSender: optional(AztecAddress.schema),
       })
