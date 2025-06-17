@@ -20,6 +20,7 @@ describe('Environment getters', () => {
   const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
   const gasFees = GasFees.random();
+  const effectiveGasFees = GasFees.random(); // Create separate effective gas fees for testing
   const globals = initGlobalVariables({
     chainId,
     version,
@@ -36,6 +37,7 @@ describe('Environment getters', () => {
       transactionFee,
       globals,
       isStaticCall,
+      effectiveGasFees,
     });
     context = initContext({ env });
   });
@@ -64,8 +66,8 @@ describe('Environment getters', () => {
     [EnvironmentVariable.VERSION, version.toField()],
     [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
-    [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
-    [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
+    [EnvironmentVariable.FEEPERDAGAS, new Fr(effectiveGasFees.feePerDaGas), TypeTag.UINT128],
+    [EnvironmentVariable.FEEPERL2GAS, new Fr(effectiveGasFees.feePerL2Gas), TypeTag.UINT128],
     [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
   ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
     it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {

@@ -37,9 +37,9 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.TIMESTAMP:
       return new Uint64(ctx.environment.globals.timestamp);
     case EnvironmentVariable.FEEPERL2GAS:
-      return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
+      return new Uint128(ctx.environment.effectiveGasFees.feePerL2Gas);
     case EnvironmentVariable.FEEPERDAGAS:
-      return new Uint128(ctx.environment.globals.gasFees.feePerDaGas);
+      return new Uint128(ctx.environment.effectiveGasFees.feePerDaGas);
     case EnvironmentVariable.ISSTATICCALL:
       return new Field(ctx.environment.isStaticCall ? 1 : 0);
     case EnvironmentVariable.L2GASLEFT:

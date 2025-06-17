@@ -5,7 +5,7 @@ import type { Writeable } from '@aztec/foundation/types';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
-import { computeTransactionFee } from './transaction_fee.js';
+import { computeEffectiveGasFees, computeTransactionFee } from './transaction_fee.js';
 
 describe('computeTransactionFee', () => {
   let gasFees: GasFees;
@@ -13,7 +13,8 @@ describe('computeTransactionFee', () => {
   let gasUsed: Gas;
 
   const expectFee = (feeStr: string) => {
-    const fee = computeTransactionFee(gasFees, gasSettings, gasUsed);
+    const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
+    const fee = computeTransactionFee(effectiveGasFees, gasUsed);
     expect(fee).toEqual(new Fr(BigInt(eval(feeStr))));
   };
 

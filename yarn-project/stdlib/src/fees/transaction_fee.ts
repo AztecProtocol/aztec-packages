@@ -24,7 +24,6 @@ export function computeEffectiveGasFees(gasFees: GasFees, gasSettings: GasSettin
   return effectiveFees;
 }
 
-export function computeTransactionFee(gasFees: GasFees, gasSettings: GasSettings, gasUsed: Gas): Fr {
-  const effectiveFees = computeEffectiveGasFees(gasFees, gasSettings);
-  return gasUsed.computeFee(effectiveFees);
+export function computeTransactionFee(effectiveGasFees: GasFees, gasUsed: Gas): Fr {
+  return gasUsed.computeFee(effectiveGasFees);
 }

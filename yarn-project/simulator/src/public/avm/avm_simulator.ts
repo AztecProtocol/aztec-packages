@@ -2,6 +2,7 @@ import { MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
@@ -79,6 +80,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
+    effectiveGasFees: GasFees,
     clientInitiatedSimulation: boolean = false,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
@@ -89,6 +91,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
       globals,
       isStaticCall,
       calldata,
+      effectiveGasFees,
       clientInitiatedSimulation,
     );
 

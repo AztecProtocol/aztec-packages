@@ -12,6 +12,7 @@ import {
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
+import { GasFees } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
@@ -276,6 +277,7 @@ export class PublicTxSimulator {
       callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),
+      context.getEffectiveGasFees(),
       fnName,
     );
 
@@ -303,6 +305,8 @@ export class PublicTxSimulator {
    * @param stateManager - The state manager for AvmSimulation
    * @param callRequest - The public function call request, including the calldata.
    * @param allocatedGas - The gas allocated to the enqueued call
+   * @param transactionFee - The transaction fee
+   * @param effectiveGasFees - The effective gas fees
    * @param fnName - The name of the function
    * @returns The result of execution.
    */
@@ -311,6 +315,7 @@ export class PublicTxSimulator {
     { request, calldata }: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,
+    effectiveGasFees: GasFees,
     fnName: string,
   ): Promise<AvmFinalizedCallResult> {
     const address = request.contractAddress;
@@ -329,6 +334,7 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
+      effectiveGasFees,
       this.clientInitiatedSimulation,
     );
     const avmCallResult = await simulator.execute();

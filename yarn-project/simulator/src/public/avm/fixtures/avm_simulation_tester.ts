@@ -86,6 +86,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       address,
       sender,
       isStaticCall,
+      effectiveGasFees: DEFAULT_GAS_FEES,
     });
     const persistableState = await this.stateManager.fork();
     const context = initContext({ env: environment, persistableState });
