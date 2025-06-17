@@ -4,16 +4,16 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
@@ -25,13 +25,12 @@ import {
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -44,7 +43,6 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
 
   // Test Block Flags
   struct TestFlags {

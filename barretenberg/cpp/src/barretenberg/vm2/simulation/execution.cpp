@@ -151,6 +151,27 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     }
 }
 
+void Execution::internal_call(ContextInterface& context, uint32_t loc)
+{
+
+    auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
+    // The next pc is pushed onto the internal call stack. This will become return_pc later.
+    internal_call_stack_manager.push(context.get_next_pc());
+    context.set_next_pc(loc);
+}
+
+void Execution::internal_return(ContextInterface& context)
+{
+    auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
+    try {
+        auto next_pc = internal_call_stack_manager.pop();
+        context.set_next_pc(next_pc);
+    } catch (const std::exception& e) {
+        // Re-throw - this needs error handling.
+        throw e;
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -312,6 +333,12 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::RETURNDATACOPY:
         call_with_operands(&Execution::rd_copy, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALCALL:
+        call_with_operands(&Execution::internal_call, context, resolved_operands);
+        break;
+    case ExecutionOpCode::INTERNALRETURN:
+        call_with_operands(&Execution::internal_return, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

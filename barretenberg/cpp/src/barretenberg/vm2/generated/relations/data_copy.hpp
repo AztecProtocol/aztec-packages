@@ -19,7 +19,10 @@ template <typename FF_> class data_copyImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
-        return ((in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy))).is_zero();
+
+        const auto data_copy_SEL = in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy);
+
+        return (data_copy_SEL).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

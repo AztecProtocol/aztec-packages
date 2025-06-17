@@ -3,13 +3,13 @@ pragma solidity >=0.8.27;
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestBase} from "@test/base/Base.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
@@ -21,7 +21,7 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "../../harnesses/TestConstants.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../../builder/RollupBuilder.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 
@@ -31,7 +31,7 @@ import {TimeCheater} from "../../staking/TimeCheater.sol";
  * @notice A test that showcases an upgrade of the governance system, here the governanceProposer contract.
  */
 contract UpgradeGovernanceProposerTest is TestBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
   IMintableERC20 internal token;
   Registry internal registry;
@@ -41,7 +41,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
   IGSE internal gse;
   TimeCheater internal timeCheater;
 
-  DataStructures.Proposal internal proposal;
+  Proposal internal proposal;
 
   mapping(uint256 => address) internal validators;
   mapping(address validator => uint256 privateKey) internal privateKeys;
@@ -111,16 +111,16 @@ contract UpgradeGovernanceProposerTest is TestBase {
     vm.stopPrank();
 
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Active);
+    assertTrue(governance.getProposalState(0) == ProposalState.Active);
 
     vm.prank(EMPEROR);
     governance.vote(0, 10000 ether, true);
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Queued);
+    assertTrue(governance.getProposalState(0) == ProposalState.Queued);
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
-    assertTrue(governance.getProposalState(0) == DataStructures.ProposalState.Executable);
+    assertTrue(governance.getProposalState(0) == ProposalState.Executable);
     assertEq(governance.governanceProposer(), address(governanceProposer));
 
     governance.execute(0);

@@ -21,6 +21,7 @@ template <typename FF_> class bc_decompositionImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::bc_decomposition_sel)).is_zero();
     }
 

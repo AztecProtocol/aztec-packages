@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/execution.hpp"
 
-#include "gmock/gmock.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -25,6 +24,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 
 namespace bb::avm2::simulation {
@@ -45,6 +45,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
+    StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -119,5 +120,36 @@ TEST_F(ExecutionSimulationTest, Call)
                    /*cd_offset=*/5);
 }
 
+TEST_F(ExecutionSimulationTest, InternalCall)
+{
+    uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
+    uint32_t pc_loc = 11;     // This is the pc of the internal call
+
+    NiceMock<MockInternalCallStackManager> internal_call_stack_manager;
+    ON_CALL(context, get_internal_call_stack_manager).WillByDefault(ReturnRef(internal_call_stack_manager));
+
+    // ==== Internal Call
+    // Get manager
+    EXPECT_CALL(context, get_internal_call_stack_manager());
+    // Store the return pc (i.e. context.get_next_pc())
+    EXPECT_CALL(context, get_next_pc()).WillOnce(Return(return_pc));
+    EXPECT_CALL(internal_call_stack_manager, push(return_pc));
+    // Set next pc to the parameter pc_loc
+    EXPECT_CALL(context, set_next_pc(pc_loc));
+
+    execution.internal_call(context, pc_loc);
+
+    // ==== Internal Return
+    // Get manager
+    EXPECT_CALL(context, get_internal_call_stack_manager());
+    // Pop the return pc from the stack
+    EXPECT_CALL(internal_call_stack_manager, pop()).WillOnce(Return(return_pc));
+    // Set the next pc to the return pc
+    EXPECT_CALL(context, set_next_pc(return_pc));
+
+    execution.internal_return(context);
+}
+
 } // namespace
+
 } // namespace bb::avm2::simulation

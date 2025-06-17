@@ -72,6 +72,7 @@ function test {
 
 function bench_cmds {
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  echo "$hash:ISOLATE=1:NAME=tx_compression BENCH_OUTPUT=bench-out/tx_compression.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_compression"
 
   for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
     echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"

@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {CoinIssuer} from "@aztec/governance/CoinIssuer.sol";

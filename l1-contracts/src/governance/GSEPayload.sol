@@ -2,9 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {IPayload} from "./interfaces/IPayload.sol";
 import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
 
