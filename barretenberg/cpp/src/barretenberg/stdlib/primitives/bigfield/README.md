@@ -120,6 +120,30 @@ $$
 a = (a_0, \ a_1, \ a_2, \ a_3, \ a_{\textsf{prime}}).
 $$
 
+### Bigfield Reduction
+
+Given a bigfield element $a \in [0, 2^T)$ we would like to reduce it to $r \in [0, p)$ such that
+
+$$
+
+a \equiv r \ \textsf{mod} \ p.
+
+
+$$
+
+This is known as full reduction. We need to check the following conditions in the circuit:
+
+1. Compute quotient $q$ and remainder $r$ such that $a = q \cdot \const{p} + r$ natively:
+   - $q := \left\lfloor \frac{a}{\const{p}} \right\rfloor$,
+   - $r := a \ \textsf{mod} \ p$,
+2. Check if $q \cdot \const{p} + r - a = 0$ in the circuit,
+3. Enforce range constraint on quotient $q < 2^L$ (must fit in one limb)
+4. Enforce range constraint on remainder $r < \const{p}$
+
+The last step of checking $r < \const{p}$ is very expensive in circuits. Instead, we perform a relaxed condition on $r < 2^s$ where $s := |\const{p}|$. This is enough for operations where you care more about not overflowing rather than getting an exact value mod $p$. Checking $r < 2^s$ is much cheaper in circuits because it simply implies clearing higher bits.
+
+This relaxed check is knowns as _lazy reduction_. It suffices because in addition chains, if we keep reducing intermediate values to lie within a safe range above $p$ (like $2^s$), then the final result can be reduced mod $p$ at the end.
+
 ### Details on Bigfield Addition
 
 Given two bigfield elements $a, b \in [0, 2^T)$
