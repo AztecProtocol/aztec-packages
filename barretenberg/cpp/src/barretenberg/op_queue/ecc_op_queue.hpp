@@ -52,10 +52,10 @@ class ECCOpQueue {
     ECCOpQueue() { initialize_new_subtable(); }
 
     // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
-    void initialize_new_subtable()
+    void initialize_new_subtable(MergeSettings settings = MergeSettings::PREPEND)
     {
-        eccvm_ops_table.create_new_subtable();
-        ultra_ops_table.create_new_subtable();
+        eccvm_ops_table.create_new_subtable(settings);
+        ultra_ops_table.create_new_subtable(settings);
     }
 
     // Construct polynomials corresponding to the columns of the full aggregate ultra ecc ops table

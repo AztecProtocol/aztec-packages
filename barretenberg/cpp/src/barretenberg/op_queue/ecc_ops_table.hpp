@@ -13,6 +13,8 @@
 #include <deque>
 namespace bb {
 
+enum MergeSettings { PREPEND, APPEND };
+
 /**
  * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
  * - addition: add = true, value() = 8
@@ -108,7 +110,7 @@ template <typename OpFormat> class EccOpsTable {
 
     void push(const OpFormat& op) { table.front().push_back(op); }
 
-    void create_new_subtable(size_t size_hint = 0)
+    void create_new_subtable([[maybe_unused]] MergeSettings settings = MergeSettings::PREPEND, size_t size_hint = 0)
     {
         // If there is a single subtable and it is empty, dont create a new one
         if (table.size() == 1 && table.front().empty()) {
@@ -185,7 +187,10 @@ class UltraEccOpsTable {
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
     size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
-    void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
+    void create_new_subtable(MergeSettings settings = MergeSettings::APPEND, size_t size_hint = 0)
+    {
+        table.create_new_subtable(settings, size_hint);
+    }
     void push(const UltraOp& op) { table.push(op); }
     std::vector<UltraOp> get_reconstructed() const { return table.get_reconstructed(); }
 
