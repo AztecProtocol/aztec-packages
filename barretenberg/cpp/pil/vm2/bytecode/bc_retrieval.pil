@@ -111,8 +111,9 @@ sel {
 };
 
 // TODO: Gate by error flag.
-#[BYTECODE_HASH_IS_CORRECT]
-sel { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+// TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+//#[BYTECODE_HASH_IS_CORRECT]
+//sel { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
 
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
