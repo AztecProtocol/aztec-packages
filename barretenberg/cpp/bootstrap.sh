@@ -284,35 +284,38 @@ case "$cmd" in
     ;;
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Download the inputs for the private flows.
-    # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
-    git fetch origin master
+    git fetch origin next
 
-    # build the benchmarked benches
+    flow_filter="${1:-}"               # optional string-match filter for flow names
+    commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
+
+    # Build both native and wasm benchmark binaries
     parallel --line-buffered --tag -v denoise ::: \
       "build_preset $native_preset --target bb_cli_bench" \
       "build_preset wasm-threads --target bb_cli_bench"
 
-    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    if [ -n "${1:-}" ]; then
-      echo "Downloading inputs from commit $1."
-      export AZTEC_CACHE_COMMIT=$1
-      export DOWNLOAD_ONLY=1
-      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
-      yarn --cwd ../../yarn-project/bb-prover generate
-    fi
+    # Download cached flow inputs from the specified commit
+    export AZTEC_CACHE_COMMIT=$commit_hash
+    export DOWNLOAD_ONLY=1
+    yarn --cwd ../../yarn-project/bb-prover generate
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh build_bench
+
+    # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {
-      if [ "${NO_WASM:-}" == "1" ]; then
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep -v wasm | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      else
-        ../../yarn-project/end-to-end/bootstrap.sh bench_cmds | grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh
-      fi
+      local flow_filter="$1"  # select only flows containing this string
+
+      ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
+        grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
+        { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
+        { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
     }
-    ivc_bench_cmds | STRICT_SCHEDULING=1 parallelise
+
+    echo "Running commands:"
+    ivc_bench_cmds "$flow_filter" | tee /tmp/ivc_cmds_filtered.txt
+
+    cat /tmp/ivc_cmds_filtered.txt | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash
