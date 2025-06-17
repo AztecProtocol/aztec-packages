@@ -132,7 +132,7 @@ contract SlashingTest is TestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount1 - slashAmount2, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status");
     }
   }
 }

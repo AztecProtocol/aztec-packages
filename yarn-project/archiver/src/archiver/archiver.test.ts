@@ -12,7 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
@@ -21,7 +21,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
+import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';
@@ -826,13 +826,20 @@ async function makeRollupTx(l2Block: L2Block) {
     ],
   });
 
-  const forwarderInput = encodeFunctionData({
-    abi: ForwarderAbi,
-    functionName: 'forward',
-    args: [[EthAddress.ZERO.toString()], [rollupInput]],
+  const multiCallInput = encodeFunctionData({
+    abi: multicall3Abi,
+    functionName: 'aggregate3',
+    args: [
+      [
+        {
+          target: EthAddress.ZERO.toString(),
+          callData: rollupInput,
+          allowFailure: false,
+        },
+      ],
+    ],
   });
-
-  return { input: forwarderInput } as Transaction<bigint, number>;
+  return { input: multiCallInput } as Transaction<bigint, number>;
 }
 
 /**

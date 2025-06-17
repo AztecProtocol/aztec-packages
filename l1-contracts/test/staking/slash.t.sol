@@ -15,6 +15,11 @@ contract SlashTest is StakingBase {
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
+
     // it reverts
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this))
@@ -30,8 +35,8 @@ contract SlashTest is StakingBase {
     // it reverts
 
     vm.prank(SLASHER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NoOneToSlash.selector, ATTESTER));
-    staking.slash(ATTESTER, 1);
+    // vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NoOneToSlash.selector, ATTESTER));
+    assertFalse(staking.slash(ATTESTER, 1));
   }
 
   modifier whenAttesterIsRegistered() {
@@ -61,11 +66,11 @@ contract SlashTest is StakingBase {
     Exit memory exit = staking.getExit(ATTESTER);
     vm.warp(Timestamp.unwrap(exit.exitableAt));
 
-    vm.expectRevert(
+    /*vm.expectRevert(
       abi.encodeWithSelector(Errors.Staking__CannotSlashExitedStake.selector, ATTESTER)
-    );
+    );*/
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, 1);
+    assertFalse(staking.slash(ATTESTER, 1));
   }
 
   function test_GivenTimeIsBeforeUnlock()
@@ -102,7 +107,7 @@ contract SlashTest is StakingBase {
       // Prepare the status and state
       AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
       assertTrue(
-        attesterView.status == (isAlive ? Status.VALIDATING : Status.LIVING), "Invalid status"
+        attesterView.status == (isAlive ? Status.VALIDATING : Status.ZOMBIE), "Invalid status"
       );
       assertEq(staking.getActiveAttesterCount(), isAlive ? 1 : 0, "Invalid active attester count");
 
@@ -128,7 +133,7 @@ contract SlashTest is StakingBase {
         // The second round, we are not longer active, but there are money left
         assertEq(attesterView.effectiveBalance, 0, "Invalid effective balance");
         assertEq(attesterView.exit.amount, balance - slashingAmount, "Invalid exit amount");
-        assertTrue(attesterView.status == Status.LIVING, "Invalid status after slash");
+        assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status after slash");
         assertEq(staking.getActiveAttesterCount(), 0, "Invalid active attester count");
       } else {
         // Fully slashed! NUKE IT.
@@ -184,7 +189,7 @@ contract SlashTest is StakingBase {
     attesterView = staking.getAttesterView(ATTESTER);
     assertEq(attesterView.effectiveBalance, 0);
     assertEq(attesterView.exit.amount, balance - slashingAmount);
-    assertTrue(attesterView.status == Status.LIVING);
+    assertTrue(attesterView.status == Status.ZOMBIE);
 
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
   }

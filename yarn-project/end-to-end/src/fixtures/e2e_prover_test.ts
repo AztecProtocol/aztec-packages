@@ -20,6 +20,7 @@ import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { SecretValue } from '@aztec/foundation/config';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
@@ -289,7 +290,7 @@ export class FullProverTest {
       proverId: this.proverAddress.toField(),
       realProofs: this.realProofs,
       proverAgentCount: 2,
-      publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
+      publisherPrivateKey: new SecretValue(`0x${proverNodePrivateKey!.toString('hex')}` as const),
       proverNodeMaxPendingJobs: 100,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 100,

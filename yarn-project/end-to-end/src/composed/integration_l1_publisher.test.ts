@@ -17,11 +17,12 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { ForwarderAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -48,12 +49,13 @@ import {
   getAbiItem,
   getAddress,
   getContract,
+  multicall3Abi,
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import { createForwarderContract, setupL1Contracts } from '../fixtures/utils.js';
+import { setupL1Contracts } from '../fixtures/utils.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -182,11 +184,6 @@ describe('L1Publisher integration', () => {
     const sequencerL1Client = createExtendedL1Client(config.l1RpcUrls, sequencerPK, foundry);
     const l1TxUtils = new L1TxUtilsWithBlobs(sequencerL1Client, logger, config);
     const rollupContract = new RollupContract(sequencerL1Client, l1ContractAddresses.rollupAddress.toString());
-    const forwarderContract = await createForwarderContract(
-      config,
-      sequencerPK,
-      l1ContractAddresses.rollupAddress.toString(),
-    );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
       sequencerL1Client,
@@ -203,7 +200,7 @@ describe('L1Publisher integration', () => {
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
@@ -214,7 +211,6 @@ describe('L1Publisher integration', () => {
       {
         l1TxUtils,
         rollupContract,
-        forwarderContract,
         epochCache,
         governanceProposerContract,
         slashingProposerContract,
@@ -480,9 +476,17 @@ describe('L1Publisher integration', () => {
           ],
         });
         const expectedData = encodeFunctionData({
-          abi: ForwarderAbi,
-          functionName: 'forward',
-          args: [[rollupAddress], [expectedRollupData]],
+          abi: multicall3Abi,
+          functionName: 'aggregate3',
+          args: [
+            [
+              {
+                target: rollupAddress,
+                callData: expectedRollupData,
+                allowFailure: false,
+              },
+            ],
+          ],
         });
         expect(ethTx.input).toEqual(expectedData);
 

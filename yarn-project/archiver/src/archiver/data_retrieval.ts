@@ -13,7 +13,7 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -26,6 +26,7 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
+  multicall3Abi,
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
@@ -221,37 +222,36 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
 }
 
 /**
- * Extracts the first 'propose' method calldata from a forwarder transaction's data.
- * @param forwarderData - The forwarder transaction input data
+ * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
+ * @param multicall3Data - The multicall3 transaction input data
  * @param rollupAddress - The address of the rollup contract
  * @returns The calldata for the first 'propose' method call to the rollup contract
  */
-function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): Hex {
-  // TODO(#11451): custom forwarders
-  const { functionName: forwarderFunctionName, args: forwarderArgs } = decodeFunctionData({
-    abi: ForwarderAbi,
-    data: forwarderData,
+function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
+  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
+    abi: multicall3Abi,
+    data: multicall3Data,
   });
 
-  if (forwarderFunctionName !== 'forward') {
-    throw new Error(`Unexpected forwarder method called ${forwarderFunctionName}`);
+  if (multicall3FunctionName !== 'aggregate3') {
+    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
   }
 
-  if (forwarderArgs.length !== 2) {
-    throw new Error(`Unexpected number of arguments for forwarder`);
+  if (multicall3Args.length !== 1) {
+    throw new Error(`Unexpected number of arguments for multicall3`);
   }
 
-  const [to, data] = forwarderArgs;
+  const [calls] = multicall3Args;
 
   // Find all rollup calls
   const rollupAddressLower = rollupAddress.toLowerCase();
 
-  for (let i = 0; i < to.length; i++) {
-    const addr = to[i];
+  for (let i = 0; i < calls.length; i++) {
+    const addr = calls[i].target;
     if (addr.toLowerCase() !== rollupAddressLower) {
       continue;
     }
-    const callData = data[i];
+    const callData = calls[i].callData;
 
     try {
       const { functionName: rollupFunctionName } = decodeFunctionData({
@@ -268,7 +268,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
     }
   }
 
-  throw new Error(`Rollup address not found in forwarder args`);
+  throw new Error(`Rollup address not found in multicall3 args`);
 }
 
 /**

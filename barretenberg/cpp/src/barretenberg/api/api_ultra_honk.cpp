@@ -121,9 +121,9 @@ bool _verify(const bool ipa_accumulation,
     std::vector<fr> complete_proof = public_inputs;
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
-    std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
     if (ipa_accumulation) {
-        ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
     }
 
     Verifier verifier{ vk, ipa_verification_key };

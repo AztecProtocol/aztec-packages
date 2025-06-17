@@ -31,16 +31,17 @@ import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
-  ForwarderContract,
   NULL_KEY,
   type Operator,
   createExtendedL1Client,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   isAnvilTestChain,
   l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -367,7 +368,7 @@ export async function setup(
 
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
+    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
@@ -419,15 +420,15 @@ export async function setup(
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
     }
 
     if (PXE_URL) {
@@ -449,6 +450,9 @@ export async function setup(
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(true);
     }
+
+    const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
+    await deployMulticall3(l1Client, logger);
 
     const deployL1ContractsValues =
       opts.deployL1ContractsValues ??
@@ -839,7 +843,7 @@ export function createAndSyncProverNode(
       proverCoordinationNodeUrls: [],
       realProofs: false,
       proverAgentCount: 2,
-      publisherPrivateKey: proverNodePrivateKey,
+      publisherPrivateKey: new SecretValue(proverNodePrivateKey),
       proverNodeMaxPendingJobs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 200,
@@ -870,14 +874,4 @@ function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0
   const l1TxUtils = new DelayedTxUtils(l1Client, log, aztecNodeConfig);
   l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
   return l1TxUtils;
-}
-
-export async function createForwarderContract(
-  aztecNodeConfig: AztecNodeConfig,
-  privateKey: `0x${string}`,
-  rollupAddress: Hex,
-) {
-  const l1Client = createExtendedL1Client(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
-  const forwarderContract = await ForwarderContract.create(l1Client, createLogger('forwarder'), rollupAddress);
-  return forwarderContract;
 }
