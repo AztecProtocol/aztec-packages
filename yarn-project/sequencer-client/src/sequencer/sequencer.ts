@@ -571,7 +571,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
-      this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
+      const blockBuildDuration = workTimer.ms();
       await this.dropFailedTxsFromP2P(failedTxs);
 
       const minTxsPerBlock = this.isFlushing ? 0 : this.minTxsPerBlock;
@@ -620,6 +620,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       stopCollectingAttestationsTimer();
 
       await this.enqueuePublishL2Block(block, attestations, txHashes);
+      this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
       this.metrics.recordFailedBlock();
