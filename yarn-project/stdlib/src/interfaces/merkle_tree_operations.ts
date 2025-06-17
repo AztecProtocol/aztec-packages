@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 
-import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import type { MerkleTreeId, TreeHeights } from '../trees/merkle_tree_id.js';
 import type { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import type { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import type { BlockHeader } from '../tx/block_header.js';
@@ -137,7 +137,7 @@ export interface MerkleTreeReadOperations {
    * @param treeId - The tree to be queried for a sibling path.
    * @param index - The index of the leaf for which a sibling path should be returned.
    */
-  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>>;
+  getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>>;
 
   /**
    * Returns the previous index for a given value in an indexed tree.
@@ -149,13 +149,9 @@ export interface MerkleTreeReadOperations {
     value: bigint,
   ): Promise<
     | {
-        /**
-         * The index of the found leaf.
-         */
+        /** The index of the found leaf.*/
         index: bigint;
-        /**
-         * A flag indicating if the corresponding leaf's value is equal to `newValue`.
-         */
+        /** A flag indicating if the corresponding leaf's value is equal to `newValue`. */
         alreadyPresent: boolean;
       }
     | undefined
@@ -183,10 +179,10 @@ export interface MerkleTreeReadOperations {
    * @param treeId - The tree for which the index should be returned.
    * @param values - The values to search for in the tree.
    */
-  findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+  findSiblingPaths<ID extends MerkleTreeId>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],
-  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]>;
+  ): Promise<({ path: SiblingPath<TreeHeights[ID]>; index: bigint } | undefined)[]>;
 
   /**
    * Returns the first index containing a leaf value after `startIndex`.
