@@ -284,7 +284,7 @@ case "$cmd" in
     ;;
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Sample usage (CI=1 required for bench results to be visible; exlude NO_WASM=1 to run wasm benchmarks):
+    # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
     # CI=1 NO_WASM=1 NATIVE_PRESET=op-count-time ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
     git fetch origin next
 
@@ -315,9 +315,9 @@ case "$cmd" in
     }
 
     echo "Running commands:"
-    ivc_bench_cmds "$flow_filter" | tee /tmp/ivc_cmds_filtered.txt
+    ivc_bench_cmds "$flow_filter"
 
-    cat /tmp/ivc_cmds_filtered.txt | STRICT_SCHEDULING=1 parallelise
+    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash
