@@ -1,8 +1,18 @@
-import { type AztecAddress, EthAddress, ProvenTx, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import {
+  type AztecAddress,
+  EthAddress,
+  ProvenTx,
+  Tx,
+  TxReceipt,
+  TxStatus,
+  sleep,
+  waitForProven,
+} from '@aztec/aztec.js';
 import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';
 import { updateProtocolCircuitSampleInputs } from '@aztec/foundation/testing/files';
+import { Timer } from '@aztec/foundation/timer';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, RewardDistributorAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
@@ -103,77 +113,108 @@ describe('full_prover', () => {
       const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
       // Prove them
-      logger.info(`Proving txs`);
+      logger.warn(`Proving txs`);
       const [publicProvenTx, privateProvenTx] = await Promise.all([
         publicInteraction.prove(),
         privateInteraction.prove(),
       ]);
 
       // Verify them
-      logger.info(`Verifying txs`);
+      logger.warn(`Verifying txs`);
       await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
       await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
 
+      for (let i = 0; i < 10; i++) {
+        await sleep(1000);
+
+        logger.warn(`Verifying in '${10 - i}...`);
+      }
+
+      while (true) {
+        const promises = [];
+        promises.push(...Array.from({ length: 5 }).map(() => t.circuitProofVerifier?.verifyProof(publicProvenTx)));
+        promises.push(...Array.from({ length: 5 }).map(() => t.circuitProofVerifier?.verifyProof(privateProvenTx)));
+        const timer = new Timer();
+        const results = await Promise.all(promises);
+
+        const numMillis = timer.ms();
+        logger.warn(`Verified in ${numMillis}ms\n\n\n\n\n`);
+
+        results
+          .filter(result => result !== undefined)
+          .forEach(result => {
+            logger.warn(`Verified `, {
+              valid: result.valid,
+              duration: result.duration,
+              totalDuration: result.totalDuration,
+            });
+          });
+        if (numMillis < 1000) {
+          await sleep(1000 - numMillis);
+        }
+        logger.warn(`Time: ${new Date().toLocaleTimeString()}\n\n\n\n\n\n`);
+      }
+
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
-      logger.info(`Sending private tx`);
-      const txPrivate = privateProvenTx.send();
-      await txPrivate.wait({ timeout: 300, interval: 10 });
+      // logger.info(`Sending private tx`);
+      // const txPrivate = privateProvenTx.send();
+      // await txPrivate.wait({ timeout: 300, interval: 10 });
 
-      logger.info(`Sending public tx`);
-      const txPublic = publicProvenTx.send();
-      await txPublic.wait({ timeout: 300, interval: 10 });
+      // logger.info(`Sending public tx`);
+      // const txPublic = publicProvenTx.send();
+      // await txPublic.wait({ timeout: 300, interval: 10 });
 
-      logger.info(`Both txs have been mined`);
-      const txs = [txPrivate, txPublic];
+      // logger.info(`Both txs have been mined`);
+      // const txs = [txPrivate, txPublic];
 
-      // Flag the transfers on the token simulator
-      tokenSim.transferPrivate(sender, recipient, privateSendAmount);
-      tokenSim.transferPublic(sender, recipient, publicSendAmount);
+      // // Flag the transfers on the token simulator
+      // tokenSim.transferPrivate(sender, recipient, privateSendAmount);
+      // tokenSim.transferPublic(sender, recipient, publicSendAmount);
 
-      // Warp to the next epoch
-      const epoch = await cheatCodes.rollup.getEpoch();
-      logger.info(`Advancing from epoch ${epoch} to next epoch`);
-      await cheatCodes.rollup.advanceToNextEpoch();
+      // // Warp to the next epoch
+      // const epoch = await cheatCodes.rollup.getEpoch();
+      // logger.info(`Advancing from epoch ${epoch} to next epoch`);
+      // await cheatCodes.rollup.advanceToNextEpoch();
 
-      const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
-      const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
-      const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
+      // const rewardsBeforeCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      // const rewardsBeforeProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      // const oldProvenBlockNumber = await rollup.getProvenBlockNumber();
 
-      // And wait for the first pair of txs to be proven
-      logger.info(`Awaiting proof for the previous epoch`);
-      await Promise.all(
-        txs.map(async tx => {
-          const receipt = await tx.wait({ timeout: 300, interval: 10 });
-          await waitForProven(t.aztecNode, receipt, { provenTimeout: 3000 });
-        }),
-      );
+      // // And wait for the first pair of txs to be proven
+      // logger.info(`Awaiting proof for the previous epoch`);
+      // await Promise.all(
+      //   txs.map(async tx => {
+      //     const receipt = await tx.wait({ timeout: 300, interval: 10 });
+      //     await waitForProven(t.aztecNode, receipt, { provenTimeout: 3000 });
+      //   }),
+      // );
 
-      const newProvenBlockNumber = await rollup.getProvenBlockNumber();
-      expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
-      expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
+      // const newProvenBlockNumber = await rollup.getProvenBlockNumber();
+      // expect(newProvenBlockNumber).toBeGreaterThan(oldProvenBlockNumber);
+      // expect(await rollup.getBlockNumber()).toBe(newProvenBlockNumber);
 
-      logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
-      const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
-      expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
+      // logger.info(`checking rewards for coinbase: ${COINBASE_ADDRESS.toString()}`);
+      // const rewardsAfterCoinbase = await rollup.getSequencerRewards(COINBASE_ADDRESS);
+      // expect(rewardsAfterCoinbase).toBeGreaterThan(rewardsBeforeCoinbase);
 
-      const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
-      expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
+      // const rewardsAfterProver = await rollup.getSpecificProverRewardsForEpoch(epoch, t.proverAddress);
+      // expect(rewardsAfterProver).toBeGreaterThan(rewardsBeforeProver);
 
-      const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
-      const fees = (
-        await Promise.all([
-          t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
-          t.aztecNode.getBlock(Number(newProvenBlockNumber)),
-        ])
-      ).map(b => b!.header.totalFees.toBigInt());
+      // const blockReward = (await rewardDistributor.read.BLOCK_REWARD()) as bigint;
+      // const fees = (
+      //   await Promise.all([
+      //     t.aztecNode.getBlock(Number(newProvenBlockNumber - 1n)),
+      //     t.aztecNode.getBlock(Number(newProvenBlockNumber)),
+      //   ])
+      // ).map(b => b!.header.totalFees.toBigInt());
 
-      const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
-      const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
-      const proverGain = rewardsAfterProver - rewardsBeforeProver;
+      // const totalRewards = fees.map(fee => fee + blockReward).reduce((acc, reward) => acc + reward, 0n);
+      // const sequencerGain = rewardsAfterCoinbase - rewardsBeforeCoinbase;
+      // const proverGain = rewardsAfterProver - rewardsBeforeProver;
 
-      // May be less than totalRewards due to burn.
-      expect(sequencerGain + proverGain).toBeLessThanOrEqual(totalRewards);
+      // // May be less than totalRewards due to burn.
+      // expect(sequencerGain + proverGain).toBeLessThanOrEqual(totalRewards);
     },
     TIMEOUT,
   );

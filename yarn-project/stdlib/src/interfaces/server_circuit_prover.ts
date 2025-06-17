@@ -164,7 +164,7 @@ export interface ClientProtocolCircuitVerifier {
    * @param tx - The tx to verify the proof of
    * @returns True if the proof is valid, false otherwise
    */
-  verifyProof(tx: Tx): Promise<boolean>;
+  verifyProof(tx: Tx): Promise<{ valid: boolean; duration: number; totalDuration: number }>;
 
   /**
    * Stop the verifier.
