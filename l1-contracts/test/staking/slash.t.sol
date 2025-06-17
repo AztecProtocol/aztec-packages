@@ -15,6 +15,11 @@ contract SlashTest is StakingBase {
   }
 
   function test_WhenCallerIsNotTheSlasher() external {
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
+    staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
+
     // it reverts
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this))
@@ -30,8 +35,8 @@ contract SlashTest is StakingBase {
     // it reverts
 
     vm.prank(SLASHER);
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NoOneToSlash.selector, ATTESTER));
-    staking.slash(ATTESTER, 1);
+    // vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NoOneToSlash.selector, ATTESTER));
+    assertFalse(staking.slash(ATTESTER, 1));
   }
 
   modifier whenAttesterIsRegistered() {
@@ -61,11 +66,11 @@ contract SlashTest is StakingBase {
     Exit memory exit = staking.getExit(ATTESTER);
     vm.warp(Timestamp.unwrap(exit.exitableAt));
 
-    vm.expectRevert(
+    /*vm.expectRevert(
       abi.encodeWithSelector(Errors.Staking__CannotSlashExitedStake.selector, ATTESTER)
-    );
+    );*/
     vm.prank(SLASHER);
-    staking.slash(ATTESTER, 1);
+    assertFalse(staking.slash(ATTESTER, 1));
   }
 
   function test_GivenTimeIsBeforeUnlock()
