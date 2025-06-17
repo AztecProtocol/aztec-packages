@@ -900,6 +900,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.archiver,
       this.proofVerifier,
       allowedInSetup,
+      this.config.maxTxExpirySlots,
     );
   }
 

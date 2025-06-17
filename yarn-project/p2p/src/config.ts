@@ -138,6 +138,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
+
+  /** Maximum number of slots a transaction can be valid for (currently 2400 slots = ~24 hours with 36-second slots) */
+  maxTxExpirySlots: number;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -349,6 +352,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
     description: 'True to disable the status handshake on peer connected.',
     ...booleanConfigHelper(false),
+  },
+  maxTxExpirySlots: {
+    env: 'P2P_MAX_TX_EXPIRY_SLOTS',
+    description: 'Maximum number of slots a transaction can be valid for (currently 2400 slots = ~24 hours with 36-second slots)',
+    ...numberConfigHelper(2400),
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

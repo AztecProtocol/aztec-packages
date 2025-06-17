@@ -18,6 +18,7 @@ describe('MetadataTxValidator', () => {
   let rollupVersion: Fr;
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
+  let maxTxExpirySlots: number;
 
   let seed: number = 1;
   let validator: MetadataTxValidator<AnyTx>;
@@ -28,12 +29,14 @@ describe('MetadataTxValidator', () => {
     rollupVersion = new Fr(2);
     vkTreeRoot = new Fr(3);
     protocolContractTreeRoot = new Fr(4);
+    maxTxExpirySlots = 2400;
     validator = new MetadataTxValidator({
       l1ChainId: chainId,
       rollupVersion,
       blockNumber,
       vkTreeRoot,
       protocolContractTreeRoot,
+      maxTxExpirySlots,
     });
   });
 
@@ -113,5 +116,19 @@ describe('MetadataTxValidator', () => {
     badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber - 1);
 
     await expectInvalid(badTx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
+  });
+
+  it('should reject tx with max block number too far in the future', async () => {
+    const [tx] = await makeTxs();
+    tx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber + maxTxExpirySlots + 1);
+
+    await expectInvalid(tx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
+  });
+
+  it('should accept tx with max block number within expiry limit', async () => {
+    const [tx] = await makeTxs();
+    tx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber + maxTxExpirySlots);
+
+    await expectValid(tx);
   });
 });
