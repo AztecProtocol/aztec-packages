@@ -1,8 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, MerkleTreeId, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ViemClient } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
@@ -14,6 +15,7 @@ import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@az
 
 import { join } from 'path';
 import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   type EndToEndContext,
@@ -244,6 +246,19 @@ export class EpochsTestContext {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }
     }
+  }
+  /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
+  public async createL1Client() {
+    const { client, delayer } = withDelayer(
+      createExtendedL1Client(
+        [...this.l1Client.chain.rpcUrls.default.http],
+        privateKeyToAccount(this.getNextPrivateKey()),
+        this.l1Client.chain,
+      ),
+      { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
+    );
+    expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
+    return { client, delayer };
   }
 
   /** Verifies whether the given block number is found on the aztec node. */
