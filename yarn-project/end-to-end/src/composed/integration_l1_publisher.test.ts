@@ -17,6 +17,7 @@ import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { range } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { SHA256Trunc, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
@@ -119,7 +120,9 @@ describe('L1Publisher integration', () => {
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
-    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger));
+    ({ l1ContractAddresses, l1Client } = await setupL1Contracts(config.l1RpcUrls, deployerAccount, logger, {
+      aztecTargetCommitteeSize: 0,
+    }));
 
     ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
 
@@ -201,7 +204,7 @@ describe('L1Publisher integration', () => {
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,

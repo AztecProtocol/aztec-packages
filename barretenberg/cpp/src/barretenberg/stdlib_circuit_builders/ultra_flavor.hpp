@@ -340,7 +340,7 @@ class UltraFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
                    const size_t num_public_inputs,
-                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+                   CommitmentKey commitment_key = CommitmentKey())
             : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
 
         std::vector<uint32_t> memory_read_records;
@@ -377,12 +377,12 @@ class UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (proving_key.commitment_key == nullptr) {
+            if (!proving_key.commitment_key.initialized()) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = proving_key.commitment_key.commit(polynomial);
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate

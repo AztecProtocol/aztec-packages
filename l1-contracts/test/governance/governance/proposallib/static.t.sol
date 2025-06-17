@@ -2,16 +2,16 @@
 pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Proposal, Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 contract Static is TestBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
-  DataStructures.Proposal internal proposal;
+  Proposal internal proposal;
 
-  modifier limitConfig(DataStructures.Configuration memory _config) {
+  modifier limitConfig(Configuration memory _config) {
     proposal.config.votingDelay =
       Timestamp.wrap(bound(Timestamp.unwrap(_config.votingDelay), 0, type(uint32).max));
     proposal.config.votingDuration =
@@ -24,7 +24,7 @@ contract Static is TestBase {
     _;
   }
 
-  function test_pendingThrough(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_pendingThrough(Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
@@ -32,7 +32,7 @@ contract Static is TestBase {
     assertEq(proposal.pendingThrough(), proposal.creation + proposal.config.votingDelay);
   }
 
-  function test_activeThrough(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_activeThrough(Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
@@ -43,7 +43,7 @@ contract Static is TestBase {
     );
   }
 
-  function test_queuedThrough(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_queuedThrough(Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {
@@ -55,7 +55,7 @@ contract Static is TestBase {
     );
   }
 
-  function test_executableThrough(DataStructures.Configuration memory _config, uint256 _creation)
+  function test_executableThrough(Configuration memory _config, uint256 _creation)
     external
     limitConfig(_config)
   {

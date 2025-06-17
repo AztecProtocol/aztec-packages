@@ -33,5 +33,6 @@ contract MultiAdder is IMultiAdder {
     for (uint256 i = 0; i < _args.length; i++) {
       STAKING.deposit(_args[i].attester, _args[i].withdrawer, true);
     }
+    STAKING.flushEntryQueue();
   }
 }

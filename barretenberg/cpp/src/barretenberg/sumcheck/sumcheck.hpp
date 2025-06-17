@@ -273,11 +273,11 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                                  ZKData& zk_sumcheck_data)
         requires Flavor::HasZK
     {
-        std::shared_ptr<CommitmentKey> ck = nullptr;
+        CommitmentKey ck;
 
         if constexpr (IsGrumpkinFlavor<Flavor>) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-            ck = std::make_shared<CommitmentKey>(BATCHED_RELATION_PARTIAL_LENGTH);
+            ck = CommitmentKey(BATCHED_RELATION_PARTIAL_LENGTH);
             // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform the round
             // univariates from Lagrange to monomial basis
             for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
@@ -387,7 +387,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             } else {
                 transcript->send_to_verifier("Sumcheck:univariate_comm_" + std::to_string(idx),
-                                             ck->commit(Polynomial<FF>(std::span(zero_univariate))));
+                                             ck.commit(Polynomial<FF>(std::span(zero_univariate))));
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx) + "_eval_0", FF(0));
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx) + "_eval_1", FF(0));
             }
@@ -540,7 +540,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
      */
     void commit_to_round_univariate(const size_t round_idx,
                                     bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate,
-                                    const std::shared_ptr<CommitmentKey>& ck)
+                                    const CommitmentKey& ck)
 
     {
         const std::string idx = std::to_string(round_idx);
@@ -548,7 +548,7 @@ template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> 
         // Transform to monomial form and commit to it
         Polynomial<FF> round_poly_monomial(
             eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
-        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, ck->commit(round_poly_monomial));
+        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, ck.commit(round_poly_monomial));
 
         // Store round univariate in monomial, as it is required by Shplemini
         round_univariates.push_back(std::move(round_poly_monomial));

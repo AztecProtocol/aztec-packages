@@ -41,6 +41,7 @@ import {
   l1Artifacts,
 } from '@aztec/ethereum';
 import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -51,6 +52,8 @@ import { TestDateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import type { P2PClientDeps } from '@aztec/p2p';
+import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import {
@@ -66,6 +69,7 @@ import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   type TelemetryClient,
@@ -250,6 +254,8 @@ async function setupWithRemoteEnvironment(
     wallets: wallets.slice(0, numberOfAccounts),
     logger,
     cheatCodes,
+    prefilledPublicData: undefined,
+    mockGossipSubNetwork: undefined,
     watcher: undefined,
     dateProvider: undefined,
     blobSink: undefined,
@@ -292,6 +298,12 @@ export type SetupOptions = {
   genesisPublicData?: PublicDataTreeLeaf[];
   /** Specific config for the prover node, if set. */
   proverNodeConfig?: Partial<ProverNodeConfig>;
+  /** Whether to use a mock gossip sub network for p2p clients. */
+  mockGossipSubNetwork?: boolean;
+  /** Whether to disable the anvil test watcher (can still be manually started) */
+  disableAnvilTestWatcher?: boolean;
+  /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
+  automineL1Setup?: boolean;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -328,6 +340,10 @@ export type EndToEndContext = {
   blobSink: BlobSinkServer | undefined;
   /** Telemetry client */
   telemetryClient: TelemetryClient | undefined;
+  /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
+  mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+  /** Prefilled public data used for setting up nodes. */
+  prefilledPublicData: PublicDataTreeLeaf[] | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -348,9 +364,11 @@ export async function setup(
 ): Promise<EndToEndContext> {
   let anvil: Anvil | undefined;
   try {
+    opts.aztecTargetCommitteeSize ??= 0;
+
     const config = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
-    config.validatorPrivateKeys = opts.initialValidators?.map(v => v.privateKey);
+    config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
@@ -402,15 +420,15 @@ export async function setup(
     let publisherPrivKey = undefined;
     let publisherHdAccount = undefined;
 
-    if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+    if (config.publisherPrivateKey && config.publisherPrivateKey.getValue() != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey.getValue());
     } else if (!MNEMONIC) {
       throw new Error(`Mnemonic not provided and no publisher private key`);
     } else {
       publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
       const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
       publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-      config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+      config.publisherPrivateKey = new SecretValue(`0x${publisherPrivKey!.toString('hex')}` as const);
     }
 
     if (PXE_URL) {
@@ -426,6 +444,12 @@ export async function setup(
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
     );
+
+    const wasAutomining = await ethCheatCodes.isAutoMining();
+    const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
+    if (enableAutomine) {
+      await ethCheatCodes.setAutomine(true);
+    }
 
     const deployL1ContractsValues =
       opts.deployL1ContractsValues ??
@@ -468,6 +492,11 @@ export async function setup(
       logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
     }
 
+    if (enableAutomine) {
+      await ethCheatCodes.setAutomine(false);
+      await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
+    }
+
     if (opts.l2StartTime) {
       // This should only be used in synching test or when you need to have a stable
       // timestamp for the first l2 block.
@@ -475,6 +504,7 @@ export async function setup(
     }
 
     const dateProvider = new TestDateProvider();
+    dateProvider.setTime((await ethCheatCodes.timestamp()) * 1000);
 
     const watcher = new AnvilTestWatcher(
       new EthCheatCodesWithState(config.l1RpcUrls),
@@ -482,8 +512,9 @@ export async function setup(
       deployL1ContractsValues.l1Client,
       dateProvider,
     );
-
-    await watcher.start();
+    if (!opts.disableAnvilTestWatcher) {
+      await watcher.start();
+    }
 
     const telemetry = getTelemetryClient(opts.telemetryConfig);
 
@@ -519,9 +550,20 @@ export async function setup(
     config.l1PublishRetryIntervalMS = 100;
 
     const blobSinkClient = createBlobSinkClient(config, { logger: createLogger('node:blob-sink:client') });
+
+    let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
+    let p2pClientDeps: P2PClientDeps<P2PClientType.Full> | undefined = undefined;
+
+    if (opts.mockGossipSubNetwork) {
+      mockGossipSubNetwork = new MockGossipSubNetwork();
+      p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
+    }
+
+    config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
+    config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
     const aztecNode = await AztecNodeService.createAndSync(
-      config,
-      { dateProvider, blobSinkClient, telemetry },
+      config, // REFACTOR: createAndSync mutates this config
+      { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
     const sequencer = aztecNode.getSequencer();
@@ -550,6 +592,17 @@ export async function setup(
     logger.verbose('Creating a pxe...');
     const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
+
+    if (
+      (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
+      (opts.initialValidators && opts.initialValidators.length > 0)
+    ) {
+      // We need to advance to epoch 2 such that the committee is set up.
+      logger.info(`Advancing to epoch 2`);
+      await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
+    }
+
     const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
@@ -558,8 +611,6 @@ export async function setup(
         `Unable to deploy ${numberOfAccounts} accounts. Only ${initialFundedAccounts.length} accounts were funded.`,
       );
     }
-
-    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
     const teardown = async () => {
       try {
@@ -595,6 +646,8 @@ export async function setup(
       deployL1ContractsValues,
       initialFundedAccounts,
       logger,
+      mockGossipSubNetwork,
+      prefilledPublicData,
       proverNode,
       pxe,
       sequencer,
@@ -787,7 +840,7 @@ export function createAndSyncProverNode(
       proverCoordinationNodeUrls: [],
       realProofs: false,
       proverAgentCount: 2,
-      publisherPrivateKey: proverNodePrivateKey,
+      publisherPrivateKey: new SecretValue(proverNodePrivateKey),
       proverNodeMaxPendingJobs: 10,
       proverNodeMaxParallelBlocksPerEpoch: 32,
       proverNodePollingIntervalMs: 200,

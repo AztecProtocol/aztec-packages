@@ -55,7 +55,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         constexpr size_t NUM_SHIFTED = 2;
         constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;
 
-        auto commitment_key = std::make_shared<CommitmentKey>(16384);
+        CommitmentKey commitment_key(16384);
 
         std::vector<NativeFr> u_challenge;
         u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);

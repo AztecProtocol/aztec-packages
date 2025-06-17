@@ -4,11 +4,10 @@ pragma solidity >=0.8.27;
 
 import {
   AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+  SnapshottedAddressSet,
+  AddressSnapshotLib__IndexOutOfBounds
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 contract AddressSnapshotValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
