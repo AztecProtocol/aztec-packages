@@ -66,6 +66,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/keccak_round_constants",
+                           precomputed_builder.process_keccak_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",

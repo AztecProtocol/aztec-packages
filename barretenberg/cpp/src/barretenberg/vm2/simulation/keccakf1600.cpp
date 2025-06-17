@@ -81,6 +81,9 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         keccakf1600_event.src_abs_diff = src_abs_diff;
         keccakf1600_event.dst_abs_diff = dst_abs_diff;
 
+        auto& memory = context.get_memory();
+        keccakf1600_event.space_id = memory.get_space_id();
+
         // We group both possible out-of-range errors in the same temporality group.
         // Therefore, we perform both range checks no matter what.
         range_check.assert_range(src_abs_diff, AVM_MEMORY_NUM_BITS);
@@ -98,9 +101,6 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         // them back only at the end (event emission).
         KeccakF1600StateMemValues src_mem_values;
         src_mem_values.fill(std::array<MemoryValue, 5>{ MemoryValue::from<uint64_t>(0) });
-
-        auto& memory = context.get_memory();
-        keccakf1600_event.space_id = memory.get_space_id();
 
         // Slice read and tag check
         for (size_t i = 0; i < 5; i++) {

@@ -13,18 +13,20 @@ namespace keccak_memory;
 //               that the slice fits into the memory space.
 
 // We use a multi-row computation to shift the read/written values to the row where the lookup
-// applies. values are indexed according to 2 indices 0 <= i,j <= 4 in accordance to keccak
-// state values: val{ij}
+// applies. Values are indexed according to 2 indices 0 <= i,j <= 4 in accordance to keccak
+// state values: val{ij}. The multi-row computation is performed by toggling the `start_read`
+// or `start_write` columns. We need two different `start` selectors because the read and write
+// operations are using different source tuples in keccakf1600.pil.
 
 //#################################################################################################
 //                  High-Level Trace Structure Columns
 //#################################################################################################
-//   ctr   ctr_end  sel   start   last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
-//    1       0      1      1      0      0   38    U64    43    267     17          238       0                 0
-//    2       0      1      0      0      0   39    U64   267     17          238              0                 0
-//    3       0      1      0      0      0   40    U64    17                                  0                 0
-//    ...    ...    ...    ...    ...     0   ..    U64    **     ***                          0                 0
-//    25      1      1      0      1      0   62    U64   238     0      0     ...    0        0                 0
+//   ctr   ctr_end  sel   start_read  last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1          0      0   38    U64    43    267     17          238       0                 0
+//    2       0      1      0          0      0   39    U64   267     17          238              0                 0
+//    3       0      1      0          0      0   40    U64    17                                  0                 0
+//    ...    ...    ...    ...        ...     0   ..    U64    **     ***                          0                 0
+//    25      1      1      0          1      0   62    U64   238     0      0     ...    0        0                 0
 
 // A read/write memory operation is performed at each row at memory offset `addr`, `rw` boolean indicates
 // whether we write or read. The column val00 stores the read/write value and tag the tag value.
@@ -37,10 +39,10 @@ namespace keccak_memory;
 // When this happens, we toggle `last` and stop the multi-rows computation prematurely.
 // Therefore, when a tag error occurs the trace looks like:
 
-//   ctr  ctr_end   sel   start   last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
-//    1       0      1      1      0      0   38    U64    43    267     17          0         0                 1
-//    2       0      1      0      0      0   39    U64   267     17                           0                 1
-//    3       0      1      0      1      0   40    FF     17     0      0  ....     0         1                 1
+//   ctr  ctr_end   sel   start_read last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1         0      0   38    U64    43    267     17          0         0                 1
+//    2       0      1      0         0      0   39    U64   267     17                           0                 1
+//    3       0      1      0         1      0   40    FF     17     0      0  ....     0         1                 1
 
 // The selector `last` is defined to be `ctr_end` OR `single_tag_error`.
 // To propagate the single_tag_error value, we use the column `tag_error`.
@@ -54,8 +56,11 @@ sel * (1 - sel) = 0;
 #[skippable_if]
 sel + last = 0;
 
-pol commit start;
-start * (1 - start) = 0;
+pol commit start_read;
+start_read * (1 - start_read) = 0;
+
+pol commit start_write;
+start_write * (1 - start_write) = 0;
 
 pol commit clk;
 pol commit ctr;
@@ -73,7 +78,13 @@ pol commit val00, val01, val02, val03, val04,
            val40, val41, val42, val43, val44;
 
 // We enforce the initial ctr to be set to 1.
-start * (ctr - 1) = 0;
+#[CTR_INIT]
+(start_read + start_write) * (ctr - 1) = 0;
+
+#[RW_READ_INIT]
+start_read * rw = 0;
+#[RW_WRITE_INIT]
+start_write * (1 - rw) = 0;
 
 // sel == 1 <==> ctr != 0
 pol commit ctr_inv;
@@ -125,6 +136,9 @@ sel * (1 - last) * (addr + 1 - addr') = 0;
 
 #[CLK_PROPAGATION]
 (1 - last) * (clk' - clk) = 0;
+
+#[RW_PROPAGATION]
+(1 - last) * (rw' - rw) = 0;
 
 // Check if the tag is U64
 // We constrain single_tag_error == 1 <==> tag is not U64.

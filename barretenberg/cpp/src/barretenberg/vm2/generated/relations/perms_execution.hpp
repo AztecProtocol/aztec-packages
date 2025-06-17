@@ -24,6 +24,18 @@ class perm_execution_dispatch_keccakf1600_settings {
     static constexpr Column SRC_SELECTOR = Column::execution_sel_keccakf1600;
     static constexpr Column DST_SELECTOR = Column::keccakf1600_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_keccakf1600_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::precomputed_clk,
+        ColumnAndShifts::execution_rop_0_,
+        ColumnAndShifts::execution_rop_1_,
+        ColumnAndShifts::execution_context_id,
+        ColumnAndShifts::execution_sel_gadget_error
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = { ColumnAndShifts::keccakf1600_clk,
+                                                                                  ColumnAndShifts::keccakf1600_dst_addr,
+                                                                                  ColumnAndShifts::keccakf1600_src_addr,
+                                                                                  ColumnAndShifts::keccakf1600_space_id,
+                                                                                  ColumnAndShifts::keccakf1600_error };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

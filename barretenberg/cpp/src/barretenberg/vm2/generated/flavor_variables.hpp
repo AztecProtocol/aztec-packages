@@ -22,12 +22,9 @@
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
-<<<<<<< HEAD
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
-=======
 #include "relations/keccak_memory.hpp"
->>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
@@ -58,15 +55,9 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
-<<<<<<< HEAD
-<<<<<<< HEAD
 #include "relations/lookups_internal_call.hpp"
-=======
-=======
 #include "relations/lookups_keccak_memory.hpp"
->>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
 #include "relations/lookups_keccakf1600.hpp"
->>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -83,160 +74,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2458;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2730;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2712;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2638;
-<<<<<<< HEAD
->>>>>>> 29603e509e (keccakf1600: permutation without memory)
-<<<<<<< HEAD
->>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
-=======
-=======
-<<<<<<< HEAD
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2637;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 73;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2159;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 154;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2386;
-=======
-=======
->>>>>>> 209278ea42 (Remove dummy columns in keccak)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 75;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 1740;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 209;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2986;
->>>>>>> 49adc1e822 (keccakf1600: permutation without memory)
->>>>>>> 78efe0b47a (keccakf1600: permutation without memory)
-<<<<<<< HEAD
->>>>>>> a53e582be1 (keccakf1600: permutation without memory)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 1962;
->>>>>>> 209278ea42 (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> c1fc7163b8 (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> 6d2b36e63d (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> 36ffcf63f7 (Remove dummy columns in keccak)
-<<<<<<< HEAD
->>>>>>> 6ebb74abe9 (Remove dummy columns in keccak)
-=======
-=======
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2031;
->>>>>>> 2e4ec74c56 (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> 5379c9c43f (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> ef547dbfa7 (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> 256df6ccb4 (Pil relations for keccak slice memory gadget)
-<<<<<<< HEAD
->>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
-=======
-=======
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2012;
->>>>>>> 2df79011ef (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> 2f900345fa (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> c39ba6e655 (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> c7041eda54 (Add permutations between keccak permutation and slice gadget)
-<<<<<<< HEAD
->>>>>>> 922a8fb91a (Add permutations between keccak permutation and slice gadget)
-=======
-=======
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2024;
->>>>>>> 58cdead42d (Add error handling for keccak gadget)
->>>>>>> 92a719bd44 (Add error handling for keccak gadget)
-<<<<<<< HEAD
->>>>>>> 0b09ab172c (Add error handling for keccak gadget)
-<<<<<<< HEAD
->>>>>>> d429633777 (Add error handling for keccak gadget)
-<<<<<<< HEAD
->>>>>>> 2ba9d9fe70 (Add error handling for keccak gadget)
-=======
-=======
-=======
-=======
-=======
->>>>>>> ce6d94dc7c (Addressing review comments)
-=======
->>>>>>> 5bf23ab01c (Regenerate after rebase)
-=======
->>>>>>> 137aa886c5 (Add clk and execution_id manager)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 96;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2027;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 233;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2276;
->>>>>>> 37d9234501 (Guard most of permutation constraints by no error selector)
->>>>>>> 9ddf90fb00 (Guard most of permutation constraints by no error selector)
-<<<<<<< HEAD
->>>>>>> de2044c985 (Guard most of permutation constraints by no error selector)
-<<<<<<< HEAD
->>>>>>> fb1c4efbc0 (Guard most of permutation constraints by no error selector)
-=======
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2278;
->>>>>>> ce6d94dc7c (Addressing review comments)
->>>>>>> 4a8a17fc2c (Addressing review comments)
-<<<<<<< HEAD
->>>>>>> d8e082bbb0 (Addressing review comments)
-=======
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2292;
->>>>>>> 5bf23ab01c (Regenerate after rebase)
->>>>>>> b8df497967 (Regenerate after rebase)
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2356;
->>>>>>> 137aa886c5 (Add clk and execution_id manager)
-=======
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 97;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2031;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 234;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2047;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 238;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2362;
->>>>>>> 517ebaf0f3 (Integration in the execution trace)
+    static constexpr size_t NUM_ALL_ENTITIES = 2382;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -262,12 +104,9 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
-<<<<<<< HEAD
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
-=======
         avm2::keccak_memory<FF_>,
->>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
@@ -349,22 +188,10 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         lookup_internal_call_push_call_stack_relation<FF_>,
         lookup_internal_call_unwind_call_stack_relation<FF_>,
-=======
-=======
-        lookup_keccak_memory_keccak_mem_to_mem_relation<FF_>,
->>>>>>> cd68b98ec7 (Pil relations for keccak slice memory gadget)
-=======
         lookup_keccak_memory_slice_to_mem_relation<FF_>,
-<<<<<<< HEAD
->>>>>>> 3e308602cf (Activate lookup to memory sub-trace)
-=======
         lookup_keccakf1600_dst_abs_diff_positive_relation<FF_>,
->>>>>>> 2ba9d9fe70 (Add error handling for keccak gadget)
         lookup_keccakf1600_round_cst_relation<FF_>,
         lookup_keccakf1600_src_abs_diff_positive_relation<FF_>,
         lookup_keccakf1600_state_chi_00_relation<FF_>,
@@ -492,7 +319,6 @@ struct AvmFlavorVariables {
         lookup_keccakf1600_theta_xor_row_2_relation<FF_>,
         lookup_keccakf1600_theta_xor_row_3_relation<FF_>,
         lookup_keccakf1600_theta_xor_row_4_relation<FF_>,
->>>>>>> 6e0c4ea535 (keccakf1600: permutation without memory)
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,

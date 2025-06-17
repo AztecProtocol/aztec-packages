@@ -24,6 +24,7 @@ template <typename FF_> class keccakf1600Impl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return ((in.get(C::keccakf1600_sel) + in.get(C::keccakf1600_last))).is_zero();
     }
 

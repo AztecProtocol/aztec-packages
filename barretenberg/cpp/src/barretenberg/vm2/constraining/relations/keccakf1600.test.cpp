@@ -22,9 +22,10 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::DebugPermutationBuilder;
+using tracegen::LookupIntoDynamicTableGeneric;
 using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::LookupIntoIndexedByClk;
-using tracegen::PermutationBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -229,27 +230,29 @@ void check_all_interactions(TestTraceContainer& trace)
     LookupIntoDynamicTableSequential<lookup_state_theta_43::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_state_theta_44::Settings>().process(trace);
     // Range check on some state theta limbs
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_01::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_02::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_03::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_04::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_10::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_11::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_12::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_13::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_14::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_20::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_21::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_22::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_23::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_24::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_30::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_34::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_40::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_41::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_42::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_43::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_limb_range_44::Settings>().process(trace);
+    // Range checks are de-duplicated and therefore we can't use the interaction builder
+    // LookupIntoDynamicTableSequential.
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_01::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_02::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_03::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_04::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_10::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_11::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_12::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_13::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_14::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_20::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_21::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_22::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_23::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_24::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_30::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_34::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_40::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_41::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_42::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_43::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_44::Settings>().process(trace);
     // "pi and" values
     LookupIntoDynamicTableSequential<lookup_state_pi_and_00::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_state_pi_and_01::Settings>().process(trace);
@@ -307,11 +310,13 @@ void check_all_interactions(TestTraceContainer& trace)
     // round constants lookup
     LookupIntoIndexedByClk<lookup_round_constants::Settings>().process(trace);
     // Memory slices permutations
-    PermutationBuilder<perm_read_to_slice::Settings>().process(trace);
-    PermutationBuilder<perm_write_to_slice::Settings>().process(trace);
+    DebugPermutationBuilder<perm_read_to_slice::Settings>().process(trace);
+    DebugPermutationBuilder<perm_write_to_slice::Settings>().process(trace);
     // Range check for slice memory ranges.
-    LookupIntoDynamicTableSequential<lookup_keccakf1600_src_abs_diff_positive::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_keccakf1600_dst_abs_diff_positive::Settings>().process(trace);
+    // Range checks are de-duplicated and therefore we can't use the interaction builder
+    // LookupIntoDynamicTableSequential.
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_src_abs_diff_positive::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_dst_abs_diff_positive::Settings>().process(trace);
     // Keccak slice memory to memory sub-trace
     LookupIntoDynamicTableSequential<lookup_slice_to_mem::Settings>().process(trace);
 }

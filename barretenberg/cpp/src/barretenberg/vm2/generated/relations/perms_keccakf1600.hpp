@@ -18,17 +18,51 @@ class perm_keccakf1600_read_to_slice_settings {
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
 
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 30;
+    constexpr static size_t COLUMNS_PER_SET = 29;
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_read;
-    static constexpr Column DST_SELECTOR = Column::keccak_memory_start;
+    static constexpr Column DST_SELECTOR = Column::keccak_memory_start_read;
     static constexpr Column INVERSES = Column::perm_keccakf1600_read_to_slice_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_in_00, ColumnAndShifts::keccakf1600_state_in_01,
+        ColumnAndShifts::keccakf1600_state_in_02, ColumnAndShifts::keccakf1600_state_in_03,
+        ColumnAndShifts::keccakf1600_state_in_04, ColumnAndShifts::keccakf1600_state_in_10,
+        ColumnAndShifts::keccakf1600_state_in_11, ColumnAndShifts::keccakf1600_state_in_12,
+        ColumnAndShifts::keccakf1600_state_in_13, ColumnAndShifts::keccakf1600_state_in_14,
+        ColumnAndShifts::keccakf1600_state_in_20, ColumnAndShifts::keccakf1600_state_in_21,
+        ColumnAndShifts::keccakf1600_state_in_22, ColumnAndShifts::keccakf1600_state_in_23,
+        ColumnAndShifts::keccakf1600_state_in_24, ColumnAndShifts::keccakf1600_state_in_30,
+        ColumnAndShifts::keccakf1600_state_in_31, ColumnAndShifts::keccakf1600_state_in_32,
+        ColumnAndShifts::keccakf1600_state_in_33, ColumnAndShifts::keccakf1600_state_in_34,
+        ColumnAndShifts::keccakf1600_state_in_40, ColumnAndShifts::keccakf1600_state_in_41,
+        ColumnAndShifts::keccakf1600_state_in_42, ColumnAndShifts::keccakf1600_state_in_43,
+        ColumnAndShifts::keccakf1600_state_in_44, ColumnAndShifts::keccakf1600_clk,
+        ColumnAndShifts::keccakf1600_src_addr,    ColumnAndShifts::keccakf1600_space_id,
+        ColumnAndShifts::keccakf1600_tag_error
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::keccak_memory_val00,    ColumnAndShifts::keccak_memory_val01,
+        ColumnAndShifts::keccak_memory_val02,    ColumnAndShifts::keccak_memory_val03,
+        ColumnAndShifts::keccak_memory_val04,    ColumnAndShifts::keccak_memory_val10,
+        ColumnAndShifts::keccak_memory_val11,    ColumnAndShifts::keccak_memory_val12,
+        ColumnAndShifts::keccak_memory_val13,    ColumnAndShifts::keccak_memory_val14,
+        ColumnAndShifts::keccak_memory_val20,    ColumnAndShifts::keccak_memory_val21,
+        ColumnAndShifts::keccak_memory_val22,    ColumnAndShifts::keccak_memory_val23,
+        ColumnAndShifts::keccak_memory_val24,    ColumnAndShifts::keccak_memory_val30,
+        ColumnAndShifts::keccak_memory_val31,    ColumnAndShifts::keccak_memory_val32,
+        ColumnAndShifts::keccak_memory_val33,    ColumnAndShifts::keccak_memory_val34,
+        ColumnAndShifts::keccak_memory_val40,    ColumnAndShifts::keccak_memory_val41,
+        ColumnAndShifts::keccak_memory_val42,    ColumnAndShifts::keccak_memory_val43,
+        ColumnAndShifts::keccak_memory_val44,    ColumnAndShifts::keccak_memory_clk,
+        ColumnAndShifts::keccak_memory_addr,     ColumnAndShifts::keccak_memory_space_id,
+        ColumnAndShifts::keccak_memory_tag_error
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
         return (in.get(ColumnAndShifts::keccakf1600_sel_slice_read) == 1 ||
-                in.get(ColumnAndShifts::keccak_memory_start) == 1);
+                in.get(ColumnAndShifts::keccak_memory_start_read) == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
@@ -36,7 +70,7 @@ class perm_keccakf1600_read_to_slice_settings {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_read_to_slice_inv),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
-                                     in.get(ColumnAndShifts::keccak_memory_start),
+                                     in.get(ColumnAndShifts::keccak_memory_start_read),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_01),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_02),
@@ -63,7 +97,6 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_in_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_44),
                                      in.get(ColumnAndShifts::keccakf1600_clk),
-                                     in.get(ColumnAndShifts::precomputed_zero),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),
                                      in.get(ColumnAndShifts::keccakf1600_space_id),
                                      in.get(ColumnAndShifts::keccakf1600_tag_error),
@@ -93,7 +126,6 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
                                      in.get(ColumnAndShifts::keccak_memory_clk),
-                                     in.get(ColumnAndShifts::keccak_memory_rw),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_space_id),
                                      in.get(ColumnAndShifts::keccak_memory_tag_error));
@@ -104,7 +136,7 @@ class perm_keccakf1600_read_to_slice_settings {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_read_to_slice_inv),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_read),
-                                     in.get(ColumnAndShifts::keccak_memory_start),
+                                     in.get(ColumnAndShifts::keccak_memory_start_read),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_01),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_02),
@@ -131,7 +163,6 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_in_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_in_44),
                                      in.get(ColumnAndShifts::keccakf1600_clk),
-                                     in.get(ColumnAndShifts::precomputed_zero),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),
                                      in.get(ColumnAndShifts::keccakf1600_space_id),
                                      in.get(ColumnAndShifts::keccakf1600_tag_error),
@@ -161,7 +192,6 @@ class perm_keccakf1600_read_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
                                      in.get(ColumnAndShifts::keccak_memory_clk),
-                                     in.get(ColumnAndShifts::keccak_memory_rw),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_space_id),
                                      in.get(ColumnAndShifts::keccak_memory_tag_error));
@@ -204,13 +234,45 @@ class perm_keccakf1600_write_to_slice_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_write;
-    static constexpr Column DST_SELECTOR = Column::keccak_memory_start;
+    static constexpr Column DST_SELECTOR = Column::keccak_memory_start_write;
     static constexpr Column INVERSES = Column::perm_keccakf1600_write_to_slice_inv;
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        ColumnAndShifts::keccakf1600_state_iota_00, ColumnAndShifts::keccakf1600_state_chi_01,
+        ColumnAndShifts::keccakf1600_state_chi_02,  ColumnAndShifts::keccakf1600_state_chi_03,
+        ColumnAndShifts::keccakf1600_state_chi_04,  ColumnAndShifts::keccakf1600_state_chi_10,
+        ColumnAndShifts::keccakf1600_state_chi_11,  ColumnAndShifts::keccakf1600_state_chi_12,
+        ColumnAndShifts::keccakf1600_state_chi_13,  ColumnAndShifts::keccakf1600_state_chi_14,
+        ColumnAndShifts::keccakf1600_state_chi_20,  ColumnAndShifts::keccakf1600_state_chi_21,
+        ColumnAndShifts::keccakf1600_state_chi_22,  ColumnAndShifts::keccakf1600_state_chi_23,
+        ColumnAndShifts::keccakf1600_state_chi_24,  ColumnAndShifts::keccakf1600_state_chi_30,
+        ColumnAndShifts::keccakf1600_state_chi_31,  ColumnAndShifts::keccakf1600_state_chi_32,
+        ColumnAndShifts::keccakf1600_state_chi_33,  ColumnAndShifts::keccakf1600_state_chi_34,
+        ColumnAndShifts::keccakf1600_state_chi_40,  ColumnAndShifts::keccakf1600_state_chi_41,
+        ColumnAndShifts::keccakf1600_state_chi_42,  ColumnAndShifts::keccakf1600_state_chi_43,
+        ColumnAndShifts::keccakf1600_state_chi_44,  ColumnAndShifts::keccakf1600_clk,
+        ColumnAndShifts::keccakf1600_dst_addr,      ColumnAndShifts::keccakf1600_space_id
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        ColumnAndShifts::keccak_memory_val00, ColumnAndShifts::keccak_memory_val01,
+        ColumnAndShifts::keccak_memory_val02, ColumnAndShifts::keccak_memory_val03,
+        ColumnAndShifts::keccak_memory_val04, ColumnAndShifts::keccak_memory_val10,
+        ColumnAndShifts::keccak_memory_val11, ColumnAndShifts::keccak_memory_val12,
+        ColumnAndShifts::keccak_memory_val13, ColumnAndShifts::keccak_memory_val14,
+        ColumnAndShifts::keccak_memory_val20, ColumnAndShifts::keccak_memory_val21,
+        ColumnAndShifts::keccak_memory_val22, ColumnAndShifts::keccak_memory_val23,
+        ColumnAndShifts::keccak_memory_val24, ColumnAndShifts::keccak_memory_val30,
+        ColumnAndShifts::keccak_memory_val31, ColumnAndShifts::keccak_memory_val32,
+        ColumnAndShifts::keccak_memory_val33, ColumnAndShifts::keccak_memory_val34,
+        ColumnAndShifts::keccak_memory_val40, ColumnAndShifts::keccak_memory_val41,
+        ColumnAndShifts::keccak_memory_val42, ColumnAndShifts::keccak_memory_val43,
+        ColumnAndShifts::keccak_memory_val44, ColumnAndShifts::keccak_memory_clk,
+        ColumnAndShifts::keccak_memory_addr,  ColumnAndShifts::keccak_memory_space_id
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
         return (in.get(ColumnAndShifts::keccakf1600_sel_slice_write) == 1 ||
-                in.get(ColumnAndShifts::keccak_memory_start) == 1);
+                in.get(ColumnAndShifts::keccak_memory_start_write) == 1);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
@@ -218,7 +280,7 @@ class perm_keccakf1600_write_to_slice_settings {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_write_to_slice_inv),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
-                                     in.get(ColumnAndShifts::keccak_memory_start),
+                                     in.get(ColumnAndShifts::keccak_memory_start_write),
                                      in.get(ColumnAndShifts::keccakf1600_state_iota_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_01),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_02),
@@ -244,7 +306,7 @@ class perm_keccakf1600_write_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_42),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_44),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
+                                     in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::keccakf1600_dst_addr),
                                      in.get(ColumnAndShifts::keccakf1600_space_id),
                                      in.get(ColumnAndShifts::keccak_memory_val00),
@@ -272,7 +334,7 @@ class perm_keccakf1600_write_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val42),
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
-                                     in.get(ColumnAndShifts::keccak_memory_rw),
+                                     in.get(ColumnAndShifts::keccak_memory_clk),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_space_id));
     }
@@ -282,7 +344,7 @@ class perm_keccakf1600_write_to_slice_settings {
         return std::forward_as_tuple(in.get(ColumnAndShifts::perm_keccakf1600_write_to_slice_inv),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
                                      in.get(ColumnAndShifts::keccakf1600_sel_slice_write),
-                                     in.get(ColumnAndShifts::keccak_memory_start),
+                                     in.get(ColumnAndShifts::keccak_memory_start_write),
                                      in.get(ColumnAndShifts::keccakf1600_state_iota_00),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_01),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_02),
@@ -308,7 +370,7 @@ class perm_keccakf1600_write_to_slice_settings {
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_42),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_43),
                                      in.get(ColumnAndShifts::keccakf1600_state_chi_44),
-                                     in.get(ColumnAndShifts::keccakf1600_last),
+                                     in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::keccakf1600_dst_addr),
                                      in.get(ColumnAndShifts::keccakf1600_space_id),
                                      in.get(ColumnAndShifts::keccak_memory_val00),
@@ -336,7 +398,7 @@ class perm_keccakf1600_write_to_slice_settings {
                                      in.get(ColumnAndShifts::keccak_memory_val42),
                                      in.get(ColumnAndShifts::keccak_memory_val43),
                                      in.get(ColumnAndShifts::keccak_memory_val44),
-                                     in.get(ColumnAndShifts::keccak_memory_rw),
+                                     in.get(ColumnAndShifts::keccak_memory_clk),
                                      in.get(ColumnAndShifts::keccak_memory_addr),
                                      in.get(ColumnAndShifts::keccak_memory_space_id));
     }
