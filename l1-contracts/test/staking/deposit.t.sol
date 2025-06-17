@@ -83,7 +83,7 @@ contract DepositTest is StakingBase {
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
-    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
+    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
