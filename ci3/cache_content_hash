@@ -23,6 +23,13 @@ for arg in "$@"; do
     rebuild_patterns+=$(cat "$arg")
     rebuild_patterns+=$'\n'
   else
+    # Ensure the folder exists
+    if [[ ! -d "$arg" ]]; then
+      echo "Error: Directory '$arg' does not exist."
+      exit 1
+    fi
+    # Add it as a pattern relative to repo root
+    arg=$(realpath --relative-to="$(git rev-parse --show-toplevel)" "$arg")
     rebuild_patterns+="$arg"$'\n'
   fi
 done
@@ -51,6 +58,8 @@ if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
   echo "disabled-cache"
   exit 0
 fi
+
+echo "$AWK_PATTERN">&2
 
 # Calculate a content hash for matched files
 # Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
