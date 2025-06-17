@@ -24,7 +24,7 @@ import type {
 /**
  * Represents the result type of a simulation.
  * By default, it will just be the return value of the simulated function
- * so contract interfaces behave as plain functions. If `includeMetadata` is set to true,
+ * so contract interfaces behave as plain functions. If `includeMetadata` is set to true in `SimulateMethodOptions` on the input of `simulate(...)`,
  * it will provide extra information.
  */
 type SimulationReturn<T extends boolean | undefined> = T extends true
