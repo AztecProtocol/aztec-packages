@@ -238,6 +238,7 @@ export async function generateProof(
     await fs.writeFile(bytecodePath, bytecode);
     // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
+      '--disable_zk',
       '--output_format',
       'bytes_and_fields',
       '--write_vk',
@@ -574,6 +575,7 @@ async function verifyProofInternal(
     if (loggingArg !== '') {
       args.push(loggingArg);
     }
+    args.push('--disable_zk');
 
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
