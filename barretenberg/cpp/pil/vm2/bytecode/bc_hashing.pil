@@ -103,9 +103,10 @@ namespace bc_hashing;
 
     // Start Hashing, Poseidon2(packed_field, running_hash)
     pol commit output_hash;
-    #[POSEIDON2_HASH]
-    sel { packed_field, incremental_hash, output_hash }
-    in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
+    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+    //#[POSEIDON2_HASH]
+    //sel { packed_field, incremental_hash, output_hash }
+    //in poseidon2_hash.sel { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.output };
 
     // The output hash has to be incremental_hash of the next row (unless it's latched)
     #[CHAIN_OUTPUT_TO_INCR]
