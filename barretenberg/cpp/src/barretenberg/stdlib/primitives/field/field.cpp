@@ -398,49 +398,43 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
+
 /**
  * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
  * implicitly range constrained.
  *
  * @returns this ** (exponent)
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
 {
+    if (is_constant()) {
+        return field_t(get_value().pow(exponent));
+    }
+    if (exponent == 0) {
+        return field_t(bb::fr::one());
+    }
 
-    auto* ctx = get_context() ? get_context() : exponent.get_context();
-    uint256_t exponent_value = exponent.get_value();
+    bool accumulator_initialized = false;
+    field_t<Builder> accumulator;
+    field_t<Builder> running_power = *this;
+    auto shifted_exponent = exponent;
 
-    bool exponent_constant = exponent.is_constant();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller exponent
-    std::vector<bool_t<Builder>> exponent_bits(32);
-    for (size_t i = 0; i < exponent_bits.size(); ++i) {
-        uint256_t value_bit = exponent_value & 1;
-        bool_t<Builder> bit;
-        bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
-        if (!exponent_constant) {
-            bit.set_origin_tag(exponent.tag);
+    // Square and multiply, there's no need to constrain the exponent bit decomposition, as it is an integer constant.
+    while (shifted_exponent != 0) {
+        if (shifted_exponent & 1) {
+            if (!accumulator_initialized) {
+                accumulator = running_power;
+                accumulator_initialized = true;
+            } else {
+                accumulator *= running_power;
+            }
         }
-        exponent_bits[31 - i] = (bit);
-        exponent_value >>= 1;
-    }
-
-    if (!exponent_constant) {
-        field_t<Builder> exponent_accumulator(ctx, 0);
-        for (const auto& bit : exponent_bits) {
-            exponent_accumulator += exponent_accumulator;
-            exponent_accumulator += bit;
+        if (shifted_exponent >= 2) {
+            // Don't update `running_power` if `shifted_exponent` = 1, as it won't be used anywhere.
+            running_power = running_power.sqr();
         }
-        exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+        shifted_exponent >>= 1;
     }
-    field_t accumulator(ctx, 1);
-    field_t mul_coefficient = *this - 1;
-    for (size_t i = 0; i < 32; ++i) {
-        accumulator *= accumulator;
-        const auto bit = exponent_bits[i];
-        accumulator *= (mul_coefficient * bit + 1);
-    }
-    accumulator = accumulator.normalize();
-    accumulator.tag = OriginTag(tag, exponent.tag);
     return accumulator;
 }
 
@@ -450,11 +444,52 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
  *
  * @returns this ** (exponent)
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
-    auto* ctx = get_context();
-    auto exponent_field_elt = field_t::from_witness(ctx, exponent);
-    return pow(exponent_field_elt);
+    uint256_t exponent_value = exponent.get_value();
+
+    if (is_constant() && exponent.is_constant()) {
+        return field_t(get_value().pow(exponent_value));
+    }
+    // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
+    if (exponent.is_constant()) {
+        ASSERT(exponent_value.get_msb() < 32);
+        return pow(static_cast<uint32_t>(exponent_value));
+    }
+
+    auto* ctx = exponent.context;
+
+    std::array<bool_t<Builder>, 32> exponent_bits;
+    // Collect individual bits as bool_t's
+    for (size_t i = 0; i < exponent_bits.size(); ++i) {
+        uint256_t value_bit = exponent_value & 1;
+        bool_t<Builder> bit;
+        bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
+        bit.set_origin_tag(exponent.tag);
+        exponent_bits[31 - i] = bit;
+        exponent_value >>= 1;
+    }
+
+    field_t<Builder> exponent_accumulator(bb::fr::zero());
+    for (const auto& bit : exponent_bits) {
+        exponent_accumulator += exponent_accumulator;
+        exponent_accumulator += bit;
+    }
+    // Constrain the sum of bool_t bits to be equal to the original exponent value.
+    exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+
+    // Compute the result of exponentiation
+    field_t accumulator(ctx, bb::fr::one());
+    const field_t one(bb::fr::one());
+    for (size_t i = 0; i < 32; ++i) {
+        accumulator *= accumulator;
+        // If current bit == 1, multiply by the base, else propagate the accumulator
+        const field_t multiplier = conditional_assign(exponent_bits[i], *this, one);
+        accumulator *= multiplier;
+    }
+    accumulator = accumulator.normalize();
+    accumulator.tag = OriginTag(tag, exponent.tag);
+    return accumulator;
 }
 
 /**
