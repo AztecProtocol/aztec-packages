@@ -70,7 +70,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return await this.txeOracle.getContractDataProvider().getDebugFunctionName(address, selector);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: []): Promise<void> {
+  registerContractFunctionSignatures(_signatures: []): Promise<void> {
     return Promise.resolve();
   }
 }

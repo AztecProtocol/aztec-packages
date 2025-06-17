@@ -4,9 +4,9 @@ pragma solidity >=0.8.27;
 
 import {
   AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+  SnapshottedAddressSet,
+  AddressSnapshotLib__IndexOutOfBounds
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 import {TimeCheater} from "../../staking/TimeCheater.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -17,7 +17,7 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
   function test_WhenNoValidatorsAreRegistered(uint256 _index) public {
     // It reverts
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
+      abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, _index, 0)
     );
     validatorSet.at(_index);
   }
@@ -26,12 +26,12 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
     vm.assume(_index >= 1);
     validatorSet.add(address(1));
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
+      abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
     );
     validatorSet.at(_index);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
+      abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, _index, 1)
     );
     validatorSet.getAddressFromIndexAtTimestamp(_index, block.timestamp.toUint32());
   }

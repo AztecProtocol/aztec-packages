@@ -94,7 +94,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: Fr,
+    blockNumber: number,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
@@ -109,7 +109,6 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
 
     const slotFr = new Fr(slotNumber);
-    const timestampFr = new Fr(timestamp);
 
     // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
     const gasFees = new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
@@ -119,7 +118,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       version,
       blockNumber,
       slotFr,
-      timestampFr,
+      timestamp,
       coinbase,
       feeRecipient,
       gasFees,

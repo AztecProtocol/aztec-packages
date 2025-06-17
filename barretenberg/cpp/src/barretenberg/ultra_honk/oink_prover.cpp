@@ -20,9 +20,8 @@ namespace bb {
  */
 template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 {
-    if (proving_key->proving_key.commitment_key == nullptr) {
-        proving_key->proving_key.commitment_key =
-            std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    if (!proving_key->proving_key.commitment_key.initialized()) {
+        proving_key->proving_key.commitment_key = CommitmentKey(proving_key->proving_key.circuit_size);
     }
     {
 
@@ -67,7 +66,7 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
 
     // #ifndef __wasm__
     // Free the commitment key
-    proving_key->proving_key.commitment_key = nullptr;
+    proving_key->proving_key.commitment_key = CommitmentKey();
     // #endif
 
     return transcript->proof_data;
@@ -82,12 +81,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_ro
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-        // super inefficient
-        info("WARNING: We are temporarily regressing prover speed by computing the verification key in the prover. "
-             "This will be fixed in a followup PR.");
-        typename Flavor::VerificationKey vkey(proving_key->proving_key);
-
-        std::vector<FF> vkey_fields = vkey.to_field_elements();
+        std::vector<FF> vkey_fields = honk_vk->to_field_elements();
         for (const FF& vkey_field : vkey_fields) {
             transcript->add_to_hash_buffer(domain_separator + "vkey_field", vkey_field);
         }
@@ -140,7 +134,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             {
                 PROFILE_THIS_NAME("COMMIT::ecc_op_wires");
                 transcript->send_to_verifier(domain_separator + label,
-                                             proving_key->proving_key.commitment_key->commit(polynomial));
+                                             proving_key->proving_key.commitment_key.commit(polynomial));
             };
         }
 
@@ -277,7 +271,7 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     typename Flavor::Commitment commitment;
 
-    commitment = proving_key->proving_key.commitment_key->commit_with_type(
+    commitment = proving_key->proving_key.commitment_key.commit_with_type(
         polynomial, type, proving_key->proving_key.active_region_data.get_ranges());
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);

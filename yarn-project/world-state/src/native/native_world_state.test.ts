@@ -938,10 +938,12 @@ describe('NativeWorldState', () => {
           undefined,
           await readOps.getSiblingPath(treeId, indices[5]!),
         ];
+        const expectedIndices = [indices[0], undefined, indices[2], indices[3], undefined, indices[5]];
         const paths = await readOps.findSiblingPaths(treeId, leavesToRequest);
         expect(paths.length).toBe(expectedPaths.length);
         for (let i = 0; i < paths.length; i++) {
-          expect(paths[i]).toEqual(expectedPaths[i]);
+          expect(paths[i]?.path).toEqual(expectedPaths[i]);
+          expect(paths[i]?.index).toEqual(expectedIndices[i]);
         }
       };
       await testQuery(noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);

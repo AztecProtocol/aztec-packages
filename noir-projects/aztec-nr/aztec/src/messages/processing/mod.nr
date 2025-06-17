@@ -1,4 +1,5 @@
 pub(crate) mod event_validation_request;
+pub mod message_context;
 pub(crate) mod note_validation_request;
 pub(crate) mod pending_tagged_log;
 

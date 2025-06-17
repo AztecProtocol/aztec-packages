@@ -68,7 +68,7 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     signal.wait_for_level();
 }
 
-void check_finalised_block_height(TreeType& tree, index_t expected_finalised_block)
+void check_finalised_block_height(TreeType& tree, block_number_t expected_finalised_block)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
@@ -125,6 +125,7 @@ void check_sibling_path(TreeType& tree,
 void check_sibling_path_by_value(TreeType& tree,
                                  fr value,
                                  fr_sibling_path expected_sibling_path,
+                                 index_t expected_index,
                                  bool includeUncommitted = true,
                                  bool expected_result = true)
 {
@@ -132,7 +133,9 @@ void check_sibling_path_by_value(TreeType& tree,
     auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_result);
         if (expected_result) {
-            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+            EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
     };
@@ -161,14 +164,17 @@ void check_historic_sibling_path(TreeType& tree,
 void check_historic_sibling_path_by_value(TreeType& tree,
                                           fr value,
                                           fr_sibling_path expected_sibling_path,
+                                          index_t expected_index,
                                           block_number_t blockNumber,
                                           bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<FindLeafPathResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
-            EXPECT_EQ(response.inner.leaf_paths[0], expected_sibling_path);
+        if (expected_success) {
+            EXPECT_TRUE(response.inner.leaf_paths[0].has_value());
+            EXPECT_EQ(response.inner.leaf_paths[0].value().path, expected_sibling_path);
+            EXPECT_EQ(response.inner.leaf_paths[0].value().index, expected_index);
         }
         signal.signal_level();
     };
@@ -411,7 +417,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_size(tree, 1);
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
-    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
@@ -736,8 +742,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, i, memdb.get_sibling_path(i));
 
-        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
-        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i));
+        check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
+        check_sibling_path_by_value(tree, VALUES[i], memdb.get_sibling_path(i), i);
     }
 }
 
@@ -762,8 +768,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
-    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0));
-    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1));
+    check_sibling_path_by_value(tree, VALUES[0], memdb.get_sibling_path(0), 0);
+    check_sibling_path_by_value(tree, VALUES[4 - 1], memdb.get_sibling_path(4 - 1), 4 - 1);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_pad_with_zero_leaves)
@@ -917,10 +923,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 
         for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], i + 1);
-            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], i + 1);
+            check_historic_sibling_path_by_value(tree, VALUES[0], historicPathsZeroIndex[i], 0, i + 1);
             index_t maxSizeAtBlock = ((i + 1) * batch_size) - 1;
             check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], i + 1);
-            check_historic_sibling_path_by_value(tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], i + 1);
+            check_historic_sibling_path_by_value(
+                tree, VALUES[maxSizeAtBlock], historicPathsMaxIndex[i], maxSizeAtBlock, i + 1);
         }
     };
 
@@ -1302,7 +1309,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
         // Now remove the oldest block if outside of the window
         if (i >= windowSize) {
-            const index_t oldestBlock = (i + 1) - windowSize;
+            const block_number_t oldestBlock = (i + 1) - windowSize;
             // trying to remove a block that is not the most historic should fail
             remove_historic_block(tree, oldestBlock + 1, false);
 
@@ -1423,8 +1430,8 @@ void test_unwind(std::string directory,
         check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
         check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
 
-        for (index_t j = 0; j < numBlocks; j++) {
-            index_t historicBlockNumber = j + 1;
+        for (block_number_t j = 0; j < numBlocks; j++) {
+            block_number_t historicBlockNumber = j + 1;
             bool expectedSuccess = historicBlockNumber <= previousValidBlock;
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[j], historicBlockNumber, expectedSuccess);
             index_t maxSizeAtBlock = ((j + 1) * batchSize) - 1;
@@ -1521,7 +1528,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_unwind_empty_
 
     // The first path stored is the genesis state. This effectively makes everything 1 based.
     std::vector<fr_sibling_path> paths(1, memdb.get_sibling_path(0));
-    index_t blockNumber = 0;
+    block_number_t blockNumber = 0;
     uint32_t batchSize = 64;
 
     std::vector<std::vector<fr>> values;
@@ -1618,7 +1625,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_remove_histor
         check_block_height(tree, blockNumber);
     }
 
-    index_t blockToRemove = 1;
+    block_number_t blockToRemove = 1;
 
     while (blockToRemove < blockNumber) {
         finalise_block(tree, blockToRemove + 1);
@@ -1660,7 +1667,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1674,7 +1681,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1689,7 +1696,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1707,7 +1714,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1721,7 +1728,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_block_numbers_b
     for (size_t i = 0; i < blockNumbers.size(); i++) {
         bool present = indices[i] <= maxIndex;
         if (present) {
-            block_number_t expected = 1 + indices[i] / block_size;
+            block_number_t expected = 1 + static_cast<block_number_t>(indices[i]) / block_size;
             EXPECT_EQ(blockNumbers[i].value(), expected);
         }
         EXPECT_EQ(blockNumbers[i].has_value(), present);
@@ -1754,12 +1761,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_advance_finalised_blocks
         add_values(tree, to_add);
         commit_tree(tree);
 
-        index_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
+        block_number_t expectedFinalisedBlock = i < finalisedBlockDelay ? 0 : i - finalisedBlockDelay;
         check_finalised_block_height(tree, expectedFinalisedBlock);
 
         if (i >= finalisedBlockDelay) {
 
-            index_t blockToFinalise = expectedFinalisedBlock + 1;
+            block_number_t blockToFinalise = expectedFinalisedBlock + 1;
 
             // attempting to finalise a block that doesn't exist should fail
             finalise_block(tree, blockToFinalise + numBlocks, false);
@@ -1800,7 +1807,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_finalise_multiple_blocks
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 }
@@ -1840,7 +1847,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_finalise_block_beyon
     finalise_block(tree, numBlocks + 1, false);
 
     // finalise the entire chain
-    index_t blockToFinalise = numBlocks;
+    block_number_t blockToFinalise = numBlocks;
 
     finalise_block(tree, blockToFinalise);
 }
@@ -1949,7 +1956,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_unwind_finalised_blo
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 
@@ -1987,7 +1994,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_not_historically_remove_
 
     check_block_height(tree, numBlocks);
 
-    index_t blockToFinalise = 8;
+    block_number_t blockToFinalise = 8;
 
     finalise_block(tree, blockToFinalise);
 

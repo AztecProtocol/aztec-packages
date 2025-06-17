@@ -9,16 +9,21 @@
 #include "relations/bc_hashing.hpp"
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
-#include "relations/call_opcode.hpp"
+#include "relations/calldata.hpp"
+#include "relations/calldata_hashing.hpp"
 #include "relations/class_id_derivation.hpp"
 #include "relations/context.hpp"
 #include "relations/context_stack.hpp"
+#include "relations/data_copy.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/execution_discard.hpp"
+#include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
 #include "relations/instr_fetching.hpp"
+#include "relations/internal_call.hpp"
+#include "relations/internal_call_stack.hpp"
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
@@ -40,13 +45,16 @@
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
 #include "relations/lookups_bitwise.hpp"
-#include "relations/lookups_call_opcode.hpp"
+#include "relations/lookups_calldata_hashing.hpp"
 #include "relations/lookups_class_id_derivation.hpp"
 #include "relations/lookups_context.hpp"
+#include "relations/lookups_data_copy.hpp"
 #include "relations/lookups_execution.hpp"
+#include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
 #include "relations/lookups_instr_fetching.hpp"
+#include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
@@ -62,10 +70,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2383;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 161;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2462;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2638;
+    static constexpr size_t NUM_ALL_ENTITIES = 2734;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -78,16 +86,21 @@ struct AvmFlavorVariables {
         avm2::bc_hashing<FF_>,
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
-        avm2::call_opcode<FF_>,
+        avm2::calldata<FF_>,
+        avm2::calldata_hashing<FF_>,
         avm2::class_id_derivation<FF_>,
         avm2::context<FF_>,
         avm2::context_stack<FF_>,
+        avm2::data_copy<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::execution_discard<FF_>,
+        avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
         avm2::instr_fetching<FF_>,
+        avm2::internal_call<FF_>,
+        avm2::internal_call_stack<FF_>,
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
@@ -145,16 +158,21 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
-        lookup_call_opcode_call_allocated_left_da_range_relation<FF_>,
-        lookup_call_opcode_call_allocated_left_l2_range_relation<FF_>,
+        lookup_calldata_hashing_cd_hash_relation<FF_>,
+        lookup_calldata_hashing_cd_hash_end_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_1_relation<FF_>,
         lookup_context_ctx_stack_call_relation<FF_>,
         lookup_context_ctx_stack_return_relation<FF_>,
         lookup_context_ctx_stack_rollback_relation<FF_>,
+        lookup_data_copy_col_read_relation<FF_>,
+        lookup_data_copy_mem_read_relation<FF_>,
+        lookup_data_copy_mem_write_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
+        lookup_external_call_call_allocated_left_da_range_relation<FF_>,
+        lookup_external_call_call_allocated_left_l2_range_relation<FF_>,
         lookup_ff_gt_a_hi_range_relation<FF_>,
         lookup_ff_gt_a_lo_range_relation<FF_>,
         lookup_gas_addressing_gas_read_relation<FF_>,
@@ -166,6 +184,8 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
+        lookup_internal_call_push_call_stack_relation<FF_>,
+        lookup_internal_call_unwind_call_stack_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
@@ -205,7 +225,10 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
         lookup_to_radix_limb_range_relation<FF_>,
+        lookup_tx_balance_validation_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
+        lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
+        lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
         lookup_tx_read_l2_l1_msg_relation<FF_>,
         lookup_tx_read_phase_length_relation<FF_>,
         lookup_tx_read_phase_table_relation<FF_>,
