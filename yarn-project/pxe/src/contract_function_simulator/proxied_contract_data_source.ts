@@ -4,6 +4,10 @@ import type { ContractOverrides } from '@aztec/stdlib/tx';
 
 import type { ContractDataProvider } from '../storage/index.js';
 
+/*
+ * Proxy generator for a ContractDataProvider that allows overriding contract instances and artifacts, so
+ * the contract function simulator can execute different bytecode on certain addresses.
+ */
 export class ProxiedContractDataProviderFactory {
   static create(contractDataProvider: ContractDataProvider, overrides?: ContractOverrides) {
     if (!overrides) {
