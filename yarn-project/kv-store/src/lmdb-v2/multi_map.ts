@@ -25,6 +25,14 @@ export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncM
     return execInWriteTx(this.store, tx => tx.setIndex(serializeKey(this.prefix, key), this.encoder.pack(val)));
   }
 
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    await execInWriteTx(this.store, async tx => {
+      for (const { key, value } of entries) {
+        await tx.setIndex(serializeKey(this.prefix, key), this.encoder.pack(value));
+      }
+    });
+  }
+
   /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at

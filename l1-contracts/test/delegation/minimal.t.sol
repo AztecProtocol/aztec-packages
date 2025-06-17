@@ -3,9 +3,10 @@ pragma solidity >=0.8.27;
 
 import {GSEBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Errors as GovErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -193,7 +194,10 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__InsufficientPower.selector, depositAmount, depositAmount * 2
+        GovErrors.Delegation__InsufficientPower.selector,
+        address(ROLLUP),
+        depositAmount,
+        depositAmount * 2
       )
     );
     gse.vote(proposalId, powerToVoteSelf, true);
@@ -204,7 +208,10 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__InsufficientPower.selector, depositAmount * 2, depositAmount * 4
+        GovErrors.Delegation__InsufficientPower.selector,
+        address(canonical),
+        depositAmount * 2,
+        depositAmount * 4
       )
     );
     gse.voteWithCanonical(proposalId, powerToVoteSelf, true);

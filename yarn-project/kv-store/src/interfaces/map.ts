@@ -12,6 +12,12 @@ interface AztecBaseMap<K extends Key, V extends Value> {
   set(key: K, val: V): Promise<void>;
 
   /**
+   * Sets the values at the given keys.
+   * @param entries - The entries to set
+   */
+  setMany(entries: { key: K; value: V }[]): Promise<void>;
+
+  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set

@@ -17,7 +17,7 @@ namespace bb {
 constexpr size_t COMMITMENT_TEST_NUM_POINTS = 32;
 using Curve = curve::Grumpkin;
 CommitmentKey<Curve> ck;
-std::shared_ptr<VerifierCommitmentKey<Curve>> vk;
+VerifierCommitmentKey<Curve> vk;
 /**
  * @brief Class that allows us to call internal IPA methods, because it's friendly
  *
@@ -32,7 +32,7 @@ class ProxyCaller {
         IPA<Curve>::compute_opening_proof_internal(ck, opening_claim, transcript);
     }
     template <typename Transcript>
-    static bool verify_internal(const std::shared_ptr<VerifierCommitmentKey<Curve>>& vk,
+    static bool verify_internal(const VerifierCommitmentKey<Curve>& vk,
                                 const OpeningClaim<Curve>& opening_claim,
                                 const std::shared_ptr<Transcript>& transcript)
     {
@@ -51,7 +51,7 @@ extern "C" void LLVMFuzzerInitialize(int*, char***)
 {
     srs::init_file_crs_factory(srs::bb_crs_path());
     ck = CommitmentKey<Curve>(COMMITMENT_TEST_NUM_POINTS);
-    vk = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_POINTS);
+    vk = VerifierCommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_POINTS);
 }
 
 // This define is needed to make ProxyClass a friend of IPA

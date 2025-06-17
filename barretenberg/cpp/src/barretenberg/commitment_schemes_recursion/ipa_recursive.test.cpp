@@ -241,7 +241,7 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifier)
     Builder builder;
     auto [stdlib_transcript, stdlib_claim] = create_ipa_claim(builder, POLY_LENGTH);
 
-    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, POLY_LENGTH, this->vk());
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, POLY_LENGTH, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
@@ -277,8 +277,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     Builder root_rollup;
     // Fully recursively verify this proof to check it.
-    auto stdlib_pcs_vkey =
-        std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, 1 << CONST_ECCVM_LOG_N, this->vk());
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&root_rollup, 1 << CONST_ECCVM_LOG_N, this->vk());
     auto stdlib_verifier_transcript =
         std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
     OpeningClaim<Curve> ipa_claim;

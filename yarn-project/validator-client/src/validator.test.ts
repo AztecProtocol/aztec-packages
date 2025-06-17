@@ -1,5 +1,6 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { times } from '@aztec/foundation/collection';
+import { SecretValue } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -51,7 +52,7 @@ describe('ValidatorClient', () => {
     validatorAccounts = validatorPrivateKeys.map(privateKey => privateKeyToAccount(privateKey));
 
     config = {
-      validatorPrivateKeys: validatorPrivateKeys,
+      validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
       disableValidator: false,
       validatorReexecute: false,
@@ -79,7 +80,7 @@ describe('ValidatorClient', () => {
 
   describe('constructor', () => {
     it('should throw error if an invalid private key is provided', () => {
-      config.validatorPrivateKeys = ['0x1234567890123456789'];
+      config.validatorPrivateKeys = new SecretValue(['0x1234567890123456789']);
       expect(() => ValidatorClient.new(config, blockBuilder, epochCache, p2pClient, blockSource, dateProvider)).toThrow(
         InvalidValidatorPrivateKeyError,
       );

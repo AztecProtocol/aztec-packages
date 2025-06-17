@@ -82,7 +82,7 @@ void check_grumpkin_consistency(const fs::path& crs_download_path, size_t num_po
 TEST(CrsFactory, bn254)
 {
     check_bn254_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
-    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs";
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_bn254";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
     // Tiny download check to test the 'net CRS' path
@@ -93,7 +93,7 @@ TEST(CrsFactory, bn254)
 TEST(CrsFactory, grumpkin)
 {
     check_grumpkin_consistency(bb::srs::bb_crs_path(), 1024, /*allow_download=*/false);
-    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs";
+    const std::filesystem::path& temp_crs_path = "barretenberg_srs_test_crs_grumpkin";
     fs::remove_all(temp_crs_path);
     fs::create_directories(temp_crs_path);
     // Tiny download check to test the 'net CRS' path

@@ -133,8 +133,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        auto vk = std::make_shared<VerifierCommitmentKey<NativeCurve>>();
-        EXPECT_EQ(vk->pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
+        VerifierCommitmentKey<NativeCurve> vk;
+        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
         // Return finalised number of gates;
         return builder.num_gates;

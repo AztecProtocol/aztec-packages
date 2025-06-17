@@ -355,7 +355,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    this->vk()->get_g1_identity(),
+                                                                                    this->vk().get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
@@ -371,7 +371,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
 
@@ -463,7 +463,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     challenge,
-                                                                                    this->vk()->get_g1_identity(),
+                                                                                    this->vk().get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
@@ -481,7 +481,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
 } // namespace bb

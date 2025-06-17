@@ -5,10 +5,9 @@ pragma solidity >=0.8.27;
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {
   AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+  SnapshottedAddressSet,
+  AddressSnapshotLib__IndexOutOfBounds
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 
 contract AddressSnapshotAddTest is AddressSnapshotsBase {
   function test_WhenValidatorIsNotInTheSet(address _addr, uint16 _add2) public {
@@ -24,23 +23,15 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(validatorSet.length(), 0);
     assertEq(validatorSet.lengthAtTimestamp(ts), 0);
     assertEq(validatorSet.lengthAtTimestamp(ts2), 0);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts - 1);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.at(0);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts2);
 
     assertTrue(validatorSet.add(_addr));
@@ -50,9 +41,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     assertEq(validatorSet.lengthAtTimestamp(ts), 1);
     assertEq(validatorSet.lengthAtTimestamp(ts2), 1);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts - 1);
 
     assertEq(validatorSet.at(0), _addr);
@@ -61,9 +50,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
 
     vm.warp(ts2);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0)
-    );
+    vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, 0, 0));
     validatorSet.getAddressFromIndexAtTimestamp(0, ts - 1);
     assertEq(validatorSet.at(0), _addr);
     assertEq(validatorSet.getAddressFromIndexAtTimestamp(0, ts), _addr);
@@ -102,9 +89,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
     }
 
     for (uint256 i = 0; i < _addrs.length; i++) {
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
+      vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, i, 0));
       validatorSet.getAddressFromIndexAtTimestamp(i, ts - 1);
 
       // For the current time we should see the values
@@ -123,18 +108,12 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
 
     // Addresses should now remain during the current epoch after removal
     for (uint256 i = 0; i < _addrs.length; i++) {
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
+      vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, i, 0));
       validatorSet.at(i);
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
+      vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, i, 0));
       validatorSet.getAddressFromIndexAtTimestamp(i, ts2);
 
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
+      vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, i, 0));
       validatorSet.getAddressFromIndexAtTimestamp(i, ts3);
 
       assertEq(validatorSet.getAddressFromIndexAtTimestamp(i, ts), _addrs[i]);
@@ -149,9 +128,7 @@ contract AddressSnapshotAddTest is AddressSnapshotsBase {
 
     for (uint256 i = 0; i < _addrs.length; i++) {
       assertEq(validatorSet.getAddressFromIndexAtTimestamp(i, ts), _addrs[i]);
-      vm.expectRevert(
-        abi.encodeWithSelector(Errors.AddressSnapshotLib__IndexOutOfBounds.selector, i, 0)
-      );
+      vm.expectRevert(abi.encodeWithSelector(AddressSnapshotLib__IndexOutOfBounds.selector, i, 0));
       validatorSet.getAddressFromIndexAtTimestamp(i, ts2);
 
       assertEq(validatorSet.getAddressFromIndexAtTimestamp(i, ts3), _addrs[i]);

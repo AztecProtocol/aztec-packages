@@ -584,6 +584,10 @@ pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
 pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
+// Misc generators
+// TODO(8974): this likely belongs in the middle of the list, but was placed
+// here to avoid changing all of the key generators.
+pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -595,9 +599,6 @@ pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
 // AvmCircuitPublicInputs - row indices
-// TODO(dbanks12): could we somehow use Noir macros to generate these?
-// TODO(dbanks12): could we somehow generate these from the actual struct? Or no, because codegen can't use that?
-
 // Global Variables
 // start alias
 pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_ROW_IDX: u32 = 0;

@@ -28,7 +28,7 @@ class IPATest : public CommitmentTest<Curve> {
     using ClaimBatch = ClaimBatcher::Batch;
 
     static CK ck;
-    static std::shared_ptr<VK> vk;
+    static VK vk;
 
     // Default polynomial size
     static constexpr size_t n = 128;
@@ -273,7 +273,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
 
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
     auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
@@ -309,7 +309,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
@@ -367,7 +367,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     repeated_commitments);
 
@@ -375,4 +375,4 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     EXPECT_EQ(result, true);
 }
 typename IPATest::CK IPATest::ck;
-std::shared_ptr<typename IPATest::VK> IPATest::vk = nullptr;
+typename IPATest::VK IPATest::vk;

@@ -20,6 +20,7 @@ template <typename FF_> class execution_discardImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::execution_sel)).is_zero();
     }
 

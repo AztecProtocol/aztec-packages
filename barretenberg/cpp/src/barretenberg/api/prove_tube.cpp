@@ -88,7 +88,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     write_file(tubeAsFieldsVkPath, { data.begin(), data.end() });
 
     info("Native verification of the tube_proof");
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     Verifier tube_verifier(tube_verification_key, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion

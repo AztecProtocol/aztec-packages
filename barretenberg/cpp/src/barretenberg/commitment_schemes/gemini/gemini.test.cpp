@@ -19,7 +19,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using VK = VerifierCommitmentKey<Curve>;
 
     static CK ck;
-    static std::shared_ptr<VK> vk;
+    static VK vk;
 
     static void SetUpTestSuite()
     {
@@ -255,4 +255,4 @@ TYPED_TEST(GeminiTest, SoundnessRegression)
 }
 
 template <class Curve> typename GeminiTest<Curve>::CK GeminiTest<Curve>::ck;
-template <class Curve> std::shared_ptr<typename GeminiTest<Curve>::VK> GeminiTest<Curve>::vk = nullptr;
+template <class Curve> typename GeminiTest<Curve>::VK GeminiTest<Curve>::vk;

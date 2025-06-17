@@ -140,7 +140,7 @@ describe('SlasherClient', () => {
         await rollup.setupEpoch(l1TxUtils);
         const c = await rollup.getCurrentEpochCommittee();
         logger.debug('committee', c);
-        return c.length === 1 && c[0].toLowerCase() === privateKey.address.toLowerCase();
+        return c && c.length === 1 && c[0].toLowerCase() === privateKey.address.toLowerCase();
       },
       'non-empty committee',
       20,
@@ -150,6 +150,10 @@ describe('SlasherClient', () => {
     const slashAmount = depositAmount - 1n;
     expect(slashAmount).toBeLessThan(depositAmount);
     const committee = await rollup.getCurrentEpochCommittee();
+    if (!committee) {
+      throw new Error('No committee found');
+    }
+
     const amounts = Array.from({ length: committee.length }, () => slashAmount);
     const offenses = Array.from({ length: committee.length }, () => Offense.UNKNOWN);
 

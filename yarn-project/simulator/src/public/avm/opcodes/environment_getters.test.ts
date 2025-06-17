@@ -82,6 +82,6 @@ describe('Environment getters', () => {
   it(`GETENVVAR reverts for bad enum operand`, async () => {
     const invalidEnum = 255;
     const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, invalidEnum);
-    await expect(instruction.execute(context)).rejects.toThrowError(`Invalid GETENVVAR var enum ${invalidEnum}`);
+    await expect(instruction.execute(context)).rejects.toThrow(`Invalid GETENVVAR var enum ${invalidEnum}`);
   });
 });

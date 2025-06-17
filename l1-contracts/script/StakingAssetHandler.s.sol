@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Governance, DataStructures} from "@aztec/governance/Governance.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
@@ -23,8 +23,6 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {ZKPassportVerifier} from "@zkpassport/ZKPassportVerifier.sol";
 
 contract StakingAssetHandlerScript is Test {
-  using ProposalLib for DataStructures.Proposal;
-
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
   string internal constant SCOPE = "testnet.aztec.network";

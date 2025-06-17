@@ -159,13 +159,15 @@ fn create_permutation_settings_data(permutation: &Permutation) -> Json {
     ]
     .to_vec();
 
-    perm_entities.extend(lhs_cols);
-    perm_entities.extend(rhs_cols);
+    perm_entities.extend(lhs_cols.clone());
+    perm_entities.extend(rhs_cols.clone());
 
     json!({
         "perm_name": permutation.name,
         "relation_name": permutation.owning_relation,
         "columns_per_set": columns_per_set,
+        "lhs_cols": lhs_cols,
+        "rhs_cols": rhs_cols,
         "lhs_selector": lhs_selector,
         "rhs_selector": rhs_selector,
         "perm_entities": perm_entities,

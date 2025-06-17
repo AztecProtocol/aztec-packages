@@ -8,7 +8,7 @@ import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.
 
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 
 contract FakeGovernance {

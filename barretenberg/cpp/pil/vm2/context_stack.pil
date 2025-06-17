@@ -18,8 +18,8 @@ namespace context_stack;
     pol commit contract_address;
     pol commit is_static;
 
-    pol commit parent_calldata_offset_addr;
-    pol commit parent_calldata_size_addr;
+    pol commit parent_calldata_addr;
+    pol commit parent_calldata_size;
 
     pol commit parent_l2_gas_limit;
     pol commit parent_da_gas_limit;

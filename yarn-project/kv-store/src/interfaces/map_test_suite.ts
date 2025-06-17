@@ -64,6 +64,15 @@ export function describeAztecMap(
       expect(await get('quux')).to.equal(undefined);
     });
 
+    it('should be able to set many values', async () => {
+      const pairs = Array.from({ length: 100 }, (_, i) => ({ key: `key${i}`, value: `value${i}` }));
+      await map.setMany(pairs);
+
+      for (const { key, value } of pairs) {
+        expect(await get(key)).to.equal(value);
+      }
+    });
+
     it('should be able to overwrite values', async () => {
       await map.set('foo', 'bar');
       await map.set('foo', 'baz');

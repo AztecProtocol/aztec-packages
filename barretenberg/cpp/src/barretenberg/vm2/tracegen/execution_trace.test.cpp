@@ -504,5 +504,46 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
     EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
 }
 
+TEST(ExecutionTraceGenTest, InternalCallRet)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // Use the instruction builder - we can make the operands more complex
+    const auto instr = InstructionBuilder(WireOpCode::INTERNALCALL)
+                           // All operands are direct - for simplicity
+                           .operand<uint32_t>(10)
+                           .build();
+
+    simulation::ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = {
+                { 
+                  .resolved_operand = MemoryValue::from<uint32_t>(10) },
+            },
+        },
+        .before_context_event {
+        .internal_call_id = 1,
+        .internal_call_return_id = 0,
+        .next_internal_call_id = 2,
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the internal call
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_internal_call, 1),
+                          ROW_FIELD_EQ(execution_next_internal_call_id, 2),
+                          ROW_FIELD_EQ(execution_internal_call_id, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id, 0),
+                          ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen

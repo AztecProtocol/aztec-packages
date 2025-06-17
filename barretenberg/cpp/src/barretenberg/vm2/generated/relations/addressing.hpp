@@ -21,6 +21,7 @@ template <typename FF_> class addressingImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::execution_sel_should_resolve_address)).is_zero();
     }
 

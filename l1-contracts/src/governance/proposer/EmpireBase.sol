@@ -3,10 +3,9 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {IEmpire, IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
@@ -19,7 +18,6 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
 abstract contract EmpireBase is EIP712, IEmpire {
-  using SlotLib for Slot;
   using SignatureLib for Signature;
 
   struct RoundAccounting {
@@ -94,7 +92,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
@@ -144,7 +142,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function getCurrentRound() external view returns (uint256) {
-    IValidatorSelection selection = IValidatorSelection(getInstance());
+    IEmperor selection = IEmperor(getInstance());
     Slot currentSlot = selection.getCurrentSlot();
     return computeRound(currentSlot);
   }
@@ -157,7 +155,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
    * @return The round number
    */
   function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
-    return _slot.unwrap() / M;
+    return Slot.unwrap(_slot) / M;
   }
 
   // Virtual functions
@@ -169,7 +167,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);

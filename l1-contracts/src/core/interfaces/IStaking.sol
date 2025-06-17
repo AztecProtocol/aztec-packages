@@ -2,10 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Exit, Status, AttesterView} from "@aztec/core/libraries/staking/StakingLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
-import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
-import {AttesterConfig, GSE} from "@aztec/core/staking/GSE.sol";
+import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
+import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 interface IStakingCore {

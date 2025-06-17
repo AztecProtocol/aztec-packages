@@ -8,10 +8,10 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Epoch, Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 import {Status, AttesterView, IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {GSE, IGSECore} from "@aztec/core/staking/GSE.sol";
+import {GSE, IGSECore} from "@aztec/governance/GSE.sol";
 
 contract FlushEntryQueueTest is StakingBase {
   function test_GivenTheQueueHasAlreadyBeenFlushedThisEpoch() external {

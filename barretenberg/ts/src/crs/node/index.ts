@@ -5,6 +5,7 @@ import { Readable } from 'stream';
 import { homedir } from 'os';
 import { finished } from 'stream/promises';
 import { createDebugLogger } from '../../log/index.js';
+import { join } from 'path';
 
 /**
  * Generic CRS finder utility class.
@@ -18,7 +19,7 @@ export class Crs {
 
   static async new(
     numPoints: number,
-    crsPath = homedir() + '/.bb-crs',
+    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
     logger: (msg: string) => void = createDebugLogger('crs'),
   ) {
     const crs = new Crs(numPoints, crsPath, logger);
@@ -87,7 +88,7 @@ export class GrumpkinCrs {
 
   static async new(
     numPoints: number,
-    crsPath = homedir() + '/.bb-crs',
+    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
     logger: (msg: string) => void = createDebugLogger('crs'),
   ) {
     const crs = new GrumpkinCrs(numPoints, crsPath, logger);

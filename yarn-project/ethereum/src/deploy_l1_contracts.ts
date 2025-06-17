@@ -220,6 +220,9 @@ export const l1Artifacts = {
     contractAbi: GSEAbi,
     contractBytecode: GSEBytecode as Hex,
   },
+};
+
+export const l1ArtifactsVerifiers = {
   honkVerifier: {
     contractAbi: HonkVerifierAbi,
     contractBytecode: HonkVerifierBytecode as Hex,
@@ -610,7 +613,7 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
+    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
     epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);

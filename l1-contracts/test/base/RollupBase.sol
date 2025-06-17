@@ -16,13 +16,11 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
@@ -109,7 +107,8 @@ contract RollupBase is DecoderBase {
   }
 
   function _proposeBlock(string memory _name, uint256 _slotNumber, uint256 _manaUsed) public {
-    _proposeBlock(_name, _slotNumber, _manaUsed, "");
+    bytes32[] memory extraBlobHashes = new bytes32[](0);
+    _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, "");
   }
 
   function _proposeBlockFail(
@@ -118,13 +117,24 @@ contract RollupBase is DecoderBase {
     uint256 _manaUsed,
     bytes memory _revertMsg
   ) public {
-    _proposeBlock(_name, _slotNumber, _manaUsed, _revertMsg);
+    bytes32[] memory extraBlobHashes = new bytes32[](0);
+    _proposeBlock(_name, _slotNumber, _manaUsed, extraBlobHashes, _revertMsg);
+  }
+
+  function _proposeBlockWithExtraBlobs(
+    string memory _name,
+    uint256 _slotNumber,
+    uint256 _manaUsed,
+    bytes32[] memory _extraBlobHashes
+  ) public {
+    _proposeBlock(_name, _slotNumber, _manaUsed, _extraBlobHashes, "");
   }
 
   function _proposeBlock(
     string memory _name,
     uint256 _slotNumber,
     uint256 _manaUsed,
+    bytes32[] memory _extraBlobHashes,
     bytes memory _revertMsg
   ) private {
     DecoderBase.Full memory full = load(_name);
@@ -153,10 +163,24 @@ contract RollupBase is DecoderBase {
     full.block.header.contentCommitment.inHash = rollup.getInbox().getRoot(full.block.blockNumber);
 
     {
-      bytes32[] memory blobHashes = this.getBlobHashes(blobCommitments);
+      bytes32[] memory blobHashes;
+      if (_extraBlobHashes.length == 0) {
+        blobHashes = this.getBlobHashes(blobCommitments);
+      } else {
+        bytes32[] memory originalBlobHashes = this.getBlobHashes(blobCommitments);
+        blobHashes = new bytes32[](originalBlobHashes.length + _extraBlobHashes.length);
+        for (uint256 i = 0; i < originalBlobHashes.length; i++) {
+          blobHashes[i] = originalBlobHashes[i];
+        }
+        for (uint256 i = 0; i < _extraBlobHashes.length; i++) {
+          blobHashes[originalBlobHashes.length + i] = _extraBlobHashes[i];
+        }
+      }
+
       // https://github.com/foundry-rs/foundry/issues/10074
       // don't add blob hashes if forge gas report is true
       if (!vm.envOr("FORGE_GAS_REPORT", false)) {
+        emit log("Setting blob hashes");
         vm.blobhashes(blobHashes);
       } else {
         // skip blob check if forge gas report is true

@@ -16,7 +16,6 @@ contracts=(
   "ExtRollupLib"
   "ExtRollupLib2"
   "FeeJuicePortal"
-  "Forwarder"
   "Governance"
   "GovernanceProposer"
   "FeeAssetHandler"

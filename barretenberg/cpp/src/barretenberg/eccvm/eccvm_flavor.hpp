@@ -756,8 +756,7 @@ class ECCVMFlavor {
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
-        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key =
-            std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()

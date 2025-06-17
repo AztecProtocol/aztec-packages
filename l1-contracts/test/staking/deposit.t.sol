@@ -8,10 +8,13 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Errors as GSEErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {Status, IStakingCore, AttesterView, IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
+import {IGSE, IGSECore} from "@aztec/governance/GSE.sol";
+import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 
 contract DepositTest is StakingBase {
   using stdStorage for StdStorage;
@@ -80,7 +83,7 @@ contract DepositTest is StakingBase {
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
-    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
+    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});

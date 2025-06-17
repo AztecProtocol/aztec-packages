@@ -1,7 +1,4 @@
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/generated/relations/execution.hpp"
-#include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
@@ -16,12 +13,8 @@
 namespace bb::avm2::simulation {
 namespace {
 
-using ::testing::_;
-using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
 using ::testing::Return;
-using ::testing::ReturnRef;
-using ::testing::StrictMock;
 
 class TxExecutionTest : public ::testing::Test {
   protected:

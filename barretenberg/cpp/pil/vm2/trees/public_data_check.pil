@@ -1,0 +1,181 @@
+include "merkle_check.pil";
+
+include "../ff_gt.pil";
+include "../poseidon2_hash.pil";
+include "../constants_gen.pil";
+include "../precomputed.pil";
+
+/**
+ * This gadget reads or writes in the public data tree. The public data tree is an indexed tree where leaves
+ * have slot and value. Slot is the "key" and value is the stored data. When we read from the public data tree,
+ * we assume that a slot that has not been written before has value zero.
+ * For this we perform a low leaf membership proof and:
+ *  - if the low leaf slot is equal to the slot, that means that slot has been written before, and we assert that
+ *    the low leaf value is equal to the value we are reading.
+ *  - if the low leaf slot is not equal to the slot, we assert that the low leaf is indeed a valid low leaf for the
+ *    requested slot, proving non existence of the slot in the tree. In that case we check value to be zero.
+ * In order to validate that a leaf is a low leaf of the slot, we need to check that the low_leaf.slot is < slot
+ * and that low_leaf.next_slot is > slot. However, we need to consider the case where next_slot is zero, which
+ * means "infinity". The highest slot inserted in the tree will point to infinity as the "next_slot".
+ * In order to write, we perform the above, and also:
+ * - We update the low leaf. If the slot has been written before, we update the value. Otherwise, we'll insert a new leaf
+ *     so we update the pointers of the low leaf to the newly inserted leaf.
+ * - We insert the new leaf if it was never written before.
+ *
+ * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
+ * and that there will always be a low leaf for any given value.
+ *
+ * Read usage:
+ * sel { value, leaf_slot, public_data_tree_root }
+ * in public_data_check.sel { public_data_check.value, public_data_check.slot, public_data_check.root };
+ *
+ * Write usage:
+ * sel {
+ *   one, value, leaf_slot, prev_public_data_tree_root,
+ *   next_public_data_tree_root, prev_public_data_tree_size, did_append
+ * } in public_data_check.sel {
+ *   public_data_check.write, public_data_check.value, public_data_check.slot,
+ *   public_data_check.root, public_data_check.write_root,
+ *   public_data_check.tree_size_before_write, public_data_check.leaf_not_exists
+ * };
+ *
+**/
+namespace public_data_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to the gadget
+    pol commit value;
+    pol commit slot;
+    pol commit root;
+
+    // Write specific inputs
+    pol commit write_root;
+    pol commit tree_size_before_write;
+    pol commit write;
+    write * (1 - write) = 0;
+
+    // Hints
+    pol commit low_leaf_slot;
+    pol commit low_leaf_value;
+    pol commit low_leaf_next_index;
+    pol commit low_leaf_next_slot;
+
+    pol commit updated_low_leaf_value;
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_slot;
+
+    pol commit low_leaf_index;
+
+    // ========= LOW LEAF VALIDATION =========
+    // We commit leaf not exists instead of leaf exists since it'll be used as a selector for a lookup
+    pol commit leaf_not_exists;
+    leaf_not_exists * (1 - leaf_not_exists) = 0;
+    pol LEAF_EXISTS = 1 - leaf_not_exists;
+
+    pol commit slot_low_leaf_slot_diff_inv;
+    pol SLOT_LOW_LEAF_SLOT_DIFF = slot - low_leaf_slot;
+
+    //  SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> LEAF_EXISTS == 1
+    #[EXISTS_FLAG_CHECK]
+    sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
+
+    // If the leaf doesn't exist, we need to validate that the slot is greater than the low leaf slot
+
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit one;
+    sel * (1 - one) = 0;
+
+    #[LOW_LEAF_SLOT_VALIDATION]
+    leaf_not_exists { slot, low_leaf_slot, one }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // If next slot is not zero (which would be infinity), it has to be greater than the slot.
+    // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
+    pol commit next_slot_is_nonzero;
+    next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
+    pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
+
+    pol commit next_slot_inv;
+    #[NEXT_SLOT_IS_ZERO_CHECK]
+    leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) + next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0;
+
+    #[LOW_LEAF_NEXT_SLOT_VALIDATION]
+    next_slot_is_nonzero { low_leaf_next_slot, slot, one }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // ========= COMPUTE LOW LEAF UPDATE =========
+    // On write, if the leaf exists, we update the value. Otherwise, we'll insert so we update the pointers.
+    #[LOW_LEAF_VALUE_UPDATE]
+    write * ((low_leaf_value - value) * leaf_not_exists + value - updated_low_leaf_value) = 0;
+    #[LOW_LEAF_NEXT_INDEX_UPDATE]
+    write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index - updated_low_leaf_next_index) = 0;
+    #[LOW_LEAF_NEXT_SLOT_UPDATE]
+    write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot - updated_low_leaf_next_slot) = 0;
+
+    // ========= LOW LEAF MEMBERSHIP =========
+    pol commit low_leaf_hash;
+    // The intermediate root is the root of the tree after the low leaf update but before the new leaf is inserted.
+    pol commit intermediate_root;
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    pol commit tree_height;
+    sel * (tree_height - constants.PUBLIC_DATA_TREE_HEIGHT) = 0;
+
+    #[LOW_LEAF_POSEIDON2_0]
+    sel { low_leaf_slot, low_leaf_value, low_leaf_next_index, low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[LOW_LEAF_POSEIDON2_1]
+    sel { low_leaf_next_slot, precomputed.zero, precomputed.zero, low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit updated_low_leaf_hash;
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_0]
+    write { low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index, updated_low_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[UPDATED_LOW_LEAF_POSEIDON2_1]
+    write { updated_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[LOW_LEAF_MERKLE_CHECK]
+    sel { write, low_leaf_hash, updated_low_leaf_hash,
+        low_leaf_index, tree_height, root, intermediate_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+    // ========= READ VALUE CHECK =========
+    // value = LEAF_EXISTS ? low_leaf_value : 0
+    #[VALUE_IS_CORRECT]
+    (1 - write) * (low_leaf_value * LEAF_EXISTS - value) = 0;
+
+    // ========= COMPUTE FINAL ROOT =========
+
+    pol commit should_insert;
+    leaf_not_exists * write - should_insert = 0;
+
+    pol commit new_leaf_hash;
+
+    #[NEW_LEAF_POSEIDON2_0]
+    should_insert { slot, value, low_leaf_next_index, new_leaf_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    #[NEW_LEAF_POSEIDON2_1]
+    should_insert { low_leaf_next_slot, precomputed.zero, precomputed.zero, new_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[NEW_LEAF_MERKLE_CHECK]
+    should_insert { one, precomputed.zero, new_leaf_hash,
+        tree_size_before_write, tree_height, intermediate_root, write_root }
+    in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
+        merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
+
+    pol SHOULD_UPDATE = LEAF_EXISTS * write;
+    // If we are writing, but the leaf has been written before, we don't insert, so write_root is intermediate_root
+    #[UPDATE_ROOT_VALIDATION]
+    SHOULD_UPDATE * (write_root - intermediate_root) = 0;
+
+

@@ -19,6 +19,7 @@ template <typename FF_> class gasImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::execution_sel_should_check_gas)).is_zero();
     }
 

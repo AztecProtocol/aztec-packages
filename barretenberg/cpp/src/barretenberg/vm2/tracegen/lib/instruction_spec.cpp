@@ -22,7 +22,7 @@ RegisterMemInfo& RegisterMemInfo::has_inputs(uint16_t num_inputs)
     for (uint16_t i = 0; i < num_inputs; ++i) {
         encoded_register_info |= (read_encoding << (i * 2));
     }
-    write_index = num_inputs != 0 ? num_inputs : 2; // Hack in case of no inputs
+    write_index = num_inputs;
     return *this;
 }
 
@@ -89,12 +89,15 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1) },
     { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
     { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
-    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(3) },
+    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(4) },
     { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::REVERT, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::JUMP, RegisterMemInfo() },
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(2) },
+    { ExecutionOpCode::RETURNDATACOPY, RegisterMemInfo().has_inputs(2) },
+    { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
+    { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
 } };
 
 } // namespace bb::avm2::tracegen
