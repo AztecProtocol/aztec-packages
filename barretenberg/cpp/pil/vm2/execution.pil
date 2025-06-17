@@ -252,12 +252,12 @@ pol commit sel_keccakf1600;
 /**************************************************************************************************
 * Dispatch permutations to the gadget subtraces
  **************************************************************************************************/
-pol commit sel_gadget_error;
+pol commit opcode_error;
 #[GADGET_ERROR_BOOLEAN]
-sel_gadget_error * (1 - sel_gadget_error) = 0;
+opcode_error * (1 - opcode_error) = 0;
 
 #[DISPATCH_KECCAKF1600]
-sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, sel_gadget_error }
+sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, opcode_error }
 is
 keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
 

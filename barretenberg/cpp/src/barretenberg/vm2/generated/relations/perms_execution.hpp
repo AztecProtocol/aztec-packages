@@ -29,7 +29,7 @@ class perm_execution_dispatch_keccakf1600_settings {
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_rop_1_,
         ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_sel_gadget_error
+        ColumnAndShifts::execution_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = { ColumnAndShifts::keccakf1600_clk,
                                                                                   ColumnAndShifts::keccakf1600_dst_addr,
@@ -53,7 +53,7 @@ class perm_execution_dispatch_keccakf1600_settings {
                                      in.get(ColumnAndShifts::execution_rop_0_),
                                      in.get(ColumnAndShifts::execution_rop_1_),
                                      in.get(ColumnAndShifts::execution_context_id),
-                                     in.get(ColumnAndShifts::execution_sel_gadget_error),
+                                     in.get(ColumnAndShifts::execution_opcode_error),
                                      in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::keccakf1600_dst_addr),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),
@@ -71,7 +71,7 @@ class perm_execution_dispatch_keccakf1600_settings {
                                      in.get(ColumnAndShifts::execution_rop_0_),
                                      in.get(ColumnAndShifts::execution_rop_1_),
                                      in.get(ColumnAndShifts::execution_context_id),
-                                     in.get(ColumnAndShifts::execution_sel_gadget_error),
+                                     in.get(ColumnAndShifts::execution_opcode_error),
                                      in.get(ColumnAndShifts::keccakf1600_clk),
                                      in.get(ColumnAndShifts::keccakf1600_dst_addr),
                                      in.get(ColumnAndShifts::keccakf1600_src_addr),

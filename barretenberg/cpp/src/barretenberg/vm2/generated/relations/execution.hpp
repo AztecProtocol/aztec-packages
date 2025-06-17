@@ -86,7 +86,7 @@ template <typename FF_> class executionImpl {
         }
         { // GADGET_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_gadget_error) * (FF(1) - in.get(C::execution_sel_gadget_error));
+            auto tmp = in.get(C::execution_opcode_error) * (FF(1) - in.get(C::execution_opcode_error));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }

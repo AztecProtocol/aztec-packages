@@ -367,7 +367,7 @@ void ExecutionTraceBuilder::process(
         bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
         bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
-        bool is_gadget_error = ex_event.error == ExecutionError::DISPATCHING;
+        bool is_opcode_error = ex_event.error == ExecutionError::DISPATCHING;
         bool is_err = ex_event.error != ExecutionError::NONE;
         bool is_failure = is_revert || is_err;
         bool has_parent = ex_event.after_context_event.parent_id != 0;
@@ -430,8 +430,8 @@ void ExecutionTraceBuilder::process(
                           } });
             }
 
-            if (is_gadget_error) {
-                trace.set(C::execution_sel_gadget_error, row, 1);
+            if (is_opcode_error) {
+                trace.set(C::execution_opcode_error, row, 1);
             }
         }
 
