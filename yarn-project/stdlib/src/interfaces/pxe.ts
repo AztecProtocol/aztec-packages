@@ -162,7 +162,6 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
    * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
-   * @param skipClassVerification - (Optional) If false, addresses are verified to belong to the proper contractClassIds
    * @param overrides - (Optional) State overrides for the simulation, such as msgSender, contract instances and artifacts.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.

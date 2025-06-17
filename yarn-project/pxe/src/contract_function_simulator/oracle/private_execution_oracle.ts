@@ -364,7 +364,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
    * @param argsHash - The arguments hash to pass to the function.
    * @param sideEffectCounter - The side effect counter at the start of the call.
    * @param isStaticCall - Whether the call is a static call.
-   * @param skipClassVerification - Whether to skip class verification.
    * @returns The execution result.
    */
   override async callPrivateFunction(

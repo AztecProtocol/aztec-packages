@@ -184,15 +184,9 @@ export class ContractFunctionSimulator {
    * accounts if not specified.
    * @returns A decoded ABI value containing the function's return data.
    */
-  public async runUtility(
-    call: FunctionCall,
-    authwits: AuthWitness[],
-    scopes?: AztecAddress[],
-    skipClassVerification = false,
-  ): Promise<AbiDecoded> {
-    if (!skipClassVerification) {
-      await verifyCurrentClassId(call.to, this.executionDataProvider);
-    }
+  public async runUtility(call: FunctionCall, authwits: AuthWitness[], scopes?: AztecAddress[]): Promise<AbiDecoded> {
+    await verifyCurrentClassId(call.to, this.executionDataProvider);
+
     const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(call.to, call.selector);
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
