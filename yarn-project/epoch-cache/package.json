@@ -33,7 +33,7 @@
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",
-    "jest-mock-extended": "^3.0.7",
+    "jest-mock-extended": "^4.0.0",
     "tslib": "^2.4.0",
     "viem": "2.23.7",
     "zod": "^3.23.8"
