@@ -81,7 +81,7 @@ function client_ivc_flow {
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v"
 
-  if [ -f "$output/op-counts.json" ] && [ "$runtime" != wasm ]; then
+  if [[ "${NATIVE_PRESET:-}" == op-count-time && "$runtime" != wasm ]]; then
     python3 scripts/analyze_client_ivc_bench.py --prefix . --json $output/op-counts.json --benchmark ""
   fi
 
