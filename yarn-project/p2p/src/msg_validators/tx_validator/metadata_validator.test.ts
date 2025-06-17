@@ -104,11 +104,11 @@ describe('MetadataTxValidator', () => {
     await expectValid(goodTx);
   });
 
-  it('allows txs with unset max block number', async () => {
-    const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, 0);
+  it('rejects txs with unset max block number', async () => {
+    const [badTx] = await makeTxs();
+    badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, 0);
 
-    await expectValid(goodTx);
+    await expectInvalid(badTx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
   });
 
   it('rejects txs with lower max block number', async () => {
