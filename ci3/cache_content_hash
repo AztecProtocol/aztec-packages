@@ -59,8 +59,6 @@ if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
   exit 0
 fi
 
-echo "$AWK_PATTERN">&2
-
 # Calculate a content hash for matched files
 # Use git ls-tree and AWK to filter files matching the rebuild patterns and extract their hashes
 # Sort the hashes and compute the content hash
