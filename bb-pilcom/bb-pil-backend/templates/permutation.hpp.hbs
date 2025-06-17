@@ -25,6 +25,16 @@ class {{perm_name}}_settings {
     static constexpr Column SRC_SELECTOR = Column::{{lhs_selector}};
     static constexpr Column DST_SELECTOR = Column::{{rhs_selector}};
     static constexpr Column INVERSES = Column::{{inverses_col}};
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
+        {{#each lhs_cols as |col|}}
+        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
+        {{/each}}
+    };
+    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
+        {{#each rhs_cols as |col|}}
+        ColumnAndShifts::{{col}}{{#unless @last}},{{/unless}}
+        {{/each}}
+    };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {

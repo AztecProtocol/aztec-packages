@@ -17,6 +17,7 @@ import {
   createExtendedL1Client,
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -47,7 +48,7 @@ describe('e2e_multi_validator_node', () => {
       { length: VALIDATOR_COUNT },
       (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
     );
-    const publisherPrivateKey = initialValidatorPrivateKeys[0];
+    const publisherPrivateKey = new SecretValue(initialValidatorPrivateKeys[0]);
     validatorAddresses = initialValidatorPrivateKeys.map(pk => {
       const account = privateKeyToAccount(pk);
       return EthAddress.fromString(account.address).toString();

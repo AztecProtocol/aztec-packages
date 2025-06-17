@@ -33,6 +33,7 @@ import {
   Tx,
   type TxHash,
 } from '@aztec/stdlib/tx';
+import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import {
   Attributes,
   L1Metrics,
@@ -571,7 +572,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
-      this.metrics.recordBuiltBlock(workTimer.ms(), publicGas.l2Gas);
+      const blockBuildDuration = workTimer.ms();
       await this.dropFailedTxsFromP2P(failedTxs);
 
       const minTxsPerBlock = this.isFlushing ? 0 : this.minTxsPerBlock;
@@ -612,14 +613,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       );
 
       this.log.debug('Collecting attestations');
-      const stopCollectingAttestationsTimer = this.metrics.startCollectingAttestationsTimer();
       const attestations = await this.collectAttestations(block, usedTxs, proposerAddress);
       if (attestations !== undefined) {
         this.log.verbose(`Collected ${attestations.length} attestations`, { blockHash, blockNumber });
       }
-      stopCollectingAttestationsTimer();
 
       await this.enqueuePublishL2Block(block, attestations, txHashes);
+      this.metrics.recordBuiltBlock(blockBuildDuration, publicGas.l2Gas);
       return block;
     } catch (err) {
       this.metrics.recordFailedBlock();
@@ -659,6 +659,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
+
     const slotNumber = block.header.globalVariables.slotNumber.toBigInt();
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
@@ -684,15 +685,32 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!
       : this.aztecSlotDuration;
-    const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
-    const attestations = await this.validatorClient.collectAttestations(
-      proposal,
-      numberOfRequiredAttestations,
-      attestationDeadline,
-    );
 
-    // note: the smart contract requires that the signatures are provided in the order of the committee
-    return orderAttestations(attestations, committee);
+    this.metrics.recordRequiredAttestations(numberOfRequiredAttestations, attestationTimeAllowed);
+
+    const timer = new Timer();
+    let collectedAttestionsCount: number = 0;
+    try {
+      const attestationDeadline = new Date(this.dateProvider.now() + attestationTimeAllowed * 1000);
+      const attestations = await this.validatorClient.collectAttestations(
+        proposal,
+        numberOfRequiredAttestations,
+        attestationDeadline,
+      );
+
+      collectedAttestionsCount = attestations.length;
+
+      // note: the smart contract requires that the signatures are provided in the order of the committee
+      return orderAttestations(attestations, committee);
+    } catch (err) {
+      if (err && err instanceof AttestationTimeoutError) {
+        collectedAttestionsCount = err.collectedCount;
+      }
+
+      throw err;
+    } finally {
+      this.metrics.recordCollectedAttestations(collectedAttestionsCount, timer.ms());
+    }
   }
 
   /**
