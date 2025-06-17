@@ -222,6 +222,27 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
         uint256_t lo = converted.slice(0, LO_BITS);
         return lo;
     }
+
+    /**
+     * @brief Adds the verification key witnesses directly to the transcript.
+     * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
+     * submitting that, we want to submit the values directly to the transcript.
+     *
+     * @param domain_separator
+     * @param transcript
+     */
+    template <typename Transcript>
+    void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+    {
+        transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+                                       this->pairing_inputs_public_input_key.start_idx);
+        for (const Commitment& commitment : this->get_all()) {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+        }
+    }
 };
 
 /**
@@ -302,14 +323,14 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     template <typename Transcript>
     void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
     {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
         FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
         pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+        transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
         for (const Commitment& commitment : this->get_all()) {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
         }
     }
 };

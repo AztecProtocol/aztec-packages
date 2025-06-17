@@ -166,19 +166,20 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         template <typename Transcript>
         void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
         {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
             pairing_points_start_idx.convert_constant_to_fixed_witness(
                 builder); // We can't use poseidon2 with constants.
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+                                           pairing_points_start_idx);
             FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
             ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", ipa_claim_start_idx);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_ipa_claim_start_idx", ipa_claim_start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
+                transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
             }
         }
 
