@@ -18,13 +18,13 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
-// Living -> Not participating as validator, but have funds in setup,
+// Zombie -> Not participating as validator, but have funds in setup,
 // 			 hit if slashes and going below the minimum
 // Exiting -> In the process of exiting the system
 enum Status {
   NONE,
   VALIDATING,
-  LIVING,
+  ZOMBIE,
   EXITING
 }
 
@@ -333,7 +333,7 @@ library StakingLib {
 
     Status status;
     if (exit.exists) {
-      status = exit.isRecipient ? Status.EXITING : Status.LIVING;
+      status = exit.isRecipient ? Status.EXITING : Status.ZOMBIE;
     } else {
       status = effectiveBalance > 0 ? Status.VALIDATING : Status.NONE;
     }
