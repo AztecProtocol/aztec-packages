@@ -210,7 +210,7 @@ export async function generateProof(
   recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
-  log: LogFn,
+  log: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -253,9 +253,14 @@ export async function generateProof(
     if (recursive) {
       args.push('--init_kzg_accumulator');
     }
+    const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log.info(`${circuitName} BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
