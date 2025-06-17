@@ -100,6 +100,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
+#ifdef DISABLE_AZTEC_VM
+    name += "\nAztec Virtual Machine (AVM): disabled";
+#else
+    name += "\nAztec Virtual Machine (AVM): enabled";
+#endif
+#ifdef STARKNET_GARAGA_FLAVORS
+    name += "\nStarknet Garaga Extensions: enabled";
+#else
+    name += "\nStarknet Garaga Extensions: disabled";
+#endif
     CLI::App app{ name };
     argv = app.ensure_utf8(argv);
     app.formatter(std::make_shared<Formatter>());
@@ -323,6 +333,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
+    add_vk_path_option(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -483,7 +494,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_recursive_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
-#ifndef DISABLE_AZTEC_VM
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
@@ -526,7 +536,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_avm_public_inputs_option(avm_verify_command);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
-#endif
 
     /***************************************************************************************************************
      * Subcommand: prove_tube
@@ -627,6 +636,14 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (avm_verify_command->parsed()) {
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         }
+#else
+        else if (avm_prove_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_check_circuit_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        } else if (avm_verify_command->parsed()) {
+            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
+        }
 #endif
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
@@ -660,15 +677,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
-            if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
-                }
-                api.write_ivc_vk(ivc_inputs_path, output_path);
-                return 0;
-            }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
@@ -680,7 +688,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
             if (prove->parsed()) {
-                api.prove(flags, bytecode_path, witness_path, output_path);
+                api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);

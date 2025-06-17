@@ -14,6 +14,7 @@ contracts=(
   "CoinIssuer"
   "EmpireBase"
   "ExtRollupLib"
+  "ExtRollupLib2"
   "FeeJuicePortal"
   "Forwarder"
   "Governance"
@@ -40,6 +41,7 @@ contracts=(
   "ValidatorSelectionLib"
   "MultiAdder"
   "GSE"
+  "MockZKPassportVerifier"
 )
 
 # Combine error ABIs once, removing duplicates by {type, name}.

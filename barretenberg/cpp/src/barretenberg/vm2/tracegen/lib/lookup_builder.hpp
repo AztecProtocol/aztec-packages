@@ -34,7 +34,16 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
-            assert(src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row));
+            assert([&]() {
+                auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row);
+                if (src_values != dst_values) {
+                    throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
+                                             ". Could not find tuple in destination. " + "SRC tuple (row " +
+                                             std::to_string(row) + "): " + to_string(src_values) + " DST tuple (row " +
+                                             std::to_string(dst_row) + "): " + to_string(dst_values));
+                }
+                return true;
+            }());
 
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
@@ -75,16 +84,11 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
         if (it != row_idx.end()) {
             return it->second;
         }
-        vinfo(
-            "Failed computing counts for ",
-            std::string(LookupSettings::NAME),
-            " with src tuple: {",
-            [&tup]<size_t... Is>(std::index_sequence<Is...>) {
-                return ((field_to_string(tup[Is]) + ", ") + ...);
-            }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
-            "}");
-        throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                 ". Could not find tuple in destination.");
+        // We log and return 0 here. Error checking is expected at the caller.
+        vinfo("Failed computing counts for ",
+              std::string(LookupSettings::NAME),
+              ". Could not find tuple in destination.");
+        return 0;
     }
 
   private:
@@ -137,7 +141,7 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
 
             if (!found) {
-                info(
+                vinfo(
                     "Failed computing counts for ",
                     std::string(LookupSettings::NAME),
                     " with src tuple: {",
@@ -146,7 +150,8 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                     }(std::make_index_sequence<LookupSettings::LOOKUP_TUPLE_SIZE>()),
                     "}");
                 throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                         ". Could not find tuple in destination.");
+                                         ". Could not find tuple in destination. " + "SRC tuple (row " +
+                                         std::to_string(row) + "): " + to_string(src_values));
             }
         }
     }

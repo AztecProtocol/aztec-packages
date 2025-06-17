@@ -6,7 +6,7 @@ import { RevertCode } from '../avm/revert_code.js';
 import type { SimulationError } from '../errors/simulation_error.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
-import { siloL2ToL1Message } from '../hash/hash.js';
+import { computeL2ToL1MessageHash } from '../hash/hash.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import type { GlobalVariables } from './global_variables.js';
@@ -91,8 +91,16 @@ export async function makeProcessedTxFromPrivateOnlyTx(
     data.end.noteHashes.filter(h => !h.isZero()),
     data.end.nullifiers.filter(h => !h.isZero()),
     data.end.l2ToL1Msgs
-      .map(message => siloL2ToL1Message(message, globalVariables.version, globalVariables.chainId))
-      .filter(h => !h.isZero()),
+      .filter(msg => !msg.contractAddress.isZero())
+      .map(msg =>
+        computeL2ToL1MessageHash({
+          l2Sender: msg.contractAddress,
+          l1Recipient: msg.message.recipient,
+          content: msg.message.content,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
+        }),
+      ),
     [feePaymentPublicDataWrite],
     data.end.privateLogs.filter(l => !l.isEmpty()),
     [],
@@ -155,8 +163,16 @@ export async function makeProcessedTxFromTxWithPublicCalls(
     avmPublicInputs.accumulatedData.noteHashes.filter(h => !h.isZero()),
     avmPublicInputs.accumulatedData.nullifiers.filter(h => !h.isZero()),
     avmPublicInputs.accumulatedData.l2ToL1Msgs
-      .map(message => siloL2ToL1Message(message, globalVariables.version, globalVariables.chainId))
-      .filter(h => !h.isZero()),
+      .filter(msg => !msg.contractAddress.isZero())
+      .map(msg =>
+        computeL2ToL1MessageHash({
+          l2Sender: msg.contractAddress,
+          l1Recipient: msg.message.recipient,
+          content: msg.message.content,
+          rollupVersion: globalVariables.version,
+          chainId: globalVariables.chainId,
+        }),
+      ),
     publicDataWrites,
     privateLogs,
     avmPublicInputs.accumulatedData.publicLogs.filter(l => !l.isEmpty()),

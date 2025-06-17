@@ -382,12 +382,11 @@ impl PrivateKernelCircuitOutputValidator {
                 max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number
-                         as u32,
-                    )),
-                )
-            } else {
-                max_block_number
-            }
+                    private_call.public_inputs.historical_header.global_variables.block_number,
+                )),
+            )
+        } else {
+            max_block_number
         }
+    }
 }

@@ -50,10 +50,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         MegaCircuitBuilder builder{ goblin_final.op_queue };
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
-        auto merge_proof = goblin_final.prove_final_merge();
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin_final.prove(merge_proof), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
+        return { goblin_final.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -92,8 +91,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
         auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -119,8 +118,8 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, outer_verification_key);
         OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };
     };

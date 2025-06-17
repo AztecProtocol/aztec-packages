@@ -55,6 +55,10 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
@@ -81,12 +85,12 @@
   "devDependencies": {
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-test-contracts.js": "workspace:^",
-    "@jest/globals": "^29.5.0",
+    "@jest/globals": "^30.0.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.omit": "^4.5.7",
     "@types/lodash.times": "^4.3.9",
     "@types/node": "^22.15.17",
-    "jest": "^29.5.0",
+    "jest": "^30.0.0",
     "jest-mock-extended": "^3.0.3",
     "lodash.times": "^4.3.2",
     "ts-node": "^10.9.1",

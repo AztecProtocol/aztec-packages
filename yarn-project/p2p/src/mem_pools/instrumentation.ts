@@ -88,14 +88,8 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
       },
       dbStats,
     );
-  }
 
-  public start() {
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
-  }
-
-  public stop() {
-    this.meter.removeBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }
 
   public recordSize(poolObject: PoolObject) {

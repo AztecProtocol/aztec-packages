@@ -14,7 +14,6 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
-import { sha256ToField } from '@aztec/foundation/crypto';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -27,6 +26,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -180,6 +180,7 @@ describe('e2e_p2p_add_rollup', () => {
         manaTarget: t.ctx.aztecNodeConfig.manaTarget,
         provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
+        realVerifier: false,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -314,13 +315,13 @@ describe('e2e_p2p_add_rollup', () => {
           content: contentOutFromRollup.toString() as Hex,
         };
 
-        const leaf = sha256ToField([
-          testContract.address,
-          new Fr(rollupVersion), // aztec version
-          ethRecipient.toBuffer32(),
-          new Fr(l1Client.chain.id), // chain id
-          contentOutFromRollup,
-        ]);
+        const leaf = computeL2ToL1MessageHash({
+          l2Sender: testContract.address,
+          l1Recipient: ethRecipient,
+          content: contentOutFromRollup,
+          rollupVersion: new Fr(rollupVersion),
+          chainId: new Fr(l1Client.chain.id),
+        });
 
         const l2ToL1MessageResult = await computeL2ToL1MembershipWitness(node, l2OutgoingReceipt!.blockNumber, leaf);
 

@@ -8,11 +8,20 @@
 
 namespace bb::avm2::simulation {
 
+struct TxStartupEvent {
+    Gas tx_gas_limit;
+    Gas private_gas_used;
+    TreeStates tree_state;
+};
+
 struct EnqueuedCallEvent {
     FF msg_sender;
     FF contract_address;
     bool is_static;
     FF calldata_hash;
+    Gas prev_gas_used;
+    Gas gas_used;
+    Gas gas_limit;
     bool success;
 };
 
@@ -26,30 +35,26 @@ struct PrivateEmitL2L1MessageEvent {
 };
 
 struct CollectGasFeeEvent {
-    FF fee_per_da_gas;
-    FF fee_per_l2_gas;
-
-    FF max_fee_per_da_gas;
-    FF max_fee_per_l2_gas;
-
-    FF max_priority_fees_per_l2_gas;
-    FF max_priority_fees_per_da_gas;
+    uint128_t effective_fee_per_da_gas;
+    uint128_t effective_fee_per_l2_gas;
+    AztecAddress fee_payer;
+    FF fee_payer_balance;
+    FF fee;
 };
 
-using TxEventType =
+using TxPhaseEventType =
     std::variant<EnqueuedCallEvent, PrivateAppendTreeEvent, PrivateEmitL2L1MessageEvent, CollectGasFeeEvent>;
 
-struct TxEvent {
+struct TxPhaseEvent {
     TransactionPhase phase;
     TreeStates prev_tree_state;
     TreeStates next_tree_state;
-    Gas prev_gas_used;
-    Gas gas_used;
-    Gas gas_limit;
 
     bool reverted;
 
-    TxEventType event;
+    TxPhaseEventType event;
 };
+
+using TxEvent = std::variant<TxStartupEvent, TxPhaseEvent>;
 
 } // namespace bb::avm2::simulation

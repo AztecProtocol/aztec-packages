@@ -13,6 +13,7 @@ import {
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
@@ -77,10 +78,13 @@ export async function deployContractsToL1(
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      aztecTargetCommitteeSize: 0, // no committee in sandbox
+      realVerifier: false,
     },
   );
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
   return aztecNodeConfig.l1Contracts;
 }
@@ -113,13 +117,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  if (!aztecNodeConfig.publisherPrivateKey.getValue() || aztecNodeConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    aztecNodeConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
-  if (!aztecNodeConfig.validatorPrivateKeys?.length) {
+  if (!aztecNodeConfig.validatorPrivateKeys.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKeys = [`0x${Buffer.from(privKey!).toString('hex')}`];
+    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
 
   const initialAccounts = await (async () => {

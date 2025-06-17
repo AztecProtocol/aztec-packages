@@ -107,7 +107,7 @@ export class SimpleContractDataSource implements ContractDataSource {
     return fnName;
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 

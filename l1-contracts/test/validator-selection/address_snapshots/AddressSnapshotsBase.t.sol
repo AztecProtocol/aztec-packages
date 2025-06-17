@@ -5,7 +5,7 @@ pragma solidity >=0.8.27;
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+} from "@aztec/governance/libraries/AddressSnapshotLib.sol";
 
 import {Test} from "forge-std/Test.sol";
 import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";

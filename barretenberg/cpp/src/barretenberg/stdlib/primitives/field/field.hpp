@@ -36,37 +36,34 @@ template <typename Builder> class field_t {
 
     field_t(const int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     field_t(const unsigned int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
@@ -155,11 +152,9 @@ template <typename Builder> class field_t {
 
     field_t sqr() const { return operator*(*this); }
 
+    field_t pow(const uint32_t& exponent) const;
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): Use of this function in ZM verifier is insecure.
-    field_t pow(size_t exponent) const;
 
     field_t operator+=(const field_t& other)
     {
@@ -204,7 +199,7 @@ template <typename Builder> class field_t {
     {
         field_t result(*this);
         result.additive_constant.self_neg();
-        if (this->witness_index != IS_CONSTANT) {
+        if (!is_constant()) {
             result.multiplicative_constant.self_neg();
         }
         return result;
@@ -256,7 +251,7 @@ template <typename Builder> class field_t {
     static void evaluate_linear_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
     static void evaluate_polynomial_identity(const field_t& a, const field_t& b, const field_t& c, const field_t& d);
 
-    static field_t accumulate(const std::vector<field_t>& to_add);
+    static field_t accumulate(const std::vector<field_t>& input);
 
     /**
      * multiply *this by `to_mul` and add `to_add`
@@ -265,7 +260,7 @@ template <typename Builder> class field_t {
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
     // add_two costs 1 constraint in Ultra arithmetization
-    field_t add_two(const field_t& add_a, const field_t& add_b) const;
+    field_t add_two(const field_t& add_b, const field_t& add_c) const;
     bool_t<Builder> operator==(const field_t& other) const;
     bool_t<Builder> operator!=(const field_t& other) const;
 
@@ -289,10 +284,6 @@ template <typename Builder> class field_t {
 
     Builder* get_context() const { return context; }
 
-    /**
-     * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
-     * returns three parts: [low, slice, high].
-     */
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
     /**
@@ -313,7 +304,7 @@ template <typename Builder> class field_t {
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
     {
-        ASSERT(witness_index == IS_CONSTANT);
+        ASSERT(is_constant() && ctx);
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
@@ -328,13 +319,19 @@ template <typename Builder> class field_t {
     }
 
     /**
-     * Fix a witness. The value of the witness is constrained with a selector
+     * Fix a witness. The value of a witness is constrained with a selector.
+     * This means that any attempt to change the value of a fixed witness would lead to changing the q_c selector and
+     * its commitment.
      * */
     void fix_witness()
     {
-        ASSERT(witness_index != IS_CONSTANT);
-        auto context = get_context();
-        ASSERT(context != nullptr);
+        ASSERT(!is_constant());
+        ASSERT(context);
+        // Let     a := *this;
+        //       q_l :=  1
+        //       q_c := -*this.get_value()
+        // Create an aritmetic gate constraining
+        //       a.v * q_l - q_c = 0
         context->fix_witness(witness_index, get_value());
         unset_free_witness_tag();
     }
@@ -342,8 +339,7 @@ template <typename Builder> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @warning Are you sure you don't want to use
-     * get_normalized_witness_index?
+     * @warning Are you sure you don't want to use get_normalized_witness_index?
      *
      * @return uint32_t
      */
@@ -360,6 +356,7 @@ template <typename Builder> class field_t {
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
     std::vector<bool_t<Builder>> decompose_into_bits(
+        const size_t num_bits = 256,
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
             [](Builder* ctx, uint64_t j, const uint256_t& val) {
                 return witness_t<Builder>(ctx, val.get_bit(j));
@@ -387,13 +384,13 @@ template <typename Builder> class field_t {
 
         // Let q = (a < b)
         // Assume both a and b are < K where K = 2^{num_bits} - 1
-        // if q == 1, then  0 < b - a - 1 < K
-        // if q == 0, then  0 < b - a + K - 1 < K
+        //    q == 1 <=>  0 < b - a - 1     < K
+        //    q == 0 <=>  0 < b - a + K - 1 < K
         // i.e. for any bool value of q:
-        // (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
-        // q.(b - a - b + a) + b - a + K - 1 - (K - 1).q - q = r
-        // b - a + (K - 1) - (K).q = r
-        uint256_t range_constant = (uint256_t(1) << num_bits);
+        //    (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
+        //     q * (b - a - b + a) + b - a + K - 1 - (K - 1) * q - q = r < K
+        //     b - a + (K - 1) - K * q = r < K
+        static constexpr uint256_t range_constant = (uint256_t(1) << num_bits);
         bool predicate_witness = uint256_t(a.get_value()) < uint256_t(b.get_value());
         bool_t<Builder> predicate(witness_t<Builder>(ctx, predicate_witness));
         field_t predicate_valid = b.add_two(-(a) + range_constant - 1, -field_t(predicate) * range_constant);

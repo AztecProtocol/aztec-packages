@@ -63,6 +63,7 @@ describe('deploy_l1_contracts', () => {
       protocolContractTreeRoot,
       genesisArchiveRoot,
       l1TxConfig: { checkIntervalMs: 100 },
+      realVerifier: false,
       ...args,
     });
 

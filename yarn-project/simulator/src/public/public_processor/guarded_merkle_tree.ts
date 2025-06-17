@@ -142,7 +142,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   findSiblingPaths<ID extends MerkleTreeId, N extends number>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],
-  ): Promise<(SiblingPath<N> | undefined)[]> {
+  ): Promise<({ path: SiblingPath<N>; index: bigint } | undefined)[]> {
     return this.guardAndPush(() => this.target.findSiblingPaths(treeId, values));
   }
 }

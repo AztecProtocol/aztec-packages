@@ -110,10 +110,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -187,7 +187,8 @@ class TranslatorFlavor {
                               lagrange_result_row,          // column 5
                               lagrange_last_in_minicircuit, // column 6
                               lagrange_masking,             // column 7
-                              lagrange_real_last);          // column 8
+                              lagrange_mini_masking,        // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -707,7 +708,7 @@ class TranslatorFlavor {
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProvingKey(std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+        ProvingKey(CommitmentKey commitment_key = CommitmentKey())
             : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
         {}
     };
@@ -720,11 +721,11 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
         VerificationKey()
-            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -744,7 +745,7 @@ class TranslatorFlavor {
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
@@ -761,6 +762,7 @@ class TranslatorFlavor {
                        lagrange_result_row,
                        lagrange_last_in_minicircuit,
                        lagrange_masking,
+                       lagrange_mini_masking,
                        lagrange_real_last);
     };
 
@@ -902,6 +904,7 @@ class TranslatorFlavor {
             this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -920,6 +923,7 @@ class TranslatorFlavor {
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     }; // namespace bb

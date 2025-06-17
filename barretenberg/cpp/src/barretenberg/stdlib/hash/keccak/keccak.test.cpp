@@ -139,7 +139,6 @@ TEST(stdlib_keccak, keccak_chi_output_table)
 
 TEST(stdlib_keccak, test_format_input_lanes)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/662)
     GTEST_SKIP() << "Unneeded?";
 
     Builder builder = Builder();

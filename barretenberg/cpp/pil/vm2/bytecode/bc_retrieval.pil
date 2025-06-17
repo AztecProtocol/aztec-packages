@@ -1,0 +1,127 @@
+include "bc_hashing.pil";
+include "address_derivation.pil";
+include "update_check.pil";
+
+include "../constants_gen.pil";
+include "../trees/nullifier_check.pil";
+
+// Bytecode retrieval.
+namespace bc_retrieval;
+
+pol commit sel;
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+// This id is generated at runtime starting from zero and incremented by 1.
+// The primary source of bytecode_id is this sub-trace.
+pol commit bytecode_id;
+pol commit err;  // some error occurred.
+pol commit address;  // contract address.
+
+// address instance members.
+// See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
+pol commit salt;
+pol commit deployer_addr;
+pol commit current_class_id;
+pol commit original_class_id;
+pol commit init_hash;
+// public keys
+pol commit nullifier_key_x;
+pol commit nullifier_key_y;
+pol commit incoming_viewing_key_x;
+pol commit incoming_viewing_key_y;
+pol commit outgoing_viewing_key_x;
+pol commit outgoing_viewing_key_y;
+pol commit tagging_key_x;
+pol commit tagging_key_y;
+
+// contract class members.
+// See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
+pol commit artifact_hash;
+pol commit private_function_root;
+pol commit public_bytecode_commitment;
+
+// current state
+// These should be looked up and constrained by the caller.
+pol commit block_number;
+pol commit public_data_tree_root;
+pol commit nullifier_tree_root;
+
+// TODO: Remove this as a column when we can lookup with constants
+pol commit outer_nullifier_domain_separator;
+sel * (constants.GENERATOR_INDEX__OUTER_NULLIFIER - outer_nullifier_domain_separator) = 0;
+
+// TODO: Remove this as a column when we can lookup with constants
+pol commit deployer_protocol_contract_address;
+sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+
+pol commit siloed_address;
+
+// TODO: use input length in the lookup to avoid extraneous items being added by the prover
+// Consider using start instead of end as selector.
+#[SILO_DEPLOYMENT_NULLIFIER_POSEIDON2]
+sel { outer_nullifier_domain_separator, deployer_protocol_contract_address, address, siloed_address }
+in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+// TODO: Use the negation of this as an error flag.
+pol commit nullifier_exists;
+
+#[DEPLOYMENT_NULLIFIER_READ]
+sel { nullifier_exists, siloed_address, nullifier_tree_root }
+in nullifier_check.sel { nullifier_check.exists, nullifier_check.nullifier, nullifier_check.root };
+
+// TODO: Probably some latch is also needed.
+// TODO: Selector needs to be guarded by error flag.
+#[ADDRESS_DERIVATION]
+sel {
+  address, salt, deployer_addr, original_class_id, init_hash,
+  nullifier_key_x, nullifier_key_y,
+  incoming_viewing_key_x, incoming_viewing_key_y,
+  outgoing_viewing_key_x, outgoing_viewing_key_y,
+  tagging_key_x, tagging_key_y
+} in address_derivation.sel {
+  address_derivation.address, address_derivation.salt, address_derivation.deployer_addr, address_derivation.class_id, address_derivation.init_hash,
+  address_derivation.nullifier_key_x, address_derivation.nullifier_key_y,
+  address_derivation.incoming_viewing_key_x, address_derivation.incoming_viewing_key_y,
+  address_derivation.outgoing_viewing_key_x, address_derivation.outgoing_viewing_key_y,
+  address_derivation.tagging_key_x, address_derivation.tagging_key_y
+};
+
+// TODO: Probably some latch is also needed.
+// TODO: Selector needs to be guarded by error flag.
+#[UPDATE_CHECK]
+sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
+in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
+
+// Observe the folowing also connects the current_class_id of the instance to the class members.
+// TODO: Probably some latch is also needed.
+// TODO: Selector needs to be guarded by error flag.
+#[CLASS_ID_DERIVATION]
+sel {
+  current_class_id,
+  artifact_hash,
+  private_function_root,
+  public_bytecode_commitment
+} in class_id_derivation.sel {
+  class_id_derivation.class_id,
+  class_id_derivation.artifact_hash,
+  class_id_derivation.private_function_root,
+  class_id_derivation.public_bytecode_commitment
+};
+
+// TODO: Gate by error flag.
+// TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+//#[BYTECODE_HASH_IS_CORRECT]
+//sel { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+
+
+// Note: we don't need to silo and check the class id because the deployer contract guarrantees
+// that if a contract instance exists, the class has been registered.
+
+// TODO: To ensure byetcode_id unicity inside of bc_decomposition.pil, we will have to introduce
+// a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.id}
+// sel_XXX will have to be picked so that it selects a bytecode_id iff it has an entry in bc_decomposition
+
+// Dummy relation to make codegen work.
+sel = sel;

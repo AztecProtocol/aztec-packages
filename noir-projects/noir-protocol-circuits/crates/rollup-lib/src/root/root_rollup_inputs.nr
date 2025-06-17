@@ -7,7 +7,7 @@ use types::{
         AZTEC_MAX_EPOCH_DURATION, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
         BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
-    traits::Empty,
+    traits::{Empty, is_empty},
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
@@ -52,9 +52,8 @@ impl RootRollupInputs {
 
         // Make sure that the total number of blocks in the epoch does not exceed the max, preventing the accumulated
         // data below (proposed_block_header_hashes, fees, blob_public_inputs) from being truncated.
-        let num_blocks = (right.end_global_variables.block_number as u32)
-            - (left.start_global_variables.block_number as u32)
-            + 1;
+        let num_blocks =
+            right.end_global_variables.block_number - left.start_global_variables.block_number + 1;
         assert(num_blocks <= AZTEC_MAX_EPOCH_DURATION, "too many blocks in root rollup");
 
         let proposed_block_header_hashes =
@@ -62,11 +61,21 @@ impl RootRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
-        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
-        // For now, we do them individually
-        // How we accumulate is being worked on by @Mike
-        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
-        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
+        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+        // Below we check:
+        // - first (left.start_blob_accumulator) acc is empty
+        // Finally, we call finalize_and_validate() on the end_blob_accumulator which calculates final_gamma and checks:
+        // - end_blob_accumulator.z == injected.challenge_z
+        // - final_gamma == injected.challenge_gamma
+        // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
+
+        assert(
+            is_empty(left.blob_public_inputs.start_blob_accumulator),
+            "Epoch did not start with empty blob state.",
+        );
 
         RootRollupPublicInputs {
             previous_archive_root: left.previous_archive.root,
@@ -78,7 +87,9 @@ impl RootRollupInputs {
             vk_tree_root: left.constants.vk_tree_root,
             protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
             prover_id: left.constants.prover_id,
-            blob_public_inputs,
+            blob_public_inputs: right.blob_public_inputs.end_blob_accumulator.finalize_and_validate(
+                left.blob_public_inputs.final_blob_challenges,
+            ),
         }
     }
 }

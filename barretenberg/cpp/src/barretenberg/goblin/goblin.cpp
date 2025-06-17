@@ -5,40 +5,26 @@
 // =====================
 
 #include "goblin.hpp"
+
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_prover.hpp"
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
+#include <utility>
 
 namespace bb {
 
-Goblin::Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key,
-               const std::shared_ptr<Transcript>& transcript)
-    : commitment_key(bn254_commitment_key)
+Goblin::Goblin(CommitmentKey<curve::BN254> bn254_commitment_key, const std::shared_ptr<Transcript>& transcript)
+    : commitment_key(std::move(bn254_commitment_key))
     , transcript(transcript)
 {}
 
-Goblin::MergeProof Goblin::prove_merge()
-{
-    PROFILE_THIS_NAME("Goblin::merge");
-    MergeProver merge_prover{ op_queue, commitment_key };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
-}
-
-/**
- * @brief The final merge prover shares a transcript with the other Goblin components
- *
- * @return Goblin::MergeProof
- */
-Goblin::MergeProof Goblin::prove_final_merge()
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     PROFILE_THIS_NAME("Goblin::merge");
     MergeProver merge_prover{ op_queue, commitment_key, transcript };
-    merge_proof = merge_prover.construct_proof();
-    return merge_proof;
+    merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
 void Goblin::prove_eccvm()
@@ -60,13 +46,17 @@ void Goblin::prove_translator()
     goblin_proof.translator_proof = translator_prover.construct_proof();
 }
 
-GoblinProof Goblin::prove(MergeProof merge_proof_in)
+GoblinProof Goblin::prove()
 {
     PROFILE_THIS_NAME("Goblin::prove");
 
     info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
-    goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
+    prove_merge(transcript); // Use shared transcript for merge proving
+    ASSERT(merge_verification_queue.size() == 1,
+           "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
+    goblin_proof.merge_proof = merge_verification_queue.back();
+
     {
         PROFILE_THIS_NAME("prove_eccvm");
         vinfo("prove eccvm...");
@@ -80,6 +70,22 @@ GoblinProof Goblin::prove(MergeProof merge_proof_in)
         vinfo("finished translator proving.");
     }
     return goblin_proof;
+}
+
+Goblin::PairingPoints Goblin::recursively_verify_merge(MegaBuilder& builder)
+{
+    ASSERT(!merge_verification_queue.empty());
+    PairingPoints points_accumulator;
+    // Recursively verify the next merge proof in the verification queue in a FIFO manner
+    const MergeProof& merge_proof = merge_verification_queue.front();
+    const StdlibProof<MegaBuilder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(&builder, merge_proof);
+
+    MergeRecursiveVerifier merge_verifier{ &builder };
+    PairingPoints pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
+
+    merge_verification_queue.pop_front(); // remove the processed proof from the queue
+
+    return pairing_points;
 }
 
 bool Goblin::verify(const GoblinProof& proof, const std::shared_ptr<Transcript>& transcript)

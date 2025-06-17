@@ -5,15 +5,13 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract ExecuteProposalTest is GovernanceProposerBase {
-  using SlotLib for Slot;
-
   Fakerollup internal validatorSelection;
 
   IPayload internal proposal = IPayload(address(this));
@@ -69,10 +67,10 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     Slot lower = validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.M() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
-      (type(uint256).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
+      (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime()))
         / validatorSelection.getSlotDuration()
     );
-    Slot slotToHit = Slot.wrap(bound(_slotToHit, lower.unwrap(), upper.unwrap()));
+    Slot slotToHit = Slot.wrap(bound(_slotToHit, Slot.unwrap(lower), Slot.unwrap(upper)));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(slotToHit)));
 
     vm.expectRevert(

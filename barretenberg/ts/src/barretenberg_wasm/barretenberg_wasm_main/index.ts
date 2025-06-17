@@ -31,7 +31,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
     logger: (msg: string) => void = createDebugLogger('bb_wasm'),
     initial = 32,
-    maximum = 2 ** 16,
+    maximum = this.getDefaultMaximumMemoryPages(),
   ) {
     this.logger = logger;
 
@@ -61,6 +61,15 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
     }
+  }
+
+  private getDefaultMaximumMemoryPages(): number {
+    // iOS browser is very aggressive with memory. Check if running in browser and on iOS
+    // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
+    if (typeof window !== 'undefined' && /iPad|iPhone/.test(navigator.userAgent)) {
+      return 2 ** 14;
+    }
+    return 2 ** 16;
   }
 
   /**

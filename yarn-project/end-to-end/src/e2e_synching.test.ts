@@ -55,6 +55,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -340,7 +341,7 @@ describe('e2e_synching', () => {
 
       // Now we create all of our interesting blocks.
       // Alter the block requirements for the sequencer such that we ensure blocks sizes as desired.
-      await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
       const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
@@ -420,7 +421,7 @@ describe('e2e_synching', () => {
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
@@ -445,7 +446,7 @@ describe('e2e_synching', () => {
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
     for (const block of blocks) {
-      const targetTime = block.header.globalVariables.timestamp.toNumber() - ETHEREUM_SLOT_DURATION;
+      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
@@ -667,7 +668,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
@@ -726,7 +727,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
