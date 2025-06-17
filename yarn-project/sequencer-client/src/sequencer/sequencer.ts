@@ -486,10 +486,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
   }
 
-  public getForwarderAddress() {
-    return this.publisher.getForwarderAddress();
-  }
-
   /**
    * Sets the sequencer state and checks if we have enough time left in the slot to transition to the new state.
    * @param proposedState - The new state to transition to.
