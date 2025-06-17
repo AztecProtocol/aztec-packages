@@ -22,12 +22,14 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
     Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
     : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
     , builder(builder)
+    , transcript(std::make_shared<Transcript>())
 {}
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
     : key(vkey)
     , builder(builder)
+    , transcript(std::make_shared<Transcript>())
 {}
 
 // Evaluate the given public input column over the multivariate challenge points
@@ -80,7 +82,6 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = RelationParameters<typename Flavor::FF>;
-    using Transcript = typename Flavor::Transcript;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -95,7 +96,8 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    transcript = std::make_shared<Transcript>();
+    transcript->load_proof(stdlib_proof);
 
     RelationParams relation_parameters;
     VerifierCommitments commitments{ key };

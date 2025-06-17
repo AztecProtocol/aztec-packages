@@ -78,8 +78,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         Builder builder;
         StdlibProof<Builder> stdlib_proof =
             bb::convert_native_proof_to_stdlib(&builder, prover_transcript->export_proof());
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
-        stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
+        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
+        stdlib_verifier_transcript->load_proof(stdlib_proof);
+        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check
         const auto commitments_to_witnesses = [&builder](const auto& commitments) {

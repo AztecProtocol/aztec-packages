@@ -87,7 +87,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -110,7 +111,8 @@ TEST_F(IPATest, OpenAtZero)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -234,7 +236,8 @@ TEST_F(IPATest, Open)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->export_proof());
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     auto result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);

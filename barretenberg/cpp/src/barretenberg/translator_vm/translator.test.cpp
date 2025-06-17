@@ -69,7 +69,8 @@ TEST_F(TranslatorTests, Basic)
     TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();
 
-    auto verifier_transcript = std::make_shared<Transcript>(initial_transcript);
+    auto verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(initial_transcript);
     verifier_transcript->template receive_from_prover<Fq>("init");
     auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
     TranslatorVerifier verifier(verification_key, verifier_transcript);
