@@ -96,7 +96,6 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
         throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
     }
 
-    transcript = std::make_shared<Transcript>();
     transcript->load_proof(stdlib_proof);
 
     RelationParams relation_parameters;
