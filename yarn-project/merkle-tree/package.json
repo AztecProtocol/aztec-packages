@@ -52,7 +52,10 @@
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ],
-    "testEnvironment": "../../foundation/src/jest/env.mjs"
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
   },
   "dependencies": {
     "@aztec/foundation": "workspace:^",

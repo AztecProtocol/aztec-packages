@@ -93,7 +93,7 @@
     ],
     "testTimeout": 120000,
     "setupFilesAfterEnv": [
-      "../../foundation/src/jest/setup.mjs"
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ],
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"

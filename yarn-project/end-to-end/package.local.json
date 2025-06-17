@@ -1,5 +1,11 @@
 {
   "scripts": {
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures"
+  },
+  "jest": {
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs",
+      "<rootDir>/src/fixtures/jestSetupAfterEnv.mjs"
+    ]
   }
 }
