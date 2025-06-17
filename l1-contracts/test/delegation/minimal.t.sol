@@ -36,7 +36,7 @@ contract MinimalDelegationTest is GSEBase {
 
   function setUp() public override {
     super.setUp();
-    canonical = gse.CANONICAL_MAGIC_ADDRESS();
+    canonical = gse.getCanonicalMagicAddress();
     depositAmount = ROLLUP.getDepositAmount();
 
     vm.label(canonical, "canonical");
