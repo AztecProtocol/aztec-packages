@@ -450,7 +450,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.error(
         `Deadline ${deadline.toISOString()} for collecting ${required} attestations for slot ${slot} is in the past`,
       );
-      throw new AttestationTimeoutError(required, slot);
+      throw new AttestationTimeoutError(0, required, slot);
     }
 
     const proposalId = proposal.archive.toString();
@@ -482,7 +482,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
       if (+deadline < this.dateProvider.now()) {
         this.log.error(`Timeout ${deadline.toISOString()} waiting for ${required} attestations for slot ${slot}`);
-        throw new AttestationTimeoutError(required, slot);
+        throw new AttestationTimeoutError(attestations.length, required, slot);
       }
 
       this.log.debug(`Collected ${attestations.length} attestations so far`);
