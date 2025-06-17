@@ -55,20 +55,27 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
   it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
     // Wait until we have proven something and the nodes have caught up
+    const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
     logger.warn(`Waiting for initial proof to land`);
-    const provenBlockEvent = await executeTimeout(signal => {
-      return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
-        const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
-          res(ev);
-        };
+    const provenBlockEvent = await executeTimeout(
+      signal => {
+        return new Promise<{ l2ProvenBlockNumber: number; l1BlockNumber: number }>((res, rej) => {
+          const handleMsg = (...[ev]: ChainMonitorEventMap['l2-block-proven']) => {
+            if (ev.l2ProvenBlockNumber !== 0) {
+              res(ev);
+              monitor.off('l2-block-proven', handleMsg);
+            }
+          };
 
-        signal.onabort = () => {
-          monitor.off('l2-block-proven', handleMsg);
-          rej(new AbortError());
-        };
-        monitor.once('l2-block-proven', handleMsg);
-      });
-    }, 20_000);
+          signal.onabort = () => {
+            monitor.off('l2-block-proven', handleMsg);
+            rej(new AbortError());
+          };
+          monitor.on('l2-block-proven', handleMsg);
+        });
+      },
+      epochDurationSeconds * 4 * 1000,
+    );
 
     // Stop the prover node so it doesn't re-submit the proof after we've removed it
     logger.warn(`Proof for block ${provenBlockEvent.l2ProvenBlockNumber} mined, stopping prover node`);

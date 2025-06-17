@@ -221,12 +221,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     slasher.slash(slashPayload);
 
     // Make sure that the slash was successful,
-    // Meaning that validators are now LIVING and have lost the slash amount
+    // Meaning that validators are now ZOMBIE and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status after");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status after");
     }
   }
 
