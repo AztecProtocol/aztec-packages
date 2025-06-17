@@ -83,7 +83,7 @@
     "commander": "^12.1.0",
     "pako": "^2.1.0",
     "source-map-support": "^0.5.21",
-    "tslib": "^2.4.0"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@aztec/ethereum": "workspace:^",
@@ -96,7 +96,7 @@
     "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.3",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "viem": "2.23.7"

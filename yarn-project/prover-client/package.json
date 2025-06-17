@@ -86,7 +86,7 @@
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "source-map-support": "^0.5.21",
-    "tslib": "^2.4.0",
+    "tslib": "^2.8.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -97,7 +97,7 @@
     "@types/source-map-support": "^0.5.10",
     "get-port": "^7.1.0",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.3",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },

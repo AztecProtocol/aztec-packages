@@ -83,9 +83,9 @@
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "lodash.groupby": "^4.6.0",
-    "semver": "^7.5.4",
+    "semver": "^7.7.2",
     "source-map-support": "^0.5.21",
-    "tslib": "^2.4.0",
+    "tslib": "^2.8.1",
     "viem": "2.23.7"
   },
   "devDependencies": {
@@ -101,7 +101,7 @@
     "@types/semver": "^7.5.2",
     "@types/source-map-support": "^0.5.10",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.5",
+    "jest-mock-extended": "^4.0.0",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"

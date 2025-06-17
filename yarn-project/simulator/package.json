@@ -74,7 +74,7 @@
     "@aztec/world-state": "workspace:^",
     "lodash.clonedeep": "^4.5.0",
     "lodash.merge": "^4.6.2",
-    "tslib": "^2.4.0"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@aztec/kv-store": "workspace:^",
@@ -87,7 +87,7 @@
     "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.15.17",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.4",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "viem": "2.23.7"

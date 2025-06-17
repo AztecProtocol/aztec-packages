@@ -80,7 +80,7 @@
     "lodash.groupby": "^4.6.0",
     "lodash.omit": "^4.5.0",
     "tsc-watch": "^6.0.0",
-    "tslib": "^2.5.0",
+    "tslib": "^2.8.1",
     "viem": "2.23.7"
   },
   "devDependencies": {
@@ -89,9 +89,9 @@
     "@types/lodash.groupby": "^4.6.9",
     "@types/lodash.omit": "^4.5.7",
     "@types/node": "^22.15.17",
-    "concurrently": "^8.0.1",
+    "concurrently": "^9.1.2",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.4",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },

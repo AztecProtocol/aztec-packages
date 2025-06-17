@@ -84,15 +84,15 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "tslib": "^2.4.0"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.15.17",
     "jest": "^30.0.0",
-    "jest-mock-extended": "^3.0.3",
-    "ts-loader": "^9.4.4",
+    "jest-mock-extended": "^4.0.0",
+    "ts-loader": "^9.5.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3"
   },

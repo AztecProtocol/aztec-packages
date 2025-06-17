@@ -39,7 +39,7 @@
     "jest": "^30.0.0",
     "resolve-typescript-plugin": "^2.0.1",
     "serve": "^14.2.1",
-    "ts-loader": "^9.5.1",
+    "ts-loader": "^9.5.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
     "webpack": "^5.99.6",

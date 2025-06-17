@@ -16,7 +16,7 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
-    "tslib": "^2.4.0"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
