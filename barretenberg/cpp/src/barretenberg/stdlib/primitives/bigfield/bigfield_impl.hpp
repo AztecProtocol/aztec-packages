@@ -223,7 +223,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
         const uint256_t hi_nibble_shift = uint256_t(1) << 4;
         const field_t<Builder> sum = lo_nibble + (hi_nibble * hi_nibble_shift);
         sum.assert_equal(split_byte);
-        return std::make_pair<field_t<Builder>, field_t<Builder>>(lo_nibble, hi_nibble);
+        return std::make_pair(lo_nibble, hi_nibble);
     };
 
     const auto reconstruct_two_limbs = [&split_byte_into_nibbles](Builder* ctx,
@@ -236,7 +236,7 @@ template <typename Builder, typename T> bigfield<Builder, T>::bigfield(const byt
         const uint256_t lo_nibble_shift = uint256_t(1) << 64;
         field_t<Builder> hi_limb = hi_nibble + hi_bytes * hi_bytes_shift;
         field_t<Builder> lo_limb = lo_bytes + lo_nibble * lo_nibble_shift;
-        return std::make_pair<field_t<Builder>, field_t<Builder>>(lo_limb, hi_limb);
+        return std::make_pair(lo_limb, hi_limb);
     };
     Builder* ctx = bytes.get_context();
 
