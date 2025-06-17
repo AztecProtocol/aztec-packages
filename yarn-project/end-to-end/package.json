@@ -123,6 +123,7 @@
   "jest": {
     "slowTestThreshold": 300,
     "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs",
       "jest-extended/all",
       "./shared/jest_setup.ts"
     ],

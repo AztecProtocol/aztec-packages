@@ -79,7 +79,7 @@ export class SequencerClient {
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, config);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([

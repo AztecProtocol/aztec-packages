@@ -41,6 +41,7 @@
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "setupFiles": ["../../foundation/src/jest/setup.mjs"],
+    "setupFilesAfterEnv": ["../../foundation/src/jest/setupAfterEnv.mjs"],
     "testEnvironment": "../../foundation/src/jest/env.mjs"
   }
 }
