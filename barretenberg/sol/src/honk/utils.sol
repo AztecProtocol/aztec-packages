@@ -22,7 +22,7 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
 }
 
 function logG(string memory name, Honk.G1ProofPoint memory p) pure {
-    Honk.G1Point memory point = convertProofPoint(p);
+    Honk.G1Point memory point = convertFromProofPoint(p);
 
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));
@@ -70,7 +70,7 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 
 // EC Point utilities
 
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory point) {
+function convertFromProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory point) {
     point = Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
 

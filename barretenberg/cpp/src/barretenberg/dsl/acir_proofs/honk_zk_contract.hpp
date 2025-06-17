@@ -710,7 +710,7 @@ function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
 }
 
 // EC Point utilities
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
+function convertFromProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
     return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
 }
 
@@ -1689,7 +1689,7 @@ interface IVerifier {
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
-        commitments[0] = convertProofPoint(proof.shplonkQ);
+        commitments[0] = convertFromProofPoint(proof.shplonkQ);
 
         mem.batchedEvaluation = proof.geminiMaskingEval;
         mem.batchingChallenge = tp.rho;
@@ -1706,7 +1706,7 @@ interface IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
-        commitments[1] = convertProofPoint(proof.geminiMaskingPoly);
+        commitments[1] = convertFromProofPoint(proof.geminiMaskingPoly);
 
         commitments[2] = vk.qm;
         commitments[3] = vk.qc;
@@ -1737,21 +1737,21 @@ interface IVerifier {
         commitments[28] = vk.lagrangeLast;
 
         // Accumulate proof points
-        commitments[29] = convertProofPoint(proof.w1);
-        commitments[30] = convertProofPoint(proof.w2);
-        commitments[31] = convertProofPoint(proof.w3);
-        commitments[32] = convertProofPoint(proof.w4);
-        commitments[33] = convertProofPoint(proof.zPerm);
-        commitments[34] = convertProofPoint(proof.lookupInverses);
-        commitments[35] = convertProofPoint(proof.lookupReadCounts);
-        commitments[36] = convertProofPoint(proof.lookupReadTags);
+        commitments[29] = convertFromProofPoint(proof.w1);
+        commitments[30] = convertFromProofPoint(proof.w2);
+        commitments[31] = convertFromProofPoint(proof.w3);
+        commitments[32] = convertFromProofPoint(proof.w4);
+        commitments[33] = convertFromProofPoint(proof.zPerm);
+        commitments[34] = convertFromProofPoint(proof.lookupInverses);
+        commitments[35] = convertFromProofPoint(proof.lookupReadCounts);
+        commitments[36] = convertFromProofPoint(proof.lookupReadTags);
 
         // to be Shifted
-        commitments[37] = convertProofPoint(proof.w1);
-        commitments[38] = convertProofPoint(proof.w2);
-        commitments[39] = convertProofPoint(proof.w3);
-        commitments[40] = convertProofPoint(proof.w4);
-        commitments[41] = convertProofPoint(proof.zPerm);
+        commitments[37] = convertFromProofPoint(proof.w1);
+        commitments[38] = convertFromProofPoint(proof.w2);
+        commitments[39] = convertFromProofPoint(proof.w3);
+        commitments[40] = convertFromProofPoint(proof.w4);
+        commitments[41] = convertFromProofPoint(proof.zPerm);
 
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
@@ -1795,7 +1795,7 @@ interface IVerifier {
             // Update the running power of v
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
-            commitments[boundary + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[boundary + i] = convertFromProofPoint(proof.geminiFoldComms[i]);
         }
 
         boundary += CONST_PROOF_SIZE_LOG_N - 1;
@@ -1820,7 +1820,7 @@ interface IVerifier {
         scalars[boundary + 2] = mem.batchingScalars[3];
 
         for (uint256 i = 0; i < 3; i++) {
-            commitments[boundary++] = convertProofPoint(proof.libraCommitments[i]);
+            commitments[boundary++] = convertFromProofPoint(proof.libraCommitments[i]);
         }
 
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
@@ -1829,7 +1829,7 @@ interface IVerifier {
         if (! checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation)) {
             revert ConsistencyCheckFailed();
         }
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+        Honk.G1Point memory quotient_commitment = convertFromProofPoint(proof.kzgQuotient);
 
         commitments[boundary] = quotient_commitment;
         scalars[boundary] = tp.shplonkZ; // evaluation challenge

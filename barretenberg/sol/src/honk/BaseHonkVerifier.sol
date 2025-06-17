@@ -14,10 +14,10 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
+import {negateInplace, convertFromProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
-import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
+import {MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
 
 import {Transcript, TranscriptLib} from "./Transcript.sol";
 
@@ -50,45 +50,49 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
-        // Check the received proof is the expected size where each field element is 32 bytes
-        if (proof.length != PROOF_SIZE * 32) {
+    function verify(bytes calldata proofBytes, bytes32[] calldata publicInputs) public view override returns (bool) {
+        // Check the received proofBytes is the expected size where each field element is 32 bytes
+        if (proofBytes.length != PROOF_SIZE * 32) {
             revert ProofLengthWrong();
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
-        Honk.Proof memory p = TranscriptLib.loadProof(proof);
+        Honk.Proof memory proof = TranscriptLib.loadProof(proofBytes);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINTS_SIZE) {
             revert PublicInputsLengthWrong();
         }
 
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
-        Transcript memory t =
-            TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/ 1);
+        Transcript memory t = TranscriptLib.generateTranscript(proof, publicInputs, vk);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, p.pairingPointObject, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/ 1
+            publicInputs,
+            proof.pairingPointObject,
+            t.relationParameters.beta,
+            t.relationParameters.gamma, /*pubInputsOffset=*/
+            1
         );
 
         // Sumcheck
-        bool sumcheckVerified = verifySumcheck(p, t);
+        bool sumcheckVerified = verifySumcheck(proof, t);
         if (!sumcheckVerified) revert SumcheckFailed();
 
-
-        bool shpleminiVerified = verifyShplemini(p, vk, t);
+        bool shpleminiVerified = verifyShplemini(proof, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
 
         return sumcheckVerified && shpleminiVerified; // Boolean condition not required - nice for vanity :)
     }
 
-    function computePublicInputDelta(bytes32[] memory publicInputs, Fr[PAIRING_POINTS_SIZE] memory pairingPointObject, Fr beta, Fr gamma, uint256 offset)
-        internal
-        view
-        returns (Fr publicInputDelta)
-    {
+    function computePublicInputDelta(
+        bytes32[] memory publicInputs,
+        Fr[PAIRING_POINTS_SIZE] memory pairingPointObject,
+        Fr beta,
+        Fr gamma,
+        uint256 offset
+    ) internal view returns (Fr publicInputDelta) {
         Fr numerator = ONE;
         Fr denominator = ONE;
 
@@ -232,7 +236,7 @@ abstract contract BaseHonkVerifier is IVerifier {
             tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
-        commitments[0] = convertProofPoint(proof.shplonkQ);
+        commitments[0] = convertFromProofPoint(proof.shplonkQ);
 
         /* Batch multivariate opening claims, shifted and unshifted
         * The vector of scalars is populated as follows:
@@ -276,50 +280,50 @@ abstract contract BaseHonkVerifier is IVerifier {
             mem.batchingChallenge = mem.batchingChallenge * tp.rho;
         }
 
-        commitments[1] = vk.qm;
-        commitments[2] = vk.qc;
-        commitments[3] = vk.ql;
-        commitments[4] = vk.qr;
-        commitments[5] = vk.qo;
-        commitments[6] = vk.q4;
-        commitments[7] = vk.qLookup;
-        commitments[8] = vk.qArith;
-        commitments[9] = vk.qDeltaRange;
-        commitments[10] = vk.qElliptic;
-        commitments[11] = vk.qAux;
-        commitments[12] = vk.qPoseidon2External;
-        commitments[13] = vk.qPoseidon2Internal;
-        commitments[14] = vk.s1;
-        commitments[15] = vk.s2;
-        commitments[16] = vk.s3;
-        commitments[17] = vk.s4;
-        commitments[18] = vk.id1;
-        commitments[19] = vk.id2;
-        commitments[20] = vk.id3;
-        commitments[21] = vk.id4;
-        commitments[22] = vk.t1;
-        commitments[23] = vk.t2;
-        commitments[24] = vk.t3;
-        commitments[25] = vk.t4;
-        commitments[26] = vk.lagrangeFirst;
-        commitments[27] = vk.lagrangeLast;
+        commitments[1] = convertFromProofPoint(vk.qm);
+        commitments[2] = convertFromProofPoint(vk.qc);
+        commitments[3] = convertFromProofPoint(vk.ql);
+        commitments[4] = convertFromProofPoint(vk.qr);
+        commitments[5] = convertFromProofPoint(vk.qo);
+        commitments[6] = convertFromProofPoint(vk.q4);
+        commitments[7] = convertFromProofPoint(vk.qLookup);
+        commitments[8] = convertFromProofPoint(vk.qArith);
+        commitments[9] = convertFromProofPoint(vk.qDeltaRange);
+        commitments[10] = convertFromProofPoint(vk.qElliptic);
+        commitments[11] = convertFromProofPoint(vk.qAux);
+        commitments[12] = convertFromProofPoint(vk.qPoseidon2External);
+        commitments[13] = convertFromProofPoint(vk.qPoseidon2Internal);
+        commitments[14] = convertFromProofPoint(vk.s1);
+        commitments[15] = convertFromProofPoint(vk.s2);
+        commitments[16] = convertFromProofPoint(vk.s3);
+        commitments[17] = convertFromProofPoint(vk.s4);
+        commitments[18] = convertFromProofPoint(vk.id1);
+        commitments[19] = convertFromProofPoint(vk.id2);
+        commitments[20] = convertFromProofPoint(vk.id3);
+        commitments[21] = convertFromProofPoint(vk.id4);
+        commitments[22] = convertFromProofPoint(vk.t1);
+        commitments[23] = convertFromProofPoint(vk.t2);
+        commitments[24] = convertFromProofPoint(vk.t3);
+        commitments[25] = convertFromProofPoint(vk.t4);
+        commitments[26] = convertFromProofPoint(vk.lagrangeFirst);
+        commitments[27] = convertFromProofPoint(vk.lagrangeLast);
 
         // Accumulate proof points
-        commitments[28] = convertProofPoint(proof.w1);
-        commitments[29] = convertProofPoint(proof.w2);
-        commitments[30] = convertProofPoint(proof.w3);
-        commitments[31] = convertProofPoint(proof.w4);
-        commitments[32] = convertProofPoint(proof.zPerm);
-        commitments[33] = convertProofPoint(proof.lookupInverses);
-        commitments[34] = convertProofPoint(proof.lookupReadCounts);
-        commitments[35] = convertProofPoint(proof.lookupReadTags);
+        commitments[28] = convertFromProofPoint(proof.w1);
+        commitments[29] = convertFromProofPoint(proof.w2);
+        commitments[30] = convertFromProofPoint(proof.w3);
+        commitments[31] = convertFromProofPoint(proof.w4);
+        commitments[32] = convertFromProofPoint(proof.zPerm);
+        commitments[33] = convertFromProofPoint(proof.lookupInverses);
+        commitments[34] = convertFromProofPoint(proof.lookupReadCounts);
+        commitments[35] = convertFromProofPoint(proof.lookupReadTags);
 
         // to be Shifted
-        commitments[36] = convertProofPoint(proof.w1);
-        commitments[37] = convertProofPoint(proof.w2);
-        commitments[38] = convertProofPoint(proof.w3);
-        commitments[39] = convertProofPoint(proof.w4);
-        commitments[40] = convertProofPoint(proof.zPerm);
+        commitments[36] = convertFromProofPoint(proof.w1);
+        commitments[37] = convertFromProofPoint(proof.w2);
+        commitments[38] = convertFromProofPoint(proof.w3);
+        commitments[39] = convertFromProofPoint(proof.w4);
+        commitments[40] = convertFromProofPoint(proof.zPerm);
 
         /* Batch gemini claims from the prover
          * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
@@ -385,14 +389,14 @@ abstract contract BaseHonkVerifier is IVerifier {
                 mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
             }
 
-            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertProofPoint(proof.geminiFoldComms[i]);
+            commitments[NUMBER_OF_ENTITIES + 1 + i] = convertFromProofPoint(proof.geminiFoldComms[i]);
         }
 
         // Finalise the batch opening claim
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = Honk.G1Point({x: 1, y: 2});
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N] = mem.constantTermAccumulator;
 
-        Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
+        Honk.G1Point memory quotient_commitment = convertFromProofPoint(proof.kzgQuotient);
 
         commitments[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = quotient_commitment;
         scalars[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 1] = tp.shplonkZ; // evaluation challenge
