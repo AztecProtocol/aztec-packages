@@ -402,7 +402,7 @@ function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1Consen
 
   let formattedUrl = url;
   if (l1ConsensusHostApiKey && !l1ConsensusHostApiKeyHeader) {
-    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey}`;
+    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey.getValue()}`;
   }
 
   return {
