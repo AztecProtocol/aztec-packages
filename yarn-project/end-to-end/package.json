@@ -124,7 +124,8 @@
     "slowTestThreshold": 300,
     "setupFilesAfterEnv": [
       "../../foundation/src/jest/setupAfterEnv.mjs",
-      "<rootDir>/src/fixtures/jestSetupAfterEnv.mjs"
+      "jest-extended/all",
+      "./shared/jest_setup.ts"
     ],
     "extensionsToTreatAsEsm": [
       ".ts"
