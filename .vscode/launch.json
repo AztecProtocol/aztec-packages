@@ -42,6 +42,17 @@
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
+    },
+    {
+      "name": "Debug Test",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/vm2_tests",
+      "args": ["--gtest_filter=AvmRecursiveTests.GoblinRecursion"],
+      "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
     }
   ]
 }

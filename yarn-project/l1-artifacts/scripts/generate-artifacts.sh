@@ -14,6 +14,7 @@ contracts=(
   "CoinIssuer"
   "EmpireBase"
   "ExtRollupLib"
+  "ExtRollupLib2"
   "FeeJuicePortal"
   "Forwarder"
   "Governance"

@@ -58,7 +58,8 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -182,7 +183,7 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.debug(`Current L2 slot: ${currentL2Slot}`);
+    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
@@ -303,8 +304,12 @@ export class SequencerPublisher {
     // so that the committee is recalculated correctly
     const ignoreSignatures = attestationData.attestations.length === 0;
     if (ignoreSignatures) {
-      const committee = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
-      attestationData.attestations = committee.committee.map(committeeMember =>
+      const { committee } = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
+      if (!committee) {
+        this.log.warn(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+        throw new Error(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+      }
+      attestationData.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
@@ -325,9 +330,9 @@ export class SequencerPublisher {
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
     const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee.map(EthAddress.fromString);
+    return committee?.map(EthAddress.fromString);
   }
 
   private async enqueueCastVoteHelper(

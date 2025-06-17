@@ -3,7 +3,6 @@ title: CLI Reference
 tags: [sandbox]
 sidebar_position: 2
 ---
-
 import { AztecTestnetVersion } from '@site/src/components/Snippets/general_snippets';
 
 This reference guide provides documentation for the Aztec CLI commands (`aztec`) and their options. The CLI is a powerful tool for interacting with the Aztec network, managing accounts, deploying contracts, and more.
@@ -1006,7 +1005,6 @@ Options:
 - `--test-accounts`: Populate genesis state with initial fee juice for test accounts
 - `--sponsored-fpc`: Populate genesis state with a testing sponsored FPC contract
 - `--accelerated-test-deployments`: Fire and forget deployment transactions, use in testing only (default: false)
-- `--real-verifier`: Deploy the real verifier (default: false)
 
 ### deploy-l1-verifier
 
@@ -1020,6 +1018,8 @@ Options:
 
 - `--l1-rpc-urls <string>`: List of Ethereum host URLs. Chain identifiers localhost and testnet can be used (comma separated) (default: ["http://host.docker.internal:8545"], env: ETHEREUM_HOSTS)
 - `-c, --l1-chain-id <number>`: Chain ID of the ethereum host (default: 31337, env: L1_CHAIN_ID)
+- `-u, --rpc-url <string>`: URL of the PXE (default: "http://host.docker.internal:8080", env: PXE_URL)
+- `--rollup-address <string>`: The address of the rollup contract (env: ROLLUP_CONTRACT_ADDRESS)
 - `--l1-private-key <string>`: The L1 private key to use for deployment
 - `-m, --mnemonic <string>`: The mnemonic to use in deployment (default: "test test test test test test test test test test test junk")
 - `--verifier <verifier>`: Either mock or real (default: "real")
@@ -1045,7 +1045,6 @@ Options:
 - `--json`: Output the contract addresses in JSON format
 - `--test-accounts`: Populate genesis state with initial fee juice for test accounts
 - `--sponsored-fpc`: Populate genesis state with a testing sponsored FPC contract
-- `--real-verifier`: Deploy the real verifier (default: false)
 
 ### get-l1-addresses
 

@@ -35,12 +35,7 @@ export class MessageContext {
     /* eslint-disable camelcase */
     return {
       tx_hash: this.txHash.hash,
-      // TODO: This ugly encoding should be unnecessary once the following PR is merged:
-      // https://github.com/AztecProtocol/aztec-packages/pull/14891
-      unique_note_hashes_in_tx: {
-        storage: serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX).slice(0, -1),
-        len: this.uniqueNoteHashesInTx.length,
-      },
+      unique_note_hashes_in_tx: this.uniqueNoteHashesInTx,
       first_nullifier_in_tx: this.firstNullifierInTx,
       recipient: this.recipient,
     };
