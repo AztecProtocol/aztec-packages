@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 /**
@@ -15,6 +16,7 @@ export class AvmExecutionEnvironment {
     public readonly globals: GlobalVariables,
     public readonly isStaticCall: boolean,
     public readonly calldata: Fr[],
+    public readonly effectiveGasFees: GasFees,
     public readonly clientInitiatedSimulation: boolean = false,
   ) {}
 
@@ -31,6 +33,7 @@ export class AvmExecutionEnvironment {
       this.globals,
       isStaticCall,
       calldata,
+      this.effectiveGasFees,
       /*clientInitiatedSimulation=*/ this.clientInitiatedSimulation,
     );
   }

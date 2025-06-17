@@ -20,7 +20,7 @@ import {
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeEffectiveGasFees, computeTransactionFee } from '@aztec/stdlib/fees';
-import { Gas, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -74,6 +74,7 @@ export class PublicTxContext {
     private readonly globalVariables: GlobalVariables,
     private readonly gasSettings: GasSettings,
     private readonly clampedGasSettings: GasSettings,
+    private readonly effectiveGasFees: GasFees,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
     private readonly gasAllocatedToPublicTeardown: Gas,
@@ -115,6 +116,7 @@ export class PublicTxContext {
     const gasUsedByPrivate = tx.data.gasUsed;
     // Gas allocated to public is "whatever's left" after private, but with some max applied.
     const clampedGasSettings = clampGasSettingsForAVM(gasSettings, gasUsedByPrivate);
+    const effectiveGasFees = computeEffectiveGasFees(globalVariables.gasFees, clampedGasSettings);
     const gasAllocatedToPublic = clampedGasSettings.gasLimits.sub(gasUsedByPrivate);
     const gasAllocatedToPublicTeardown = clampedGasSettings.teardownGasLimits;
 
@@ -125,6 +127,7 @@ export class PublicTxContext {
       globalVariables,
       gasSettings,
       clampedGasSettings,
+      effectiveGasFees,
       gasUsedByPrivate,
       gasAllocatedToPublic,
       gasAllocatedToPublicTeardown,
@@ -194,14 +197,7 @@ export class PublicTxContext {
    * Are there any call requests for the speciiied phase?
    */
   hasPhase(phase: TxExecutionPhase): boolean {
-    if (phase === TxExecutionPhase.SETUP) {
-      return this.setupCallRequests.length > 0;
-    } else if (phase === TxExecutionPhase.APP_LOGIC) {
-      return this.appLogicCallRequests.length > 0;
-    } else {
-      // phase === TxExecutionPhase.TEARDOWN
-      return this.teardownCallRequests.length > 0;
-    }
+    return this.getCallRequestsForPhase(phase).length > 0;
   }
 
   /**
@@ -215,6 +211,8 @@ export class PublicTxContext {
         return this.appLogicCallRequests;
       case TxExecutionPhase.TEARDOWN:
         return this.teardownCallRequests;
+      default:
+        throw new Error(`Invalid execution phase ${phase}`);
     }
   }
 
@@ -290,12 +288,12 @@ export class PublicTxContext {
    */
   private getTransactionFeeUnsafe(): Fr {
     const gasUsed = this.getTotalGasUsed();
-    const txFee = computeTransactionFee(this.globalVariables.gasFees, this.gasSettings, gasUsed);
+    const txFee = computeTransactionFee(this.effectiveGasFees, gasUsed);
 
     this.log.debug(`Computed tx fee`, {
       txFee,
       gasUsed: inspect(gasUsed),
-      gasFees: inspect(this.globalVariables.gasFees),
+      effectiveGasFees: inspect(this.effectiveGasFees),
     });
 
     return txFee;
@@ -390,7 +388,7 @@ export class PublicTxContext {
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.clampedGasSettings,
-      computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
+      this.effectiveGasFees,
       this.feePayer,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
         this.setupCallRequests.length,
@@ -421,6 +419,10 @@ export class PublicTxContext {
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*isReverted=*/ !this.revertCode.isOK(),
     );
+  }
+
+  getEffectiveGasFees(): GasFees {
+    return this.effectiveGasFees;
   }
 }
 
