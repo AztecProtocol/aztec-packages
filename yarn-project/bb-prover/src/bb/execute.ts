@@ -565,7 +565,7 @@ async function verifyProofInternal(
       const publicInputsFullPath = join(proofDir, '/public_inputs');
       logger.debug(`public inputs path: ${publicInputsFullPath}`);
 
-      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
     } else {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
     }
@@ -575,7 +575,6 @@ async function verifyProofInternal(
     if (loggingArg !== '') {
       args.push(loggingArg);
     }
-    args.push('--disable_zk');
 
     const timer = new Timer();
     const result = await executeBB(pathToBB, command, args, logFunction);
