@@ -206,7 +206,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
       round.leader = _proposal;
     }
 
-    emit VoteCast(_proposal, roundNumber, msg.sender);
+    emit VoteCast(_proposal, roundNumber, proposer);
 
     if (round.yeaCount[_proposal] == N) {
       emit ProposalExecutable(_proposal, roundNumber);
