@@ -111,18 +111,8 @@ function build {
   fi
 
   npm_install_deps
-  # TODO: Check if still needed.
-  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts"
 
-  # TODO: Revisit. Update yarn.lock so it can be committed.
-  # Be lenient about bb.js hash changing, even if we try to minimize the occurrences.
-  # denoise "cd browser-test-app && yarn add --dev @aztec/bb.js@portal:../../ts && yarn"
-  # denoise "cd headless-test && yarn"
-  # denoise "cd sol-test && yarn"
-
-  denoise "cd browser-test-app && yarn build"
-
-  denoise "cd bbjs-test && yarn build"
+  parallel --line-buffer --tag --halt now,fail=1 'cd {} && yarn build' ::: browser-test-app bbjs-test
 }
 
 function test {
@@ -134,7 +124,7 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
-  # non_recursive_tests include all of the non recursive test programs 
+  # non_recursive_tests include all of the non recursive test programs
   local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof')
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)
