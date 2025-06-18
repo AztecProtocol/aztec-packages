@@ -287,9 +287,9 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
 }
 
 /**
- * adds a bunch of points together using affine addition formulae.
- * Paradoxically, the affine formula is crazy efficient if you have a lot of independent point additions to perform.
- * Affine formula:
+ * @brief adds a bunch of points together using affine addition formulae.
+ * @details Paradoxically, the affine formula is crazy efficient if you have a lot of independent point additions to
+ * perform. Affine formula:
  *
  * \lambda = (y_2 - y_1) / (x_2 - x_1)
  * x_3 = \lambda^2 - (x_2 + x_1)
@@ -315,9 +315,13 @@ template <typename Curve> bool MSM<Curve>::use_affine_trick(const size_t num_poi
  *
  * There is a catch though - we need large sequences of independent point additions!
  * i.e. the output from one point addition in the sequence is NOT an input to any other point addition in the
- *sequence.
+ * sequence.
  *
  * We can re-arrange the Pippenger algorithm to get this property, but it's...complicated
+ * @tparam Curve
+ * @param points points to be added pairwise; result is stored in the latter half of the array
+ * @param num_points
+ * @param scratch_space coordinate field scratch space needed for batched inversion
  **/
 template <typename Curve>
 void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
@@ -341,6 +345,8 @@ void MSM<Curve>::add_affine_points(typename Curve::AffineElement* points,
         batch_inversion_accumulator = batch_inversion_accumulator.invert();
     }
 
+    // Iterate backwards through the points, comnputing pairwise affine additions; addition results are stored in the
+    // latter half of the array
     for (size_t i = (num_points)-2; i < num_points; i -= 2) {
         points[i + 1].y *= batch_inversion_accumulator; // update accumulator
         batch_inversion_accumulator *= points[i + 1].x;
@@ -492,19 +498,19 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
                                                              typename Curve::Element previous_round_output,
                                                              const size_t bits_per_slice) noexcept
 {
-    std::span<const uint32_t>& scalar_indices = msm_data.scalar_indices;
+    std::span<const uint32_t>& scalar_indices = msm_data.scalar_indices; // indices of nonzero scalars
     std::span<const ScalarField>& scalars = msm_data.scalars;
     std::span<const AffineElement>& points = msm_data.points;
     std::span<uint64_t>& round_schedule = msm_data.point_schedule;
     const size_t size = scalar_indices.size();
 
     // Construct a "round schedule". Each entry describes:
-    // 1. low 32 bits: which bucket index do we add the point into?
+    // 1. low 32 bits: which bucket index do we add the point into? (bucket index = slice value)
     // 2. high 32 bits: which point index do we source the point from?
     for (size_t i = 0; i < size; ++i) {
         BB_ASSERT_LT(scalar_indices[i], scalars.size());
         round_schedule[i] = get_scalar_slice(scalars[scalar_indices[i]], round_index, bits_per_slice);
-        round_schedule[i] += (static_cast<uint64_t>(scalar_indices[i]) << 32);
+        round_schedule[i] += (static_cast<uint64_t>(scalar_indices[i]) << 32ULL);
     }
     // Sort our point schedules based on their bucket values. Reduces memory throughput in next step of algo
     const size_t num_zero_entries = scalar_multiplication::process_buckets_count_zero_entries(
@@ -593,20 +599,21 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         // TODO(@zac-williamson, cc @ludamad) check these ternary operators are not branching!
         // We are iterating through our points and can come across the following scenarios:
         // 1: The next 2 points in `point_schedule` belong to the *same* bucket
-        //    (happy path - can put into affine_addition_scratch_space)
+        //    (happy path - can put both points into affine_addition_scratch_space)
         // 2: The next 2 points have different bucket destinations AND point_schedule[point_it].bucket contains a point
         //    (happyish path - we can put points[lhs_schedule] and buckets[lhs_bucket] into
         //    affine_addition_scratch_space)
-        // 3: The next 2p oints have different bucket destionations AND point_schedule[point_it].bucket is empty
+        // 3: The next 2 points have different bucket destionations AND point_schedule[point_it].bucket is empty
         //    We cache points[lhs_schedule] into buckets[lhs_bucket]
-        // Either way, we iterate `point_it` by 1.
-        // But the number of points we add into `affine_addition_scratch_space` is 0 or 2
+        // We iterate `point_it` by 2 (case 1), or by 1 (case 2 or 3). The number of points we add into
+        // `affine_addition_scratch_space` is 2 (case 1 or 2) or 0 (case 3).
         uint64_t lhs_schedule = point_schedule[point_it];
         uint64_t rhs_schedule = point_schedule[point_it + 1];
         size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
         size_t rhs_bucket = static_cast<size_t>(rhs_schedule) & 0xFFFFFFFF;
         size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
         size_t rhs_point = static_cast<size_t>(rhs_schedule >> 32);
+
         bool has_overflow = overflow_exists.get(lhs_bucket);
         bool buckets_match = lhs_bucket == rhs_bucket;
         bool do_affine_add = buckets_match || has_overflow;
@@ -614,38 +621,47 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         const AffineElement* lhs_source = &points[lhs_point];
         const AffineElement* rhs_source = buckets_match ? &points[rhs_point] : &bucket_accumulators[lhs_bucket];
 
-        // overflow_exists = will bucket_accumulators[lhs_bucket] contain a point after this iteration?
-        overflow_exists.set(lhs_bucket, (has_overflow && buckets_match) || !do_affine_add);
+        // either two points are set to be added (point to point or point into bucket accumulator), or lhs is stored in
+        // the bucket and rhs is temporarily ignored
         AffineElement* lhs_destination =
             do_affine_add ? &affine_addition_scratch_space[affine_input_it] : &bucket_accumulators[lhs_bucket];
         AffineElement* rhs_destination =
             do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location;
 
-        uint64_t source_bucket_destinations = affine_addition_output_bucket_destinations[affine_input_it >> 1];
-        affine_addition_output_bucket_destinations[affine_input_it >> 1] =
-            do_affine_add ? lhs_bucket : source_bucket_destinations;
+        // if performing an affine add, the result destination is the corresponding bucket
+        uint64_t& source_bucket_destination = affine_addition_output_bucket_destinations[affine_input_it >> 1];
+        source_bucket_destination = do_affine_add ? lhs_bucket : source_bucket_destination;
+
         // unconditional swap. No if statements here.
         *lhs_destination = *lhs_source;
         *rhs_destination = *rhs_source;
 
-        affine_input_it += static_cast<size_t>(do_affine_add) * 2;
-        point_it += (1 + static_cast<size_t>(do_affine_add && buckets_match));
+        // overflow_exists = will bucket_accumulators[lhs_bucket] contain a point after this iteration?
+        bool is_point_to_point_addition = has_overflow && buckets_match; // as opposed to point-into-bucket addition
+        bool is_point_caching = !do_affine_add; // lhs is cached into bucket_accumulators[lhs_bucket]
+        // If we are performing a point-into-bucket addition, the bucket accumulator is "consumed" and will not exist at
+        // the next round. Otherwise the accumulator will be the result of the point-to-point affine addition or simply
+        // the cached lhs point.
+        overflow_exists.set(lhs_bucket, is_point_to_point_addition || is_point_caching);
+        affine_input_it += do_affine_add ? 2 : 0;
+        point_it += (do_affine_add && buckets_match) ? 2 : 1;
     }
-    // We have to handle the last iteration as an edge case so that we dont overflow the bounds of `point_schedule`
+    // We have to handle the last point as an edge case so that we dont overflow the bounds of `point_schedule`. If the
+    // bucket accumulator exists, we add the point to it, otherwise the point simply becomes the bucket accumulator.
     if (point_it == num_points - 1) {
         uint64_t lhs_schedule = point_schedule[point_it];
         size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
         size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
         bool has_overflow = overflow_exists.get(lhs_bucket);
 
-        if (has_overflow) {
+        if (has_overflow) { // point is added to its bucket accumulator
             affine_addition_scratch_space[affine_input_it] = points[lhs_point];
             affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[lhs_bucket];
             overflow_exists.set(lhs_bucket, false);
             affine_addition_output_bucket_destinations[affine_input_it >> 1] = lhs_bucket;
             affine_input_it += 2;
             point_it += 1;
-        } else {
+        } else { // otherwise, cache the point into the bucket
             BB_ASSERT_LT(lhs_point, points.size());
             bucket_accumulators[lhs_bucket] = points[lhs_point];
             overflow_exists.set(lhs_bucket, true);
@@ -674,12 +690,13 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
         size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
         BB_ASSERT_LT(lhs_bucket, overflow_exists.size());
-        bool has_overflow = overflow_exists.get(lhs_bucket);
 
+        bool has_overflow = overflow_exists.get(lhs_bucket);
         bool buckets_match = (lhs_bucket == rhs_bucket);
         bool do_affine_add = buckets_match || has_overflow;
-        AffineElement* lhs_source = &affine_output[affine_output_it];
-        AffineElement* rhs_source =
+
+        const AffineElement* lhs_source = &affine_output[affine_output_it];
+        const AffineElement* rhs_source =
             buckets_match ? &affine_output[affine_output_it + 1] : &bucket_accumulators[lhs_bucket];
 
         AffineElement* lhs_destination =
@@ -687,15 +704,15 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         AffineElement* rhs_destination =
             do_affine_add ? &affine_addition_scratch_space[new_scratch_space_it + 1] : &null_location;
 
-        uint64_t source_bucket_destinations = output_point_schedule[new_scratch_space_it >> 1];
-        output_point_schedule[new_scratch_space_it >> 1] = do_affine_add ? lhs_bucket : source_bucket_destinations;
+        uint64_t& source_bucket_destination = output_point_schedule[new_scratch_space_it >> 1];
+        source_bucket_destination = do_affine_add ? lhs_bucket : source_bucket_destination;
 
         *lhs_destination = *lhs_source;
         *rhs_destination = *rhs_source;
 
         overflow_exists.set(lhs_bucket, (has_overflow && buckets_match) || !do_affine_add);
-        new_scratch_space_it += static_cast<size_t>(do_affine_add) * 2;
-        affine_output_it += (1 + static_cast<size_t>(do_affine_add && buckets_match));
+        new_scratch_space_it += do_affine_add ? 2 : 0;
+        affine_output_it += (do_affine_add && buckets_match) ? 2 : 1;
     }
     // perform final iteration as edge case so we don't overflow `affine_addition_output_bucket_destinations`
     if (affine_output_it == (num_affine_output_points - 1)) {

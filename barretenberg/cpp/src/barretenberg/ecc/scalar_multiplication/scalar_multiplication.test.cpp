@@ -22,7 +22,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     using AffineElement = typename Curve::AffineElement;
     using ScalarField = typename Curve::ScalarField;
 
-    static constexpr size_t num_points = 101123;
+    static constexpr size_t num_points = 201123;
     static inline std::vector<AffineElement> generators{};
     static inline std::vector<ScalarField> scalars{};
 
