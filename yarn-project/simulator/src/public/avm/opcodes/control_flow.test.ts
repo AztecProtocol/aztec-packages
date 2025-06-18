@@ -1,7 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import { Uint16 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { InternalCall, InternalReturn, Jump, JumpI } from './control_flow.js';
 
 describe('Control Flow Opcodes', () => {

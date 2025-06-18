@@ -6,7 +6,7 @@ import { randomInt } from 'crypto';
 
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
