@@ -4,11 +4,11 @@ use aztec::macros::aztec;
 #[aztec]
 contract OffchainMessage {
     use aztec::{
-        event::event_interface::emit_event_as_offchain_message,
+        event::event_interface::emit_event_as_offchain_effect,
         macros::{events::event, functions::{private, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
+        messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_effect,
         note::note_viewer_options::NoteViewerOptions,
-        oracle::offchain_message::emit_offchain_message,
+        oracle::offchain_effect::emit_offchain_effect,
         prelude::{AztecAddress, Map, PrivateSet},
         protocol_types::traits::Serialize,
     };
@@ -34,31 +34,31 @@ contract OffchainMessage {
     }
 
     #[private]
-    fn emit_offchain_message_for_recipient(messages: BoundedVec<MessagePayload, 6>) {
+    fn emit_offchain_effect_for_recipient(messages: BoundedVec<MessagePayload, 6>) {
         if messages.len() > 0 {
             let mut messages = messages;
             let messagePayload = messages.pop();
-            emit_offchain_message(messagePayload.message, messagePayload.recipient);
+            emit_offchain_effect(messagePayload.message, messagePayload.recipient);
 
             if messages.len() > 0 {
-                OffchainMessage::at(messagePayload.next_contract)
-                    .emit_offchain_message_for_recipient(messages)
+                OffchainEffect::at(messagePayload.next_contract)
+                    .emit_offchain_effect_for_recipient(messages)
                     .call(&mut context);
             }
         }
     }
 
     #[private]
-    fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
-        emit_event_as_offchain_message(TestEvent { a, b, c }, &mut context, context.msg_sender());
+    fn emit_event_as_offchain_effect_for_msg_sender(a: u64, b: u64, c: u64) {
+        emit_event_as_offchain_effect(TestEvent { a, b, c }, &mut context, context.msg_sender());
     }
 
     #[private]
-    fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
+    fn emit_note_as_offchain_effect(value: u128, owner: AztecAddress) {
         let note = UintNote::new(value, owner);
 
         storage.balances.at(owner).insert(note).emit(
-            encode_and_encrypt_note_and_emit_as_offchain_message(
+            encode_and_encrypt_note_and_emit_as_offchain_effect(
                 &mut context,
                 context.msg_sender(),
                 context.msg_sender(),
@@ -67,8 +67,8 @@ contract OffchainMessage {
     }
 
     #[utility]
-    unconstrained fn emitting_offchain_message_from_utility_reverts() {
-        emit_offchain_message([0; 5], AztecAddress::zero());
+    unconstrained fn emitting_offchain_effect_from_utility_reverts() {
+        emit_offchain_effect([0; 5], AztecAddress::zero());
     }
 
     #[utility]

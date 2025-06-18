@@ -1,5 +1,5 @@
 [package]
-name = "offchain_message_contract"
+name = "offchain_effect_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"

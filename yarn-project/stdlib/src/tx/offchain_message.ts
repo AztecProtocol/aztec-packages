@@ -3,10 +3,10 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '../aztec-address/index.js';
 
 /**
- * Represents an offchain message emitted via the `emit_offchain_message` oracle (see the oracle documentation for
+ * Represents an offchain message emitted via the `emit_offchain_effect` oracle (see the oracle documentation for
  * more details).
  */
-export type OffchainMessage = {
+export type OffchainEffect = {
   /** The message content */
   message: Fr[];
   /** The message recipient */

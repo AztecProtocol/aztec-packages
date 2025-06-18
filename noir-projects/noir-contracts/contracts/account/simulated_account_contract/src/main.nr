@@ -17,7 +17,7 @@ pub contract SimulatedAccount {
     };
     use dep::aztec::{
         macros::{functions::{private, view}, storage::storage},
-        oracle::offchain_message::emit_offchain_message,
+        oracle::offchain_effect::emit_offchain_effect,
         prelude::{PrivateContext, PrivateImmutable},
     };
 
@@ -44,7 +44,7 @@ pub contract SimulatedAccount {
             context.version(),
             inner_hash,
         );
-        emit_offchain_message(message_hash, context.msg_sender());
+        emit_offchain_effect(message_hash, context.msg_sender());
         IS_VALID_SELECTOR
     }
 

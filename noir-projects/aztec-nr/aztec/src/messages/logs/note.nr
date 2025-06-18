@@ -7,7 +7,7 @@ use crate::{
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    oracle::offchain_message::emit_offchain_message,
+    oracle::offchain_effect::emit_offchain_effect,
     utils::{array::subarray::subarray, remove_constraints::remove_constraints},
 };
 use protocol_types::{
@@ -156,8 +156,8 @@ where
 ///
 /// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
 /// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
-/// `oracle::offchain_message::emit_offchain_message` for more details on delivery guarantees.
-pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
+/// `oracle::offchain_effect::emit_offchain_effect` for more details on delivery guarantees.
+pub fn encode_and_encrypt_note_and_emit_as_offchain_effect<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
     // We need this because to compute a tagging secret, we require a sender:
@@ -183,6 +183,6 @@ where
         // the tag.
         let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
 
-        emit_offchain_message(message_ciphertext, recipient);
+        emit_offchain_effect(message_ciphertext, recipient);
     }
 }

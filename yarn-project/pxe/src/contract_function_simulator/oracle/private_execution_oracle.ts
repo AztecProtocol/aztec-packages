@@ -59,7 +59,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashLeafIndexMap: Map<bigint, bigint> = new Map();
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
-  private offchainMessages: { message: Fr[]; recipient: AztecAddress }[] = [];
+  private offchainEffects: { message: Fr[]; recipient: AztecAddress }[] = [];
   private nestedExecutions: PrivateCallExecutionResult[] = [];
 
   constructor(
@@ -143,8 +143,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * Return the offchain messages emitted during this execution.
    */
-  public getOffchainMessages() {
-    return this.offchainMessages;
+  public getOffchainEffects() {
+    return this.offchainEffects;
   }
 
   /**
@@ -525,8 +525,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
 
-  public override emitOffchainMessage(message: Fr[], recipient: AztecAddress): Promise<void> {
-    this.offchainMessages.push({ message, recipient });
+  public override emitOffchainEffect(message: Fr[], recipient: AztecAddress): Promise<void> {
+    this.offchainEffects.push({ message, recipient });
     return Promise.resolve();
   }
 }

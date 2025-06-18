@@ -15,7 +15,7 @@ import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import type { UInt32 } from '../types/index.js';
 import { HashedValues } from './hashed_values.js';
-import type { OffchainMessage } from './offchain_message.js';
+import type { OffchainEffect } from './offchain_effect.js';
 
 /**
  * The contents of a new note.
@@ -134,8 +134,8 @@ export class PrivateCallExecutionResult {
     public noteHashNullifierCounterMap: Map<number, number>,
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
-    /** The offchain messages emitted during execution of this function call via the `emit_offchain_message` oracle. */
-    public offchainMessages: { message: Fr[]; recipient: AztecAddress }[],
+    /** The offchain messages emitted during execution of this function call via the `emit_offchain_effect` oracle. */
+    public offchainEffects: { message: Fr[]; recipient: AztecAddress }[],
     /** The nested executions. */
     public nestedExecutions: PrivateCallExecutionResult[],
     /**
@@ -158,7 +158,7 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        offchainMessages: z.array(z.object({ message: z.array(schemas.Fr), recipient: AztecAddress.schema })),
+        offchainEffects: z.array(z.object({ message: z.array(schemas.Fr), recipient: AztecAddress.schema })),
         nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
@@ -175,7 +175,7 @@ export class PrivateCallExecutionResult {
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
-      fields.offchainMessages,
+      fields.offchainEffects,
       fields.nestedExecutions,
       fields.contractClassLogs,
     );
@@ -251,10 +251,10 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
  * @param execResult - The execution result to collect messages from.
  * @returns Array of offchain messages.
  */
-export function collectOffchainMessages(execResult: PrivateExecutionResult): OffchainMessage[] {
-  const collectMessagesRecursive = (callResult: PrivateCallExecutionResult): OffchainMessage[] => {
+export function collectOffchainEffects(execResult: PrivateExecutionResult): OffchainEffect[] {
+  const collectMessagesRecursive = (callResult: PrivateCallExecutionResult): OffchainEffect[] => {
     return [
-      ...callResult.offchainMessages.map(msg => ({
+      ...callResult.offchainEffects.map(msg => ({
         ...msg,
         contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the message
       })),

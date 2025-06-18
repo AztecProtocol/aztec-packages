@@ -1,7 +1,7 @@
 use crate::{
     context::{PrivateContext, PublicContext},
     messages::logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
-    oracle::offchain_message::emit_offchain_message,
+    oracle::offchain_effect::emit_offchain_effect,
     utils::remove_constraints::{remove_constraints, remove_constraints_if},
 };
 use dep::protocol_types::{
@@ -81,9 +81,9 @@ where
 /// contracts cannot make assumptions about a message being delivered, making constrained encryption unnecessary.
 /// However, message integrity remains protected through a cryptographic commitment stored in the nullifier tree,
 /// preventing tampering even in the absence of guaranteed delivery. See the description of the
-/// `oracle::offchain_message::emit_offchain_message` function for more details on when a guaranteed delivery is
+/// `oracle::offchain_effect::emit_offchain_effect` function for more details on when a guaranteed delivery is
 /// valuable. If guaranteed delivery is required, the `emit_event_in_private_log` function should be used instead.
-pub fn emit_event_as_offchain_message<Event, let N: u32>(
+pub fn emit_event_as_offchain_effect<Event, let N: u32>(
     event: Event,
     context: &mut PrivateContext,
     recipient: AztecAddress,
@@ -108,7 +108,7 @@ where
     );
     context.push_nullifier(event_commitment);
 
-    emit_offchain_message(message_ciphertext, recipient);
+    emit_offchain_effect(message_ciphertext, recipient);
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)

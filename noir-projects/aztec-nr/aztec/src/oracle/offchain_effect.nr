@@ -26,27 +26,27 @@ use protocol_types::{address::AztecAddress, traits::Serialize};
 ///
 /// * `message` - The message to emit.
 /// * `recipient` - The address of the recipient.
-pub fn emit_offchain_message<T, let N: u32>(message: T, recipient: AztecAddress)
+pub fn emit_offchain_effect<T, let N: u32>(message: T, recipient: AztecAddress)
 where
     T: Serialize<N>,
 {
     // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
     // to call.
-    unsafe { emit_offchain_message_oracle_wrapper(message, recipient) };
+    unsafe { emit_offchain_effect_oracle_wrapper(message, recipient) };
 }
 
-unconstrained fn emit_offchain_message_oracle_wrapper<T, let N: u32>(
+unconstrained fn emit_offchain_effect_oracle_wrapper<T, let N: u32>(
     message: T,
     recipient: AztecAddress,
 )
 where
     T: Serialize<N>,
 {
-    emit_offchain_message_oracle(message.serialize(), recipient);
+    emit_offchain_effect_oracle(message.serialize(), recipient);
 }
 
-#[oracle(emitOffchainMessage)]
-unconstrained fn emit_offchain_message_oracle<let N: u32>(
+#[oracle(emitOffchainEffect)]
+unconstrained fn emit_offchain_effect_oracle<let N: u32>(
     message: [Field; N],
     recipient: AztecAddress,
 ) {}
