@@ -51,7 +51,7 @@ function compile {
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
   hash=$(hash_str "$NOIR_HASH-$program_hash")
 
-  if [ "${USE_CIRCUITS_CACHE:-0}" -eq 0 ] || ! cache_download circuit-$hash.tar.gz 1>&2; then
+  if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
     rm -f $json_path
     # TODO(#10754): Remove --skip-brillig-constraints-check
