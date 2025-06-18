@@ -42,7 +42,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     BB_PROFILE void execute_pcs_rounds();
 
     HonkProof export_proof();
-    HonkProof construct_proof();
+    void construct_proof();
 
     std::shared_ptr<DeciderPK> proving_key;
 
@@ -57,9 +57,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;

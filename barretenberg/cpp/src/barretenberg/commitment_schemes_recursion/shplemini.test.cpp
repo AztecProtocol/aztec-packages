@@ -76,9 +76,11 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
-        StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
-        stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
+        StdlibProof<Builder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->export_proof());
+        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
+        stdlib_verifier_transcript->load_proof(stdlib_proof);
+        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check
         const auto commitments_to_witnesses = [&builder](const auto& commitments) {
