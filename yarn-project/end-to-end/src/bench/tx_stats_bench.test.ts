@@ -180,79 +180,87 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
-  it('verifies a single transaction', async () => {
-    const numIterations = 20;
-    const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
-      x => undefined,
-    );
-    for (let i = 0; i < numIterations; i++) {
-      const result = await t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx);
-      resultsArray[i] = result;
-    }
-    resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
-    const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
-    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
-    results.push({
-      name: `Tx IVC Verification/Single Transaction/Verification Time`,
-      value: durations.reduce((a, b) => a + b, 0) / numIterations,
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/Single Transaction/Total Verification Time`,
-      value: totalDurations.reduce((a, b) => a + b, 0) / numIterations,
-      unit: 'ms',
-    });
-  }, 60_000);
+  it(
+    'verifies a single transaction',
+    async () => {
+      const numIterations = 20;
+      const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
+        x => undefined,
+      );
+      for (let i = 0; i < numIterations; i++) {
+        const result = await t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx);
+        resultsArray[i] = result;
+      }
+      resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
+      const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
+      const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
+      results.push({
+        name: `Tx IVC Verification/Single Transaction/Verification Time`,
+        value: durations.reduce((a, b) => a + b, 0) / numIterations,
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/Single Transaction/Total Verification Time`,
+        value: totalDurations.reduce((a, b) => a + b, 0) / numIterations,
+        unit: 'ms',
+      });
+    },
+    TIMEOUT,
+  );
 
-  it('verifies transactions at 10 TPS', async () => {
-    const seconds = 60;
-    const proofsPerSecond = 10;
-    const totalNumProofs = seconds * proofsPerSecond;
-    const promises = [];
-    const timer = new Timer();
-    for (let i = 0; i < totalNumProofs; i++) {
-      promises.push(t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx));
-      await sleep(1000 / proofsPerSecond);
-    }
-    const resultsArray = await Promise.all(promises);
-    const totalDuration = timer.ms();
-    resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
-    const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
-    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg IVC Verification Time`,
-      value: durations.reduce((a, b) => a + b, 0) / totalNumProofs,
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min IVC Verification Time`,
-      value: Math.min(...durations),
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max IVC Verification Time`,
-      value: Math.max(...durations),
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Total Verification Time (includes serde)`,
-      value: totalDurations.reduce((a, b) => a + b, 0) / totalNumProofs,
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min Total Verification Time  (includes serde)`,
-      value: Math.min(...totalDurations),
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max Total Verification Time  (includes serde)`,
-      value: Math.max(...totalDurations),
-      unit: 'ms',
-    });
-    results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Overall Tx Verification Time`,
-      value: totalDuration,
-      unit: 'ms',
-    });
-  });
+  it(
+    'verifies transactions at 10 TPS',
+    async () => {
+      const seconds = 60;
+      const proofsPerSecond = 10;
+      const totalNumProofs = seconds * proofsPerSecond;
+      const promises = [];
+      const timer = new Timer();
+      for (let i = 0; i < totalNumProofs; i++) {
+        promises.push(t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx));
+        await sleep(1000 / proofsPerSecond);
+      }
+      const resultsArray = await Promise.all(promises);
+      const totalDuration = timer.ms();
+      resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
+      const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
+      const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg IVC Verification Time`,
+        value: durations.reduce((a, b) => a + b, 0) / totalNumProofs,
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min IVC Verification Time`,
+        value: Math.min(...durations),
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max IVC Verification Time`,
+        value: Math.max(...durations),
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Total Verification Time (includes serde)`,
+        value: totalDurations.reduce((a, b) => a + b, 0) / totalNumProofs,
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min Total Verification Time  (includes serde)`,
+        value: Math.min(...totalDurations),
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max Total Verification Time  (includes serde)`,
+        value: Math.max(...totalDurations),
+        unit: 'ms',
+      });
+      results.push({
+        name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Overall Tx Verification Time`,
+        value: totalDuration,
+        unit: 'ms',
+      });
+    },
+    TIMEOUT,
+  );
 });
