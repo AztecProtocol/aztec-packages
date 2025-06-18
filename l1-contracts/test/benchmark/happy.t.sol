@@ -158,9 +158,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
       .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
       _targetCommitteeSize
-    ).setEntryQueueFlushSizeMin(_validatorCount).setGovProposerM(VOTING_ROUND_SIZE).setGovProposerN(
-      VOTING_ROUND_SIZE
-    );
+    ).setEntryQueueFlushSizeMin(_validatorCount).setSlashingQuorum(VOTING_ROUND_SIZE)
+      .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
