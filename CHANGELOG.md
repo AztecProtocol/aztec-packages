@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.87.9](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.8...v0.87.9) (2025-06-18)
+
+
+### Bug Fixes
+
+* bump archiver and WS schema versions ([#15128](https://github.com/AztecProtocol/aztec-packages/issues/15128)) ([#15131](https://github.com/AztecProtocol/aztec-packages/issues/15131)) ([e9a2301](https://github.com/AztecProtocol/aztec-packages/commit/e9a2301883801edbe36ea8bba05dcca7e714f30a))
+* configurable l1tol2 message timeout (backport) ([#15027](https://github.com/AztecProtocol/aztec-packages/issues/15027)) ([015cb0c](https://github.com/AztecProtocol/aztec-packages/commit/015cb0cadef6a41094c3649f32a735392e1b9693))
+* Handle missed l1-to-l2 messages in archiver ([#15117](https://github.com/AztecProtocol/aztec-packages/issues/15117)) ([464e1a9](https://github.com/AztecProtocol/aztec-packages/commit/464e1a9d9b40b5188586643b44bc52bffccbc3e6))
+* introduce batching limits ([#15039](https://github.com/AztecProtocol/aztec-packages/issues/15039)) (backport) ([#15044](https://github.com/AztecProtocol/aztec-packages/issues/15044)) ([b1b65bc](https://github.com/AztecProtocol/aztec-packages/commit/b1b65bcdbd44a49fbebe5d2265256dc9466e92be))
+* pass pull/restart policies to docker (backport) ([#14951](https://github.com/AztecProtocol/aztec-packages/issues/14951)) ([260a6c8](https://github.com/AztecProtocol/aztec-packages/commit/260a6c8dbe7557aae065d685de66faa2bc362a9d))
+* reqresp tests ([#15074](https://github.com/AztecProtocol/aztec-packages/issues/15074)) ([c06f309](https://github.com/AztecProtocol/aztec-packages/commit/c06f30929f18b85bcea93c0926a8d640a3819f00))
+
+
+### Miscellaneous
+
+* **backport:** don't set maximum wasm memory &gt;1GB on ios web, limit SRS ([#15001](https://github.com/AztecProtocol/aztec-packages/issues/15001)) ([#15005](https://github.com/AztecProtocol/aztec-packages/issues/15005)) ([f4ac84d](https://github.com/AztecProtocol/aztec-packages/commit/f4ac84d7ac4041d505399edd8819840bb14d6c9d))
+* **docs:** Add tag for testnet version ([#14685](https://github.com/AztecProtocol/aztec-packages/issues/14685)) ([64b2b9f](https://github.com/AztecProtocol/aztec-packages/commit/64b2b9f661d3e31df0f8ec9120130b753eeb7533))
+* **docs:** Update docs to use 0.87.8 ([#14898](https://github.com/AztecProtocol/aztec-packages/issues/14898)) ([dada14e](https://github.com/AztecProtocol/aztec-packages/commit/dada14e07a974e905ef606b4fac7c777b922587f))
+* **docs:** Uploading and adding diagram to the docs ([#14982](https://github.com/AztecProtocol/aztec-packages/issues/14982)) ([1338cef](https://github.com/AztecProtocol/aztec-packages/commit/1338cef09c870378254c56748f972ae827c4d482))
+
 ## [0.87.8](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.7...v0.87.8) (2025-06-09)
 
 
