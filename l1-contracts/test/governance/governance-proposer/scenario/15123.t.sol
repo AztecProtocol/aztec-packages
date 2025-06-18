@@ -12,6 +12,7 @@ import {Fakerollup} from "../mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {Signature, SignatureLib__InvalidSignature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 
 contract Test15123 is GovernanceProposerBase {
   using MessageHashUtils for bytes32;
@@ -57,7 +58,7 @@ contract Test15123 is GovernanceProposerBase {
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
 
     // Create invalid signature
-    signature = createSignature(privateKey, address(proposal));
+    signature = createSignature(privateKey, address(proposal), 0);
 
     governanceProposer.voteWithSig(proposal, signature);
 
@@ -79,7 +80,7 @@ contract Test15123 is GovernanceProposerBase {
     );
   }
 
-  function createSignature(uint256 _privateKey, address _payload)
+  function createSignature(uint256 _privateKey, address _payload, uint256 _nonce)
     internal
     view
     returns (Signature memory)
@@ -93,7 +94,7 @@ contract Test15123 is GovernanceProposerBase {
       abi.encode(TYPE_HASH, hashedName, hashedVersion, block.chainid, address(governanceProposer))
     );
     bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload))
+      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, _nonce))
     );
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);

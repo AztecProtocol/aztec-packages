@@ -36,7 +36,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
   modifier whenProposalHoldCode() {
     proposal = IPayload(address(this));
-    signature = createSignature(privateKey, address(proposal));
+    signature = createSignature(privateKey, proposal);
 
     _;
   }
@@ -104,7 +104,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     address _proposer = vm.addr(pk);
     vm.assume(_proposer != proposer);
-    signature = createSignature(pk, address(proposal));
+    signature = createSignature(pk, proposal);
 
     vm.expectRevert(
       abi.encodeWithSelector(SignatureLib__InvalidSignature.selector, proposer, _proposer)
@@ -116,14 +116,13 @@ contract VoteWithSigTest is GovernanceProposerBase {
     // Lets make sure that there first is a leader
     uint256 votesOnProposal = 5;
 
-    // @todo FIX THIS
-
     for (uint256 i = 0; i < votesOnProposal; i++) {
       vm.warp(
         Timestamp.unwrap(
           validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
         )
       );
+      signature = createSignature(privateKey, proposal);
       governanceProposer.voteWithSig(proposal, signature);
     }
 
@@ -177,6 +176,8 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     Slot freshSlot = freshInstance.getCurrentSlot();
     uint256 freshRound = governanceProposer.computeRound(freshSlot);
+
+    signature = createSignature(privateKey, proposal);
 
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(proposal, freshRound, proposer);
@@ -250,6 +251,8 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     uint256 yeaBefore = governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
+    signature = createSignature(privateKey, proposal);
+
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(proposal, round, proposer);
     assertTrue(governanceProposer.voteWithSig(proposal, signature));
@@ -284,7 +287,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
     uint256 leaderYeaBefore =
       governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
-    signature = createSignature(privateKey, address(validatorSelection));
+    signature = createSignature(privateKey, IPayload(address(validatorSelection)));
 
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
@@ -328,9 +331,9 @@ contract VoteWithSigTest is GovernanceProposerBase {
     uint256 leaderYeaBefore =
       governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
-    signature = createSignature(privateKey, address(validatorSelection));
-
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
+      signature = createSignature(privateKey, IPayload(address(validatorSelection)));
+
       vm.expectEmit(true, true, true, true, address(governanceProposer));
       emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
       assertTrue(governanceProposer.voteWithSig(IPayload(address(validatorSelection)), signature));
@@ -363,21 +366,26 @@ contract VoteWithSigTest is GovernanceProposerBase {
     }
   }
 
-  function createSignature(uint256 _privateKey, address _payload)
+  function createSignature(uint256 _privateKey, IPayload _payload)
     internal
     view
     returns (Signature memory)
   {
-    bytes32 TYPE_HASH = keccak256(
-      "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
-    bytes32 hashedName = keccak256(bytes("EmpireBase"));
-    bytes32 hashedVersion = keccak256(bytes("1"));
+    address p = vm.addr(privateKey);
+    uint256 nonce = governanceProposer.nonces(p);
     bytes32 domainSeparator = keccak256(
-      abi.encode(TYPE_HASH, hashedName, hashedVersion, block.chainid, address(governanceProposer))
+      abi.encode(
+        keccak256(
+          "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        ),
+        keccak256(bytes("EmpireBase")),
+        keccak256(bytes("1")),
+        block.chainid,
+        address(governanceProposer)
+      )
     );
     bytes32 digest = MessageHashUtils.toTypedDataHash(
-      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload))
+      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, nonce))
     );
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
