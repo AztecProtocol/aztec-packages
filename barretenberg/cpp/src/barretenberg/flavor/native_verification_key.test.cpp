@@ -12,6 +12,17 @@ using namespace bb;
 
 template <typename Flavor> class NativeVerificationKeyTests : public ::testing::Test {
   public:
+    void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
+    {
+        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
+        if constexpr (HasIPAAccumulator<Flavor>) {
+            auto [stdlib_opening_claim, ipa_proof] =
+                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
+            stdlib_opening_claim.set_public();
+            builder.ipa_proof = ipa_proof;
+        }
+    }
+
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -38,6 +49,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // Create random circuit to create a vk.
     Builder builder;
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey vk{ proving_key->proving_key };
 
@@ -76,6 +88,7 @@ TYPED_TEST(NativeVerificationKeyTests, VKSizeCheck)
     using Builder = typename Flavor::CircuitBuilder;
 
     Builder builder;
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     typename Flavor::VerificationKey verification_key(proving_key->proving_key);
