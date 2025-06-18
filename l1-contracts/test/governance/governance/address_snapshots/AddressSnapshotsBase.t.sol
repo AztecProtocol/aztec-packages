@@ -9,8 +9,8 @@ import {
 
 import {Test} from "forge-std/Test.sol";
 import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {TimeCheater} from "../../staking/TimeCheater.sol";
-import {TestConstants} from "../../harnesses/TestConstants.sol";
+import {TimeCheater} from "test/staking/TimeCheater.sol";
+import {TestConstants} from "test/harnesses/TestConstants.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract AddressSetWrapper {

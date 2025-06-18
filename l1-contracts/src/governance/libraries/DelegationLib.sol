@@ -45,6 +45,10 @@ library DelegationLib {
     address _attester,
     uint256 _amount
   ) internal {
+    if (_amount == 0) {
+      return;
+    }
+
     InstanceDelegationData storage instance = _self.instanceData[_instance];
 
     instance.attesterData[_attester].balance += _amount;
@@ -60,6 +64,10 @@ library DelegationLib {
     address _attester,
     uint256 _amount
   ) internal {
+    if (_amount == 0) {
+      return;
+    }
+
     InstanceDelegationData storage instance = _self.instanceData[_instance];
 
     instance.attesterData[_attester].balance -= _amount;
@@ -116,27 +124,6 @@ library DelegationLib {
     moveVotingPower(_self, oldDelegate, _delegatee, getBalanceOf(_self, _instance, _attester));
   }
 
-  function moveVotingPower(
-    DelegationData storage _self,
-    address _from,
-    address _to,
-    uint256 _amount
-  ) internal {
-    if (_from == _to || _amount == 0) {
-      return;
-    }
-
-    if (_from != address(0)) {
-      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_from].votingPower.sub(_amount);
-      emit DelegateVotesChanged(_from, oldValue, newValue);
-    }
-
-    if (_to != address(0)) {
-      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_to].votingPower.add(_amount);
-      emit DelegateVotesChanged(_to, oldValue, newValue);
-    }
-  }
-
   function getBalanceOf(DelegationData storage _self, address _instance, address _attester)
     internal
     view
@@ -187,5 +174,26 @@ library DelegationLib {
     returns (uint256)
   {
     return _self.delegateeData[_delegatee].powerUsed[_proposalId];
+  }
+
+  function moveVotingPower(
+    DelegationData storage _self,
+    address _from,
+    address _to,
+    uint256 _amount
+  ) private {
+    if (_from == _to || _amount == 0) {
+      return;
+    }
+
+    if (_from != address(0)) {
+      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_from].votingPower.sub(_amount);
+      emit DelegateVotesChanged(_from, oldValue, newValue);
+    }
+
+    if (_to != address(0)) {
+      (uint256 oldValue, uint256 newValue) = _self.delegateeData[_to].votingPower.add(_amount);
+      emit DelegateVotesChanged(_to, oldValue, newValue);
+    }
   }
 }

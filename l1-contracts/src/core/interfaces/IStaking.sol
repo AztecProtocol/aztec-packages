@@ -21,7 +21,7 @@ interface IStakingCore {
   function flushEntryQueue() external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finaliseWithdraw(address _attester) external;
-  function slash(address _attester, uint256 _amount) external;
+  function slash(address _attester, uint256 _amount) external returns (bool);
   function vote(uint256 _proposalId) external;
 
   function getEntryQueueFlushSize() external view returns (uint256);

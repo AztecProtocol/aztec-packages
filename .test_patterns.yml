@@ -246,6 +246,10 @@ tests:
     error_regex: "cp: cannot create regular file"
     owners:
       - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "tar: Error is not recoverable: exiting now"
+    owners:
+      - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"
     error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
