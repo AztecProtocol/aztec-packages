@@ -69,10 +69,7 @@ template <typename Flavor> class BBRpcProvingKeyCache : public BBRpcProvingKeyCa
         return (it == proving_keys.end()) ? nullptr : it->second.proving_key;
     }
 
-    void emplace(CircuitId id, std::string nm, std::shared_ptr<DeciderProvingKey_<Flavor>> pk)
-    {
-        proving_keys.emplace(id, ProvingKeyEntry<Flavor>{ std::move(nm), std::move(pk) });
-    }
+    void emplace(CircuitId id, ProvingKeyEntry<Flavor> entry) { proving_keys.emplace(id, std::move(entry)); }
 
   private:
     std::unordered_map<CircuitId, ProvingKeyEntry<Flavor>> proving_keys;
@@ -160,7 +157,7 @@ class BBRpcCircuitRegistry {
      * returning the cached key when present; otherwise calls create_proving_key<Flavor>(…) and
      * stores the result before returning it.
      */
-    template <typename Flavor> std::shared_ptr<DeciderProvingKey_<Flavor>> get_proving_key(CircuitId circuit_id)
+    template <typename Flavor> ProvingKeyEntry<Flavor> get_proving_key(CircuitId circuit_id)
     {
         /* 1) look for an existing cache entry ---------------------------------------------------- */
         BBRpcProvingKeyCache<Flavor>* typed_cache = nullptr;
@@ -187,8 +184,9 @@ class BBRpcCircuitRegistry {
             typed_cache = new_cache.get();
             proving_key_caches.emplace_back(std::move(new_cache));
         }
-        typed_cache->emplace(circuit_id, circ->second.name, proving_key);
-        return proving_key;
+        ProvingKeyEntry<Flavor> entry{ circ->second.name, proving_key };
+        typed_cache->emplace(circuit_id, entry);
+        return entry;
     }
 
   private:
