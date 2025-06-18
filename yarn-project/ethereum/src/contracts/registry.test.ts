@@ -55,6 +55,7 @@ describe('Registry', () => {
       'slashFactoryAddress',
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
+      'zkPassportVerifierAddress',
     );
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 

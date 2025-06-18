@@ -1,0 +1,6 @@
+SetSubScope
+├── when caller of setSubScope is not owner
+│   └── it reverts
+└── when caller of setSubScope is owner
+    ├── it sets the subscope
+    └── it emits a {SubScopeUpdated} event

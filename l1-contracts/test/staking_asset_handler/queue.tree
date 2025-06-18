@@ -1,0 +1,9 @@
+QueueTest
+├── When not initialized and queue is empty
+│   ├── it reverts when calling dequeue
+│   └── it has length of 0
+├── When including already seen attester proposer pair
+│   ├── it reverts
+└── When enqueuing validators
+    ├── it updates length correctly
+    └── it can dequeue
