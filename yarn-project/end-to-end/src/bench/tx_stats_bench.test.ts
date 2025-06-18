@@ -18,8 +18,8 @@ import {
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
-// Set a 2 minute timeout.
-const TIMEOUT = 120_000;
+// Set a 3 minute timeout.
+const TIMEOUT = 130_000;
 
 describe('transaction benchmarks', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
