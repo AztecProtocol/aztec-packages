@@ -3,7 +3,7 @@
 #pragma once
 
 #include "barretenberg/ext/starknet/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 
 namespace bb {
 

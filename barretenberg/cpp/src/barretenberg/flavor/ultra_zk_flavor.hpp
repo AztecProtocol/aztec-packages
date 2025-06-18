@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 
 namespace bb {
 

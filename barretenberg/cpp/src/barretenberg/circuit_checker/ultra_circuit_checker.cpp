@@ -1,5 +1,5 @@
 #include "ultra_circuit_checker.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include <unordered_set>
 
 namespace bb {

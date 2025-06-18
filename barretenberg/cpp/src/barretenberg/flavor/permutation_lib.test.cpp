@@ -1,8 +1,8 @@
 #include "barretenberg/honk/composer/permutation_lib.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include <array>
 #include <gtest/gtest.h>
 

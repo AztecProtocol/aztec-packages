@@ -1,6 +1,7 @@
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
@@ -8,7 +9,6 @@
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -234,18 +234,16 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1428): Renable these by adding add_to_transcript
-        // function to native verification key.
-        // // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // // manifests produced by each agree.
-        // auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        // auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
+        // manifests produced by each agree.
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        // ASSERT(recursive_folding_manifest.size() > 0);
-        // for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-        //     EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
-        //         << "Recursive Verifier/Verifier manifest discrepency in round " << i;
-        // }
+        ASSERT(recursive_folding_manifest.size() > 0);
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
+        }
 
         // Check for a failure flag in the recursive verifier circuit
         {
@@ -314,18 +312,16 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1428): Renable these by adding add_to_transcript
-        // function to native verification key.
-        // // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // // manifests produced by each agree.
-        // auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        // auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
+        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
+        // manifests produced by each agree.
+        auto recursive_folding_manifest = verifier.transcript->get_manifest();
+        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
 
-        // ASSERT(recursive_folding_manifest.size() > 0);
-        // for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-        //     EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
-        //         << "Recursive Verifier/Verifier manifest discrepency in round " << i;
-        // }
+        ASSERT(recursive_folding_manifest.size() > 0);
+        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
+                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
+        }
 
         InnerDeciderProver decider_prover(folding_proof.accumulator);
         decider_prover.construct_proof();

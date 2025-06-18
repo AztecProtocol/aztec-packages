@@ -10,6 +10,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
@@ -25,13 +26,14 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
+    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -72,7 +74,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          *
          * @return std::vector<FF>
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::field_conversion;
 
@@ -98,8 +100,28 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             return elements;
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
-        // up.
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript.
+         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        {
+            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): The rest is commented out because the
+            // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a
+            // followup PR.
+            // for (const Commitment& commitment : this->get_all()) {
+            //     transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+            // }
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
         VerificationKey(const uint64_t circuit_size,
                         const uint64_t num_public_inputs,
                         const uint64_t pub_inputs_offset,
@@ -200,8 +222,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 };
 
 } // namespace bb

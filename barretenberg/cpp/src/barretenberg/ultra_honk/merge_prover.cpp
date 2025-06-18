@@ -5,7 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
 
