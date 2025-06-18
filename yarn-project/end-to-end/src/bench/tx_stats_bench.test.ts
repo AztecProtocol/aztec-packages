@@ -187,6 +187,7 @@ describe('transaction benchmarks', () => {
       const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
         x => undefined,
       );
+      // Verify proof serially and take an average
       for (let i = 0; i < numIterations; i++) {
         const result = await t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx);
         resultsArray[i] = result;
@@ -215,11 +216,14 @@ describe('transaction benchmarks', () => {
       const proofsPerSecond = 10;
       const totalNumProofs = seconds * proofsPerSecond;
       const promises = [];
+
+      // Push proofs onto the verification queue at the required per second rate
       const timer = new Timer();
       for (let i = 0; i < totalNumProofs; i++) {
         promises.push(t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx));
         await sleep(1000 / proofsPerSecond);
       }
+      // Wait for all of the proofs to verify
       const resultsArray = await Promise.all(promises);
       const totalDuration = timer.ms();
       resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
