@@ -282,25 +282,11 @@ export interface ExecutionDataProvider {
     eventValidationRequestsArrayBaseSlot: Fr,
   ): Promise<void>;
 
-  /**
-   * Searches for a log with the corresponding `tag` and returns it along with contextual transaction information.
-   * Returns null if no such log exists, and throws if more than one exists.
-   *
-   * @param tag - The log tag to search for.
-   * @param contractAddress - The contract address to search for the log in.
-   * @returns The public log with transaction data if found, null otherwise.
-   * @throws If more than one log with that tag exists.
-   */
-  getPublicLogByTag(tag: Fr, contractAddress: AztecAddress): Promise<PublicLogWithTxData | null>;
-
-  /**
-   * Searches for a private log with the corresponding `siloedTag` and returns it along with contextual transaction
-   * information.
-   *
-   * @param siloedTag - The siloed log tag to search for.
-   * @returns The private log with transaction data if found, null otherwise.
-   */
-  getPrivateLogByTag(siloedTag: Fr): Promise<PrivateLogWithTxData | null>;
+  bulkRetrieveLogs(
+    contractAddress: AztecAddress,
+    logRetrievalRequestsArrayBaseSlot: Fr,
+    logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void>;
 
   /**
    * Removes all of a contract's notes that have been nullified from the note database.

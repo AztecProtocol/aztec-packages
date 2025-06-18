@@ -643,8 +643,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await Promise.all([...noteDeliveries, ...eventDeliveries]);
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, noteValidationRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, eventValidationRequestsArrayBaseSlot, []);
   }
 
   async deliverNote(
@@ -779,10 +779,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
 
     // Requests are cleared once we're done.
-    await this.capsuleDataProvider.resetCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
+    await this.capsuleDataProvider.setCapsuleArray(contractAddress, logRetrievalRequestsArrayBaseSlot, []);
 
     // The responses are stored as Option<LogRetrievalResponse> in a second CapsuleArray.
-    await this.capsuleDataProvider.resetCapsuleArray(
+    await this.capsuleDataProvider.setCapsuleArray(
       contractAddress,
       logRetrievalResponsesArrayBaseSlot,
       maybeLogRetrievalResponses.map(LogRetrievalResponse.toSerializedOption),
