@@ -44,7 +44,7 @@ pub contract SimulatedAccount {
             context.version(),
             inner_hash,
         );
-        emit_offchain_effect(message_hash, context.msg_sender());
+        emit_offchain_effect(message_hash);
         IS_VALID_SELECTOR
     }
 

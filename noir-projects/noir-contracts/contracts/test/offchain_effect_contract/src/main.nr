@@ -22,9 +22,8 @@ contract OffchainEffect {
     }
 
     #[derive(Serialize)]
-    pub struct MessagePayload {
-        pub message: [Field; 5],
-        pub recipient: AztecAddress,
+    pub struct EffectPayload {
+        pub data: [Field; 5],
         pub next_contract: AztecAddress,
     }
 
@@ -34,16 +33,16 @@ contract OffchainEffect {
     }
 
     #[private]
-    fn emit_offchain_effect_for_recipient(messages: BoundedVec<MessagePayload, 6>) {
-        if messages.len() > 0 {
-            let mut messages = messages;
-            let messagePayload = messages.pop();
-            emit_offchain_effect(messagePayload.message, messagePayload.recipient);
+    fn emit_offchain_effects(effects: BoundedVec<EffectPayload, 6>) {
+        if effects.len() > 0 {
+            let mut effects = effects;
+            let payload = effects.pop();
+            emit_offchain_effect(payload.data);
 
-            if messages.len() > 0 {
-                OffchainEffect::at(messagePayload.next_contract)
-                    .emit_offchain_effect_for_recipient(messages)
-                    .call(&mut context);
+            if effects.len() > 0 {
+                OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
+                    &mut context,
+                );
             }
         }
     }
@@ -68,7 +67,7 @@ contract OffchainEffect {
 
     #[utility]
     unconstrained fn emitting_offchain_effect_from_utility_reverts() {
-        emit_offchain_effect([0; 5], AztecAddress::zero());
+        emit_offchain_effect([0; 5]);
     }
 
     #[utility]

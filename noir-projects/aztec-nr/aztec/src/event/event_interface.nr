@@ -1,6 +1,9 @@
 use crate::{
     context::{PrivateContext, PublicContext},
-    messages::logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
+    messages::{
+        logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
+        msg_type::OFFCHAIN_MESSAGE_IDENTIFIER,
+    },
     oracle::offchain_effect::emit_offchain_effect,
     utils::remove_constraints::{remove_constraints, remove_constraints_if},
 };
@@ -108,7 +111,12 @@ where
     );
     context.push_nullifier(event_commitment);
 
-    emit_offchain_effect(message_ciphertext, recipient);
+    let encrypted_event_with_id_randomness_and_recipient = array_concat(
+        [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()],
+        message_ciphertext,
+    );
+
+    emit_offchain_effect(encrypted_event_with_id_randomness_and_recipient);
 }
 
 pub fn emit_event_in_public_log<Event, let N: u32>(event: Event, context: &mut PublicContext)

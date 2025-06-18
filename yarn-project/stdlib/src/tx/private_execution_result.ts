@@ -135,7 +135,7 @@ export class PrivateCallExecutionResult {
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
     /** The offchain messages emitted during execution of this function call via the `emit_offchain_effect` oracle. */
-    public offchainEffects: { message: Fr[]; recipient: AztecAddress }[],
+    public offchainEffects: { data: Fr[] }[],
     /** The nested executions. */
     public nestedExecutions: PrivateCallExecutionResult[],
     /**
@@ -158,7 +158,7 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        offchainEffects: z.array(z.object({ message: z.array(schemas.Fr), recipient: AztecAddress.schema })),
+        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
         nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
@@ -193,8 +193,7 @@ export class PrivateCallExecutionResult {
       [Fr.random()],
       [
         {
-          message: [Fr.random()],
-          recipient: await AztecAddress.random(),
+          data: [Fr.random()],
         },
       ],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),

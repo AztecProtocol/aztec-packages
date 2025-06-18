@@ -4,7 +4,9 @@ use crate::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         logs::utils::prefix_with_tag,
-        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
+        msg_type::{
+            OFFCHAIN_MESSAGE_IDENTIFIER, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
+        },
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::offchain_effect::emit_offchain_effect,
@@ -14,7 +16,8 @@ use protocol_types::{
     abis::note_hash::NoteHash,
     address::AztecAddress,
     constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS},
-    traits::Packable,
+    traits::{Packable, ToField},
+    utils::arrays::array_concat,
 };
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
@@ -183,6 +186,11 @@ where
         // the tag.
         let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
 
-        emit_offchain_effect(message_ciphertext, recipient);
+        let message_with_id_and_recipient = array_concat(
+            [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()],
+            message_ciphertext,
+        );
+
+        emit_offchain_effect(message_with_id_and_recipient);
     }
 }

@@ -172,18 +172,15 @@ describe('Kernelless simulation', () => {
 
       const [token0AuthwitRequest, token1AuthwitRequest] = offchainEffects;
 
-      // We reuse the offchain message's recipient to also emit the address of the contract that requires the authwit
-      expect(token0AuthwitRequest.recipient).toEqual(token0.address);
-      expect(token1AuthwitRequest.recipient).toEqual(token1.address);
       // The account contract that generates the authwit request
       expect(token0AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
       expect(token1AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
 
-      expect(token0AuthwitRequest.message).toHaveLength(1);
-      expect(token1AuthwitRequest.message).toHaveLength(1);
+      expect(token0AuthwitRequest.data).toHaveLength(1);
+      expect(token1AuthwitRequest.data).toHaveLength(1);
 
-      const [token0AuthwitHash] = token0AuthwitRequest.message;
-      const [token1AuthwitHash] = token1AuthwitRequest.message;
+      const [token0AuthwitHash] = token0AuthwitRequest.data;
+      const [token1AuthwitHash] = token1AuthwitRequest.data;
 
       // Compute the real authwitness
       const token0Authwit = await liquidityProvider.createAuthWit({
