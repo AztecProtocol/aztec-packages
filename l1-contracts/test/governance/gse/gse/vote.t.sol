@@ -55,6 +55,7 @@ contract VoteTest is WithGSE {
 
     (address voter, uint256 availablePower) = _prepare(_instance, _attester, _delegatee, _delegate);
     uint256 amount = bound(_amount, 0, availablePower);
+    assertEq(gse.getPowerUsed(voter, 0), 0);
 
     vm.prank(voter);
     gse.vote(0, amount, _support);
@@ -62,6 +63,8 @@ contract VoteTest is WithGSE {
     proposal = governance.getProposal(0);
     assertEq(proposal.summedBallot.yea, _support ? amount : 0);
     assertEq(proposal.summedBallot.nea, _support ? 0 : amount);
+
+    assertEq(gse.getPowerUsed(voter, 0), amount);
   }
 
   function _prepare(address _instance, address _attester, address _delegatee, bool _delegate)

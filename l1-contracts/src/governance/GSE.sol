@@ -53,10 +53,6 @@ interface IGSE is IGSECore {
     external
     view
     returns (uint256);
-  function getEffectiveVotingPowerAt(address _attester, Timestamp _timestamp)
-    external
-    view
-    returns (uint256);
 
   function getWithdrawer(address _instance, address _attester)
     external
@@ -486,22 +482,6 @@ contract GSE is IGSE, GSECore {
     returns (address)
   {
     return delegation.getDelegatee(_instance, _attester);
-  }
-
-  /**
-   * @notice  The effective power includes the power delegated to the canonical
-   */
-  function getEffectiveVotingPowerAt(address _delegatee, Timestamp _timestamp)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
-    uint256 power = delegation.getVotingPowerAt(_delegatee, _timestamp);
-    if (getCanonicalAt(_timestamp) == _delegatee) {
-      power += delegation.getVotingPowerAt(CANONICAL_MAGIC_ADDRESS, _timestamp);
-    }
-    return power;
   }
 
   function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
