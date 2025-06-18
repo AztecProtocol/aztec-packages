@@ -8,10 +8,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 using Poseidon2Perm = bb::crypto::Poseidon2Permutation<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -346,31 +343,87 @@ void Poseidon2TraceBuilder::process_permutation(
     TraceContainer& trace)
 {
     using C = Column;
-    uint32_t row = 1;
+    // Our current state
+    std::array<FF, 4> current_state;
+    // These are where we will store the intermediate values of current_state in the trace.
+    std::array<Column, 4> round_state_cols;
+
+    uint32_t row = 0;
+
     for (const auto& event : perm_events) {
-        auto input = event.input;
-        auto result = Poseidon2Perm::permutation(input);
+        // The bulk of this code is a copy of the Poseidon2Permutation::permute function from bb
+        // Note that the functions mutate current_state in place.
+        current_state = event.input;
 
-        trace.set(row, { { { C::poseidon2_perm_sel, 1 } } });
-        trace.set(row, { { { C::poseidon2_perm_input_0, input[0] } } });
-        trace.set(row, { { { C::poseidon2_perm_input_1, input[1] } } });
-        trace.set(row, { { { C::poseidon2_perm_input_2, input[2] } } });
-        trace.set(row, { { { C::poseidon2_perm_input_3, input[3] } } });
-        trace.set(row, { { { C::poseidon2_perm_output_0, result[0] } } });
-        trace.set(row, { { { C::poseidon2_perm_output_1, result[1] } } });
-        trace.set(row, { { { C::poseidon2_perm_output_2, result[2] } } });
-        trace.set(row, { { { C::poseidon2_perm_output_3, result[3] } } });
+        // Apply 1st linear layer
+        Poseidon2Perm::matrix_multiplication_external(current_state);
+        trace.set(row,
+                  { {
+                      { C::poseidon2_perm_sel, 1 },
+                      { C::poseidon2_perm_a_0, event.input[0] },
+                      { C::poseidon2_perm_a_1, event.input[1] },
+                      { C::poseidon2_perm_a_2, event.input[2] },
+                      { C::poseidon2_perm_a_3, event.input[3] },
 
-        auto round_vectors = Poseidon2Perm::get_round_vectors(input);
+                      { C::poseidon2_perm_EXT_LAYER_6, current_state[0] },
+                      { C::poseidon2_perm_EXT_LAYER_5, current_state[1] },
+                      { C::poseidon2_perm_EXT_LAYER_7, current_state[2] },
+                      { C::poseidon2_perm_EXT_LAYER_4, current_state[3] },
 
-        // This is a bit of an unusual loop, we're iterating through all of the rounds and setting the corresponding
-        // columns for that round.
-        for (size_t round = 0; round < Poseidon2Perm::NUM_ROUNDS; round++) {
-            StateCols round_cols = intermediate_round_cols[round];
-            for (size_t state = 0; state < 4; state++) {
-                trace.set(row, { { { round_cols[state], round_vectors[round][state] } } });
-            }
+                  } });
+
+        // Perform rounds of the permutation algorithm
+        // Initial external (full) rounds
+        constexpr size_t rounds_f_beginning = Poseidon2Perm::rounds_f / 2;
+        for (size_t i = 0; i < rounds_f_beginning; ++i) {
+            Poseidon2Perm::add_round_constants(current_state, Poseidon2Perm::round_constants[i]);
+            Poseidon2Perm::apply_sbox(current_state);
+            Poseidon2Perm::matrix_multiplication_external(current_state);
+            // Store end of round state
+            round_state_cols = intermediate_round_cols[i];
+            trace.set(row,
+                      { { { round_state_cols[0], current_state[0] },
+                          { round_state_cols[1], current_state[1] },
+                          { round_state_cols[2], current_state[2] },
+                          { round_state_cols[3], current_state[3] } } });
         }
+
+        // Internal (partial) rounds
+        const size_t p_end = rounds_f_beginning + Poseidon2Perm::rounds_p;
+        for (size_t i = rounds_f_beginning; i < p_end; ++i) {
+            current_state[0] += Poseidon2Perm::round_constants[i][0];
+            Poseidon2Perm::apply_single_sbox(current_state[0]);
+            Poseidon2Perm::matrix_multiplication_internal(current_state);
+            // Store end of round state
+            round_state_cols = intermediate_round_cols[i];
+            trace.set(row,
+                      { { { round_state_cols[0], current_state[0] },
+                          { round_state_cols[1], current_state[1] },
+                          { round_state_cols[2], current_state[2] },
+                          { round_state_cols[3], current_state[3] } } });
+        }
+
+        // Remaining external (full) rounds
+        for (size_t i = p_end; i < Poseidon2Perm::NUM_ROUNDS; ++i) {
+            Poseidon2Perm::add_round_constants(current_state, Poseidon2Perm::round_constants[i]);
+            Poseidon2Perm::apply_sbox(current_state);
+            Poseidon2Perm::matrix_multiplication_external(current_state);
+            round_state_cols = intermediate_round_cols[i];
+            trace.set(row,
+                      { { { round_state_cols[0], current_state[0] },
+                          { round_state_cols[1], current_state[1] },
+                          { round_state_cols[2], current_state[2] },
+                          { round_state_cols[3], current_state[3] } } });
+        }
+        // Set the output
+        trace.set(row,
+                  { {
+                      { C::poseidon2_perm_b_0, current_state[0] },
+                      { C::poseidon2_perm_b_1, current_state[1] },
+                      { C::poseidon2_perm_b_2, current_state[2] },
+                      { C::poseidon2_perm_b_3, current_state[3] },
+
+                  } });
         row++;
     }
 }

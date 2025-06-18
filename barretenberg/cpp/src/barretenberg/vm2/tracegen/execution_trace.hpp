@@ -16,15 +16,6 @@ class ExecutionTraceBuilder final {
     void process(const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events,
                  TraceContainer& trace);
 
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs()
-    {
-        return interactions.get_all_jobs();
-    }
-    template <typename InteractionSettings> static std::unique_ptr<class InteractionBuilderInterface> get_strict_job()
-    {
-        return interactions.get_strict_job<InteractionSettings>();
-    }
-
     // Public for testing.
     void process_instr_fetching(const simulation::Instruction& instruction, TraceContainer& trace, uint32_t row);
     void process_execution_spec(const simulation::ExecutionEvent& ex_event, TraceContainer& trace, uint32_t row);
@@ -41,7 +32,6 @@ class ExecutionTraceBuilder final {
                            uint32_t row);
     void process_dynamic_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row);
 
-  private:
     static const InteractionDefinition interactions;
 };
 

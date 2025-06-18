@@ -15,16 +15,6 @@ class RangeCheckTraceBuilder final {
     void process(const simulation::EventEmitterInterface<simulation::RangeCheckEvent>::Container& events,
                  TraceContainer& trace);
 
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs()
-    {
-        return interactions.get_all_jobs();
-    }
-    template <typename InteractionSettings> static std::unique_ptr<class InteractionBuilderInterface> get_strict_job()
-    {
-        return interactions.get_strict_job<InteractionSettings>();
-    }
-
-  private:
     static const InteractionDefinition interactions;
 };
 

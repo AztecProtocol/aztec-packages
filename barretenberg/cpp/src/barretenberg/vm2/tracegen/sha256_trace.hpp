@@ -14,17 +14,10 @@ class Sha256TraceBuilder final {
   public:
     void process(const simulation::EventEmitterInterface<simulation::Sha256CompressionEvent>::Container& events,
                  TraceContainer& trace);
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs()
-    {
-        return interactions.get_all_jobs();
-    }
-    template <typename InteractionSettings> static std::unique_ptr<class InteractionBuilderInterface> get_strict_job()
-    {
-        return interactions.get_strict_job<InteractionSettings>();
-    }
+
+    static const InteractionDefinition interactions;
 
   private:
-    static const InteractionDefinition interactions;
     uint32_t row = 1; // Start from 1 to avoid the precomputed row.
 
     void into_limbs_with_witness(const uint64_t, const uint8_t b, Column c_lhs, Column c_rhs, TraceContainer& trace);

@@ -12,6 +12,16 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> InteractionDefinition:
     return jobs;
 }
 
+std::vector<std::unique_ptr<InteractionBuilderInterface>> InteractionDefinition::get_all_strict_jobs() const
+{
+    std::vector<std::unique_ptr<InteractionBuilderInterface>> jobs;
+    jobs.reserve(interactions.size());
+    for (const auto& [name, factory] : interactions) {
+        jobs.push_back(factory(/*strict=*/true));
+    }
+    return jobs;
+}
+
 const InteractionDefinition::Factory& InteractionDefinition::get_job_internal(std::string_view interaction_name) const
 {
     auto it = interactions.find(interaction_name);

@@ -38,4 +38,5 @@ const InteractionDefinition ClassIdDerivationTraceBuilder::interactions =
     InteractionDefinition()
         .add<lookup_class_id_derivation_class_id_poseidon2_0_settings, InteractionType::LookupSequential>()
         .add<lookup_class_id_derivation_class_id_poseidon2_1_settings, InteractionType::LookupSequential>();
+
 } // namespace bb::avm2::tracegen

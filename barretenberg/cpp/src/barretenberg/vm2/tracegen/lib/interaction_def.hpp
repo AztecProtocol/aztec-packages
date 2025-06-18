@@ -16,10 +16,10 @@ namespace bb::avm2::tracegen {
 
 enum class InteractionType {
     LookupGeneric,
+    LookupSequential,
     LookupIntoBitwise,
     LookupIntoIndexedByClk,
     LookupIntoPDecomposition,
-    LookupSequential,
     Permutation,
 };
 
@@ -34,6 +34,7 @@ class InteractionDefinition {
     }
 
     std::vector<std::unique_ptr<InteractionBuilderInterface>> get_all_jobs() const;
+    std::vector<std::unique_ptr<InteractionBuilderInterface>> get_all_strict_jobs() const;
     std::unique_ptr<InteractionBuilderInterface> get_job(std::string_view interaction_name) const
     {
         return get_job_internal(interaction_name)(/*strict=*/false);

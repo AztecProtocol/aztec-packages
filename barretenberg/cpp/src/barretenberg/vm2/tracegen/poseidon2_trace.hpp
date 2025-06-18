@@ -18,16 +18,6 @@ class Poseidon2TraceBuilder final {
         const simulation::EventEmitterInterface<simulation::Poseidon2PermutationEvent>::Container& perm_events,
         TraceContainer& trace);
 
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs()
-    {
-        return interactions.get_all_jobs();
-    }
-    template <typename InteractionSettings> static std::unique_ptr<class InteractionBuilderInterface> get_strict_job()
-    {
-        return interactions.get_strict_job<InteractionSettings>();
-    }
-
-  private:
     static const InteractionDefinition interactions;
 };
 

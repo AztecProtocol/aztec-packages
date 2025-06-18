@@ -17,16 +17,6 @@ class EccTraceBuilder final {
     void process_scalar_mul(const simulation::EventEmitterInterface<simulation::ScalarMulEvent>::Container& events,
                             TraceContainer& trace);
 
-    static std::vector<std::unique_ptr<class InteractionBuilderInterface>> lookup_jobs()
-    {
-        return interactions.get_all_jobs();
-    }
-    template <typename InteractionSettings> static std::unique_ptr<class InteractionBuilderInterface> get_strict_job()
-    {
-        return interactions.get_strict_job<InteractionSettings>();
-    }
-
-  private:
     static const InteractionDefinition interactions;
 };
 
