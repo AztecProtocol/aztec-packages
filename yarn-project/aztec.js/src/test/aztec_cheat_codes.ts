@@ -45,7 +45,7 @@ export class AztecCheatCodes {
    */
   public async timestamp(): Promise<number> {
     const res = await this.pxe.getBlock(await this.blockNumber());
-    return res?.header.globalVariables.timestamp.toNumber() ?? 0;
+    return Number(res?.header.globalVariables.timestamp ?? 0);
   }
 
   /**

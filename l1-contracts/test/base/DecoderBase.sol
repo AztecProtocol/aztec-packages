@@ -46,7 +46,6 @@ contract DecoderBase is TestBase {
   struct AlphabeticalContentCommitment {
     bytes32 blobsHash;
     bytes32 inHash;
-    uint256 numTxs;
     bytes32 outHash;
   }
 
@@ -114,8 +113,7 @@ contract DecoderBase is TestBase {
           contentCommitment: ContentCommitment({
             blobsHash: full.block.header.contentCommitment.blobsHash,
             inHash: full.block.header.contentCommitment.inHash,
-            outHash: full.block.header.contentCommitment.outHash,
-            numTxs: full.block.header.contentCommitment.numTxs
+            outHash: full.block.header.contentCommitment.outHash
           }),
           slotNumber: Slot.wrap(full.block.header.slotNumber),
           timestamp: Timestamp.wrap(full.block.header.timestamp),

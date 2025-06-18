@@ -1,5 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
@@ -26,7 +27,7 @@ describe('prover-node-publisher', () => {
     config = {
       l1ChainId: 1,
       l1RpcUrls: ['http://localhost:8545'],
-      publisherPrivateKey: '0x1234',
+      publisherPrivateKey: new SecretValue('0x1234'),
       l1PublishRetryIntervalMS: 1000,
       viemPollingIntervalMS: 1000,
       customForwarderContractAddress: EthAddress.random(),

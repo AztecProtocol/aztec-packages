@@ -4,16 +4,16 @@
 pragma solidity >=0.8.27;
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature, CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature, CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {
@@ -25,13 +25,12 @@ import {
 
 import {DecoderBase} from "../base/DecoderBase.sol";
 
-import {Timestamp, EpochLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {AttesterView, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
-import {GSE} from "@aztec/core/staking/GSE.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -44,7 +43,6 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   using MessageHashUtils for bytes32;
-  using EpochLib for Epoch;
 
   // Test Block Flags
   struct TestFlags {
@@ -61,7 +59,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     invalidCommitteeCommitment: false
   });
 
-  function testInitialCommitteeMatch() public setup(4) progressEpochs(2) {
+  function testInitialCommitteeMatch() public setup(4, 4) progressEpochs(2) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
     assertEq(rollup.getCurrentEpoch(), 2);
@@ -84,7 +82,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertTrue(_seenCommittee[proposer]);
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -96,15 +94,15 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     address expectedProposer = rollup.getCurrentProposer();
 
     // Add a validator which will also setup the epoch
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) progressEpochs(2) {
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4, 4) progressEpochs(2) {
     Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp
@@ -127,7 +125,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     assertEq(preCommittee, postCommittee, "Committee elements have changed");
   }
 
-  function testStableCommittee(uint8 _timeToJump) public setup(4) progressEpochs(2) {
+  function testStableCommittee(uint8 _timeToJump) public setup(4, 4) progressEpochs(2) {
     Epoch epoch = rollup.getCurrentEpoch();
 
     uint256 preSize = rollup.getActiveAttesterCount();
@@ -143,9 +141,10 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     vm.warp(ts2);
 
     // add a new validator
-    testERC20.mint(address(this), rollup.getMinimumStake());
-    testERC20.approve(address(rollup), rollup.getMinimumStake());
+    testERC20.mint(address(this), rollup.getDepositAmount());
+    testERC20.approve(address(rollup), rollup.getDepositAmount());
     rollup.deposit(address(0xdead), address(0xdead), true);
+    rollup.flushEntryQueue();
 
     assertEq(rollup.getCurrentEpoch(), epoch);
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -164,7 +163,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   /// forge-config: default.isolate = true
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
     public
-    setup(100)
+    setup(100, 48)
     progressEpochs(2)
   {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
@@ -189,12 +188,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testHappyPath() public setup(4) progressEpochs(2) {
+  function testHappyPath() public setup(4, 4) progressEpochs(2) {
     _testBlock("mixed_block_1", false, 3, NO_FLAGS);
     _testBlock("mixed_block_2", false, 3, NO_FLAGS);
   }
 
-  function testNukeFromOrbit() public setup(4) progressEpochs(2) {
+  function testNukeFromOrbit() public setup(4, 4) progressEpochs(2) {
     // We propose some blocks, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalised.
@@ -209,7 +208,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
-    uint96 slashAmount = 10e18;
+    uint96 slashAmount = 90e18;
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
@@ -222,16 +221,16 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     slasher.slash(slashPayload);
 
     // Make sure that the slash was successful,
-    // Meaning that validators are now LIVING and have lost the slash amount
+    // Meaning that validators are now ZOMBIE and have lost the slash amount
     for (uint256 i = 0; i < attesters.length; i++) {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status after");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status after");
     }
   }
 
-  function testRelayedForProposer() public setup(4) progressEpochs(2) {
+  function testRelayedForProposer() public setup(4, 4) progressEpochs(2) {
     // Having someone that is not the proposer submit it, but with all signatures (so there is signature from proposer)
     _testBlock(
       "mixed_block_1",
@@ -246,7 +245,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testProposerNotProvided() public setup(4) progressEpochs(2) {
+  function testProposerNotProvided() public setup(4, 4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -260,7 +259,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInvalidCommitteeCommitment() public setup(4) progressEpochs(2) {
+  function testInvalidCommitteeCommitment() public setup(4, 4) progressEpochs(2) {
     _testBlock(
       "mixed_block_1",
       true,
@@ -274,7 +273,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     );
   }
 
-  function testInsufficientSigsMove() public setup(4) progressEpochs(2) {
+  function testInsufficientSigsMove() public setup(4, 4) progressEpochs(2) {
     GSE gse = rollup.getGSE();
     address caller = gse.owner();
     vm.prank(caller);
@@ -489,7 +488,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.getRootData(full.block.blockNumber);
+    bytes32 root = outbox.getRootData(full.block.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
     if (rollup.getProvenBlockNumber() >= full.block.blockNumber) {

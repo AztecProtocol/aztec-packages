@@ -204,7 +204,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getL1ToL2Messages', async () => {
-    const result = await context.client.getL1ToL2Messages(1n);
+    const result = await context.client.getL1ToL2Messages(1);
     expect(result).toEqual([expect.any(Fr)]);
   });
 
@@ -214,7 +214,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getContract', async () => {
@@ -379,13 +379,12 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    expect(blockNumber).toEqual(1n);
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+    expect(blockNumber).toEqual(1);
     return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {

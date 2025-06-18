@@ -18,7 +18,7 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
     const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-    const blobs = await Blob.getBlobs(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+    const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
     const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
     context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);

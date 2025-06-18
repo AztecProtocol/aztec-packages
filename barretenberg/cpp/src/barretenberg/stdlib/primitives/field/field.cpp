@@ -399,49 +399,43 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
+
 /**
  * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
  * implicitly range constrained.
  *
  * @returns this ** (exponent)
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
 {
+    if (is_constant()) {
+        return field_t(get_value().pow(exponent));
+    }
+    if (exponent == 0) {
+        return field_t(bb::fr::one());
+    }
 
-    auto* ctx = get_context() ? get_context() : exponent.get_context();
-    uint256_t exponent_value = exponent.get_value();
+    bool accumulator_initialized = false;
+    field_t<Builder> accumulator;
+    field_t<Builder> running_power = *this;
+    auto shifted_exponent = exponent;
 
-    bool exponent_constant = exponent.is_constant();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller exponent
-    std::vector<bool_t<Builder>> exponent_bits(32);
-    for (size_t i = 0; i < exponent_bits.size(); ++i) {
-        uint256_t value_bit = exponent_value & 1;
-        bool_t<Builder> bit;
-        bit = exponent_constant ? bool_t<Builder>(ctx, value_bit.data[0]) : witness_t<Builder>(ctx, value_bit.data[0]);
-        if (!exponent_constant) {
-            bit.set_origin_tag(exponent.tag);
+    // Square and multiply, there's no need to constrain the exponent bit decomposition, as it is an integer constant.
+    while (shifted_exponent != 0) {
+        if (shifted_exponent & 1) {
+            if (!accumulator_initialized) {
+                accumulator = running_power;
+                accumulator_initialized = true;
+            } else {
+                accumulator *= running_power;
+            }
         }
-        exponent_bits[31 - i] = (bit);
-        exponent_value >>= 1;
-    }
-
-    if (!exponent_constant) {
-        field_t<Builder> exponent_accumulator(ctx, 0);
-        for (const auto& bit : exponent_bits) {
-            exponent_accumulator += exponent_accumulator;
-            exponent_accumulator += bit;
+        if (shifted_exponent >= 2) {
+            // Don't update `running_power` if `shifted_exponent` = 1, as it won't be used anywhere.
+            running_power = running_power.sqr();
         }
-        exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+        shifted_exponent >>= 1;
     }
-    field_t accumulator(ctx, 1);
-    field_t mul_coefficient = *this - 1;
-    for (size_t i = 0; i < 32; ++i) {
-        accumulator *= accumulator;
-        const auto bit = exponent_bits[i];
-        accumulator *= (mul_coefficient * bit + 1);
-    }
-    accumulator = accumulator.normalize();
-    accumulator.tag = OriginTag(tag, exponent.tag);
     return accumulator;
 }
 
@@ -451,11 +445,52 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
  *
  * @returns this ** (exponent)
  */
-template <typename Builder> field_t<Builder> field_t<Builder>::pow(const size_t exponent) const
+template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
-    auto* ctx = get_context();
-    auto exponent_field_elt = field_t::from_witness(ctx, exponent);
-    return pow(exponent_field_elt);
+    uint256_t exponent_value = exponent.get_value();
+
+    if (is_constant() && exponent.is_constant()) {
+        return field_t(get_value().pow(exponent_value));
+    }
+    // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
+    if (exponent.is_constant()) {
+        ASSERT(exponent_value.get_msb() < 32);
+        return pow(static_cast<uint32_t>(exponent_value));
+    }
+
+    auto* ctx = exponent.context;
+
+    std::array<bool_t<Builder>, 32> exponent_bits;
+    // Collect individual bits as bool_t's
+    for (size_t i = 0; i < exponent_bits.size(); ++i) {
+        uint256_t value_bit = exponent_value & 1;
+        bool_t<Builder> bit;
+        bit = bool_t<Builder>(witness_t<Builder>(ctx, value_bit.data[0]));
+        bit.set_origin_tag(exponent.tag);
+        exponent_bits[31 - i] = bit;
+        exponent_value >>= 1;
+    }
+
+    field_t<Builder> exponent_accumulator(bb::fr::zero());
+    for (const auto& bit : exponent_bits) {
+        exponent_accumulator += exponent_accumulator;
+        exponent_accumulator += bit;
+    }
+    // Constrain the sum of bool_t bits to be equal to the original exponent value.
+    exponent.assert_equal(exponent_accumulator, "field_t::pow exponent accumulator incorrect");
+
+    // Compute the result of exponentiation
+    field_t accumulator(ctx, bb::fr::one());
+    const field_t one(bb::fr::one());
+    for (size_t i = 0; i < 32; ++i) {
+        accumulator *= accumulator;
+        // If current bit == 1, multiply by the base, else propagate the accumulator
+        const field_t multiplier = conditional_assign(exponent_bits[i], *this, one);
+        accumulator *= multiplier;
+    }
+    accumulator = accumulator.normalize();
+    accumulator.tag = OriginTag(tag, exponent.tag);
+    return accumulator;
 }
 
 /**
@@ -597,15 +632,15 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     if (is_constant() || ((multiplicative_constant == bb::fr::one()) && (additive_constant == bb::fr::zero()))) {
         return *this;
     }
+    ASSERT(context);
 
     // Value of this = this.v * this.mul + this.add; // where this.v = context->variables[this.witness_index]
     // Normalised result = result.v * 1 + 0;         // where result.v = this.v * this.mul + this.add
     // We need a new gate to enforce that the `result` was correctly calculated from `this`.
-
     field_t<Builder> result(context);
     bb::fr value = context->get_variable(witness_index);
 
-    result.witness_index = context->add_variable(get_value());
+    result.witness_index = context->add_variable(value * multiplicative_constant + additive_constant);
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
@@ -813,9 +848,10 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
         return result;
     }
     // Compute
-    //  `predicate` * (-a) + a.
+    //      `predicate` * ( -2 * a ) + a.
     // If predicate's value == true, then the output is `-a`, else it's `a`
-    return field_t(predicate).madd(-*this, *this);
+    static constexpr bb::fr minus_two(-2);
+    return field_t(predicate).madd(*this * minus_two, *this);
 }
 
 /**
@@ -1209,7 +1245,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
     Builder* ctx = get_context();
     const uint256_t one(1);
 
-    const uint256_t value = static_cast<uint256_t>(get_value());
+    const uint256_t value = get_value();
     const uint8_t msb_plus_one = msb + 1;
     // Slice the bits of `*this` in the range [msb + 1, 255]
     const auto hi_mask = (one << (256 - msb)) - 1;
@@ -1264,7 +1300,10 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
  *
  *   y_lo    := (2^128 + p_lo) - sum + shifted_high_limb =
  *            = (2^128 + p_lo) - sum_lo
- *            = y_lo_lo + y_lo_hi * 2^128 + zeros * 2^129
+ * Use the method `slice` to split `y_lo` into the chunks `y_lo_lo`, `y_lo_hi`, and `zeros` of sizes 128, 1, and 127,
+ * respectively, set
+ *   y_lo     := y_lo_lo + y_lo_hi * 2^128 + zeros * 2^129
+ *
  * It follows that
  *     p_lo - sum_lo = y_lo_lo + (y_lo_hi - 1) * 2^128 + zeros * 2^129
  *
@@ -1302,17 +1341,20 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     std::vector<field_t> accumulator_lo;
     std::vector<field_t> accumulator_hi;
 
-    const uint256_t val_u256 = static_cast<uint256_t>(get_value());
+    const uint256_t val_u256 = get_value();
+    field_t<Builder> sum(context, 0);
+    field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
     for (size_t i = 0; i < num_bits; ++i) {
+        const size_t bit_index = num_bits - 1 - i;
         // Create a witness `bool_t` bit
-        bool_t bit = get_bit(context, num_bits - 1 - i, val_u256);
+        bool_t bit = get_bit(context, bit_index, val_u256);
         bit.set_origin_tag(tag);
-        result[num_bits - 1 - i] = bit;
-        const field_t scaling_factor(uint256_t(1) << (num_bits - 1 - i));
+        result[bit_index] = bit;
+        const field_t scaling_factor(uint256_t(1) << bit_index);
 
         field_t summand = scaling_factor * bit;
 
-        if (num_bits - 1 - midpoint >= i) {
+        if (bit_index >= midpoint) {
             accumulator_hi.push_back(summand);
         } else {
             accumulator_lo.push_back(summand);
@@ -1342,7 +1384,7 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         zeros.assert_is_zero("field_t: bit decomposition_fails: high limb non-zero");
 
         // Ensure that y_hi is "non-negative"
-        const field_t y_borrow = -(y_lo_hi - 1);
+        const field_t y_borrow = -y_lo_hi + 1;
         // If a carry was necessary, subtract that carry from p_hi
         // y_hi = (p_hi - y_borrow) - sum_hi
         const field_t y_hi = (-(sum_hi_shift / shift)).add_two(p_hi, -y_borrow);

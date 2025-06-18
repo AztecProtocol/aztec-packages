@@ -14,9 +14,9 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
+import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
-import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
@@ -234,7 +234,7 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
     throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
   }
 
-  const siblingPath = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(MerkleTreeId.PUBLIC_DATA_TREE, index);
+  const siblingPath = await db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
   const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
 
   const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
@@ -253,7 +253,7 @@ export const buildBlobHints = runInSpan(
   'buildBlobHints',
   async (_span: Span, txEffects: TxEffect[]) => {
     const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
     // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
     // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
@@ -270,7 +270,7 @@ export const accumulateBlobs = runInSpan(
   'accumulateBlobs',
   async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
     const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
-    const blobs = await Blob.getBlobs(blobFields);
+    const blobs = await Blob.getBlobsPerBlock(blobFields);
     const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
   },
@@ -284,28 +284,20 @@ export const buildHeaderFromCircuitOutputs = runInSpan(
     previousRollupData: BaseOrMergeRollupPublicInputs[],
     parityPublicInputs: ParityPublicInputs,
     rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
-    blobsHash: Buffer,
+    blobsHash: Fr,
     endState: StateReference,
   ) => {
     if (previousRollupData.length > 2) {
       throw new Error(`There can't be more than 2 previous rollups. Received ${previousRollupData.length}.`);
     }
 
-    const numTxs = previousRollupData.reduce((sum, d) => sum + d.numTxs, 0);
     const outHash =
       previousRollupData.length === 0
-        ? Fr.ZERO.toBuffer()
+        ? Fr.ZERO
         : previousRollupData.length === 1
-          ? previousRollupData[0].outHash.toBuffer()
-          : sha256Trunc(
-              Buffer.concat([previousRollupData[0].outHash.toBuffer(), previousRollupData[1].outHash.toBuffer()]),
-            );
-    const contentCommitment = new ContentCommitment(
-      new Fr(numTxs),
-      blobsHash,
-      parityPublicInputs.shaRoot.toBuffer(),
-      outHash,
-    );
+          ? previousRollupData[0].outHash
+          : sha256ToField([previousRollupData[0].outHash, previousRollupData[1].outHash]);
+    const contentCommitment = new ContentCommitment(blobsHash, parityPublicInputs.shaRoot, outHash);
 
     const accumulatedFees = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedFees), Fr.ZERO);
     const accumulatedManaUsed = previousRollupData.reduce((sum, d) => sum.add(d.accumulatedManaUsed), Fr.ZERO);
@@ -331,7 +323,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
   ) => {
-    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber.toNumber());
+    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
       await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
       new PartialStateReference(
@@ -349,12 +341,14 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const numTxs = body.txEffects.length;
     const outHash =
       numTxs === 0
-        ? Fr.ZERO.toBuffer()
+        ? Fr.ZERO
         : numTxs === 1
-          ? body.txEffects[0].txOutHash()
-          : computeUnbalancedMerkleRoot(
-              body.txEffects.map(tx => tx.txOutHash()),
-              TxEffect.empty().txOutHash(),
+          ? new Fr(body.txEffects[0].txOutHash())
+          : new Fr(
+              computeUnbalancedMerkleRoot(
+                body.txEffects.map(tx => tx.txOutHash()),
+                TxEffect.empty().txOutHash(),
+              ),
             );
 
     l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
@@ -366,10 +360,10 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
       Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
       hasher,
     );
-    const parityShaRoot = await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobs(body.toBlobFields()));
+    const parityShaRoot = new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
+    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
 
-    const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
+    const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
@@ -380,9 +374,16 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
   },
 );
 
-export function getBlobsHashFromBlobs(inputs: Blob[]): Buffer {
-  const blobHashes = serializeToBuffer(inputs.map(b => b.getEthVersionedBlobHash()));
-  return sha256Trunc(serializeToBuffer(blobHashes));
+export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
+  return sha256ToField(inputs.map(b => b.getEthVersionedBlobHash()));
+}
+
+// Note: tested against the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts.
+// Having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
+// getBlobsPerBlock() works on empty input.
+export async function getEmptyBlockBlobsHash(): Promise<Fr> {
+  const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
+  return sha256ToField(blobHash);
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation

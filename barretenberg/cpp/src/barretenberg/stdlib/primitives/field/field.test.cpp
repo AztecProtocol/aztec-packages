@@ -659,31 +659,33 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
         std::array<bool_ct, 4> predicates{
-            bool_ct(true), bool_ct(false), bool_ct(&builder, true), bool_ct(&builder, false)
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
         };
         field_ct constant_summand(bb::fr::random_element());
         field_ct witness_summand(witness_ct(&builder, bb::fr::random_element()));
         for (auto& predicate : predicates) {
-            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
 
+            const bool predicate_is_witness = !predicate.is_constant();
+
+            // Conditionally negate a constant
+            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
             auto result = constant_summand.conditional_negate(predicate);
             auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
-            // Check that result is constant only if both the predicate and (*this) are constant.
+            // Check that `result` is constant if and only if both the predicate and (*this) are constant.
             EXPECT_TRUE(result.is_constant() == predicate.is_constant());
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
 
+            // Conditionally negate a witness
+            num_gates_before = builder.get_estimated_num_finalized_gates();
             result = witness_summand.conditional_negate(predicate);
             expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
             EXPECT_TRUE(result.get_value() == expected_result);
-            // Check that result is constant only if both the predicate and (*this) are constant.
+            // The result must be a witness
             EXPECT_FALSE(result.is_constant());
-
-            if (predicate.is_constant()) {
-                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates_before);
-            } else {
-                // Each conditional_negate calls `madd` that creates a single gate.
-                EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == 2);
-            }
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
         }
     }
     static void two_bit_table()
@@ -929,114 +931,51 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
+        std::array<uint32_t, 3> const_exponent_values{ 0, 1, engine.get_random_uint32() };
+        std::array<field_ct, 3> witness_exponent_values{ witness_ct(&builder, 0),
+                                                         witness_ct(&builder, 1),
+                                                         witness_ct(&builder, engine.get_random_uint32()) };
 
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
+        std::array<uint256_t, 3> base_values{ 0, 1, engine.get_random_uint256() };
+        for (auto& base : base_values) {
+            for (auto& exponent : const_exponent_values) {
+                // Test constant base && integer exponent cases
+                field_ct result = field_ct(base).pow(exponent);
+                EXPECT_TRUE(result.is_constant());
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent));
+                // Test witness base && integer exponent cases
+                field_ct witness_base(witness_ct(&builder, base));
+                result = witness_base.pow(exponent);
 
-        EXPECT_EQ(result.get_value(), expected);
+                if (exponent != 0) {
+                    EXPECT_TRUE(!result.is_constant());
+                } else {
+                    EXPECT_TRUE(result.is_constant());
+                }
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent));
+
+                EXPECT_TRUE(CircuitChecker::check(builder));
+            }
+            for (auto& exponent : witness_exponent_values) {
+
+                // Test constant base && witness exponent cases
+                field_ct result = field_ct(base).pow(exponent);
+                // Normalized witness == 1 leads to constant results in `conditional_assign(predicate, 1, 1)`
+                EXPECT_EQ(result.is_constant(), base == 1);
+
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
+                // Test witness base && witness exponent cases
+                field_ct witness_base(witness_ct(&builder, base));
+                result = witness_base.pow(exponent);
+
+                EXPECT_TRUE(!result.is_constant());
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
+
+                EXPECT_TRUE(CircuitChecker::check(builder));
+            }
+        }
     }
-
-    static void test_pow_zero()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = 0;
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-
-        EXPECT_EQ(result.get_value(), bb::fr(1));
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_one()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = 1;
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-
-        EXPECT_EQ(result.get_value(), base_val);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_both_constant()
-    {
-        Builder builder = Builder();
-
-        const size_t num_gates_start = builder.num_gates;
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base(&builder, base_val);
-        field_ct exponent(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        const size_t num_gates_end = builder.num_gates;
-        EXPECT_EQ(num_gates_start, num_gates_end);
-    }
-
-    static void test_pow_base_constant()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_exponent_constant()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    };
 
     static void test_pow_exponent_out_of_range()
     {
@@ -1054,6 +993,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_NE(result.get_value(), expected);
         EXPECT_EQ(builder.failed(), true);
         EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+
+        exponent = field_ct(exponent_val);
+#ifndef NDEBUG
+        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+#endif
     };
 
     static void test_copy_as_new_witness()
@@ -1510,26 +1454,6 @@ TYPED_TEST(stdlib_field, test_pow)
 {
     TestFixture::test_pow();
 }
-TYPED_TEST(stdlib_field, test_pow_zero)
-{
-    TestFixture::test_pow_zero();
-}
-TYPED_TEST(stdlib_field, test_pow_one)
-{
-    TestFixture::test_pow_one();
-}
-TYPED_TEST(stdlib_field, test_pow_both_constant)
-{
-    TestFixture::test_pow_both_constant();
-}
-TYPED_TEST(stdlib_field, test_pow_base_constant)
-{
-    TestFixture::test_pow_base_constant();
-}
-TYPED_TEST(stdlib_field, test_pow_exponent_constant)
-{
-    TestFixture::test_pow_exponent_constant();
-}
 TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
 {
     TestFixture::test_pow_exponent_out_of_range();
@@ -1565,4 +1489,9 @@ TYPED_TEST(stdlib_field, test_assert_is_zero)
 TYPED_TEST(stdlib_field, test_accumulate)
 {
     TestFixture::test_accumulate();
+}
+
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
 }

@@ -18,6 +18,7 @@ template <typename FF_> class bitwiseImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return ((in.get(C::bitwise_sel) + in.get(C::bitwise_last))).is_zero();
     }
 
