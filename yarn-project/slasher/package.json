@@ -66,6 +66,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@aztec/aztec.js": "workspace:^",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",

@@ -88,14 +88,6 @@ tests:
     skip: true
     owners:
       - *lasse
-  - regex: "src/slasher_client"
-    skip: true
-    owners:
-      - *mitch
-  - regex: "src/e2e_p2p/validators_sentinel"
-    skip: true
-    owners:
-      - *mitch
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
