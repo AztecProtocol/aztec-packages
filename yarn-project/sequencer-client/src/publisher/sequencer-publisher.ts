@@ -19,6 +19,7 @@ import {
   formatViemError,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -65,7 +66,7 @@ interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: L1GasConfig;
+  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   onResult?: (
     request: L1TxRequest,
@@ -99,6 +100,7 @@ export class SequencerPublisher {
   // Total used for full block from int_l1_pub e2e test: 1m (of which 86k is 1x blob)
   // Total used for emptier block from above test: 429k (of which 84k is 1x blob)
   public static PROPOSE_GAS_GUESS: bigint = 12_000_000n;
+  public static VOTE_GAS_GUESS: bigint = 200_000n;
 
   public l1TxUtils: L1TxUtilsWithBlobs;
   public rollupContract: RollupContract;
@@ -202,18 +204,24 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    // @note - we can only have one gas config and one blob config per bundle
+    // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = requestsToProcess.filter(request => request.gasConfig);
-    const blobConfigs = requestsToProcess.filter(request => request.blobConfig);
+    const gasConfigs = requestsToProcess.filter(request => request.gasConfig).map(request => request.gasConfig);
+    const blobConfigs = requestsToProcess.filter(request => request.blobConfig).map(request => request.blobConfig);
 
-    if (gasConfigs.length > 1 || blobConfigs.length > 1) {
-      throw new Error('Multiple gas or blob configs found');
+    if (blobConfigs.length > 1) {
+      throw new Error('Multiple blob configs found');
     }
 
-    const gasConfig = gasConfigs[0]?.gasConfig;
-    const blobConfig = blobConfigs[0]?.blobConfig;
+    const blobConfig = blobConfigs[0];
+
+    // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
+    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
+    const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
+    const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
+    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
+    const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     try {
       this.log.debug('Forwarding transactions', {
@@ -358,10 +366,13 @@ export class SequencerPublisher {
     const request = await base.createVoteRequestWithSignature(payload.toString(), this.l1TxUtils.client);
     this.log.debug(`Created ${action} request with signature`, {
       request,
+      round,
       signer: this.l1TxUtils.client.account?.address,
+      lastValidL2Slot: slotNumber,
     });
 
     this.addRequest({
+      gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
       request,
       lastValidL2Slot: slotNumber,
