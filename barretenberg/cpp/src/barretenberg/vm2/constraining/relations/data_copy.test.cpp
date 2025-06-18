@@ -8,19 +8,17 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::DataCopyTraceBuilder;
 using tracegen::TestTraceContainer;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using data_copy = bb::avm2::data_copy<FF>;
-
-using mem_read_lookup = bb::avm2::lookup_data_copy_mem_read_settings;
-using mem_write_lookup = bb::avm2::lookup_data_copy_mem_write_settings;
 
 // todo(ilyas): expand this test to pass in a copy_size so we can test padding
 TestTraceContainer calldata_rows(const std::vector<FF>& calldata)
@@ -168,8 +166,9 @@ TEST(DataCopyConstrainingTest, NestedCdCopy)
     }
 
     check_relation<data_copy>(trace);
-    tracegen::LookupIntoDynamicTableGeneric<mem_read_lookup>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<mem_write_lookup>().process(trace);
+    check_interaction<DataCopyTraceBuilder, //
+                      lookup_data_copy_mem_read_settings,
+                      lookup_data_copy_mem_write_settings>(trace);
 }
 
 } // namespace

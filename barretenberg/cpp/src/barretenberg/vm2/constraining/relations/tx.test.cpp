@@ -10,36 +10,24 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
+#include "barretenberg/vm2/generated/relations/tx.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/testing/public_inputs_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
+#include "barretenberg/vm2/tracegen/tx_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::TestTraceContainer;
+using tracegen::TxTraceBuilder;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using tx = bb::avm2::tx<FF>;
-using lookup_read_phase_table_relation = bb::avm2::lookup_tx_read_phase_table_relation<FF>;
-using lookup_read_phase_length_relation = bb::avm2::lookup_tx_read_phase_length_relation<FF>;
-using lookup_read_public_call_request_relation = bb::avm2::lookup_tx_read_public_call_request_phase_relation<FF>;
-using lookup_jump_on_revert_relation = bb::avm2::lookup_tx_phase_jump_on_revert_relation<FF>;
-
-// using lookup_dispatch_exec_start_relation = bb::avm2::lookup_tx_dispatch_exec_start_relation<FF>;
-// using lookup_dispatch_exec_get_revert_relation = bb::avm2::lookup_tx_dispatch_exec_get_revert_relation<FF>;
-
-using lookup_read_tree_insert_value_relation = bb::avm2::lookup_tx_read_tree_insert_value_relation<FF>;
-using lookup_write_tree_insert_value_relation = bb::avm2::lookup_tx_write_tree_insert_value_relation<FF>;
-using lookup_read_l2_l1_msg_relation = bb::avm2::lookup_tx_read_l2_l1_msg_relation<FF>;
-using lookup_write_l2_l1_msg_relation = bb::avm2::lookup_tx_write_l2_l1_msg_relation<FF>;
-using lookup_read_effective_fee_public_inputs_relation =
-    bb::avm2::lookup_tx_read_effective_fee_public_inputs_relation<FF>;
-using lookup_read_fee_payer_public_inputs_relation = bb::avm2::lookup_tx_read_fee_payer_public_inputs_relation<FF>;
 
 TEST(TxExecutionConstrainingTest, EmptyRow)
 {
@@ -239,9 +227,10 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_phase_table_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_read_phase_length_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_public_call_request_relation::Settings>().process(trace);
+    check_interaction<TxTraceBuilder,
+                      lookup_tx_read_phase_table_settings,
+                      lookup_tx_read_phase_length_settings,
+                      lookup_tx_read_public_call_request_phase_settings>(trace);
 }
 
 TEST(TxExecutionConstrainingTest, JumpOnRevert)
@@ -322,7 +311,7 @@ TEST(TxExecutionConstrainingTest, JumpOnRevert)
     precomputed_builder.process_phase_table(trace);
 
     check_relation<tx>(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_jump_on_revert_relation::Settings>().process(trace);
+    check_interaction<TxTraceBuilder, lookup_tx_phase_jump_on_revert_settings>(trace);
 }
 
 } // namespace
@@ -473,10 +462,10 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
-    tracegen::LookupIntoDynamicTableGeneric<lookup_read_tree_insert_value_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_write_tree_insert_value_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_read_l2_l1_msg_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_write_l2_l1_msg_relation::Settings>().process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_tree_insert_value_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_write_tree_insert_value_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_l2_l1_msg_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_write_l2_l1_msg_settings>()->process(trace);
 }
 
 TEST(TxExecutionConstrainingTest, CollectFees)
@@ -740,11 +729,10 @@ TEST(TxExecutionConstrainingTest, CollectFees)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     check_relation<tx>(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_phase_table_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_read_phase_length_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_public_call_request_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_effective_fee_public_inputs_relation::Settings>().process(
-        trace);
-    tracegen::LookupIntoDynamicTableSequential<lookup_read_fee_payer_public_inputs_relation::Settings>().process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_table_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_phase_length_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_public_call_request_phase_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_effective_fee_public_inputs_settings>()->process(trace);
+    TxTraceBuilder::interactions.get_test_job<lookup_tx_read_fee_payer_public_inputs_settings>()->process(trace);
 }
 } // namespace bb::avm2::constraining

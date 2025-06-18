@@ -8,9 +8,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -163,12 +161,10 @@ void EccTraceBuilder::process_scalar_mul(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> EccTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_double_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_add_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_scalar_mul_to_radix_settings>>());
-}
+const InteractionDefinition EccTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_scalar_mul_double_settings, InteractionType::LookupGeneric>()
+        .add<lookup_scalar_mul_add_settings, InteractionType::LookupGeneric>()
+        .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
