@@ -34,7 +34,6 @@ using lookup_jump_on_revert_relation = bb::avm2::lookup_tx_phase_jump_on_revert_
 // using lookup_dispatch_exec_get_revert_relation = bb::avm2::lookup_tx_dispatch_exec_get_revert_relation<FF>;
 
 using lookup_read_tree_insert_value_relation = bb::avm2::lookup_tx_read_tree_insert_value_relation<FF>;
-using lookup_write_tree_insert_value_relation = bb::avm2::lookup_tx_write_tree_insert_value_relation<FF>;
 using lookup_read_l2_l1_msg_relation = bb::avm2::lookup_tx_read_l2_l1_msg_relation<FF>;
 using lookup_write_l2_l1_msg_relation = bb::avm2::lookup_tx_write_l2_l1_msg_relation<FF>;
 using lookup_read_effective_fee_public_inputs_relation =
@@ -72,7 +71,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
 
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
@@ -88,7 +86,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
 
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
@@ -153,7 +150,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -168,7 +164,6 @@ TEST(TxExecutionConstrainingTest, SimpleControlFlowRead)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 } },
 
@@ -344,7 +339,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
           { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.nullifiers[0] },
@@ -360,7 +354,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
 
           { C::tx_is_tree_insert_phase, 1 },
           { C::tx_leaf_value, test_public_inputs.previousNonRevertibleAccumulatedData.noteHashes[0] },
@@ -404,7 +397,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + 1 },
 
           { C::tx_is_tree_insert_phase, 1 },
           { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.nullifiers[0] },
@@ -420,7 +412,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 1 },
 
           { C::tx_is_tree_insert_phase, 1 },
           { C::tx_leaf_value, test_public_inputs.previousRevertibleAccumulatedData.noteHashes[0] },
@@ -474,7 +465,6 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
     precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
 
     tracegen::LookupIntoDynamicTableGeneric<lookup_read_tree_insert_value_relation::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableGeneric<lookup_write_tree_insert_value_relation::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableGeneric<lookup_read_l2_l1_msg_relation::Settings>().process(trace);
     tracegen::LookupIntoDynamicTableGeneric<lookup_write_l2_l1_msg_relation::Settings>().process(trace);
 }
@@ -507,7 +497,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
 
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 },
@@ -527,7 +516,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
 
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 },
@@ -614,7 +602,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 },
           { C::tx_prev_da_gas_used, 3 },
@@ -633,7 +620,6 @@ TEST(TxExecutionConstrainingTest, CollectFees)
           { C::tx_sel_read_phase_length, 1 },
           { C::tx_read_pi_length_offset,
             AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
-          { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
           { C::tx_start_phase, 1 },
           { C::tx_end_phase, 1 },
           { C::tx_prev_da_gas_used, 3 },

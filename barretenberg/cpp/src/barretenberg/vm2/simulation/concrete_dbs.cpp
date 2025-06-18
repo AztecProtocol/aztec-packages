@@ -1,4 +1,6 @@
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -117,27 +119,64 @@ void MerkleDB::nullifier_write(const FF& nullifier)
     nullifier_counter++;
 }
 
-// TODO: These are not current implemented - this needs to be once we have a note hash gadget
-bool MerkleDB::note_hash_exists(const FF& note_hash) const
+FF MerkleDB::note_hash_read(index_t leaf_index) const
 {
-    auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NOTE_HASH_TREE, note_hash);
-    auto low_leaf_path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, low_leaf_index);
-    [[maybe_unused]] auto low_leaf_preimage = raw_merkle_db.get_leaf_preimage_nullifier_tree(low_leaf_index);
+    auto note_hash = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
+    auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
+    note_hash_tree_check.assert_read(leaf_index, note_hash, path, get_tree_roots().noteHashTree);
 
-    // TODO: Assert read
-    return true;
+    return note_hash;
 }
 
-// TODO: These are not current implemented - this needs to be once we have a note hash gadget
-void MerkleDB::note_hash_write([[maybe_unused]] const FF& note_hash)
+void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
-    // AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.write(
-    //     note_hash, low_leaf_hint.leaf, low_leaf_hint.index, low_leaf_hint.path, snapshot_before,
-    //     insertion_hint.path);
-    //
-    // (void)snapshot_after; // Silence unused variable warning when assert is stripped out
-    // // Sanity check.
-    // assert(snapshot_after == get_tree_roots().noteHashTree);
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    // We need to silo and make unique just to fetch the hint. Oof
+    FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
+    FF unique_note_hash =
+        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.append_note_hash(
+        note_hash, contract_address, note_hash_counter, hint.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().nullifierTree);
+
+    note_hash_counter++;
+}
+
+void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    // We need to make unique just to fetch the hint. Oof
+    FF unique_note_hash =
+        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after =
+        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, hint.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().nullifierTree);
+
+    note_hash_counter++;
+}
+
+void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after =
+        note_hash_tree_check.append_unique_note_hash(unique_note_hash, note_hash_counter, hint.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().nullifierTree);
+
     note_hash_counter++;
 }
 
