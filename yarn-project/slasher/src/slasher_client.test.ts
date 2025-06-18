@@ -1,6 +1,8 @@
+import { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import {
   DefaultL1ContractsConfig,
   type DeployL1ContractsArgs,
+  EthCheatCodes,
   type ExtendedViemWalletClient,
   type L1ReaderConfig,
   L1TxUtils,
@@ -42,7 +44,8 @@ const ethereumSlotDuration = 2;
 describe('SlasherClient', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-  let privateKey: PrivateKeyAccount;
+  let slasherPrivateKey: PrivateKeyAccount;
+  let testHarnessPrivateKey: PrivateKeyAccount;
   let logger: Logger;
 
   let vkTreeRoot: Fr;
@@ -54,17 +57,23 @@ describe('SlasherClient', () => {
   let slashingProposer: SlashingProposerContract;
   let l1TxUtils: L1TxUtils;
   let depositAmount: bigint;
+  let slasherL1Client: ExtendedViemWalletClient;
+  let testHarnessL1Client: ExtendedViemWalletClient;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     logger = createLogger('slasher:test:slasher_client');
     // this is the 6th address that gets funded by the junk mnemonic
-    privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    slasherPrivateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
+    testHarnessPrivateKey = privateKeyToAccount('0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a');
+
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    const l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
+    // Need separate clients for slasher and test harness to avoid nonce conflicts.
+    slasherL1Client = createExtendedL1Client([rpcUrl], slasherPrivateKey, foundry);
+    testHarnessL1Client = createExtendedL1Client([rpcUrl], testHarnessPrivateKey, foundry);
 
     const config: DeployL1ContractsArgs = {
       ...DefaultL1ContractsConfig,
@@ -77,18 +86,25 @@ describe('SlasherClient', () => {
       ethereumSlotDuration,
       aztecSlotDuration,
       aztecEpochDuration: 4,
+      aztecTargetCommitteeSize: 1,
       initialValidators: [
         {
-          attester: EthAddress.fromString(l1Client.account.address),
-          withdrawer: EthAddress.fromString(l1Client.account.address),
+          attester: EthAddress.fromString(slasherL1Client.account.address),
+          withdrawer: EthAddress.fromString(slasherL1Client.account.address),
         },
       ],
       realVerifier: false,
     };
 
-    const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, config);
+    const deployed = await deployL1Contracts([rpcUrl], testHarnessPrivateKey, foundry, logger, config);
 
-    l1TxUtils = new L1TxUtils(l1Client, logger);
+    const cheatCodes = new RollupCheatCodes(new EthCheatCodes([rpcUrl]), {
+      rollupAddress: deployed.l1ContractAddresses.rollupAddress,
+    });
+
+    await cheatCodes.advanceToEpoch(2n);
+
+    l1TxUtils = new L1TxUtils(testHarnessL1Client, logger);
 
     dummyWatcher = new DummyWatcher();
 
@@ -102,7 +118,7 @@ describe('SlasherClient', () => {
         slashPayloadTtlSeconds: 100,
       },
       deployed.l1ContractAddresses,
-      l1TxUtils,
+      new L1TxUtils(slasherL1Client, logger),
       [dummyWatcher],
       new DateProvider(),
     );
@@ -112,41 +128,27 @@ describe('SlasherClient', () => {
     rollup = new RollupContract(l1TxUtils.client, deployed.l1ContractAddresses.rollupAddress);
     slashingProposer = await rollup.getSlashingProposer();
 
-    depositAmount = await rollup.getMinimumStake();
+    depositAmount = await rollup.getDepositAmount();
 
-    await rollup.setupEpoch(l1TxUtils);
-  });
-
-  afterAll(async () => {
-    await slasherClient.stop();
-    await anvil.stop().catch(logger.error);
-  });
-
-  beforeEach(async () => {
-    slasherClient.updateConfig({
-      slashOverridePayload: undefined,
-      slashPayloadTtlSeconds: 100,
-      slashProposerRoundPollingIntervalSeconds: 0.25,
-    });
-    // sleep 3 slots to ensure that async events coming in from L1 are processed...
-    await sleep(ethereumSlotDuration * 3 * 1000);
-    // so that we can clear them.
-    slasherClient.clearMonitoredPayloads();
-  });
-
-  it('creates payloads when the watcher signals', async () => {
     await retryUntil(
       async () => {
         await rollup.setupEpoch(l1TxUtils);
         const c = await rollup.getCurrentEpochCommittee();
         logger.debug('committee', c);
-        return c && c.length === 1 && c[0].toLowerCase() === privateKey.address.toLowerCase();
+        return c && c.length === 1 && c[0].toLowerCase() === slasherPrivateKey.address.toLowerCase();
       },
       'non-empty committee',
       20,
       1,
     );
+  });
 
+  afterEach(async () => {
+    await slasherClient.stop();
+    await anvil.stop().catch(logger.error);
+  });
+
+  it('creates payloads when the watcher signals', async () => {
     const slashAmount = depositAmount - 1n;
     expect(slashAmount).toBeLessThan(depositAmount);
     const committee = await rollup.getCurrentEpochCommittee();
@@ -186,7 +188,23 @@ describe('SlasherClient', () => {
     // Await the slashing
     await retryUntil(
       async () => {
-        await rollup.setupEpoch(l1TxUtils);
+        // sometimes the custom error is not decoded properly
+
+        const ignoreExpectedErrors = (err: Error) => {
+          const permissibleErrors = [
+            'GovernanceProposer__OnlyProposerCanVote',
+            '0xea36d1ac',
+            'ValidatorSelection__InsufficientCommitteeSize',
+            '0x98673597',
+          ];
+          if (permissibleErrors.some(error => err.message.includes(error))) {
+            return;
+          }
+          logger.error('Error:', err);
+          throw err;
+        };
+
+        await rollup.setupEpoch(l1TxUtils).catch(ignoreExpectedErrors);
         // Print debug info
         const round = await slashingProposer.computeRound(await rollup.getSlotNumber());
         const roundInfo = await slashingProposer.getRoundInfo(rollup.address, round);
@@ -195,13 +213,11 @@ describe('SlasherClient', () => {
         logger.info('Round info:', roundInfo);
         logger.info(`Leader votes: ${leaderVotes}`);
 
-        await l1TxUtils.client.sendTransaction(slashingProposer.createVoteRequest(payload!.toString())).catch(err => {
-          // sometimes the custom error is not decoded properly
-          if (err.message.includes('GovernanceProposer__OnlyProposerCanVote') || err.message.includes('0xea36d1ac')) {
-            return;
-          }
-          throw err;
-        });
+        // Have the slasher sign the vote request
+        const voteRequest = await slashingProposer.createVoteRequestWithSignature(payload!.toString(), slasherL1Client);
+
+        // Have the test harness send the vote request to avoid nonce conflicts
+        await testHarnessL1Client.sendTransaction(voteRequest).catch(ignoreExpectedErrors);
 
         // Check if the payload is cleared
         const slot = await rollup.getSlotNumber();
@@ -213,7 +229,7 @@ describe('SlasherClient', () => {
       0.5,
     );
 
-    const info = await rollup.getAttesterView(l1TxUtils.client.account.address);
+    const info = await rollup.getAttesterView(slasherL1Client.account.address);
 
     expect(info.effectiveBalance).toBe(0n);
     expect(info.exit.amount).toBe(depositAmount - slashAmount);
