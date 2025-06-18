@@ -234,6 +234,7 @@ function run {
       -e TARGET_BRANCH=${TARGET_BRANCH:-} \
       -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
       -e NO_CACHE=${NO_CACHE:-} \
+      -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
       -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
       -e SSH_CONNECTION=' ' \
       -e LOCAL_USER_ID=\$(id -u) \
