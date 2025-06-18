@@ -1,4 +1,4 @@
-import { type AztecAddress, EthAddress, ProvenTx, Tx, sleep } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, ProvenTx, sleep } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
@@ -100,7 +100,7 @@ describe('transaction benchmarks', () => {
 
   it(
     'makes both public and private transfers',
-    async () => {
+    () => {
       const compressTx = (
         txAsBuffer: Buffer,
         compress: (data: Buffer) => Buffer,
@@ -183,7 +183,7 @@ describe('transaction benchmarks', () => {
   const runSingleProofVerificationTest = async (tx: ProvenTx, type: 'Private' | 'Public') => {
     const numIterations = 20;
     const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
-      x => undefined,
+      _ => undefined,
     );
     // Verify proof serially and take an average
     for (let i = 0; i < numIterations; i++) {
