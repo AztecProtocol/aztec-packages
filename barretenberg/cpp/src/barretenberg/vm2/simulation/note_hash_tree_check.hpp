@@ -12,8 +12,8 @@ class NoteHashTreeCheckInterface {
   public:
     virtual ~NoteHashTreeCheckInterface() = default;
 
-    virtual void assert_read(index_t leaf_index,
-                             const FF& note_hash,
+    virtual void assert_read(const FF& note_hash,
+                             index_t leaf_index,
                              std::span<const FF> sibling_path,
                              const AppendOnlyTreeSnapshot& snapshot) = 0;
     virtual FF get_first_nullifier() const = 0;
@@ -46,8 +46,8 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
 
     FF get_first_nullifier() const override { return first_nullifier; }
 
-    void assert_read(index_t leaf_index,
-                     const FF& note_hash,
+    void assert_read(const FF& note_hash,
+                     index_t leaf_index,
                      std::span<const FF> sibling_path,
                      const AppendOnlyTreeSnapshot& snapshot) override;
     AppendOnlyTreeSnapshot append_note_hash(const FF& note_hash,

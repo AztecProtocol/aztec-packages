@@ -4,8 +4,8 @@
 
 namespace bb::avm2::simulation {
 
-void NoteHashTreeCheck::assert_read(index_t leaf_index,
-                                    const FF& note_hash,
+void NoteHashTreeCheck::assert_read(const FF& note_hash,
+                                    index_t leaf_index,
                                     std::span<const FF> sibling_path,
                                     const AppendOnlyTreeSnapshot& snapshot)
 {

@@ -123,7 +123,7 @@ FF MerkleDB::note_hash_read(index_t leaf_index) const
 {
     auto note_hash = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
     auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
-    note_hash_tree_check.assert_read(leaf_index, note_hash, path, get_tree_roots().noteHashTree);
+    note_hash_tree_check.assert_read(note_hash, leaf_index, path, get_tree_roots().noteHashTree);
 
     return note_hash;
 }

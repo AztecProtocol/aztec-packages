@@ -16,8 +16,8 @@ class MockNoteHashTreeCheck : public NoteHashTreeCheckInterface {
 
     MOCK_METHOD(void,
                 assert_read,
-                (index_t leaf_index,
-                 const FF& note_hash,
+                (const FF& note_hash,
+                 index_t leaf_index,
                  std::span<const FF> sibling_path,
                  const AppendOnlyTreeSnapshot& snapshot),
                 (override));
