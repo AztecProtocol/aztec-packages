@@ -6,6 +6,7 @@
  * - Solidity verifier generation
  * - Raw cryptography functions exposed by WASM BB
  */
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "bbrpc_common.hpp"
 
@@ -18,6 +19,8 @@ namespace bb::bbrpc {
  * Takes an ID, name and the circuit bytecode. It
  */
 struct CircuitLoad {
+    using Reponse = bool;
+
     /**
      * @brief Unique identifier for the circuit
      *
@@ -57,6 +60,8 @@ struct CircuitLoad {
  * If the circuit is not found, the operation is a no-op but prints a warning to stderr.
  */
 struct CircuitDrop {
+    using Reponse = bool;
+
     /**
      * @brief Unique identifier of the circuit to be dropped
      *
@@ -93,6 +98,8 @@ struct CircuitDrop {
  * multiple accumulated circuits as input.
  */
 struct CircuitProve {
+    using Reponse = bool;
+
     /**
      * @brief Contains proof and public inputs.
      * Both are given as vectors of fields. To be used for verification.
@@ -138,11 +145,17 @@ struct CircuitProve {
  * @brief
  * Note, only one IVC request can be made at a time for each batch_request.
  */
-struct ClientIvcStart {};
+struct ClientIvcStart {
+    using Reponse = bool;
+};
 
-struct ClientIvcProve {};
+struct ClientIvcProve {
+    using Reponse = ClientIVC::Proof;
+};
 
 struct ClientIvcAccumulate {
+    using Reponse = bool;
+
     /**
      * @brief Unique identifier of the circuit to be used for proving
      *
@@ -156,5 +169,15 @@ struct ClientIvcAccumulate {
      */
     std::vector<uint8_t> witness;
 };
+
+using Command =
+    std::variant<CircuitLoad, CircuitDrop, CircuitProve, ClientIvcStart, ClientIvcProve, ClientIvcAccumulate>;
+
+using CommandResponse = std::variant<CircuitLoad::Reponse,
+                                     CircuitDrop::Reponse,
+                                     CircuitProve::Response,
+                                     ClientIvcStart::Reponse,
+                                     ClientIvcProve::Reponse,
+                                     ClientIvcAccumulate::Reponse>;
 
 } // namespace bb::bbrpc
