@@ -59,7 +59,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<RecursiveDeciderVK> accumulator;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 };
 
 } // namespace bb::stdlib::recursion::honk

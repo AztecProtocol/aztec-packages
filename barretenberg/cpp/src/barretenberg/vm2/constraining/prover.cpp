@@ -125,8 +125,7 @@ void AvmProver::execute_pcs_rounds()
 
 HonkProof AvmProver::export_proof()
 {
-    proof = transcript->proof_data;
-    return proof;
+    return transcript->export_proof();
 }
 
 HonkProof AvmProver::construct_proof()

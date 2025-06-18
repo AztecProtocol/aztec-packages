@@ -209,6 +209,6 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> Proto
     update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
     vinfo("folded");
 
-    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = std::move(transcript->proof_data) };
+    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = transcript->export_proof() };
 }
 } // namespace bb

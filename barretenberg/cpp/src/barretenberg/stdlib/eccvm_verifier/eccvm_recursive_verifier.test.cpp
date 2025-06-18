@@ -175,7 +175,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
                 std::make_shared<typename RecursiveFlavor::Transcript>();
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
-            auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
+            auto [opening_claim, ipa_proof] = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             if (idx == 0) {
@@ -191,6 +191,10 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
                 VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>> stdlib_pcs_vkey(
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
+                // Construct ipa_transcript from proof
+                std::shared_ptr<typename RecursiveFlavor::Transcript> ipa_transcript =
+                    std::make_shared<typename RecursiveFlavor::Transcript>();
+                ipa_transcript->load_proof(ipa_proof);
                 EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(
                     stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }

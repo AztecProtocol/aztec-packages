@@ -21,7 +21,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
-    auto [opening_claim, ipa_transcript] = eccvm_verifier.verify_proof(proof.eccvm_proof);
+    auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
@@ -38,6 +38,6 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     // and final merge verifier
     translator_verifier.verify_consistency_with_final_merge(merge_verifier.T_commitments);
 
-    return { translator_pairing_points, opening_claim, ipa_transcript };
+    return { translator_pairing_points, opening_claim, ipa_proof };
 }
 } // namespace bb::stdlib::recursion::honk

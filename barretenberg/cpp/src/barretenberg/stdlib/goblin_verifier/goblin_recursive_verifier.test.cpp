@@ -43,8 +43,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
             goblin.prove_merge();
         }
 
-        auto goblin_transcript = std::make_shared<Goblin::Transcript>();
-
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
@@ -155,8 +153,8 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     auto crs_factory = srs::get_grumpkin_crs_factory();
     VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
-    auto native_ipa_transcript = std::make_shared<NativeTranscript>(
-        convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_transcript->proof_data));
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>();
+    native_ipa_transcript->load_proof(convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_proof));
 
     EXPECT_FALSE(
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));
