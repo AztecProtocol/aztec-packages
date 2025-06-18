@@ -42,9 +42,9 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       initialValidators: validators,
-      aztecProofSubmissionWindow: 1024,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
+      aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
     });
 

@@ -44,7 +44,12 @@ contract BoostedHelper {
   using SafeCast for uint256;
 
   constructor(RollupConfigInput memory _config) {
-    TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
+    TimeLib.initialize(
+      block.timestamp,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs
+    );
     RewardLib.setConfig(_config.rewardConfig);
   }
 
@@ -105,7 +110,8 @@ contract BoostedRewardsTest is TestBase {
       address(helper),
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
   }
 

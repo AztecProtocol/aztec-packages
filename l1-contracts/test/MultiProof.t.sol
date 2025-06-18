@@ -46,7 +46,10 @@ contract MultiProofTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -169,19 +172,15 @@ contract MultiProofTest is RollupBase {
       uint256 bobRewards = rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob);
       assertGt(bobRewards, 0, "Bob rewards is zero");
 
+      Epoch deadline = TimeLib.toDeadlineEpoch(epochs[0]);
+
       vm.expectRevert(
-        abi.encodeWithSelector(
-          Errors.Rollup__NotPastDeadline.selector, TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW, 2
-        )
+        abi.encodeWithSelector(Errors.Rollup__NotPastDeadline.selector, deadline, Epoch.wrap(0))
       );
       vm.prank(bob);
       rollup.claimProverRewards(bob, epochs);
 
-      vm.warp(
-        Timestamp.unwrap(
-          rollup.getTimestampForSlot(Slot.wrap(TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW + 1))
-        )
-      );
+      vm.warp(Timestamp.unwrap(rollup.getTimestampForSlot(deadline.toSlots())));
       vm.prank(bob);
       uint256 bobRewardsClaimed = rollup.claimProverRewards(bob, epochs);
 

@@ -24,8 +24,8 @@ export type L1ContractsConfig = {
   aztecEpochDuration: number;
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
-  /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
-  aztecProofSubmissionWindow: number;
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: number;
   /** The deposit amount for a validator */
   depositAmount: bigint;
   /** The minimum stake for a validator. */
@@ -49,7 +49,7 @@ export const DefaultL1ContractsConfig = {
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
   aztecTargetCommitteeSize: 48,
-  aztecProofSubmissionWindow: 64, // you have a full epoch to submit a proof after the epoch to prove ends
+  aztecProofSubmissionEpochs: 1, // you have a full epoch to submit a proof after the epoch to prove ends
   depositAmount: BigInt(100e18),
   minimumStake: BigInt(50e18),
   slashingQuorum: 6,
@@ -99,11 +99,10 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  aztecProofSubmissionWindow: {
-    env: 'AZTEC_PROOF_SUBMISSION_WINDOW',
-    description:
-      'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
+  aztecProofSubmissionEpochs: {
+    env: 'AZTEC_PROOF_SUBMISSION_EPOCHS',
+    description: 'The number of epochs after an epoch ends that proofs are still accepted.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionEpochs),
   },
   depositAmount: {
     env: 'AZTEC_DEPOSIT_AMOUNT',

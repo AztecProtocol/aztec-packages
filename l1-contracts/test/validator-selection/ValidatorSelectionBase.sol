@@ -75,7 +75,8 @@ contract ValidatorSelectionTestBase is DecoderBase {
         address(rollup),
         initialTime,
         TestConstants.AZTEC_SLOT_DURATION,
-        TestConstants.AZTEC_EPOCH_DURATION
+        TestConstants.AZTEC_EPOCH_DURATION,
+        TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
       );
       vm.warp(initialTime);
     }
