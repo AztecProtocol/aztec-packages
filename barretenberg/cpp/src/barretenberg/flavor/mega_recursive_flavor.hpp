@@ -184,7 +184,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          *
          * @return std::vector<FF>
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::stdlib::field_conversion;
 

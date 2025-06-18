@@ -277,7 +277,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    std::vector<FF> to_field_elements() const
+    virtual std::vector<FF> to_field_elements() const
     {
         using namespace bb::stdlib::field_conversion;
 

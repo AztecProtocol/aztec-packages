@@ -48,7 +48,6 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
 
     // Create random circuit to create a vk.
     Builder builder;
-    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
     VerificationKey vk{ proving_key->proving_key };
