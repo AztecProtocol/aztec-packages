@@ -220,37 +220,37 @@ describe('transaction benchmarks', () => {
     const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
     const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg IVC Verification Time`,
       value: durations.reduce((a, b) => a + b, 0) / totalNumProofs,
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min IVC Verification Time`,
       value: Math.min(...durations),
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max IVC Verification Time`,
       value: Math.max(...durations),
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Total Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Total Verification Time (includes serde)`,
       value: totalDurations.reduce((a, b) => a + b, 0) / totalNumProofs,
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Min Total Verification Time  (includes serde)`,
       value: Math.min(...totalDurations),
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Max Total Verification Time  (includes serde)`,
       value: Math.max(...totalDurations),
       unit: 'ms',
     });
     results.push({
-      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/All Tx Verification Time`,
+      name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Overall Tx Verification Time`,
       value: totalDuration,
       unit: 'ms',
     });
