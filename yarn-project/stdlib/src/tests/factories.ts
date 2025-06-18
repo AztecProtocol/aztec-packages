@@ -1,3 +1,4 @@
+import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
@@ -42,7 +43,6 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
 import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -64,7 +64,6 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
-  AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -93,6 +92,7 @@ import {
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
+import { computeCalldataHash } from '../hash/hash.js';
 import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
@@ -162,12 +162,13 @@ import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
-import { ContentCommitment, NUM_BYTES_PER_SHA256 } from '../tx/content_commitment.js';
+import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
 import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
@@ -307,7 +308,7 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
+  return new RollupValidationRequests(new MaxBlockNumber(true, seed + 0x31415));
 }
 
 function makeTxConstantData(seed = 1) {
@@ -566,7 +567,7 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new MaxBlockNumber(true, new Fr(seed + 0x31415)),
+    maxBlockNumber: new MaxBlockNumber(true, seed + 0x31415),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -598,9 +599,9 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
   return GlobalVariables.from({
     chainId: new Fr(seed),
     version: new Fr(seed + 1),
-    blockNumber: new Fr(seed + 2),
+    blockNumber: seed + 2,
     slotNumber: new Fr(seed + 3),
-    timestamp: new Fr(seed + 4),
+    timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
     feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),
@@ -783,7 +784,7 @@ function makeBlockRootRollupData(seed = 0) {
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2200),
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     makeHeader(seed + 0x2400),
-    makeBatchedBlobAccumulator(seed + 0x2500).toBlobAccumulatorPublicInputs(),
+    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 0x2500)),
     makeBatchedBlobAccumulator(seed + 0x2600).finalBlobChallenges,
     fr(seed + 0x2700),
   );
@@ -887,7 +888,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x702),
     fr(seed + 0x703),
     fr(seed + 0x704),
-    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulatorPublicInputs(),
+    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 
@@ -895,12 +896,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
  * Makes content commitment
  */
 export function makeContentCommitment(seed = 0): ContentCommitment {
-  return new ContentCommitment(
-    new Fr(seed),
-    toBufferBE(BigInt(seed + 0x100), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x200), NUM_BYTES_PER_SHA256),
-    toBufferBE(BigInt(seed + 0x300), NUM_BYTES_PER_SHA256),
-  );
+  return new ContentCommitment(fr(seed + 0x100), fr(seed + 0x200), fr(seed + 0x300));
 }
 
 /**
@@ -916,7 +912,7 @@ export function makeHeader(
     makeContentCommitment(seed + 0x200),
     makeStateReference(seed + 0x600),
     makeGlobalVariables((seed += 0x700), {
-      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+      ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
     fr(seed + 0x800),
@@ -1459,16 +1455,19 @@ export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmByteco
   return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
 }
 
-export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
-  return new AvmEnqueuedCallHint(
+export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {
+  const calldata = makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000);
+  const calldataHash = await computeCalldataHash(calldata);
+  const publicCallRequest = new PublicCallRequest(
     new AztecAddress(new Fr(seed)),
-    new AztecAddress(new Fr(seed + 2)),
-    makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
-    /*isStaticCall=*/ false,
+    new AztecAddress(new Fr(seed + 1)),
+    false /*isStatic*/,
+    calldataHash,
   );
+  return new PublicCallRequestWithCalldata(publicCallRequest, calldata);
 }
 
-export function makeAvmTxHint(seed = 0): AvmTxHint {
+export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
     makeGlobalVariables(seed),
@@ -1484,10 +1483,11 @@ export function makeAvmTxHint(seed = 0): AvmTxHint {
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
       l2ToL1Messages: makeArray((seed % 20) + 4, i => makeScopedL2ToL1Message(i), seed + 0x5000),
     },
-    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
-    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
-    makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
+    await makeArrayAsync((seed % 20) + 4, i => makePublicCallRequestWithCalldata(i), seed + 0x5000), //setupEnqueuedCalls
+    await makeArrayAsync((seed % 20) + 4, i => makePublicCallRequestWithCalldata(i), seed + 0x6000), // appLogicEnqueuedCalls
+    await makePublicCallRequestWithCalldata(seed + 0x7000), // teardownEnqueuedCall
     makeGas(seed + 0x8000), // gasUsedByPrivate
+    makeAztecAddress(seed + 0x9000), // feePayer
   );
 }
 
@@ -1505,7 +1505,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
-    tx: makeAvmTxHint(seed + 0x4100),
+    tx: await makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),

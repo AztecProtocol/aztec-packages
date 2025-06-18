@@ -449,7 +449,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       SERVER_CIRCUIT_RECURSIVE,
       outputWitnessFile,
       getUltraHonkFlavorForCircuit(circuitType),
-      logger.info,
+      logger,
     );
 
     if (provingResult.status === BB_RESULT.FAILURE) {

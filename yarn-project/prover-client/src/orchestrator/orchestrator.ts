@@ -1,4 +1,4 @@
-import { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -138,7 +138,7 @@ export class ProvingOrchestrator implements EpochProver {
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
-    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber,
   }))
   public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[], previousBlockHeader: BlockHeader) {
     if (!this.provingState) {
@@ -149,13 +149,11 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Epoch not accepting further blocks`);
     }
 
-    logger.info(
-      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()}`,
-    );
+    logger.info(`Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber.toNumber()}`);
 
     // Fork world state at the end of the immediately previous block
-    const db = await this.dbProvider.fork(globalVariables.blockNumber.toNumber() - 1);
-    this.dbs.set(globalVariables.blockNumber.toNumber(), db);
+    const db = await this.dbProvider.fork(globalVariables.blockNumber - 1);
+    this.dbs.set(globalVariables.blockNumber, db);
 
     // we start the block by enqueueing all of the base parity circuits
     const {
@@ -202,7 +200,7 @@ export class ProvingOrchestrator implements EpochProver {
       logger.warn(`Provided no txs to orchestrator addTxs.`);
       return;
     }
-    const blockNumber = txs[0].globalVariables.blockNumber.toNumber();
+    const blockNumber = txs[0].globalVariables.blockNumber;
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -726,12 +724,14 @@ export class ProvingOrchestrator implements EpochProver {
           provingState.reject(`New archive root mismatch.`);
         }
 
-        const endBlobAccumulator = provingState.endBlobAccumulator!;
+        const endBlobAccumulatorPublicInputs = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(
+          provingState.endBlobAccumulator!,
+        );
         const circuitEndBlobAccumulatorState = result.inputs.blobPublicInputs.endBlobAccumulator;
-        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulator.toBlobAccumulatorPublicInputs())) {
+        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulatorPublicInputs)) {
           logger.error(
             `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
-              endBlobAccumulator.toBlobAccumulatorPublicInputs(),
+              endBlobAccumulatorPublicInputs,
             )}`,
           );
           provingState.reject(`Blob accumulator state mismatch.`);

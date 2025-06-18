@@ -351,7 +351,7 @@ void handle_IPA_accumulation(Builder& builder,
     }
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
-        auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
@@ -360,10 +360,8 @@ void handle_IPA_accumulation(Builder& builder,
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
         // If this is the root rollup, do full IPA verification
         if (is_root_rollup) {
-            auto verifier_commitment_key = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<Builder>>>(
-                &builder,
-                1 << CONST_ECCVM_LOG_N,
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N));
+            VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
+                &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
             // do full IPA verification
             auto accumulated_ipa_transcript =
                 std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));

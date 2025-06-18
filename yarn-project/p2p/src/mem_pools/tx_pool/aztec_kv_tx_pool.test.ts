@@ -251,11 +251,11 @@ describe('KV TX pool', () => {
 
   it('Evicts txs with a max block number lower than or equal to the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(1));
+    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 1);
     const tx2 = await mockTx(2);
-    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(2));
+    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 2);
     const tx3 = await mockTx(3);
-    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(3));
+    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 3);
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([await tx1.getTxHash()], 2);
@@ -268,7 +268,7 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
+    tx1.data.constants.historicalHeader.globalVariables.blockNumber = 1;
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {

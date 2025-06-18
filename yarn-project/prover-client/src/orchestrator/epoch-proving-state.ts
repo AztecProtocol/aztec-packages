@@ -81,7 +81,7 @@ export class EpochProvingState {
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
   ): BlockProvingState {
-    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
+    const index = globalVariables.blockNumber - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
       globalVariables,

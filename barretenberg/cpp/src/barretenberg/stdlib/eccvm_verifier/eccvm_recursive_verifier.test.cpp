@@ -126,8 +126,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Construct a full proof from the recursive verifier circuit
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -187,9 +187,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
 
                 // However, IPA recursive verifier must fail, as one of the commitments is incorrect.
-                auto native_pcs_vk =
-                    std::make_shared<VerifierCommitmentKey<typename InnerFlavor::Curve>>(1UL << CONST_ECCVM_LOG_N);
-                auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>>>(
+                VerifierCommitmentKey<typename InnerFlavor::Curve> native_pcs_vk(1UL << CONST_ECCVM_LOG_N);
+                VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>> stdlib_pcs_vkey(
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
                 EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(

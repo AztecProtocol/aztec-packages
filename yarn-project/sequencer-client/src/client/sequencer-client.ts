@@ -1,7 +1,6 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
-  ForwarderContract,
   GovernanceProposerContract,
   RollupContract,
   SlashingProposerContract,
@@ -31,10 +30,13 @@ import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
  * Encapsulates the full sequencer and publisher.
  */
 export class SequencerClient {
-  constructor(protected sequencer: Sequencer) {}
+  constructor(
+    protected sequencer: Sequencer,
+    protected validatorClient?: ValidatorClient,
+  ) {}
 
   /**
-   * Initializes and starts a new instance.
+   * Initializes a new instance.
    * @param config - Configuration for the sequencer, publisher, and L1 tx sender.
    * @param p2pClient - P2P client that provides the txs to be sequenced.
    * @param validatorClient - Validator client performs attestation duties when rotating proposers.
@@ -76,21 +78,13 @@ export class SequencerClient {
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, config);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
     ] as const);
-    const forwarderContract =
-      config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
-        ? new ForwarderContract(
-            l1Client,
-            config.customForwarderContractAddress.toString(),
-            config.l1Contracts.rollupAddress.toString(),
-          )
-        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -122,7 +116,6 @@ export class SequencerClient {
         blobSinkClient: deps.blobSinkClient,
         rollupContract,
         epochCache,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
       });
@@ -169,9 +162,7 @@ export class SequencerClient {
       { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
-    await validatorClient?.start();
-    await sequencer.start();
-    return new SequencerClient(sequencer);
+    return new SequencerClient(sequencer, validatorClient);
   }
 
   /**
@@ -180,6 +171,12 @@ export class SequencerClient {
    */
   public updateSequencerConfig(config: SequencerConfig) {
     return this.sequencer.updateConfig(config);
+  }
+
+  /** Starts the sequencer. */
+  public async start() {
+    await this.validatorClient?.start();
+    this.sequencer.start();
   }
 
   /**
@@ -197,8 +194,8 @@ export class SequencerClient {
   /**
    * Restarts the sequencer after being stopped.
    */
-  public restart() {
-    this.sequencer.restart();
+  public resume() {
+    this.sequencer.resume();
   }
 
   public getSequencer(): Sequencer {
@@ -211,10 +208,6 @@ export class SequencerClient {
 
   get feeRecipient(): AztecAddress {
     return this.sequencer.feeRecipient;
-  }
-
-  get forwarderAddress(): EthAddress {
-    return this.sequencer.getForwarderAddress();
   }
 
   get validatorAddresses(): EthAddress[] | undefined {

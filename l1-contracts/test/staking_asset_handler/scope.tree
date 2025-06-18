@@ -1,0 +1,10 @@
+ScopeTest
+├── when scope is valid and subscope is valid
+│   └── it emits {AddedToQueue} event
+├── when scope is valid and subscope is invalid
+│   └── it reverts
+├── when scope is invalid but subscope is valid
+│   └── it reverts
+└── when scope is invalid and subscope is invalid
+    └── it reverts
+

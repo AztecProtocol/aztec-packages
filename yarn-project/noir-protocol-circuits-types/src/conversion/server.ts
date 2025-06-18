@@ -344,13 +344,7 @@ export function mapFinalBlobAccumulatorPublicInputsFromNoir(
     mapFieldFromNoir(finalBlobPublicInputs.blob_commitments_hash),
     mapFieldFromNoir(finalBlobPublicInputs.z),
     mapBLS12FrFromNoir(finalBlobPublicInputs.y),
-    // TODO(MW): add conversion when public inputs final
-    BLS12Point.decompress(
-      Buffer.concat([
-        mapFieldFromNoir(finalBlobPublicInputs.c[0]).toBuffer().subarray(1),
-        mapFieldFromNoir(finalBlobPublicInputs.c[1]).toBuffer().subarray(-17),
-      ]),
-    ),
+    BLS12Point.fromBN254Fields(mapTupleFromNoir(finalBlobPublicInputs.c, 2, mapFieldFromNoir)),
   );
 }
 

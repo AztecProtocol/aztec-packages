@@ -217,7 +217,7 @@ export async function generateProof(
   recursive: boolean,
   inputWitnessFile: string,
   flavor: UltraHonkFlavor,
-  log: LogFn,
+  log: Logger,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -243,7 +243,9 @@ export async function generateProof(
   try {
     // Write the bytecode to the working directory
     await fs.writeFile(bytecodePath, bytecode);
+    // TODO(#15043): Avoid write_vk flag here.
     const args = getArgs(flavor).concat([
+      '--disable_zk',
       '--output_format',
       'bytes_and_fields',
       '--write_vk',
@@ -258,9 +260,14 @@ export async function generateProof(
     if (recursive) {
       args.push('--init_kzg_accumulator');
     }
+    const loggingArg = log.level === 'debug' || log.level === 'trace' ? '-d' : log.level === 'verbose' ? '-v' : '';
+    if (loggingArg !== '') {
+      args.push(loggingArg);
+    }
+
     const timer = new Timer();
     const logFunction = (message: string) => {
-      log(`${circuitName} BB out - ${message}`);
+      log.info(`${circuitName} BB out - ${message}`);
     };
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
@@ -401,7 +408,7 @@ export async function generateAvmProof(
       return { status: BB_RESULT.FAILURE, reason: `Could not write avm inputs to ${avmInputsPath}` };
     }
 
-    const args = ['--avm-inputs', avmInputsPath, '-o', outputPath];
+    const args = checkCircuitOnly ? ['--avm-inputs', avmInputsPath] : ['--avm-inputs', avmInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {
@@ -573,7 +580,7 @@ async function verifyProofInternal(
       const publicInputsFullPath = join(proofDir, '/public_inputs');
       logger.debug(`public inputs path: ${publicInputsFullPath}`);
 
-      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, '--disable_zk', ...extraArgs];
     } else {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
     }

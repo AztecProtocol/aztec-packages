@@ -42,7 +42,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
 
         if constexpr (Flavor::HasZK) {
             const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-            auto commitment_key = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+            CommitmentKey commitment_key(1 << (log_subgroup_size + 1));
             zk_sumcheck_data = ZKData(numeric::get_msb(polynomial_size), transcript, commitment_key);
             sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
                                              proving_key->relation_parameters,
@@ -71,7 +71,9 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
     auto& ck = proving_key->proving_key.commitment_key;
-    ck = ck ? ck : std::make_shared<CommitmentKey>(proving_key->proving_key.circuit_size);
+    if (!ck.initialized()) {
+        ck = CommitmentKey(proving_key->proving_key.circuit_size);
+    }
 
     PolynomialBatcher polynomial_batcher(proving_key->proving_key.circuit_size);
     polynomial_batcher.set_unshifted(proving_key->proving_key.polynomials.get_unshifted());

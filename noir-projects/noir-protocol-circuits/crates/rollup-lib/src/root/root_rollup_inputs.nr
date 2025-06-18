@@ -52,9 +52,8 @@ impl RootRollupInputs {
 
         // Make sure that the total number of blocks in the epoch does not exceed the max, preventing the accumulated
         // data below (proposed_block_header_hashes, fees, blob_public_inputs) from being truncated.
-        let num_blocks = (right.end_global_variables.block_number as u32)
-            - (left.start_global_variables.block_number as u32)
-            + 1;
+        let num_blocks =
+            right.end_global_variables.block_number - left.start_global_variables.block_number + 1;
         assert(num_blocks <= AZTEC_MAX_EPOCH_DURATION, "too many blocks in root rollup");
 
         let proposed_block_header_hashes =

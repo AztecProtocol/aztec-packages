@@ -2,12 +2,12 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
-
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
+
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
@@ -29,7 +29,6 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  * @dev Only the owner can grant and revoke the `isUnhinged` role, and perform other administrative tasks
  *      such as setting the REGISTRY address, mint interval, deposits per mint, and withdrawer.
  */
-
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
   event AddedToQueue(address indexed _attester, uint256 _position);
@@ -40,6 +39,7 @@ interface IStakingAssetHandler {
   event ZKPassportVerifierUpdated(address indexed _verifier);
   event ScopeUpdated(string newScope);
   event SubScopeUpdated(string newSubScope);
+  event SkipBindCheckUpdated(bool _skipBindCheck);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -47,6 +47,8 @@ interface IStakingAssetHandler {
   error CannotMintZeroAmount();
   error ValidatorQuotaFilledUntil(uint256 _timestamp);
   error InvalidProof();
+  error InvalidScope();
+  error ProofNotBoundToAddress(address _expected, address _received);
   error SybilDetected(bytes32 _nullifier);
   error InDepositQueue();
   error AttesterDoesNotExist(address _attester);
@@ -66,6 +68,7 @@ interface IStakingAssetHandler {
   function setZKPassportVerifier(address _address) external;
   function setScope(string memory _scope) external;
   function setSubscope(string memory _subscope) external;
+  function setSkipBindCheck(bool _skipBindCheck) external;
 
   // View
   function getQueueLength() external view returns (uint256);
@@ -82,7 +85,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   ZKPassportVerifier public zkPassportVerifier;
 
-  mapping(address => bool) public isUnhinged;
+  bool internal skipBindCheck;
+  mapping(address attester => bool isUnhinged) public isUnhinged;
   mapping(bytes32 nullifier => bool exists) public nullifiers;
   mapping(address attester => bytes32 nullifier) public attesterToNullifier;
 
@@ -105,7 +109,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     uint256 _mintInterval,
     uint256 _depositsPerMint,
     ZKPassportVerifier _zkPassportVerifier,
-    address[] memory _unhinged
+    address[] memory _unhinged,
+    string memory _scope,
+    string memory _subscope,
+    bool _skipBindCheck
   ) Ownable(_owner) {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
 
@@ -131,8 +138,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     zkPassportVerifier = _zkPassportVerifier;
     emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
 
-    validScope = "sequencer.alpha-testnet.aztec.network";
-    validSubscope = "personhood";
+    validScope = _scope;
+    validSubscope = _subscope;
+
+    skipBindCheck = _skipBindCheck;
 
     entryQueue.init();
   }
@@ -150,7 +159,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
       IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-      uint256 depositAmount = rollup.getMinimumStake();
+      uint256 depositAmount = rollup.getDepositAmount();
 
       STAKING_ASSET.mint(address(this), depositAmount);
 
@@ -180,7 +189,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function dripQueue() external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
+    uint256 depositAmount = rollup.getDepositAmount();
     uint256 balance = STAKING_ASSET.balanceOf(address(this));
 
     // If we do not have enough balance, check if we can refill the quota
@@ -258,6 +267,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit UnhingedRemoved(_address);
   }
 
+  function setSkipBindCheck(bool _skipBindCheck) external override(IStakingAssetHandler) onlyOwner {
+    skipBindCheck = _skipBindCheck;
+    emit SkipBindCheckUpdated(_skipBindCheck);
+  }
+
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
   }
@@ -292,9 +306,21 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(verified, InvalidProof());
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
-    // TODO(md): re-enforce this flow, it may change underfoot
-    // Note: below appears to be checked within verifyProof
-    // require(zkPassportVerifier.verifyScopes(params.publicInputs, validScope, validSubscope), InvalidProof());
+    // Note: below is checked from user input with proof in verify proof, however, we check here again to enforce scoping
+    require(
+      zkPassportVerifier.verifyScopes(_params.publicInputs, validScope, validSubscope),
+      InvalidScope()
+    );
+
+    if (!skipBindCheck) {
+      bytes memory data =
+        zkPassportVerifier.getBindProofInputs(_params.committedInputs, _params.committedInputCounts);
+      // Use the getBoundData function to get the formatted data
+      // which includes the user's address and any custom data
+      (address boundAddress,) = zkPassportVerifier.getBoundData(data);
+      // Make sure the bound user address is the same as the _attester
+      require(boundAddress == _attester, ProofNotBoundToAddress(boundAddress, _attester));
+    }
 
     // Set nullifier to consumed
     nullifiers[nullifier] = true;

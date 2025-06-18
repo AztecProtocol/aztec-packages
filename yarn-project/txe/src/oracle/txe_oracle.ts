@@ -11,10 +11,8 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -354,7 +352,7 @@ export class TXE implements TypedOracle {
     const inputs = PrivateContextInputs.empty();
     inputs.txContext.chainId = new Fr(this.CHAIN_ID);
     inputs.txContext.version = new Fr(this.ROLLUP_VERSION);
-    inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
+    inputs.historicalHeader.globalVariables.blockNumber = blockNumber;
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
       (await previousBlockState.getTreeInfo(MerkleTreeId.ARCHIVE)).root,
@@ -502,10 +500,7 @@ export class TXE implements TypedOracle {
     }
 
     const leafPreimagePromise = snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPathPromise = snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
 
     const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
 
@@ -527,10 +522,7 @@ export class TXE implements TypedOracle {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await snap.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
+      const path = await snap.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       return new PublicDataWitness(lowLeafResult.index, preimage, path);
     }
   }
@@ -551,10 +543,7 @@ export class TXE implements TypedOracle {
     }
     const preimageData = (await snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
-    const siblingPath = await snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPath = await snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
@@ -579,7 +568,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(blockNumber);
+    header.globalVariables.blockNumber = blockNumber;
 
     return header;
   }
@@ -817,7 +806,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(blockNumber);
+    header.globalVariables.blockNumber = blockNumber;
 
     l2Block.header = header;
 
@@ -1015,7 +1004,7 @@ export class TXE implements TypedOracle {
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(this.CHAIN_ID);
     globalVariables.version = new Fr(this.ROLLUP_VERSION);
-    globalVariables.blockNumber = new Fr(this.blockNumber);
+    globalVariables.blockNumber = this.blockNumber;
     globalVariables.gasFees = new GasFees(1, 1);
 
     let result: PublicTxResult;
@@ -1500,7 +1489,7 @@ export class TXE implements TypedOracle {
     }
 
     const globals = makeGlobalVariables();
-    globals.blockNumber = new Fr(this.blockNumber);
+    globals.blockNumber = this.blockNumber;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1616,7 +1605,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+    header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 
@@ -1671,7 +1660,7 @@ export class TXE implements TypedOracle {
     const publicCallRequests: PublicCallRequest[] = [publicCallRequest];
 
     const globals = makeGlobalVariables();
-    globals.blockNumber = new Fr(this.blockNumber);
+    globals.blockNumber = this.blockNumber;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1779,7 +1768,7 @@ export class TXE implements TypedOracle {
       Fr.ZERO,
     );
 
-    header.globalVariables.blockNumber = new Fr(this.blockNumber);
+    header.globalVariables.blockNumber = this.blockNumber;
 
     l2Block.header = header;
 

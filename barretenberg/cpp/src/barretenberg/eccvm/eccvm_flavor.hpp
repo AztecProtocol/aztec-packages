@@ -751,17 +751,16 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         bool operator==(const VerificationKey&) const = default;
 
         // IPA verification key requires one more point.
-        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key =
-            std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+        VerifierCommitmentKey pcs_verification_key = VerifierCommitmentKey(ECCVM_FIXED_SIZE + 1);
 
         // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
-            : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
+            : NativeVerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
@@ -773,7 +772,7 @@ class ECCVMFlavor {
         }
 
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
@@ -785,7 +784,7 @@ class ECCVMFlavor {
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`

@@ -60,6 +60,7 @@ pub trait RelationBuilder {
         identities: &[BBIdentity],
         skippable_if: &Option<BBIdentity>,
         alias_polys_in_order: &Vec<(String, u64, String)>,
+        alias_polys_in_skippable: &Vec<(String, u64, String)>,
     );
 }
 
@@ -100,6 +101,11 @@ impl RelationBuilder for BBFiles {
                 .filter(|(name, _, _)| collected_aliases.contains(name))
                 .cloned()
                 .collect_vec();
+            let used_alias_defs_in_skippable = alias_expressions_in_order
+                .iter()
+                .filter(|(name, _, _)| skippable_if.as_ref().map(|id| id.identity == *name).unwrap_or(false))
+                .cloned()
+                .collect_vec();
 
             self.create_relation(
                 file_name,
@@ -107,6 +113,7 @@ impl RelationBuilder for BBFiles {
                 &identities,
                 &skippable_if,
                 &used_alias_defs_in_order,
+                &used_alias_defs_in_skippable,
             );
         }
 
@@ -122,6 +129,7 @@ impl RelationBuilder for BBFiles {
         identities: &[BBIdentity],
         skippable_if: &Option<BBIdentity>,
         alias_defs_in_order: &Vec<(String, u64, String)>,
+        alias_defs_in_skippable: &Vec<(String, u64, String)>,
     ) {
         let mut handlebars = Handlebars::new();
         handlebars.register_escape_fn(|s| s.to_string()); // No escaping
@@ -156,6 +164,13 @@ impl RelationBuilder for BBFiles {
             "skippable_if": skippable_if.as_ref().map(|id| id.identity.clone()),
             "degrees": degrees,
             "labels": sorted_labels,
+            "skippable_alias_defs": alias_defs_in_skippable.iter().map(|(name, degree, expr)| {
+                json!({
+                    "name": name,
+                    "degree": degree,
+                    "expr": expr,
+                })
+            }).collect_vec(),
         });
 
         handlebars

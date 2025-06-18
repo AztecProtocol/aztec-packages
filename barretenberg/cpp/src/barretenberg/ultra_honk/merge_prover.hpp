@@ -34,13 +34,13 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const std::shared_ptr<CommitmentKey>& commitment_key = nullptr,
+                         CommitmentKey commitment_key = CommitmentKey(),
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     BB_PROFILE MergeProof construct_proof();
 
     std::shared_ptr<ECCOpQueue> op_queue;
-    std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    CommitmentKey pcs_commitment_key;
     std::shared_ptr<Transcript> transcript;
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder

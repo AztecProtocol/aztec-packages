@@ -27,7 +27,7 @@ import {
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
-import {Timestamp, TimeLib, Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 
 // The data types are slightly messed up here, the reason is that
 // we just want to use the same structs from the test points making
@@ -36,7 +36,6 @@ contract MinimalFeeModel {
   using FeeLib for OracleInput;
   using FeeLib for uint256;
   using PriceLib for EthValue;
-  using SlotLib for Slot;
   using TimeLib for Timestamp;
   using FeeHeaderLib for CompressedFeeHeader;
 

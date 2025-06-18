@@ -68,11 +68,13 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env': JSON.stringify({
         LOG_LEVEL: env.LOG_LEVEL,
+        // docs:start:bb-wasm-path
         // The path to a custom WASM file for bb.js.
         // Only the single-threaded file name is needed, the multithreaded file name will be inferred
         // by adding the -threads suffix: e.g: /assets/barretenberg.wasm.gz -> /assets/barretenberg-threads.wasm.gz
         // Files can be compressed or uncompressed, but must be gzipped if compressed.
         BB_WASM_PATH: env.BB_WASM_PATH,
+        // docs:end:bb-wasm-path
       }),
     },
     build: {
