@@ -118,7 +118,8 @@ template <typename OpFormat> class EccOpsTable {
         }
         Subtable new_subtable;
         new_subtable.reserve(size_hint);
-        table.insert(table.begin(), std::move(new_subtable));
+        auto it = settings == MergeSettings::APPEND ? table.end() : table.begin();
+        table.insert(it, std::move(new_subtable));
     }
 
     // const version of operator[]
@@ -187,7 +188,7 @@ class UltraEccOpsTable {
     size_t ultra_table_size() const { return table.size() * NUM_ROWS_PER_OP; }
     size_t current_ultra_subtable_size() const { return table.get()[0].size() * NUM_ROWS_PER_OP; }
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
-    void create_new_subtable(MergeSettings settings = MergeSettings::APPEND, size_t size_hint = 0)
+    void create_new_subtable(MergeSettings settings = MergeSettings::PREPEND, size_t size_hint = 0)
     {
         table.create_new_subtable(settings, size_hint);
     }
@@ -204,6 +205,7 @@ class UltraEccOpsTable {
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
+    // this has to be changed
     // Construct the columns of the previous full ultra ecc ops table
     ColumnPolynomials construct_previous_table_columns() const
     {
@@ -214,6 +216,7 @@ class UltraEccOpsTable {
         return construct_column_polynomials_from_subtables(poly_size, subtable_start_idx, subtable_end_idx);
     }
 
+    // this also has to be changed
     // Construct the columns of the current ultra ecc ops subtable
     ColumnPolynomials construct_current_ultra_ops_subtable_columns() const
     {

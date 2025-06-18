@@ -10,8 +10,9 @@
 
 namespace bb {
 
-MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript)
-    : transcript(transcript){};
+MergeVerifier::MergeVerifier(MergeSettings settings, const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
+    , settings(settings){};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -30,7 +31,7 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
     transcript->load_proof(proof);
 
-    uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
+    const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
 
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> t_commitments;
@@ -61,8 +62,15 @@ bool MergeVerifier::verify_proof(const HonkProof& proof)
     // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa). If it fails, return false
     bool identity_checked = true;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
-        bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval_reconstructed;
+        bool current_check = true;
+        if (settings == MergeSettings::PREPEND) {
+            FF T_prev_shifted_eval = T_prev_evals[idx] * kappa.pow(shift_size);
+            current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval;
+        } else {
+            FF t_shifted_eval = t_evals[idx] * kappa.pow(shift_size);
+            current_check = T_evals[idx] == T_prev_evals[idx] + t_shifted_eval;
+            info("here");
+        }
         identity_checked = identity_checked && current_check;
     }
 

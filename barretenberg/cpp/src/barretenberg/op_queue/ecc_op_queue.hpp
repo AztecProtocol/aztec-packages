@@ -49,7 +49,7 @@ class ECCOpQueue {
 
   public:
     // Constructor that instantiates an initial ECC op subtable
-    ECCOpQueue() { initialize_new_subtable(); }
+    ECCOpQueue(MergeSettings settings = MergeSettings::PREPEND) { initialize_new_subtable(settings); }
 
     // Initialize a new subtable of ECCVM ops and Ultra ops corresponding to an individual circuit
     void initialize_new_subtable(MergeSettings settings = MergeSettings::PREPEND)

@@ -35,9 +35,11 @@ class MergeVerifier {
   public:
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;
+    MergeSettings settings;
 
-    explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     bool verify_proof(const HonkProof& proof);
+    explicit MergeVerifier(MergeSettings settings = MergeSettings::PREPEND,
+                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 };
 
 } // namespace bb
