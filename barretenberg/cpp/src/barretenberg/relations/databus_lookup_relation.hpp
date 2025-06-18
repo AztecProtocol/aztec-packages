@@ -334,8 +334,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Accumulate the log derivative databus lookup argument subrelation contributions for each databus column
-     * @details Each databus column requires two subrelations
-     *
+     * @details Each databus column requires three subrelations. the last relation is to make sure that the read_tag is
+     * a boolean value. check the logderiv_lookup_relation.hpp for more details.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param params contains beta, gamma, and public_input_delta, ....

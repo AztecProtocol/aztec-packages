@@ -226,6 +226,17 @@ template <typename FF_> class LogDerivLookupRelationImpl {
      *
      * and read_tags is a polynomial taking boolean values indicating whether the table entry at the corresponding row
      * has been read or not.
+     * the last (third) subrelation consists of checking that the read_tag is a boolean value
+     * we argue that this is enough for the soundness of the relation.
+     * note that read_tags is not constrained to be related to the readcounts values.
+     * however, if the read_tags are assured to be 0 or 1, the only thing a cheating prover could do is to skip over
+     * an inversion when are not supposed to skip over it.
+     * we argue that this does not give the prover any advantage, as it would only mean an element from the lookup table
+     * is removed. this means that if a proof verifies, we still have that the provers set is a subset of the lookup
+     * table, as the only freedome the prover has is to make the lookup table smaller.
+     * the boolean check is still necessary, as otherwise has_inverse, is a leanier function of read_tags, and the
+     * the prover can set it to zero (by picking a non-binary value for read_tags) even when we have a read gate in the
+     * row.
      * @note This relation utilizes functionality in the log-derivative library to compute the polynomial of inverses
      *
      */
