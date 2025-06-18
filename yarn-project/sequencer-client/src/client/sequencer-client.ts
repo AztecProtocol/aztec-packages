@@ -1,7 +1,6 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
-  ForwarderContract,
   GovernanceProposerContract,
   RollupContract,
   SlashingProposerContract,
@@ -86,14 +85,6 @@ export class SequencerClient {
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
     ] as const);
-    const forwarderContract =
-      config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
-        ? new ForwarderContract(
-            l1Client,
-            config.customForwarderContractAddress.toString(),
-            config.l1Contracts.rollupAddress.toString(),
-          )
-        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -125,7 +116,6 @@ export class SequencerClient {
         blobSinkClient: deps.blobSinkClient,
         rollupContract,
         epochCache,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
       });
@@ -218,10 +208,6 @@ export class SequencerClient {
 
   get feeRecipient(): AztecAddress {
     return this.sequencer.feeRecipient;
-  }
-
-  get forwarderAddress(): EthAddress {
-    return this.sequencer.getForwarderAddress();
   }
 
   get validatorAddresses(): EthAddress[] | undefined {

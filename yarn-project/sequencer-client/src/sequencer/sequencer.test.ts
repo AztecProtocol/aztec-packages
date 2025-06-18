@@ -166,7 +166,6 @@ describe('sequencer', () => {
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.enqueueProposeL2Block.mockResolvedValue(true);

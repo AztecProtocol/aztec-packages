@@ -74,13 +74,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import {
-  type EndToEndContext,
-  createForwarderContract,
-  getPrivateKeyFromIndex,
-  setup,
-  setupPXEService,
-} from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -413,7 +407,6 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });
@@ -433,7 +426,6 @@ describe('e2e_synching', () => {
         blobSinkClient,
         l1TxUtils,
         rollupContract,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
