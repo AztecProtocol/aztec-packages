@@ -174,7 +174,12 @@ void Execution::internal_return(ContextInterface& context)
 
 void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
-    keccakf1600.permutation(context, dst_addr, src_addr);
+    try {
+        keccakf1600.permutation(context, dst_addr, src_addr);
+    } catch (const KeccakF1600Exception& e) {
+        // TODO: Possibly handle the error here.
+        throw e;
+    }
 }
 
 // This context interface is a top-level enqueued one.

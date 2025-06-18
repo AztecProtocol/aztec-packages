@@ -81,6 +81,7 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::REVERT, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 10 } },
     { ExecutionOpCode::SUCCESSCOPY, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 11 } },
     { ExecutionOpCode::RETURNDATASIZE, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 12 } },
+    // KeccakF1600
     { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
 };
 

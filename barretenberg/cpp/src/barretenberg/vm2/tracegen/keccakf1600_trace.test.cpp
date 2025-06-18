@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -59,7 +60,7 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
     auto rows = trace.as_rows();
 
     // Check that we have the correct number of rows (2 * AVM_KECCAKF1600_STATE_SIZE for read and write)
-    EXPECT_EQ(rows.size(), 2 * AVM_KECCAKF1600_STATE_SIZE + 1); // +1 for the initial empty row
+    ASSERT_EQ(rows.size(), 2 * AVM_KECCAKF1600_STATE_SIZE + 1); // +1 for the initial empty row
 
     // Check the first row of the read operation
     EXPECT_THAT(
@@ -154,6 +155,8 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
     // Get the rows
     auto rows = trace.as_rows();
 
+    ASSERT_GT(rows.size(), AVM_KECCAKF1600_NUM_ROUNDS);
+
     // Specific checks on the first row of the keccakf1600 permutation subtrace.
     // A memory slice read is active.
     EXPECT_THAT(rows.at(1),
@@ -209,6 +212,8 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
     testing::generate_keccak_trace_with_tag_error(trace, dst_addr, src_addr, error_offset, error_tag, space_id);
 
     const auto& rows = trace.as_rows();
+
+    ASSERT_GT(rows.size(), std::max(static_cast<size_t>(AVM_KECCAKF1600_NUM_ROUNDS), error_offset + 2));
 
     // Checks on the whole active keccak_memory subtrace.
     for (size_t i = 1; i < error_offset + 2; i++) {
@@ -290,6 +295,8 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
 
     const auto& rows = trace.as_rows();
 
+    ASSERT_GT(rows.size(), AVM_KECCAKF1600_NUM_ROUNDS);
+
     // Check that the keccakf1600 permutation subtrace is correct.
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(keccakf1600_sel, 1),
@@ -336,6 +343,8 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 
     const auto& rows = trace.as_rows();
+
+    ASSERT_GT(rows.size(), AVM_KECCAKF1600_NUM_ROUNDS);
 
     // Check that the keccakf1600 permutation subtrace is correct.
     EXPECT_THAT(rows.at(1),
