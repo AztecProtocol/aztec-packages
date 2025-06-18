@@ -378,7 +378,6 @@ export class RollupContract {
       ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;
