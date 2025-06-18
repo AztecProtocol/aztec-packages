@@ -4,8 +4,6 @@ pragma solidity >=0.8.27;
 
 import {DecoderBase} from "./base/DecoderBase.sol";
 
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-
 import {Registry} from "@aztec/governance/Registry.sol";
 import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -13,16 +11,11 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
-import {Rollup} from "@aztec/core/Rollup.sol";
-import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
-import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {TimeCheater} from "./staking/TimeCheater.sol";
 // solhint-disable comprehensive-interface
@@ -32,8 +25,6 @@ import {TimeCheater} from "./staking/TimeCheater.sol";
  * Main use of these test is shorter cycles when updating the decoder contract.
  */
 contract IgnitionTest is RollupBase {
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using ProposeLib for ProposeArgs;
   using TimeLib for Timestamp;
   using TimeLib for Slot;
@@ -65,12 +56,14 @@ contract IgnitionTest is RollupBase {
   modifier setUpFor(string memory _name) {
     {
       DecoderBase.Full memory full = load(_name);
-      uint256 slotNumber = full.block.decodedHeader.slotNumber;
-      uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
+      Slot slotNumber = full.block.header.slotNumber;
+      uint256 initialTime =
+        Timestamp.unwrap(full.block.header.timestamp) - Slot.unwrap(slotNumber) * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(0);
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setManaTarget(0).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = IInstance(address(builder.getConfig().rollup));

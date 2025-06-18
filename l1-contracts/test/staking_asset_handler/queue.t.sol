@@ -36,7 +36,7 @@ contract QueueTest is Test {
   function test_WhenNotInitializedAndQueueIsEmpty() external {
     // it reverts when calling dequeue
     // it has length of 0
-    vm.expectRevert();
+    vm.expectRevert(abi.encodeWithSelector(QueueLib.QueueEmpty.selector));
     queue.dequeue();
 
     assertEq(queue.length(), 0);

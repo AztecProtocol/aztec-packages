@@ -14,6 +14,7 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
@@ -308,7 +309,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 
 /**
  * @brief Create a big addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c *
- * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then thes sum also
+ * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then the sum also
  * adds the value of the 4-th witness at the next index.
  *
  * @param in Structure with variable indexes and wire selector values
@@ -858,7 +859,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
-    // If the value is out of range, set the composer error to the given msg.
+    // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
         this->failure(msg);
     }

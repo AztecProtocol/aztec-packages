@@ -22,6 +22,9 @@
       "path": "../p2p"
     },
     {
+      "path": "../slasher"
+    },
+    {
       "path": "../stdlib"
     },
     {

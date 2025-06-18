@@ -1,6 +1,6 @@
 import { NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -47,6 +47,10 @@ export class NullifierMembershipWitness {
       NullifierLeafPreimage.random(),
       SiblingPath.random(NULLIFIER_TREE_HEIGHT),
     );
+  }
+
+  public withoutPreimage(): MembershipWitness<typeof NULLIFIER_TREE_HEIGHT> {
+    return new MembershipWitness(NULLIFIER_TREE_HEIGHT, this.index, this.siblingPath.toTuple());
   }
 
   /**

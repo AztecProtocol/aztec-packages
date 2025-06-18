@@ -27,7 +27,7 @@ describe('BatchConnectionSampler', () => {
     } as unknown as jest.Mocked<Libp2p>;
 
     // Create a real connection sampler with mocked random sampling
-    connectionSampler = new ConnectionSampler(libp2p, 1000, mockRandomSampler);
+    connectionSampler = new ConnectionSampler(libp2p, mockRandomSampler, undefined, { cleanupIntervalMs: 1000 });
   });
 
   afterEach(async () => {

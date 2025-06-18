@@ -58,7 +58,7 @@ const [test, verifier] = await Promise.all([
 
 // If testing honk is set, then we compile the honk test suite
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
-const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+const hasZK = getEnvVarCanBeUndefined("DISABLE_ZK");
 
 export const compilationInput = {
   language: "Solidity",

@@ -4,7 +4,6 @@ import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   FormattedViemError,
-  type ForwarderContract,
   type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
@@ -12,6 +11,8 @@ import {
   type L1ContractsConfig,
   type L1GasConfig,
   type L1TxRequest,
+  MULTI_CALL_3_ADDRESS,
+  Multicall3,
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
@@ -22,15 +23,15 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { ForwarderAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, TxHash } from '@aztec/stdlib/tx';
+import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
-import { type TransactionReceipt, encodeFunctionData, toHex } from 'viem';
+import { type TransactionReceipt, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
@@ -38,11 +39,11 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: Buffer;
+  header: ProposedBlockHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
-  stateReference: Buffer;
+  stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
   /** L2 block tx hashes */
@@ -58,7 +59,8 @@ export enum VoteType {
 
 type GetSlashPayloadCallBack = (slotNumber: bigint) => Promise<EthAddress | undefined>;
 
-type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+export type Action = 'propose' | 'governance-vote' | 'slashing-vote';
+
 interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
@@ -75,7 +77,6 @@ export class SequencerPublisher {
   private interrupted = false;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
-  private forwarderContract: ForwarderContract;
 
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected governanceProposerAddress?: EthAddress;
@@ -111,7 +112,6 @@ export class SequencerPublisher {
     deps: {
       telemetry?: TelemetryClient;
       blobSinkClient?: BlobSinkClientInterface;
-      forwarderContract: ForwarderContract;
       l1TxUtils: L1TxUtilsWithBlobs;
       rollupContract: RollupContract;
       slashingProposerContract: SlashingProposerContract;
@@ -130,7 +130,6 @@ export class SequencerPublisher {
     this.l1TxUtils = deps.l1TxUtils;
 
     this.rollupContract = deps.rollupContract;
-    this.forwarderContract = deps.forwarderContract;
 
     this.govProposerContract = deps.governanceProposerContract;
     this.slashingProposerContract = deps.slashingProposerContract;
@@ -142,10 +141,6 @@ export class SequencerPublisher {
 
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
     this.getSlashPayload = callback;
-  }
-
-  public getForwarderAddress() {
-    return EthAddress.fromString(this.forwarderContract.getAddress());
   }
 
   public getSenderAddress() {
@@ -182,7 +177,7 @@ export class SequencerPublisher {
       return undefined;
     }
     const currentL2Slot = this.getCurrentL2Slot();
-    this.log.debug(`Current L2 slot: ${currentL2Slot}`);
+    this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
@@ -224,11 +219,12 @@ export class SequencerPublisher {
       this.log.debug('Forwarding transactions', {
         validRequests: validRequests.map(request => request.action),
       });
-      const result = await this.forwarderContract.forward(
+      const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
         gasConfig,
         blobConfig,
+        this.rollupContract.address,
         this.log,
       );
       this.callbackBundledTransactions(validRequests, result);
@@ -303,8 +299,12 @@ export class SequencerPublisher {
     // so that the committee is recalculated correctly
     const ignoreSignatures = attestationData.attestations.length === 0;
     if (ignoreSignatures) {
-      const committee = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
-      attestationData.attestations = committee.committee.map(committeeMember =>
+      const { committee } = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
+      if (!committee) {
+        this.log.warn(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+        throw new Error(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+      }
+      attestationData.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
@@ -313,21 +313,21 @@ export class SequencerPublisher {
     const flags = { ignoreDA: true, ignoreSignatures };
 
     const args = [
-      toHex(header.toBuffer()),
+      header.toViem(),
       formattedAttestations,
       toHex(attestationData.digest),
       ts,
-      toHex(header.contentCommitment.blobsHash),
+      header.contentCommitment.blobsHash.toString(),
       flags,
     ] as const;
 
-    await this.rollupContract.validateHeader(args, this.getForwarderAddress().toString());
+    await this.rollupContract.validateHeader(args, MULTI_CALL_3_ADDRESS);
     return ts;
   }
 
-  public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
+  public async getCurrentEpochCommittee(): Promise<EthAddress[] | undefined> {
     const committee = await this.rollupContract.getCurrentEpochCommittee();
-    return committee.map(EthAddress.fromString);
+    return committee?.map(EthAddress.fromString);
   }
 
   private async enqueueCastVoteHelper(
@@ -429,11 +429,11 @@ export class SequencerPublisher {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
-    const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader.toBuffer(),
+      header: proposedBlockHeader,
       archive: block.archive.root.toBuffer(),
-      stateReference: block.header.state.toBuffer(),
+      stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
       attestations,
@@ -476,7 +476,7 @@ export class SequencerPublisher {
       throw new Error('L1 TX utils needs to be initialized with an account wallet.');
     }
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getEthBlobEvaluationInputs(encodedData.blobs);
+    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
@@ -505,9 +505,9 @@ export class SequencerPublisher {
     const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
     const args = [
       {
-        header: toHex(encodedData.header),
+        header: encodedData.header.toViem(),
         archive: toHex(encodedData.archive),
-        stateReference: toHex(encodedData.stateReference),
+        stateReference: encodedData.stateReference.toViem(),
         oracleInput: {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
@@ -525,15 +525,15 @@ export class SequencerPublisher {
     });
 
     const forwarderData = encodeFunctionData({
-      abi: ForwarderAbi,
-      functionName: 'forward',
-      args: [[this.rollupContract.address], [rollupData]],
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      args: [[{ target: this.rollupContract.address, allowFailure: false, callData: rollupData }]],
     });
 
     const simulationResult = await this.l1TxUtils
       .simulateGasUsed(
         {
-          to: this.getForwarderAddress().toString(),
+          to: MULTI_CALL_3_ADDRESS,
           data: forwarderData,
           gas: SequencerPublisher.PROPOSE_GAS_GUESS,
         },

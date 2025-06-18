@@ -51,6 +51,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerAddsValidators(uint256 _depositsPerMint) external {
+    // Always accept the fake proofs
+    setMockZKPassportVerifier();
+
     address caller = address(0xbeefdeef);
 
     // it can add up to the deposits per mint without minting
@@ -66,9 +69,12 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.AddedToQueue(validators[i]);
+      emit IStakingAssetHandler.AddedToQueue(validators[i], 1 + i);
       vm.prank(caller);
-      stakingAssetHandler.addValidator(validators[i]);
+      stakingAssetHandler.addValidatorToQueue(validators[i], realProof);
+
+      // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
+      mockZKPassportVerifier.incrementUniqueIdentifier();
     }
     assertEq(stakingAssetHandler.getQueueLength(), _depositsPerMint);
 
@@ -86,9 +92,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     // Added to the queue successfully
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef));
+    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), _depositsPerMint + 1);
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef));
+    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), realProof);
 
     // it reverts when adding one more validator
     vm.expectRevert(

@@ -340,7 +340,7 @@ class UltraFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t dyadic_circuit_size,
                    const size_t num_public_inputs,
-                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+                   CommitmentKey commitment_key = CommitmentKey())
             : Base(dyadic_circuit_size, num_public_inputs, std::move(commitment_key)){};
 
         std::vector<uint32_t> memory_read_records;
@@ -356,7 +356,7 @@ class UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
         // Serialized Verification Key length in fields
         static constexpr size_t VERIFICATION_KEY_LENGTH =
@@ -367,7 +367,7 @@ class UltraFlavor {
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(ProvingKey& proving_key)
         {
@@ -377,12 +377,12 @@ class UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
             this->pairing_inputs_public_input_key = proving_key.pairing_inputs_public_input_key;
 
-            if (proving_key.commitment_key == nullptr) {
+            if (!proving_key.commitment_key.initialized()) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-                proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+                proving_key.commitment_key = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key.commitment_key->commit(polynomial);
+                commitment = proving_key.commitment_key.commit(polynomial);
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
@@ -667,24 +667,16 @@ class UltraFlavor {
         Commitment kzg_w_comm;
         Transcript_() = default;
 
-        // Used by verifier to initialize the transcript
-        Transcript_(const std::vector<FF>& proof)
-            : Base(proof)
-        {}
-
         static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript_>();
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript->send_to_verifier("Init", init);
-            return transcript;
+            auto transcript = Base::prover_init_empty();
+            return std::static_pointer_cast<Transcript_>(transcript);
         };
 
         static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
-            [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<FF>("Init");
-            return verifier_transcript;
+            auto verifier_transcript = Base::verifier_init_empty(transcript);
+            return std::static_pointer_cast<Transcript_>(verifier_transcript);
         };
 
         /**

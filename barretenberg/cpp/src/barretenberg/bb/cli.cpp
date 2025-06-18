@@ -217,8 +217,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
     };
 
-    const auto add_zk_option = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--zk", flags.zk, "Use a zk version of --scheme, if available.");
+    const auto remove_zk_option = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--disable_zk",
+                                    flags.disable_zk,
+                                    "Use a non-zk version of --scheme. This flag is set to false by default.");
     };
 
     const auto add_init_kzg_accumulator_option = [&](CLI::App* subcommand) {
@@ -333,6 +335,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
+    add_vk_path_option(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -340,7 +343,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(prove);
     add_output_format_option(prove);
     add_write_vk_flag(prove);
-    add_zk_option(prove);
+    remove_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
@@ -372,6 +375,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
+    remove_zk_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -387,7 +391,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_scheme_option(verify);
     add_crs_path_option(verify);
     add_oracle_hash_option(verify);
-    add_zk_option(verify);
+    remove_zk_option(verify);
     add_ipa_accumulation_flag(verify);
     add_init_kzg_accumulator_option(verify);
     add_honk_recursion_option(verify);
@@ -407,7 +411,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(write_solidity_verifier, output_path);
 
     add_verbose_flag(write_solidity_verifier);
-    add_zk_option(write_solidity_verifier);
+    remove_zk_option(write_solidity_verifier);
     add_crs_path_option(write_solidity_verifier);
 
     /***************************************************************************************************************
@@ -676,15 +680,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
-            if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The write_vk command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
-                }
-                api.write_ivc_vk(ivc_inputs_path, output_path);
-                return 0;
-            }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
@@ -696,7 +691,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
             if (prove->parsed()) {
-                api.prove(flags, bytecode_path, witness_path, output_path);
+                api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);

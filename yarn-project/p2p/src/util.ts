@@ -5,6 +5,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 
 import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, privateKeyFromProtobuf, privateKeyToProtobuf } from '@libp2p/crypto/keys';
+import type { Identify } from '@libp2p/identify';
 import type { PrivateKey } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
@@ -17,14 +18,22 @@ import type { P2PConfig } from './config.js';
 
 const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
 
-export interface PubSubLibp2p extends Libp2p {
+export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' | 'peerId'> {
   services: {
-    pubsub: GossipSub;
-    components: {
-      connectionManager: ConnectionManager;
-    };
+    pubsub: Pick<
+      GossipSub,
+      'addEventListener' | 'removeEventListener' | 'publish' | 'subscribe' | 'reportMessageValidationResult'
+    > & { score: Pick<GossipSub['score'], 'score'> };
   };
 }
+
+export type FullLibp2p = Libp2p<{
+  identify: Identify;
+  pubsub: GossipSub;
+  components: {
+    connectionManager: ConnectionManager;
+  };
+}>;
 
 /**
  * Converts an address string to a multiaddr string.

@@ -201,6 +201,18 @@ export class BufferReader {
   }
 
   /**
+   * Reads a vector of 256-bit unsigned integers from the buffer and returns it as an array of bigints.
+   * The method utilizes the 'readVector' method, passing a deserializer that reads bigints.
+   *
+   * @returns An array of bigints representing the vector read from the buffer.
+   */
+  public readUint256Vector(): bigint[] {
+    return this.readVector({
+      fromBuffer: (reader: BufferReader) => reader.readUInt256(),
+    });
+  }
+
+  /**
    * Reads a vector of fixed size from the buffer and deserializes its elements using the provided itemDeserializer object.
    * The 'itemDeserializer' object should have a 'fromBuffer' method that takes a BufferReader instance and returns the deserialized element.
    * The method first reads the size of the vector (a number) from the buffer, then iterates through its elements,

@@ -43,12 +43,13 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
-        manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
-        manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
+        for (size_t i = 0; i < Flavor::VerificationKey::VERIFICATION_KEY_LENGTH; i++) {
+            manifest_expected.add_entry(round, "vkey_field", frs_per_Fr);
+        }
+        manifest_expected.add_challenge(round, "vkey_hash");
+        round++;
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
         for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
             manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
@@ -197,7 +198,8 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -235,12 +237,12 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     verifier.verify_proof(proof);
 
