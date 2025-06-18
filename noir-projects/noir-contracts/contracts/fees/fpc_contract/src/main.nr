@@ -196,8 +196,9 @@ pub contract FPC {
         let token = Token::at(config.accepted_asset);
 
         // We send the full balance to `to`.
-        let balance = token.balance_of_public(context.this_address()).view(&mut context);
-        token.transfer_in_public(context.this_address(), to, balance, 0).call(&mut context);
+        let this_address = context.this_address();
+        let balance = token.balance_of_public(this_address).view(&mut context);
+        token.transfer_in_public(this_address, to, balance, 0).call(&mut context);
     }
 
     /// Note: Not marked as view as we need it to be callable as an entrypoint since in some places we need to obtain

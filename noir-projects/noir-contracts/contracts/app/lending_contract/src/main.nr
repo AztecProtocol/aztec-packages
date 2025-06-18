@@ -111,13 +111,14 @@ pub contract Lending {
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
+        let this_address = context.this_address();
         let on_behalf_of =
             compute_identifier(secret, on_behalf_of, context.msg_sender().to_field());
         let _res = Token::at(collateral_asset)
-            .transfer_to_public(from, context.this_address(), amount, authwit_nonce)
+            .transfer_to_public(from, this_address, amount, authwit_nonce)
             .call(&mut context);
         // docs:start:enqueue_public
-        Lending::at(context.this_address())
+        Lending::at(this_address)
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
             .enqueue(&mut context);
         // docs:end:enqueue_public
@@ -131,11 +132,12 @@ pub contract Lending {
         collateral_asset: AztecAddress,
     ) {
         // docs:start:public_to_public_call
+        let this_address = context.this_address();
         let _ = Token::at(collateral_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), amount, authwit_nonce)
+            .transfer_in_public(context.msg_sender(), this_address, amount, authwit_nonce)
             .call(&mut context);
         // docs:end:public_to_public_call
-        let _ = Lending::at(context.this_address())
+        let _ = Lending::at(this_address)
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
             .call(&mut context);
     }

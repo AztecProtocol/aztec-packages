@@ -98,6 +98,7 @@ pub contract AMM {
         let liquidity_token = Token::at(config.liquidity_token);
 
         let sender = context.msg_sender();
+        let this_address = context.this_address();
 
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
@@ -105,7 +106,7 @@ pub contract AMM {
         let refund_token0_partial_note = token0
             .transfer_to_public_and_prepare_private_balance_increase(
                 sender,
-                context.this_address(),
+                this_address,
                 amount0_max,
                 authwit_nonce,
             )
@@ -114,7 +115,7 @@ pub contract AMM {
         let refund_token1_partial_note = token1
             .transfer_to_public_and_prepare_private_balance_increase(
                 sender,
-                context.this_address(),
+                this_address,
                 amount1_max,
                 authwit_nonce,
             )
@@ -129,7 +130,7 @@ pub contract AMM {
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
         // partial notes.
-        AMM::at(context.this_address())
+        AMM::at(this_address)
             ._add_liquidity(
                 config,
                 refund_token0_partial_note,
@@ -158,16 +159,17 @@ pub contract AMM {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
+        let this_address = context.this_address();
 
         // We read the current AMM balance of both tokens. Note that by the time this function is called the token
         // transfers have already been completed (since those calls were enqueued before this call), and so we need to
         // subtract the transfer amount to get the pre-deposit balance.
         let balance0_plus_amount0_max =
-            token0.balance_of_public(context.this_address()).view(&mut context);
+            token0.balance_of_public(this_address).view(&mut context);
         let balance0 = balance0_plus_amount0_max - amount0_max;
 
         let balance1_plus_amount1_max =
-            token1.balance_of_public(context.this_address()).view(&mut context);
+            token1.balance_of_public(this_address).view(&mut context);
         let balance1 = balance1_plus_amount1_max - amount1_max;
 
         // With the current balances known, we can calculate the token amounts to the pool, respecting the user's
@@ -251,13 +253,14 @@ pub contract AMM {
         let token1 = Token::at(config.token1);
 
         let sender = context.msg_sender();
+        let this_address = context.this_address();
 
         // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
         // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and then have
         // the AMM publicly burn its own tokens.
         // TODO(#10287): consider adding a private burn
         liquidity_token
-            .transfer_to_public(sender, context.this_address(), liquidity, authwit_nonce)
+            .transfer_to_public(sender, this_address, liquidity, authwit_nonce)
             .call(&mut context);
 
         // We don't yet know how many tokens the sender will get - that can only be computed during public execution
@@ -270,7 +273,7 @@ pub contract AMM {
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
         // partial notes.
-        AMM::at(context.this_address())
+        AMM::at(this_address)
             ._remove_liquidity(
                 config,
                 liquidity,
@@ -295,11 +298,13 @@ pub contract AMM {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
+        let this_address = context.this_address();
+
 
         // We need the current balance of both tokens as well as the liquidity token total supply in order to compute
         // the amounts to send the user.
-        let balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
-        let balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
+        let balance0 = token0.balance_of_public(this_address).view(&mut context);
+        let balance1 = token1.balance_of_public(this_address).view(&mut context);
         let total_supply = liquidity_token.total_supply().view(&mut context);
 
         // We calculate the amounts of token0 and token1 the user is entitled to based on the amount of liquidity they
@@ -310,7 +315,7 @@ pub contract AMM {
 
         // We can now burn the liquidity tokens that had been privately transferred into the AMM, as well as complete
         // both partial notes.
-        liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
+        liquidity_token.burn_public(this_address, liquidity, 0).call(&mut context);
         token0.finalize_transfer_to_private(amount0, token0_partial_note).call(&mut context);
         token1.finalize_transfer_to_private(amount1, token1_partial_note).call(&mut context);
     }
@@ -336,17 +341,18 @@ pub contract AMM {
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
         let sender = context.msg_sender();
+        let this_address = context.this_address();
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
         Token::at(token_in)
-            .transfer_to_public(sender, context.this_address(), amount_in, authwit_nonce)
+            .transfer_to_public(sender, this_address, amount_in, authwit_nonce)
             .call(&mut context);
         let token_out_partial_note = Token::at(token_out)
             .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
-        AMM::at(context.this_address())
+        AMM::at(this_address)
             ._swap_exact_tokens_for_tokens(
                 token_in,
                 token_out,
@@ -369,12 +375,13 @@ pub contract AMM {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
+        let this_address = context.this_address();
         let balance_in_plus_amount_in =
-            Token::at(token_in).balance_of_public(context.this_address()).view(&mut context);
+            Token::at(token_in).balance_of_public(this_address).view(&mut context);
         let balance_in = balance_in_plus_amount_in - amount_in;
 
         let balance_out =
-            Token::at(token_out).balance_of_public(context.this_address()).view(&mut context);
+            Token::at(token_out).balance_of_public(this_address).view(&mut context);
 
         // We can now compute the number of tokens to transfer and complete the partial note.
         let amount_out = get_amount_out(amount_in, balance_in, balance_out);
@@ -406,6 +413,7 @@ pub contract AMM {
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
         let sender = context.msg_sender();
+        let this_address = context.this_address();
 
         // We don't know how many tokens we'll receive from the user, since the swap amount will only be known during
         // public execution as it depends on the live balances. We therefore transfer the full maximum amount and
@@ -416,7 +424,7 @@ pub contract AMM {
         let change_token_in_partial_note = Token::at(token_in)
             .transfer_to_public_and_prepare_private_balance_increase(
                 sender,
-                context.this_address(),
+                this_address,
                 amount_in_max,
                 authwit_nonce,
             )
@@ -426,7 +434,7 @@ pub contract AMM {
             .prepare_private_balance_increase(sender, sender)
             .call(&mut context);
 
-        AMM::at(context.this_address())
+        AMM::at(this_address)
             ._swap_tokens_for_exact_tokens(
                 token_in,
                 token_out,
@@ -451,12 +459,13 @@ pub contract AMM {
         // In order to compute the amount to swap we need the live token balances. Note that at this state the token in
         // transfer has already been completed as that function call was enqueued before this one. We therefore need to
         // subtract the amount in to get the pre-swap balances.
+        let this_address = context.this_address();
         let balance_in_plus_amount_in_max =
-            Token::at(token_in).balance_of_public(context.this_address()).view(&mut context);
+            Token::at(token_in).balance_of_public(this_address).view(&mut context);
         let balance_in = balance_in_plus_amount_in_max - amount_in_max;
 
         let balance_out =
-            Token::at(token_out).balance_of_public(context.this_address()).view(&mut context);
+            Token::at(token_out).balance_of_public(this_address).view(&mut context);
 
         // We can now compute the number of tokens we need to receive and complete the partial note with the change.
         let amount_in = get_amount_in(amount_out, balance_in, balance_out);
