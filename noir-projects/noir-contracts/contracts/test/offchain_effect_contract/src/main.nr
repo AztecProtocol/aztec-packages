@@ -2,7 +2,7 @@ use aztec::macros::aztec;
 
 /// This contract is used to test that emitting offchain messages works correctly.
 #[aztec]
-contract OffchainMessage {
+contract OffchainEffect {
     use aztec::{
         event::event_interface::emit_event_as_offchain_effect,
         macros::{events::event, functions::{private, utility}, storage::storage},
