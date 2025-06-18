@@ -100,7 +100,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         DeciderProver decider_prover(prover_accumulator);
         DeciderVerifier decider_verifier(verifier_accumulator);
-        HonkProof decider_proof = decider_prover.construct_proof();
+        decider_prover.construct_proof();
+        HonkProof decider_proof = decider_prover.export_proof();
         auto decider_output = decider_verifier.verify_proof(decider_proof);
         bool result = decider_output.check();
         EXPECT_EQ(result, expected_result);

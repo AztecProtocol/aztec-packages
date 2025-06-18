@@ -327,7 +327,6 @@ export class PrivateKernelExecutionProver {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
       clientIvcProof,
-      vk: tailOutput.verificationKey.keyAsBytes,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
   }

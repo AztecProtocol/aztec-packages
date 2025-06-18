@@ -32,7 +32,7 @@
   "devDependencies": {
     "@aztec/bb-prover": "workspace:^",
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "favicon-emoji": "2.3.1",
     "html-webpack-plugin": "^5.6.0",

@@ -30,6 +30,9 @@ contract Static is TestBase {
   {
     proposal.creation = Timestamp.wrap(bound(_creation, 0, type(uint32).max));
     assertEq(proposal.pendingThrough(), proposal.creation + proposal.config.votingDelay);
+
+    Proposal memory proposalMemory = proposal;
+    assertEq(proposalMemory.pendingThroughMemory(), proposal.creation + proposal.config.votingDelay);
   }
 
   function test_activeThrough(Configuration memory _config, uint256 _creation)

@@ -433,7 +433,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private async handleL1ToL2Messages(
     messagesSyncPoint: L1BlockId,
     currentL1BlockNumber: bigint,
-    currentL1BlockHash: Buffer32,
+    _currentL1BlockHash: Buffer32,
   ) {
     this.log.trace(`Handling L1 to L2 messages from ${messagesSyncPoint.l1BlockNumber} to ${currentL1BlockNumber}.`);
     if (currentL1BlockNumber <= messagesSyncPoint.l1BlockNumber) {
@@ -459,10 +459,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.debug(
         `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
       );
-      await this.store.setMessageSynchedL1Block({
-        l1BlockHash: currentL1BlockHash,
-        l1BlockNumber: currentL1BlockNumber,
-      });
       return;
     }
 

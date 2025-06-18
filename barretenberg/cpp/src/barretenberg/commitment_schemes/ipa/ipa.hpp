@@ -957,7 +957,7 @@ template <typename Curve_> class IPA {
         BB_ASSERT_EQ(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())), fq(output_claim.opening_pair.evaluation.get_value()), "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
-        return {output_claim, prover_transcript->proof_data};
+        return {output_claim, prover_transcript->export_proof()};
     }
 
     static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)

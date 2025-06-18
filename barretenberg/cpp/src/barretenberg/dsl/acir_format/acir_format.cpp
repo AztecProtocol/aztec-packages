@@ -354,8 +354,10 @@ void handle_IPA_accumulation(Builder& builder,
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
         using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
 
-        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
-        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
+        ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>();
+        ipa_transcript_2->load_proof(nested_ipa_proofs[1]);
         auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
             commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
         // If this is the root rollup, do full IPA verification
@@ -363,8 +365,8 @@ void handle_IPA_accumulation(Builder& builder,
             VerifierCommitmentKey<stdlib::grumpkin<Builder>> verifier_commitment_key(
                 &builder, 1 << CONST_ECCVM_LOG_N, VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N));
             // do full IPA verification
-            auto accumulated_ipa_transcript =
-                std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));
+            auto accumulated_ipa_transcript = std::make_shared<StdlibTranscript>();
+            accumulated_ipa_transcript->load_proof(convert_native_proof_to_stdlib(&builder, ipa_proof));
             IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
                 verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
         } else {

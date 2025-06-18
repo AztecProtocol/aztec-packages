@@ -16,9 +16,8 @@ namespace bb {
  * @brief Oink Prover function that runs all the rounds of the verifier
  * @details Returns the witness commitments and relation_parameters
  * @tparam Flavor
- * @return OinkProverOutput<Flavor>
  */
-template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
+template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
 {
     if (!proving_key->proving_key.commitment_key.initialized()) {
         proving_key->proving_key.commitment_key = CommitmentKey(proving_key->proving_key.circuit_size);
@@ -68,8 +67,15 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::prove()
     // Free the commitment key
     proving_key->proving_key.commitment_key = CommitmentKey();
     // #endif
+}
 
-    return transcript->proof_data;
+/**
+ * @brief Export the Oink proof
+ */
+
+template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::export_proof()
+{
+    return transcript->export_proof();
 }
 
 /**

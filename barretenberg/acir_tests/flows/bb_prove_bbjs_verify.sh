@@ -16,6 +16,7 @@ mkdir -p $output_dir
 trap "rm -rf $output_dir" EXIT
 
 # Generate the VK using BB CLI
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
 $BIN write_vk \
   --scheme ultra_honk \
   -b $artifact_dir/program.json \
@@ -24,6 +25,7 @@ $BIN write_vk \
 # Generate the proof using BB CLI (save as both bytes and fields)
 $BIN prove \
   --scheme ultra_honk \
+  --disable_zk \
   -b $artifact_dir/program.json \
   -w $artifact_dir/witness.gz \
   -k $output_dir/vk \

@@ -158,7 +158,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     auto prover_output =
         sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
 
-    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     // Execute Sumcheck Verifier
     SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(verifier_transcript);

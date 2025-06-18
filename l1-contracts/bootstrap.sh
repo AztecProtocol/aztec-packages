@@ -410,17 +410,98 @@ function release_git_push {
 
 function coverage {
   echo_header "l1-contracts coverage"
-  local report_type=${1:-}
-  local fancy=${2:-}
-  if [ "$report_type" = "lcov" ]; then
-    forge coverage --no-match-coverage "(test|script|mock|generated)" --report lcov
-    if [ "$fancy" = "fancy" ]; then
-      mkdir -p coverage
-      genhtml lcov.info --branch-coverage --output-dir coverage
-      python3 -m http.server --directory "coverage"
-    fi
+  forge --version
+
+  # Default values
+  MATCH_PATH=""
+  LCOV=false
+  SERVE=false
+  HELP=false
+  GOVERNANCE=false
+
+  # Help text
+  show_help() {
+    echo "Usage: ./bootstrap.sh coverage [options]"
+    echo "Options:"
+    echo "  -p <path>    Run coverage only for files matching this path pattern"
+    echo "  -l           Generate LCOV report"
+    echo "  -s           Serve coverage report (requires -l)"
+    echo "  -g           Run coverage for governance contracts using only gov tests"
+    echo "  -h           Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  ./bootstrap.sh coverage                  # Run coverage for all files"
+    echo "  ./bootstrap.sh coverage -p src/core      # Run coverage only for src/core"
+    echo "  ./bootstrap.sh coverage -l -s            # Generate and serve LCOV report"
+    echo "  ./bootstrap.sh coverage -g               # Run coverage for governance contracts using only gov tests"
+    echo "  ./bootstrap.sh coverage -g -l -s         # Run coverage for governance contracts using only gov tests with LCOV report and serve"
+  }
+
+  # Parse options
+  while getopts "p:lshg" opt; do
+    case $opt in
+      p) MATCH_PATH="$OPTARG" ;;
+      l) LCOV=true ;;
+      s) SERVE=true ;;
+      h) HELP=true ;;
+      g) GOVERNANCE=true ;;
+      *) show_help; exit 1 ;;
+    esac
+  done
+
+  # Show help if requested
+  if [ "$HELP" = true ]; then
+    show_help
+    exit 0
+  fi
+
+  # Validate serve option
+  if [ "$SERVE" = true ] && [ "$LCOV" = false ]; then
+    echo "Error: -s option requires -l option to be enabled"
+    exit 1
+  fi
+
+  # Build the command
+  if [ "$GOVERNANCE" = true ]; then
+    CMD="FORGE_COVERAGE=true forge coverage --match-path \"test/governance/**/*.t.sol\" --no-match-coverage \"(test|script|mock|generated|core|periphery)\""
   else
-    forge coverage --no-match-coverage "(test|script|mock|generated)"
+    # Default coverage command
+    CMD="FORGE_COVERAGE=true forge coverage --no-match-coverage \"(test|script|mock|generated)\""
+  fi
+
+  if [ -n "$MATCH_PATH" ] && [ "$GOVERNANCE" = true ]; then
+    echo "Warning: -p option is not supported in governance mode"
+    exit 1
+  fi
+
+  # Add path filter if specified (only if not in governance mode)
+  if [ -n "$MATCH_PATH" ] && [ "$GOVERNANCE" = false ]; then
+    if [ ! -e "$MATCH_PATH" ]; then
+      echo "Warning: Path '$MATCH_PATH' does not exist"
+      exit 1
+    fi
+    CMD="$CMD --match-path \"$MATCH_PATH\""
+  fi
+
+  # Add LCOV report if requested
+  if [ "$LCOV" = true ]; then
+    CMD="$CMD --report lcov"
+  fi
+
+  echo "Running coverage with command: $CMD"
+  eval "$CMD"
+
+  # Serve report if requested
+  if [ "$SERVE" = true ]; then
+    if ! command -v genhtml &> /dev/null; then
+      echo "Error: genhtml not found. Please install lcov package."
+      exit 1
+    fi
+
+    mkdir -p coverage
+    genhtml lcov.info --branch-coverage --output-dir coverage
+    echo "Serving coverage report at http://localhost:8000"
+    python3 -m http.server --directory "coverage" 8000
   fi
 }
 
