@@ -57,9 +57,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 using UltraDeciderProver = DeciderProver_<UltraFlavor>;

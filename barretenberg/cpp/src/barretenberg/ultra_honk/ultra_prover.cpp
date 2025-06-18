@@ -64,7 +64,7 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<Honk
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
-    proof = transcript->export_proof();
+    auto proof = transcript->export_proof();
 
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {

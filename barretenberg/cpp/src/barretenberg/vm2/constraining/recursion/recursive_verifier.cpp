@@ -22,14 +22,12 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
     Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
     : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
     , builder(builder)
-    , transcript(std::make_shared<Transcript>())
 {}
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
     : key(vkey)
     , builder(builder)
-    , transcript(std::make_shared<Transcript>())
 {}
 
 // Evaluate the given public input column over the multivariate challenge points

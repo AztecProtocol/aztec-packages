@@ -10,7 +10,6 @@ namespace bb::avm2 {
 
 AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
     : key(std::move(verifier_key))
-    , transcript(std::make_shared<Transcript>())
 {}
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept

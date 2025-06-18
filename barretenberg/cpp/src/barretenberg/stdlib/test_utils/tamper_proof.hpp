@@ -84,6 +84,8 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     // As inner_proof is extracted with export_proof, the internal values of inner_prover.transcript are reset
     // Therefore, if we were to call export_proof without overriding num_frs_written and proof_start, the proof would
     // be empty. This is a hack, we should probably have a better way of tampering with proofs.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1411) Use std::unordered map in Transcript so that we
+    // can access/modify elements of a proof more easily
     inner_prover.transcript->serialize_full_transcript();
     inner_prover.transcript->proof_start = 0;
     inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
