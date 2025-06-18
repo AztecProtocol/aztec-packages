@@ -204,6 +204,14 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
             builder.ipa_proof = ipa_proof;
         }
     }
+
+    HonkProof export_serialized_proof(Prover prover, const size_t num_public_inputs)
+    {
+        // reset internal variables needed for exporting the proof
+        prover.transcript->num_frs_written = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS + num_public_inputs;
+        prover.transcript->proof_start = 0;
+        return prover.export_proof();
+    }
 };
 
 TYPED_TEST_SUITE(UltraTranscriptTests, FlavorTypes);
@@ -220,7 +228,8 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -250,18 +259,17 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
     typename TestFixture::Verifier verifier(verification_key);
     HonkProof honk_proof;
     HonkProof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        verifier.ipa_verification_key =
-            std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
         const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
@@ -325,35 +333,35 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor>) {
         GTEST_SKIP() << "Not built for this parameter";
     }
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    typename TestFixture::Prover prover(proving_key);
-    auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    typename TestFixture::Prover prover(proving_key, verification_key);
+    auto proof = prover.construct_proof();
     typename TestFixture::Verifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
-    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+    // reset verifier's transcript
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>();
 
-    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
     prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
     EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
-    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    proof = TestFixture::export_serialized_proof(prover, proving_key->proving_key.num_public_inputs);
     EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
@@ -371,7 +379,8 @@ TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
 
         // Automatically generate a transcript manifest by constructing a proof
         auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        typename TestFixture::Prover prover(proving_key);
+        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+        typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         EXPECT_EQ(proof.size(), TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS + builder.public_inputs.size());
     }

@@ -24,7 +24,7 @@ function test_cmds {
     fi
   else
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$prefix:TIMEOUT=17m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+      echo "$prefix:TIMEOUT=15m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
     else
       echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
     fi
@@ -72,6 +72,7 @@ function test {
 
 function bench_cmds {
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
+  echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
 
   for client_flow in client_flows/bridging client_flows/deployments client_flows/amm client_flows/account_deployments client_flows/transfers; do
     echo "$hash:ISOLATE=1:CPUS=8:NAME=$client_flow BENCHMARK_CONFIG=key_flows LOG_LEVEL=error BENCH_OUTPUT=bench-out/ yarn-project/end-to-end/scripts/run_test.sh simple $client_flow"

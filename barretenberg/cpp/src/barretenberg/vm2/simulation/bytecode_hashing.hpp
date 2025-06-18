@@ -25,7 +25,7 @@ class BytecodeHasher : public BytecodeHashingInterface {
     FF compute_public_bytecode_commitment(const BytecodeId bytecode_id, const std::vector<uint8_t>& bytecode) override;
 
   private:
-    EventEmitterInterface<BytecodeHashingEvent>& events;
+    [[maybe_unused]] EventEmitterInterface<BytecodeHashingEvent>& events;
     Poseidon2Interface& hasher;
 };
 

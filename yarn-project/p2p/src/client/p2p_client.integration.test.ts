@@ -601,7 +601,7 @@ describe('p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it.skip(
+  it(
     'should disconnect client when it returns an invalid status',
     async () => {
       const peerTestCount = 3;
@@ -615,6 +615,7 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [_c0, c1, _c2] = clients;
+      logger.info(`Created p2p clients`);
 
       const statusHandshakeSpies = clients.map(c =>
         jest.spyOn((c as any).p2pService.peerManager, 'exchangeStatusHandshake'),
@@ -628,12 +629,15 @@ describe('p2p client integration', () => {
       //@ts-expect-error arguments not expected
       jest.spyOn(c1PeerManager.reqresp, 'sendRequestToPeer').mockImplementation(async (peerId: PeerId, ...rest) => {
         if (peerId.toString() === badPeerId.toString()) {
+          logger.debug(`Client 1 returning invalid status handshake for peer ${peerId.toString()}`);
           return { status: ReqRespStatus.SUCCESS, data: Buffer.from('invalid status') };
         }
+        logger.debug(`Client 1 returning valid status handshake for peer ${peerId.toString()}`);
         return await realSend(peerId, ...rest);
       });
 
       await startTestP2PClients(clients);
+      logger.info(`Started p2p clients`, { enrs: clients.map(c => c.getEnr()?.encodeTxt) });
       await sleep(5000);
       logger.info(`Finished waiting for clients to connect`);
 

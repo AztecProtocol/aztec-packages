@@ -9,9 +9,10 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import type { ViemClient } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
@@ -26,6 +27,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   type EndToEndContext,
@@ -64,7 +66,7 @@ export type EpochsTestOpts = Partial<
  */
 export class EpochsTestContext {
   public context!: EndToEndContext;
-  public l1Client!: ViemClient;
+  public l1Client!: ExtendedViemWalletClient;
   public rollup!: RollupContract;
   public constants!: L1RollupConstants;
   public logger!: Logger;
@@ -115,6 +117,7 @@ export class EpochsTestContext {
       aztecSlotDuration,
       ethereumSlotDuration,
       aztecProofSubmissionWindow,
+      aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
@@ -204,7 +207,7 @@ export class EpochsTestContext {
     opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
   ) {
     this.logger.warn('Creating and syncing a validator node...');
-    return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: privateKeys });
+    return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
   }
 
   private async createNode(opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {}) {
@@ -218,7 +221,7 @@ export class EpochsTestContext {
         {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys,
+          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
           p2pEnabled,
           p2pIp,
         },
@@ -312,6 +315,20 @@ export class EpochsTestContext {
     });
     await wallet.registerContract({ artifact: SpamContract.artifact, instance });
     return SpamContract.at(instance.address, wallet);
+  }
+
+  /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
+  public async createL1Client() {
+    const { client, delayer } = withDelayer(
+      createExtendedL1Client(
+        [...this.l1Client.chain.rpcUrls.default.http],
+        privateKeyToAccount(this.getNextPrivateKey()),
+        this.l1Client.chain,
+      ),
+      { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
+    );
+    expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
+    return { client, delayer };
   }
 
   /** Verifies whether the given block number is found on the aztec node. */

@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {
   IRollup,
+  IHaveVersion,
   ChainTips,
   PublicInputArgs,
   L1FeeData,
@@ -17,18 +18,15 @@ import {
 import {
   IStaking, AttesterConfig, Exit, AttesterView, Status
 } from "@aztec/core/interfaces/IStaking.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
-import {GSE} from "@aztec/core/staking/GSE.sol";
+
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
@@ -60,8 +58,6 @@ import {
  *         about the state of the rollup and test it.
  */
 contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
-  using AddressSnapshotLib for SnapshottedAddressSet;
-
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
@@ -173,7 +169,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The address of the proposer
    */
-  function getCurrentProposer() external override(IValidatorSelection) returns (address) {
+  function getCurrentProposer() external override(IEmperor) returns (address) {
     return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
@@ -250,10 +246,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getGSE() external view override(IStaking) returns (GSE) {
     return StakingLib.getStorage().gse;
-  }
-
-  function getActiveAttesterCount() external view override(IStaking) returns (uint256) {
-    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
   }
 
   function getManaTarget() external view override(IRollup) returns (uint256) {
@@ -457,7 +449,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The current slot number
    */
-  function getCurrentSlot() external view override(IValidatorSelection) returns (Slot) {
+  function getCurrentSlot() external view override(IEmperor) returns (Slot) {
     return Timestamp.wrap(block.timestamp).slotFromTimestamp();
   }
 
@@ -576,7 +568,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return FeeLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
   }
 
-  function getVersion() external view override(IRollup) returns (uint256) {
+  function getVersion() external view override(IHaveVersion) returns (uint256) {
     return STFLib.getStorage().config.version;
   }
 
@@ -744,5 +736,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
     return Timestamp.wrap(block.timestamp).epochFromTimestamp();
+  }
+
+  function getNextFlushableEpoch() public view override(IStaking) returns (Epoch) {
+    return StakingLib.getNextFlushableEpoch();
   }
 }

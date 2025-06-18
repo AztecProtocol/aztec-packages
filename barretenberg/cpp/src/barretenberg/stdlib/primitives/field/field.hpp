@@ -36,37 +36,34 @@ template <typename Builder> class field_t {
 
     field_t(const int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     field_t(const unsigned int value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+
+    {}
 
     // NOLINTNEXTLINE(google-runtime-int) intended behavior
     field_t(const unsigned long value)
         : context(nullptr)
+        , additive_constant(bb::fr(value))
+        , multiplicative_constant(bb::fr::one())
         , witness_index(IS_CONSTANT)
-    {
-        additive_constant = bb::fr(value);
-        multiplicative_constant = bb::fr::one();
-    }
+    {}
 
     // Construct a constant circuit element from a native field element
     field_t(const bb::fr& value)
@@ -155,11 +152,9 @@ template <typename Builder> class field_t {
 
     field_t sqr() const { return operator*(*this); }
 
+    field_t pow(const uint32_t& exponent) const;
     // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
     field_t pow(const field_t& exponent) const;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1039): Use of this function in ZM verifier is insecure.
-    field_t pow(size_t exponent) const;
 
     field_t operator+=(const field_t& other)
     {
@@ -204,7 +199,7 @@ template <typename Builder> class field_t {
     {
         field_t result(*this);
         result.additive_constant.self_neg();
-        if (this->witness_index != IS_CONSTANT) {
+        if (!is_constant()) {
             result.multiplicative_constant.self_neg();
         }
         return result;
@@ -265,7 +260,7 @@ template <typename Builder> class field_t {
     field_t madd(const field_t& to_mul, const field_t& to_add) const;
 
     // add_two costs 1 constraint in Ultra arithmetization
-    field_t add_two(const field_t& add_a, const field_t& add_b) const;
+    field_t add_two(const field_t& add_b, const field_t& add_c) const;
     bool_t<Builder> operator==(const field_t& other) const;
     bool_t<Builder> operator!=(const field_t& other) const;
 
@@ -289,10 +284,6 @@ template <typename Builder> class field_t {
 
     Builder* get_context() const { return context; }
 
-    /**
-     * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
-     * returns three parts: [low, slice, high].
-     */
     std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
     /**
@@ -313,7 +304,7 @@ template <typename Builder> class field_t {
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
     {
-        ASSERT(witness_index == IS_CONSTANT);
+        ASSERT(is_constant() && ctx);
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
@@ -335,7 +326,6 @@ template <typename Builder> class field_t {
     void fix_witness()
     {
         ASSERT(!is_constant());
-        auto context = get_context();
         ASSERT(context);
         // Let     a := *this;
         //       q_l :=  1
@@ -349,8 +339,7 @@ template <typename Builder> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @warning Are you sure you don't want to use
-     * get_normalized_witness_index?
+     * @warning Are you sure you don't want to use get_normalized_witness_index?
      *
      * @return uint32_t
      */
@@ -367,6 +356,7 @@ template <typename Builder> class field_t {
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
     std::vector<bool_t<Builder>> decompose_into_bits(
+        const size_t num_bits = 256,
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
             [](Builder* ctx, uint64_t j, const uint256_t& val) {
                 return witness_t<Builder>(ctx, val.get_bit(j));

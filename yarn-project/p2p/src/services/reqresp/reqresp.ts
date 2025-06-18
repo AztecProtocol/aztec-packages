@@ -1,7 +1,7 @@
 // @attribution: lodestar impl for inspiration
 import { compactArray } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -21,7 +21,7 @@ import { SnappyTransform } from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { P2PReqRespConfig } from './config.js';
 import { BatchConnectionSampler } from './connection-sampler/batch_connection_sampler.js';
-import { ConnectionSampler } from './connection-sampler/connection_sampler.js';
+import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
@@ -57,8 +57,6 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk, prettyPrintReqResp
  * see: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-reqresp-domain
  */
 export class ReqResp implements ReqRespInterface {
-  protected readonly logger: Logger;
-
   private overallRequestTimeoutMs: number;
   private individualRequestTimeoutMs: number;
 
@@ -77,18 +75,22 @@ export class ReqResp implements ReqRespInterface {
     config: P2PReqRespConfig,
     private libp2p: Libp2p,
     private peerScoring: PeerScoring,
+    private logger = createLogger('p2p:reqresp'),
     rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
-    this.logger = createLogger('p2p:reqresp');
-
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
     this.rateLimiter = new RequestResponseRateLimiter(peerScoring, rateLimits);
 
     // Connection sampler is used to sample our connected peers
-    this.connectionSampler = new ConnectionSampler(libp2p);
+    this.connectionSampler = new ConnectionSampler(
+      libp2p,
+      new RandomSampler(),
+      createLogger(`${logger.module}:connection-sampler`),
+      config,
+    );
 
     this.snappyTransform = new SnappyTransform();
     this.metrics = new ReqRespMetrics(telemetryClient);
@@ -289,6 +291,7 @@ export class ReqResp implements ReqRespInterface {
         requests.length,
         maxPeers,
         compactArray([pinnedPeer]), // Exclude pinned peer from sampling, we will forcefully send all requests to it
+        createLogger(`${this.logger.module}:batch-connection-sampler`),
       );
 
       if (batchSampler.activePeerCount === 0 && !pinnedPeer) {
@@ -456,7 +459,11 @@ export class ReqResp implements ReqRespInterface {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
+      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
+      this.logger.trace(
+        `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
+      );
 
       // Open the stream with a timeout
       const result = await executeTimeout<ReqRespResponse>(
@@ -472,15 +479,16 @@ export class ReqResp implements ReqRespInterface {
       this.handleResponseError(e, peerId, subProtocol);
 
       // If there is an exception, we return an unknown response
-      return {
-        status: ReqRespStatus.FAILURE,
-        data: Buffer.from([]),
-      };
+      this.logger.debug(`Error sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}: ${e}`);
+      return { status: ReqRespStatus.FAILURE, data: Buffer.from([]) };
     } finally {
       // Only close the stream if we created it
       if (stream) {
         try {
-          await this.connectionSampler.close(stream.id);
+          this.logger.trace(
+            `Closing stream ${stream.id} for request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
+          );
+          await this.connectionSampler.close(stream);
         } catch (closeError) {
           this.logger.error(
             `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,

@@ -6,7 +6,11 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type {
+  ClientProtocolCircuitVerifier,
+  IVCProofVerificationResult,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
@@ -231,8 +235,9 @@ export const createReqResp = async (
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
+    p2pOptimisticNegotiation: false,
   };
-  const req = new ReqResp(config, p2p, peerScoring, rateLimits);
+  const req = new ReqResp(config, p2p, peerScoring, undefined, rateLimits);
   return { p2p, req };
 };
 
@@ -254,16 +259,16 @@ export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier 
   stop(): Promise<void> {
     return Promise.resolve();
   }
-  verifyProof(_tx: Tx): Promise<boolean> {
-    return Promise.resolve(true);
+  verifyProof(_tx: Tx): Promise<IVCProofVerificationResult> {
+    return Promise.resolve({ valid: true, durationMs: 0, totalDurationMs: 0 });
   }
 }
 export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier {
   stop(): Promise<void> {
     return Promise.resolve();
   }
-  verifyProof(_tx: Tx): Promise<boolean> {
-    return Promise.resolve(false);
+  verifyProof(_tx: Tx): Promise<IVCProofVerificationResult> {
+    return Promise.resolve({ valid: false, durationMs: 0, totalDurationMs: 0 });
   }
 }
 

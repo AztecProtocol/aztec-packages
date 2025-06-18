@@ -1,13 +1,24 @@
 // SPDX-License-Identifier: UNLICENSED
+// solhint-disable func-name-mixedcase
+// solhint-disable imports-order
+// solhint-disable comprehensive-interface
+// solhint-disable ordering
+
 pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Errors as GSEErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
+import {Status, IStakingCore, AttesterView, IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE, IGSECore} from "@aztec/core/staking/GSE.sol";
+import {IGSE, IGSECore} from "@aztec/governance/GSE.sol";
+import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 
 contract DepositTest is StakingBase {
+  using stdStorage for StdStorage;
+
   function test_GivenCallerHasInsufficientAllowance() external {
     // it reverts
 
@@ -50,20 +61,29 @@ contract DepositTest is StakingBase {
     // it reverts
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
 
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), type(uint256).max);
 
-    address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
-    );
+    // Now reset the next flushable epoch to 0
+    stdstore.enable_packed_slots().target(address(staking)).sig(
+      IStaking.getNextFlushableEpoch.selector
+    ).depth(0).checked_write(uint256(0));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+
+    // The real error gets caught by the flushEntryQueue call
+    // address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
+    // vm.expectRevert(
+    //   abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
+    // );
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit IStakingCore.FailedDeposit(ATTESTER, WITHDRAWER);
+    staking.flushEntryQueue();
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
-    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
+    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
@@ -96,23 +116,22 @@ contract DepositTest is StakingBase {
     givenCallerHasSufficientFunds
     givenAttesterIsNotRegistered
   {
-    // it transfer funds from the caller
-    // it adds attester to the set
-    // it updates the operator info
-    // it emits a {Deposit} event
+    // it adds attester to the entry queue
+    // it emits a {ValidatorQueued} event
 
-    assertEq(stakingAsset.balanceOf(address(staking)), 0);
-
-    vm.expectEmit(true, true, true, true, address(staking.getGSE()));
-    emit IGSECore.Deposit(address(staking.getGSE().CANONICAL_MAGIC_ADDRESS()), ATTESTER, WITHDRAWER);
+    vm.expectEmit(true, true, true, true, address(staking));
+    emit IStakingCore.ValidatorQueued(ATTESTER, WITHDRAWER);
 
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
-
-    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), DEPOSIT_AMOUNT);
+    // the money is in the staking contract
+    assertEq(stakingAsset.balanceOf(address(staking)), DEPOSIT_AMOUNT);
+    // the money is not in the GSE
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE())), 0);
+    // nor in governance
+    assertEq(stakingAsset.balanceOf(address(staking.getGSE().getGovernance())), 0);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    assertEq(attesterView.effectiveBalance, DEPOSIT_AMOUNT, "effective balance");
-    assertEq(attesterView.config.withdrawer, WITHDRAWER);
-    assertTrue(attesterView.status == Status.VALIDATING);
+    assertEq(attesterView.effectiveBalance, 0, "effective balance");
+    assertTrue(attesterView.status == Status.NONE);
   }
 }

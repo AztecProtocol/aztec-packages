@@ -35,6 +35,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     if (_isExiting) {
       vm.prank(unhinged);
       stakingAssetHandler.addValidatorToQueue(_attester, fakeProof);
+      staking.flushEntryQueue();
 
       vm.prank(WITHDRAWER);
       staking.initiateWithdraw(_attester, address(this));
@@ -45,6 +46,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.prank(unhinged);
     stakingAssetHandler.addValidatorToQueue(_attester, fakeProof);
+    staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
@@ -84,6 +86,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
+    staking.flushEntryQueue();
   }
 
   function test_WhenSufficientTimePassed(address _caller, address _attester)
@@ -115,6 +118,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
+    staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
@@ -167,6 +171,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
+    staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);
@@ -188,7 +193,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
         && _caller != unhinged
     );
 
-    uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
+    uint256 revertTimestamp = block.timestamp + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
@@ -220,7 +225,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
       _attester != address(0) && _caller != address(this) && _attester != address(this)
         && _attester != unhinged
     );
-    uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
+    uint256 revertTimestamp = block.timestamp + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
@@ -270,7 +275,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     vm.assume(_caller != address(this) && _caller != unhinged);
 
-    uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval + mintInterval;
+    uint256 revertTimestamp = block.timestamp + mintInterval + mintInterval;
     vm.warp(revertTimestamp);
 
     // Allow more than one deposit per mint
@@ -314,6 +319,8 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     vm.prank(_caller);
     stakingAssetHandler.dripQueue();
+
+    staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
     assertEq(attesterView.config.withdrawer, WITHDRAWER);

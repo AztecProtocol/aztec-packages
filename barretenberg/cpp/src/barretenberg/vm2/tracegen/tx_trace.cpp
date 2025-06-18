@@ -6,8 +6,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_tx.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/lib/phase_spec.hpp"
 
 #include <cstdint>
@@ -427,27 +426,24 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     }
 }
 
-std::vector<std::unique_ptr<class InteractionBuilderInterface>> TxTraceBuilder::lookup_jobs()
-{
-    // These are all generic, think which, if any, can be made sequential
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_phase_table_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_phase_jump_on_revert_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_phase_length_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_public_call_request_phase_settings>>(),
-        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_dispatch_exec_start_settings>>(),
-        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_dispatch_exec_get_revert_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_tree_insert_value_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_tree_insert_value_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_l2_l1_msg_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_effective_fee_public_inputs_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_fee_payer_public_inputs_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_balance_validation_settings>>()
-        // Commented out for now, to make the bulk test pass before all opcodes are implemented.
-        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_fee_public_inputs_settings>>(),
-        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_end_gas_used_public_inputs_settings>>()
-    );
-}
+const InteractionDefinition TxTraceBuilder::interactions =
+    InteractionDefinition()
+        // These are all generic, think which, if any, can be made sequential.
+        .add<lookup_tx_read_phase_table_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_write_tree_insert_value_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>();
+// Commented out for now, to make the bulk test pass before all opcodes are implemented.
+// .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+// .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
 
 } // namespace bb::avm2::tracegen

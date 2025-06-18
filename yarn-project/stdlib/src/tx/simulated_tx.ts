@@ -3,6 +3,12 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
+import { AztecAddress } from '../aztec-address/index.js';
+import {
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+} from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
@@ -15,6 +21,43 @@ import {
 import { type SimulationStats, SimulationStatsSchema } from './profiling.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
+
+/*
+ * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
+ * of the contract with the one provided in the overrides for that address. An example use case
+ * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
+ */
+export type ContractOverrides = Record<
+  string /* AztecAddress as string */,
+  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
+>;
+
+/*
+ * Optional values that can be overridden during simulation. In order to simulate a transaction with these
+ * set, it *must* be run without the kernel circuits, or validations will fail
+ */
+export class SimulationOverrides {
+  constructor(
+    public contracts?: ContractOverrides,
+    public msgSender?: AztecAddress,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        contracts: optional(
+          z.record(
+            z.string(),
+            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
+          ),
+        ),
+        msgSender: optional(AztecAddress.schema),
+      })
+      .transform(({ contracts, msgSender }) => {
+        return new SimulationOverrides(contracts, msgSender);
+      });
+  }
+}
 
 export class PrivateSimulationResult {
   constructor(

@@ -3,9 +3,10 @@ pragma solidity >=0.8.27;
 
 import {GSEBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Errors as GovErrors} from "@aztec/governance/libraries/Errors.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IStakingCore, Status, AttesterView} from "@aztec/core/interfaces/IStaking.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -60,14 +61,14 @@ contract MinimalDelegationTest is GSEBase {
     Timestamps memory ts;
 
     ts.ts1 = block.timestamp;
-    ts.ts2 = ts.ts1 + 10;
-    ts.ts3 = ts.ts2 + 10;
+    ts.ts2 = ts.ts1 + EPOCH_DURATION_SECONDS;
+    ts.ts3 = ts.ts2 + EPOCH_DURATION_SECONDS;
 
-    require(votingTime > ts.ts3, "ts");
-    ts.ts4 = votingTime + 10;
-    ts.ts5 = ts.ts4 + 10;
-    ts.ts6 = ts.ts5 + 10;
-    ts.ts7 = ts.ts6 + 10;
+    require(votingTime > ts.ts3, "voting time not long enough");
+    ts.ts4 = votingTime + EPOCH_DURATION_SECONDS;
+    ts.ts5 = ts.ts4 + EPOCH_DURATION_SECONDS;
+    ts.ts6 = ts.ts5 + EPOCH_DURATION_SECONDS;
+    ts.ts7 = ts.ts6 + EPOCH_DURATION_SECONDS;
 
     // Lets start
     assertEq(gse.getVotingPower(canonical), 0, "votingPowerCanonical");
@@ -193,7 +194,10 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__InsufficientPower.selector, depositAmount, depositAmount * 2
+        GovErrors.Delegation__InsufficientPower.selector,
+        address(ROLLUP),
+        depositAmount,
+        depositAmount * 2
       )
     );
     gse.vote(proposalId, powerToVoteSelf, true);
@@ -204,7 +208,10 @@ contract MinimalDelegationTest is GSEBase {
     vm.prank(address(ROLLUP));
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Staking__InsufficientPower.selector, depositAmount * 2, depositAmount * 4
+        GovErrors.Delegation__InsufficientPower.selector,
+        address(canonical),
+        depositAmount * 2,
+        depositAmount * 4
       )
     );
     gse.voteWithCanonical(proposalId, powerToVoteSelf, true);

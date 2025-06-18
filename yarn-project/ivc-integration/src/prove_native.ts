@@ -128,7 +128,7 @@ async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends
     true,
     path.join(workingDirectory, 'witness.gz'),
     flavor,
-    logger.info,
+    logger,
   );
 
   if (proofResult.status != BB_RESULT.SUCCESS) {
