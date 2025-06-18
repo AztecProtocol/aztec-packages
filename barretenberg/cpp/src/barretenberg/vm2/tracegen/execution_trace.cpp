@@ -581,6 +581,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
             { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
             { C::execution_sel_keccakf1600,
               dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0 },
+            { C::execution_sel_data_copy, dispatch_to_subtrace.subtrace_selector == SubtraceSel::DATACOPY ? 1 : 0 },
+            { C::execution_sel_execution, dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION ? 1 : 0 },
         } });
 
     // Execution Trace opcodes - separating for clarity
@@ -590,6 +592,7 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                   { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
                   { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
                   { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+                  { C::execution_sel_jump, exec_opcode == ExecutionOpCode::JUMP ? 1 : 0 },
               } });
 }
 
