@@ -703,7 +703,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       siloedNullifier,
       txHash,
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );

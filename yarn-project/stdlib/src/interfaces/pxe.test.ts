@@ -15,6 +15,7 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { L2BlockHash } from '../block/block_hash.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -199,7 +200,7 @@ describe('PXESchema', () => {
   it('getTxEffect', async () => {
     const { l2BlockHash, l2BlockNumber, data } = (await context.client.getTxEffect(TxHash.random()))!;
     expect(data).toBeInstanceOf(TxEffect);
-    expect(l2BlockHash).toMatch(/0x[a-fA-F0-9]{64}/);
+    expect(l2BlockHash).toBeInstanceOf(L2BlockHash);
     expect(l2BlockNumber).toBe(1);
   });
 
@@ -425,7 +426,7 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       data: await TxEffect.random(),
-      l2BlockHash: Fr.random().toString(),
+      l2BlockHash: L2BlockHash.random(),
       l2BlockNumber: 1,
       txIndexInBlock: randomInt(10),
     };

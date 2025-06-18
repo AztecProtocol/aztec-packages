@@ -2,6 +2,7 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { L2BlockHash } from '@aztec/stdlib/block';
 import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { randomTxHash } from '@aztec/stdlib/testing';
 
@@ -96,7 +97,7 @@ describe('NoteDataProvider', () => {
       const nullifiers = notesToNullify.map(note => ({
         data: note.siloedNullifier,
         l2BlockNumber: note.l2BlockNumber,
-        l2BlockHash: note.l2BlockHash,
+        l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
       }));
       await expect(noteDataProvider.removeNullifiedNotes(nullifiers, recipient)).resolves.toEqual(notesToNullify);
     }
@@ -112,7 +113,7 @@ describe('NoteDataProvider', () => {
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
-      l2BlockHash: note.l2BlockHash,
+      l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
     }));
     await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
       notesToNullify,
@@ -132,7 +133,7 @@ describe('NoteDataProvider', () => {
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: 99,
-      l2BlockHash: Fr.random().toString(),
+      l2BlockHash: L2BlockHash.random(),
     }));
     await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
       notesToNullify,
@@ -151,7 +152,7 @@ describe('NoteDataProvider', () => {
     const nullifiers = notesToNullify.map(note => ({
       data: note.siloedNullifier,
       l2BlockNumber: note.l2BlockNumber,
-      l2BlockHash: note.l2BlockHash,
+      l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
     }));
     await expect(noteDataProvider.removeNullifiedNotes(nullifiers, notesToNullify[0].recipient)).resolves.toEqual(
       notesToNullify,
@@ -209,7 +210,7 @@ describe('NoteDataProvider', () => {
         [
           {
             data: notes[0].siloedNullifier,
-            l2BlockHash: notes[0].l2BlockHash,
+            l2BlockHash: L2BlockHash.fromString(notes[0].l2BlockHash),
             l2BlockNumber: notes[0].l2BlockNumber,
           },
         ],

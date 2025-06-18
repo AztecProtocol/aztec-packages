@@ -47,7 +47,14 @@ import {
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  type L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -724,13 +731,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         return undefined;
       }
       const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex]?.toString();
+      const blockHash = blockHashes[blockHashIndex];
       if (!blockHash) {
         return undefined;
       }
       return {
         l2BlockNumber: Number(blockNumber),
-        l2BlockHash: blockHash,
+        l2BlockHash: L2BlockHash.fromField(blockHash),
         data: index,
       };
     });
