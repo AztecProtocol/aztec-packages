@@ -2,6 +2,12 @@ mod public_key_note;
 
 use dep::aztec::macros::aztec;
 
+// Account contract that does not perform any authentication, typically used to override a *real* account contract
+// in a simulation. This avoids the need of generating real signatures during simulation.
+// It will also consider all authwits sent to it as valid and emit the hash in an offchain message
+// for later verification. In order to properly mimic our account contract it imports the PublickKeyNote
+// struct so the #[aztec] macro can generate a `sync_private_state` implementation that can process the *real*
+// public key of the overridden contract
 #[aztec]
 pub contract SimulatedAccount {
     use dep::authwit::{

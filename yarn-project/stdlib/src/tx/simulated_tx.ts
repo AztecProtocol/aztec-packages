@@ -24,7 +24,8 @@ import { Tx } from './tx.js';
 
 /*
  * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
- * of the contract with the one provided in the overrides for that address
+ * of the contract with the one provided in the overrides for that address. An example use case
+ * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
  */
 export type ContractOverrides = Record<
   string /* AztecAddress as string */,

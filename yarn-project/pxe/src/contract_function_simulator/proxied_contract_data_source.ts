@@ -6,7 +6,8 @@ import type { ContractDataProvider } from '../storage/index.js';
 
 /*
  * Proxy generator for a ContractDataProvider that allows overriding contract instances and artifacts, so
- * the contract function simulator can execute different bytecode on certain addresses.
+ * the contract function simulator can execute different bytecode on certain addresses. An example use case
+ * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
  */
 export class ProxiedContractDataProviderFactory {
   static create(contractDataProvider: ContractDataProvider, overrides?: ContractOverrides) {
