@@ -10,7 +10,6 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -89,18 +88,13 @@ void NoteHashTreeCheckTraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> NoteHashTreeCheckTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_silo_poseidon2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_read_first_nullifier_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_nonce_computation_poseidon2_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_merkle_check_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableGeneric<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings>>());
-}
+const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_note_hash_tree_check_silo_poseidon2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_note_hash_tree_check_read_first_nullifier_settings, InteractionType::LookupGeneric>()
+        .add<lookup_note_hash_tree_check_nonce_computation_poseidon2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupGeneric>()
+        .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen
