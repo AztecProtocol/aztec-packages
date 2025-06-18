@@ -204,7 +204,7 @@ val43 = (1 - last) * val42';
 val44 = (1 - last) * val43';
 
 // Memory permutation
-// TODO: Proper memory permutation (not a lookup), add clks in the tuple and introduce a specific
+// TODO: Proper memory permutation (not a lookup), and introduce a specific
 // selector for keccak in memory sub-trace.
 #[SLICE_TO_MEM]
 sel {clk, addr, val00, tag, rw, space_id}

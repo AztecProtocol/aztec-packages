@@ -53,11 +53,11 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
  * @brief Permutation Keccak-f[1600] consisting in AVM_KECCAKF1600_NUM_ROUNDS (24) rounds and a state of 25 64-bit
  * values (aliased as KeccakF1600State).
  *
- * @param context
+ * @param memory
  * @param dst_addr Base slice address pointing to output of KeccakF1600 permutation.
  * @param src_addr Address pointing to a contiguous memory slice containing KeccakF1600State input.
  */
-void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
+void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, MemoryAddress src_addr)
 {
     KeccakF1600Event keccakf1600_event;
     keccakf1600_event.execution_clk = execution_id_manager.get_execution_id();
@@ -81,7 +81,6 @@ void KeccakF1600::permutation(ContextInterface& context, MemoryAddress dst_addr,
         keccakf1600_event.src_abs_diff = src_abs_diff;
         keccakf1600_event.dst_abs_diff = dst_abs_diff;
 
-        auto& memory = context.get_memory();
         keccakf1600_event.space_id = memory.get_space_id();
 
         // We group both possible out-of-range errors in the same temporality group.

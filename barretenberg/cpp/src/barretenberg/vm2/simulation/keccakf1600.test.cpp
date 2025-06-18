@@ -16,14 +16,10 @@
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
-
-using ::testing::ReturnRef;
-using ::testing::StrictMock;
 
 class KeccakSimulationTest : public ::testing::Test {
   protected:
@@ -34,10 +30,7 @@ class KeccakSimulationTest : public ::testing::Test {
         , keccak(execution_id_manager, keccak_event_emitter, bitwise, range_check)
     {}
 
-    void SetUp() override { EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory)); }
-
     MemoryStore memory;
-    StrictMock<MockContext> context;
     ExecutionIdManager execution_id_manager;
     NoopEventEmitter<KeccakF1600Event> keccak_event_emitter;
     NoopEventEmitter<BitwiseEvent> bitwise_event_emitter;
@@ -75,7 +68,7 @@ TEST_F(KeccakSimulationTest, matchesReferenceImplementation)
         }
     }
 
-    keccak.permutation(context, dst_addr, src_addr);
+    keccak.permutation(memory, dst_addr, src_addr);
     KeccakF1600State output;
 
     for (size_t i = 0; i < 5; i++) {
@@ -114,7 +107,7 @@ TEST_F(KeccakSimulationTest, tagError)
     memory.set(src_addr_wrong_tag, MemoryValue::from_tag_truncating(wrong_tag, 0));
 
     EXPECT_THROW_WITH_MESSAGE(
-        keccak.permutation(context, dst_addr, src_addr),
+        keccak.permutation(memory, dst_addr, src_addr),
         format("Read slice tag invalid - addr: ", src_addr_wrong_tag, " tag: ", static_cast<uint32_t>(wrong_tag)));
 }
 
@@ -123,7 +116,7 @@ TEST_F(KeccakSimulationTest, srcSliceOutOfBounds)
     const MemoryAddress src_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
     const MemoryAddress dst_addr = 3030;
 
-    EXPECT_THROW_WITH_MESSAGE(keccak.permutation(context, dst_addr, src_addr), "Read slice out of range");
+    EXPECT_THROW_WITH_MESSAGE(keccak.permutation(memory, dst_addr, src_addr), "Read slice out of range");
 }
 
 TEST_F(KeccakSimulationTest, dstSliceOutOfBounds)
@@ -131,7 +124,7 @@ TEST_F(KeccakSimulationTest, dstSliceOutOfBounds)
     const MemoryAddress src_addr = 1970;
     const MemoryAddress dst_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
 
-    EXPECT_THROW_WITH_MESSAGE(keccak.permutation(context, dst_addr, src_addr), "Write slice out of range");
+    EXPECT_THROW_WITH_MESSAGE(keccak.permutation(memory, dst_addr, src_addr), "Write slice out of range");
 }
 
 } // namespace

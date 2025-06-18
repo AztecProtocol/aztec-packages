@@ -1,7 +1,7 @@
-#include <cstddef>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -33,292 +33,155 @@ using C = Column;
 using keccakf1600_relation = bb::avm2::keccakf1600<FF>;
 using keccak_memory_relation = bb::avm2::keccak_memory<FF>;
 
-// Theta XOR values
-using lookup_theta_xor_01 = lookup_keccakf1600_theta_xor_01_relation<FF>;
-using lookup_theta_xor_02 = lookup_keccakf1600_theta_xor_02_relation<FF>;
-using lookup_theta_xor_03 = lookup_keccakf1600_theta_xor_03_relation<FF>;
-using lookup_theta_xor_row_0 = lookup_keccakf1600_theta_xor_row_0_relation<FF>;
-using lookup_theta_xor_11 = lookup_keccakf1600_theta_xor_11_relation<FF>;
-using lookup_theta_xor_12 = lookup_keccakf1600_theta_xor_12_relation<FF>;
-using lookup_theta_xor_13 = lookup_keccakf1600_theta_xor_13_relation<FF>;
-using lookup_theta_xor_row_1 = lookup_keccakf1600_theta_xor_row_1_relation<FF>;
-using lookup_theta_xor_21 = lookup_keccakf1600_theta_xor_21_relation<FF>;
-using lookup_theta_xor_22 = lookup_keccakf1600_theta_xor_22_relation<FF>;
-using lookup_theta_xor_23 = lookup_keccakf1600_theta_xor_23_relation<FF>;
-using lookup_theta_xor_row_2 = lookup_keccakf1600_theta_xor_row_2_relation<FF>;
-using lookup_theta_xor_31 = lookup_keccakf1600_theta_xor_31_relation<FF>;
-using lookup_theta_xor_32 = lookup_keccakf1600_theta_xor_32_relation<FF>;
-using lookup_theta_xor_33 = lookup_keccakf1600_theta_xor_33_relation<FF>;
-using lookup_theta_xor_row_3 = lookup_keccakf1600_theta_xor_row_3_relation<FF>;
-using lookup_theta_xor_41 = lookup_keccakf1600_theta_xor_41_relation<FF>;
-using lookup_theta_xor_42 = lookup_keccakf1600_theta_xor_42_relation<FF>;
-using lookup_theta_xor_43 = lookup_keccakf1600_theta_xor_43_relation<FF>;
-using lookup_theta_xor_row_4 = lookup_keccakf1600_theta_xor_row_4_relation<FF>;
-// Theta XOR combined and final values
-using lookup_theta_combined_xor_0 = lookup_keccakf1600_theta_combined_xor_0_relation<FF>;
-using lookup_theta_combined_xor_1 = lookup_keccakf1600_theta_combined_xor_1_relation<FF>;
-using lookup_theta_combined_xor_2 = lookup_keccakf1600_theta_combined_xor_2_relation<FF>;
-using lookup_theta_combined_xor_3 = lookup_keccakf1600_theta_combined_xor_3_relation<FF>;
-using lookup_theta_combined_xor_4 = lookup_keccakf1600_theta_combined_xor_4_relation<FF>;
-// State Theta final values
-using lookup_state_theta_00 = lookup_keccakf1600_state_theta_00_relation<FF>;
-using lookup_state_theta_01 = lookup_keccakf1600_state_theta_01_relation<FF>;
-using lookup_state_theta_02 = lookup_keccakf1600_state_theta_02_relation<FF>;
-using lookup_state_theta_03 = lookup_keccakf1600_state_theta_03_relation<FF>;
-using lookup_state_theta_04 = lookup_keccakf1600_state_theta_04_relation<FF>;
-using lookup_state_theta_10 = lookup_keccakf1600_state_theta_10_relation<FF>;
-using lookup_state_theta_11 = lookup_keccakf1600_state_theta_11_relation<FF>;
-using lookup_state_theta_12 = lookup_keccakf1600_state_theta_12_relation<FF>;
-using lookup_state_theta_13 = lookup_keccakf1600_state_theta_13_relation<FF>;
-using lookup_state_theta_14 = lookup_keccakf1600_state_theta_14_relation<FF>;
-using lookup_state_theta_20 = lookup_keccakf1600_state_theta_20_relation<FF>;
-using lookup_state_theta_21 = lookup_keccakf1600_state_theta_21_relation<FF>;
-using lookup_state_theta_22 = lookup_keccakf1600_state_theta_22_relation<FF>;
-using lookup_state_theta_23 = lookup_keccakf1600_state_theta_23_relation<FF>;
-using lookup_state_theta_24 = lookup_keccakf1600_state_theta_24_relation<FF>;
-using lookup_state_theta_30 = lookup_keccakf1600_state_theta_30_relation<FF>;
-using lookup_state_theta_31 = lookup_keccakf1600_state_theta_31_relation<FF>;
-using lookup_state_theta_32 = lookup_keccakf1600_state_theta_32_relation<FF>;
-using lookup_state_theta_33 = lookup_keccakf1600_state_theta_33_relation<FF>;
-using lookup_state_theta_34 = lookup_keccakf1600_state_theta_34_relation<FF>;
-using lookup_state_theta_40 = lookup_keccakf1600_state_theta_40_relation<FF>;
-using lookup_state_theta_41 = lookup_keccakf1600_state_theta_41_relation<FF>;
-using lookup_state_theta_42 = lookup_keccakf1600_state_theta_42_relation<FF>;
-using lookup_state_theta_43 = lookup_keccakf1600_state_theta_43_relation<FF>;
-using lookup_state_theta_44 = lookup_keccakf1600_state_theta_44_relation<FF>;
-// Range check on some state theta limbs
-using lookup_theta_limb_range_01 = lookup_keccakf1600_theta_limb_01_range_relation<FF>;
-using lookup_theta_limb_range_02 = lookup_keccakf1600_theta_limb_02_range_relation<FF>;
-using lookup_theta_limb_range_03 = lookup_keccakf1600_theta_limb_03_range_relation<FF>;
-using lookup_theta_limb_range_04 = lookup_keccakf1600_theta_limb_04_range_relation<FF>;
-using lookup_theta_limb_range_10 = lookup_keccakf1600_theta_limb_10_range_relation<FF>;
-using lookup_theta_limb_range_11 = lookup_keccakf1600_theta_limb_11_range_relation<FF>;
-using lookup_theta_limb_range_12 = lookup_keccakf1600_theta_limb_12_range_relation<FF>;
-using lookup_theta_limb_range_13 = lookup_keccakf1600_theta_limb_13_range_relation<FF>;
-using lookup_theta_limb_range_14 = lookup_keccakf1600_theta_limb_14_range_relation<FF>;
-using lookup_theta_limb_range_20 = lookup_keccakf1600_theta_limb_20_range_relation<FF>;
-using lookup_theta_limb_range_21 = lookup_keccakf1600_theta_limb_21_range_relation<FF>;
-using lookup_theta_limb_range_22 = lookup_keccakf1600_theta_limb_22_range_relation<FF>;
-using lookup_theta_limb_range_23 = lookup_keccakf1600_theta_limb_23_range_relation<FF>;
-using lookup_theta_limb_range_24 = lookup_keccakf1600_theta_limb_24_range_relation<FF>;
-using lookup_theta_limb_range_30 = lookup_keccakf1600_theta_limb_30_range_relation<FF>;
-using lookup_theta_limb_range_34 = lookup_keccakf1600_theta_limb_34_range_relation<FF>;
-using lookup_theta_limb_range_40 = lookup_keccakf1600_theta_limb_40_range_relation<FF>;
-using lookup_theta_limb_range_41 = lookup_keccakf1600_theta_limb_41_range_relation<FF>;
-using lookup_theta_limb_range_42 = lookup_keccakf1600_theta_limb_42_range_relation<FF>;
-using lookup_theta_limb_range_43 = lookup_keccakf1600_theta_limb_43_range_relation<FF>;
-using lookup_theta_limb_range_44 = lookup_keccakf1600_theta_limb_44_range_relation<FF>;
-// "pi and" values
-using lookup_state_pi_and_00 = lookup_keccakf1600_state_pi_and_00_relation<FF>;
-using lookup_state_pi_and_01 = lookup_keccakf1600_state_pi_and_01_relation<FF>;
-using lookup_state_pi_and_02 = lookup_keccakf1600_state_pi_and_02_relation<FF>;
-using lookup_state_pi_and_03 = lookup_keccakf1600_state_pi_and_03_relation<FF>;
-using lookup_state_pi_and_04 = lookup_keccakf1600_state_pi_and_04_relation<FF>;
-using lookup_state_pi_and_10 = lookup_keccakf1600_state_pi_and_10_relation<FF>;
-using lookup_state_pi_and_11 = lookup_keccakf1600_state_pi_and_11_relation<FF>;
-using lookup_state_pi_and_12 = lookup_keccakf1600_state_pi_and_12_relation<FF>;
-using lookup_state_pi_and_13 = lookup_keccakf1600_state_pi_and_13_relation<FF>;
-using lookup_state_pi_and_14 = lookup_keccakf1600_state_pi_and_14_relation<FF>;
-using lookup_state_pi_and_20 = lookup_keccakf1600_state_pi_and_20_relation<FF>;
-using lookup_state_pi_and_21 = lookup_keccakf1600_state_pi_and_21_relation<FF>;
-using lookup_state_pi_and_22 = lookup_keccakf1600_state_pi_and_22_relation<FF>;
-using lookup_state_pi_and_23 = lookup_keccakf1600_state_pi_and_23_relation<FF>;
-using lookup_state_pi_and_24 = lookup_keccakf1600_state_pi_and_24_relation<FF>;
-using lookup_state_pi_and_30 = lookup_keccakf1600_state_pi_and_30_relation<FF>;
-using lookup_state_pi_and_31 = lookup_keccakf1600_state_pi_and_31_relation<FF>;
-using lookup_state_pi_and_32 = lookup_keccakf1600_state_pi_and_32_relation<FF>;
-using lookup_state_pi_and_33 = lookup_keccakf1600_state_pi_and_33_relation<FF>;
-using lookup_state_pi_and_34 = lookup_keccakf1600_state_pi_and_34_relation<FF>;
-using lookup_state_pi_and_40 = lookup_keccakf1600_state_pi_and_40_relation<FF>;
-using lookup_state_pi_and_41 = lookup_keccakf1600_state_pi_and_41_relation<FF>;
-using lookup_state_pi_and_42 = lookup_keccakf1600_state_pi_and_42_relation<FF>;
-using lookup_state_pi_and_43 = lookup_keccakf1600_state_pi_and_43_relation<FF>;
-using lookup_state_pi_and_44 = lookup_keccakf1600_state_pi_and_44_relation<FF>;
-// chi values
-using lookup_state_chi_00 = lookup_keccakf1600_state_chi_00_relation<FF>;
-using lookup_state_chi_01 = lookup_keccakf1600_state_chi_01_relation<FF>;
-using lookup_state_chi_02 = lookup_keccakf1600_state_chi_02_relation<FF>;
-using lookup_state_chi_03 = lookup_keccakf1600_state_chi_03_relation<FF>;
-using lookup_state_chi_04 = lookup_keccakf1600_state_chi_04_relation<FF>;
-using lookup_state_chi_10 = lookup_keccakf1600_state_chi_10_relation<FF>;
-using lookup_state_chi_11 = lookup_keccakf1600_state_chi_11_relation<FF>;
-using lookup_state_chi_12 = lookup_keccakf1600_state_chi_12_relation<FF>;
-using lookup_state_chi_13 = lookup_keccakf1600_state_chi_13_relation<FF>;
-using lookup_state_chi_14 = lookup_keccakf1600_state_chi_14_relation<FF>;
-using lookup_state_chi_20 = lookup_keccakf1600_state_chi_20_relation<FF>;
-using lookup_state_chi_21 = lookup_keccakf1600_state_chi_21_relation<FF>;
-using lookup_state_chi_22 = lookup_keccakf1600_state_chi_22_relation<FF>;
-using lookup_state_chi_23 = lookup_keccakf1600_state_chi_23_relation<FF>;
-using lookup_state_chi_24 = lookup_keccakf1600_state_chi_24_relation<FF>;
-using lookup_state_chi_30 = lookup_keccakf1600_state_chi_30_relation<FF>;
-using lookup_state_chi_31 = lookup_keccakf1600_state_chi_31_relation<FF>;
-using lookup_state_chi_32 = lookup_keccakf1600_state_chi_32_relation<FF>;
-using lookup_state_chi_33 = lookup_keccakf1600_state_chi_33_relation<FF>;
-using lookup_state_chi_34 = lookup_keccakf1600_state_chi_34_relation<FF>;
-using lookup_state_chi_40 = lookup_keccakf1600_state_chi_40_relation<FF>;
-using lookup_state_chi_41 = lookup_keccakf1600_state_chi_41_relation<FF>;
-using lookup_state_chi_42 = lookup_keccakf1600_state_chi_42_relation<FF>;
-using lookup_state_chi_43 = lookup_keccakf1600_state_chi_43_relation<FF>;
-using lookup_state_chi_44 = lookup_keccakf1600_state_chi_44_relation<FF>;
-// iota_00 value
-using lookup_iota_00 = lookup_keccakf1600_state_iota_00_relation<FF>;
-// round constants lookup
-using lookup_round_constants = lookup_keccakf1600_round_cst_relation<FF>;
-// Memory slices permutations
-using perm_read_to_slice = perm_keccakf1600_read_to_slice_relation<FF>;
-using perm_write_to_slice = perm_keccakf1600_write_to_slice_relation<FF>;
-// Range check for slice memory ranges.
-using lookup_keccakf1600_src_abs_diff_positive = lookup_keccakf1600_src_abs_diff_positive_relation<FF>;
-using lookup_keccakf1600_dst_abs_diff_positive = lookup_keccakf1600_dst_abs_diff_positive_relation<FF>;
-// Keccak slice memory to memory sub-trace
-using lookup_slice_to_mem = lookup_keccak_memory_slice_to_mem_relation<FF>;
-
 // Helper function to check all interactions.
 void check_all_interactions(TestTraceContainer& trace)
 {
     // Theta XOR values
-    LookupIntoDynamicTableSequential<lookup_theta_xor_01::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_02::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_03::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_row_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_11::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_12::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_13::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_row_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_21::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_22::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_23::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_row_2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_31::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_32::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_33::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_row_3::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_41::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_42::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_43::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_xor_row_4::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_01_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_02_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_03_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_0_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_11_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_12_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_13_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_1_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_21_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_22_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_23_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_2_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_31_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_32_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_33_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_3_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_41_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_42_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_43_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>().process(trace);
     // Theta XOR combined and final values
-    LookupIntoDynamicTableSequential<lookup_theta_combined_xor_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_combined_xor_1::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_combined_xor_2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_combined_xor_3::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_theta_combined_xor_4::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_0_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_1_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_2_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_3_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_4_settings>().process(trace);
     // State Theta final values
-    LookupIntoDynamicTableSequential<lookup_state_theta_00::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_01::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_02::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_03::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_04::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_10::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_11::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_12::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_13::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_14::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_20::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_21::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_22::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_23::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_24::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_30::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_31::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_32::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_33::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_34::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_40::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_41::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_42::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_43::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_theta_44::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_00_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_01_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_02_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_03_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_04_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_10_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_11_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_12_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_13_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_14_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_20_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_21_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_22_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_23_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_24_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_30_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_31_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_32_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_33_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_34_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_40_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_41_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_42_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_43_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_44_settings>().process(trace);
     // Range check on some state theta limbs
     // Range checks are de-duplicated and therefore we can't use the interaction builder
     // LookupIntoDynamicTableSequential.
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_01::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_02::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_03::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_04::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_10::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_11::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_12::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_13::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_14::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_20::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_21::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_22::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_23::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_24::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_30::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_34::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_40::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_41::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_42::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_43::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_theta_limb_range_44::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_01_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_02_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_03_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_04_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_10_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_11_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_12_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_13_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_14_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_20_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_21_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_22_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_23_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_24_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_30_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_31_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_32_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_33_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_34_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_40_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_41_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_42_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_43_range_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_44_range_settings>().process(trace);
     // "pi and" values
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_00::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_01::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_02::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_03::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_04::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_10::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_11::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_12::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_13::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_14::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_20::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_21::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_22::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_23::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_24::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_30::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_31::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_32::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_33::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_34::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_40::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_41::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_42::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_43::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_pi_and_44::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_00_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_01_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_02_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_03_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_04_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_10_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_11_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_12_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_13_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_14_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_20_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_21_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_22_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_23_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_24_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_30_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_31_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_32_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_33_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_34_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_40_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_41_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_42_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_43_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_44_settings>().process(trace);
     // chi values
-    LookupIntoDynamicTableSequential<lookup_state_chi_00::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_01::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_02::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_03::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_04::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_10::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_11::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_12::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_13::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_14::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_20::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_21::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_22::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_23::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_24::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_30::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_31::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_32::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_33::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_34::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_40::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_41::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_42::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_43::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_state_chi_44::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_00_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_01_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_02_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_03_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_04_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_10_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_11_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_12_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_13_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_14_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_20_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_21_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_22_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_23_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_24_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_30_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_31_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_32_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_33_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_34_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_40_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_41_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_42_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_43_settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_44_settings>().process(trace);
     // iota_00 value
-    LookupIntoDynamicTableSequential<lookup_iota_00::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccakf1600_state_iota_00_settings>().process(trace);
     // round constants lookup
-    LookupIntoIndexedByClk<lookup_round_constants::Settings>().process(trace);
+    LookupIntoIndexedByClk<lookup_keccakf1600_round_cst_settings>().process(trace);
     // Memory slices permutations
-    DebugPermutationBuilder<perm_read_to_slice::Settings>().process(trace);
-    DebugPermutationBuilder<perm_write_to_slice::Settings>().process(trace);
+    DebugPermutationBuilder<perm_keccakf1600_read_to_slice_settings>().process(trace);
+    DebugPermutationBuilder<perm_keccakf1600_write_to_slice_settings>().process(trace);
     // Range check for slice memory ranges.
     // Range checks are de-duplicated and therefore we can't use the interaction builder
     // LookupIntoDynamicTableSequential.
-    LookupIntoDynamicTableGeneric<lookup_keccakf1600_src_abs_diff_positive::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_keccakf1600_dst_abs_diff_positive::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_src_abs_diff_positive_settings>().process(trace);
+    LookupIntoDynamicTableGeneric<lookup_keccakf1600_dst_abs_diff_positive_settings>().process(trace);
     // Keccak slice memory to memory sub-trace
-    LookupIntoDynamicTableSequential<lookup_slice_to_mem::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_keccak_memory_slice_to_mem_settings>().process(trace);
 }
 
 TEST(KeccakF1600ConstrainingTest, EmptyRow)

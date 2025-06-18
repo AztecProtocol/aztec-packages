@@ -84,7 +84,7 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // GADGET_ERROR_BOOLEAN
+        { // OPCODE_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_opcode_error) * (FF(1) - in.get(C::execution_opcode_error));
             tmp *= scaling_factor;
@@ -113,7 +113,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
         case 4:
             return "LAST_IS_LAST";
         case 8:
-            return "GADGET_ERROR_BOOLEAN";
+            return "OPCODE_ERROR_BOOLEAN";
         }
         return std::to_string(index);
     }
@@ -122,7 +122,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY_1 = 2;
     static constexpr size_t SR_TRACE_CONTINUITY_2 = 3;
     static constexpr size_t SR_LAST_IS_LAST = 4;
-    static constexpr size_t SR_GADGET_ERROR_BOOLEAN = 8;
+    static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
 };
 
 } // namespace bb::avm2

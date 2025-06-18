@@ -9,7 +9,6 @@
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
@@ -21,10 +20,6 @@
 
 namespace bb::avm2::testing {
 
-using ::testing::ReturnRef;
-using ::testing::StrictMock;
-
-using simulation::MockContext;
 using MemorySimulator = simulation::Memory;
 using KeccakSimulator = simulation::KeccakF1600;
 using BitwiseSimulator = simulation::Bitwise;
@@ -62,16 +57,13 @@ void generate_keccak_trace_impl(TestTraceContainer& trace,
         execution_id_manager, keccak_event_emitter, bitwise_simulator, range_check_simulator);
     MemorySimulator memory_simulator(space_id, range_check_simulator, execution_id_manager, memory_event_emitter);
 
-    StrictMock<MockContext> context;
-    EXPECT_CALL(context, get_memory()).WillRepeatedly(ReturnRef(memory_simulator));
-
     for (size_t i = 0; i < src_addresses.size(); i++) {
         memory_init_fn(memory_simulator, i);
         if (expect_error) {
-            ASSERT_THROW(keccak_simulator.permutation(context, dst_addresses.at(i), src_addresses.at(i)),
+            ASSERT_THROW(keccak_simulator.permutation(memory_simulator, dst_addresses.at(i), src_addresses.at(i)),
                          simulation::KeccakF1600Exception);
         } else {
-            keccak_simulator.permutation(context, dst_addresses.at(i), src_addresses.at(i));
+            keccak_simulator.permutation(memory_simulator, dst_addresses.at(i), src_addresses.at(i));
         }
     }
 

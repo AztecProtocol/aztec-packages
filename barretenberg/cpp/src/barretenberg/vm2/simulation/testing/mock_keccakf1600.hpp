@@ -3,8 +3,8 @@
 #include <array>
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -15,7 +15,7 @@ class MockKeccakF1600 : public KeccakF1600Interface {
 
     MOCK_METHOD(void,
                 permutation,
-                (ContextInterface & context, MemoryAddress dst_addr, MemoryAddress src_addr),
+                (MemoryInterface & memory, MemoryAddress dst_addr, MemoryAddress src_addr),
                 (override));
 };
 
