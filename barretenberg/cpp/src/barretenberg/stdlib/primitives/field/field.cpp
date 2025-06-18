@@ -1030,8 +1030,10 @@ field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<fi
  *
  * @details The straightforward thing would be eight
  * multiplications to get the monomials and several additions between them It turns out you can do it in 7 `madd` gates
- * using the formula X := ((t0*a_012 + a12)*t1 + a2)*t2 + a_cons  t  - 3 gates Y := (t0*a01 + a1)*t1 + X - 2 gates Z :=
- * (t2*a02 + a0)*t0 + Y                       - 2 gates
+ * using the formula
+ *       X := ((t0*a_012 + a12)*t1 + a2)*t2 + a_const    //  - 3 gates
+ *       Y := (t0*a01 + a1)*t1 + X                       //  - 2 gates
+ *       Z := (t2*a02 + a0)*t0 + Y                       //  - 2 gates
  */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<field_t, 8>& table,
