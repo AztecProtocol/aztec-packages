@@ -6,20 +6,30 @@
 
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 
 namespace bb {
 
-class UltraKeccakZKFlavor : public UltraKeccakFlavor {
+/*!
+\brief Child class of UltraFlavor that runs with ZK Sumcheck.
+\details
+Most of the properties of UltraFlavor are inherited without any changes. However, the BATCHED_RELATION_PARTIAL_LENGTH is
+incremented by 1, as we are using the sumcheck with disabled rows, where the main Honk relation is multiplied by a sum
+of multilinear Lagranges. Additionally, the transcript contains extra elements, such as commitments and evaluations of
+Libra polynomials used in Sumcheck to make it ZK, as well as a commitment and an evaluation of a hiding polynomials that
+turns the PCS stage ZK.
+*/
+class UltraZKFlavor : public UltraFlavor {
   public:
     // This flavor runs with ZK Sumcheck
     static constexpr bool HasZK = true;
     // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
     // the rounds of ZK Sumcheck.
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
-
+                  "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
+    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     // Proof length formula
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
         /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
@@ -44,11 +54,11 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
      * functions.
-     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
      */
-    class Transcript : public UltraKeccakFlavor::Transcript {
+    template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
       public:
-        using Base = UltraKeccakFlavor::Transcript::Base;
+        using Base = UltraFlavor::Transcript_<Params>::Base;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -63,24 +73,24 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
         Commitment hiding_polynomial_commitment;
         FF hiding_polynomial_eval;
 
-        Transcript() = default;
+        Transcript_() = default;
 
         // Used by verifier to initialize the transcript
-        Transcript(const std::vector<FF>& proof)
-            : UltraKeccakFlavor::Transcript(proof)
+        Transcript_(const std::vector<FF>& proof)
+            : UltraFlavor::Transcript_<Params>(proof)
         {}
 
-        static std::shared_ptr<Transcript> prover_init_empty()
+        static std::shared_ptr<Transcript_> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
+            auto transcript = std::make_shared<Transcript_>();
             constexpr uint32_t init{ 42 }; // arbitrary
             transcript->send_to_verifier("Init", init);
             return transcript;
         };
 
-        static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
+        static std::shared_ptr<Transcript_> verifier_init_empty(const std::shared_ptr<Transcript_>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
+            auto verifier_transcript = std::make_shared<Transcript_>(transcript->proof_data);
             verifier_transcript->template receive_from_prover<FF>("Init");
             return verifier_transcript;
         };
@@ -91,12 +101,12 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript(size_t public_input_size)
+        void deserialize_full_transcript(size_t num_public_inputs)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
             auto& proof_data = this->proof_data;
-            for (size_t i = 0; i < public_input_size; ++i) {
+            for (size_t i = 0; i < num_public_inputs; ++i) {
                 this->public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             this->w_l_comm = Base::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
@@ -151,8 +161,8 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            for (const auto& public_input : this->public_inputs) {
-                Base::template serialize_to_buffer(public_input, proof_data);
+            for (const auto& input : this->public_inputs) {
+                Base::template serialize_to_buffer(input, proof_data);
             }
             Base::template serialize_to_buffer(this->w_l_comm, proof_data);
             Base::template serialize_to_buffer(this->w_r_comm, proof_data);
@@ -191,5 +201,6 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
             ASSERT(proof_data.size() == old_proof_length);
         }
     };
+    using Transcript = Transcript_<NativeTranscriptParams>;
 };
 } // namespace bb

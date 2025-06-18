@@ -10,37 +10,24 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/auxiliary_relation.hpp"
-#include "barretenberg/relations/delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
-
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
 
 /**
- * @brief The recursive counterpart to the "native" Ultra flavor.
- * @details This flavor can be used to instantiate a recursive Ultra Honk verifier for a proof created using the
- * conventional Ultra flavor. It is similar in structure to its native counterpart with two main differences: 1) the
+ * @brief The recursive counterpart to the "native" UltraRollupFlavor.
+ * @details This flavor can be used to instantiate a recursive Mega Honk verifier for a proof created using the
+ * MegaZKFlavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
- * (e.g. Polynomial, ProverUnivariates, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
+ * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
  * sense to instantiate a Verifier with this flavor.
  *
  * @note Unlike conventional flavors, "recursive" flavors are templated by a builder (much like native vs stdlib types).
@@ -49,62 +36,17 @@ namespace bb {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class UltraRecursiveFlavor_ {
+template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public UltraRecursiveFlavor_<BuilderType> {
   public:
     using CircuitBuilder = BuilderType; // Determines arithmetization of circuit instantiated with this flavor
-    using Curve = stdlib::bn254<CircuitBuilder>;
+    using NativeFlavor = UltraRollupFlavor;
+    using Curve = UltraRecursiveFlavor_<BuilderType>::Curve;
     using PCS = KZG<Curve>;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::Element;
     using FF = typename Curve::ScalarField;
-    using NativeFlavor = UltraFlavor;
-    using NativeVerificationKey = NativeFlavor::VerificationKey;
-
-    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
-    static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
-
-    // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-    // Indicates that this flavor runs with non-ZK Sumcheck.
-    static constexpr bool HasZK = false;
-    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
-    // and Shplemini
-    static constexpr bool USE_PADDING = UltraFlavor::USE_PADDING;
-    static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
-    // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
-    // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = UltraFlavor::NUM_ALL_ENTITIES;
-    // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
-    // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
-    // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
-
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
-
-    // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = UltraFlavor::Relations_<FF>;
-
-    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    // static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
-
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
-
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation to avoid increasing the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
-    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
-
-    // define the container for storing the univariate contribution from each relation in Sumcheck
-    using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
+    using NativeVerificationKey = NativeFlavor::VerificationKey;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -117,6 +59,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     class VerificationKey
         : public StdlibVerificationKey_<BuilderType, FF, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
+        PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
+
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -128,9 +72,10 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
+            this->ipa_claim_public_input_key = native_key->ipa_claim_public_input_key;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -158,11 +103,83 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 FF::from_witness(&builder, numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value())));
             this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+
             this->pairing_inputs_public_input_key.start_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+
+            this->ipa_claim_public_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+            }
+        }
+
+        /**
+         * @brief Serialize verification key to field elements. Overrides the base class definition to include
+         * ipa_claim_public_input_key.
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            using namespace bb::stdlib::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs<CircuitBuilder, T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            CircuitBuilder* builder = this->circuit_size.context;
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            pairing_points_start_idx.convert_constant_to_fixed_witness(
+                builder); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1413): We can't use poseidon2
+                          // with constants.
+            serialize_to_field_buffer(pairing_points_start_idx, elements);
+
+            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
+            serialize_to_field_buffer(ipa_claim_start_idx, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
+         * implementation to include the ipa claim public input key.
+         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        template <typename Transcript>
+        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        {
+            transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
+            CircuitBuilder* builder = this->circuit_size.context;
+            pairing_points_start_idx.convert_constant_to_fixed_witness(
+                builder); // We can't use poseidon2 with constants.
+            transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+                                           pairing_points_start_idx);
+            FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
+            ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
+            transcript->add_to_hash_buffer(domain_separator + "vkey_ipa_claim_start_idx", ipa_claim_start_idx);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
             }
         }
 
@@ -174,7 +191,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          * @return VerificationKey
          */
         static VerificationKey from_witness_indices(CircuitBuilder& builder,
-                                                    const std::span<const uint32_t>& witness_indices)
+                                                    const std::span<const uint32_t> witness_indices)
         {
             std::vector<FF> vkey_fields;
             vkey_fields.reserve(witness_indices.size());
@@ -185,24 +202,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         }
     };
 
-    /**
-     * @brief A field element for each entity of the flavor. These entities represent the prover polynomials
-     * evaluated at one point.
-     */
-    class AllValues : public UltraFlavor::AllEntities<FF> {
-      public:
-        using Base = UltraFlavor::AllEntities<FF>;
-        using Base::Base;
-    };
-
-    using CommitmentLabels = UltraFlavor::CommitmentLabels;
-
-    using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
-
     // Reuse the VerifierCommitments from Ultra
     using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb

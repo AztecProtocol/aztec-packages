@@ -10,24 +10,38 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/relations/auxiliary_relation.hpp"
+#include "barretenberg/relations/delta_range_constraint_relation.hpp"
+#include "barretenberg/relations/elliptic_relation.hpp"
+#include "barretenberg/relations/permutation_relation.hpp"
+#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+#include <array>
+#include <concepts>
+#include <span>
+#include <string>
+#include <type_traits>
+#include <vector>
+
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 
 namespace bb {
 
 /**
- * @brief The recursive counterpart to the "native" MegaZKFlavor.
- * @details This flavor can be used to instantiate a recursive Mega Honk verifier for a proof created using the
- * MegaZKFlavor. It is similar in structure to its native counterpart with two main differences: 1) the
+ * @brief The recursive counterpart to the Ultra flavor with ZK.
+ * @details This flavor can be used to instantiate a recursive Ultra Honk ZK verifier for a proof created using the
+ * ZK Ultra flavor. It is similar in structure to its native counterpart with two main differences: 1) the
  * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
- * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
+ * (e.g. Polynomial, ProverUnivariates, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
  * sense to instantiate a Verifier with this flavor.
  *
  * @note Unlike conventional flavors, "recursive" flavors are templated by a builder (much like native vs stdlib types).
@@ -36,15 +50,12 @@ namespace bb {
  *
  * @tparam BuilderType Determines the arithmetization of the verifier circuit defined based on this flavor.
  */
-template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecursiveFlavor_<BuilderType> {
+template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecursiveFlavor_<BuilderType> {
   public:
-    using NativeFlavor = MegaZKFlavor;
+    using NativeFlavor = UltraZKFlavor;
 
     static constexpr bool HasZK = true;
 
-    // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
-    // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
-    // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 };
 

@@ -1,12 +1,12 @@
 #pragma once
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"

@@ -174,6 +174,7 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
     PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const NativeVerificationKey_&) const = default;
+    virtual ~NativeVerificationKey_() = default;
     NativeVerificationKey_() = default;
     NativeVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {

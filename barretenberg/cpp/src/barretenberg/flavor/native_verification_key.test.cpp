@@ -1,9 +1,9 @@
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 #include <gtest/gtest.h>
