@@ -117,6 +117,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private async handleEpochCommitteeUpdate() {
     try {
       const { committee, epoch } = await this.epochCache.getCommittee('now');
+      if (!committee) {
+        this.log.trace(`No committee found for slot`);
+        return;
+      }
       if (epoch !== this.lastEpoch) {
         const me = this.myAddresses;
         const committeeSet = new Set(committee.map(v => v.toString()));
@@ -147,11 +151,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
-    if (!config.validatorPrivateKeys?.length) {
+    if (!config.validatorPrivateKeys.getValue().length) {
       throw new InvalidValidatorPrivateKeyError();
     }
 
-    const privateKeys = config.validatorPrivateKeys.map(validatePrivateKey);
+    const privateKeys = config.validatorPrivateKeys.getValue().map(validatePrivateKey);
     const localKeyStore = new LocalKeyStore(privateKeys);
 
     const validator = new ValidatorClient(
@@ -446,7 +450,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.error(
         `Deadline ${deadline.toISOString()} for collecting ${required} attestations for slot ${slot} is in the past`,
       );
-      throw new AttestationTimeoutError(required, slot);
+      throw new AttestationTimeoutError(0, required, slot);
     }
 
     const proposalId = proposal.archive.toString();
@@ -478,7 +482,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
       if (+deadline < this.dateProvider.now()) {
         this.log.error(`Timeout ${deadline.toISOString()} waiting for ${required} attestations for slot ${slot}`);
-        throw new AttestationTimeoutError(required, slot);
+        throw new AttestationTimeoutError(attestations.length, required, slot);
       }
 
       this.log.debug(`Collected ${attestations.length} attestations so far`);

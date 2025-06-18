@@ -18,6 +18,7 @@ template <typename FF_> class bc_hashingImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::bc_hashing_sel)).is_zero();
     }
 

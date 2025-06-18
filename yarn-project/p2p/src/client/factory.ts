@@ -15,21 +15,22 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import { InMemoryAttestationPool } from '../mem_pools/attestation_pool/memory_attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
-import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
-type P2PClientDeps<T extends P2PClientType> = {
+export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
   store?: AztecAsyncKVStore;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
   logger?: Logger;
+  p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
 };
 
 export const P2P_STORE_NAME = 'p2p';
 export const P2P_ARCHIVE_STORE_NAME = 'p2p-archive';
 export const P2P_PEER_STORE_NAME = 'p2p-peers';
+
 export const createP2PClient = async <T extends P2PClientType>(
   clientType: T,
   _config: P2PConfig & DataStoreConfig,
@@ -63,7 +64,7 @@ export const createP2PClient = async <T extends P2PClientType>(
   };
 
   if (!_config.p2pEnabled) {
-    logger.verbose('P2P is disabled. Using dummy P2P service');
+    logger.verbose('P2P is disabled. Using dummy P2P service.');
     return new P2PClient(clientType, store, archiver, mempools, new DummyP2PService(), config, telemetry);
   }
 
@@ -73,28 +74,18 @@ export const createP2PClient = async <T extends P2PClientType>(
   // Create peer discovery service
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
   const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
-  const discoveryService = new DiscV5Service(
-    peerId,
-    config,
-    packageVersion,
-    telemetry,
-    createLogger(`${logger.module}:discv5_service`),
-  );
 
-  const p2pService = await LibP2PService.new<T>(
-    clientType,
-    config,
-    discoveryService,
-    peerId,
+  const p2pService = await (deps.p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerId, {
+    packageVersion,
     mempools,
-    archiver,
+    l2BlockSource: archiver,
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
     peerStore,
     telemetry,
-    createLogger(`${logger.module}:libp2p_service`),
-  );
+    logger: createLogger(`${logger.module}:libp2p_service`),
+  });
 
   return new P2PClient(clientType, store, archiver, mempools, p2pService, config, telemetry);
 };

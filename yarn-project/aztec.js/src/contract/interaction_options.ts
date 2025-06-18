@@ -49,17 +49,19 @@ export type SimulateMethodOptions = Pick<
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include performance statistics (e.g. timing information of the different circuits and oracles) in
+  /** Whether to include metadata such as offchain messages and performance statistics (e.g. timing information of the different circuits and oracles) in
    * the simulation result, instead of just the return value of the function */
-  includeStats?: boolean;
+  includeMetadata?: boolean;
 };
 
 /**
  * Represents the options for profiling an interaction.
  */
+// docs:start:profile-method-options
 export type ProfileMethodOptions = SimulateMethodOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
   /** Whether to generate a ClientIVC proof or not */
   skipProofGeneration?: boolean;
 };
+// docs:end:profile-method-options

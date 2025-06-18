@@ -39,6 +39,10 @@ library SampleLib {
       Errors.SampleLib__SampleLargerThanIndex(_committeeSize, _indexCount)
     );
 
+    if (_committeeSize == 0) {
+      return new uint256[](0);
+    }
+
     uint256[] memory sampledIndices = new uint256[](_committeeSize);
 
     uint256 upperLimit = _indexCount - 1;

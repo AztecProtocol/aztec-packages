@@ -198,7 +198,8 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -236,12 +237,12 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     verifier.verify_proof(proof);
 

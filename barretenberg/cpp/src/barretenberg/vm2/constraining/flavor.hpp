@@ -206,7 +206,7 @@ class AvmFlavor {
         size_t log_circuit_size;
         size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
-        std::shared_ptr<CommitmentKey> commitment_key;
+        CommitmentKey commitment_key;
 
         // Offset off the public inputs from the start of the execution trace
         size_t pub_inputs_offset = 0;
@@ -232,7 +232,7 @@ class AvmFlavor {
         {
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
@@ -351,10 +351,6 @@ class AvmFlavor {
         Commitment kzg_w_comm;
 
         Transcript() = default;
-
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
-        {}
 
         void deserialize_full_transcript();
         void serialize_full_transcript();

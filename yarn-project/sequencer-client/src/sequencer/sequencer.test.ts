@@ -161,17 +161,20 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     const epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n }));
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
     publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: BigInt(newSlotNumber),
+      blockNumber: BigInt(newBlockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -308,10 +311,11 @@ describe('sequencer', () => {
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([
-      block.header.globalVariables.slotNumber.toBigInt(),
-      BigInt(block.header.globalVariables.blockNumber),
-    ]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: block.header.globalVariables.slotNumber.toBigInt(),
+      blockNumber: BigInt(block.header.globalVariables.blockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();

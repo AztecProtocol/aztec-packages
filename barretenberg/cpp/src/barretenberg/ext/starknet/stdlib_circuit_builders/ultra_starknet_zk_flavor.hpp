@@ -33,24 +33,16 @@ class UltraStarknetZKFlavor : public UltraKeccakZKFlavor {
 
         Transcript() = default;
 
-        // Used by verifier to initialize the transcript
-        Transcript(const std::vector<FF>& proof)
-            : Transcript_<starknet::StarknetTranscriptParams>(proof)
-        {}
-
         static std::shared_ptr<Transcript> prover_init_empty()
         {
-            auto transcript = std::make_shared<Transcript>();
-            constexpr uint32_t init{ 42 }; // arbitrary
-            transcript->send_to_verifier("Init", init);
-            return transcript;
+            auto transcript = Base::prover_init_empty();
+            return std::static_pointer_cast<Transcript>(transcript);
         };
 
         static std::shared_ptr<Transcript> verifier_init_empty(const std::shared_ptr<Transcript>& transcript)
         {
-            auto verifier_transcript = std::make_shared<Transcript>(transcript->proof_data);
-            verifier_transcript->template receive_from_prover<FF>("Init");
-            return verifier_transcript;
+            auto verifier_transcript = Base::verifier_init_empty(transcript);
+            return std::static_pointer_cast<Transcript>(verifier_transcript);
         };
 
         /**

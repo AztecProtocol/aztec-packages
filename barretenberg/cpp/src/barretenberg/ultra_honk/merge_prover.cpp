@@ -15,12 +15,12 @@ namespace bb {
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         const std::shared_ptr<CommitmentKey>& commitment_key,
+                         CommitmentKey commitment_key,
                          const std::shared_ptr<Transcript>& transcript)
     : op_queue(op_queue)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    , pcs_commitment_key(commitment_key ? commitment_key
-                                        : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
+    , pcs_commitment_key(commitment_key.initialized() ? commitment_key
+                                                      : CommitmentKey(op_queue->get_ultra_ops_table_num_rows()))
     , transcript(transcript){};
 
 /**
@@ -53,9 +53,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
-        Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
-        Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
-        Commitment T_commitment = pcs_commitment_key->commit(T_current[idx]);
+        Commitment t_commitment = pcs_commitment_key.commit(t_current[idx]);
+        Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
+        Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
 
         std::string suffix = std::to_string(idx);
         transcript->send_to_verifier("t_CURRENT_" + suffix, t_commitment);
