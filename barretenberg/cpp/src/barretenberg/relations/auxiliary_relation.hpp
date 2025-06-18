@@ -14,6 +14,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
   public:
     using FF = FF_;
     /*
+     * TOCHECK: I believe this todo is stale.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/757): Investigate optimizations.
      * It seems that we could have:
      *     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
@@ -37,7 +38,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
      * };
      */
 
-    /* The following are the current degrees of the constraints as .
+    /* The following are the current degrees of the constraints.
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
             6, // auxiliary sub-relation;
@@ -57,7 +58,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
             2  // RAM consistency sub-relation 3
         };
 
-        It is potentially advantageous to account for these.
+        If we keep this structure (a single selector, q_aux, controlling both non-native field arithmetic and memory
+    gates), it might be worth accounting for the more precise degrees.
         */
 
     static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{
