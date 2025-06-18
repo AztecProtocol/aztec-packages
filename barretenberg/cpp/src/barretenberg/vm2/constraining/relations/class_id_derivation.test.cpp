@@ -13,7 +13,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -22,7 +21,6 @@ namespace {
 
 using tracegen::BytecodeTraceBuilder;
 using tracegen::ClassIdDerivationTraceBuilder;
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
@@ -38,11 +36,6 @@ using simulation::Poseidon2PermutationEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using class_id_derivation_relation = bb::avm2::class_id_derivation<FF>;
-using poseidon2_relation = bb::avm2::poseidon2_hash<FF>;
-
-using lookup_poseidon2_hash_0 = bb::avm2::lookup_class_id_derivation_class_id_poseidon2_0_relation<FF>;
-using lookup_poseidon2_hash_1 = bb::avm2::lookup_class_id_derivation_class_id_poseidon2_1_relation<FF>;
-using lookup_bc_retrieval = bb::avm2::lookup_bc_retrieval_class_id_derivation_relation<FF>;
 
 ContractClass generate_contract_class()
 {
@@ -97,8 +90,9 @@ TEST(ClassIdDerivationConstrainingTest, WithHashInteraction)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash_0::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_hash_1::Settings>().process(trace);
+    check_interaction<ClassIdDerivationTraceBuilder,
+                      lookup_class_id_derivation_class_id_poseidon2_0_settings,
+                      lookup_class_id_derivation_class_id_poseidon2_1_settings>(trace);
 }
 
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
@@ -135,7 +129,7 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
                                            .nullifier_root = 3 } },
                                        trace);
 
-    LookupIntoDynamicTableSequential<lookup_bc_retrieval::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder, lookup_bc_retrieval_class_id_derivation_settings>(trace);
 }
 
 } // namespace

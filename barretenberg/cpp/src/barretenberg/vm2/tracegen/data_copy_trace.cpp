@@ -9,9 +9,7 @@
 #include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -86,12 +84,10 @@ void DataCopyTraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> DataCopyTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_data_copy_mem_read_settings_>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_data_copy_mem_write_settings_>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_data_copy_col_read_settings_>>());
-}
+const InteractionDefinition DataCopyTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_data_copy_mem_read_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_mem_write_settings, InteractionType::LookupGeneric>()
+        .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

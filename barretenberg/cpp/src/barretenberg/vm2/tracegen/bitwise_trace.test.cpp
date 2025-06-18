@@ -4,8 +4,6 @@
 #include <cstdint>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/constraining/flavor_settings.hpp"
-#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -14,9 +12,6 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using testing::ElementsAre;
-using testing::Field;
-
-using R = TestTraceContainer::Row;
 
 TEST(BitwiseTraceGenTest, U1And)
 {

@@ -10,9 +10,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -364,10 +362,7 @@ void Sha256TraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> Sha256TraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoIndexedByClk<lookup_sha256_round_constant_settings>>());
-}
+const InteractionDefinition Sha256TraceBuilder::interactions =
+    InteractionDefinition().add<lookup_sha256_round_constant_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen
