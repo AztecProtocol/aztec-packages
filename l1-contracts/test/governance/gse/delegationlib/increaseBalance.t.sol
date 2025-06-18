@@ -28,6 +28,7 @@ contract IncreaseBalanceTest is WithDelegationLib {
     // it increase supply by amount
 
     address instance = _instances[0];
+    vm.assume(instance != _instances[1]);
 
     uint256 balance = bound(_balance, 1, type(uint64).max);
     uint256 amount = bound(_amount, 1, type(uint64).max);

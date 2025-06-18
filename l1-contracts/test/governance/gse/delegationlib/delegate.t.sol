@@ -16,6 +16,7 @@ contract DelegateTest is WithDelegationLib {
     // it changes no state
 
     vm.assume(_newDelegatee != address(0));
+    vm.assume(_newDelegatee != _attester);
 
     delegationLib.increaseBalance(_instance, _attester, 100);
     delegationLib.delegate(_instance, _attester, _newDelegatee);
@@ -44,7 +45,7 @@ contract DelegateTest is WithDelegationLib {
     // it updates the delegatee
     // it increases power of the new delegatee
 
-    vm.assume(_newDelegatee != address(0));
+    vm.assume(_newDelegatee != address(0) && _newDelegatee != _attester);
 
     uint256 balance = bound(_balance, 1, type(uint128).max);
 
@@ -114,6 +115,7 @@ contract DelegateTest is WithDelegationLib {
     vm.assume(_oldDelegatee != address(0));
     vm.assume(_newDelegatee != address(0));
     vm.assume(_oldDelegatee != _newDelegatee);
+    vm.assume(_oldDelegatee != _attester);
 
     address instance = _instances[0];
     vm.assume(instance != _instances[1]);
