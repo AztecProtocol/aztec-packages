@@ -83,6 +83,9 @@ Diagnostics:
       - modernize-use-designated-initializers
       # Often makes virtually no difference as exactly one copy happens regardless, just adds decision paralysis.
       - modernize-pass-by-value
+      # Just because we add a virtual destructor does not mean we need to be verbose and add all constructor variants.
+      # Another option would be to somehow re-add this with AllowSoleDefaultDtor=true, however we do wild-card additions.
+      - cppcoreguidelines-special-member-functions
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench
