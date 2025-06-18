@@ -59,9 +59,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 5;  // deg + 1 of log-deriv lookup subrelation
     static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH =
         3; // deg + 1 of the relation checking that read_tag_m is a boolean value
+    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
     // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
-    static constexpr std::array<size_t, 3 * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
         INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 0)
         LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 0)
         READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 0)
@@ -79,7 +80,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, 3 * NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX* NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
         INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT
@@ -305,8 +306,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1 (2)
         const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 2
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
-
-        constexpr size_t NUM_SUB_RELATION_PER_IDX = 3;
 
         // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = NUM_SUB_RELATION_PER_IDX * bus_idx;

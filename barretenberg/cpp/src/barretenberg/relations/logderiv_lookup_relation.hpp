@@ -19,16 +19,16 @@ namespace bb {
 template <typename FF_> class LogDerivLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1; // the number of write terms in the lookup relation
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = 5; // both subrelations are degree 4
+    static constexpr size_t INVERSE_SUBRELATION_LENGTH = 5; // both subrelations are degree 4
+    static constexpr size_t LOOKUP_SUBRELATION_LENGTH = 5;  // both subrelations are degree 4
     static constexpr size_t BOOLEAN_CHECK_SUBRELATION_LENGTH =
         3; // deg + 1 of the relation checking that read_tag_m is a boolean value
 
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
-        LENGTH,                          // inverse construction sub-relation
-        LENGTH,                          // log derivative lookup argument sub-relation
+        INVERSE_SUBRELATION_LENGTH,      // inverse construction sub-relation
+        LOOKUP_SUBRELATION_LENGTH,       // log derivative lookup argument sub-relation
         BOOLEAN_CHECK_SUBRELATION_LENGTH // boolean check sub-relation
     };
 
