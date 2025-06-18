@@ -237,6 +237,9 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         listen: [bindAddrTcp],
         announce: [], // announce is handled by the peer discovery service
       },
+      connectionMonitor: {
+        protocolPrefix: 'aztec',
+      },
       transports: [
         tcp({
           maxConnections: config.maxPeerCount,
