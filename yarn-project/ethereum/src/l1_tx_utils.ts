@@ -819,10 +819,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
-    const nonce = await this.client.getTransactionCount({ address: this.client.account.address });
+    // const nonce = await this.client.getTransactionCount({ address: this.client.account.address });
 
     const call: any = {
-      nonce,
+      // nonce,
       to: request.to!,
       data: request.data,
       from: request.from ?? this.client.account.address,
