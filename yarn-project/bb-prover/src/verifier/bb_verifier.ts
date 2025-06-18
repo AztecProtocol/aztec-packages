@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { ClientProtocolArtifact, ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
-import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
+import type { ClientProtocolCircuitVerifier, IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 import type { Proof } from '@aztec/stdlib/proofs';
 import type { CircuitVerificationStats } from '@aztec/stdlib/stats';
 import { Tx } from '@aztec/stdlib/tx';
@@ -92,7 +92,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
     await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
   }
 
-  public async verifyProof(tx: Tx): Promise<{ valid: boolean; duration: number; totalDuration: number }> {
+  public async verifyProof(tx: Tx): Promise<IVCProofVerificationResult> {
     try {
       const totalTimer = new Timer();
       let verificationDuration = 0;

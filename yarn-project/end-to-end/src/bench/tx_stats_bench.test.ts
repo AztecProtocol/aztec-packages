@@ -1,6 +1,7 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, ProvenTx, sleep } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
+import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
 
 import '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -20,7 +21,7 @@ import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 // Set a 2 minute timeout.
 const TIMEOUT = 120_000;
 
-describe('transaction compression', () => {
+describe('transaction benchmarks', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
@@ -30,6 +31,9 @@ describe('transaction compression', () => {
   let recipient: AztecAddress;
 
   const results: any[] = [];
+
+  let publicProvenTx: ProvenTx;
+  let privateProvenTx: ProvenTx;
 
   const toPrettyString = () => {
     let pretty = '';
@@ -51,7 +55,30 @@ describe('transaction compression', () => {
 
     ({ provenAssets, accounts, logger } = t);
     [sender, recipient] = accounts.map(a => a.address);
-  }, 120_000);
+
+    // Create the two transactions
+    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
+    const privateSendAmount = privateBalance / 10n;
+    expect(privateSendAmount).toBeGreaterThan(0n);
+    const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
+
+    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
+    const publicSendAmount = publicBalance / 10n;
+    expect(publicSendAmount).toBeGreaterThan(0n);
+    const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
+
+    // Prove them
+    logger.info(`Proving txs`);
+    const [publicTx, privateTx] = await Promise.all([publicInteraction.prove(), privateInteraction.prove()]);
+
+    publicProvenTx = publicTx;
+    privateProvenTx = privateTx;
+
+    // Verify them
+    logger.info(`Verifying txs`);
+    await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
+    await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
+  }, TIMEOUT);
 
   afterAll(async () => {
     await t.teardown();
@@ -74,29 +101,6 @@ describe('transaction compression', () => {
   it(
     'makes both public and private transfers',
     async () => {
-      // Create the two transactions
-      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate();
-      const privateSendAmount = privateBalance / 10n;
-      expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
-
-      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate();
-      const publicSendAmount = publicBalance / 10n;
-      expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
-
-      // Prove them
-      logger.info(`Proving txs`);
-      const [publicProvenTx, privateProvenTx] = await Promise.all([
-        publicInteraction.prove(),
-        privateInteraction.prove(),
-      ]);
-
-      // Verify them
-      logger.info(`Verifying txs`);
-      await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
-      await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
-
       const compressTx = (
         txAsBuffer: Buffer,
         compress: (data: Buffer) => Buffer,
@@ -175,4 +179,85 @@ describe('transaction compression', () => {
     },
     TIMEOUT,
   );
+
+  it('verifies a single transaction', async () => {
+    const numIterations = 20;
+    const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
+      x => undefined,
+    );
+    for (let i = 0; i < numIterations; i++) {
+      const result = await t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx);
+      resultsArray[i] = result;
+    }
+    resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
+    results.push({
+      name: `Tx IVC Verification/Single Transaction/Verification Time`,
+      value:
+        resultsArray
+          .filter(result => result !== undefined)
+          .map(result => result.duration)
+          .reduce((a, b) => a + b, 0) / numIterations,
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/Single Transaction/Total Verification Time`,
+      value:
+        resultsArray
+          .filter(result => result !== undefined)
+          .map(result => result.totalDuration)
+          .reduce((a, b) => a + b, 0) / numIterations,
+      unit: 'ms',
+    });
+  }, 60_000);
+
+  it('verifies the transactions', async () => {
+    const seconds = 60;
+    const proofsPerSecond = 10;
+    const totalNumProofs = seconds * proofsPerSecond;
+    const promises = [];
+    const timer = new Timer();
+    for (let i = 0; i < totalNumProofs; i++) {
+      promises.push(t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx));
+      await sleep(1000 / proofsPerSecond);
+    }
+    const resultsArray = await Promise.all(promises);
+    const durations = resultsArray.filter(result => result !== undefined).map(result => result.duration);
+    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDuration);
+    const totalDuration = timer.ms();
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Avg Verification Time`,
+      value: durations.reduce((a, b) => a + b, 0) / totalNumProofs,
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Min Verification Time`,
+      value: Math.min(...durations),
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Max Verification Time`,
+      value: Math.max(...durations),
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Avg Total Verification Time`,
+      value: totalDurations.reduce((a, b) => a + b, 0) / totalNumProofs,
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Min Verification Time`,
+      value: Math.min(...totalDurations),
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Max Verification Time`,
+      value: Math.max(...totalDurations),
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/60 Seconds @10TPS/Total Verification Time`,
+      value: totalDuration,
+      unit: 'ms',
+    });
+  });
 });

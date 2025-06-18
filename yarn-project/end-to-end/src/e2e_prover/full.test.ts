@@ -130,31 +130,6 @@ describe('full_prover', () => {
         logger.warn(`Verifying in '${10 - i}...`);
       }
 
-      while (true) {
-        const promises = [];
-        promises.push(...Array.from({ length: 5 }).map(() => t.circuitProofVerifier?.verifyProof(publicProvenTx)));
-        promises.push(...Array.from({ length: 5 }).map(() => t.circuitProofVerifier?.verifyProof(privateProvenTx)));
-        const timer = new Timer();
-        const results = await Promise.all(promises);
-
-        const numMillis = timer.ms();
-        logger.warn(`Verified in ${numMillis}ms\n\n\n\n\n`);
-
-        results
-          .filter(result => result !== undefined)
-          .forEach(result => {
-            logger.warn(`Verified `, {
-              valid: result.valid,
-              duration: result.duration,
-              totalDuration: result.totalDuration,
-            });
-          });
-        if (numMillis < 1000) {
-          await sleep(1000 - numMillis);
-        }
-        logger.warn(`Time: ${new Date().toLocaleTimeString()}\n\n\n\n\n\n`);
-      }
-
       // Sends the txs to node and awaits them to be mined separately, so they land on different blocks,
       // and we have more than one block in the epoch we end up proving
       // logger.info(`Sending private tx`);

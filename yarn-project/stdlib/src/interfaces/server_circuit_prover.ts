@@ -155,6 +155,12 @@ export interface ServerCircuitProver {
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
 }
 
+export type IVCProofVerificationResult = {
+  valid: boolean;
+  duration: number;
+  totalDuration: number;
+};
+
 /**
  * A verifier used by nodes to check tx proofs are valid.
  */
@@ -164,7 +170,7 @@ export interface ClientProtocolCircuitVerifier {
    * @param tx - The tx to verify the proof of
    * @returns True if the proof is valid, false otherwise
    */
-  verifyProof(tx: Tx): Promise<{ valid: boolean; duration: number; totalDuration: number }>;
+  verifyProof(tx: Tx): Promise<IVCProofVerificationResult>;
 
   /**
    * Stop the verifier.
