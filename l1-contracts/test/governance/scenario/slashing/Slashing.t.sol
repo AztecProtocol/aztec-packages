@@ -79,7 +79,8 @@ contract SlashingTest is TestBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this));
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(4);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -95,10 +96,6 @@ contract SlashingTest is TestBase {
       TestConstants.AZTEC_SLOT_DURATION,
       TestConstants.AZTEC_EPOCH_DURATION
     );
-
-    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    testERC20.mint(address(multiAdder), rollup.getDepositAmount() * validatorCount);
-    multiAdder.addValidators(initialValidators);
 
     // We jumpt forward 2 epochs because there are nothing interesting happening in the first epochs
     // as our sampling is delayed zzz.
@@ -135,7 +132,7 @@ contract SlashingTest is TestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount1 - slashAmount2, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status");
     }
   }
 }

@@ -51,9 +51,6 @@ class TranslatorProver {
     ZKData zk_sumcheck_data;
 
     SumcheckOutput<Flavor> sumcheck_output;
-
-  private:
-    HonkProof proof;
 };
 
 } // namespace bb

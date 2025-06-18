@@ -285,7 +285,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
         this,
         this.telemetry.getTracer('P2PL2BlockStream'),
         'P2PL2BlockStream',
-        createLogger('p2p:l2-block-stream'),
+        createLogger(`${this.log.module}:l2-block-stream`),
         { batchSize, pollIntervalMS, startingBlock },
       );
     }

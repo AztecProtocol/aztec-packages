@@ -74,7 +74,7 @@ export class RollupCheatCodes {
     this.logger.info(`Pending block num: ${pendingNum}`);
     this.logger.info(`Proven block num: ${provenNum}`);
     this.logger.info(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
-    this.logger.info(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+    this.logger.info(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
     this.logger.info(`Archive: ${archive}`);
     this.logger.info(`Epoch num: ${epochNum}`);
     this.logger.info(`Slot: ${slot}`);

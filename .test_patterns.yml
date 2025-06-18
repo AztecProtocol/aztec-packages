@@ -153,10 +153,6 @@ tests:
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  - regex: "src/e2e_epochs/epochs_l1_reorgs"
-    error_regex: "updates L1 to L2 messages changed due to an L1 reorg|sending signal TERM to command"
-    owners:
-      - *spyros
   - regex: "src/e2e_epochs/epochs_empty_blocks"
     error_regex: "✕ successfully proves multiple epochs"
     owners:
@@ -248,6 +244,10 @@ tests:
       - *alex
   - regex: "spartan/bootstrap.sh"
     error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "tar: Error is not recoverable: exiting now"
     owners:
       - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"

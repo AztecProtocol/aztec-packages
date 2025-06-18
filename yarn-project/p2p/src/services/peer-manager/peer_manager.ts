@@ -638,6 +638,7 @@ export class PeerManager implements PeerManagerInterface {
       const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
+      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.STATUS,
@@ -659,6 +660,7 @@ export class PeerManager implements PeerManagerInterface {
         await this.disconnectPeer(peerId);
         return;
       }
+      this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {

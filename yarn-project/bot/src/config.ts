@@ -1,10 +1,13 @@
 import {
   type ConfigMappingsType,
+  type SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  secretFrConfigHelper,
+  secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -32,17 +35,17 @@ export type BotConfig = {
   /** Url of the ethereum host. */
   l1RpcUrls: string[] | undefined;
   /** The mnemonic for the account to bridge fee juice from L1. */
-  l1Mnemonic: string | undefined;
+  l1Mnemonic: SecretValue<string | undefined>;
   /** The private key for the account to bridge fee juice from L1. */
-  l1PrivateKey: string | undefined;
+  l1PrivateKey: SecretValue<string | undefined>;
   /** How long to wait for L1 to L2 messages to become available on L2 */
   l1ToL2MessageTimeoutSeconds: number;
   /** Signing private key for the sender account. */
-  senderPrivateKey: Fr | undefined;
+  senderPrivateKey: SecretValue<Fr | undefined>;
   /** Optional salt to use to deploy the sender account */
   senderSalt: Fr | undefined;
   /** Encryption secret for a recipient account. */
-  recipientEncryptionSecret: Fr;
+  recipientEncryptionSecret: SecretValue<Fr>;
   /** Salt for the token contract deployment. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
@@ -83,12 +86,12 @@ export const BotConfigSchema = z
     nodeAdminUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
     l1RpcUrls: z.array(z.string()).optional(),
-    l1Mnemonic: z.string().optional(),
-    l1PrivateKey: z.string().optional(),
+    l1Mnemonic: schemas.SecretValue(z.string().optional()),
+    l1PrivateKey: schemas.SecretValue(z.string().optional()),
     l1ToL2MessageTimeoutSeconds: z.number(),
-    senderPrivateKey: schemas.Fr.optional(),
+    senderPrivateKey: schemas.SecretValue(schemas.Fr.optional()),
     senderSalt: schemas.Fr.optional(),
-    recipientEncryptionSecret: schemas.Fr,
+    recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number().int().nonnegative(),
@@ -111,9 +114,6 @@ export const BotConfigSchema = z
     nodeAdminUrl: undefined,
     pxeUrl: undefined,
     l1RpcUrls: undefined,
-    l1Mnemonic: undefined,
-    l1PrivateKey: undefined,
-    senderPrivateKey: undefined,
     senderSalt: undefined,
     l2GasLimit: undefined,
     daGasLimit: undefined,
@@ -141,10 +141,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   l1Mnemonic: {
     env: 'BOT_L1_MNEMONIC',
     description: 'The mnemonic for the account to bridge fee juice from L1.',
+    ...secretStringConfigHelper(),
   },
   l1PrivateKey: {
     env: 'BOT_L1_PRIVATE_KEY',
     description: 'The private key for the account to bridge fee juice from L1.',
+    ...secretStringConfigHelper(),
   },
   l1ToL2MessageTimeoutSeconds: {
     env: 'BOT_L1_TO_L2_TIMEOUT_SECONDS',
@@ -154,7 +156,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   senderPrivateKey: {
     env: 'BOT_PRIVATE_KEY',
     description: 'Signing private key for the sender account.',
-    parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
+    ...secretFrConfigHelper(),
   },
   senderSalt: {
     env: 'BOT_ACCOUNT_SALT',
@@ -164,8 +166,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   recipientEncryptionSecret: {
     env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
     description: 'Encryption secret for a recipient account.',
-    parseEnv: (val: string) => Fr.fromHexString(val),
-    defaultValue: Fr.fromHexString('0xcafecafe'),
+    ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',

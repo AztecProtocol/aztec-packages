@@ -2,13 +2,11 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Configuration} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 library ConfigurationLib {
-  uint256 internal constant YEAR_2100 = 4102444800;
-
   uint256 internal constant QUORUM_LOWER = 1;
   uint256 internal constant QUORUM_UPPER = 1e18;
 
@@ -19,11 +17,7 @@ library ConfigurationLib {
   Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
-  function withdrawalDelay(DataStructures.Configuration storage _self)
-    internal
-    view
-    returns (Timestamp)
-  {
+  function withdrawalDelay(Configuration storage _self) internal view returns (Timestamp) {
     return Timestamp.wrap(Timestamp.unwrap(_self.votingDelay) / 5) + _self.votingDuration
       + _self.executionDelay;
   }
@@ -33,7 +27,7 @@ library ConfigurationLib {
    * @dev     We specify `memory` here since it is called on outside import for validation
    *          before writing it to state.
    */
-  function assertValid(DataStructures.Configuration memory _self) internal pure returns (bool) {
+  function assertValid(Configuration memory _self) internal pure returns (bool) {
     require(_self.quorum >= QUORUM_LOWER, Errors.Governance__ConfigurationLib__QuorumTooSmall());
     require(_self.quorum <= QUORUM_UPPER, Errors.Governance__ConfigurationLib__QuorumTooBig());
 

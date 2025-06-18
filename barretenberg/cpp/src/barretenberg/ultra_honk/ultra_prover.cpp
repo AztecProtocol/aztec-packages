@@ -11,8 +11,11 @@
 namespace bb {
 
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key, const CommitmentKey& commitment_key)
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<HonkVK>& honk_vk,
+                                   const CommitmentKey& commitment_key)
     : proving_key(std::move(proving_key))
+    , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
     , commitment_key(commitment_key)
 {}
@@ -26,8 +29,10 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  * */
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<HonkVK>& honk_vk,
                                    const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::move(proving_key))
+    , honk_vk(honk_vk)
     , transcript(transcript)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
@@ -40,30 +45,34 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder& circuit, const std::shared_ptr<Transcript>& transcript)
-    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+UltraProver_<Flavor>::UltraProver_(Builder& circuit,
+                                   const std::shared_ptr<HonkVK>& honk_vk,
+                                   const std::shared_ptr<Transcript>& transcript)
+    : proving_key(std::make_shared<DeciderPK>(circuit))
+    , honk_vk(honk_vk)
     , transcript(transcript)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
-    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<HonkVK>& honk_vk)
+    : proving_key(std::make_shared<DeciderPK>(circuit))
+    , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
+    auto proof = transcript->export_proof();
+
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
-        proof = transcript->proof_data;
         // The extra calculation is for the IPA proof length.
         BB_ASSERT_EQ(proving_key->proving_key.ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
         proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
-    } else {
-        proof = transcript->export_proof();
     }
+
     return proof;
 }
 
@@ -78,7 +87,7 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
-    OinkProver<Flavor> oink_prover(proving_key, transcript);
+    OinkProver<Flavor> oink_prover(proving_key, honk_vk, transcript);
     oink_prover.prove();
     vinfo("created oink proof");
 

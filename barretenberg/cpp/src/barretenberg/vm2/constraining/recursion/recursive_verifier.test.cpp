@@ -103,7 +103,9 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
         ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-        auto manifest = AvmFlavor::Transcript(proof).get_manifest();
+        auto avm_transcript = AvmFlavor::Transcript();
+        avm_transcript.load_proof(proof);
+        auto manifest = avm_transcript.get_manifest();
         auto recursive_manifest = recursive_verifier.transcript->get_manifest();
 
         // We sanity check that the recursive manifest matches its counterpart one.
@@ -132,7 +134,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        OuterProver ultra_prover(ultra_instance);
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+        OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
@@ -213,13 +216,14 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        UltraRollupProver outer_prover(outer_proving_key);
+        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
     auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
     EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));

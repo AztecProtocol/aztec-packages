@@ -11,10 +11,8 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   NULLIFIER_SUBTREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PRIVATE_CONTEXT_INPUTS_LENGTH,
-  type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Aes128, Schnorr, poseidon2Hash } from '@aztec/foundation/crypto';
@@ -46,6 +44,7 @@ import {
   UtilityExecutionOracle,
   executePrivateFunction,
   extractPrivateCircuitPublicInputs,
+  generateSimulatedProvingResult,
   pickNotes,
 } from '@aztec/pxe/simulator';
 import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
@@ -87,11 +86,9 @@ import type { MerkleTreeReadOperations, MerkleTreeWriteOperations } from '@aztec
 import {
   type KeyValidationRequest,
   PartialPrivateTailPublicInputsForPublic,
-  PartialPrivateTailPublicInputsForRollup,
   PrivateContextInputs,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
-  PrivateToRollupAccumulatedData,
   PublicCallRequest,
   RollupValidationRequests,
   ScopedLogHash,
@@ -495,10 +492,7 @@ export class TXE implements TypedOracle {
     }
 
     const leafPreimagePromise = snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPathPromise = snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
 
     const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
 
@@ -520,10 +514,7 @@ export class TXE implements TypedOracle {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await snap.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
+      const path = await snap.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       return new PublicDataWitness(lowLeafResult.index, preimage, path);
     }
   }
@@ -544,10 +535,7 @@ export class TXE implements TypedOracle {
     }
     const preimageData = (await snap.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
-    const siblingPath = await snap.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPath = await snap.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
@@ -1424,77 +1412,11 @@ export class TXE implements TypedOracle {
       this.storeInExecutionCache(returnValues, returnValuesHash);
     }
 
-    const uniqueNoteHashes: Fr[] = [];
-    const taggedPrivateLogs: PrivateLog[] = [];
-    const nullifiers: Fr[] = isStaticCall
-      ? []
-      : result.firstNullifier.equals(Fr.ZERO)
-        ? [this.getTxRequestHash()]
-        : noteCache.getAllNullifiers();
-    const l2ToL1Messages: ScopedL2ToL1Message[] = [];
-    const contractClassLogsHashes: ScopedLogHash[] = [];
-    const publicCallRequests: PublicCallRequest[] = [];
-
-    const nonceGenerator = nullifiers[0];
-
-    let publicTeardownCallRequest;
-
-    let noteHashIndexInTx = 0;
-    const executions = [result.entrypoint];
-    while (executions.length !== 0) {
-      const execution = executions.shift()!;
-      executions.unshift(...execution!.nestedExecutions);
-
-      const { contractAddress } = execution.publicInputs.callContext;
-
-      const noteHashesFromExecution = await Promise.all(
-        execution.publicInputs.noteHashes
-          .filter(noteHash => !noteHash.isEmpty())
-          .map(async noteHash => {
-            const noteNonce = await computeNoteHashNonce(nonceGenerator, noteHashIndexInTx++);
-            const siloedNoteHash = await siloNoteHash(contractAddress, noteHash.value);
-
-            // We could defer this to the public processor, and pass this in as non-revertible.
-            return computeUniqueNoteHash(noteNonce, siloedNoteHash);
-          }),
-      );
-
-      const privateLogsFromExecution = await Promise.all(
-        execution.publicInputs.privateLogs
-          .filter(privateLog => !privateLog.isEmpty())
-          .map(async metadata => {
-            metadata.log.fields[0] = await poseidon2Hash([contractAddress, metadata.log.fields[0]]);
-
-            return metadata.log;
-          }),
-      );
-
-      uniqueNoteHashes.push(...noteHashesFromExecution);
-      taggedPrivateLogs.push(...privateLogsFromExecution);
-      l2ToL1Messages.push(
-        ...execution.publicInputs.l2ToL1Msgs
-          .filter(l2ToL1Message => !l2ToL1Message.isEmpty())
-          .map(message => message.message.scope(contractAddress)),
-      );
-      contractClassLogsHashes.push(
-        ...execution.publicInputs.contractClassLogsHashes
-          .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
-          .map(message => message.logHash.scope(contractAddress)),
-      );
-      publicCallRequests.push(
-        ...execution.publicInputs.publicCallRequests
-          .filter(publicCallRequest => !publicCallRequest.isEmpty())
-          .map(callRequest => callRequest.inner),
-      );
-
-      if (publicTeardownCallRequest !== undefined && !execution.publicInputs.publicTeardownCallRequest.isEmpty()) {
-        throw new Error('Trying to set multiple teardown requests');
-      }
-
-      publicTeardownCallRequest = execution.publicInputs.publicTeardownCallRequest.isEmpty()
-        ? publicTeardownCallRequest
-        : execution.publicInputs.publicTeardownCallRequest;
-    }
+    // According to the protocol rules, the nonce generator for the note hashes
+    // can either be the first nullifier in the tx or the hash of the initial tx request
+    // if there are none.
+    const nonceGenerator = result.firstNullifier.equals(Fr.ZERO) ? this.getTxRequestHash() : result.firstNullifier;
+    const { publicInputs } = await generateSimulatedProvingResult(result, nonceGenerator, this.contractDataProvider);
 
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
@@ -1505,53 +1427,7 @@ export class TXE implements TypedOracle {
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, true, true);
     const processor = new PublicProcessor(globals, guardedMerkleTrees, contractsDB, simulator, new TestDateProvider());
 
-    const constantData = new TxConstantData(blockHeader, txContext, Fr.zero(), Fr.zero());
-
-    const hasPublicCalls = result.publicFunctionCalldata.length !== 0;
-    let inputsForRollup;
-    let inputsForPublic;
-
-    // Private only
-    if (result.publicFunctionCalldata.length === 0) {
-      const accumulatedDataForRollup = new PrivateToRollupAccumulatedData(
-        padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-        padArrayEnd(nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-        padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-        padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
-        padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-      );
-
-      inputsForRollup = new PartialPrivateTailPublicInputsForRollup(accumulatedDataForRollup);
-    } else {
-      const accumulatedDataForPublic = new PrivateToPublicAccumulatedData(
-        padArrayEnd(uniqueNoteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-        padArrayEnd(nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-        padArrayEnd(l2ToL1Messages, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
-        padArrayEnd(taggedPrivateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX),
-        padArrayEnd(contractClassLogsHashes, ScopedLogHash.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX),
-        padArrayEnd(publicCallRequests, PublicCallRequest.empty(), MAX_ENQUEUED_CALLS_PER_TX),
-      );
-
-      inputsForPublic = new PartialPrivateTailPublicInputsForPublic(
-        // We are using non-revertible because we set the first nullifier to be used as a nonce generator, otherwise the tx hash is manually calculated.
-        // nonrevertible
-        accumulatedDataForPublic,
-        // revertible
-        PrivateToPublicAccumulatedData.empty(),
-        publicTeardownCallRequest ?? PublicCallRequest.empty(),
-      );
-    }
-
-    const txData = new PrivateKernelTailCircuitPublicInputs(
-      constantData,
-      RollupValidationRequests.empty(),
-      /*gasUsed=*/ new Gas(0, 0),
-      /*feePayer=*/ AztecAddress.zero(),
-      hasPublicCalls ? inputsForPublic : undefined,
-      !hasPublicCalls ? inputsForRollup : undefined,
-    );
-
-    const tx = new Tx(txData, ClientIvcProof.empty(), [], result.publicFunctionCalldata);
+    const tx = new Tx(publicInputs, ClientIvcProof.empty(), [], result.publicFunctionCalldata);
 
     let checkpoint;
     if (isStaticCall) {
@@ -1584,7 +1460,7 @@ export class TXE implements TypedOracle {
 
     txEffect.noteHashes = processedTxs[0]!.txEffect.noteHashes;
     txEffect.nullifiers = processedTxs[0]!.txEffect.nullifiers;
-    txEffect.privateLogs = taggedPrivateLogs;
+    txEffect.privateLogs = processedTxs[0]!.txEffect.privateLogs;
     txEffect.publicLogs = processedTxs[0]!.txEffect.publicLogs;
     txEffect.publicDataWrites = processedTxs[0]!.txEffect.publicDataWrites;
 
