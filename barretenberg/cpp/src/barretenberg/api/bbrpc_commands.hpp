@@ -15,7 +15,7 @@ namespace bb::bbrpc {
  * @struct CircuitLoad
  * @brief Represents a request to load a circuit into the BB RPC state.
  *
- * Takes an ID, name and the circuit bytecode.
+ * Takes an ID, name and the circuit bytecode. It
  */
 struct CircuitLoad {
     /**
@@ -42,6 +42,11 @@ struct CircuitLoad {
      * is determined by examining the first byte of the bytecode.
      */
     std::vector<uint8_t> bytecode;
+
+    /**
+     * @brief Verification key. Should always be passed, except for write_vk.
+     */
+    std::vector<uint8_t> verification_key;
 };
 
 /**
@@ -84,7 +89,8 @@ struct CircuitDrop {
  *
  * This structure is used to encapsulate all necessary parameters for generating a proof
  * for a specific circuit, including the circuit ID, witness data, and options for the proving process.
- * This is not used for ClientIVC honk, which has a differently structured output and
+ * This is not used for ClientIVC honk, the other proving option, as it has a differently structured output and takes
+ * multiple accumulated circuits as input.
  */
 struct CircuitProve {
     /**
@@ -146,12 +152,9 @@ struct ClientIvcAccumulate {
     CircuitId circuit_id;
 
     /**
-     * @brief Serialized input data for the circuit
-     *
-     * Contains the inputs required for the proving process, serialized in a format
-     * compatible with the circuit's expected input structure.
+     * @brief Serialized witness for the circuit.
      */
-    std::vector<uint8_t> inputs;
+    std::vector<uint8_t> witness;
 };
 
 } // namespace bb::bbrpc

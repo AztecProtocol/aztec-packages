@@ -42,7 +42,7 @@ template <typename Flavor> class ProvingKeyEntry {
 /* =================================================================================================
  *  PROVING-KEY CACHES
  * -------------------------------------------------------------------------------------------------
- *  These caches hold heavyweight proving keys, one unordered_map per "Flavor" (roughly, proving system).
+ *  These caches hold proving keys, one cache per "Flavor" (roughly, proving system variant).
  *  Because the key’s concrete type differs per flavor, the cache itself must have a type-erased base class
  *  (BBRpcProvingKeyCacheBase) and type-specific internally (BBRpcProvingKeyCache<Flavor>).
  * ================================================================================================= */
