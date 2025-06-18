@@ -130,7 +130,7 @@ FF MerkleDB::note_hash_read(index_t leaf_index) const
 
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
-    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
     // We need to silo and make unique just to fetch the hint. Oof
     FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
     FF unique_note_hash =
@@ -142,14 +142,14 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == get_tree_roots().nullifierTree);
+    assert(snapshot_after == get_tree_roots().noteHashTree);
 
     note_hash_counter++;
 }
 
 void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 {
-    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
     // We need to make unique just to fetch the hint. Oof
     FF unique_note_hash =
         make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
@@ -160,14 +160,14 @@ void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == get_tree_roots().nullifierTree);
+    assert(snapshot_after == get_tree_roots().noteHashTree);
 
     note_hash_counter++;
 }
 
 void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 {
-    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().nullifierTree;
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
     auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
     AppendOnlyTreeSnapshot snapshot_after =
@@ -175,7 +175,7 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
-    assert(snapshot_after == get_tree_roots().nullifierTree);
+    assert(snapshot_after == get_tree_roots().noteHashTree);
 
     note_hash_counter++;
 }

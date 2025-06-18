@@ -437,12 +437,11 @@ std::vector<std::unique_ptr<class InteractionBuilderInterface>> TxTraceBuilder::
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_l2_l1_msg_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_effective_fee_public_inputs_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_read_fee_payer_public_inputs_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_balance_validation_settings>>()
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_balance_validation_settings>>(),
         // Commented out for now, to make the bulk test pass before all opcodes are implemented.
         // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_fee_public_inputs_settings>>(),
         // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_write_end_gas_used_public_inputs_settings>>()
-        // std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_note_hash_append_settings>>());
-    );
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_tx_note_hash_append_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

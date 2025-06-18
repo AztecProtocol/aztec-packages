@@ -126,7 +126,7 @@ namespace note_hash_tree_check;
 
     pol commit next_leaf_value;
     // If reading, next_leaf_value is unconstrained
-    write * (siloed_note_hash - next_leaf_value) = 0;
+    write * (unique_note_hash - next_leaf_value) = 0;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit note_hash_tree_height;
@@ -142,10 +142,12 @@ namespace note_hash_tree_check;
     // ====== WRITE TO PUBLIC INPUTS ======
     pol commit should_write_to_public_inputs;
     sel * write * (1 - discard) = should_write_to_public_inputs;
+    pol commit public_inputs_index;
+    should_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_index - public_inputs_index) = 0;
 
     #[WRITE_NOTE_HASH_TO_PUBLIC_INPUTS]
     should_write_to_public_inputs {
-        note_hash_index,
+        public_inputs_index,
         unique_note_hash
     } in
     public_inputs.sel {

@@ -13,8 +13,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 3,
-                                                                            3, 4, 3, 3, 3, 4, 3, 3, 4 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
+                                                                            4, 3, 3, 3, 4, 3, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -33,6 +33,7 @@ template <typename FF_> class note_hash_tree_checkImpl {
 
         const auto constants_NOTE_HASH_TREE_HEIGHT = FF(40);
         const auto constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(157);
+        const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX = FF(375);
         const auto constants_GENERATOR_INDEX__NOTE_HASH_NONCE = FF(2);
         const auto constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH = FF(3);
         const auto constants_GENERATOR_INDEX__SILOED_NOTE_HASH = FF(4);
@@ -145,7 +146,7 @@ template <typename FF_> class note_hash_tree_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_write) * (in.get(C::note_hash_tree_check_siloed_note_hash) -
+            auto tmp = in.get(C::note_hash_tree_check_write) * (in.get(C::note_hash_tree_check_unique_note_hash) -
                                                                 in.get(C::note_hash_tree_check_next_leaf_value));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
@@ -164,6 +165,15 @@ template <typename FF_> class note_hash_tree_checkImpl {
                         in.get(C::note_hash_tree_check_should_write_to_public_inputs));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = in.get(C::note_hash_tree_check_should_write_to_public_inputs) *
+                       ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX +
+                         in.get(C::note_hash_tree_check_note_hash_index)) -
+                        in.get(C::note_hash_tree_check_public_inputs_index));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
