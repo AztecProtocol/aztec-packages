@@ -80,9 +80,10 @@ export function executeBB(
     const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
 
     // We prioritise the concurrency argument if provided and > 0
-    if (concurrency !== undefined && concurrency > 0) {
+    if (concurrency && concurrency > 0) {
       env.HARDWARE_CONCURRENCY = concurrency.toString();
     }
+    logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
