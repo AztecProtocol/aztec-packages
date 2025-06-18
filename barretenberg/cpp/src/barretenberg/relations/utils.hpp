@@ -258,6 +258,8 @@ template <typename Flavor> class RelationUtils {
     static void scale_and_batch_elements(auto& tuple, const RelationSeparator& challenge, FF current_scalar, FF& result)
         requires(!bb::IsFoldingFlavor<Flavor>)
     {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1443) write one method to remove IsFoldingFlavor
+        // and !IsFoldingFlavor
         constexpr const size_t last_index = std::tuple_size_v<std::decay_t<decltype(tuple)>> - 1;
         const auto& last_array = std::get<last_index>(tuple);
         const auto* last_element_ptr = last_array.empty() ? nullptr : &last_array.back();
