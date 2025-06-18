@@ -256,8 +256,11 @@ describe('SequencerPublisher', () => {
         },
       ],
       l1TxUtils,
-      // val + (val * 20n) / 100n
-      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
+      // vote + val + (val * 20n) / 100n
+      {
+        gasLimit: SequencerPublisher.VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
+        txTimeoutAt: undefined,
+      },
       { blobs: expectedBlobs.map(b => b.data), kzg },
       mockRollupAddress,
       expect.anything(), // the logger
