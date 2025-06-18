@@ -29,7 +29,7 @@ import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
-export const ARCHIVER_DB_VERSION = 2;
+export const ARCHIVER_DB_VERSION = 3;
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
