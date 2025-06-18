@@ -87,7 +87,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@jest/expect": "^29.5.0",
+    "@jest/expect": "^30.0.0",
     "@jest/globals": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/lodash.chunk": "^4.2.9",
