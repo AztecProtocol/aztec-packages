@@ -33,16 +33,16 @@ class InteractionDefinition {
         return *this;
     }
 
+    // Jobs for production.
     std::vector<std::unique_ptr<InteractionBuilderInterface>> get_all_jobs() const;
-    std::vector<std::unique_ptr<InteractionBuilderInterface>> get_all_strict_jobs() const;
-    std::unique_ptr<InteractionBuilderInterface> get_job(std::string_view interaction_name) const
-    {
-        return get_job_internal(interaction_name)(/*strict=*/false);
-    }
+    // Stricter/more assertive jobs for testing.
+    std::vector<std::unique_ptr<InteractionBuilderInterface>> get_all_test_jobs() const;
 
-    template <typename InteractionSettings> std::unique_ptr<InteractionBuilderInterface> get_strict_job() const
+    std::unique_ptr<InteractionBuilderInterface> get_job(std::string_view interaction_name) const;
+    std::unique_ptr<InteractionBuilderInterface> get_test_job(std::string_view interaction_name) const;
+    template <typename InteractionSettings> std::unique_ptr<InteractionBuilderInterface> get_test_job() const
     {
-        return get_job_internal(InteractionSettings::NAME)(/*strict=*/true);
+        return get_test_job(InteractionSettings::NAME);
     }
 
   private:
