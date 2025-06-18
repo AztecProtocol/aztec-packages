@@ -224,6 +224,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return TimeLib.getStorage().epochDuration;
   }
 
+  function getProofSubmissionEpochs() external view override(IRollup) returns (uint256) {
+    return TimeLib.getStorage().proofSubmissionEpochs;
+  }
+
   function getSlasher() external view override(IStaking) returns (address) {
     return StakingLib.getStorage().slasher;
   }
@@ -494,10 +498,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (Epoch)
   {
     return _slotNumber.epochFromSlot();
-  }
-
-  function getProofSubmissionWindow() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().config.proofSubmissionWindow;
   }
 
   function getSequencerRewards(address _sequencer)

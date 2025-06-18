@@ -157,21 +157,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
+      rollup.getProofSubmissionEpochs(),
     ] as const);
 
     const l1StartBlockHash = await publicClient
       .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
       .then(block => Buffer32.fromString(block.hash));
 
-    const {
-      aztecEpochDuration: epochDuration,
-      aztecSlotDuration: slotDuration,
-      ethereumSlotDuration,
-      aztecProofSubmissionWindow: proofSubmissionWindow,
-    } = config;
+    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
 
     const l1Constants = {
       l1StartBlockHash,
@@ -180,7 +176,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       epochDuration,
       slotDuration,
       ethereumSlotDuration,
-      proofSubmissionWindow,
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
     };
 
     const opts = {
