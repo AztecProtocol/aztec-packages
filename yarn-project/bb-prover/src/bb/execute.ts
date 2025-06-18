@@ -77,12 +77,15 @@ export function executeBB(
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
-    const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
 
+    const env = envWithoutConcurrency;
     // We prioritise the concurrency argument if provided and > 0
     if (concurrency && concurrency > 0) {
       env.HARDWARE_CONCURRENCY = concurrency.toString();
+    } else if (process.env.HARDWARE_CONCURRENCY) {
+      env.HARDWARE_CONCURRENCY = process.env.HARDWARE_CONCURRENCY;
     }
+
     logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
