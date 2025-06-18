@@ -1,0 +1,13 @@
+DecreaseBalanceTest
+├── when amount eq 0
+│   └── it alters no state
+└── when amount gt 0
+    ├── given no delegatee
+    │   ├── it decrease balance by amount
+    │   ├── it decrease instance supply by amount
+    │   └── it decrease supply by amount
+    └── given a delegatee
+        ├── it decrease balance by amount
+        ├── it decrease the voting power of the delegatee by amount
+        ├── it decrease instance supply by amount
+        └── it decrease supply by amount

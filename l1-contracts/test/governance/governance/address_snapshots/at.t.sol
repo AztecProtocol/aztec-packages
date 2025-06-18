@@ -7,7 +7,7 @@ import {
   SnapshottedAddressSet,
   AddressSnapshotLib__IndexOutOfBounds
 } from "@aztec/governance/libraries/AddressSnapshotLib.sol";
-import {TimeCheater} from "../../staking/TimeCheater.sol";
+import {TimeCheater} from "test/staking/TimeCheater.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
