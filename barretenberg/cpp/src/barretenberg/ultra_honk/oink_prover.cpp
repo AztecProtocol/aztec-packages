@@ -85,7 +85,7 @@ template <IsUltraOrMegaHonk Flavor> HonkProof OinkProver<Flavor>::export_proof()
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     PROFILE_THIS_NAME("OinkProver::execute_preamble_round");
-    honk_vk->add_to_transcript(domain_separator, transcript);
+    honk_vk->add_to_transcript(domain_separator, *transcript);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
         auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");

@@ -75,8 +75,8 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     FF vkey_hash_2 = vk.hash(outer_builder);
     EXPECT_EQ(vkey_hash_1.get_value(), vkey_hash_2.get_value());
     // Third method of hashing: using add_to_transcript.
-    std::shared_ptr<StdlibTranscript> transcript_2 = std::make_shared<StdlibTranscript>();
+    StdlibTranscript transcript_2;
     vk.add_to_transcript("", transcript_2);
-    FF vkey_hash_3 = transcript_2->template get_challenge<FF>("vkey_hash");
+    FF vkey_hash_3 = transcript_2.template get_challenge<FF>("vkey_hash");
     EXPECT_EQ(vkey_hash_2.get_value(), vkey_hash_3.get_value());
 }

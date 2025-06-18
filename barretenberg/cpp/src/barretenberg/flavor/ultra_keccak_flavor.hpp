@@ -32,6 +32,8 @@ namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
+    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -106,12 +108,11 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
          * @param domain_separator
          * @param transcript
          */
-        template <typename Transcript>
-        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
         {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): The rest is commented out because the
             // solidity contract hasn't been modified yet to fiat shamir the full vk hash. This will be fixed in a
             // followup PR.
@@ -221,8 +222,6 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
 
     // Specialize for Ultra (general case used in UltraRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
 };
 
 } // namespace bb

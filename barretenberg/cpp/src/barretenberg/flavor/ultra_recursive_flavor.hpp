@@ -59,6 +59,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
@@ -200,8 +201,6 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Reuse the VerifierCommitments from Ultra
     using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb

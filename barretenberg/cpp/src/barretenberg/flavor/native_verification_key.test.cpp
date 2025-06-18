@@ -66,9 +66,9 @@ TYPED_TEST(NativeVerificationKeyTests, VKHashingConsistency)
     // verification key. This will be fixed in a followup PR.
     if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor>) {
         // Third method of hashing: using add_to_transcript.
-        std::shared_ptr<NativeTranscript> transcript_2 = std::make_shared<NativeTranscript>();
+        typename Flavor::Transcript transcript_2;
         vk.add_to_transcript("", transcript_2);
-        fr vkey_hash_3 = transcript_2->get_challenge<fr>("vkey_hash");
+        fr vkey_hash_3 = transcript_2.template get_challenge<fr>("vkey_hash");
         EXPECT_EQ(vkey_hash_2, vkey_hash_3);
     }
 }

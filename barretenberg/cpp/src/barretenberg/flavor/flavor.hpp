@@ -85,7 +85,9 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
 #include <concepts>
@@ -188,28 +190,7 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
      *
      * @return std::vector<FF>
      */
-    virtual std::vector<fr> to_field_elements() const
-    {
-        using namespace bb::field_conversion;
-
-        auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
-            std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
-            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
-        };
-
-        std::vector<fr> elements;
-
-        serialize_to_field_buffer(this->circuit_size, elements);
-        serialize_to_field_buffer(this->num_public_inputs, elements);
-        serialize_to_field_buffer(this->pub_inputs_offset, elements);
-        serialize_to_field_buffer(this->pairing_inputs_public_input_key.start_idx, elements);
-
-        for (const Commitment& commitment : this->get_all()) {
-            serialize_to_field_buffer(commitment, elements);
-        }
-
-        return elements;
-    }
+    virtual std::vector<fr> to_field_elements() const = 0;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1425): Add a test for checking that this hash matches
     // transcript produced hash.
@@ -222,27 +203,6 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
         auto converted = static_cast<uint256_t>(challenge);
         uint256_t lo = converted.slice(0, LO_BITS);
         return lo;
-    }
-
-    /**
-     * @brief Adds the verification key witnesses directly to the transcript.
-     * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
-     * submitting that, we want to submit the values directly to the transcript.
-     *
-     * @param domain_separator
-     * @param transcript
-     */
-    template <typename Transcript>
-    void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
-    {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
-                                       this->pairing_inputs_public_input_key.start_idx);
-        for (const Commitment& commitment : this->get_all()) {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
-        }
     }
 };
 
@@ -258,6 +218,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
+    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     FF circuit_size;
     FF log_circuit_size;
     FF num_public_inputs;
@@ -323,17 +284,16 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param domain_separator
      * @param transcript
      */
-    template <typename Transcript>
-    void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+    virtual void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
     {
-        transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+        transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+        transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+        transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
         FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
         pairing_points_start_idx.convert_constant_to_fixed_witness(this->circuit_size.context);
-        transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
+        transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
         for (const Commitment& commitment : this->get_all()) {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
         }
     }
 };

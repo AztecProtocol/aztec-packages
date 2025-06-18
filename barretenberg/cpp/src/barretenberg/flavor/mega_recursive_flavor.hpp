@@ -46,6 +46,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using NativeFlavor = MegaFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
+    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
     // Note(luke): Eventually this may not be needed at all
@@ -233,32 +235,30 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          * @param domain_separator
          * @param transcript
          */
-        template <typename Transcript>
-        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        void add_to_transcript(const std::string& domain_separator, Transcript& transcript) override
         {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
             pairing_points_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
-                                           pairing_points_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
             FF app_return_data_commitment_start_idx(
                 this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
             app_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_app_return_data_commitment_start_idx",
-                                           app_return_data_commitment_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_app_return_data_commitment_start_idx",
+                                          app_return_data_commitment_start_idx);
             FF kernel_return_data_commitment_start_idx(
                 this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
             kernel_return_data_commitment_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_kernel_return_data_commitment_start_idx",
-                                           kernel_return_data_commitment_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_kernel_return_data_commitment_start_idx",
+                                          kernel_return_data_commitment_start_idx);
             FF databus_is_kernel_start_idx(this->databus_propagation_data.is_kernel);
             databus_is_kernel_start_idx.convert_constant_to_fixed_witness(builder);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_is_kernel", databus_is_kernel_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_is_kernel", databus_is_kernel_start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript->add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
             }
         }
 
@@ -289,8 +289,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using CommitmentLabels = MegaFlavor::CommitmentLabels;
     // Reuse the VerifierCommitments from Mega
     using VerifierCommitments = MegaFlavor::VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
 } // namespace bb
