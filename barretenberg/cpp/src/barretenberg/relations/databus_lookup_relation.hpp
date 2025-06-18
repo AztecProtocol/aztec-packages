@@ -52,7 +52,6 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t LENGTH = 5;          // 1 + polynomial degree of this relation
     static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
 
     static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
@@ -61,7 +60,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         3; // deg + 1 of the relation checking that read_tag_m is a boolean value
     static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
-    // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
+    // Note: Inverse correctness subrelations are actually {SUBRELTYPE}_LENGTH-1; taking advantage would require
+    // additional work
     static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
         INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 0)
         LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 0)
