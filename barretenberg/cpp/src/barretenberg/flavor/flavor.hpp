@@ -253,9 +253,10 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
  * @tparam FF
  * @tparam PrecomputedCommitments
  */
-template <typename Builder, typename FF, typename PrecomputedCommitments>
+template <typename Builder, typename PrecomputedCommitments>
 class StdlibVerificationKey_ : public PrecomputedCommitments {
   public:
+    using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
     FF circuit_size;
     FF log_circuit_size;
@@ -264,6 +265,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     PublicComponentKey pairing_inputs_public_input_key;
 
     bool operator==(const StdlibVerificationKey_&) const = default;
+    virtual ~StdlibVerificationKey_() = default;
     StdlibVerificationKey_() = default;
     StdlibVerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
