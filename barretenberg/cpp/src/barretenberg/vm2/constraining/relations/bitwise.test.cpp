@@ -12,8 +12,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bitwise_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -26,11 +24,7 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bitwise = bb::avm2::bitwise<FF>;
 
-using tracegen::LookupIntoBitwise;
-using tracegen::LookupIntoIndexedByClk;
 using tracegen::PrecomputedTraceBuilder;
-using lookup_bitwise_byte_operations = bb::avm2::lookup_bitwise_byte_operations_relation<FF>;
-using lookup_bitwise_integral_tag_length = bb::avm2::lookup_bitwise_integral_tag_length_relation<FF>;
 
 TEST(BitwiseConstrainingTest, EmptyRow)
 {
@@ -411,8 +405,8 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     precomputed_builder.process_bitwise(trace);
     precomputed_builder.process_integral_tag_length(trace);
 
-    LookupIntoBitwise<lookup_bitwise_byte_operations::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
+    BitwiseTraceBuilder::get_strict_job<lookup_bitwise_byte_operations_settings>()->process(trace);
+    BitwiseTraceBuilder::get_strict_job<lookup_bitwise_integral_tag_length_settings>()->process(trace);
 
     check_relation<bitwise>(trace);
 }
