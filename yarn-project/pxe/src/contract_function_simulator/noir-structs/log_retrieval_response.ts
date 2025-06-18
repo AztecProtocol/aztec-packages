@@ -53,6 +53,10 @@ export class LogRetrievalResponse {
  * @returns The serialized bounded vector as Fr[]
  */
 function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
+  if (values.length > maxLength) {
+    throw new Error(`Attempted to serialize ${values} values into a BoundedVec with max length ${maxLength}`);
+  }
+
   const lengthDiff = maxLength - values.length;
   const zeroPaddingArray = Array(lengthDiff).fill(Fr.ZERO);
   const storage = values.concat(zeroPaddingArray);
