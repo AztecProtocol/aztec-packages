@@ -16,6 +16,9 @@ import {
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
+  type ViemCommitteeAttestation,
+  type ViemHeader,
+  type ViemStateReference,
   formatViemError,
 } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
@@ -276,18 +279,56 @@ export class SequencerPublisher {
         return undefined;
       });
   }
+  /**
+   * @notice  Will simulate `validateHeader` to make sure that the block header is valid
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header.
+   *          It will throw if the block header is invalid.
+   * @param header - The block header to validate
+   */
+  public async validateBlockHeader(header: ProposedBlockHeader) {
+    const flags = { ignoreDA: true, ignoreSignatures: true };
+
+    const args = [
+      header.toViem(),
+      [] as ViemCommitteeAttestation[],
+      `0x${'0'.repeat(64)}`, // 32 empty bytes
+      header.contentCommitment.blobsHash.toString(),
+      flags,
+    ] as const;
+
+    const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
+
+    // use sender balance to simulate
+    const balance = await this.l1TxUtils.getSenderBalance();
+    await this.l1TxUtils.simulate(
+      {
+        to: this.rollupContract.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
+        from: MULTI_CALL_3_ADDRESS,
+      },
+      {
+        time: ts + 1n,
+      },
+      [
+        {
+          address: MULTI_CALL_3_ADDRESS,
+          balance,
+        },
+      ],
+    );
+  }
 
   /**
-   * @notice  Will call `validateHeader` to make sure that it is possible to propose
+   * @notice  Will simulate `propose` to make sure that the block is valid for submission
    *
    * @dev     Throws if unable to propose
    *
-   * @param header - The header to propose
-   * @param digest - The digest that attestations are signing over
+   * @param block - The block to propose
+   * @param attestationData - The block's attestation data
    *
    */
   public async validateBlockForSubmission(
-    header: ProposedBlockHeader,
+    block: L2Block,
     attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
       digest: Buffer.alloc(32),
       attestations: [],
@@ -299,29 +340,38 @@ export class SequencerPublisher {
     // so that the committee is recalculated correctly
     const ignoreSignatures = attestationData.attestations.length === 0;
     if (ignoreSignatures) {
-      const { committee } = await this.epochCache.getCommittee(header.slotNumber.toBigInt());
+      const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber.toBigInt());
       if (!committee) {
-        this.log.warn(`No committee found for slot ${header.slotNumber.toBigInt()}`);
-        throw new Error(`No committee found for slot ${header.slotNumber.toBigInt()}`);
+        this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
+        throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
       }
       attestationData.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
+    // const blobs = await Blob.getBlobs(block.body.toBlobFields());
+    // const blobInput = Blob.getEthBlobEvaluationInputs(blobs);
+
+    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+    const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
 
     const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
-    const flags = { ignoreDA: true, ignoreSignatures };
 
     const args = [
-      header.toViem(),
+      {
+        header: block.header.toPropose().toViem(),
+        archive: toHex(block.archive.root.toBuffer()),
+        stateReference: block.header.state.toViem(),
+        txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
+        oracleInput: {
+          feeAssetPriceModifier: 0n,
+        },
+      },
       formattedAttestations,
-      toHex(attestationData.digest),
-      ts,
-      header.contentCommitment.blobsHash.toString(),
-      flags,
+      blobInput,
     ] as const;
 
-    await this.rollupContract.validateHeader(args, MULTI_CALL_3_ADDRESS);
+    await this.simulateProposeTx(args, ts);
     return ts;
   }
 
@@ -440,14 +490,24 @@ export class SequencerPublisher {
       txHashes: txHashes ?? [],
     };
 
-    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-    //        This means that we can avoid the simulation issues in later checks.
-    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-    //        make time consistency checks break.
-    const ts = await this.validateBlockForSubmission(proposedBlockHeader, {
-      digest: digest.toBuffer(),
-      attestations: attestations ?? [],
-    });
+    let ts: bigint;
+
+    try {
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      ts = await this.validateBlockForSubmission(block, {
+        digest: digest.toBuffer(),
+        attestations: attestations ?? [],
+      });
+    } catch (err: any) {
+      this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, undefined, {
+        ...block.getStats(),
+        slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+      });
+      throw err;
+    }
 
     this.log.debug(`Submitting propose transaction`);
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
@@ -518,6 +578,33 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
+    const { rollupData, simulationResult } = await this.simulateProposeTx(args, timestamp);
+
+    return { args, blobEvaluationGas, rollupData, simulationResult };
+  }
+
+  /**
+   * Simulates the propose tx with eth_simulateV1
+   * @param args - The propose tx args
+   * @param timestamp - The timestamp to simulate proposal at
+   * @returns The simulation result
+   */
+  private async simulateProposeTx(
+    args: readonly [
+      {
+        readonly header: ViemHeader;
+        readonly archive: `0x${string}`;
+        readonly stateReference: ViemStateReference;
+        readonly txHashes: `0x${string}`[];
+        readonly oracleInput: {
+          readonly feeAssetPriceModifier: 0n;
+        };
+      },
+      ViemCommitteeAttestation[],
+      `0x${string}`,
+    ],
+    timestamp: bigint,
+  ) {
     const rollupData = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'propose',
@@ -531,7 +618,7 @@ export class SequencerPublisher {
     });
 
     const simulationResult = await this.l1TxUtils
-      .simulateGasUsed(
+      .simulate(
         {
           to: MULTI_CALL_3_ADDRESS,
           data: forwarderData,
@@ -540,7 +627,7 @@ export class SequencerPublisher {
         {
           // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
           time: timestamp + 1n,
-          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit
+          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
           gasLimit: SequencerPublisher.PROPOSE_GAS_GUESS * 2n,
         },
         [
@@ -555,18 +642,18 @@ export class SequencerPublisher {
             ],
           },
         ],
+        RollupAbi,
         {
           // @note fallback gas estimate to use if the node doesn't support simulation API
           fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
         },
       )
       .catch(err => {
-        const { message, metaMessages } = formatViemError(err);
-        this.log.error(`Failed to simulate gas used`, message, { metaMessages });
-        throw new Error('Failed to simulate gas used');
+        this.log.error(`Failed to simulate propose tx`, err);
+        throw err;
       });
 
-    return { args, blobEvaluationGas, rollupData, simulationResult };
+    return { rollupData, simulationResult };
   }
 
   private async addProposeTx(
@@ -589,7 +676,7 @@ export class SequencerPublisher {
       lastValidL2Slot: block.header.globalVariables.slotNumber.toBigInt(),
       gasConfig: {
         ...opts,
-        gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult + blobEvaluationGas),
+        gasLimit: this.l1TxUtils.bumpGasLimit(simulationResult.gasUsed + blobEvaluationGas),
       },
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
