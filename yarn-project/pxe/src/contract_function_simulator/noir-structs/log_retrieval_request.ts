@@ -12,6 +12,10 @@ export class LogRetrievalRequest {
     public unsiloedTag: Fr,
   ) {}
 
+  toFields(): Fr[] {
+    return [this.contractAddress.toField(), this.unsiloedTag];
+  }
+
   static fromFields(fields: Fr[] | FieldReader): LogRetrievalRequest {
     const reader = FieldReader.asReader(fields);
 

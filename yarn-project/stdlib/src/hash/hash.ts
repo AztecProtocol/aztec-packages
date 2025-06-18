@@ -56,6 +56,10 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
+export function siloPrivateLog(contract: AztecAddress, unsiloedTag: Fr): Promise<Fr> {
+  return poseidon2Hash([contract, unsiloedTag]);
+}
+
 /**
  * Computes a public data tree value ready for insertion.
  * @param value - Raw public data tree value to hash into a tree-insertion-ready value.

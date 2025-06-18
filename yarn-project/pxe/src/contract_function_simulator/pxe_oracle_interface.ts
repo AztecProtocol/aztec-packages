@@ -1,6 +1,5 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -13,7 +12,7 @@ import {
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
-import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
@@ -749,7 +748,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         // TODO(#14555): remove these internal functions and have node endpoints that do this instead
         const [publicLog, privateLog] = await Promise.all([
           this.getPublicLogByTag(request.unsiloedTag, request.contractAddress),
-          this.getPrivateLogByTag(await poseidon2Hash([request.contractAddress, request.unsiloedTag])),
+          this.getPrivateLogByTag(await siloPrivateLog(request.contractAddress, request.unsiloedTag)),
         ]);
 
         if (publicLog !== null) {

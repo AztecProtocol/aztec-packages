@@ -41,7 +41,7 @@ export class LogRetrievalResponse {
     if (response) {
       return [new Fr(1), ...response.toFields()];
     } else {
-      return [new Fr(0), ...this.toEmptyFields()];
+      return [new Fr(0), ...LogRetrievalResponse.toEmptyFields()];
     }
   }
 }
