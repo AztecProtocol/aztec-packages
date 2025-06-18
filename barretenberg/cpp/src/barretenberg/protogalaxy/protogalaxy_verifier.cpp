@@ -24,7 +24,7 @@ template <class DeciderVerificationKeys>
 void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
     const std::vector<FF>& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];

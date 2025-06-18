@@ -122,14 +122,14 @@ describe('Archiver', () => {
     now = +new Date();
     publicClient = mock<ViemPublicClient>();
     publicClient.getChainId.mockResolvedValue(1);
-    publicClient.getBlock.mockImplementation(async (args: { blockNumber?: bigint } = {}) => {
+    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint } = {}) => {
       args.blockNumber ??= await publicClient.getBlockNumber();
       return {
         number: args.blockNumber,
         timestamp: BigInt(args.blockNumber) * ETHEREUM_SLOT_DURATION + BigInt(now),
         hash: Buffer32.fromBigInt(BigInt(args.blockNumber)).toString(),
       } as FormattedBlock;
-    });
+    }) as any);
 
     blobSinkClient = mock<BlobSinkClientInterface>();
 
@@ -199,7 +199,7 @@ describe('Archiver', () => {
     );
     mockRollupRead.getVersion.mockImplementation(() => Promise.resolve(1n));
     mockRollupEvents = mock<MockRollupContractEvents>();
-    mockRollupEvents.L2BlockProposed.mockImplementation((filter: any, { fromBlock, toBlock }) =>
+    mockRollupEvents.L2BlockProposed.mockImplementation((_filter: any, { fromBlock, toBlock }) =>
       Promise.resolve(l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)),
     );
     mockRollup = {
@@ -672,13 +672,13 @@ describe('Archiver', () => {
     });
 
     // And the corresponding rollup txs
-    publicClient.getTransaction.mockImplementation((args: { hash?: `0x${string}` }) => {
+    publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
       const index = parseInt(withoutHexPrefix(args.hash!));
       if (index > blocks.length) {
         throw new Error(`Transaction not found: ${args.hash}`);
       }
       return Promise.resolve(rollupTxs[index - 1]);
-    });
+    }) as any);
 
     // And blobs
     blobSinkClient.getBlobSidecar.mockImplementation((_blockId: string, requestedBlobHashes?: Buffer[]) => {
