@@ -342,10 +342,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   function benchmark(bool _slashing) public {
     // Do nothing for the first epoch
-    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 2 + 1);
-    Epoch nextEpoch = Epoch.wrap(3);
+    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
+    Epoch nextEpoch = Epoch.wrap(4);
     bool warmedUp = false;
-
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       if (rollup.getPendingBlockNumber() >= 100) {
@@ -353,6 +352,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
+
+      if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
+        address proposer = rollup.getCurrentProposer();
+        Signature memory sig = createVoteSignature(proposer, slashPayload);
+        slashingProposer.voteWithSig(slashPayload, sig);
+        warmedUp = true;
+      }
 
       // For every "new" slot we encounter, we construct a block using current L1 Data
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
@@ -365,17 +371,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
-        if (_slashing && !warmedUp) {
-          // If this is the first block, we just vote directly.
-          // This is to "warm up" the empire so that we don't report gas usage that is inflated
-          // relative to the "normal" case.
-          vm.prank(proposer);
-          rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
-
-          Signature memory sig = createVoteSignature(proposer, slashPayload);
-          slashingProposer.voteWithSig(slashPayload, sig);
-          warmedUp = true;
-        } else if (_slashing) {
+        if (_slashing) {
           Signature memory sig = createVoteSignature(proposer, slashPayload);
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
