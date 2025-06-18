@@ -70,13 +70,23 @@ export function executeBB(
   command: string,
   args: string[],
   logger: LogFn,
+  concurrency?: number,
   timeout?: number,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
     // spawn the bb process
     const { HARDWARE_CONCURRENCY: _, ...envWithoutConcurrency } = process.env;
-    const env = process.env.HARDWARE_CONCURRENCY ? process.env : envWithoutConcurrency;
+
+    const env = envWithoutConcurrency;
+    // We prioritise the concurrency argument if provided and > 0
+    if (concurrency && concurrency > 0) {
+      env.HARDWARE_CONCURRENCY = concurrency.toString();
+    } else if (process.env.HARDWARE_CONCURRENCY) {
+      env.HARDWARE_CONCURRENCY = process.env.HARDWARE_CONCURRENCY;
+    }
+
+    logger(`BB concurrency: ${env.HARDWARE_CONCURRENCY}`);
     logger(`Executing BB with: ${pathToBB} ${command} ${args.join(' ')}`);
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
@@ -495,6 +505,7 @@ export async function verifyAvmProof(
  * @param pathToBB - The full path to the bb binary
  * @param targetPath - The path to the folder with the proof, accumulator, and verification keys
  * @param log - A logging function
+ * @param concurrency - The number of threads to use for the verification
  * @returns An object containing a result indication and duration taken
  */
 export async function verifyClientIvcProof(
@@ -502,6 +513,7 @@ export async function verifyClientIvcProof(
   proofPath: string,
   keyPath: string,
   log: LogFn,
+  concurrency = 1,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
     .access(pathToBB, fs.constants.R_OK)
@@ -515,7 +527,8 @@ export async function verifyClientIvcProof(
     const args = ['--scheme', 'client_ivc', '-p', proofPath, '-k', keyPath, '-v'];
     const timer = new Timer();
     const command = 'verify';
-    const result = await executeBB(pathToBB, command, args, log);
+
+    const result = await executeBB(pathToBB, command, args, log, concurrency);
     const duration = timer.ms();
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };

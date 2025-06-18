@@ -96,6 +96,7 @@ export class TestContext {
         bbWorkingDirectory: config.bbWorkingDirectory,
         bbSkipCleanup: config.bbSkipCleanup,
         numConcurrentIVCVerifiers: 2,
+        bbIVCConcurrency: 1,
       };
       localProver = await createProver(bbConfig);
     }
