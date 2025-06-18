@@ -20,7 +20,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { InBlock } from '../block/in_block.js';
-import { CommitteeAttestation, type L2BlockNumber } from '../block/index.js';
+import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -96,7 +96,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: L2BlockHash.fromNumber(1) }, undefined]);
 
     await expect(
       context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, times(MAX_RPC_LEN + 1, Fr.random)),
@@ -448,7 +448,7 @@ class MockAztecNode implements AztecNode {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
+    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: L2BlockHash.fromNumber(1) }, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -623,7 +623,12 @@ class MockAztecNode implements AztecNode {
   }
   async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
+    return {
+      l2BlockNumber: 1,
+      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      data: await TxEffect.random(),
+      txIndexInBlock: randomInt(10),
+    };
   }
   getPendingTxs(): Promise<Tx[]> {
     return Promise.resolve([Tx.random()]);
