@@ -61,9 +61,6 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     HonkProof export_proof();
     HonkProof construct_proof();
     HonkProof prove() { return construct_proof(); };
-
-  private:
-    HonkProof proof;
 };
 
 using UltraProver = UltraProver_<UltraFlavor>;

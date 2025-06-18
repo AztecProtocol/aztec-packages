@@ -933,10 +933,6 @@ class ECCVMFlavor {
 
         IPATranscript() = default;
 
-        IPATranscript(const HonkProof& proof)
-            : NativeTranscript(proof)
-        {}
-
         void deserialize_full_transcript()
         {
             // take current proof and put them into the struct
