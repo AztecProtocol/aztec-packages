@@ -588,11 +588,17 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     // Execution Trace opcodes - separating for clarity
     trace.set(row,
               { {
+                  { C::execution_sel_set, exec_opcode == ExecutionOpCode::SET ? 1 : 0 },
+                  { C::execution_sel_mov, exec_opcode == ExecutionOpCode::MOV ? 1 : 0 },
+                  { C::execution_sel_jump, exec_opcode == ExecutionOpCode::JUMP ? 1 : 0 },
+                  { C::execution_sel_jumpi, exec_opcode == ExecutionOpCode::JUMPI ? 1 : 0 },
+                  { C::execution_sel_call, exec_opcode == ExecutionOpCode::CALL ? 1 : 0 },
+                  { C::execution_sel_static_call, exec_opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
                   { C::execution_sel_internal_call, exec_opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
                   { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
                   { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
                   { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
-                  { C::execution_sel_jump, exec_opcode == ExecutionOpCode::JUMP ? 1 : 0 },
+                  { C::execution_sel_success_copy, exec_opcode == ExecutionOpCode::SUCCESSCOPY ? 1 : 0 },
               } });
 }
 
