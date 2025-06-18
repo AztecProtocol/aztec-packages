@@ -146,6 +146,23 @@ export class OpenTelemetryClient implements TelemetryClient {
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
         new View({
           instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'Mmana',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            [0.1, 0.5, 1, 2, 4, 8, 10, 25, 50, 100, 500, 1000, 5000, 10000],
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
+          instrumentUnit: 'tx',
+          aggregation: new ExplicitBucketHistogramAggregation(
+            // TPS
+            [0.1 * 36, 0.2 * 36, 0.5 * 36, 1 * 36, 2 * 36, 5 * 36, 10 * 36, 15 * 36].map(Math.ceil),
+            true,
+          ),
+        }),
+        new View({
+          instrumentType: InstrumentType.HISTOGRAM,
           instrumentUnit: 's',
           aggregation: new ExplicitBucketHistogramAggregation(
             [1, 2, 4, 6, 10, 15, 30, 60, 90, 120, 180, 240, 300, 480, 600, 900, 1200],
