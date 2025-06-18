@@ -25,9 +25,7 @@
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using C = bb::avm2::Column;
 using bb::avm2::simulation::AddressingEventError;
@@ -207,7 +205,7 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
     case TransactionPhase::TEARDOWN:
         return failures.teardown_failure ? failures.teardown_exit_context_id : 0;
     default:
-        __builtin_unreachable(); // tell the compiler “we never reach here”
+        __builtin_unreachable(); // tell the compiler "we never reach here"
     }
 }
 
@@ -774,40 +772,38 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition ExecutionTraceBuilder::interactions =
+    InteractionDefinition()
         // Execution
-        std::make_unique<LookupIntoIndexedByClk<lookup_execution_exec_spec_read_settings>>(),
+        .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction fetching
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
+        .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_4_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_5_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_6_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
+        .add<lookup_addressing_base_address_from_memory_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
         // Internal Call Stack
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_push_call_stack_settings_>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_internal_call_unwind_call_stack_settings_>>(),
+        .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
+        .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
-        std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
+        .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
         // External Call
-        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_l2_range_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_da_range_settings>>());
-}
+        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

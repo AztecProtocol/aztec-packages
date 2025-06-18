@@ -3,8 +3,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -78,24 +77,18 @@ void PublicDataTreeCheckTraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> PublicDataTreeCheckTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition PublicDataTreeCheckTraceBuilder::interactions =
+    InteractionDefinition()
         // Public data read/write
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_slot_validation_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_next_slot_validation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_poseidon2_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_poseidon2_1_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_merkle_check_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_merkle_check_settings>>());
-}
+        .add<lookup_public_data_check_low_leaf_slot_validation_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_low_leaf_next_slot_validation_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_low_leaf_merkle_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen
