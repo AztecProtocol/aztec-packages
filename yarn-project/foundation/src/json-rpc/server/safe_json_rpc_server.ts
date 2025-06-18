@@ -59,6 +59,11 @@ export class SafeJsonRpcServer {
     private log = createLogger('json-rpc:server'),
   ) {
     this.config = { ...defaultServerConfig, ...config };
+
+    // handle empty string
+    if (!this.config.maxBodySizeBytes) {
+      this.config.maxBodySizeBytes = defaultServerConfig.maxBodySizeBytes;
+    }
   }
 
   public isHealthy(): boolean | Promise<boolean> {
