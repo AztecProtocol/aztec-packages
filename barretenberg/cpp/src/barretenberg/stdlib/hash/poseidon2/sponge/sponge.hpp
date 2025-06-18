@@ -72,7 +72,6 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         }
         // add the cache into sponge state
         for (size_t i = 0; i < rate; ++i) {
-            ASSERT(!cache[i].is_constant() && "Stdlib sponge cannot hash constants.");
             state[i] += cache[i];
         }
         state = Permutation::permutation(builder, state);
