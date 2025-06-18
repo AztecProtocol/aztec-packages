@@ -81,9 +81,8 @@ function bench_cmds {
     for runtime in native wasm; do
       echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $runtime ../../yarn-project/end-to-end/$dir"
     done
+    echo "$hash:ISOLATE=1:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
   done
-  # if we list every browser benchmark we will run out of time, just do a basic transfer
-  echo "$hash:CPUS=8 barretenberg/cpp/scripts/ci_benchmark_browser_memory.sh ../../yarn-project/end-to-end/example-app-ivc-inputs-out/ecdsar1+transfer_0_recursions+sponsored_fpc"
 }
 
 # Builds the benchmark fixtures.
