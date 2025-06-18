@@ -150,7 +150,7 @@ class AvmGoblinRecursiveVerifier {
         return RecursiveAvmGoblinOutput{
             .points_accumulator = goblin_verifier_output.points_accumulator,
             .ipa_claim = goblin_verifier_output.opening_claim,
-            .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
+            .ipa_proof = goblin_verifier_output.ipa_proof,
         };
     }
 

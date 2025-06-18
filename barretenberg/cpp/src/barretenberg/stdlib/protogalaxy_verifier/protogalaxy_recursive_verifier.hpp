@@ -40,7 +40,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<DeciderVK>& accumulator,

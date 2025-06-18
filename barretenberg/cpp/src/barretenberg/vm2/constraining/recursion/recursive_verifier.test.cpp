@@ -103,7 +103,9 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
         ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-        auto manifest = AvmFlavor::Transcript(proof).get_manifest();
+        auto avm_transcript = AvmFlavor::Transcript();
+        avm_transcript.load_proof(proof);
+        auto manifest = avm_transcript.get_manifest();
         auto recursive_manifest = recursive_verifier.transcript->get_manifest();
 
         // We sanity check that the recursive manifest matches its counterpart one.

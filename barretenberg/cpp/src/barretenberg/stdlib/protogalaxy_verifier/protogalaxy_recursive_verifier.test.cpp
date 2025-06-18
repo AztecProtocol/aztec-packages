@@ -324,7 +324,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         }
 
         InnerDeciderProver decider_prover(folding_proof.accumulator);
-        auto decider_proof = decider_prover.construct_proof();
+        decider_prover.construct_proof();
+        auto decider_proof = decider_prover.export_proof();
 
         OuterBuilder decider_circuit;
         DeciderRecursiveVerifier decider_verifier{ &decider_circuit, native_verifier_acc };
@@ -365,7 +366,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Create a decider proof for accumulator obtained through folding
         InnerDeciderProver decider_prover(prover_accumulator);
-        auto decider_proof = decider_prover.construct_proof();
+        decider_prover.construct_proof();
+        auto decider_proof = decider_prover.export_proof();
 
         // Create a decider verifier circuit for recursively verifying the decider proof
         OuterBuilder decider_circuit;

@@ -9,9 +9,9 @@ import {
   retryUntil,
   sleep,
 } from '@aztec/aztec.js';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
@@ -27,6 +27,7 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { join } from 'path';
 import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   type EndToEndContext,
@@ -44,7 +45,7 @@ export type EpochsTestOpts = Partial<
   Pick<
     SetupOptions,
     | 'startProverNode'
-    | 'aztecProofSubmissionWindow'
+    | 'aztecProofSubmissionEpochs'
     | 'aztecEpochDuration'
     | 'proverTestDelayMs'
     | 'l1PublishRetryIntervalMS'
@@ -92,12 +93,12 @@ export class EpochsTestContext {
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
-    const aztecProofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow };
+    const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
+    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow } =
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
       EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
@@ -115,7 +116,7 @@ export class EpochsTestContext {
       aztecEpochDuration,
       aztecSlotDuration,
       ethereumSlotDuration,
-      aztecProofSubmissionWindow,
+      aztecProofSubmissionEpochs,
       aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
@@ -165,7 +166,7 @@ export class EpochsTestContext {
       l1StartBlock: await this.rollup.getL1StartBlock(),
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
-      proofSubmissionWindow: aztecProofSubmissionWindow,
+      proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
     };
 
     this.logger.info(
@@ -274,12 +275,15 @@ export class EpochsTestContext {
     return this.monitor.l2ProvenBlockNumber;
   }
 
-  /** Waits until the end of the proof submission window for a given epoch. */
-  public async waitUntilEndOfProofSubmissionWindow(epochNumber: number | bigint) {
+  /** Waits until the last slot of the proof submission window for a given epoch. */
+  public async waitUntilLastSlotOfProofSubmissionWindow(epochNumber: number | bigint) {
     const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
-    const date = new Date(Number(deadline) * 1000);
-    this.logger.info(`Waiting until end of submission window for epoch ${epochNumber} at ${date}`, { deadline });
-    await waitUntilL1Timestamp(this.l1Client, deadline);
+    const oneSlotBefore = deadline - BigInt(this.constants.slotDuration);
+    const date = new Date(Number(oneSlotBefore) * 1000);
+    this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
+      oneSlotBefore,
+    });
+    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore);
   }
 
   /** Waits for the aztec node to sync to the target block number. */
@@ -314,6 +318,20 @@ export class EpochsTestContext {
     });
     await wallet.registerContract({ artifact: SpamContract.artifact, instance });
     return SpamContract.at(instance.address, wallet);
+  }
+
+  /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
+  public async createL1Client() {
+    const { client, delayer } = withDelayer(
+      createExtendedL1Client(
+        [...this.l1Client.chain.rpcUrls.default.http],
+        privateKeyToAccount(this.getNextPrivateKey()),
+        this.l1Client.chain,
+      ),
+      { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
+    );
+    expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
+    return { client, delayer };
   }
 
   /** Verifies whether the given block number is found on the aztec node. */

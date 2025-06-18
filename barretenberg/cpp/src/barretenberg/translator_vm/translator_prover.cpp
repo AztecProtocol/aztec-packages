@@ -194,8 +194,7 @@ void TranslatorProver::execute_pcs_rounds()
 
 HonkProof TranslatorProver::export_proof()
 {
-    proof = transcript->export_proof();
-    return proof;
+    return transcript->export_proof();
 }
 
 HonkProof TranslatorProver::construct_proof()

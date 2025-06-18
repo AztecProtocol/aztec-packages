@@ -9,8 +9,8 @@ import {
 
 import {Test} from "forge-std/Test.sol";
 import {TimeLib, TimeStorage, Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {TimeCheater} from "../../staking/TimeCheater.sol";
-import {TestConstants} from "../../harnesses/TestConstants.sol";
+import {TimeCheater} from "test/staking/TimeCheater.sol";
+import {TestConstants} from "test/harnesses/TestConstants.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract AddressSetWrapper {
@@ -66,6 +66,7 @@ contract AddressSnapshotsBase is Test {
 
   uint256 private constant SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
   uint256 private constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
+  uint256 private constant PROOF_SUBMISSION_EPOCHS = TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS;
   uint256 private GENESIS_TIME;
 
   AddressSetWrapper internal validatorSet;
@@ -85,9 +86,10 @@ contract AddressSnapshotsBase is Test {
   function setUp() public {
     vm.warp(block.timestamp + 1000);
     GENESIS_TIME = block.timestamp;
-    TimeLib.initialize(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
+    TimeLib.initialize(GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
     validatorSet = new AddressSetWrapper();
-    timeCheater =
-      new TimeCheater(address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
+    timeCheater = new TimeCheater(
+      address(validatorSet), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS
+    );
   }
 }
