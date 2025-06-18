@@ -124,7 +124,7 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
-  # non_recursive_tests include all of the non recursive test programs 
+  # non_recursive_tests include all of the non recursive test programs
   local non_recursive_tests=$(find ./acir_tests -maxdepth 1 -mindepth 1 -type d | \
     grep -vE 'verify_honk_proof|verify_honk_zk_proof|verify_rollup_honk_proof')
   local run_test=$(realpath --relative-to=$root ./scripts/run_test.sh)

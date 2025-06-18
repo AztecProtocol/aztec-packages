@@ -12,6 +12,8 @@ mkdir -p bench-out/
 # NOTE: if port issues are hit, make sure no other test has the string '9339' for a port
 export PORT=9339
 
+set -x
+
 # Run server.
 yarn --cwd ../acir_tests/browser-test-app serve &
 server_pid=$!
