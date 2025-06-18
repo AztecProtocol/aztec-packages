@@ -77,7 +77,7 @@ describe('sentinel', () => {
       slotDuration: 24,
       epochDuration: 8,
       ethereumSlotDuration: 12,
-      proofSubmissionWindow: 16,
+      proofSubmissionEpochs: 1,
     };
 
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, now: ts });

@@ -17,7 +17,7 @@ library TestConstants {
   uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 32;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
-  uint256 internal constant AZTEC_PROOF_SUBMISSION_WINDOW = AZTEC_EPOCH_DURATION * 2 - 1;
+  uint256 internal constant AZTEC_PROOF_SUBMISSION_EPOCHS = 1;
   uint256 internal constant AZTEC_SLASHING_QUORUM = 6;
   uint256 internal constant AZTEC_SLASHING_ROUND_SIZE = 10;
   uint256 internal constant AZTEC_MANA_TARGET = 100000000;
@@ -53,8 +53,8 @@ library TestConstants {
     return RollupConfigInput({
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
+      aztecProofSubmissionEpochs: AZTEC_PROOF_SUBMISSION_EPOCHS,
       targetCommitteeSize: AZTEC_TARGET_COMMITTEE_SIZE,
-      aztecProofSubmissionWindow: AZTEC_PROOF_SUBMISSION_WINDOW,
       slashingQuorum: AZTEC_SLASHING_QUORUM,
       slashingRoundSize: AZTEC_SLASHING_ROUND_SIZE,
       manaTarget: AZTEC_MANA_TARGET,

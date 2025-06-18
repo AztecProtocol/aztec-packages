@@ -94,7 +94,8 @@ contract SlashingTest is TestBase {
       address(rollup),
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
     // We jumpt forward 2 epochs because there are nothing interesting happening in the first epochs

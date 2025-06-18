@@ -11,7 +11,7 @@ import {
   FeeStore
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {Epoch, Timestamp, Slot, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -160,16 +160,17 @@ library RewardLib {
     internal
     returns (uint256)
   {
-    Slot currentSlot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 proofSubmissionWindow = rollupStore.config.proofSubmissionWindow;
 
     RewardStorage storage rewardStorage = getStorage();
 
     uint256 accumulatedRewards = 0;
     for (uint256 i = 0; i < _epochs.length; i++) {
-      Slot deadline = _epochs[i].toSlots() + Slot.wrap(proofSubmissionWindow);
-      require(deadline < currentSlot, Errors.Rollup__NotPastDeadline(deadline, currentSlot));
+      require(
+        !_epochs[i].isAcceptingProofsAtEpoch(currentEpoch),
+        Errors.Rollup__NotPastDeadline(_epochs[i].toDeadlineEpoch(), currentEpoch)
+      );
 
       require(
         !rewardStorage.proverClaimed[msg.sender].get(Epoch.unwrap(_epochs[i])),

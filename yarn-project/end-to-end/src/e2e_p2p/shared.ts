@@ -225,6 +225,9 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(2);
   }
 
+  await cheatCodes.debugRollup();
+  await cheatCodes.advanceToNextEpoch();
+  await sendDummyTx();
   await cheatCodes.advanceToNextEpoch();
   await sendDummyTx();
   await cheatCodes.debugRollup();

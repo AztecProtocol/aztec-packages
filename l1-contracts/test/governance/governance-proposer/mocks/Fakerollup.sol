@@ -10,7 +10,10 @@ contract Fakerollup {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
   }
 
@@ -32,6 +35,10 @@ contract Fakerollup {
 
   function getEpochDuration() external view returns (uint256) {
     return TimeLib.getStorage().epochDuration;
+  }
+
+  function getProofSubmissionEpochs() external view returns (uint256) {
+    return TimeLib.getStorage().proofSubmissionEpochs;
   }
 
   function getCurrentProposer() external pure returns (address) {

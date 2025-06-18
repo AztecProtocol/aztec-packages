@@ -210,10 +210,11 @@ library EpochProofLib {
 
     require(startEpoch == endEpoch, Errors.Rollup__StartAndEndNotSameEpoch(startEpoch, endEpoch));
 
-    Slot deadline = startEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
+    Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+
     require(
-      deadline >= Timestamp.wrap(block.timestamp).slotFromTimestamp(),
-      Errors.Rollup__PastDeadline(deadline, Timestamp.wrap(block.timestamp).slotFromTimestamp())
+      startEpoch.isAcceptingProofsAtEpoch(currentEpoch),
+      Errors.Rollup__PastDeadline(startEpoch.toDeadlineEpoch(), currentEpoch)
     );
 
     // By making sure that the previous block is in another epoch, we know that we were

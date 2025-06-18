@@ -11,7 +11,7 @@ export type L2ChainConfig = {
   ethereumSlotDuration: number;
   aztecSlotDuration: number;
   aztecEpochDuration: number;
-  aztecProofSubmissionWindow: number;
+  aztecProofSubmissionEpochs: number;
   testAccounts: boolean;
   sponsoredFPC: boolean;
   p2pEnabled: boolean;
@@ -32,7 +32,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: true,
   sponsoredFPC: false,
   p2pEnabled: true,
@@ -53,7 +53,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 36,
   aztecEpochDuration: 32,
-  aztecProofSubmissionWindow: 64,
+  aztecProofSubmissionEpochs: 1,
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
@@ -120,7 +120,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('ETHEREUM_SLOT_DURATION', config.ethereumSlotDuration.toString());
   enrichVar('AZTEC_SLOT_DURATION', config.aztecSlotDuration.toString());
   enrichVar('AZTEC_EPOCH_DURATION', config.aztecEpochDuration.toString());
-  enrichVar('AZTEC_PROOF_SUBMISSION_WINDOW', config.aztecProofSubmissionWindow.toString());
+  enrichVar('AZTEC_PROOF_SUBMISSION_EPOCHS', config.aztecProofSubmissionEpochs.toString());
   enrichVar('BOOTSTRAP_NODES', config.p2pBootstrapNodes.join(','));
   enrichVar('TEST_ACCOUNTS', config.testAccounts.toString());
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
