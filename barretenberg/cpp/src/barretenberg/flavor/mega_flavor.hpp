@@ -41,6 +41,7 @@ class MegaFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
     using TraceBlocks = MegaExecutionTraceBlocks;
+    using Transcript = NativeTranscript;
 
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
@@ -491,7 +492,7 @@ class MegaFlavor {
         /**
          * @brief Serialize verification key to field elements
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::field_conversion;
 
@@ -522,6 +523,34 @@ class MegaFlavor {
                          "Verification key length did not match expected length from formula.");
 
             return elements;
+        }
+
+        /**
+         * @brief Adds the verification key witnesses directly to the transcript.
+         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * and submitting that, we want to submit the values directly to the transcript.
+         *
+         * @param domain_separator
+         * @param transcript
+         */
+        void add_to_transcript(const std::string& domain_separator, Transcript& transcript)
+        {
+            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx",
+                                          this->pairing_inputs_public_input_key.start_idx);
+            transcript.add_to_hash_buffer(
+                domain_separator + "vkey_app_return_data_commitment_start_idx",
+                this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx);
+            transcript.add_to_hash_buffer(
+                domain_separator + "vkey_kernel_return_data_commitment_start_idx",
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_is_kernel",
+                                          this->databus_propagation_data.is_kernel);
+            for (const Commitment& commitment : this->get_all()) {
+                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
+            }
         }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
@@ -776,8 +805,6 @@ class MegaFlavor {
     };
     // Specialize for Mega (general case used in MegaRecursive).
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
-
-    using Transcript = NativeTranscript;
 };
 
 } // namespace bb

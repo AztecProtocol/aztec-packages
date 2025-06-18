@@ -10,6 +10,8 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -17,8 +19,6 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 
 namespace bb {
 
@@ -47,6 +47,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
     using FF = typename Curve::ScalarField;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
+    using Transcript = UltraRecursiveFlavor_<BuilderType>::Transcript;
 
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
@@ -56,8 +57,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<BuilderType, FF, UltraFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<BuilderType, UltraFlavor::PrecomputedEntities<Commitment>> {
       public:
         PublicComponentKey ipa_claim_public_input_key; // needs to be a circuit constant
 
@@ -121,7 +121,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          *
          * @return std::vector<FF>
          */
-        std::vector<FF> to_field_elements() const
+        std::vector<FF> to_field_elements() const override
         {
             using namespace bb::stdlib::field_conversion;
 
@@ -157,28 +157,27 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         /**
          * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
          * implementation to include the ipa claim public input key.
-         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
          * and submitting that, we want to submit the values directly to the transcript.
          *
          * @param domain_separator
          * @param transcript
          */
-        template <typename Transcript>
-        void add_to_transcript(const std::string& domain_separator, std::shared_ptr<Transcript>& transcript)
+        void add_to_transcript(const std::string& domain_separator, Transcript& transcript) override
         {
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->circuit_size);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->num_public_inputs);
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", this->pub_inputs_offset);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_circuit_size", this->circuit_size);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_num_public_inputs", this->num_public_inputs);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pub_inputs_offset", this->pub_inputs_offset);
             FF pairing_points_start_idx(this->pairing_inputs_public_input_key.start_idx);
             CircuitBuilder* builder = this->circuit_size.context;
             pairing_points_start_idx.convert_constant_to_fixed_witness(
                 builder); // We can't use poseidon2 with constants.
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", pairing_points_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_pairing_points_start_idx", pairing_points_start_idx);
             FF ipa_claim_start_idx(this->ipa_claim_public_input_key.start_idx);
             ipa_claim_start_idx.convert_constant_to_fixed_witness(builder); // We can't use poseidon2 with constants.
-            transcript->add_to_hash_buffer(domain_separator + "vkey_field", ipa_claim_start_idx);
+            transcript.add_to_hash_buffer(domain_separator + "vkey_ipa_claim_start_idx", ipa_claim_start_idx);
             for (const Commitment& commitment : this->get_all()) {
-                transcript->add_to_hash_buffer(domain_separator + "vkey_field", commitment);
+                transcript.add_to_hash_buffer(domain_separator + "vkey_commitment", commitment);
             }
         }
 
