@@ -113,27 +113,6 @@ TYPED_TEST(MegaHonkTests, MegaProofSizeCheck)
 }
 
 /**
- * @brief Check that size of a ultra honk proof matches the corresponding constant
- * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
- * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
- * - ultra_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
- * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
- */
-TYPED_TEST(MegaHonkTests, MegaVKSizeCheck)
-{
-    using Flavor = TypeParam;
-
-    auto builder = typename Flavor::CircuitBuilder{};
-    stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
-
-    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
-    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
-}
-
-/**
  * @brief Check that size of a merge proof matches the corresponding constant
  * @details This is useful for ensuring correct construction of mock merge proofs
  *

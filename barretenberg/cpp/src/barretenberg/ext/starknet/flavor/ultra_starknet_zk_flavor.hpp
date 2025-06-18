@@ -1,54 +1,22 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
-// =====================
-
+#ifdef STARKNET_GARAGA_FLAVORS
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/ext/starknet/transcript/transcript.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 
 namespace bb {
 
-class UltraKeccakZKFlavor : public UltraKeccakFlavor {
+class UltraStarknetZKFlavor : public UltraKeccakZKFlavor {
   public:
-    // This flavor runs with ZK Sumcheck
-    static constexpr bool HasZK = true;
-    // Determine the number of evaluations of Prover and Libra Polynomials that the Prover sends to the Verifier in
-    // the rounds of ZK Sumcheck.
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraKeccakFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
-    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
-                  "LIBRA_UNIVARIATES_LENGTH must be equal to UltraKeccakZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
-
-    // Proof length formula
-    static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        /* 1. NUM_WITNESS_ENTITIES commitments */ (NUM_WITNESS_ENTITIES * num_frs_comm) +
-        /* 2. Libra concatenation commitment*/ (num_frs_comm) +
-        /* 3. Libra sum */ (num_frs_fr) +
-        /* 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates */
-        (CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr) +
-        /* 5. NUM_ALL_ENTITIES sumcheck evaluations*/ (NUM_ALL_ENTITIES * num_frs_fr) +
-        /* 6. Libra claimed evaluation */ (num_frs_fr) +
-        /* 7. Libra grand sum commitment */ (num_frs_comm) +
-        /* 8. Libra quotient commitment */ (num_frs_comm) +
-        /* 9. Gemini masking commitment */ (num_frs_comm) +
-        /* 10. Gemini masking evaluation */ (num_frs_fr) +
-        /* 11. CONST_PROOF_SIZE_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_PROOF_SIZE_LOG_N - 1) * num_frs_comm) +
-        /* 12. CONST_PROOF_SIZE_LOG_N Gemini a evaluations */
-        (CONST_PROOF_SIZE_LOG_N * num_frs_fr) +
-        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
-        /* 14. Shplonk Q commitment */ (num_frs_comm) +
-        /* 15. KZG W commitment */ (num_frs_comm);
-
     /**
      * @brief Derived class that defines proof structure for Ultra zero knowledge proofs, as well as supporting
      * functions.
-     *
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
      */
-    class Transcript : public UltraKeccakFlavor::Transcript {
+
+    class Transcript : public Transcript_<starknet::StarknetTranscriptParams> {
       public:
-        using Base = UltraKeccakFlavor::Transcript::Base;
+        using Base = Transcript_<starknet::StarknetTranscriptParams>;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -185,3 +153,4 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     };
 };
 } // namespace bb
+#endif

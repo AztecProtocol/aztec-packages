@@ -1,7 +1,7 @@
 
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
