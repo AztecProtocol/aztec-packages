@@ -192,8 +192,11 @@ template <typename PrecomputedCommitments> class NativeVerificationKey_ : public
      */
     virtual std::vector<fr> to_field_elements() const = 0;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1425): Add a test for checking that this hash matches
-    // transcript produced hash.
+    /**
+     * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
+     * @details Currently only used in testing.
+     * @return FF
+     */
     fr hash()
     {
         fr challenge = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(this->to_field_elements());
@@ -265,8 +268,12 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         return elements;
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1425): Add a test for checking that this hash matches
-    // transcript produced hash.
+    /**
+     * @brief A model function to show how to compute the VK hash (without the Transcript abstracting things away).
+     * @details Currently only used in testing.
+     * @param builder
+     * @return FF
+     */
     FF hash(Builder& builder)
     {
         // use existing field-splitting code in cycle_scalar
@@ -278,7 +285,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
     /**
      * @brief Adds the verification key witnesses directly to the transcript.
-     * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
+     * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields and
      * submitting that, we want to submit the values directly to the transcript.
      *
      * @param domain_separator
@@ -343,9 +350,10 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
 
 /**
  * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
- * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length and the number of keys to be folded.
+ * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner
+ * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
+ * univariate in an inner tuple is determined by the corresponding subrelation length and the number of keys to be
+ * folded.
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
 template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
@@ -367,9 +375,9 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 
 /**
  * @brief Utility function to construct a container for the subrelation accumulators of sumcheck proving.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
- * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length.
+ * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner
+ * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
+ * univariate in an inner tuple is determined by the corresponding subrelation length.
  */
 template <typename Tuple, bool ZK = false> constexpr auto create_sumcheck_tuple_of_tuples_of_univariates()
 {

@@ -157,7 +157,7 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
         /**
          * @brief Adds the verification key witnesses directly to the transcript. Overrides the base class
          * implementation to include the ipa claim public input key.
-         * @details Only needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
+         * @details Needed to make sure the Origin Tag system works. Rather than converting into a vector of fields
          * and submitting that, we want to submit the values directly to the transcript.
          *
          * @param domain_separator
