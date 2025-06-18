@@ -14,7 +14,7 @@ export class QueuedIVCVerifier implements ClientProtocolCircuitVerifier {
     private logger = createLogger('bb-prover:queued_ivc_verifier'),
   ) {
     this.queue = new SerialQueue();
-    this.logger.warn(`Starting QueuedIVCVerifier with ${config.numConcurrentIVCVerifiers} concurrent verifiers`);
+    this.logger.info(`Starting QueuedIVCVerifier with ${config.numConcurrentIVCVerifiers} concurrent verifiers`);
     this.queue.start(config.numConcurrentIVCVerifiers);
   }
 

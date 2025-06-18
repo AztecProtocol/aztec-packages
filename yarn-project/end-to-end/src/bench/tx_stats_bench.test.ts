@@ -190,8 +190,8 @@ describe('transaction benchmarks', () => {
       resultsArray[i] = result;
     }
     resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
-    const durations = resultsArray.filter(result => result !== undefined).map(result => result.duration);
-    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDuration);
+    const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
+    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
     results.push({
       name: `Tx IVC Verification/Single Transaction/Verification Time`,
       value: durations.reduce((a, b) => a + b, 0) / numIterations,
@@ -215,9 +215,10 @@ describe('transaction benchmarks', () => {
       await sleep(1000 / proofsPerSecond);
     }
     const resultsArray = await Promise.all(promises);
-    const durations = resultsArray.filter(result => result !== undefined).map(result => result.duration);
-    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDuration);
     const totalDuration = timer.ms();
+    resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
+    const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
+    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
     results.push({
       name: `Tx IVC Verification/${seconds} Seconds @${proofsPerSecond}TPS/Avg Verification Time`,
       value: durations.reduce((a, b) => a + b, 0) / totalNumProofs,

@@ -156,9 +156,12 @@ export interface ServerCircuitProver {
 }
 
 export type IVCProofVerificationResult = {
+  // The result of verification
   valid: boolean;
-  duration: number;
-  totalDuration: number;
+  // The duration of the verification in milliseconds
+  durationMs: number;
+  // The total duration, including proof serialisation and file-system cleanup
+  totalDurationMs: number;
 };
 
 /**
