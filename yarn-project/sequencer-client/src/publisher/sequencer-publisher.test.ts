@@ -57,7 +57,6 @@ describe('SequencerPublisher', () => {
   let publisher: SequencerPublisher;
 
   const GAS_GUESS = 300_000n;
-  const VOTE_GAS_GUESS = 200_000n;
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -259,7 +258,7 @@ describe('SequencerPublisher', () => {
       l1TxUtils,
       // vote + val + (val * 20n) / 100n
       {
-        gasLimit: VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
+        gasLimit: SequencerPublisher.VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
         txTimeoutAt: undefined,
       },
       { blobs: expectedBlobs.map(b => b.data), kzg },
