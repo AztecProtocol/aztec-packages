@@ -15,7 +15,12 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import {
+  BBCircuitVerifier,
+  type ClientProtocolCircuitVerifier,
+  QueuedIVCVerifier,
+  TestCircuitVerifier,
+} from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
@@ -193,7 +198,8 @@ export class FullProverTest {
         throw new Error(`Test must be run with BB native configuration`);
       }
 
-      this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
+      const verifier = await BBCircuitVerifier.new(bbConfig);
+      this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
 
       this.logger.debug(`Configuring the node for real proofs...`);
       await this.aztecNodeAdmin.setConfig({

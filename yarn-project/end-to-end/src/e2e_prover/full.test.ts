@@ -306,7 +306,8 @@ describe('full_prover', () => {
 
       // Verify the tx proof
       logger.info(`Verifying the valid tx proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.toBeTrue();
+      const verificationResult = await t.circuitProofVerifier?.verifyProof(provenTx);
+      expect(verificationResult?.valid).toBeTrue();
 
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);
