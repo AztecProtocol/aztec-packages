@@ -103,7 +103,6 @@ export abstract class BaseContractInteraction {
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
-      undefined /* msgSender */,
       undefined /* skipTxValidation */,
       true /* skipFeeEnforcement */,
     );
@@ -153,7 +152,6 @@ export abstract class BaseContractInteraction {
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
-        undefined /* msgSender */,
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );

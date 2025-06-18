@@ -47,7 +47,6 @@ export interface PrivateKernelExecutionProofOutput<
   /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
    * which recursively verifies it through the "tube" circuit.*/
   clientIvcProof: ClientIvcProof;
-  vk: Buffer;
   /**
    * The trace the clientIvcProof corresponds to.
    * A trace of app circuits interleaved with private kernel circuits.
