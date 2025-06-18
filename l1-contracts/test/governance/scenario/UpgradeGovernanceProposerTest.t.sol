@@ -80,7 +80,8 @@ contract UpgradeGovernanceProposerTest is TestBase {
       address(rollup),
       block.timestamp,
       builder.getConfig().rollupConfigInput.aztecSlotDuration,
-      builder.getConfig().rollupConfigInput.aztecEpochDuration
+      builder.getConfig().rollupConfigInput.aztecEpochDuration,
+      builder.getConfig().rollupConfigInput.aztecProofSubmissionEpochs
     );
   }
 

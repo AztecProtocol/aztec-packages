@@ -20,7 +20,8 @@ contract TimeCheater {
     address _target,
     uint256 _genesisTime,
     uint256 _slotDuration,
-    uint256 _epochDuration
+    uint256 _epochDuration,
+    uint256 _proofSubmissionEpochs
   ) {
     target = _target;
 
@@ -31,7 +32,8 @@ contract TimeCheater {
       TimeStorage({
         genesisTime: uint128(_genesisTime),
         slotDuration: uint32(_slotDuration),
-        epochDuration: uint32(_epochDuration)
+        epochDuration: uint32(_epochDuration),
+        proofSubmissionEpochs: uint32(_proofSubmissionEpochs)
       })
     );
   }
@@ -56,7 +58,10 @@ contract TimeCheater {
     );
 
     TimeLib.initialize(
-      _timeStorage.genesisTime, _timeStorage.slotDuration, _timeStorage.epochDuration
+      _timeStorage.genesisTime,
+      _timeStorage.slotDuration,
+      _timeStorage.epochDuration,
+      _timeStorage.proofSubmissionEpochs
     );
   }
 

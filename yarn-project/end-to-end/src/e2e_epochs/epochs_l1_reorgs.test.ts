@@ -94,7 +94,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       expect((await monitor.run(true)).l2ProvenBlockNumber).toEqual(0);
 
       // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilEndOfProofSubmissionWindow(0);
+      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
 
       // Ensure that a new node sees the reorg
       logger.warn(`Syncing new node to test reorg`);
@@ -131,7 +131,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await test.createProverNode();
 
       // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilEndOfProofSubmissionWindow(0);
+      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
 
       // And expect that the other node has submitted a proof
       await expect(monitor.run(true).then(m => m.l2ProvenBlockNumber)).resolves.toBeGreaterThanOrEqual(1);
@@ -153,7 +153,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => node.getBlockNumber().then(b => b > 1), 'node sync', 60, 0.1);
 
       // Wait until the end of the proof submission window for the first epoch
-      await test.waitUntilEndOfProofSubmissionWindow(0);
+      await test.waitUntilLastSlotOfProofSubmissionWindow(0);
       await monitor.run(true);
       logger.warn(`End of epoch 0 submission window (L1 block ${await monitor.run(true).then(m => m.l1BlockNumber)}).`);
 

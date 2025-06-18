@@ -117,7 +117,7 @@ describe('e2e_multi_validator_node', () => {
     });
     const tx = await provenTx.send().wait();
     await waitForProven(aztecNode, tx, {
-      provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration,
+      provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 
@@ -175,7 +175,7 @@ describe('e2e_multi_validator_node', () => {
     });
     const tx = await provenTx.send().wait();
     await waitForProven(aztecNode, tx, {
-      provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration,
+      provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
     expect(tx.blockNumber).toBeDefined();
 

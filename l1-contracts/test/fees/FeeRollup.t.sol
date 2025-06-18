@@ -105,9 +105,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30).setTargetCommitteeSize(
-      0
-    );
+      .setMintFeeAmount(1e30).setTargetCommitteeSize(0);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

@@ -164,8 +164,8 @@ contract RollupBuilder is Test {
     return this;
   }
 
-  function setProofSubmissionWindow(uint256 _proofSubmissionWindow) public returns (RollupBuilder) {
-    config.rollupConfigInput.aztecProofSubmissionWindow = _proofSubmissionWindow;
+  function setProofSubmissionEpochs(uint256 _proofSubmissionEpochs) public returns (RollupBuilder) {
+    config.rollupConfigInput.aztecProofSubmissionEpochs = _proofSubmissionEpochs;
     return this;
   }
 

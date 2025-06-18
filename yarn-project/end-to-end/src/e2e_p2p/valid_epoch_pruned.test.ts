@@ -45,7 +45,7 @@ describe('e2e_p2p_valid_epoch_pruned', () => {
         aztecEpochDuration: 1,
         ethereumSlotDuration: 4,
         aztecSlotDuration,
-        aztecProofSubmissionWindow: 1,
+        aztecProofSubmissionEpochs: 0, // reorg as soon as epoch ends
         slashingQuorum,
         slashingRoundSize,
       },

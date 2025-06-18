@@ -53,8 +53,8 @@ contract MinimalFeeModel {
 
   uint256 public populatedThrough = 0;
 
-  constructor(uint256 _slotDuration, uint256 _epochDuration) {
-    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration);
+  constructor(uint256 _slotDuration, uint256 _epochDuration, uint256 _proofSubmissionEpochs) {
+    TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
   }
 

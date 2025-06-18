@@ -89,18 +89,20 @@ export class EpochCache implements EpochCacheInterface {
     });
 
     const rollup = new RollupContract(publicClient, rollupAddress.toString());
-    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getCurrentEpochCommittee(),
-      rollup.getCurrentSampleSeed(),
-      rollup.getEpochNumber(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber, proofSubmissionEpochs] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getCurrentEpochCommittee(),
+        rollup.getCurrentSampleSeed(),
+        rollup.getEpochNumber(),
+        rollup.getProofSubmissionEpochs(),
+      ] as const);
 
     const l1RollupConstants: L1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
-      proofSubmissionWindow: config.aztecProofSubmissionWindow,
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
       slotDuration: config.aztecSlotDuration,
       epochDuration: config.aztecEpochDuration,
       ethereumSlotDuration: config.ethereumSlotDuration,
