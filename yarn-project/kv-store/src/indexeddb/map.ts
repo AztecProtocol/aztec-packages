@@ -55,6 +55,12 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
     });
   }
 
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    for (const { key, value } of entries) {
+      await this.set(key, value);
+    }
+  }
+
   swap(_key: K, _fn: (val: V | undefined) => V): Promise<void> {
     throw new Error('Not implemented');
   }

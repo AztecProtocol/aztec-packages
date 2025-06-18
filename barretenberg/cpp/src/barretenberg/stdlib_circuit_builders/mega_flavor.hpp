@@ -5,6 +5,8 @@
 // =====================
 
 #pragma once
+#include <utility>
+
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -421,8 +423,8 @@ class MegaFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
-                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(circuit_size, num_public_inputs, commitment_key){};
+                   CommitmentKey commitment_key = CommitmentKey())
+            : Base(circuit_size, num_public_inputs, std::move(commitment_key)){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
@@ -478,11 +480,11 @@ class MegaFlavor {
         {
             set_metadata(proving_key);
             auto& ck = proving_key.commitment_key;
-            if (!ck || ck->srs->get_monomial_size() < proving_key.circuit_size) {
-                ck = std::make_shared<CommitmentKey>(proving_key.circuit_size);
+            if (!ck.initialized() || ck.srs->get_monomial_size() < proving_key.circuit_size) {
+                ck = CommitmentKey(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {
-                commitment = ck->commit(polynomial);
+                commitment = ck.commit(polynomial);
             }
         }
 

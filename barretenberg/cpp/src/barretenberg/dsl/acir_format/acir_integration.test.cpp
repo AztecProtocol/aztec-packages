@@ -61,7 +61,9 @@ class AcirIntegrationTest : public ::testing::Test {
         using Verifier = UltraVerifier_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
 
-        Prover prover{ builder };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
         info("num gates          = ", builder.get_estimated_num_finalized_gates());
@@ -72,7 +74,6 @@ class AcirIntegrationTest : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }

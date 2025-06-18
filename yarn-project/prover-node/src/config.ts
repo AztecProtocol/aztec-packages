@@ -123,6 +123,6 @@ export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & 
   const proverId =
     userConfig.proverId && !userConfig.proverId.isZero()
       ? userConfig.proverId
-      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey));
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
   return { ...userConfig, proverId };
 }

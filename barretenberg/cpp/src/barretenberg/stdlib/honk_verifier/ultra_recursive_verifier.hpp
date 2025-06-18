@@ -51,7 +51,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
         const StdlibProof<Builder>& proof);
 
     std::shared_ptr<VerificationKey> key;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
 };

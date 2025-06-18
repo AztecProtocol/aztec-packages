@@ -155,9 +155,15 @@ template <typename Curve> class PippengerReference {
     }
 
   public:
+    PippengerReference() = default;
+
     PippengerReference(size_t num_initial_points)
         : reference(get_singleton(num_initial_points))
     {}
     pippenger_runtime_state<Curve>& get() const { return *reference; }
+
+    bool operator==(const PippengerReference&) const = default;
+
+    bool initialized() const { return reference != nullptr; }
 };
 } // namespace bb::scalar_multiplication

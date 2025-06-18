@@ -34,7 +34,7 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key; // can remove maybe hopefully
+    VerifierCommitmentKey pcs_verification_key; // can remove maybe hopefully
     std::array<Commitment, TranslatorFlavor::NUM_OP_QUEUE_WIRES> op_queue_commitments;
     Builder* builder;
 

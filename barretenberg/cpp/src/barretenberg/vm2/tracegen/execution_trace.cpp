@@ -16,9 +16,10 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -244,32 +245,43 @@ void ExecutionTraceBuilder::process(
          *  Setup.
          **************************************************************************************************/
 
-        // Context
-        trace.set(
-            row,
-            { {
-                { C::execution_context_id, ex_event.after_context_event.id },
-                { C::execution_parent_id, ex_event.after_context_event.parent_id },
-                { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_next_pc, ex_event.after_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
-                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
-                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
-                { C::execution_parent_calldata_offset_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size_addr, ex_event.after_context_event.parent_cd_size_addr },
-                { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
-                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
-                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
-                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
-                { C::execution_next_context_id, ex_event.next_context_id },
-            } });
+        trace.set(row,
+                  { {
+                      // Context
+                      { C::execution_context_id, ex_event.after_context_event.id },
+                      { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                      { C::execution_pc, ex_event.before_context_event.pc },
+                      { C::execution_is_static, ex_event.after_context_event.is_static },
+                      { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                      { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                      { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                      { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                      { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                      { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                      { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                      { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                      { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                      { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                      { C::execution_next_context_id, ex_event.next_context_id },
+                      // Context - gas.
+                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Other.
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        // Internal stack
+        trace.set(row,
+                  { {
+                      { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
+                  } });
 
         /**************************************************************************************************
          *  Temporality group 1: Instruction fetching.
@@ -277,35 +289,17 @@ void ExecutionTraceBuilder::process(
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
-
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
-        trace.set(row,
-                  { {
-                      { C::execution_bytecode_id, ex_event.bytecode_id },
-                      { C::execution_sel_instruction_fetching_failure, instruction_fetching_failed ? 1 : 0 },
-                      { C::execution_sel_instruction_fetching_success, !instruction_fetching_failed ? 1 : 0 },
-                  } });
-
-        // We don't write anything else if instruction fetching failed.
-        // To prove failure, we only need pc and bytecode_id which are already set.
-        // NOTE: Because of this we end up doing 2 lookups in execution.pil.
+        trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
         if (!instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+            process_instr_fetching(ex_event.wire_instruction, trace, row);
+            // If we fetched an instruction successfully, we can set the next PC.
             trace.set(row,
                       { {
-                          { C::execution_ex_opcode, static_cast<uint8_t>(*exec_opcode) },
-                          { C::execution_indirect, ex_event.wire_instruction.indirect },
-                          { C::execution_instr_length, ex_event.wire_instruction.size_in_bytes() },
+                          { C::execution_next_pc,
+                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
                       } });
-
-            // At this point we can assume instruction fetching succeeded.
-            auto operands = ex_event.wire_instruction.operands;
-            assert(operands.size() <= NUM_OPERANDS);
-            operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
-
-            for (size_t i = 0; i < NUM_OPERANDS; i++) {
-                trace.set(OPERAND_COLUMNS[i], row, operands.at(i));
-            }
         }
 
         /**************************************************************************************************
@@ -316,31 +310,15 @@ void ExecutionTraceBuilder::process(
         // However, we will not do it all in the same place. We do it by temporality groups, but always unconditionally.
         bool should_read_exec_spec = !instruction_fetching_failed;
         if (should_read_exec_spec) {
-            trace.set(row,
-                      { {
-                          { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
-                          { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
-                          { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
-                          { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
-                      } });
+            process_execution_spec(ex_event, trace, row);
         }
 
-        // TODO(alvaro): More of this should be gated with a boolean but the PIL relations don't accomodate it.
         bool should_check_gas = !instruction_fetching_failed;
-        bool oog_base = ex_event.gas_event.oog_base_l2 || ex_event.gas_event.oog_base_da;
-        trace.set(row,
-                  { {
-                      { C::execution_addressing_gas, ex_event.gas_event.addressing_gas },
-                      { C::execution_out_of_gas_base_l2, ex_event.gas_event.oog_base_l2 },
-                      { C::execution_out_of_gas_base_da, ex_event.gas_event.oog_base_da },
-                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                      { C::execution_limit_used_l2_cmp_diff, ex_event.gas_event.limit_used_l2_comparison_witness },
-                      { C::execution_limit_used_da_cmp_diff, ex_event.gas_event.limit_used_da_comparison_witness },
-                      { C::execution_constant_64, 64 },
-                      { C::execution_sel_should_check_gas, should_check_gas ? 1 : 0 },
-                      { C::execution_out_of_gas_base, oog_base ? 1 : 0 },
-                  } });
+        bool oog_base = ex_event.error == ExecutionError::GAS_BASE;
+        trace.set(C::execution_sel_should_check_gas, row, should_check_gas ? 1 : 0);
+        if (should_check_gas) {
+            process_gas_base(ex_event.gas_event, trace, row);
+        }
 
         /**************************************************************************************************
          *  Temporality group 3: Addressing.
@@ -357,66 +335,23 @@ void ExecutionTraceBuilder::process(
          *  Temporality group...: Registers.
          **************************************************************************************************/
 
-        // This comes from the EXEC_SPEC_READ lookup.
-        if (should_read_exec_spec) {
-            // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const auto& register_info = REGISTER_INFO_MAP.at(*exec_opcode);
-
-            for (size_t i = 0; i < NUM_REGISTERS; i++) {
-                trace.set(REGISTER_IS_WRITE_COLUMNS[i], row, register_info.is_write(static_cast<uint8_t>(i)) ? 1 : 0);
-                trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
-            }
-        }
-
-        std::array<TaggedValue, NUM_REGISTERS> registers = {};
+        std::array<TaggedValue, NUM_REGISTERS> registers;
+        std::fill(registers.begin(), registers.end(), TaggedValue::from<FF>(0));
         bool should_process_registers = should_resolve_address && !addressing_failed;
+        bool register_processing_failed = ex_event.error == ExecutionError::REGISTERS;
         if (should_process_registers) {
-            // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const auto& register_info = REGISTER_INFO_MAP.at(*exec_opcode);
-
-            // Registers.
-            size_t input_counter = 0;
-            for (uint8_t i = 0; i < NUM_REGISTERS; ++i) {
-                if (register_info.is_active(i)) {
-                    if (register_info.is_write(i)) {
-                        // If this is a write operation, we need to get the value from the output.
-                        registers[i] = ex_event.output;
-                    } else {
-                        // If this is a read operation, we need to get the value from the input.
-                        auto input = ex_event.inputs.size() > input_counter ? ex_event.inputs.at(input_counter)
-                                                                            : TaggedValue::from<FF>(0);
-                        registers[i] = input;
-                        input_counter++;
-                    }
-                }
-            }
-
-            for (size_t i = 0; i < NUM_REGISTERS; i++) {
-                trace.set(REGISTER_COLUMNS[i], row, registers.at(i));
-                trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers.at(i).get_tag()));
-            }
+            process_registers(*exec_opcode, ex_event.inputs, ex_event.output, registers, trace, row);
         }
-
-        // FIXME: do correctly.
-        bool register_processing_failed = false;
 
         /**************************************************************************************************
          *  Temporality group...: Dynamic gas.
          **************************************************************************************************/
 
         bool should_process_dynamic_gas = should_process_registers && !register_processing_failed;
-        bool oog_dynamic = ex_event.gas_event.oog_dynamic_l2 || ex_event.gas_event.oog_dynamic_da;
+        bool oog_dynamic = ex_event.error == ExecutionError::GAS_DYNAMIC;
+        trace.set(C::execution_should_run_dyn_gas_check, row, should_process_dynamic_gas ? 1 : 0);
         if (should_process_dynamic_gas) {
-            trace.set(row,
-                      { {
-                          { C::execution_should_run_dyn_gas_check,
-                            !oog_base ? 1 : 0 }, // This should be false also if addressing errors
-                          { C::execution_dynamic_l2_gas_factor, ex_event.gas_event.dynamic_gas_factor.l2Gas },
-                          { C::execution_dynamic_da_gas_factor, ex_event.gas_event.dynamic_gas_factor.daGas },
-                          { C::execution_out_of_gas_dynamic_l2, ex_event.gas_event.oog_dynamic_l2 },
-                          { C::execution_out_of_gas_dynamic_da, ex_event.gas_event.oog_dynamic_da },
-                          { C::execution_out_of_gas_dynamic, oog_dynamic ? 1 : 0 },
-                      } });
+            process_dynamic_gas(ex_event.gas_event, trace, row);
         }
 
         /**************************************************************************************************
@@ -463,29 +398,6 @@ void ExecutionTraceBuilder::process(
                       { C::execution_sel_revert, is_revert ? 1 : 0 },
                       { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                   } });
-
-        // This comes from the EXEC_SPEC_READ lookup.
-        if (should_read_exec_spec) {
-            // At this point we can assume instruction fetching succeeded, so this should never fail.
-            const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(*exec_opcode);
-
-            // Subtrace dispatching.
-            trace.set(
-                row,
-                { {
-                    // Selector Id
-                    { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-                    // Selectors
-                    { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
-                    { C::execution_sel_bitwise,
-                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
-                    { C::execution_sel_poseidon2_perm,
-                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
-                    { C::execution_sel_to_radix,
-                      dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
-                    { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
-                } });
-        }
 
         bool should_process_dispatching = should_process_dynamic_gas && !oog_dynamic;
         if (should_process_dispatching) {
@@ -588,6 +500,106 @@ void ExecutionTraceBuilder::process(
     if (!ex_events.empty()) {
         trace.set(C::execution_last, row - 1, 1);
     }
+}
+
+void ExecutionTraceBuilder::process_instr_fetching(const simulation::Instruction& instruction,
+                                                   TraceContainer& trace,
+                                                   uint32_t row)
+{
+    trace.set(row,
+              { {
+                  { C::execution_sel_instruction_fetching_success, 1 },
+                  { C::execution_ex_opcode, static_cast<uint8_t>(instruction.get_exec_opcode()) },
+                  { C::execution_indirect, instruction.indirect },
+                  { C::execution_instr_length, instruction.size_in_bytes() },
+              } });
+
+    // At this point we can assume instruction fetching succeeded.
+    auto operands = instruction.operands;
+    assert(operands.size() <= NUM_OPERANDS);
+    operands.resize(NUM_OPERANDS, simulation::Operand::from<FF>(0));
+
+    for (size_t i = 0; i < NUM_OPERANDS; i++) {
+        trace.set(OPERAND_COLUMNS[i], row, operands.at(i));
+    }
+}
+
+void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEvent& ex_event,
+                                                   TraceContainer& trace,
+                                                   uint32_t row)
+{
+    trace.set(row,
+              { {
+                  // Gas.
+                  { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
+                  { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
+                  { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
+                  { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
+              } });
+
+    // At this point we can assume instruction fetching succeeded, so this should never fail.
+    ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+    const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
+
+    for (size_t i = 0; i < NUM_REGISTERS; i++) {
+        trace.set(REGISTER_IS_WRITE_COLUMNS[i], row, register_info.is_write(static_cast<uint8_t>(i)) ? 1 : 0);
+        trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
+    }
+
+    // At this point we can assume instruction fetching succeeded, so this should never fail.
+    const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
+
+    // Subtrace dispatching.
+    trace.set(
+        row,
+        { {
+            // Selector Id
+            { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+            // Selectors
+            { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
+            { C::execution_sel_bitwise, dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
+            { C::execution_sel_poseidon2_perm,
+              dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
+            { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
+            { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
+        } });
+
+    // Execution Trace opcodes - separating for clarity
+    trace.set(row,
+              { {
+                  { C::execution_sel_internal_call, exec_opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
+                  { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
+                  { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
+                  { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+              } });
+}
+
+void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,
+                                                TraceContainer& trace,
+                                                uint32_t row)
+{
+    trace.set(row,
+              { {
+                  { C::execution_dynamic_l2_gas_factor, gas_event.dynamic_gas_factor.l2Gas },
+                  { C::execution_dynamic_da_gas_factor, gas_event.dynamic_gas_factor.daGas },
+                  { C::execution_out_of_gas_dynamic_l2, gas_event.oog_dynamic_l2 },
+                  { C::execution_out_of_gas_dynamic_da, gas_event.oog_dynamic_da },
+                  { C::execution_out_of_gas_dynamic, (gas_event.oog_dynamic_l2 || gas_event.oog_dynamic_da) ? 1 : 0 },
+              } });
+}
+
+void ExecutionTraceBuilder::process_gas_base(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row)
+{
+    trace.set(row,
+              { {
+                  { C::execution_addressing_gas, gas_event.addressing_gas },
+                  { C::execution_out_of_gas_base_l2, gas_event.oog_base_l2 },
+                  { C::execution_out_of_gas_base_da, gas_event.oog_base_da },
+                  { C::execution_limit_used_l2_cmp_diff, gas_event.limit_used_l2_comparison_witness },
+                  { C::execution_limit_used_da_cmp_diff, gas_event.limit_used_da_comparison_witness },
+                  { C::execution_constant_64, 64 },
+                  { C::execution_out_of_gas_base, (gas_event.oog_base_l2 || gas_event.oog_base_da) ? 1 : 0 },
+              } });
 }
 
 void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent& addr_event,
@@ -729,6 +741,39 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
               } });
 }
 
+void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
+                                              const std::vector<TaggedValue>& inputs,
+                                              const TaggedValue& output,
+                                              std::span<TaggedValue> registers,
+                                              TraceContainer& trace,
+                                              uint32_t row)
+{
+    assert(registers.size() == NUM_REGISTERS);
+    // At this point we can assume instruction fetching succeeded, so this should never fail.
+    const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
+
+    // Registers.
+    size_t input_counter = 0;
+    for (uint8_t i = 0; i < NUM_REGISTERS; ++i) {
+        if (register_info.is_active(i)) {
+            if (register_info.is_write(i)) {
+                // If this is a write operation, we need to get the value from the output.
+                registers[i] = output;
+            } else {
+                // If this is a read operation, we need to get the value from the input.
+                auto input = inputs.size() > input_counter ? inputs.at(input_counter) : TaggedValue::from<FF>(0);
+                registers[i] = input;
+                input_counter++;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < NUM_REGISTERS; i++) {
+        trace.set(REGISTER_COLUMNS[i], row, registers[i]);
+        trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
+    }
+}
+
 std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
 {
     return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
@@ -753,13 +798,16 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder:
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
+        // Internal Call Stack
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_internal_call_push_call_stack_settings_>>(),
+        std::make_unique<LookupIntoDynamicTableGeneric<lookup_internal_call_unwind_call_stack_settings_>>(),
         // Gas
         std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
         std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
-        // Call opcode
-        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_l2_range_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_da_range_settings>>());
+        // External Call
+        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_l2_range_settings>>(),
+        std::make_unique<LookupIntoIndexedByClk<lookup_external_call_call_allocated_left_da_range_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

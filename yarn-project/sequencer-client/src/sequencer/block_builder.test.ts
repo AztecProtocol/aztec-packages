@@ -89,7 +89,7 @@ describe('BlockBuilder', () => {
     globalVariables = new GlobalVariables(
       new Fr(chainId),
       new Fr(version),
-      new Fr(newBlockNumber),
+      newBlockNumber,
       new Fr(newSlotNumber),
       /*timestamp=*/ 0n,
       coinbase,
@@ -166,7 +166,7 @@ describe('BlockBuilder', () => {
     expect(publicProcessor.process).toHaveBeenCalledTimes(1);
     expect(publicProcessor.process).toHaveBeenCalledWith(iterator, {}, validator);
     logger.info('Built Block', blockResult.block);
-    expect(blockResult.block.header.globalVariables.blockNumber.toNumber()).toBe(newBlockNumber);
+    expect(blockResult.block.header.globalVariables.blockNumber).toBe(newBlockNumber);
     expect(blockResult.block.header.globalVariables.slotNumber.toNumber()).toBe(newSlotNumber);
     expect(blockResult.block.header.globalVariables.coinbase.toString()).toBe(coinbase.toString());
     expect(blockResult.block.header.globalVariables.feeRecipient.toString()).toBe(feeRecipient.toString());

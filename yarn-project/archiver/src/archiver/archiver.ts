@@ -375,13 +375,13 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
-  private async handleEpochPrune(provenBlockNumber: bigint, currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
+  private async handleEpochPrune(provenBlockNumber: number, currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const rollupCanPrune = await this.canPrune(currentL1BlockNumber, currentL1Timestamp);
-    const localPendingBlockNumber = BigInt(await this.getBlockNumber());
+    const localPendingBlockNumber = await this.getBlockNumber();
     const canPrune = localPendingBlockNumber > provenBlockNumber && rollupCanPrune;
 
     if (canPrune) {
-      const pruneFrom = provenBlockNumber + 1n;
+      const pruneFrom = provenBlockNumber + 1;
 
       const header = await this.getBlockHeader(Number(pruneFrom));
       if (header === undefined) {
@@ -403,7 +403,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       });
 
       this.log.debug(
-        `L2 prune from ${provenBlockNumber + 1n} to ${localPendingBlockNumber} will occur on next block submission.`,
+        `L2 prune from ${provenBlockNumber + 1} to ${localPendingBlockNumber} will occur on next block submission.`,
       );
       await this.store.unwindBlocks(Number(localPendingBlockNumber), Number(blocksToUnwind));
       this.log.warn(
@@ -433,7 +433,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private async handleL1ToL2Messages(
     messagesSyncPoint: L1BlockId,
     currentL1BlockNumber: bigint,
-    currentL1BlockHash: Buffer32,
+    _currentL1BlockHash: Buffer32,
   ) {
     this.log.trace(`Handling L1 to L2 messages from ${messagesSyncPoint.l1BlockNumber} to ${currentL1BlockNumber}.`);
     if (currentL1BlockNumber <= messagesSyncPoint.l1BlockNumber) {
@@ -459,10 +459,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.debug(
         `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
       );
-      await this.store.setMessageSynchedL1Block({
-        l1BlockHash: currentL1BlockHash,
-        l1BlockNumber: currentL1BlockNumber,
-      });
       return;
     }
 
@@ -590,10 +586,15 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   }
 
   private async handleL2blocks(blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
-    const localPendingBlockNumber = BigInt(await this.getBlockNumber());
+    const localPendingBlockNumber = await this.getBlockNumber();
     const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
-      await this.rollup.status(localPendingBlockNumber, { blockNumber: currentL1BlockNumber });
-    const rollupStatus = { provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive };
+      await this.rollup.status(BigInt(localPendingBlockNumber), { blockNumber: currentL1BlockNumber });
+    const rollupStatus = {
+      provenBlockNumber: Number(provenBlockNumber),
+      provenArchive,
+      pendingBlockNumber: Number(pendingBlockNumber),
+      pendingArchive,
+    };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingBlockNumber,
       blocksSynchedTo,
@@ -659,7 +660,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     // This is an edge case that we only hit if there are no proposed blocks.
     // If we have 0 blocks locally and there are no blocks onchain there is nothing to do.
-    const noBlocks = localPendingBlockNumber === 0n && pendingBlockNumber === 0n;
+    const noBlocks = localPendingBlockNumber === 0 && pendingBlockNumber === 0n;
     if (noBlocks) {
       await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
       this.log.debug(
@@ -673,7 +674,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     // Related to the L2 reorgs of the pending chain. We are only interested in actually addressing a reorg if there
     // are any state that could be impacted by it. If we have no blocks, there is no impact.
     if (localPendingBlockNumber > 0) {
-      const localPendingBlock = await this.getBlock(Number(localPendingBlockNumber));
+      const localPendingBlock = await this.getBlock(localPendingBlockNumber);
       if (localPendingBlock === undefined) {
         throw new Error(`Missing block ${localPendingBlockNumber}`);
       }
@@ -819,7 +820,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private async checkForNewBlocksBeforeL1SyncPoint(
     status: {
       lastRetrievedBlock?: PublishedL2Block;
-      pendingBlockNumber: bigint;
+      pendingBlockNumber: number;
     },
     blocksSynchedTo: bigint,
     currentL1BlockNumber: bigint,
@@ -1124,7 +1125,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
 
@@ -1487,7 +1488,7 @@ export class ArchiverStoreHelper
   addL1ToL2Messages(messages: InboxMessage[]): Promise<void> {
     return this.store.addL1ToL2Messages(messages);
   }
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
     return this.store.getL1ToL2Messages(blockNumber);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -1547,7 +1548,7 @@ export class ArchiverStoreHelper
   estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }> {
     return this.store.estimateSize();
   }
-  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void> {
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void> {
     return this.store.rollbackL1ToL2MessagesToL2Block(targetBlockNumber);
   }
   iterateL1ToL2Messages(range: CustomRange<bigint> = {}): AsyncIterableIterator<InboxMessage> {

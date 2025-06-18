@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, sleep } from '@aztec/aztec.js';
+import { sleep } from '@aztec/aztec.js';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -52,10 +52,8 @@ describe('e2e_p2p_network', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -100,7 +98,12 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -127,7 +130,7 @@ describe('e2e_p2p_network', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(new Fr(blockNumber), payload, a.signature));
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 

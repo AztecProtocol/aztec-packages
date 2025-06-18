@@ -1,6 +1,7 @@
+use super::message_context::MessageContext;
 use protocol_types::{
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
+    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     traits::{Deserialize, Serialize},
 };
 
@@ -9,13 +10,12 @@ use protocol_types::{
 #[derive(Deserialize, Serialize)]
 pub(crate) struct PendingTaggedLog {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
-    pub tx_hash: Field,
-    pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    pub first_nullifier_in_tx: Field,
-    pub recipient: AztecAddress,
+    // Context of the message included in the log.
+    pub context: MessageContext,
 }
 
 mod test {
+    use crate::messages::processing::message_context::MessageContext;
     use super::PendingTaggedLog;
     use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
@@ -28,10 +28,12 @@ mod test {
         let recipient = AztecAddress::from_field(789);
         let pending_log = PendingTaggedLog {
             log,
-            tx_hash,
-            unique_note_hashes_in_tx: unique_note_hashes,
-            first_nullifier_in_tx: first_nullifier,
-            recipient,
+            context: MessageContext {
+                tx_hash,
+                unique_note_hashes_in_tx: unique_note_hashes,
+                first_nullifier_in_tx: first_nullifier,
+                recipient,
+            },
         };
 
         let serialized = pending_log.serialize();

@@ -107,7 +107,7 @@ export const makeGlobals = (blockNumber: number) => {
   return new GlobalVariables(
     Fr.ZERO,
     Fr.ZERO,
-    new Fr(blockNumber) /** block number */,
+    blockNumber /** block number */,
     new Fr(blockNumber) /** slot number */,
     BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
     EthAddress.ZERO,
