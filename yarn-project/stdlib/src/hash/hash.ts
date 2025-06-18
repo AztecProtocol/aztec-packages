@@ -56,6 +56,13 @@ export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promi
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
 }
 
+/**
+ * Computes a siloed private log tag, given the contract address and the unsiloed tag.
+ * A siloed private log tag effectively namespaces a log to a specific contract.
+ * @param contract - The contract address.
+ * @param unsiloedTag - The unsiloed tag.
+ * @returns A siloed private log tag.
+ */
 export function siloPrivateLog(contract: AztecAddress, unsiloedTag: Fr): Promise<Fr> {
   return poseidon2Hash([contract, unsiloedTag]);
 }
