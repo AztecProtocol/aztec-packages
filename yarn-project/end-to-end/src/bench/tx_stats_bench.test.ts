@@ -1,4 +1,4 @@
-import { type AztecAddress, EthAddress, ProvenTx, sleep } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, ProvenTx, Tx, sleep } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
@@ -180,31 +180,43 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
+  const runSingleProofVerificationTest = async (tx: ProvenTx, type: 'Private' | 'Public') => {
+    const numIterations = 20;
+    const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
+      x => undefined,
+    );
+    // Verify proof serially and take an average
+    for (let i = 0; i < numIterations; i++) {
+      const result = await t.circuitProofVerifier?.verifyProof(tx);
+      resultsArray[i] = result;
+    }
+    resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
+    const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
+    const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
+    results.push({
+      name: `Tx IVC Verification/Single ${type} Transaction/IVC Verification Time`,
+      value: durations.reduce((a, b) => a + b, 0) / numIterations,
+      unit: 'ms',
+    });
+    results.push({
+      name: `Tx IVC Verification/Single ${type} Transaction/Total Verification Time (includes serde)`,
+      value: totalDurations.reduce((a, b) => a + b, 0) / numIterations,
+      unit: 'ms',
+    });
+  };
+
   it(
-    'verifies a single transaction',
+    'verifies a single private transaction',
     async () => {
-      const numIterations = 20;
-      const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
-        x => undefined,
-      );
-      // Verify proof serially and take an average
-      for (let i = 0; i < numIterations; i++) {
-        const result = await t.circuitProofVerifier?.verifyProof(i % 2 === 0 ? privateProvenTx : publicProvenTx);
-        resultsArray[i] = result;
-      }
-      resultsArray.forEach(result => expect(result?.valid ?? false).toBe(true));
-      const durations = resultsArray.filter(result => result !== undefined).map(result => result.durationMs);
-      const totalDurations = resultsArray.filter(result => result !== undefined).map(result => result.totalDurationMs);
-      results.push({
-        name: `Tx IVC Verification/Single Transaction/Verification Time`,
-        value: durations.reduce((a, b) => a + b, 0) / numIterations,
-        unit: 'ms',
-      });
-      results.push({
-        name: `Tx IVC Verification/Single Transaction/Total Verification Time`,
-        value: totalDurations.reduce((a, b) => a + b, 0) / numIterations,
-        unit: 'ms',
-      });
+      await runSingleProofVerificationTest(privateProvenTx, 'Private');
+    },
+    TIMEOUT,
+  );
+
+  it(
+    'verifies a single public transaction',
+    async () => {
+      await runSingleProofVerificationTest(publicProvenTx, 'Public');
     },
     TIMEOUT,
   );
