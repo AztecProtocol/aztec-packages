@@ -328,7 +328,7 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static bool reduce_verify_internal_native(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal_native(const VK& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -388,7 +388,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state.get());
+            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk.pippenger_runtime_state.get());
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -405,7 +405,7 @@ template <typename Curve_> class IPA {
         // Construct vector s
         Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(log_poly_length, std::span(round_challenges_inv).subspan(0, log_poly_length)));
 
-        std::span<const Commitment> srs_elements = vk->get_monomial_points();
+        std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
@@ -424,7 +424,7 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state.get());
+           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk.pippenger_runtime_state.get());
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
@@ -575,7 +575,7 @@ template <typename Curve_> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    static bool reduce_verify(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify(const VK& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -616,7 +616,7 @@ template <typename Curve_> class IPA {
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
      * function with parallelisation
      */
-    static bool full_verify_recursive(const std::shared_ptr<VK>& vk,
+    static bool full_verify_recursive(const VK& vk,
                                                     const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
@@ -715,7 +715,7 @@ template <typename Curve_> class IPA {
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
-        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
+        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
         BB_ASSERT_EQ(G_zero.get_value(), transcript_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
@@ -775,7 +775,7 @@ template <typename Curve_> class IPA {
      * @return bool
      */
     static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                                 const std::shared_ptr<VK>& vk,
+                                                                 const VK& vk,
                                                                  auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
@@ -957,7 +957,7 @@ template <typename Curve_> class IPA {
         BB_ASSERT_EQ(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())), fq(output_claim.opening_pair.evaluation.get_value()), "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
-        return {output_claim, prover_transcript->proof_data};
+        return {output_claim, prover_transcript->export_proof()};
     }
 
     static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)

@@ -43,17 +43,19 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { AvmRevertReason } from './errors.js';
 import {
-  getContractFunctionArtifact,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
   initMachineState,
   initPersistableStateManager,
+} from './fixtures/initializers.js';
+import {
+  getContractFunctionArtifact,
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
   resolveContractAssertionMessage,
-} from './fixtures/index.js';
+} from './fixtures/utils.js';
 import {
   Add,
   CalldataCopy,

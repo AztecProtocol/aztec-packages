@@ -373,6 +373,7 @@ export class EthCheatCodes {
    * @param blockNumber - The block number that's going to be the new tip
    */
   public reorgTo(blockNumber: number): Promise<void> {
+    this.logger.info('reorgTo', { blockNumber });
     if (blockNumber <= 0) {
       throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }

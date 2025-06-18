@@ -10,7 +10,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicContractsDB } from '../../../server.js';
-import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
+import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';

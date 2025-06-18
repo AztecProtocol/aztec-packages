@@ -18,13 +18,13 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
-// Living -> Not participating as validator, but have funds in setup,
+// Zombie -> Not participating as validator, but have funds in setup,
 // 			 hit if slashes and going below the minimum
 // Exiting -> In the process of exiting the system
 enum Status {
   NONE,
   VALIDATING,
-  LIVING,
+  ZOMBIE,
   EXITING
 }
 
@@ -138,6 +138,14 @@ library StakingLib {
     emit IStakingCore.WithdrawFinalised(_attester, exit.recipientOrWithdrawer, exit.amount);
   }
 
+  function trySlash(address _attester, uint256 _amount) internal returns (bool) {
+    if (!isSlashable(_attester)) {
+      return false;
+    }
+    slash(_attester, _amount);
+    return true;
+  }
+
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
     require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
@@ -216,7 +224,7 @@ library StakingLib {
     uint256 amount = store.gse.DEPOSIT_AMOUNT();
 
     uint256 queueLength = store.entryQueue.length();
-    uint256 numToDequeue = _maxAddableValidators > queueLength ? queueLength : _maxAddableValidators;
+    uint256 numToDequeue = Math.min(_maxAddableValidators, queueLength);
     store.stakingAsset.approve(address(store.gse), amount * numToDequeue);
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
@@ -228,6 +236,12 @@ library StakingLib {
       if (success) {
         emit IStakingCore.Deposit(args.attester, args.withdrawer, amount);
       } else {
+        // If the deposit fails, we generally ignore it, since we need to continue dequeuing to prevent DoS.
+        // However, if the data is empty, we can assume that the deposit failed due to out of gas, since
+        // we are only calling trusted contracts as part of gse.deposit.
+        // When this happens, we need to revert the whole transaction, else it is possible to
+        // empty the queue without making any deposits: e.g. the deposit always runs OOG, but
+        // we have enough gas to refund/dequeue.
         require(data.length > 0, Errors.Staking__DepositOutOfGas());
         store.stakingAsset.transfer(args.withdrawer, amount);
         emit IStakingCore.FailedDeposit(args.attester, args.withdrawer);
@@ -282,6 +296,18 @@ library StakingLib {
     return getStorage().nextFlushableEpoch;
   }
 
+  function isSlashable(address _attester) internal view returns (bool) {
+    StakingStorage storage store = getStorage();
+    Exit storage exit = store.exits[_attester];
+
+    if (exit.exists) {
+      return exit.exitableAt > Timestamp.wrap(block.timestamp);
+    }
+
+    (, bool attesterExists,) = store.gse.getWithdrawer(address(this), _attester);
+    return attesterExists;
+  }
+
   function getAttesterCountAtTime(Timestamp _timestamp) internal view returns (uint256) {
     return getStorage().gse.getAttesterCountAtTime(address(this), _timestamp);
   }
@@ -327,7 +353,7 @@ library StakingLib {
 
     Status status;
     if (exit.exists) {
-      status = exit.isRecipient ? Status.EXITING : Status.LIVING;
+      status = exit.isRecipient ? Status.EXITING : Status.ZOMBIE;
     } else {
       status = effectiveBalance > 0 ? Status.VALIDATING : Status.NONE;
     }
