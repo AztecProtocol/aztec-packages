@@ -9,6 +9,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 
 namespace bb::avm2::tracegen {
@@ -17,6 +18,7 @@ enum class InteractionType {
     LookupGeneric,
     LookupIntoBitwise,
     LookupIntoIndexedByClk,
+    LookupIntoPDecomposition,
     LookupSequential,
     Permutation,
 };
@@ -54,6 +56,8 @@ class InteractionDefinition {
             return [](bool) { return std::make_unique<LookupIntoBitwise<InteractionSettings>>(); };
         } else if constexpr (type == InteractionType::LookupIntoIndexedByClk) {
             return [](bool) { return std::make_unique<LookupIntoIndexedByClk<InteractionSettings>>(); };
+        } else if constexpr (type == InteractionType::LookupIntoPDecomposition) {
+            return [](bool) { return std::make_unique<LookupIntoPDecomposition<InteractionSettings>>(); };
         } else if constexpr (type == InteractionType::LookupSequential) {
             return [](bool) { return std::make_unique<LookupIntoDynamicTableSequential<InteractionSettings>>(); };
         } else if constexpr (type == InteractionType::Permutation) {
