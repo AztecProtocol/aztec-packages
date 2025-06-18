@@ -203,8 +203,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
             engine.get_random_uint256(),                       // lhs, rhs = const
             witness_ct(&builder, engine.get_random_uint256()), // one side is a witness
             witness_ct(&builder, engine.get_random_uint256()), // both witnesses
-            lhs_in[2],                                         // equal constants
-            lhs_in[3]                                          // equal witnesses
+            lhs_in[3],                                         // equal constants
+            lhs_in[4]                                          // equal witnesses
         };
 
         auto check_conditional_assign =
@@ -212,11 +212,16 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 size_t num_gates_before = builder.get_estimated_num_finalized_gates();
                 field_ct result = field_ct::conditional_assign(predicate, lhs, rhs);
                 EXPECT_TRUE(result.get_value() == (predicate.get_value() ? lhs.get_value() : rhs.get_value()));
-                // Expected to not create any gates if `predicate` is a constant, or `rhs`and `rhs` represent the same
-                // circuit element. If predicate is not constant, then `lhs - rhs` only creates gates when both of them
-                // are witnesses.
-                size_t expected_num_gates = !predicate.is_constant() * !same_elt *
-                                            (!predicate.is_constant() + !lhs.is_constant() || !rhs.is_constant());
+
+                size_t expected_num_gates = 0;
+                // If predicate is constant, no need to constrain the result of the operation
+                if (!predicate.is_constant()) {
+                    // If the witness index and constants of lhs and lhs do coincide, no gates are added
+                    if (!same_elt) {
+                        // If lhs or rhs is a constant field element, `lhs - rhs` does not create an extra gate
+                        expected_num_gates += 1 + static_cast<size_t>(!rhs.is_constant() && !lhs.is_constant());
+                    }
+                }
 
                 EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == expected_num_gates);
             };
@@ -576,11 +581,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto gates_before = builder.get_estimated_num_finalized_gates();
         field_ct b = 3;
         field_ct c = 7;
-        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in this
-        // case requires 3 constraints
-        // 1) ensure r is bool;
-        // 2) (a - b) * I + r - 1 = 0;
-        // 3) -I * r + r = 0
+        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in
+        // this case requires 3 constraints 1) ensure r is bool; 2) (a - b) * I + r - 1 = 0; 3) -I * r + r = 0
         bool_ct r = (a * c) == (b * c + c);
         auto gates_after = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(gates_after - gates_before, 3UL);
