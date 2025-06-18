@@ -405,9 +405,7 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     precomputed_builder.process_bitwise(trace);
     precomputed_builder.process_integral_tag_length(trace);
 
-    check_interaction<BitwiseTraceBuilder,
-                      lookup_bitwise_byte_operations_settings,
-                      lookup_bitwise_integral_tag_length_settings>(trace);
+    check_all_interactions<BitwiseTraceBuilder>(trace);
     check_relation<bitwise>(trace);
 }
 

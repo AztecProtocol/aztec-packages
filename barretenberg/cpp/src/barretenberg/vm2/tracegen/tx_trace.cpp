@@ -428,10 +428,13 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
 const InteractionDefinition TxTraceBuilder::interactions =
     InteractionDefinition()
+        // These are all generic, think which, if any, can be made sequential.
         .add<lookup_tx_read_phase_table_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
+        // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
@@ -439,5 +442,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>();
+// Commented out for now, to make the bulk test pass before all opcodes are implemented.
+// .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
+// .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()
 
 } // namespace bb::avm2::tracegen
