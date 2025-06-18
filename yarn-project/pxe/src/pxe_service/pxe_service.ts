@@ -858,7 +858,10 @@ export class PXEService implements PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts.instances).length > 0;
+        // Temporary: in case there are overrides, we have to skip the kernels or validations
+        // will fail. Consider handing control to the user/wallet on whether they want to run them
+        // or not.
+        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,
