@@ -554,7 +554,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     newGlobalVariables: GlobalVariables,
     proposerAddress: EthAddress | undefined,
   ): Promise<L2Block> {
-    await this.publisher.validateBlockForSubmission(proposalHeader);
+    await this.publisher.validateBlockHeader(proposalHeader);
 
     const blockNumber = newGlobalVariables.blockNumber;
     const slot = proposalHeader.slotNumber.toBigInt();
@@ -583,7 +583,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockForSubmission(block.header.toPropose());
+      await this.publisher.validateBlockHeader(block.header.toPropose());
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',
