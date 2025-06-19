@@ -558,6 +558,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const blockNumber = newGlobalVariables.blockNumber;
     const slot = proposalHeader.slotNumber.toBigInt();
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
 
     // this.metrics.recordNewBlock(blockNumber, validTxs.length);
     const workTimer = new Timer();
@@ -565,7 +566,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     try {
       const blockBuilderOptions = this.getDefaultBlockBuilderOptions(Number(slot));
-      const buildBlockRes = await this.blockBuilder.buildBlock(pendingTxs, newGlobalVariables, blockBuilderOptions);
+      const buildBlockRes = await this.blockBuilder.buildBlock(
+        pendingTxs,
+        l1ToL2Messages,
+        newGlobalVariables,
+        blockBuilderOptions,
+      );
       const { publicGas, block, publicProcessorDuration, numTxs, numMsgs, blockBuildingTimer, usedTxs, failedTxs } =
         buildBlockRes;
       const blockBuildDuration = workTimer.ms();
