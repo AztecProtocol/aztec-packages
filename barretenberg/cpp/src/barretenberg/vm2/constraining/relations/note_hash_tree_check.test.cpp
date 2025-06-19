@@ -84,13 +84,12 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveRead)
 
     check_relation<note_hash_tree_check>(trace);
     // Not checking all interactions due to the public inputs interaction, which needs to be checked in an e2e test
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_silo_poseidon2_settings>(trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_read_first_nullifier_settings>(trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_nonce_computation_poseidon2_settings>(
-        trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings>(
-        trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_merkle_check_settings>(trace);
+    check_interaction<NoteHashTreeCheckTraceBuilder,
+                      lookup_note_hash_tree_check_silo_poseidon2_settings,
+                      lookup_note_hash_tree_check_read_first_nullifier_settings,
+                      lookup_note_hash_tree_check_nonce_computation_poseidon2_settings,
+                      lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings,
+                      lookup_note_hash_tree_check_merkle_check_settings>(trace);
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
@@ -141,13 +140,12 @@ TEST(NoteHashTreeCheckConstrainingTests, PositiveWrite)
 
     check_relation<note_hash_tree_check>(trace);
     // Not checking all interactions due to the public inputs interaction, which needs to be checked in an e2e test
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_silo_poseidon2_settings>(trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_read_first_nullifier_settings>(trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_nonce_computation_poseidon2_settings>(
-        trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings>(
-        trace);
-    check_interaction<NoteHashTreeCheckTraceBuilder, lookup_note_hash_tree_check_merkle_check_settings>(trace);
+    check_interaction<NoteHashTreeCheckTraceBuilder,
+                      lookup_note_hash_tree_check_silo_poseidon2_settings,
+                      lookup_note_hash_tree_check_read_first_nullifier_settings,
+                      lookup_note_hash_tree_check_nonce_computation_poseidon2_settings,
+                      lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings,
+                      lookup_note_hash_tree_check_merkle_check_settings>(trace);
 }
 
 TEST(NoteHashTreeCheckConstrainingTests, NegativeSiloingOnRead)

@@ -15,6 +15,7 @@ class NoteHashTreeCheckTraceBuilder final {
   public:
     void process(const simulation::EventEmitterInterface<simulation::NoteHashTreeCheckEvent>::Container& events,
                  TraceContainer& trace);
+
     static const InteractionDefinition interactions;
 };
 
