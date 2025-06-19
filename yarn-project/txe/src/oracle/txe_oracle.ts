@@ -1030,7 +1030,11 @@ export class TXE implements TypedOracle {
       // private execution used Gas(1, 1) so it can compute a tx fee.
       const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
       const tx = createTxForPublicCalls(
-        firstNullifier,
+        {
+          nonRevertible: {
+            nullifiers: [firstNullifier],
+          },
+        },
         /*setupExecutionRequests=*/ [],
         /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
         /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
