@@ -332,7 +332,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   {
     uint256 privateKey = attesterPrivateKeys[_signer];
     require(privateKey != 0, "Private key not found for signer");
-    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal);
+    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
