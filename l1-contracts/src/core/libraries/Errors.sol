@@ -139,9 +139,6 @@ library Errors {
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
 
-  // GSE
-  error GSE__EmptyVoter();
-
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
   error FeeJuicePortal__InvalidInitialization(); // 0xfd9b3208
