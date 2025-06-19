@@ -88,14 +88,6 @@ tests:
     skip: true
     owners:
       - *lasse
-  - regex: "src/slasher_client"
-    skip: true
-    owners:
-      - *mitch
-  - regex: "src/e2e_p2p/validators_sentinel"
-    skip: true
-    owners:
-      - *mitch
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
@@ -244,6 +236,10 @@ tests:
       - *alex
   - regex: "spartan/bootstrap.sh"
     error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "tar: Error is not recoverable: exiting now"
     owners:
       - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"

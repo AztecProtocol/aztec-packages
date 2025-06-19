@@ -10,6 +10,7 @@ import {
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
@@ -82,6 +83,8 @@ export async function deployContractsToL1(
       realVerifier: false,
     },
   );
+
+  await deployMulticall3(l1Contracts.l1Client, logger);
 
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;

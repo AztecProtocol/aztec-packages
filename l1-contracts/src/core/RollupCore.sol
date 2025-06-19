@@ -75,7 +75,12 @@ contract RollupCore is
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
-    TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
+    TimeLib.initialize(
+      block.timestamp,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs
+    );
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
@@ -88,7 +93,6 @@ contract RollupCore is
     STFLib.initialize(_genesisState);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
@@ -195,8 +199,8 @@ contract RollupCore is
     StakingLib.finaliseWithdraw(_attester);
   }
 
-  function slash(address _attester, uint256 _amount) external override(IStakingCore) {
-    StakingLib.slash(_attester, _amount);
+  function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
+    return StakingLib.trySlash(_attester, _amount);
   }
 
   function prune() external override(IRollupCore) {

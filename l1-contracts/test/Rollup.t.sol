@@ -60,7 +60,10 @@ contract RollupTest is RollupBase {
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
@@ -103,13 +106,15 @@ contract RollupTest is RollupBase {
     _proposeBlock("mixed_block_1", 1);
     _proposeBlock("mixed_block_2", 2);
 
-    warpToL2Slot(rollup.getProofSubmissionWindow());
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()) - 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
     _proveBlocks("mixed_block_", 1, 1, address(this));
 
-    warpToL2Slot(rollup.getProofSubmissionWindow() + 1);
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()));
     rollup.prune();
 
     assertEq(rollup.getPendingBlockNumber(), 1);
@@ -301,7 +306,8 @@ contract RollupTest is RollupBase {
     _proposeBlock("mixed_block_1", 1);
 
     // the same block is proposed, with the diff in slot number.
-    _proposeBlock("mixed_block_1", rollup.getProofSubmissionWindow() + 1);
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+    _proposeBlock("mixed_block_1", Slot.unwrap(deadline.toSlots()));
 
     assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
@@ -476,7 +482,8 @@ contract RollupTest is RollupBase {
     }
 
     BlockLog memory blockLog = rollup.getBlock(0);
-    warpToL2Slot(rollup.getProofSubmissionWindow() - 1);
+    Epoch deadline = TimeLib.toDeadlineEpoch(Epoch.wrap(0));
+    warpToL2Slot(Slot.unwrap(deadline.toSlots()) - 1);
 
     address prover = address(0x1234);
 

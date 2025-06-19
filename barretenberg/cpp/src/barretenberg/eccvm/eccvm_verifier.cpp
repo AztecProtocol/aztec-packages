@@ -26,10 +26,10 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     RelationParameters<FF> relation_parameters;
 
-    ipa_transcript = std::make_shared<Transcript>(proof.ipa_proof);
-    transcript->enable_manifest();
+    ipa_transcript->load_proof(proof.ipa_proof);
     ipa_transcript->enable_manifest();
     transcript->load_proof(proof.pre_ipa_proof);
+    transcript->enable_manifest();
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
@@ -88,7 +88,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
         Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
-                                               key->pcs_verification_key->get_g1_identity(),
+                                               key->pcs_verification_key.get_g1_identity(),
                                                transcript,
                                                Flavor::REPEATED_COMMITMENTS,
                                                Flavor::HasZK,
@@ -115,7 +115,7 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     // Construct and verify the combined opening claim
     const OpeningClaim batch_opening_claim =
-        Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
+        Shplonk::reduce_verification(key->pcs_verification_key.get_g1_identity(), opening_claims, transcript);
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);

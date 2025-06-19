@@ -166,15 +166,7 @@ template <typename TranscriptParams> class BaseTranscript {
     // Indicates whether the transcript is receiving data from the prover
     bool reception_phase = true;
 
-    BaseTranscript() = default;
-
-    /**
-     * @brief Construct a new Base Transcript object for Verifier using proof_data
-     *
-     * @param proof_data
-     */
-    explicit BaseTranscript(const Proof& proof_data)
-        : proof_data(proof_data.begin(), proof_data.end())
+    BaseTranscript()
     {
         // If we are in circuit, we need to get a unique index for the transcript
         if constexpr (in_circuit) {
@@ -248,6 +240,8 @@ template <typename TranscriptParams> class BaseTranscript {
     };
 
   protected:
+    Proof proof_data; // Contains the raw data sent by the prover.
+
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -300,12 +294,12 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 
   public:
-    // Contains the raw data sent by the prover.
-    Proof proof_data;
-
     /**
      * @brief Return the proof data starting at proof_start
-     * @details This is useful for when two different provers share a transcript.
+     * @details This function returns the elements of the transcript in the interval [proof_start : proof_start +
+     * num_frs_written] and then updates proof_start. It is useful for when two provers share a transcript, as calling
+     * export_proof at the end of each provers' code returns the slices T_1, T_2 of the transcript that must be loaded
+     * by the verifiers via load_proof.
      */
     std::vector<Fr> export_proof()
     {
@@ -320,6 +314,13 @@ template <typename TranscriptParams> class BaseTranscript {
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
+
+    /**
+     * @brief Return the size of proof_data
+     *
+     * @return size_t
+     */
+    size_t size_proof_data() { return proof_data.size(); }
 
     /**
      * @brief Enables the manifest
@@ -567,7 +568,8 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>();
+        verifier_transcript->load_proof(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<Fr>("Init");
         return verifier_transcript;
     };

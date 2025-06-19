@@ -8,11 +8,22 @@ import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {Signature, SignatureLib__InvalidSignature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 contract VoteWithSigTest is GovernanceProposerBase {
+  using MessageHashUtils for bytes32;
+
   IPayload internal proposal = IPayload(address(0xdeadbeef));
   address internal proposer = address(0);
   Fakerollup internal validatorSelection;
+
+  uint256 internal privateKey = 0x1234567890;
+  Signature internal signature;
+
+  function setUp() public override {
+    super.setUp();
+  }
 
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
   function skip__test_WhenProposalHoldNoCode() external {
@@ -20,11 +31,13 @@ contract VoteWithSigTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__ProposalHaveNoCode.selector, proposal)
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.voteWithSig(proposal, signature);
   }
 
   modifier whenProposalHoldCode() {
     proposal = IPayload(address(this));
+    signature = createSignature(privateKey, proposal);
+
     _;
   }
 
@@ -40,11 +53,14 @@ contract VoteWithSigTest is GovernanceProposerBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.voteWithSig(proposal, signature);
   }
 
   modifier givenCanonicalRollupHoldCode() {
     validatorSelection = new Fakerollup();
+    proposer = vm.addr(privateKey);
+    validatorSelection.setProposer(proposer);
+
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(validatorSelection)));
 
@@ -62,44 +78,43 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     assertEq(Slot.unwrap(currentSlot), 1);
-    vm.prank(proposer);
-    governanceProposer.vote(proposal);
+    governanceProposer.voteWithSig(proposal, signature);
 
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.GovernanceProposer__VoteAlreadyCastForSlot.selector, currentSlot
       )
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.voteWithSig(proposal, signature);
   }
 
   modifier givenNoVoteAlreadyCastInTheSlot() {
     _;
   }
 
-  function test_WhenSigNotFromProposer(address _proposer)
+  function test_WhenSigNotFromProposer(uint256 _privateKey)
     external
     whenProposalHoldCode
     givenCanonicalRollupHoldCode
     givenNoVoteAlreadyCastInTheSlot
   {
-    // @todo
     // it revert
+
+    uint256 pk = bound(_privateKey, 1, type(uint128).max);
+
+    address _proposer = vm.addr(pk);
     vm.assume(_proposer != proposer);
-    vm.prank(_proposer);
+    signature = createSignature(pk, proposal);
+
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__OnlyProposerCanVote.selector, _proposer, proposer
-      )
+      abi.encodeWithSelector(SignatureLib__InvalidSignature.selector, proposer, _proposer)
     );
-    governanceProposer.vote(proposal);
+    governanceProposer.voteWithSig(proposal, signature);
   }
 
   modifier whenCallerIsProposer() {
     // Lets make sure that there first is a leader
     uint256 votesOnProposal = 5;
-
-    // @todo FIX THIS
 
     for (uint256 i = 0; i < votesOnProposal; i++) {
       vm.warp(
@@ -107,8 +122,8 @@ contract VoteWithSigTest is GovernanceProposerBase {
           validatorSelection.getTimestampForSlot(validatorSelection.getCurrentSlot() + Slot.wrap(1))
         )
       );
-      vm.prank(proposer);
-      governanceProposer.vote(proposal);
+      signature = createSignature(privateKey, proposal);
+      governanceProposer.voteWithSig(proposal, signature);
     }
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
@@ -152,6 +167,8 @@ contract VoteWithSigTest is GovernanceProposerBase {
       governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
 
     Fakerollup freshInstance = new Fakerollup();
+    freshInstance.setProposer(proposer);
+
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(freshInstance)));
 
@@ -160,10 +177,11 @@ contract VoteWithSigTest is GovernanceProposerBase {
     Slot freshSlot = freshInstance.getCurrentSlot();
     uint256 freshRound = governanceProposer.computeRound(freshSlot);
 
-    vm.prank(proposer);
+    signature = createSignature(privateKey, proposal);
+
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(proposal, freshRound, proposer);
-    assertTrue(governanceProposer.vote(proposal));
+    assertTrue(governanceProposer.voteWithSig(proposal, signature));
 
     // Check the new instance
     {
@@ -233,10 +251,11 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     uint256 yeaBefore = governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
-    vm.prank(proposer);
+    signature = createSignature(privateKey, proposal);
+
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(proposal, round, proposer);
-    assertTrue(governanceProposer.vote(proposal));
+    assertTrue(governanceProposer.voteWithSig(proposal, signature));
 
     (Slot lastVote, IPayload leader, bool executed) =
       governanceProposer.rounds(address(validatorSelection), round);
@@ -268,10 +287,11 @@ contract VoteWithSigTest is GovernanceProposerBase {
     uint256 leaderYeaBefore =
       governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
-    vm.prank(proposer);
+    signature = createSignature(privateKey, IPayload(address(validatorSelection)));
+
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
-    assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
+    assertTrue(governanceProposer.voteWithSig(IPayload(address(validatorSelection)), signature));
 
     (Slot lastVote, IPayload leader, bool executed) =
       governanceProposer.rounds(address(validatorSelection), round);
@@ -312,10 +332,11 @@ contract VoteWithSigTest is GovernanceProposerBase {
       governanceProposer.yeaCount(address(validatorSelection), round, proposal);
 
     for (uint256 i = 0; i < leaderYeaBefore + 1; i++) {
-      vm.prank(proposer);
+      signature = createSignature(privateKey, IPayload(address(validatorSelection)));
+
       vm.expectEmit(true, true, true, true, address(governanceProposer));
       emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
-      assertTrue(governanceProposer.vote(IPayload(address(validatorSelection))));
+      assertTrue(governanceProposer.voteWithSig(IPayload(address(validatorSelection)), signature));
 
       vm.warp(
         Timestamp.unwrap(
@@ -343,5 +364,32 @@ contract VoteWithSigTest is GovernanceProposerBase {
       );
       assertEq(Slot.unwrap(lastVote), Slot.unwrap(currentSlot) + leaderYeaBefore);
     }
+  }
+
+  function createSignature(uint256 _privateKey, IPayload _payload)
+    internal
+    view
+    returns (Signature memory)
+  {
+    address p = vm.addr(privateKey);
+    uint256 nonce = governanceProposer.nonces(p);
+    bytes32 domainSeparator = keccak256(
+      abi.encode(
+        keccak256(
+          "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+        ),
+        keccak256(bytes("EmpireBase")),
+        keccak256(bytes("1")),
+        block.chainid,
+        address(governanceProposer)
+      )
+    );
+    bytes32 digest = MessageHashUtils.toTypedDataHash(
+      domainSeparator, keccak256(abi.encode(governanceProposer.VOTE_TYPEHASH(), _payload, nonce))
+    );
+
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
+
+    return Signature({v: v, r: r, s: s});
   }
 }

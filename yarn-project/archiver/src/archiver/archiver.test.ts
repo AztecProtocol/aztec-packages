@@ -12,7 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { PrivateLog } from '@aztec/stdlib/logs';
@@ -21,7 +21,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
+import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';
@@ -122,14 +122,14 @@ describe('Archiver', () => {
     now = +new Date();
     publicClient = mock<ViemPublicClient>();
     publicClient.getChainId.mockResolvedValue(1);
-    publicClient.getBlock.mockImplementation(async (args: { blockNumber?: bigint } = {}) => {
+    publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint } = {}) => {
       args.blockNumber ??= await publicClient.getBlockNumber();
       return {
         number: args.blockNumber,
         timestamp: BigInt(args.blockNumber) * ETHEREUM_SLOT_DURATION + BigInt(now),
         hash: Buffer32.fromBigInt(BigInt(args.blockNumber)).toString(),
       } as FormattedBlock;
-    });
+    }) as any);
 
     blobSinkClient = mock<BlobSinkClientInterface>();
 
@@ -143,7 +143,7 @@ describe('Archiver', () => {
       epochDuration: 4,
       slotDuration: 24,
       ethereumSlotDuration: 12,
-      proofSubmissionWindow: 8,
+      proofSubmissionEpochs: 1,
     };
 
     archiver = new Archiver(
@@ -199,7 +199,7 @@ describe('Archiver', () => {
     );
     mockRollupRead.getVersion.mockImplementation(() => Promise.resolve(1n));
     mockRollupEvents = mock<MockRollupContractEvents>();
-    mockRollupEvents.L2BlockProposed.mockImplementation((filter: any, { fromBlock, toBlock }) =>
+    mockRollupEvents.L2BlockProposed.mockImplementation((_filter: any, { fromBlock, toBlock }) =>
       Promise.resolve(l2BlockProposedLogs.filter(log => log.blockNumber! >= fromBlock && log.blockNumber! <= toBlock)),
     );
     mockRollup = {
@@ -672,13 +672,13 @@ describe('Archiver', () => {
     });
 
     // And the corresponding rollup txs
-    publicClient.getTransaction.mockImplementation((args: { hash?: `0x${string}` }) => {
+    publicClient.getTransaction.mockImplementation(((args: { hash?: `0x${string}` }) => {
       const index = parseInt(withoutHexPrefix(args.hash!));
       if (index > blocks.length) {
         throw new Error(`Transaction not found: ${args.hash}`);
       }
       return Promise.resolve(rollupTxs[index - 1]);
-    });
+    }) as any);
 
     // And blobs
     blobSinkClient.getBlobSidecar.mockImplementation((_blockId: string, requestedBlobHashes?: Buffer[]) => {
@@ -826,13 +826,20 @@ async function makeRollupTx(l2Block: L2Block) {
     ],
   });
 
-  const forwarderInput = encodeFunctionData({
-    abi: ForwarderAbi,
-    functionName: 'forward',
-    args: [[EthAddress.ZERO.toString()], [rollupInput]],
+  const multiCallInput = encodeFunctionData({
+    abi: multicall3Abi,
+    functionName: 'aggregate3',
+    args: [
+      [
+        {
+          target: EthAddress.ZERO.toString(),
+          callData: rollupInput,
+          allowFailure: false,
+        },
+      ],
+    ],
   });
-
-  return { input: forwarderInput } as Transaction<bigint, number>;
+  return { input: multiCallInput } as Transaction<bigint, number>;
 }
 
 /**
