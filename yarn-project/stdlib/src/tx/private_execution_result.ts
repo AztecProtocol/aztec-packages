@@ -6,7 +6,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { NoteSelector } from '../abi/note_selector.js';
-import { AztecAddress } from '../aztec-address/index.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';

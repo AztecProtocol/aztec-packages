@@ -30,15 +30,13 @@ describe('e2e_offchain_effect', () => {
   afterAll(() => teardown());
 
   it('should emit offchain effects', async () => {
-    const effects = await Promise.all(
-      Array(3)
-        .fill(null)
-        .map(async (_, i) => ({
-          data: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
-          // eslint-disable-next-line camelcase
-          next_contract: i % 2 === 0 ? contract2.address : contract1.address,
-        })),
-    );
+    const effects = Array(3)
+      .fill(null)
+      .map((_, i) => ({
+        data: [Fr.random(), Fr.random(), Fr.random(), Fr.random(), Fr.random()],
+        // eslint-disable-next-line camelcase
+        next_contract: i % 2 === 0 ? contract2.address : contract1.address,
+      }));
 
     const provenTx = await contract1.methods.emit_offchain_effects(effects).prove();
 
