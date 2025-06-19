@@ -1,42 +1,36 @@
-use dep::protocol_types::{
+use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_DISPATCH_SELECTOR,
     traits::{Deserialize, FromField, Packable, ToField},
 };
 
-use crate::context::{
-    call_interfaces::{
-        CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+use crate::{
+    context::{
+        call_interfaces::{
+            CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+        },
+        PrivateCallInterface,
+        PrivateContext,
+        PrivateVoidCallInterface,
+        PublicCallInterface,
+        PublicContext,
+        PublicVoidCallInterface,
+        ReturnsHash,
+        UtilityCallInterface,
+        UtilityContext,
     },
-    PrivateCallInterface,
-    PrivateContext,
-    PrivateVoidCallInterface,
-    PublicCallInterface,
-    PublicContext,
-    PublicVoidCallInterface,
-    ReturnsHash,
-    UtilityCallInterface,
-    UtilityContext,
+    hash::hash_args,
+    note::note_interface::{NoteHash, NoteType},
+    oracle::{
+        execution::{get_block_number, get_contract_address, get_timestamp},
+        execution_cache,
+        notes::notify_created_note,
+    },
+    test::{helpers::{cheatcodes, utils::Deployer}, txe_constants::AZTEC_SLOT_DURATION},
 };
-use crate::hash::hash_args;
-use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::note_interface::{NoteHash, NoteType};
-use crate::oracle::{
-    execution::{get_block_number, get_contract_address, get_timestamp},
-    execution_cache,
-    notes::notify_created_note,
-};
 use super::cheatcodes::public_call_new_flow;
-
-// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
-// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
-// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
-// I get feedback.
-
-// Aztec slot duration is copied from TestConstants.sol.
-global AZTEC_SLOT_DURATION: u64 = 36;
 
 pub struct TestEnvironment {}
 

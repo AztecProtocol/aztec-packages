@@ -143,18 +143,9 @@ import type { UInt64 } from '@aztec/stdlib/types';
 import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/native';
 
 import { TXEStateMachine } from '../state_machine/index.js';
+import { AZTEC_SLOT_DURATION, GENESIS_TIMESTAMP } from '../txe_constants.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-
-// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
-// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
-// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
-// I get feedback.
-
-// Aztec slot duration is copied from TestConstants.sol.
-const AZTEC_SLOT_DURATION = 36n;
-// Put here Thu Jan 01 2026 00:00:00 GMT+0000. In the future we would want to use the actual genesis time here.
-const GENESIS_TIMESTAMP = 1767225600n;
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;

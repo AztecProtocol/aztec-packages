@@ -1,4 +1,10 @@
-use dep::protocol_types::{
+use crate::{
+    context::{call_interfaces::CallInterface, gas::GasOpts, PrivateContext, PublicContext},
+    hash::hash_args,
+    oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
+    test::{helpers::cheatcodes, txe_constants::AZTEC_SLOT_DURATION},
+};
+use protocol_types::{
     address::AztecAddress,
     contract_instance::ContractInstance,
     public_keys::PublicKeys,
@@ -7,26 +13,8 @@ use dep::protocol_types::{
 use std::meta::derive;
 
 // The following 2 lines have been added here because derivation of Serialize and Deserialize does not handle imports
-use dep::protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
+use protocol_types::public_keys::{IvpkM, NpkM, OvpkM, TpkM};
 use std::embedded_curve_ops::EmbeddedCurvePoint;
-
-use crate::context::call_interfaces::CallInterface;
-use crate::context::{PrivateContext, PublicContext};
-use crate::test::helpers::cheatcodes;
-
-use crate::context::gas::GasOpts;
-use crate::hash::hash_args;
-use crate::oracle::execution::get_block_number;
-use crate::oracle::execution::get_timestamp;
-use crate::oracle::execution_cache;
-
-// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
-// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
-// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
-// I get feedback.
-
-// Aztec slot duration is copied from TestConstants.sol.
-global AZTEC_SLOT_DURATION: u64 = 36;
 
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
