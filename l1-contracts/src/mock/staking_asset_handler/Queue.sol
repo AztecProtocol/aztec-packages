@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+// solhint-disable func-param-name-leading-underscore
+
 struct Queue {
   mapping(uint256 index => address addr) attester;
   mapping(uint256 index => address addr) proposer;

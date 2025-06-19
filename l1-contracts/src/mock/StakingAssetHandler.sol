@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+// solhint-disable quotes
+
 import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
-
+import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 /**
@@ -46,8 +47,6 @@ interface IStakingAssetHandler {
   event SkipBindCheckUpdated(bool _skipBindCheck);
   event SkipMerkleCheckUpdated(bool _skipMerkleCheck);
   event DepositMerkleRootUpdated(bytes32 _root);
-
-
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -94,12 +93,26 @@ interface IStakingAssetHandler {
   function getFrontOfQueue() external view returns (uint256);
   function getEndOfQueue() external view returns (uint256);
   function getRollup() external view returns (address);
-
 }
-
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   using QueueLib for Queue;
+
+  struct StakingAssetHandlerArgs {
+    address owner;
+    address stakingAsset;
+    IRegistry registry;
+    address withdrawer;
+    uint256 mintInterval;
+    uint256 depositsPerMint;
+    bytes32 depositMerkleRoot;
+    ZKPassportVerifier zkPassportVerifier;
+    address[] unhinged;
+    string scope;
+    string subscope;
+    bool skipBindCheck;
+    bool skipMerkleCheck;
+  }
 
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
@@ -125,25 +138,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   string public validScope;
   string public validSubscope;
 
-  struct StakingAssetHandlerArgs {
-    address owner;
-    address stakingAsset;
-    IRegistry registry;
-    address withdrawer;
-    uint256 mintInterval;
-    uint256 depositsPerMint;
-    bytes32 depositMerkleRoot;
-    ZKPassportVerifier zkPassportVerifier;
-    address[] unhinged;
-    string scope;
-    string subscope;
-    bool skipBindCheck;
-    bool skipMerkleCheck;
-  }
-
-  constructor(
-    StakingAssetHandlerArgs memory _args
-  ) Ownable(_args.owner) {
+  constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
 
     STAKING_ASSET = IMintableERC20(_args.stakingAsset);
@@ -312,7 +307,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit SkipBindCheckUpdated(_skipBindCheck);
   }
 
-  function setSkipMerkleCheck(bool _skipMerkleCheck) external override(IStakingAssetHandler) onlyOwner {
+  function setSkipMerkleCheck(bool _skipMerkleCheck)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     skipMerkleCheck = _skipMerkleCheck;
     emit SkipMerkleCheckUpdated(_skipMerkleCheck);
   }
@@ -336,18 +335,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function getEndOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
     return entryQueue.getLast();
-  }
-
-  function _validateMerkleProof(
-    address _attester,
-    bytes32[] memory _merkleProof
-  ) internal view {
-    if (!skipMerkleCheck) {
-      require(msg.sender == _attester, AttesterNotSender());
-
-      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
-      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
-    }
   }
 
   /**
@@ -432,6 +419,23 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       emit ValidatorAdded(address(_rollup), _attester, _proposer, withdrawer);
     } catch {
       // Allow the deposit call to fail silently e.g. when the attester has already been added
+    }
+  }
+
+  /**
+   * Validate Merkle Proof
+   *
+   * Check the provided merkle proof is correct for the given address
+   *
+   * @param _attester - the attester
+   * @param _merkleProof - a merkle proof for the attester
+   */
+  function _validateMerkleProof(address _attester, bytes32[] memory _merkleProof) internal view {
+    if (!skipMerkleCheck) {
+      require(msg.sender == _attester, AttesterNotSender());
+
+      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
+      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
     }
   }
 }

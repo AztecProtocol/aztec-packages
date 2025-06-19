@@ -71,7 +71,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
       emit IStakingAssetHandler.AddedToQueue(validators[i], validators[i], 1 + i);
       vm.prank(caller);
-      stakingAssetHandler.addValidatorToQueue(validators[i], validators[i], validMerkleProof, realProof);
+      stakingAssetHandler.addValidatorToQueue(
+        validators[i], validators[i], validMerkleProof, realProof
+      );
 
       // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
       mockZKPassportVerifier.incrementUniqueIdentifier();
@@ -96,7 +98,9 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       address(0xbeefdeef), address(0xbeefdeef), _depositsPerMint + 1
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), address(0xbeefdeef), validMerkleProof, realProof);
+    stakingAssetHandler.addValidatorToQueue(
+      address(0xbeefdeef), address(0xbeefdeef), validMerkleProof, realProof
+    );
 
     // it reverts when adding one more validator
     vm.expectRevert(

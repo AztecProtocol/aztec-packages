@@ -12,7 +12,8 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract ConstructorTest is StakingAssetHandlerBase {
   function test_WhenDepositsPerMintIs0() external {
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler.StakingAssetHandlerArgs({
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
       owner: address(this),
       stakingAsset: address(0),
       registry: registry,
@@ -83,8 +84,8 @@ contract ConstructorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.DepositMerkleRootUpdated(_depositMerkleRoot);
 
-
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler.StakingAssetHandlerArgs({
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
       owner: _owner,
       stakingAsset: _stakingAsset,
       registry: registry,
@@ -101,9 +102,7 @@ contract ConstructorTest is StakingAssetHandlerBase {
     });
 
     vm.prank(_owner);
-    stakingAssetHandler = new StakingAssetHandler(
-      stakingAssetHandlerArgs
-    );
+    stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     assertEq(stakingAssetHandler.owner(), _owner);
     assertEq(address(stakingAssetHandler.STAKING_ASSET()), _stakingAsset);
     assertEq(address(stakingAssetHandler.getRollup()), address(registry.getCanonicalRollup()));
