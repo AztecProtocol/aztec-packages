@@ -1,12 +1,12 @@
 use aztec::macros::aztec;
 
-/// This contract is used to test that emitting offchain messages works correctly.
+/// This contract is used to test that emitting offchain effects works correctly.
 #[aztec]
 contract OffchainEffect {
     use aztec::{
-        event::event_interface::emit_event_as_offchain_effect,
+        event::event_interface::emit_event_as_offchain_message,
         macros::{events::event, functions::{private, utility}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_effect,
+        messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         prelude::{AztecAddress, Map, PrivateSet},
@@ -48,16 +48,16 @@ contract OffchainEffect {
     }
 
     #[private]
-    fn emit_event_as_offchain_effect_for_msg_sender(a: u64, b: u64, c: u64) {
-        emit_event_as_offchain_effect(TestEvent { a, b, c }, &mut context, context.msg_sender());
+    fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
+        emit_event_as_offchain_message(TestEvent { a, b, c }, &mut context, context.msg_sender());
     }
 
     #[private]
-    fn emit_note_as_offchain_effect(value: u128, owner: AztecAddress) {
+    fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote::new(value, owner);
 
         storage.balances.at(owner).insert(note).emit(
-            encode_and_encrypt_note_and_emit_as_offchain_effect(
+            encode_and_encrypt_note_and_emit_as_offchain_message(
                 &mut context,
                 context.msg_sender(),
                 context.msg_sender(),

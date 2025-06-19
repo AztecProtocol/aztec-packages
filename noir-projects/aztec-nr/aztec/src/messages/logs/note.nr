@@ -4,20 +4,17 @@ use crate::{
         encoding::encode_message,
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         logs::utils::prefix_with_tag,
-        msg_type::{
-            OFFCHAIN_MESSAGE_IDENTIFIER, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
-        },
+        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
+        offchain_messages::emit_offchain_message,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    oracle::offchain_effect::emit_offchain_effect,
     utils::{array::subarray::subarray, remove_constraints::remove_constraints},
 };
 use protocol_types::{
     abis::note_hash::NoteHash,
     address::AztecAddress,
     constants::{PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS},
-    traits::{Packable, ToField},
-    utils::arrays::array_concat,
+    traits::Packable,
 };
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
@@ -160,7 +157,7 @@ where
 /// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
 /// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
 /// `oracle::offchain_effect::emit_offchain_effect` for more details on delivery guarantees.
-pub fn encode_and_encrypt_note_and_emit_as_offchain_effect<Note, let N: u32>(
+pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,
     // We need this because to compute a tagging secret, we require a sender:
@@ -186,11 +183,6 @@ where
         // the tag.
         let message_ciphertext: [_; PRIVATE_LOG_CIPHERTEXT_LEN] = subarray(encrypted_log, 1);
 
-        let message_with_id_and_recipient = array_concat(
-            [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()],
-            message_ciphertext,
-        );
-
-        emit_offchain_effect(message_with_id_and_recipient);
+        emit_offchain_message(message_ciphertext, recipient);
     }
 }

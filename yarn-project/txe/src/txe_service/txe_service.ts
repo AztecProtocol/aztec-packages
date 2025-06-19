@@ -881,7 +881,7 @@ export class TXEService {
       );
     }
 
-    // Offchain messages are currently discarded in the TXE tests.
+    // Offchain effects are currently discarded in the TXE tests.
     // TODO: Expose this to the tests.
 
     return toForeignCallResult([]);

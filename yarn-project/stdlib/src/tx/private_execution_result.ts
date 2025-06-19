@@ -245,7 +245,7 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
 }
 
 /**
- * Collect all offchain messages emitted across all nested executions.
+ * Collect all offchain effects emitted across all nested executions.
  * @param execResult - The execution result to collect offchain effects from.
  * @returns Array of offchain effects.
  */
@@ -256,10 +256,10 @@ export function collectOffchainEffects(execResult: PrivateExecutionResult): Offc
         ...msg,
         contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the effect
       })),
-      ...callResult.nestedExecutions.flatMap(nested => collectMessagesRecursive(nested)),
+      ...callResult.nestedExecutions.flatMap(nested => collectEffectsRecursive(nested)),
     ];
   };
-  return collectMessagesRecursive(execResult.entrypoint);
+  return collectEffectsRecursive(execResult.entrypoint);
 }
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {

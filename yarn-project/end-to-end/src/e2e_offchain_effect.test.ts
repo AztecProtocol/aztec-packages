@@ -40,7 +40,7 @@ describe('e2e_offchain_effect', () => {
 
     const provenTx = await contract1.methods.emit_offchain_effects(effects).prove();
 
-    // The expected order of offchain messages is the reverse because the messages are popped from the end of the input
+    // The expected order of offchain effects is the reverse because the messages are popped from the end of the input
     // BoundedVec.
     const expectedOffchainEffects = effects
       .map((effect, i) => ({
@@ -52,14 +52,14 @@ describe('e2e_offchain_effect', () => {
     expect(provenTx.offchainEffects).toEqual(expectedOffchainEffects);
   });
 
-  it('should not emit any offchain messages', async () => {
+  it('should not emit any offchain effects', async () => {
     const provenTx = await contract1.methods.emit_offchain_effects([]).prove();
     expect(provenTx.offchainEffects).toEqual([]);
   });
 
-  it('should revert when emitting offchain message from utility function', async () => {
+  it('should revert when emitting offchain effects from utility function', async () => {
     await expect(contract1.methods.emitting_offchain_effect_from_utility_reverts().simulate()).rejects.toThrow(
-      'Cannot emit offchain message from a utility function',
+      'Cannot emit offchain effect from a utility function',
     );
   });
 

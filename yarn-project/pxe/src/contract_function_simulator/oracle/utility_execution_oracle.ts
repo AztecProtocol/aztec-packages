@@ -356,6 +356,6 @@ export class UtilityExecutionOracle extends TypedOracle {
   }
 
   public override emitOffchainEffect(_data: Fr[]): Promise<void> {
-    return Promise.reject(new Error('Cannot emit offchain message from a utility function'));
+    return Promise.reject(new Error('Cannot emit offchain effects from a utility function'));
   }
 }

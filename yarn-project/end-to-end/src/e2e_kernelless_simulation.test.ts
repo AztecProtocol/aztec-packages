@@ -23,7 +23,7 @@ import { setup } from './fixtures/utils.js';
  * An AccountWallet that copies the address of another account, and then
  * uses the simulation overrides feature to execute different contract code under
  * the copied address. This is used to bypass authwit verification entirely
- * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain messages
+ * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain effects
  * so they can later be compared to the ones that would actually be verified by the real
  * account contract.
  */
