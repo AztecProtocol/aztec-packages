@@ -568,7 +568,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     // N.B. points and point_schedule MAY HAVE DIFFERENT SIZES
     // We source the number of actual points we work on from the point schedule
     size_t num_points = point_schedule.size();
-    auto& overflow_exists = bucket_data.bucket_exists;
+    auto& bucket_accumulator_exists = bucket_data.bucket_exists;
     auto& affine_addition_scratch_space = affine_data.points_to_add;
     auto& bucket_accumulators = bucket_data.buckets;
     auto& affine_addition_output_bucket_destinations = affine_data.addition_result_bucket_destinations;
@@ -614,9 +614,9 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
         size_t rhs_point = static_cast<size_t>(rhs_schedule >> 32);
 
-        bool has_overflow = overflow_exists.get(lhs_bucket);
+        bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
         bool buckets_match = lhs_bucket == rhs_bucket;
-        bool do_affine_add = buckets_match || has_overflow;
+        bool do_affine_add = buckets_match || has_bucket_accumulator;
 
         const AffineElement* lhs_source = &points[lhs_point];
         const AffineElement* rhs_source = buckets_match ? &points[rhs_point] : &bucket_accumulators[lhs_bucket];
@@ -628,7 +628,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         AffineElement* rhs_destination =
             do_affine_add ? &affine_addition_scratch_space[affine_input_it + 1] : &null_location;
 
-        // if performing an affine add, the result destination is the corresponding bucket
+        // if performing an affine add, set the destination bucket corresponding to the addition result
         uint64_t& source_bucket_destination = affine_addition_output_bucket_destinations[affine_input_it >> 1];
         source_bucket_destination = do_affine_add ? lhs_bucket : source_bucket_destination;
 
@@ -636,13 +636,12 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         *lhs_destination = *lhs_source;
         *rhs_destination = *rhs_source;
 
-        // overflow_exists = will bucket_accumulators[lhs_bucket] contain a point after this iteration?
-        bool is_point_to_point_addition = has_overflow && buckets_match; // as opposed to point-into-bucket addition
-        bool is_point_caching = !do_affine_add; // lhs is cached into bucket_accumulators[lhs_bucket]
-        // If we are performing a point-into-bucket addition, the bucket accumulator is "consumed" and will not exist at
-        // the next round. Otherwise the accumulator will be the result of the point-to-point affine addition or simply
-        // the cached lhs point.
-        overflow_exists.set(lhs_bucket, is_point_to_point_addition || is_point_caching);
+        // indicate whether bucket_accumulators[lhs_bucket] will contain a point after this iteration
+        bucket_accumulator_exists.set(
+            lhs_bucket,
+            (has_bucket_accumulator && buckets_match) || /* bucket has an accum and its not being used in current add */
+                !do_affine_add);                         /* lhs point is cached into the bucket */
+
         affine_input_it += do_affine_add ? 2 : 0;
         point_it += (do_affine_add && buckets_match) ? 2 : 1;
     }
@@ -652,19 +651,19 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         uint64_t lhs_schedule = point_schedule[point_it];
         size_t lhs_bucket = static_cast<size_t>(lhs_schedule) & 0xFFFFFFFF;
         size_t lhs_point = static_cast<size_t>(lhs_schedule >> 32);
-        bool has_overflow = overflow_exists.get(lhs_bucket);
+        bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
 
-        if (has_overflow) { // point is added to its bucket accumulator
+        if (has_bucket_accumulator) { // point is added to its bucket accumulator
             affine_addition_scratch_space[affine_input_it] = points[lhs_point];
             affine_addition_scratch_space[affine_input_it + 1] = bucket_accumulators[lhs_bucket];
-            overflow_exists.set(lhs_bucket, false);
+            bucket_accumulator_exists.set(lhs_bucket, false);
             affine_addition_output_bucket_destinations[affine_input_it >> 1] = lhs_bucket;
             affine_input_it += 2;
             point_it += 1;
         } else { // otherwise, cache the point into the bucket
             BB_ASSERT_LT(lhs_point, points.size());
             bucket_accumulators[lhs_bucket] = points[lhs_point];
-            overflow_exists.set(lhs_bucket, true);
+            bucket_accumulator_exists.set(lhs_bucket, true);
             point_it += 1;
         }
     }
@@ -689,11 +688,11 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
     while ((affine_output_it < (num_affine_output_points - 1)) && (num_affine_output_points > 0)) {
         size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
         size_t rhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it + 1]);
-        BB_ASSERT_LT(lhs_bucket, overflow_exists.size());
+        BB_ASSERT_LT(lhs_bucket, bucket_accumulator_exists.size());
 
-        bool has_overflow = overflow_exists.get(lhs_bucket);
+        bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
         bool buckets_match = (lhs_bucket == rhs_bucket);
-        bool do_affine_add = buckets_match || has_overflow;
+        bool do_affine_add = buckets_match || has_bucket_accumulator;
 
         const AffineElement* lhs_source = &affine_output[affine_output_it];
         const AffineElement* rhs_source =
@@ -710,7 +709,7 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
         *lhs_destination = *lhs_source;
         *rhs_destination = *rhs_source;
 
-        overflow_exists.set(lhs_bucket, (has_overflow && buckets_match) || !do_affine_add);
+        bucket_accumulator_exists.set(lhs_bucket, (has_bucket_accumulator && buckets_match) || !do_affine_add);
         new_scratch_space_it += do_affine_add ? 2 : 0;
         affine_output_it += (do_affine_add && buckets_match) ? 2 : 1;
     }
@@ -719,20 +718,20 @@ void MSM<Curve>::consume_point_schedule(std::span<const uint64_t> point_schedule
 
         size_t lhs_bucket = static_cast<size_t>(affine_addition_output_bucket_destinations[affine_output_it]);
 
-        bool has_overflow = overflow_exists.get(lhs_bucket);
-        if (has_overflow) {
+        bool has_bucket_accumulator = bucket_accumulator_exists.get(lhs_bucket);
+        if (has_bucket_accumulator) {
             BB_ASSERT_LT(new_scratch_space_it + 1, affine_addition_scratch_space.size());
             BB_ASSERT_LT(lhs_bucket, bucket_accumulators.size());
             BB_ASSERT_LT(new_scratch_space_it >> 1, output_point_schedule.size());
             affine_addition_scratch_space[new_scratch_space_it] = affine_output[affine_output_it];
             affine_addition_scratch_space[new_scratch_space_it + 1] = bucket_accumulators[lhs_bucket];
-            overflow_exists.set(lhs_bucket, false);
+            bucket_accumulator_exists.set(lhs_bucket, false);
             output_point_schedule[new_scratch_space_it >> 1] = lhs_bucket;
             new_scratch_space_it += 2;
             affine_output_it += 1;
         } else {
             bucket_accumulators[lhs_bucket] = affine_output[affine_output_it];
-            overflow_exists.set(lhs_bucket, true);
+            bucket_accumulator_exists.set(lhs_bucket, true);
             affine_output_it += 1;
         }
     }
