@@ -66,16 +66,14 @@ where
     // Note: we assert that the counters of the private call requests are in ascending
     // order, within `PrivateCallDataValidator.validate_counters`.
 
-    // If the first_fully_revertible_private_call_index_hint is 0, then the min_revertible_size_effect_counter should have been set before any of the nested function calls. We need to validate this in here.
+    // If the first_fully_revertible_private_call_index_hint is 0, then the min_revertible_side_effect_counter should have been set before any of the nested function calls. We need to validate this in here.
     // If the first_fully_revertible_private_call_index_hint is some other valid index of a nested private call request, then the min_revertible_size_effect_counter should have been set _in between_ that private call and the previous private call. We need to validate this.
     // If the first_fully_revertible_private_call_index_hint is none, then:
     // - It means the min_revertible_size_effect_counter must get set after all of these nested private function call requests.
     if first_fully_revertible_private_call_index_hint.is_some() {
         // 0 <= index < num_private_call_requests:
         let index = first_fully_revertible_private_call_index_hint.unwrap_unchecked();
-        let first_fully_revertible_private_call_request = private_call_requests[
-            first_fully_revertible_private_call_index_hint
-                .unwrap_unchecked()];
+        let first_fully_revertible_private_call_request = private_call_requests[index];
         assert(
             min_revertible_side_effect_counter
                 <= first_fully_revertible_private_call_request.counter_start(),

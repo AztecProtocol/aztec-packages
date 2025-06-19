@@ -14,7 +14,10 @@ pub struct PrivateKernelData {
 }
 
 impl PrivateKernelData {
-    // TODO: duplicate of a function in vk_data.nr?
+    // Note: There's a similarly-named function in vk_data.nr.
+    // This function is different, in that it lets us set only PRIVATE_KERNEL_RESET_INDEX
+    // in the allowed_indices to allow all the reset circuits.
+    // So unfortunately we can't use the same function in vk_data.nr.
     pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         let index_in_allowed_list = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_INDEX {
             // Kernel circuits only need to include PRIVATE_KERNEL_RESET_INDEX in the list to allow all private kernel reset variants.
@@ -32,8 +35,6 @@ impl PrivateKernelData {
         assert(maybe_index_hint.is_some(), "Invalid vk index");
         let index_hint = maybe_index_hint.unwrap_unchecked();
 
-        // TODO: can we remove this `<` check, given the `unwrap()` call? Maybe not: maybe we still need to check that it's not some value like N + 5.
-        assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], index_in_allowed_list, "Invalid vk index");
 
         assert_check_membership(

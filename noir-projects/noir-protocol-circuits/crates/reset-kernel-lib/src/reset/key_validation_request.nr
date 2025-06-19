@@ -46,10 +46,8 @@ fn verify_key_validation_request(
     );
 }
 
-// `key_validation_amount` should be a known constant at compile time.
-// ^^^ ... then perhaps we should pass it as a generic, instead of as a param?
-// Is there a way to mark a param as `comptime`?
-// For reset variants, the constant is defined in the main.nr files and passed down to this function.
+// `key_validation_amount` is a known constant at compile time. For all such reset variant
+// amounts, the constant is defined in the main.nr files and passed down to this function.
 pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
     key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
     hints: [KeyValidationHint; HINTS_LEN],

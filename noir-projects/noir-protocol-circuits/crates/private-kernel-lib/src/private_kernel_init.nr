@@ -67,9 +67,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call_data_validator.validate_proof(true /* is_first_app */);
 
         private_call_data_validator.validate_as_first_call();
-        // TODO: consider removing the tx_request and this logic. (It won't reduce constraints, but it does reduce code):
-        // Edit: oh, looks like the first nullifier is calculated as hash(tx_request), if no nullifier exists from the first fn call. Hmmm.
-        // The TxRequest _could_ be constructed inside the `create_protocol_nullifier` function, if we wanted to remove it from the args of this kernel circuit.
 
         private_call_data_validator.validate_against_tx_request(self.tx_request);
         // Q: missing some checks that are included in `validate_against_call_request`?
