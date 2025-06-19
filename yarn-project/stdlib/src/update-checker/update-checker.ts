@@ -136,7 +136,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
       if (
         publicTelemetry &&
         Object.keys(publicTelemetry).length > 0 &&
-        !isDeepStrictEqual(publicTelemetry, this.lastPachedPublicTelemetryConfig)
+        !isDeepStrictEqual(publicTelemetry, this.lastPatchedPublicTelemetryConfig)
       ) {
         this.log.debug('New metrics config', { config });
         this.lastPatchedPublicTelemetryConfig = publicTelemetry;
