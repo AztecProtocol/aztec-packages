@@ -79,7 +79,6 @@ library Errors {
   error GSE__FailedToRemove(address);
   error GSE__InstanceDoesNotExist(address);
   error GSE__NotWithdrawer(address, address);
-  error GSE__EmptyVoter();
   error GSE__OutOfBounds(uint256, uint256);
   error GSE__FatalError(string);
 

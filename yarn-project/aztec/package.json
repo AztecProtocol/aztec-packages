@@ -72,7 +72,7 @@
   "types": "./dest/index.d.ts",
   "devDependencies": {
     "@jest/globals": "^30.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/koa": "^2.15.0",
     "jest": "^30.0.0",
     "ts-node": "^10.9.1",

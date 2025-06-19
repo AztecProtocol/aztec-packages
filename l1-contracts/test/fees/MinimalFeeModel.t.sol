@@ -26,6 +26,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
+  uint256 internal constant PROOF_SUBMISSION_EPOCHS = 1;
 
   MinimalFeeModel internal model;
 
@@ -44,7 +45,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION);
+    model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
     model.setProvingCost(provingCost);
   }
 

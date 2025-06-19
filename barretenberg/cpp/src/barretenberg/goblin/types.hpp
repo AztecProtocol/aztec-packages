@@ -7,8 +7,8 @@
 #pragma once
 
 #include "barretenberg/eccvm/eccvm_prover.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 
 namespace bb {
 struct GoblinAccumulationOutput {

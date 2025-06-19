@@ -101,7 +101,7 @@ describe('SequencerPublisher', () => {
       L1TxUtilsConfig;
 
     rollup = mock<RollupContract>();
-    rollup.validateHeader.mockResolvedValue(Promise.resolve());
+    rollup.validateHeader.mockReturnValue(Promise.resolve());
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
@@ -129,7 +129,7 @@ describe('SequencerPublisher', () => {
       gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
-    (l1TxUtils as any).simulateGasUsed.mockResolvedValue(1_000_000n);
+    (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
     (l1TxUtils as any).client = {
       account: {
@@ -256,8 +256,11 @@ describe('SequencerPublisher', () => {
         },
       ],
       l1TxUtils,
-      // val + (val * 20n) / 100n
-      { gasLimit: 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n },
+      // vote + val + (val * 20n) / 100n
+      {
+        gasLimit: SequencerPublisher.VOTE_GAS_GUESS + 1_000_000n + GAS_GUESS + ((1_000_000n + GAS_GUESS) * 20n) / 100n,
+        txTimeoutAt: undefined,
+      },
       { blobs: expectedBlobs.map(b => b.data), kzg },
       mockRollupAddress,
       expect.anything(), // the logger
@@ -278,11 +281,11 @@ describe('SequencerPublisher', () => {
   });
 
   it('does not send propose tx if rollup validation fails', async () => {
-    rollup.validateHeader.mockRejectedValueOnce(new Error('Test error'));
+    l1TxUtils.simulate.mockRejectedValueOnce(new Error('Test error'));
 
     await expect(publisher.enqueueProposeL2Block(l2Block)).rejects.toThrow();
 
-    expect(rollup.validateHeader).toHaveBeenCalledTimes(1);
+    expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
 
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);

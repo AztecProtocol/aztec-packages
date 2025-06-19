@@ -1,8 +1,8 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -103,7 +103,9 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
         ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-        auto manifest = AvmFlavor::Transcript(proof).get_manifest();
+        auto avm_transcript = AvmFlavor::Transcript();
+        avm_transcript.load_proof(proof);
+        auto manifest = avm_transcript.get_manifest();
         auto recursive_manifest = recursive_verifier.transcript->get_manifest();
 
         // We sanity check that the recursive manifest matches its counterpart one.

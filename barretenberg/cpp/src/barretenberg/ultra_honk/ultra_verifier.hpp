@@ -6,11 +6,11 @@
 
 #pragma once
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -36,10 +36,10 @@ template <typename Flavor> class UltraVerifier_ {
 
     bool verify_proof(const HonkProof& proof, const HonkProof& ipa_proof = {});
 
-    std::shared_ptr<Transcript> ipa_transcript{ nullptr };
+    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
     std::shared_ptr<DeciderVK> verification_key;
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    std::shared_ptr<Transcript> transcript{ nullptr };
+    std::shared_ptr<Transcript> transcript;
 };
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;
