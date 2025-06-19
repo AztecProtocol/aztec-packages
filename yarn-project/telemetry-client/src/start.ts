@@ -17,7 +17,7 @@ export function initTelemetryClient(config: TelemetryClientConfig): TelemetryCli
     return telemetry;
   }
 
-  if (config.metricsCollectorUrl) {
+  if (config.metricsCollectorUrl || config.publicMetricsCollectorUrl) {
     log.info(`Using OpenTelemetry client with custom collector`);
     telemetry = OpenTelemetryClient.createAndStart(config, log);
   } else {
