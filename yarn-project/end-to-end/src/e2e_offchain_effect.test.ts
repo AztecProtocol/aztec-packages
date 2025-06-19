@@ -59,7 +59,7 @@ describe('e2e_offchain_effect', () => {
 
   it('should revert when emitting offchain effects from utility function', async () => {
     await expect(contract1.methods.emitting_offchain_effect_from_utility_reverts().simulate()).rejects.toThrow(
-      'Cannot emit offchain effect from a utility function',
+      'Cannot emit offchain effects from a utility function',
     );
   });
 
