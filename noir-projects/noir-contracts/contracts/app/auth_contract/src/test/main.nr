@@ -1,20 +1,10 @@
-use crate::Auth;
-use crate::Auth::CHANGE_AUTHORIZED_DELAY;
-use crate::test::utils;
+use crate::{Auth, test::utils};
 
-use dep::aztec::prelude::AztecAddress;
-use dep::aztec::protocol_types::traits::FromField;
-use dep::aztec::protocol_types::traits::ToField;
-
-// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
-// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
-// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
-// I get feedback.
-
-// Aztec slot duration is copied from TestConstants.sol.
-global AZTEC_SLOT_DURATION: u64 = 36;
-// Put here Thu Jan 01 2026 00:00:00 GMT+0000. In the future we would want to use the actual genesis time here.
-global GENESIS_TIMESTAMP: u64 = 1767225600;
+use aztec::{
+    prelude::AztecAddress,
+    protocol_types::traits::FromField,
+    test::txe_constants::{AZTEC_SLOT_DURATION, GENESIS_TIMESTAMP},
+};
 
 // TODO (#8588): These were ported over directly from e2e tests. Refactor these in the correct TXe style.
 #[test]
@@ -35,7 +25,7 @@ unconstrained fn main() {
     };
     non_admin_cannot_set_unauthorized();
 
-    let expected_timestamp_of_first_change = GENESIS_TIMESTAMP + CHANGE_AUTHORIZED_DELAY;
+    let expected_timestamp_of_first_change = GENESIS_TIMESTAMP + Auth::CHANGE_AUTHORIZED_DELAY;
 
     let admin_sets_authorized = || {
         env.impersonate(admin);
@@ -111,7 +101,7 @@ unconstrained fn main() {
     authorized_becomes_effective_after_delay();
 
     let expected_timestamp_of_second_change =
-        expected_timestamp_of_first_change + AZTEC_SLOT_DURATION + CHANGE_AUTHORIZED_DELAY;
+        expected_timestamp_of_first_change + AZTEC_SLOT_DURATION + Auth::CHANGE_AUTHORIZED_DELAY;
 
     let authorize_other = || {
         env.impersonate(admin);
