@@ -30,7 +30,7 @@ contract ClaimBlockRewardsTest is RewardDistributorBase {
     vm.record();
     vm.prank(caller);
     assertEq(rewardDistributor.claimBlockRewards(caller, _blocks), 0);
-    (, bytes32[] memory writes) = vm.accesses(address(this));
+    (, bytes32[] memory writes) = vm.accesses(address(token));
     assertEq(writes.length, 0);
   }
 
