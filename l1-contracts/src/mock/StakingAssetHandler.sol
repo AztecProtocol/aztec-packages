@@ -364,8 +364,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    */
   function _validateMerkleProof(address _attester, bytes32[] memory _merkleProof) internal view {
     if (!skipMerkleCheck) {
-      require(msg.sender == _attester, AttesterNotSender());
-
       bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
       require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
     }
