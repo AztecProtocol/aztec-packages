@@ -2,6 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.27;
 
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
+
 /**
  * @notice The domain separator for the signatures
  */
@@ -40,13 +42,9 @@ library SignatureLib {
     pure
     returns (bool)
   {
-    address recovered = ecrecover(_digest, _signature.v, _signature.r, _signature.s);
+    address recovered = ECDSA.recover(_digest, _signature.v, _signature.r, _signature.s);
     require(_signer == recovered, SignatureLib__InvalidSignature(_signer, recovered));
     return true;
-  }
-
-  function toBytes(Signature memory _signature) internal pure returns (bytes memory) {
-    return abi.encodePacked(_signature.r, _signature.s, _signature.v);
   }
 
   function isEmpty(Signature memory _signature) internal pure returns (bool) {
