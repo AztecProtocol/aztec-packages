@@ -116,14 +116,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
             this->circuit_size.convert_constant_to_fixed_witness(builder);
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-<<<<<<< HEAD
             this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
-=======
-            // num_public_inputs && pub_inputs aren't used in the circuit
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
->>>>>>> 492be8376a (last commit before PR)
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
