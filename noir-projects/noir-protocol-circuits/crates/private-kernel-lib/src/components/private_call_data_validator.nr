@@ -123,7 +123,7 @@ impl PrivateCallDataValidator {
         validate_contract_address(self.data, protocol_contract_tree_root);
 
         // Restrict the side effects that may be emitted by the call (Consider renaming):
-        self.validate_call();
+        self.restrict_side_effects();
 
         self.validate_private_call_requests();
         self.validate_public_call_requests();
@@ -223,8 +223,8 @@ impl PrivateCallDataValidator {
     }
 
     // Perhaps rename this to "restrict_side_effects", as that seems to be the nature of this call.
-    // "validate_call" is not descriptive enough.
-    fn validate_call(self) {
+    // "restrict_side_effects" is not descriptive enough.
+    fn restrict_side_effects(self) {
         let call_context = self.data.public_inputs.call_context;
         // Note: See `validate_private_call_requests` for how we ensure that _nested calls_
         // of a staticcall are also staticcalls.

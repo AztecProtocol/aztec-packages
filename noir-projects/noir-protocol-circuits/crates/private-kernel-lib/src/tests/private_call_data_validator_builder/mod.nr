@@ -3,7 +3,7 @@ mod validate_against_previous_kernel;
 mod validate_against_tx_request;
 mod validate_arrays;
 mod validate_as_first_call;
-mod validate_call;
+mod restrict_side_effects;
 mod validate_call_requests;
 mod validate_contract_address;
 mod validate_counters;
