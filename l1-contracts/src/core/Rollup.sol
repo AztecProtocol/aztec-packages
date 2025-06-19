@@ -89,12 +89,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @notice  Validate a header for submission
    *
    * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
    *
    * @param _header - The header to validate
    * @param _attestations - The attestations to validate
    * @param _digest - The digest to validate
-   * @param _currentTime - The current time
    * @param _blobsHash - The blobs hash for this block
    * @param _flags - The flags to validate
    */
@@ -102,17 +100,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external override(IRollup) {
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
     ExtRollupLib.validateHeader(
       ValidateHeaderArgs({
         header: _header,
         attestations: _attestations,
         digest: _digest,
-        currentTime: _currentTime,
-        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        manaBaseFee: getManaBaseFeeAt(currentTime, true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       })
@@ -222,6 +219,10 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getEpochDuration() external view override(IValidatorSelection) returns (uint256) {
     return TimeLib.getStorage().epochDuration;
+  }
+
+  function getProofSubmissionEpochs() external view override(IRollup) returns (uint256) {
+    return TimeLib.getStorage().proofSubmissionEpochs;
   }
 
   function getSlasher() external view override(IStaking) returns (address) {
@@ -494,10 +495,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (Epoch)
   {
     return _slotNumber.epochFromSlot();
-  }
-
-  function getProofSubmissionWindow() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().config.proofSubmissionWindow;
   }
 
   function getSequencerRewards(address _sequencer)

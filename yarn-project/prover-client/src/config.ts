@@ -47,6 +47,11 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Max number of client IVC verifiers to run concurrently',
     ...numberConfigHelper(8),
   },
+  bbIVCConcurrency: {
+    env: 'BB_IVC_CONCURRENCY',
+    description: 'Number of threads to use for IVC verification',
+    ...numberConfigHelper(1),
+  },
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
