@@ -158,6 +158,10 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return Slot.unwrap(_slot) / M;
   }
 
+  function getVoteSignatureDigest(IPayload _proposal) public view returns (bytes32) {
+    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
+  }
+
   // Virtual functions
   function getInstance() public view virtual override(IEmpire) returns (address);
   function getExecutor() public view virtual override(IEmpire) returns (address);
@@ -185,7 +189,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
+      bytes32 digest = getVoteSignatureDigest(_proposal);
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(

@@ -45,7 +45,7 @@ export type EpochsTestOpts = Partial<
   Pick<
     SetupOptions,
     | 'startProverNode'
-    | 'aztecProofSubmissionWindow'
+    | 'aztecProofSubmissionEpochs'
     | 'aztecEpochDuration'
     | 'proverTestDelayMs'
     | 'l1PublishRetryIntervalMS'
@@ -93,12 +93,12 @@ export class EpochsTestContext {
     const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
     const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
     const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
-    const aztecProofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
-    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow };
+    const aztecProofSubmissionEpochs = opts.aztecProofSubmissionEpochs ?? 1;
+    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs };
   }
 
   public async setup(opts: EpochsTestOpts = {}) {
-    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow } =
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
       EpochsTestContext.getSlotDurations(opts);
 
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
@@ -116,7 +116,7 @@ export class EpochsTestContext {
       aztecEpochDuration,
       aztecSlotDuration,
       ethereumSlotDuration,
-      aztecProofSubmissionWindow,
+      aztecProofSubmissionEpochs,
       aztecTargetCommitteeSize: opts.initialValidators?.length ?? 0,
       minTxsPerBlock: 0,
       realProofs: false,
@@ -166,7 +166,7 @@ export class EpochsTestContext {
       l1StartBlock: await this.rollup.getL1StartBlock(),
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration,
-      proofSubmissionWindow: aztecProofSubmissionWindow,
+      proofSubmissionEpochs: Number(await this.rollup.getProofSubmissionEpochs()),
     };
 
     this.logger.info(
@@ -275,12 +275,15 @@ export class EpochsTestContext {
     return this.monitor.l2ProvenBlockNumber;
   }
 
-  /** Waits until the end of the proof submission window for a given epoch. */
-  public async waitUntilEndOfProofSubmissionWindow(epochNumber: number | bigint) {
+  /** Waits until the last slot of the proof submission window for a given epoch. */
+  public async waitUntilLastSlotOfProofSubmissionWindow(epochNumber: number | bigint) {
     const deadline = getProofSubmissionDeadlineTimestamp(BigInt(epochNumber), this.constants);
-    const date = new Date(Number(deadline) * 1000);
-    this.logger.info(`Waiting until end of submission window for epoch ${epochNumber} at ${date}`, { deadline });
-    await waitUntilL1Timestamp(this.l1Client, deadline);
+    const oneSlotBefore = deadline - BigInt(this.constants.slotDuration);
+    const date = new Date(Number(oneSlotBefore) * 1000);
+    this.logger.info(`Waiting until last slot of submission window for epoch ${epochNumber} at ${date}`, {
+      oneSlotBefore,
+    });
+    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore);
   }
 
   /** Waits for the aztec node to sync to the target block number. */

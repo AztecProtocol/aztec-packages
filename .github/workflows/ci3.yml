@@ -42,6 +42,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
 
+      - name: Fail Fast Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
+        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
+
       - name: Compute Target Branch
         id: target_branch
         run: |

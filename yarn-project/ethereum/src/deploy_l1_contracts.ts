@@ -624,7 +624,7 @@ export const deployRollup = async (
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
+    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
