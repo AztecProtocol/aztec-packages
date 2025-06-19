@@ -150,6 +150,11 @@ export interface TelemetryClient {
    * Flushes the telemetry client.
    */
   flush(): Promise<void>;
+
+  /**
+   * Updates what telemetry is exported to the public collector
+   */
+  setExportedPublicTelemetry(prefixes: string[]): void;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */

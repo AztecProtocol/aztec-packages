@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 const updateConfigSchema = z.object({
   version: z.string().optional(),
+  publicTelemetry: z.any().optional(),
   config: z.any().optional(),
 });
 
@@ -19,6 +20,7 @@ export type EventMap = {
   newRollupVersion: [{ currentVersion: bigint; latestVersion: bigint }];
   newNodeVersion: [{ currentVersion: string; latestVersion: string }];
   updateNodeConfig: [object];
+  updatePublicTelemetryConfig: [object];
 };
 
 type Config = {
@@ -33,6 +35,7 @@ type Config = {
 export class UpdateChecker extends EventEmitter<EventMap> {
   private runningPromise: RunningPromise;
   private lastPatchedConfig: object = {};
+  private lastPachedPublicTelemetryConfig: object = {};
 
   constructor(
     private updatesUrl: URL,
@@ -117,7 +120,7 @@ export class UpdateChecker extends EventEmitter<EventMap> {
         });
       }
 
-      const { version, config } = updateConfigSchema.parse(body);
+      const { version, config, publicTelemetry } = updateConfigSchema.parse(body);
 
       if (this.nodeVersion && version && version !== this.nodeVersion) {
         this.log.debug('New node version', { currentVersion: this.nodeVersion, latestVersion: version });
@@ -128,6 +131,16 @@ export class UpdateChecker extends EventEmitter<EventMap> {
         this.log.debug('New node config', { config });
         this.lastPatchedConfig = config;
         this.emit('updateNodeConfig', config);
+      }
+
+      if (
+        publicTelemetry &&
+        Object.keys(publicTelemetry).length > 0 &&
+        !isDeepStrictEqual(publicTelemetry, this.lastPachedPublicTelemetryConfig)
+      ) {
+        this.log.debug('New metrics config', { config });
+        this.lastPachedPublicTelemetryConfig = publicTelemetry;
+        this.emit('updatePublicTelemetryConfig', publicTelemetry);
       }
     } catch (err) {
       this.log.warn(`Failed to check if there is an update`, err);
