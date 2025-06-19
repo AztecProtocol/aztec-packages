@@ -98,6 +98,8 @@ export async function startNode(
       nodeConfig.rollupVersion,
     );
 
+    process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
+
     if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
       throw new Error(
         `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
