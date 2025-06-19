@@ -35,7 +35,7 @@ type Config = {
 export class UpdateChecker extends EventEmitter<EventMap> {
   private runningPromise: RunningPromise;
   private lastPatchedConfig: object = {};
-  private lastPachedPublicTelemetryConfig: object = {};
+  private lastPatchedPublicTelemetryConfig: object = {};
 
   constructor(
     private updatesUrl: URL,
