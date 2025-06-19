@@ -135,6 +135,14 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
                 complete_packed_note,
             );
 
+            // TODO(#11627): is there anything reasonable we can do if we get a log but it doesn't result in a note
+            // being found?
+            if discovered_notes.len() == 0 {
+                panic(
+                    f"A partial note's completion log did not result in any notes being found - this should never happen",
+                );
+            }
+
             debug_log_format(
                 "Discovered {0} notes for partial note with tag {1}",
                 [discovered_notes.len() as Field, pending_partial_note.note_completion_log_tag],
@@ -155,8 +163,6 @@ pub unconstrained fn fetch_and_process_partial_note_completion_logs<Env>(
 
             // Because there is only a single log for a given tag, once we've processed the tagged log then we
             // simply delete the pending work entry, regardless of whether it was actually completed or not.
-            // TODO(#11627): only remove the pending entry if we actually process a log that results in the note
-            // being completed.
             pending_partial_notes.remove(i);
         }
     });

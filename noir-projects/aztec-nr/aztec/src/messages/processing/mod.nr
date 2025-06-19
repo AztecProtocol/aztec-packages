@@ -154,14 +154,22 @@ pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     let log_retrieval_requests =
         CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
-    pending_partial_notes.for_each(|_, pending_partial_note: DeliveredPendingPartialNote| {
+    // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
+    // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
+    // function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push into
+    // the requests array, which we expect to be empty.
+    let mut i = 0;
+    let pending_partial_notes_count = pending_partial_notes.len();
+    while i < pending_partial_notes_count {
+        let pending_partial_note = pending_partial_notes.get(i);
         log_retrieval_requests.push(
             LogRetrievalRequest {
                 contract_address,
                 unsiloed_tag: pending_partial_note.note_completion_log_tag,
             },
         );
-    });
+        i += 1;
+    }
 
     oracle::message_processing::bulk_retrieve_logs(
         contract_address,
