@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
+import { Fr, type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
@@ -193,7 +193,7 @@ describe('e2e_p2p_reex', () => {
     };
 
     it.each([
-      ['ReExStateMismatchError', new ReExStateMismatchError().message, interceptBroadcastProposal],
+      ['ReExStateMismatchError', new ReExStateMismatchError(Fr.ZERO, Fr.ZERO).message, interceptBroadcastProposal],
       ['ReExTimeoutError', new ReExTimeoutError().message, interceptTxProcessorWithTimeout],
       ['ReExFailedTxsError', new ReExFailedTxsError(1).message, interceptTxProcessorWithFailure],
     ])(
