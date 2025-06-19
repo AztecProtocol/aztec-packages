@@ -266,9 +266,9 @@ mod tests {
                      {
                         original_index = i;
                     }
-                }
-                self.hints.sorted_indexes[original_index] = new_index;
             }
+            self.hints.sorted_indexes[original_index] = new_index;
+        }
 
         pub fn execute(self) {
             if self.ascending {

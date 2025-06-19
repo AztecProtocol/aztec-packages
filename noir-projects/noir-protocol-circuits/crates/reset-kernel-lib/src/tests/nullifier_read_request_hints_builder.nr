@@ -23,10 +23,10 @@ impl<let PENDING_HINTS_LEN: u32, let SETTLED_HINTS_LEN: u32> NullifierReadReques
                     NullifierSettledReadHint::nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX);
                          SETTLED_HINTS_LEN
                     ],
-                    0,
-                ),
-            }
+                0,
+            ),
         }
+    }
 
     pub fn add_pending_read_hint(&mut self, read_request_index: u32, nullifier_index: u32) {
         let hint_index = self.pending_read_hints.len();
