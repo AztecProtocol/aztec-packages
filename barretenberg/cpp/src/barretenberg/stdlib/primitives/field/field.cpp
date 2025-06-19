@@ -174,7 +174,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const f
     field_t<Builder> rhs(other);
     rhs.additive_constant.self_neg();
     if (!rhs.is_constant()) {
-        // Update the multiplicative constant of a witness to feed rhs to `+` operator
+        // Negate the multiplicative constant of the rhs then feed to `+` operator
         rhs.multiplicative_constant.self_neg();
     }
     return operator+(rhs);
@@ -411,10 +411,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 }
 
 /**
- * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
+ * @brief Raise this field element to the power of the provided uint32_t exponent.
  *
- * @returns this ** (exponent)
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
 {
@@ -456,13 +454,13 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
+    ASSERT(exponent_value.get_msb() < 32);
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
     }
     // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
     if (exponent.is_constant()) {
-        ASSERT(exponent_value.get_msb() < 32);
         return pow(static_cast<uint32_t>(exponent_value));
     }
 
@@ -698,7 +696,7 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 }
 
 /**
- *  Constrain *this to be non-zero.
+ *  @brief Constrain *this to be non-zero by establishing that it has an inverse.
  */
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
@@ -830,7 +828,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
 }
 
 /**
- * @brief Compute a `bool_t` eqaul to (a == b)
+ * @brief Compute a `bool_t` equal to (a == b)
  */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
@@ -1011,7 +1009,7 @@ std::array<field_t<Builder>, 8> field_t<Builder>::preprocess_three_bit_table(con
 
 /**
  * @brief Given a multilinear polynomial in 2 variables, which is represented by a table of monomial coefficients,
- * compute its evaluation at the point `(t0,t1)` using minimal number of gates.
+ * compute its evaluation at the point `(t0, t1)` using minimal number of gates.
  */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<field_t, 4>& table,
@@ -1029,8 +1027,8 @@ field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<fi
  * compute its evaluation at `(t0, t1, t2)` using minimal number of gates.
  *
  * @details The straightforward thing would be eight
- * multiplications to get the monomials and several additions between them It turns out you can do it in 7 `madd` gates
- * using the formula
+ * multiplications to get the monomials and several additions between them. It turns out you can do it in 7 `madd` gates
+ * using the formulas
  *       X := ((t0*a_012 + a12)*t1 + a2)*t2 + a_const    //  - 3 gates
  *       Y := (t0*a01 + a1)*t1 + X                       //  - 2 gates
  *       Z := (t2*a02 + a0)*t0 + Y                       //  - 2 gates
@@ -1297,7 +1295,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 }
 
 /**
- * @brief Build a circuit allowing a user to prove that they have decomposed `*this` into bits.
+ * @brief Build constraints establishing the decomposition of `*this` into bits.
  *
  * @details A bit vector `result` is extracted and used to construct a sum `sum` using the normal binary expansion.
  * Along the way, we extract a value `shifted_high_limb` which is equal to `sum_hi` in the natural decomposition
@@ -1356,8 +1354,6 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
     std::vector<field_t> accumulator_hi;
 
     const uint256_t val_u256 = get_value();
-    field_t<Builder> sum(context, 0);
-    field_t<Builder> shifted_high_limb(context, 0); // will equal high 128 bits, left shifted by 128 bits
     for (size_t i = 0; i < num_bits; ++i) {
         const size_t bit_index = num_bits - 1 - i;
         // Create a witness `bool_t` bit

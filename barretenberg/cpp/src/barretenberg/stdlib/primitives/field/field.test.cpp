@@ -1068,12 +1068,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_NE(result.get_value(), expected);
-        EXPECT_EQ(builder.failed(), true);
-        EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+#ifndef NDEBUG
+        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+#endif
 
         exponent = field_ct(exponent_val);
 #ifndef NDEBUG
