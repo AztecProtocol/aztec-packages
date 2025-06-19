@@ -9,7 +9,7 @@ include "../public_inputs.pil";
  * - Siloing the original note hash with the emitter contract address
  * - Computing a nonce as the hash of the first nullifier and the index of the note hash
  * - Computing the unique note hash as the hash of the nonce and the siloed note hash
- * This gadget allows to conditionally write note hashes that can be raw, already siloed or alread uniqued.
+ * This gadget allows to conditionally write note hashes that can be raw, already siloed or already uniqued.
  * For reading, we enforce that the note hash is already unique.
  *
  * Read usage (lookup):
@@ -66,6 +66,9 @@ namespace note_hash_tree_check;
     // If reading we should pass an already siloed note hash
     #[DISABLE_SILOING_ON_READ]
     READ * should_silo = 0;
+
+    // Asking the gadget to silo without asking it to unique is an error
+    should_silo * (1 - should_unique) = 0;
 
     pol commit siloed_note_hash;
     #[PASSTHROUGH_SILOING]
@@ -125,8 +128,7 @@ namespace note_hash_tree_check;
 
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
-    // prev_leaf_value = if write { 0 } else { unique_note_hash }
-    sel * ((0 - unique_note_hash) * write + unique_note_hash - prev_leaf_value ) = 0;
+    prev_leaf_value = (1 - write) * unique_note_hash;
 
     pol commit next_leaf_value;
     // If reading, next_leaf_value is unconstrained
@@ -145,7 +147,7 @@ namespace note_hash_tree_check;
 
     // ====== WRITE TO PUBLIC INPUTS ======
     pol commit should_write_to_public_inputs;
-    sel * write * (1 - discard) = should_write_to_public_inputs;
+    write * (1 - discard) = should_write_to_public_inputs;
     pol commit public_inputs_index;
     should_write_to_public_inputs * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_index - public_inputs_index) = 0;
 
