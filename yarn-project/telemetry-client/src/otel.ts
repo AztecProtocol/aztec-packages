@@ -47,8 +47,13 @@ export class OpenTelemetryClient implements TelemetryClient {
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider | undefined,
+    private publicMetricExporter: OtelFilterMetricExporter | undefined,
     private log: Logger,
   ) {}
+
+  setIncludedPublicMetrics(metrics: string[]) {
+    this.publicMetricExporter?.setMetricPrefixes(metrics);
+  }
 
   getMeter(name: string): Meter {
     let meter = this.meters.get(name);
@@ -131,13 +136,11 @@ export class OpenTelemetryClient implements TelemetryClient {
 
   public static createMeterProvider(
     resource: IResource,
-    options: Partial<PeriodicExportingMetricReaderOptions>,
+    exporters: Array<PeriodicExportingMetricReaderOptions>,
   ): MeterProvider {
     return new MeterProvider({
       resource,
-      readers: options.exporter
-        ? [new PeriodicExportingMetricReader(options as PeriodicExportingMetricReaderOptions)]
-        : [],
+      readers: exporters.map(options => new PeriodicExportingMetricReader(options)),
 
       views: [
         // Every histogram matching the selector (type + unit) gets these custom buckets assigned
@@ -257,20 +260,41 @@ export class OpenTelemetryClient implements TelemetryClient {
 
       tracerProvider.register();
 
-      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, {
-        exporter: config.metricsCollectorUrl
-          ? new OtelFilterMetricExporter(
-              new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
-              config.otelExcludeMetrics ?? [],
-            )
-          : undefined,
-        exportTimeoutMillis: config.otelExportTimeoutMs,
-        exportIntervalMillis: config.otelCollectIntervalMs,
-      });
+      const exporters: PeriodicExportingMetricReaderOptions[] = [];
+      if (config.metricsCollectorUrl) {
+        exporters.push({
+          exporter: new OtelFilterMetricExporter(
+            new OTLPMetricExporter({ url: config.metricsCollectorUrl.href }),
+            config.otelExcludeMetrics,
+            'deny',
+          ),
+          exportTimeoutMillis: config.otelExportTimeoutMs,
+          exportIntervalMillis: config.otelCollectIntervalMs,
+        });
+      }
 
+      let publicExporter: OtelFilterMetricExporter | undefined;
+      if (config.publicMetricsCollectorUrl && config.publicIncludeMetrics.length > 0) {
+        log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
+          publicMetrics: config.publicIncludeMetrics,
+          collectorUrl: config.publicMetricsCollectorUrl,
+        });
+        publicExporter = new OtelFilterMetricExporter(
+          new OTLPMetricExporter({ url: config.publicMetricsCollectorUrl.href }),
+          config.publicIncludeMetrics,
+          'allow',
+        );
+        exporters.push({
+          exporter: publicExporter,
+          exportTimeoutMillis: config.otelExportTimeoutMs,
+          exportIntervalMillis: config.otelCollectIntervalMs,
+        });
+      }
+
+      const meterProvider = OpenTelemetryClient.createMeterProvider(resource, exporters);
       const loggerProvider = registerOtelLoggerProvider(resource, config.logsCollectorUrl);
 
-      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, log);
+      return new OpenTelemetryClient(resource, meterProvider, tracerProvider, loggerProvider, publicExporter, log);
     };
   }
 
