@@ -98,14 +98,10 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   fi
 fi
 
-# Interactive if stdin is connected to terminal.
-[ -t 0 ] && docker_args+=" -i"
-
 # If stdout is connected to a terminal, drop into a shell on failure.
 # Otherwise ensure all logs go to redis cache.
 if [ -t 1 ]; then
   ssh_args="-t"
-  docker_args+=" -t"
   if [ "$NO_TERMINATE" -eq 0 ]; then
     run_cmd="run || exec zsh"
   else
@@ -148,14 +144,19 @@ container_script=$(cat <<EOF
       echo "Performing a release because \$REF_NAME is a semver."
     fi
 
+    # Capture cpu load.
+    mpstat 2 &> | cache_log 'cpufile' &
+
+    # Capture mem load.
+    vmstat -w -S M 2 &> | cache_log 'memfile' &
+
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
     set +x
+
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    sudo cat /tmp/cpufile | cache_log 'cpufile'
-    sudo cat /tmp/memfile | cache_log 'memfile'
     return \$code
   }
   export -f run
@@ -199,77 +200,72 @@ function run {
     sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
     echo Done in \$SECONDS seconds.
 
-    # Capture net status.
-    # echo Installing and starting sysdig...
-    # sudo apt-get update &>/dev/null
-    # sudo apt-get install -y sysdig net-tools &>/dev/null
-    # sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
-    # netfile_pid=\$!
+    start_build() {
+      echo Starting devbox...
+      docker run --privileged --rm \${docker_args:-} \
+        --name aztec_build \
+        --hostname $instance_name \
+        -v bootstrap_ci_local_docker:/var/lib/docker \
+        -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
+        -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
+        -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
+        -v /tmp:/tmp \
+        -v /dev/kmsg:/dev/kmsg \
+        -e CI=1 \
+        -e RUN_ID=${RUN_ID:-} \
+        -e JOB_ID=${JOB_ID:-} \
+        -e REF_NAME=${REF_NAME:-} \
+        -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+        -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
+        -e NO_CACHE=${NO_CACHE:-} \
+        -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+        -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
+        -e SSH_CONNECTION=' ' \
+        -e LOCAL_USER_ID=\$(id -u) \
+        -e LOCAL_GROUP_ID=\$(id -g) \
+        -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
+        -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
+        -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
+        -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+        -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
+        -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
+        -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
+        -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
+        -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
+        -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
+        -e NPM_TOKEN=${NPM_TOKEN:-} \
+        -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+        --pids-limit=32768 \
+        aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+    }
 
-    # Capture cpu load.
-    mpstat 2 &> /tmp/cpufile &
-    cpufile_pid=\$!
+    # CI=1 at this point only in GA.
+    if [ $CI -eq 1 ]; then
+      start_build &
+      build_pid=\$!
+      trap 'kill \$build_pid &>/dev/null' EXIT
 
-    # Capture mem load.
-    vmstat -w -S M 2 &> /tmp/memfile &
-    memfile_pid=\$!
+      # While the docker container is running, check for spot termination notices.
+      aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+      while kill -0 \$docker_pid &>/dev/null; do
+        if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+          # Termination notice found, exit with 155.
+          echo "Spot will be terminated! Exiting early."
+          exit 155
+        fi
+        sleep 5
+      done
 
-    echo Starting devbox...
-    docker run --privileged --rm ${docker_args:-} \
-      --name aztec_build \
-      --hostname $instance_name \
-      -v bootstrap_ci_local_docker:/var/lib/docker \
-      -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
-      -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
-      -v /tmp:/tmp \
-      -v /dev/kmsg:/dev/kmsg \
-      -e CI=1 \
-      -e RUN_ID=${RUN_ID:-} \
-      -e JOB_ID=${JOB_ID:-} \
-      -e REF_NAME=${REF_NAME:-} \
-      -e TARGET_BRANCH=${TARGET_BRANCH:-} \
-      -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
-      -e NO_CACHE=${NO_CACHE:-} \
-      -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
-      -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
-      -e SSH_CONNECTION=' ' \
-      -e LOCAL_USER_ID=\$(id -u) \
-      -e LOCAL_GROUP_ID=\$(id -g) \
-      -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
-      -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
-      -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
-      -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-      -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
-      -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
-      -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
-      -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
-      -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
-      -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
-      -e NPM_TOKEN=${NPM_TOKEN:-} \
-      -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-      --pids-limit=32768 \
-      aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script") &
-    build_pid=\$!
-
-    # Kill background processes on exit.
-    trap 'kill \$cpufile_pid \$memfile_pid \$build_pid' EXIT
-
-    # While the docker container is running, check for spot termination notices.
-    aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-    while kill -0 \$docker_pid &>/dev/null; do
-      if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
-        # Termination notice found, exit with 155.
-        echo "Spot will be terminated! Exiting early."
-        exit 155
-      fi
-      sleep 5
-    done
-
-    # Returns exit code from docker run.
-    wait \$build_pid
+      # Returns exit code from docker run.
+      wait \$build_pid
+    else
+      # Interactive if stdin is connected to terminal (allows dropping into shell on failure).
+      [ -t 0 ] && docker_args+=' -i'
+      [ -t 1 ] && docker_args+=' -t'
+      start_build
+    fi
   "
 }
 
