@@ -94,7 +94,6 @@ pub fn validate_contract_address(
     let is_protocol_contract = is_protocol_contract(contract_address_field); // WHY IS THIS MORE EXPENSIVE THAN THE `.lt()`, I DON'T UNDERSTAND. This fn is 13 gates. A lt is 154 gates.
     let is_updated_contract = !updated_contract_class_id.is_empty();
 
-    // Should we use `if` statements to make this more legible? Noir should be good enough to not add any extra constraints.
     let address_derivation_check =
         !is_protocol_contract & (computed_address == contract_address) & !is_updated_contract;
     let updated_class_check = !is_protocol_contract
@@ -116,6 +115,7 @@ pub fn validate_contract_address(
     // - The computed address (which contains the class_id and stuff) is the leaf's value.
     //
     // Why can't we instead hard-code the contract addresses of magic protocol contracts as circuit constants, so that we can just loop and check for those addresses in the list? This would avoid this tree complexity. If we ever want to upgrade to add a new contract address, is there much difference in updating this circuit's vk (and downstream circuits' vks) vs updating the protocol contract tree root somewhere?
+
     // Why is this function call needed?
     // A non-protocol computed contract address is checked for non-membership below using protocol_contract_leaf as a low leaf. [Why do we need to check for non-membership? Why can't we just allow a protocol contract to be executed through it's non-magic address form?].
     // A protocol contract address is checked for membership below where protocol_contract_leaf contains the
