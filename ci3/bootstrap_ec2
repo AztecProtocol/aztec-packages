@@ -145,10 +145,12 @@ container_script=$(cat <<EOF
     fi
 
     # Capture cpu load.
-    mpstat 2 | cache_log 'cpufile' &
+    mpstat 2 > >(cache_log cpufile) &
+    cpu_pid=\$!
 
     # Capture mem load.
-    vmstat -w -S M 2 | cache_log 'memfile' &
+    vmstat -w -S M 2 > >(cache_log memfile) &
+    mem_pid=\$!
 
     set +e
     set -x
@@ -157,11 +159,14 @@ container_script=$(cat <<EOF
     set +x
 
     sudo dmesg 2>&1 | cache_log 'dmesg'
+    kill \$cpu_pid \$mem_pid &>/dev/null
+
     return \$code
   }
   export -f run
 
   set +e
+  set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
 
@@ -248,15 +253,17 @@ function run {
       docker_args+=' -ti'
       start_build
     else
+      echo "Stdout is not a tty, starting build container in background..."
       start_build &
       build_pid=\$!
-      trap 'kill \$build_pid &>/dev/null' EXIT
 
       # While the docker container is running, check for spot termination notices.
-      while kill -0 \$docker_pid &>/dev/null; do
-        if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+      while kill -0 \$build_pid &>/dev/null; do
+        # The check for the file allows for testing spot termination logic.
+        if [ -f /tmp/spot_term ] || curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
           # Termination notice found, exit with 155.
           echo "Spot will be terminated! Exiting early."
+          docker kill aztec_build &>/dev/null || true
           exit 155
         fi
         sleep 5
