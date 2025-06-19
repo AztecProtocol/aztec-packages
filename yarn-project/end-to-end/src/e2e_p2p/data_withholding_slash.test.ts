@@ -53,10 +53,10 @@ describe('e2e_p2p_data_withholding_slash', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         listenAddress: '127.0.0.1',
-        aztecEpochDuration: 1,
+        aztecEpochDuration: 2,
         ethereumSlotDuration: 4,
         aztecSlotDuration,
-        aztecProofSubmissionWindow: 1,
+        aztecProofSubmissionEpochs: 0, // effectively forces instant reorgs
         slashingQuorum,
         slashingRoundSize,
         minTxsPerBlock: 0,

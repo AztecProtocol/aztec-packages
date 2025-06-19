@@ -1,11 +1,11 @@
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -65,16 +65,23 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         size_t round = 0;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1427): Add VK FS to solidity verifier.
         if constexpr (!IsAnyOf<Flavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
-            for (size_t i = 0; i < Flavor::VerificationKey::VERIFICATION_KEY_LENGTH; i++) {
-                manifest_expected.add_entry(round, "vkey_field", frs_per_Fr);
+            manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_Fr);
+            manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_Fr);
+            manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_Fr);
+            manifest_expected.add_entry(round, "vkey_pairing_points_start_idx", frs_per_Fr);
+            if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+                manifest_expected.add_entry(round, "vkey_ipa_claim_start_idx", frs_per_Fr);
+            }
+            for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
+                manifest_expected.add_entry(round, "vkey_commitment", frs_per_G);
             }
             manifest_expected.add_challenge(round, "vkey_hash");
             round++;
         } else {
             size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
-            manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
-            manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
-            manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
+            manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_uint32);
+            manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_uint32);
+            manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_uint32);
         }
 
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
@@ -241,7 +248,14 @@ TYPED_TEST(UltraTranscriptTests, ProverManifestConsistency)
     prover_manifest.print();
     ASSERT(manifest_expected.size() > 0);
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+        if (prover_manifest[round] != manifest_expected[round]) {
+            info("Prover manifest discrepency in round ", round);
+            info("Prover manifest:");
+            prover_manifest[round].print();
+            info("Expected manifest:");
+            manifest_expected[round].print();
+            ASSERT(false);
+        }
     }
 }
 

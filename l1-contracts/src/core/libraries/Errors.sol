@@ -74,8 +74,8 @@ library Errors {
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
   error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
-  error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
-  error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__NotPastDeadline(Epoch deadline, Epoch currentEpoch);
+  error Rollup__PastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
@@ -105,7 +105,7 @@ library Errors {
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
-  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected);
+  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
