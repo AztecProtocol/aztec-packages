@@ -316,7 +316,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
     template <typename Transcript>
-    static bool reduce_verify_internal_native(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal_native(const VK& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       const std::shared_ptr<Transcript>& transcript)
         requires(!Curve::is_stdlib_type)

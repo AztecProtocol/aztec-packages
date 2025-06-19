@@ -30,7 +30,7 @@ class IPATest : public CommitmentTest<Curve> {
     static VK vk;
 
     // Default polynomial size
-    static constexpr size_t n = 128;
+    // static constexpr size_t n =
 
     // For edge cases
     static constexpr size_t small_log_n = 3;
