@@ -222,9 +222,11 @@ __metadata:
     "@swc/core": "npm:^1.10.12"
     "@swc/jest": "npm:^0.2.36"
     "@trivago/prettier-plugin-sort-imports": "npm:^5.2.2"
+    "@types/lodash.omitby": "npm:^4"
     eslint: "npm:^9.26.0"
     eslint-import-resolver-typescript: "npm:^3.5.5"
     eslint-plugin-import: "npm:^2.31.0"
+    lodash.omitby: "npm:^4.6.0"
     prettier: "npm:^3.5.3"
     typedoc: "npm:^0.24.8"
     typescript: "npm:^5.3.3"
@@ -6534,6 +6536,15 @@ __metadata:
   dependencies:
     "@types/lodash": "npm:*"
   checksum: 10/5be43f3598d6b1fa481fe7046e9e15e2225f547e0e309746c2b87f4e4fa8705e96c564e2762a9312e73e2a223d701ab893b122c506500de49a4b9fb40fb6d17c
+  languageName: node
+  linkType: hard
+
+"@types/lodash.omitby@npm:^4":
+  version: 4.6.9
+  resolution: "@types/lodash.omitby@npm:4.6.9"
+  dependencies:
+    "@types/lodash": "npm:*"
+  checksum: 10/2b69275dda6b56cdda01ce2d9b267f8ed1b02856dd04d7b7592a26dba7567909026056e920b3d36d26a182f8c36ca7f0d8c27e31a21b7a8ff1b03591332b00eb
   languageName: node
   linkType: hard
 
@@ -16753,6 +16764,13 @@ __metadata:
   version: 4.5.0
   resolution: "lodash.omit@npm:4.5.0"
   checksum: 10/f5c67cd1df11f1275662060febb629a4d4e7b547c4bea66454508b5e6096162c2af882aab1ff8cb5dcf2b328f22252416de6ca9c1334588f6310edfac525e511
+  languageName: node
+  linkType: hard
+
+"lodash.omitby@npm:^4.6.0":
+  version: 4.6.0
+  resolution: "lodash.omitby@npm:4.6.0"
+  checksum: 10/3af4df3d4819c75735abed208a748fc94c8ec9d5165610d6085722a67ad1e507101f59096e23265d3df5617a0b7e89105c73993ac0d9f864fab237a054594690
   languageName: node
   linkType: hard
 

@@ -72,6 +72,7 @@
     "@swc/core": "^1.10.12",
     "@swc/jest": "^0.2.36",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@types/lodash.omitby": "^4",
     "eslint": "^9.26.0",
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-import": "^2.31.0",
@@ -87,5 +88,8 @@
     "@aztec/noir-noir_codegen": "portal:../noir/packages/noir_codegen",
     "@aztec/noir-noir_js": "file:../noir/packages/noir_js",
     "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch"
+  },
+  "dependencies": {
+    "lodash.omitby": "^4.6.0"
   }
 }
