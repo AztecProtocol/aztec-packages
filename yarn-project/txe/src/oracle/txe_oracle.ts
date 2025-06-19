@@ -140,6 +140,7 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 
 import { TXEStateMachine } from '../state_machine/index.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
+import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 
 export class TXE implements TypedOracle {
@@ -176,7 +177,7 @@ export class TXE implements TypedOracle {
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
-    private contractDataProvider: ContractDataProvider,
+    private contractDataProvider: TXEContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private syncDataProvider: SyncDataProvider,
@@ -221,7 +222,7 @@ export class TXE implements TypedOracle {
 
     const addressDataProvider = new AddressDataProvider(store);
     const privateEventDataProvider = new PrivateEventDataProvider(store);
-    const contractDataProvider = new ContractDataProvider(store);
+    const contractDataProvider = new TXEContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
