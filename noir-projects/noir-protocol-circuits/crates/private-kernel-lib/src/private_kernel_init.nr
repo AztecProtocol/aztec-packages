@@ -75,7 +75,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Q: missing some checks that are included in `validate_against_call_request`?
 
         // Generate output.
-        // Note: the 0th nullifier is computed within here from the txRequest (consider computing it somewhere else...)
+        // Note: the 0th nullifier is computed within here from the txRequest.
         // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
