@@ -162,7 +162,6 @@ container_script=$(cat <<EOF
   export -f run
 
   set +e
-  set -x
   $run_cmd
   code=\${PIPESTATUS[0]}
 
@@ -244,8 +243,11 @@ function run {
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
 
-    # CI=1 at this point only in GA.
-    if [ $CI -eq 1 ]; then
+    # If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
+    if [ -t 1 ]; then
+      docker_args+=' -ti'
+      start_build
+    else
       start_build &
       build_pid=\$!
       trap 'kill \$build_pid &>/dev/null' EXIT
@@ -262,11 +264,6 @@ function run {
 
       # Returns exit code from docker run.
       wait \$build_pid
-    else
-      # Interactive if stdin is connected to terminal (allows dropping into shell on failure).
-      [ -t 0 ] && docker_args+=' -i'
-      [ -t 1 ] && docker_args+=' -t'
-      start_build
     fi
   "
 }
@@ -274,10 +271,10 @@ function run {
 set +e
 # If in terminal run in foreground.
 # If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
-if [ -t 0 ]; then
+if [ -t 1 ]; then
   run
 else
-  echo "No tty, running in background..."
+  echo "Stdout is not a tty, running in background..."
   run &
   wait $!
 fi
