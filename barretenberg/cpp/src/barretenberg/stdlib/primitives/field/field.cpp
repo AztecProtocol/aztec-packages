@@ -25,8 +25,8 @@ field_t<Builder>::field_t(Builder* parent_context)
 template <typename Builder>
 field_t<Builder>::field_t(const witness_t<Builder>& value)
     : context(value.context)
-    , additive_constant(0)
-    , multiplicative_constant(1)
+    , additive_constant(bb::fr::zero())
+    , multiplicative_constant(bb::fr::one())
     , witness_index(value.witness_index)
 {}
 
@@ -61,8 +61,9 @@ field_t<Builder> field_t<Builder>::from_witness_index(Builder* ctx, const uint32
     result.witness_index = witness_index;
     return result;
 }
+
 /**
- * @brief Convert a field_t element to a boolean and enforce bool constraints.
+ * @brief Convert `field_t` element to `bool_t` and enforce bool constraints.
  *
  * @tparam Builder
  * @return bool_t<Builder>
@@ -73,7 +74,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     // In this case, `additive_constant` uniquely determines the value of `this`.
     // After ensuring that `additive_constant` \in {0, 1}, we set the `.witness_bool` field of `result` to match the
     // value of `additive_constant`.
-    if (this->is_constant()) {
+    if (is_constant()) {
         ASSERT(additive_constant == bb::fr::one() || additive_constant == bb::fr::zero());
         bool_t<Builder> result(context);
         result.witness_bool = (additive_constant == bb::fr::one());
@@ -87,7 +88,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     bool_t<Builder> result(context);
     // Process the elements of the form
     //      a = a.v * 1 + 0 and a = a.v * (-1) + 1
-    // They do not need to be normalized, as in the first case the value of
+    // They do not need to be normalized if `a.v` is constrained to be boolean. In the first case, we have
     //      a == a.v,
     // and in the second case
     //      a == ¬(a.v).
@@ -111,6 +112,10 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     return result;
 }
 
+/**
+ * @brief Field addition operator.
+ * @details Optimized to not create extra gates when at least one of the summands is constant.
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
@@ -161,29 +166,36 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     result.tag = OriginTag(tag, other.tag);
     return result;
 }
-
+/**
+ * @brief Subtraction operator deduced from the addition operator.
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const field_t& other) const
 {
     field_t<Builder> rhs(other);
     rhs.additive_constant.self_neg();
     if (!rhs.is_constant()) {
+        // Negate the multiplicative constant of the rhs then feed to `+` operator
         rhs.multiplicative_constant.self_neg();
     }
     return operator+(rhs);
 }
 
+/**
+ * @brief Field multiplication operator.
+ * @details Optimized to not create extra gates when at least one of the multiplicands is constant.
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const field_t& other) const
 {
     Builder* ctx = (context == nullptr) ? other.context : context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be multiplied without context
-    ASSERT(ctx || (this->is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    if (this->is_constant() && other.is_constant()) {
+    if (is_constant() && other.is_constant()) {
         // Both inputs are constant - don't add a gate.
         // The value of a constant is tracked in `.additive_constant`.
         result.additive_constant = additive_constant * other.additive_constant;
-    } else if (!this->is_constant() && other.is_constant()) {
+    } else if (!is_constant() && other.is_constant()) {
 
         //  Here and in the next case, only one input is not constant: don't add a gate, but update scaling factors.
         // More concretely, let:
@@ -204,7 +216,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator*(const f
         // We simply updated the scaling factors of `*this`, so `witness_index` of `result` must be equal to
         // `this->witness_index`.
         result.witness_index = witness_index;
-    } else if (this->is_constant() && !other.is_constant()) {
+    } else if (is_constant() && !other.is_constant()) {
         // Only one input is not constant: don't add a gate, but update scaling factors
         result.additive_constant = additive_constant * other.additive_constant;
         result.multiplicative_constant = other.multiplicative_constant * additive_constant;
@@ -290,8 +302,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator/(const f
 }
 
 /**
- * @brief Given field elements `a` = `*this` and `b` = `other`, output \f$ a / b \f$ without checking whether \f$  b = 0
- * \f$.
+ * @brief Given field elements `a` = `*this` and `b` = `other`, output  `a / b` without checking whether `b = 0`.
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_check(const field_t& other) const
 {
@@ -300,14 +311,14 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
     //    a := this;
     //    b := other;
     //    q := a / b;
-    Builder* ctx = (context == nullptr) ? other.context : context;
+    Builder* ctx = (context) ? context : other.context;
     field_t<Builder> result(ctx);
     // Ensure that non-constant circuit elements can not be divided without context
-    ASSERT(ctx || (this->is_constant() && other.is_constant()));
+    ASSERT(ctx || (is_constant() && other.is_constant()));
 
     bb::fr additive_multiplier = bb::fr::one();
 
-    if (this->is_constant() && other.is_constant()) {
+    if (is_constant() && other.is_constant()) {
         // Both inputs are constant, the result is given by
         //      q = a.add / b.add, if b != 0.
         //      q = a.add        , if b == 0
@@ -315,7 +326,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
             additive_multiplier = other.additive_constant.invert();
         }
         result.additive_constant = additive_constant * additive_multiplier;
-    } else if (!this->is_constant() && other.is_constant()) {
+    } else if (!is_constant() && other.is_constant()) {
         // The numerator is a circuit variable, the denominator is a constant.
         // The result is obtained by updating the circuit variable `a`
         //      q = a.v * [a.mul / b.add] + a.add / b.add, if b != 0.
@@ -327,7 +338,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
         result.additive_constant = additive_constant * additive_multiplier;
         result.multiplicative_constant = multiplicative_constant * additive_multiplier;
         result.witness_index = witness_index;
-    } else if (this->is_constant() && !other.is_constant()) {
+    } else if (is_constant() && !other.is_constant()) {
         // The numerator is a constant, the denominator is a circuit variable.
         // If a == 0, the result is a constant 0, otherwise the result is a new variable that has to be constrained.
         if (get_value() == 0) {
@@ -400,10 +411,8 @@ template <typename Builder> field_t<Builder> field_t<Builder>::divide_no_zero_ch
 }
 
 /**
- * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
- * implicitly range constrained.
+ * @brief Raise this field element to the power of the provided uint32_t exponent.
  *
- * @returns this ** (exponent)
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_t& exponent) const
 {
@@ -439,21 +448,19 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const uint32_
 }
 
 /**
- * @brief raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
+ * @brief Raise a field_t to a power of an exponent (field_t). Note that the exponent must not exceed 32 bits and is
  * implicitly range constrained.
- *
- * @returns this ** (exponent)
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t& exponent) const
 {
     uint256_t exponent_value = exponent.get_value();
+    ASSERT(exponent_value.get_msb() < 32);
 
     if (is_constant() && exponent.is_constant()) {
         return field_t(get_value().pow(exponent_value));
     }
     // Use the constant version that perfoms only the necessary multiplications if the exponent is constant
     if (exponent.is_constant()) {
-        ASSERT(exponent_value.get_msb() < 32);
         return pow(static_cast<uint32_t>(exponent_value));
     }
 
@@ -493,7 +500,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
 }
 
 /**
- * @returns `this * to_mul + to_add`
+ * @returns Efficiently compute `this * to_mul + to_add` using custom `big_mul` gate.
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_t& to_mul, const field_t& to_add) const
 {
@@ -553,14 +560,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
 }
 
 /**
- * @brief Returns (this + a + b)
- *
- * @details Use `big_mul_gate` to save gates when computing the sum of 3 witnesses.
- *
- * @tparam Builder
- * @param add_a
- * @param add_b
- * @return field_t<Builder>
+ * @brief Efficiently compute (this + a + b) using `big_mul` gate.
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const field_t& add_b, const field_t& add_c) const
 {
@@ -588,7 +588,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     bb::fr q_c = additive_constant + add_b.additive_constant + add_c.additive_constant;
 
     // Compute the sum of values of all summands
-    bb::fr a = this->is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
+    bb::fr a = is_constant() ? bb::fr::zero() : ctx->get_variable(witness_index);
     bb::fr b = add_b.is_constant() ? bb::fr::zero() : ctx->get_variable(add_b.witness_index);
     bb::fr c = add_c.is_constant() ? bb::fr::zero() : ctx->get_variable(add_c.witness_index);
 
@@ -620,11 +620,6 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
  *
  * @details If the element is a constant or it is already normalized, just return the element itself
  *
- * @todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
- * It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
- *
- * @tparam Builder
- * @return field_t<Builder>
  */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
@@ -643,10 +638,15 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     result.additive_constant = bb::fr::zero();
     result.multiplicative_constant = bb::fr::one();
 
-    // Aim of new gate: this.v * this.mul + this.add == result.v
-    // <=>                           this.v * [this.mul] +                  result.v * [ -1] + [this.add] == 0
-    // <=> this.v * this.v * [ 0 ] + this.v * [this.mul] + this.v * [ 0 ] + result.v * [ -1] + [this.add] == 0
-    // <=> this.v * this.v * [q_m] + this.v * [   q_l  ] + this.v * [q_r] + result.v * [q_o] + [   q_c  ] == 0
+    // The aim of a new `add` gate is to constrain
+    //              this.v * this.mul + this.add == result.v
+    // Let
+    //     q_1 := this.mul;
+    //     q_2 := 0;
+    //     q_3 := -1;
+    //     q_c := this.add;
+    // The `add` gate enforces the relation
+    //       this.v * q_1 + this.v * q_2 + result.v * q_3 + q_c = 0
 
     context->create_add_gate({ .a = witness_index,
                                .b = witness_index,
@@ -659,6 +659,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     return result;
 }
 
+/**
+ * @brief Enforce a copy constraint between *this and 0 stored at zero_idx of the Builder.
+ */
 template <typename Builder> void field_t<Builder>::assert_is_zero(std::string const& msg) const
 {
 
@@ -687,6 +690,9 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
     });
 }
 
+/**
+ *  @brief Constrain *this to be non-zero by establishing that it has an inverse.
+ */
 template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::string const& msg) const
 {
 
@@ -730,6 +736,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
 /**
  * @brief Validate whether a field_t element is zero.
+ *
  * @details
  * Let     a   := (*this).normalize()
  *         is_zero := (a == 0)
@@ -750,6 +757,8 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
  * we use the second constraint, it validates that
  *         (is_zero.v = true) ==>  (I = 1)
  * This way, if `a * I = 0`, we know that a = 0.
+ *
+ * @warning  If you want to ENFORCE that a field_t object is zero, use `assert_is_zero`
  */
 template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
 {
@@ -796,7 +805,12 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::is_zero() const
     is_zero.set_origin_tag(tag);
     return is_zero;
 }
-
+/**
+ * @brief Given a := *this, compute its value given by a.v * a.mul + a.add.
+ *
+ * @warning The result of this operation is a **native** field element. Ensure its value is properly constrained or only
+ * used for debugging purposes.
+ */
 template <typename Builder> bb::fr field_t<Builder>::get_value() const
 {
     if (!is_constant()) {
@@ -808,16 +822,25 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
     return additive_constant;
 }
 
+/**
+ * @brief Compute a `bool_t` equal to (a == b)
+ */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const field_t& other) const
 {
     return ((*this) - other).is_zero();
 }
 
+/**
+ * @brief Compute a `bool_t` equal to (a != b)
+ */
 template <typename Builder> bool_t<Builder> field_t<Builder>::operator!=(const field_t& other) const
 {
     return !operator==(other);
 }
 
+/**
+ * @brief If predicate's value == true, negate the value, else keep it unchanged.
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& predicate) const
 {
@@ -855,7 +878,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
         return result;
     }
-    // If lhs and rhs are the same witness, just return it
+    // If lhs and rhs are the same witness or constant, just return it
     if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
@@ -884,7 +907,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
 }
 
 /**
- * @brief Constrain that this field is equal to the given field.
+ * @brief Copy constraint: constrain that `*this` field is equal to `rhs` element.
  *
  * @warning: After calling this method, both field values *will* be equal, regardless of whether the constraint
  * succeeds or fails. This can lead to confusion when debugging. If you want to log the inputs, do so before
@@ -909,14 +932,18 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
         ctx->assert_equal(left.witness_index, right.witness_index, msg);
     }
 }
-
+/**
+ * @brief Constrain `*this` to be not equal to `rhs`.
+ */
 template <typename Builder> void field_t<Builder>::assert_not_equal(const field_t& rhs, std::string const& msg) const
 {
     const field_t lhs = *this;
     const field_t diff = lhs - rhs;
     diff.assert_is_not_zero(msg);
 }
-
+/**
+ * @brief Constrain `*this` \in `set` by enforcing that P(X) = \prod_{s \in set} (X - s) is 0 at X = *this.
+ */
 template <typename Builder>
 void field_t<Builder>::assert_is_in_set(const std::vector<field_t>& set, std::string const& msg) const
 {
@@ -934,12 +961,6 @@ void field_t<Builder>::assert_is_in_set(const std::vector<field_t>& set, std::st
  * by the formula (1 - t0)(1 - t1).T0 + t0(1 - t1).T1 + (1 - t0)t1.T2 + t0.t1.T3
  *
  * Expand the coefficients to obtain the coefficients in the monomial basis.
- *
- * @param T0
- * @param T1
- * @param T2
- * @param T3
- * @return template <typename Builder>
  */
 template <typename Builder>
 std::array<field_t<Builder>, 4> field_t<Builder>::preprocess_two_bit_table(const field_t& T0,
@@ -981,6 +1002,10 @@ std::array<field_t<Builder>, 8> field_t<Builder>::preprocess_three_bit_table(con
     return table;
 }
 
+/**
+ * @brief Given a multilinear polynomial in 2 variables, which is represented by a table of monomial coefficients,
+ * compute its evaluation at the point `(t0, t1)` using minimal number of gates.
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<field_t, 4>& table,
                                                              const bool_t<Builder>& t1,
@@ -992,12 +1017,17 @@ field_t<Builder> field_t<Builder>::select_from_two_bit_table(const std::array<fi
     return R2;
 }
 
-// Compute the multilinear polynomial stored at point (t0,t1,t2) in a minimal number of gates.
-// The straightforward thing would be eight multiplications to get the monomials and several additions between them
-// It turns out you can do it in 7 `madd` gates using the formula
-//      X:= ((t0*a_012 + a12)*t1 + a2)*t2 + a_cons  t  - 3 gates
-//      Y:= (t0*a01 + a1)*t1 + X                       - 2 gates
-//      Z:= (t2*a02 + a0)*t0 + Y                       - 2 gates
+/**
+ * @brief Given a multilinear polynomial in 3 variables, which is represented by a table of monomial coefficients,
+ * compute its evaluation at `(t0, t1, t2)` using minimal number of gates.
+ *
+ * @details The straightforward thing would be eight
+ * multiplications to get the monomials and several additions between them. It turns out you can do it in 7 `madd` gates
+ * using the formulas
+ *       X := ((t0*a_012 + a12)*t1 + a2)*t2 + a_const    //  - 3 gates
+ *       Y := (t0*a01 + a1)*t1 + X                       //  - 2 gates
+ *       Z := (t2*a02 + a0)*t0 + Y                       //  - 2 gates
+ */
 template <typename Builder>
 field_t<Builder> field_t<Builder>::select_from_three_bit_table(const std::array<field_t, 8>& table,
                                                                const bool_t<Builder>& t2,
@@ -1050,12 +1080,6 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
  * @brief Given a, b, c, d, constrain
  *            a * b + c + d = 0
  * by creating a `big_mul_gate`.
- *
- * @tparam Builder
- * @param a
- * @param b
- * @param c
- * @param d
  */
 template <typename Builder>
 void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
@@ -1063,12 +1087,12 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
                                                     const field_t& c,
                                                     const field_t& d)
 {
-    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
-
     if (a.is_constant() && b.is_constant() && c.is_constant() && d.is_constant()) {
         ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
+
+    Builder* ctx = first_non_null(a.context, b.context, c.context, d.context);
 
     // validate that a * b + c + d = 0
     bb::fr q_m = a.multiplicative_constant * b.multiplicative_constant;
@@ -1215,7 +1239,11 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     total.tag = new_tag;
     return total.normalize();
 }
-
+/**
+ * @brief Given a field_t element, return an array of 3 field elements representing the bits [0, msb-1], [msb, lsb], and
+ * [lsb+1, 256] respectively
+ *
+ */
 template <typename Builder>
 std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const uint8_t lsb) const
 {
@@ -1262,7 +1290,7 @@ std::array<field_t<Builder>, 3> field_t<Builder>::slice(const uint8_t msb, const
 }
 
 /**
- * @brief Build a circuit allowing a user to prove that they have decomposed `this` into bits.
+ * @brief Build constraints establishing the decomposition of `*this` into bits.
  *
  * @details A bit vector `result` is extracted and used to construct a sum `sum` using the normal binary expansion.
  * Along the way, we extract a value `shifted_high_limb` which is equal to `sum_hi` in the natural decomposition
