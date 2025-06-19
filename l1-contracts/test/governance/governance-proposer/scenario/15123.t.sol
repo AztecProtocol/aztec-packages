@@ -14,6 +14,7 @@ import {Signature, SignatureLib__InvalidSignature} from "@aztec/shared/libraries
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 
+// See https://github.com/AztecProtocol/aztec-packages/issues/15123
 contract Test15123 is GovernanceProposerBase {
   using MessageHashUtils for bytes32;
 
@@ -57,7 +58,6 @@ contract Test15123 is GovernanceProposerBase {
     registry.addRollup(IRollup(address(validatorSelection)));
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
 
-    // Create invalid signature
     signature = createSignature(privateKey, address(proposal), 0);
 
     governanceProposer.voteWithSig(proposal, signature);
