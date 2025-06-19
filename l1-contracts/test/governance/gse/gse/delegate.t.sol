@@ -31,39 +31,55 @@ contract DelegateTest is WithGSE {
   function test_GivenCallerIsNotWithdrawer(
     address _instance,
     address _attester,
+    address _attester2,
     address _delegatee,
     address _withdrawer
   ) external givenInstanceIsRegistered(_instance) {
     // it reverts
 
     vm.assume(_withdrawer != _attester);
+    vm.assume(_withdrawer != _attester2);
     vm.assume(_attester != address(0));
+    vm.assume(_attester != _attester2);
     vm.assume(_delegatee != address(0));
+    vm.assume(_attester2 != address(0));
 
-    TestERC20 testERC20 = TestERC20(address(gse.STAKING_ASSET()));
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
-    vm.prank(gse.owner());
-    testERC20.mint(address(_instance), depositAmount);
+    cheat_deposit(_instance, _attester, _withdrawer, false);
+    cheat_deposit(_instance, _attester2, _withdrawer, true);
 
-    vm.prank(_instance);
-    testERC20.approve(address(gse), depositAmount);
+    // Checks on the specific instance
+    {
+      vm.prank(_attester);
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester)
+      );
+      gse.delegate(_instance, _attester, _delegatee);
 
-    vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, false);
+      address magic = gse.getCanonicalMagicAddress();
 
-    vm.prank(_attester);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester)
-    );
-    gse.delegate(_instance, _attester, _delegatee);
+      vm.prank(_attester);
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester)
+      );
+      gse.delegate(magic, _attester, _delegatee);
+    }
 
-    address magic = gse.getCanonicalMagicAddress();
+    // Checks on the canonical address
+    {
+      vm.prank(_attester2);
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester2)
+      );
+      gse.delegate(_instance, _attester2, _delegatee);
 
-    vm.prank(_attester);
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, address(0), _attester)
-    );
-    gse.delegate(magic, _attester, _delegatee);
+      address magic = gse.getCanonicalMagicAddress();
+
+      vm.prank(_attester2);
+      vm.expectRevert(
+        abi.encodeWithSelector(Errors.GSE__NotWithdrawer.selector, _withdrawer, _attester2)
+      );
+      gse.delegate(magic, _attester2, _delegatee);
+    }
   }
 
   function test_GivenCallerIsWithdrawer(
@@ -79,16 +95,7 @@ contract DelegateTest is WithGSE {
     vm.assume(_attester != address(0));
     vm.assume(_delegatee != address(0));
 
-    TestERC20 testERC20 = TestERC20(address(gse.STAKING_ASSET()));
-    uint256 depositAmount = gse.DEPOSIT_AMOUNT();
-    vm.prank(gse.owner());
-    testERC20.mint(address(_instance), depositAmount);
-
-    vm.prank(_instance);
-    testERC20.approve(address(gse), depositAmount);
-
-    vm.prank(_instance);
-    gse.deposit(_attester, _withdrawer, _isCanonical);
+    cheat_deposit(_instance, _attester, _withdrawer, _isCanonical);
 
     address addr = _isCanonical ? gse.getCanonicalMagicAddress() : _instance;
 
@@ -97,5 +104,6 @@ contract DelegateTest is WithGSE {
 
     // Lookup the delegatee
     assertEq(gse.getDelegatee(addr, _attester), _delegatee);
+    assertEq(gse.getVotingPower(_delegatee), gse.DEPOSIT_AMOUNT());
   }
 }

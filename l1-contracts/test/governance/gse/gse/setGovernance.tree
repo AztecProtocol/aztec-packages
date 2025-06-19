@@ -2,7 +2,7 @@ SetGovernanceTest
 ├── when caller neq owner
 │   └── it reverts
 └── when caller eq owner
-    ├── given governance eq 0
+    ├── given governance neq 0
     │   └── it reverts
-    └── given governance neq 0
+    └── given governance eq 0
         └── it updates the governance
