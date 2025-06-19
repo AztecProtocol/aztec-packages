@@ -55,27 +55,27 @@ strip_imports_and_pragma() {
     awk '
         # Skip pragma and SPDX lines
         /^pragma/ || /^\/\/ SPDX-License-Identifier:/ { next }
-        
+
         # Skip lines containing copyright
         /[Cc]opyright/ { next }
-        
+
         # Handle imports (including multi-line)
-        /^import/ { 
+        /^import/ {
             in_import = 1
             # Check if import ends on same line
             if (/;/) in_import = 0
-            next 
+            next
         }
-        
+
         # If we are in a multi-line import, skip until we find the semicolon
-        in_import && /;/ { 
+        in_import && /;/ {
             in_import = 0
-            next 
+            next
         }
-        
+
         # Skip lines that are part of multi-line import
         in_import { next }
-        
+
         # For lines with TODO comments, remove only the comment part
         /\/\/.*[Tt][Oo][Dd][Oo]/ {
             # Remove everything from // onwards if it contains TODO
@@ -84,7 +84,7 @@ strip_imports_and_pragma() {
             if (NF > 0) print
             next
         }
-        
+
         # Print all other lines
         { print }
     ' "$file" | sed '/./,$!d'  # Remove leading empty lines
@@ -95,7 +95,7 @@ process_sol_file() {
     local file=$1
     local output_file=$2
     local label=${3:-$(basename "$file")}
-    
+
     echo "Processing $label..."
     strip_imports_and_pragma "$file" >> "$output_file"
     echo "" >> "$output_file"
@@ -107,35 +107,35 @@ update_cpp_file() {
     local sol_file=$2
     local marker_name=$3
     local file_label=$4
-    
+
     if [ ! -f "$cpp_file" ]; then
         echo "Warning: C++ file not found at $cpp_file"
         return 1
     fi
-    
+
     # Optionally create a backup
     if [ "$SKIP_BACKUP" = false ]; then
         echo "Creating backup of $file_label..."
         cp "$cpp_file" "${cpp_file}.bak"
         echo "Backup saved as ${cpp_file}.bak"
     fi
-    
+
     # Create a new version of the C++ file
     local temp_cpp=$(mktemp)
-    
+
     # Copy everything up to and including the R"( marker
     sed -n "1,/^static const char ${marker_name}\[\] = R\"(/p" "$cpp_file" > "$temp_cpp"
-    
+
     # Add the combined Solidity code
     cat "$sol_file" >> "$temp_cpp"
-    
+
     # Add the closing )"; and everything after
     echo ')";' >> "$temp_cpp"
     sed -n '/^)";/,$p' "$cpp_file" | tail -n +2 >> "$temp_cpp"
-    
+
     # Replace the original file
     mv "$temp_cpp" "$cpp_file"
-    
+
     echo "Successfully updated $cpp_file"
 }
 
@@ -144,41 +144,50 @@ build_verifier() {
     local output_file=$1
     local is_zk=$2
     local verifier_type=${3:-"Honk"}
-    
+
     echo ""
     echo "Building ${verifier_type} verifier..."
-    
+
     # Start with pragma statement
     echo "pragma solidity ^0.8.27;" > "$output_file"
     echo "" >> "$output_file"
-    
+
     # Process core files
+    process_sol_file "$SOL_SRC_DIR/../interfaces/IVerifier.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/Fr.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/HonkTypes.sol" "$output_file"
-    
+
     # Use appropriate transcript file
     if [ "$is_zk" = true ]; then
         process_sol_file "$SOL_SRC_DIR/ZKTranscript.sol" "$output_file"
     else
         process_sol_file "$SOL_SRC_DIR/Transcript.sol" "$output_file"
     fi
-    
+
     # Process common files
     process_sol_file "$SOL_SRC_DIR/Relations.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/CommitmentScheme.sol" "$output_file"
     process_sol_file "$SOL_SRC_DIR/utils.sol" "$output_file"
-    
+
     # Use appropriate base verifier
     if [ "$is_zk" = true ]; then
         process_sol_file "$SOL_SRC_DIR/BaseZKHonkVerifier.sol" "$output_file"
     else
         process_sol_file "$SOL_SRC_DIR/BaseHonkVerifier.sol" "$output_file"
     fi
-    
+
     # Add the final contract template
     if [ "$is_zk" = false ]; then
         cat >> "$output_file" << 'EOF'
 contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
+     function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
+       return HonkVerificationKey.loadVerificationKey();
+    }
+}
+EOF
+    else
+        cat >> "$output_file" << 'EOF'
+contract HonkVerifier is BaseZKHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {
      function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
        return HonkVerificationKey.loadVerificationKey();
     }
