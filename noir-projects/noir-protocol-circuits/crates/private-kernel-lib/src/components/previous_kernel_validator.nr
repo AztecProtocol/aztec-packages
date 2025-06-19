@@ -298,15 +298,23 @@ impl PreviousKernelValidator {
         }
     }
 
-    // TODO: we probably don't need to validate that there's no transient data.
-    // Sure, it'll cost users money
-    // to emit unnecessary data, but if they use the correct typescript code,
-    // it will correctly orchestrate the right number of reset iterations to squash
-    // everything.
-    // Oh, or is this checking that if a nullifier claimed to be nullifying a
-    // particular note, then that note must still exist in the note_hashes array?
-    // Consider renaming the function to make that clearer?
-    // Does this need to be constrained though?
+    // This is mainly for ensuring that for any nullifier that links to a note hash,
+    // it is created _after_ the note hash.
+    // This is enforced for transient data when they are squashed in the reset circuit.
+    // But if a pair is not transient, their counters will be checked here.
+    // Why would we have a (nullifier, pending note) pair that is non-transient?
+    // When a pending note hash is non-revertible and its nullifier is revertible, we can't
+    // squash them, but we still need to perform this check on their counters.
+    // A nice side effect of this check is that it also makes sure all the transient data is squashed:
+    // In aztec-nr, if a contract is emitting a nullifier for a non-revertible note
+    // hash, or if it doesn't want to squash the note hash at all (to keep a full record
+    // of what had happened, for example), it could set the nullifier.note_hash to be
+    // the _siloed_ note hash (or not set it at all).
+    // When we run this function (in the tail), because the non-squashed note hashes
+    // are already siloed in the reset circuit, the nullifiers that map to non-transient
+    // note hashes will match up with those _siloed_ note hashes. But for nullifiers
+    // that should already have been squashed against a transient (not siloed) note
+    // hash, they won't be able to find a match.
     fn verify_no_transient_data(self) {
         let nullifiers = self.previous_kernel.public_inputs.end.nullifiers;
         let note_hashes = self.previous_kernel.public_inputs.end.note_hashes;
