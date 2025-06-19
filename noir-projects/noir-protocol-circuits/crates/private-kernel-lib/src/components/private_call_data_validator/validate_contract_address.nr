@@ -33,7 +33,6 @@ pub fn validate_contract_address(
     protocol_contract_tree_root: Field,
 ) {
     let contract_address = private_call_data.public_inputs.call_context.contract_address;
-    assert(!contract_address.is_zero(), "contract address cannot be zero"); // Why do we need this? This check feels redundant, given that we wouldn't be able to find an address preimage that could result in zero. Also, we already assert that a "nullish" msg_sender == -1.
 
     // `hints` is all address preimage data needed to demonstrate that a vk exists in a given contract address.
     // It's a "membership witness" for a vk's existence in an address, if you will.
