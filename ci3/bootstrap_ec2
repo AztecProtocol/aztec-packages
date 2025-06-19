@@ -214,9 +214,6 @@ function run {
     vmstat -w -S M 2 &> /tmp/memfile &
     memfile_pid=\$!
 
-    # Kill monitoring processes on exit.
-    trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
-
     echo Starting devbox...
     docker run --privileged --rm ${docker_args:-} \
       --name aztec_build \
@@ -255,22 +252,24 @@ function run {
       -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
       --pids-limit=32768 \
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script") &
+    build_pid=\$!
 
-    docker_pid=\$!
+    # Kill background processes on exit.
+    trap 'kill \$cpufile_pid \$memfile_pid \$build_pid' EXIT
+
+    # While the docker container is running, check for spot termination notices.
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
-
-    while true; do
+    while kill -0 \$docker_pid &>/dev/null; do
       if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
         # Termination notice found, exit with 155.
         echo "Spot will be terminated! Exiting early."
-        kill \$docker_pid || true
         exit 155
       fi
-      sleep 1
+      sleep 5
     done
 
     # Returns exit code from docker run.
-    wait \$docker_pid
+    wait \$build_pid
   "
 }
 
