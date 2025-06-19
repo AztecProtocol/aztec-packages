@@ -38,16 +38,23 @@ contract IgnitionTest is RollupBase {
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
+  uint256 internal PROOF_SUBMISSION_EPOCHS;
 
   address internal sequencer = address(bytes20("sequencer"));
 
   constructor() {
     TimeLib.initialize(
-      block.timestamp, TestConstants.AZTEC_SLOT_DURATION, TestConstants.AZTEC_EPOCH_DURATION
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
     SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
     EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
-    timeCheater = new TimeCheater(address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION);
+    PROOF_SUBMISSION_EPOCHS = TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS;
+    timeCheater = new TimeCheater(
+      address(this), block.timestamp, SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS
+    );
   }
 
   /**

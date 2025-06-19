@@ -11,7 +11,7 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract VoteTest is GovernanceProposerBase {
   IPayload internal proposal = IPayload(address(0xdeadbeef));
-  address internal proposer = address(0);
+  address internal proposer = address(0x1234567890);
   Fakerollup internal validatorSelection;
 
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
@@ -45,6 +45,8 @@ contract VoteTest is GovernanceProposerBase {
 
   modifier givenCanonicalRollupHoldCode() {
     validatorSelection = new Fakerollup();
+    validatorSelection.setProposer(proposer);
+
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(validatorSelection)));
 
@@ -149,6 +151,7 @@ contract VoteTest is GovernanceProposerBase {
       governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
 
     Fakerollup freshInstance = new Fakerollup();
+    freshInstance.setProposer(proposer);
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(freshInstance)));
 

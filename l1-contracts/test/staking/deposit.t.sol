@@ -73,7 +73,7 @@ contract DepositTest is StakingBase {
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
 
     // The real error gets caught by the flushEntryQueue call
-    // address magicAddress = address(staking.getGSE().CANONICAL_MAGIC_ADDRESS());
+    // address magicAddress = address(staking.getGSE().getCanonicalMagicAddress());
     // vm.expectRevert(
     //   abi.encodeWithSelector(Errors.Staking__AlreadyRegistered.selector, magicAddress, ATTESTER)
     // );
@@ -83,7 +83,7 @@ contract DepositTest is StakingBase {
 
     vm.prank(SLASHER);
     staking.slash(ATTESTER, DEPOSIT_AMOUNT - MINIMUM_STAKE + 1);
-    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.LIVING));
+    assertEq(uint256(staking.getStatus(ATTESTER)), uint256(Status.ZOMBIE));
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Staking__AlreadyExiting.selector, ATTESTER));
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});

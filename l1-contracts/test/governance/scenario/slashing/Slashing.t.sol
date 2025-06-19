@@ -94,7 +94,8 @@ contract SlashingTest is TestBase {
       address(rollup),
       block.timestamp,
       TestConstants.AZTEC_SLOT_DURATION,
-      TestConstants.AZTEC_EPOCH_DURATION
+      TestConstants.AZTEC_EPOCH_DURATION,
+      TestConstants.AZTEC_PROOF_SUBMISSION_EPOCHS
     );
 
     // We jumpt forward 2 epochs because there are nothing interesting happening in the first epochs
@@ -132,7 +133,7 @@ contract SlashingTest is TestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       assertEq(attesterView.effectiveBalance, 0);
       assertEq(attesterView.exit.amount, stakes[i] - slashAmount1 - slashAmount2, "Invalid stake");
-      assertTrue(attesterView.status == Status.LIVING, "Invalid status");
+      assertTrue(attesterView.status == Status.ZOMBIE, "Invalid status");
     }
   }
 }

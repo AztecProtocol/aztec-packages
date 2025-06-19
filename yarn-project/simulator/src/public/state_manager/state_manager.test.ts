@@ -7,7 +7,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { initPersistableStateManager } from '../avm/fixtures/index.js';
+import { initPersistableStateManager } from '../avm/fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockGetBytecodeCommitment,

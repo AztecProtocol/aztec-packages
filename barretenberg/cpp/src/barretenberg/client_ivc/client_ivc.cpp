@@ -227,7 +227,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         // proof
         MegaOinkProver oink_prover{ proving_key, honk_vk };
         vinfo("computing oink proof...");
-        HonkProof oink_proof = oink_prover.prove();
+        oink_prover.prove();
+        HonkProof oink_proof = oink_prover.export_proof();
         vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -412,7 +413,8 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+    return decider_prover.export_proof();
 }
 
 /**

@@ -47,7 +47,14 @@ import {
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  type L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -724,13 +731,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         return undefined;
       }
       const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex]?.toString();
+      const blockHash = blockHashes[blockHashIndex];
       if (!blockHash) {
         return undefined;
       }
       return {
         l2BlockNumber: Number(blockNumber),
-        l2BlockHash: blockHash,
+        l2BlockHash: L2BlockHash.fromField(blockHash),
         data: index,
       };
     });
@@ -769,10 +776,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     archive: Fr,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE, typeof ARCHIVE_HEIGHT>(
-      MerkleTreeId.ARCHIVE,
-      [archive],
-    );
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [archive]);
     return pathAndIndex === undefined
       ? undefined
       : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
@@ -783,10 +787,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
     const committedDb = await this.#getWorldState(blockNumber);
-    const [pathAndIndex] = await committedDb.findSiblingPaths<
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
       MerkleTreeId.NOTE_HASH_TREE,
-      typeof NOTE_HASH_TREE_HEIGHT
-    >(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+      [noteHash],
+    );
     return pathAndIndex === undefined
       ? undefined
       : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
@@ -802,16 +806,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    if (index === undefined) {
+    const db = await this.#getWorldState(blockNumber);
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
+    if (!witness) {
       return undefined;
     }
-    const committedDb = await this.#getWorldState(blockNumber);
-    const siblingPath = await committedDb.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      index,
-    );
-    return [index, siblingPath];
+
+    // REFACTOR: Return a MembershipWitness object
+    return [witness.index, witness.path];
   }
 
   /**
@@ -872,24 +874,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const db = await this.#getWorldState(blockNumber);
-    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    if (!index) {
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
+    if (!witness) {
       return undefined;
     }
 
-    const leafPreimagePromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
-
-    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
-
+    const { index, path } = witness;
+    const leafPreimage = await db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
     if (!leafPreimage) {
       return undefined;
     }
 
-    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
+    return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
   }
 
   /**
@@ -921,10 +917,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
-    const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPath = await committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
@@ -938,10 +931,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
+      const path = await committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       return new PublicDataWitness(lowLeafResult.index, preimage, path);
     }
   }

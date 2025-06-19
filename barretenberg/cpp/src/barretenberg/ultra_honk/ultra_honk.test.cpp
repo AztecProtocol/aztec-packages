@@ -1,6 +1,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -12,7 +13,6 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_round.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -57,8 +57,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
-            auto ipa_verification_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
             Verifier verifier(verification_key, ipa_verification_key);
             bool verified = verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
             EXPECT_EQ(verified, expected_result);
@@ -113,26 +112,6 @@ TYPED_TEST(UltraHonkTests, UltraProofSizeCheck)
         expected_proof_length += IPA_CLAIM_SIZE;
     }
     EXPECT_EQ(ultra_proof.size(), expected_proof_length);
-}
-
-/**
- * @brief Check that size of a ultra honk proof matches the corresponding constant
- * @details If this test FAILS, then the following (non-exhaustive) list should probably be updated as well:
- * - VK length formula in ultra_flavor.hpp, mega_flavor.hpp, etc...
- * - ultra_transcript.test.cpp
- * - constants in yarn-project in: constants.nr, constants.gen.ts, ConstantsGen.sol, lib.nr in
- * bb_proof_verification/src, main.nr of recursive acir_tests programs. with recursive verification circuits
- */
-TYPED_TEST(UltraHonkTests, UltraVKSizeCheck)
-{
-    using Flavor = TypeParam;
-
-    auto builder = typename Flavor::CircuitBuilder{};
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-    // Construct a UH proof and ensure its size matches expectation; if not, the constant may need to be updated
-    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    typename Flavor::VerificationKey verification_key(proving_key->proving_key);
-    EXPECT_EQ(verification_key.to_field_elements().size(), Flavor::VerificationKey::VERIFICATION_KEY_LENGTH);
 }
 
 /**
@@ -303,8 +282,7 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {
-            auto ipa_verification_key =
-                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
             typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
             return verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
         } else {

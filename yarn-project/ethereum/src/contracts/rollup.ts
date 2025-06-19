@@ -145,8 +145,8 @@ export class RollupContract {
   }
 
   @memoize
-  getProofSubmissionWindow() {
-    return this.rollup.read.getProofSubmissionWindow();
+  getProofSubmissionEpochs() {
+    return this.rollup.read.getProofSubmissionEpochs();
   }
 
   @memoize
@@ -378,7 +378,6 @@ export class RollupContract {
       ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;

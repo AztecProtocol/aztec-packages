@@ -270,7 +270,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
     auto proof = prover.construct_proof();
 
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
     } else {
@@ -297,7 +297,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
     } else {
@@ -364,7 +364,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
     } else {
@@ -420,7 +420,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
     } else {
