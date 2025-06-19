@@ -90,6 +90,11 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
+    name  = "grafana.grafana\\.ini.server.domain"
+    value = "http://${google_compute_address.grafana_ip.address}"
+  }
+
+  set {
     name  = "grafana.adminPassword"
     value = var.GRAFANA_DASHBOARD_PASSWORD
   }
