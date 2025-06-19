@@ -45,7 +45,8 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
     DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
     staking = IStaking(address(builder.getConfig().rollup));
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler.StakingAssetHandlerArgs({
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
       owner: address(this),
       stakingAsset: address(stakingAsset),
       registry: registry,
@@ -61,9 +62,7 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
       skipMerkleCheck: true
     });
 
-    stakingAssetHandler = new StakingAssetHandler(
-      stakingAssetHandlerArgs
-    );
+    stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     stakingAsset.addMinter(address(stakingAssetHandler));
   }
 
