@@ -24,7 +24,7 @@ contract BindTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), BOUND_ADDRESS, WITHDRAWER);
     vm.prank(BOUND_ADDRESS);
-    stakingAssetHandler.addValidator(BOUND_ADDRESS, realProof);
+    stakingAssetHandler.addValidator(BOUND_ADDRESS, validMerkleProof, realProof);
   }
 
   function test_WhenNotUsingTheBoundAddress(address _attester) external {
@@ -38,6 +38,6 @@ contract BindTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(_attester);
-    stakingAssetHandler.addValidator(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
   }
 }

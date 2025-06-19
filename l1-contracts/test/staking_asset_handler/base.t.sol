@@ -30,6 +30,11 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
   uint256 internal mintInterval = 1;
   uint256 internal depositsPerMint = 1;
 
+  bytes32 internal depositMerkleRoot = bytes32(0x0);
+
+  bytes32[] internal validMerkleProof;
+  bytes32[] internal invalidMerkleProof;
+
   function setUp() public virtual {
     RollupBuilder builder = new RollupBuilder(address(this));
 
@@ -40,18 +45,24 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
     DEPOSIT_AMOUNT = builder.getConfig().rollup.getDepositAmount();
     staking = IStaking(address(builder.getConfig().rollup));
 
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler.StakingAssetHandlerArgs({
+      owner: address(this),
+      stakingAsset: address(stakingAsset),
+      registry: registry,
+      withdrawer: WITHDRAWER,
+      mintInterval: mintInterval,
+      depositsPerMint: depositsPerMint,
+      depositMerkleRoot: depositMerkleRoot,
+      zkPassportVerifier: zkPassportVerifier,
+      unhinged: new address[](0),
+      scope: CORRECT_SCOPE,
+      subscope: CORRECT_SUBSCOPE,
+      skipBindCheck: true,
+      skipMerkleCheck: true
+    });
+
     stakingAssetHandler = new StakingAssetHandler(
-      address(this),
-      address(stakingAsset),
-      registry,
-      WITHDRAWER,
-      mintInterval,
-      depositsPerMint,
-      zkPassportVerifier,
-      new address[](0),
-      CORRECT_SCOPE,
-      CORRECT_SUBSCOPE,
-      true
+      stakingAssetHandlerArgs
     );
     stakingAsset.addMinter(address(stakingAssetHandler));
   }
@@ -62,5 +73,9 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
 
   function enableBindCheck() internal {
     stakingAssetHandler.setSkipBindCheck(false);
+  }
+
+  function enableMerkleCheck() internal {
+    stakingAssetHandler.setSkipMerkleCheck(false);
   }
 }
