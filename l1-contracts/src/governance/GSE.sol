@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
@@ -38,6 +39,7 @@ interface IGSECore {
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithCanonical(uint256 _proposalId, uint256 _amount, bool _support) external;
   function finaliseHelper(uint256 _withdrawalId) external;
+  function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
   function isRollupRegistered(address _instance) external view returns (bool);
@@ -284,6 +286,22 @@ contract GSECore is IGSECore, Ownable {
     if (!gov.getWithdrawal(_withdrawalId).claimed) {
       gov.finaliseWithdraw(_withdrawalId);
     }
+  }
+
+  function proposeWithLock(IPayload _proposal, address _to)
+    external
+    override(IGSECore)
+    returns (uint256)
+  {
+    Governance gov = getGovernance();
+    uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
+
+    STAKING_ASSET.transferFrom(msg.sender, address(this), amount);
+    STAKING_ASSET.approve(address(gov), amount);
+
+    gov.deposit(address(this), amount);
+
+    return gov.proposeWithLock(_proposal, _to);
   }
 
   /**
