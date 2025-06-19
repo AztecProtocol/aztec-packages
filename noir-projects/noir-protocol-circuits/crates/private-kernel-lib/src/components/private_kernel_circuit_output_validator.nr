@@ -35,7 +35,7 @@ impl PrivateKernelCircuitOutputValidator {
         self,
         tx_request: TxRequest,
         private_call: PrivateCallData,
-        empty_rhs_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
+        empty_rhs_validated_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
         vk_tree_root: Field,
         protocol_contract_tree_root: Field,
         is_private_only: bool,
@@ -61,7 +61,7 @@ impl PrivateKernelCircuitOutputValidator {
 
         self.validate_propagated_from_initial_private_call(
             private_call.public_inputs.call_context.contract_address,
-            empty_rhs_private_call_arrays,
+            empty_rhs_validated_private_call_arrays,
             nullifier_offset,
         );
     }
@@ -70,13 +70,13 @@ impl PrivateKernelCircuitOutputValidator {
         self,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
         private_call: PrivateCallData,
-        empty_rhs_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
+        empty_rhs_validated_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
     ) {
         self.validate_aggregated_values(previous_kernel_public_inputs, private_call);
         self.validate_propagated_from_previous_kernel(previous_kernel_public_inputs);
         self.validate_propagated_from_private_call(
             private_call.public_inputs.call_context.contract_address,
-            empty_rhs_private_call_arrays,
+            empty_rhs_validated_private_call_arrays,
             previous_kernel_public_inputs, // for its end array lengths, which we'll use as offsets for insertion of the new public call's arrays.
         );
     }
@@ -279,25 +279,25 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_propagated_from_private_call(
         self,
         private_call_contract_address: AztecAddress,
-        empty_rhs_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
+        empty_rhs_validated_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) {
         let contract_address = private_call_contract_address;
         assert_array_appended_scoped(
             self.output.validation_requests.note_hash_read_requests,
-            empty_rhs_private_call_arrays.note_hash_read_requests,
+            empty_rhs_validated_private_call_arrays.note_hash_read_requests,
             previous_kernel_public_inputs.validation_requests.note_hash_read_requests.length,
             contract_address,
         );
         assert_array_appended_scoped(
             self.output.validation_requests.nullifier_read_requests,
-            empty_rhs_private_call_arrays.nullifier_read_requests,
+            empty_rhs_validated_private_call_arrays.nullifier_read_requests,
             previous_kernel_public_inputs.validation_requests.nullifier_read_requests.length,
             contract_address,
         );
         assert_array_appended_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            empty_rhs_private_call_arrays.key_validation_requests_and_generators,
+            empty_rhs_validated_private_call_arrays.key_validation_requests_and_generators,
             previous_kernel_public_inputs
                 .validation_requests
                 .scoped_key_validation_requests_and_generators
@@ -306,43 +306,43 @@ impl PrivateKernelCircuitOutputValidator {
         );
         assert_array_appended_scoped(
             self.output.end.note_hashes,
-            empty_rhs_private_call_arrays.note_hashes,
+            empty_rhs_validated_private_call_arrays.note_hashes,
             previous_kernel_public_inputs.end.note_hashes.length,
             contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.nullifiers,
-            empty_rhs_private_call_arrays.nullifiers,
+            empty_rhs_validated_private_call_arrays.nullifiers,
             previous_kernel_public_inputs.end.nullifiers.length,
             contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.l2_to_l1_msgs,
-            empty_rhs_private_call_arrays.l2_to_l1_msgs,
+            empty_rhs_validated_private_call_arrays.l2_to_l1_msgs,
             previous_kernel_public_inputs.end.l2_to_l1_msgs.length,
             contract_address,
         );
         // Notice!!! This function has `_and_` in the middle and is different from the others:
         assert_array_appended_and_scoped(
             self.output.end.private_logs,
-            empty_rhs_private_call_arrays.private_logs,
+            empty_rhs_validated_private_call_arrays.private_logs,
             previous_kernel_public_inputs.end.private_logs.length,
             contract_address,
         );
         assert_array_appended_and_scoped(
             self.output.end.contract_class_logs_hashes,
-            empty_rhs_private_call_arrays.contract_class_logs_hashes,
+            empty_rhs_validated_private_call_arrays.contract_class_logs_hashes,
             previous_kernel_public_inputs.end.contract_class_logs_hashes.length,
             contract_address,
         );
         assert_array_appended(
             self.output.end.public_call_requests,
-            empty_rhs_private_call_arrays.public_call_requests,
+            empty_rhs_validated_private_call_arrays.public_call_requests,
             previous_kernel_public_inputs.end.public_call_requests.length,
         );
         assert_array_appended_reversed_up_to_some_length(
             self.output.end.private_call_stack,
-            empty_rhs_private_call_arrays.private_call_requests,
+            empty_rhs_validated_private_call_arrays.private_call_requests,
             previous_kernel_public_inputs.end.private_call_stack.length,
         );
     }
@@ -350,60 +350,60 @@ impl PrivateKernelCircuitOutputValidator {
     fn validate_propagated_from_initial_private_call(
         self,
         private_call_contract_address: AztecAddress,
-        empty_rhs_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
+        empty_rhs_validated_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
         nullifier_offset: u32,
     ) {
         // TODO: iterate over all the dest arrays and assert that they are empty, but use assert_empty and not is_empty.
         let contract_address = private_call_contract_address;
         assert_array_appended_to_empty_dest_scoped(
             self.output.validation_requests.note_hash_read_requests,
-            empty_rhs_private_call_arrays.note_hash_read_requests,
+            empty_rhs_validated_private_call_arrays.note_hash_read_requests,
             contract_address,
         );
         assert_array_appended_to_empty_dest_scoped(
             self.output.validation_requests.nullifier_read_requests,
-            empty_rhs_private_call_arrays.nullifier_read_requests,
+            empty_rhs_validated_private_call_arrays.nullifier_read_requests,
             contract_address,
         );
         assert_array_appended_to_empty_dest_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
-            empty_rhs_private_call_arrays.key_validation_requests_and_generators,
+            empty_rhs_validated_private_call_arrays.key_validation_requests_and_generators,
             contract_address,
         );
         assert_array_appended_to_empty_dest_scoped(
             self.output.end.note_hashes,
-            empty_rhs_private_call_arrays.note_hashes,
+            empty_rhs_validated_private_call_arrays.note_hashes,
             contract_address,
         );
         assert_array_appended_scoped(
             self.output.end.nullifiers,
-            empty_rhs_private_call_arrays.nullifiers,
+            empty_rhs_validated_private_call_arrays.nullifiers,
             nullifier_offset,
             contract_address,
         );
         assert_array_appended_to_empty_dest_scoped(
             self.output.end.l2_to_l1_msgs,
-            empty_rhs_private_call_arrays.l2_to_l1_msgs,
+            empty_rhs_validated_private_call_arrays.l2_to_l1_msgs,
             contract_address,
         );
         // Notice!!! This function has `_and_` in the middle and is different from the others:
         assert_array_appended_to_empty_dest_and_scoped(
             self.output.end.private_logs,
-            empty_rhs_private_call_arrays.private_logs,
+            empty_rhs_validated_private_call_arrays.private_logs,
             contract_address,
         );
         assert_array_appended_to_empty_dest_and_scoped(
             self.output.end.contract_class_logs_hashes,
-            empty_rhs_private_call_arrays.contract_class_logs_hashes,
+            empty_rhs_validated_private_call_arrays.contract_class_logs_hashes,
             contract_address,
         );
         assert_array_appended_to_empty_dest(
             self.output.end.public_call_requests,
-            empty_rhs_private_call_arrays.public_call_requests,
+            empty_rhs_validated_private_call_arrays.public_call_requests,
         );
         assert_array_appended_reversed_to_empty_dest(
             self.output.end.private_call_stack,
-            empty_rhs_private_call_arrays.private_call_requests,
+            empty_rhs_validated_private_call_arrays.private_call_requests,
         );
     }
 

@@ -92,7 +92,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
                 self.private_call,
-                private_call_data_validator.empty_rhs_private_call_arrays,
+                private_call_data_validator.empty_rhs_validated_private_call_arrays,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
                 self.is_private_only,

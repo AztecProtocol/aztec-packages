@@ -85,15 +85,16 @@ where
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
-    pub empty_rhs_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
+    pub empty_rhs_validated_private_call_arrays: EmptyRHSValidatedPrivateCallArrays,
 }
 
 impl PrivateCallDataValidator {
     pub fn new(data: PrivateCallData) -> Self {
         // We store rhs-empty-validated arrays as part of this Validator, because we'll be referring back to their rhs-empty-validated lengths in many other `validate...()` function calls.
-        let empty_rhs_private_call_arrays = Self::validate_private_call_arrays(data.public_inputs);
+        let empty_rhs_validated_private_call_arrays =
+            Self::validate_private_call_arrays(data.public_inputs);
 
-        PrivateCallDataValidator { data, empty_rhs_private_call_arrays }
+        PrivateCallDataValidator { data, empty_rhs_validated_private_call_arrays }
     }
 
     fn validate_private_call_arrays(
@@ -233,27 +234,27 @@ impl PrivateCallDataValidator {
             // Note: Although a EmptyRHSArray usually gives weak guarantees, if its
             // length is 0, then the array is _guaranteed_ to be empty.
             assert_eq(
-                self.empty_rhs_private_call_arrays.note_hashes.length,
+                self.empty_rhs_validated_private_call_arrays.note_hashes.length,
                 0,
                 "note_hashes must be empty for static calls",
             );
             assert_eq(
-                self.empty_rhs_private_call_arrays.nullifiers.length,
+                self.empty_rhs_validated_private_call_arrays.nullifiers.length,
                 0,
                 "nullifiers must be empty for static calls",
             );
             assert_eq(
-                self.empty_rhs_private_call_arrays.l2_to_l1_msgs.length,
+                self.empty_rhs_validated_private_call_arrays.l2_to_l1_msgs.length,
                 0,
                 "l2_to_l1_msgs must be empty for static calls",
             );
             assert_eq(
-                self.empty_rhs_private_call_arrays.private_logs.length,
+                self.empty_rhs_validated_private_call_arrays.private_logs.length,
                 0,
                 "private_logs must be empty for static calls",
             );
             assert_eq(
-                self.empty_rhs_private_call_arrays.contract_class_logs_hashes.length,
+                self.empty_rhs_validated_private_call_arrays.contract_class_logs_hashes.length,
                 0,
                 "contract_class_logs_hashes must be empty for static calls",
             );
@@ -263,7 +264,7 @@ impl PrivateCallDataValidator {
         // Would it be bad if we enabled other functions to emit these logs?
         // Oh, maybe the AVM does stuff with those logs, with the presumption that they
         // contain avm bytecode that needs to be validated by the avm?
-        if (self.empty_rhs_private_call_arrays.contract_class_logs_hashes.length != 0) {
+        if (self.empty_rhs_validated_private_call_arrays.contract_class_logs_hashes.length != 0) {
             assert_eq(
                 call_context.contract_address,
                 REGISTERER_CONTRACT_ADDRESS,
@@ -276,7 +277,8 @@ impl PrivateCallDataValidator {
     fn validate_private_call_requests(self) {
         let public_inputs = self.data.public_inputs;
         let call_requests = public_inputs.private_call_requests;
-        let num_requests = self.empty_rhs_private_call_arrays.private_call_requests.length;
+        let num_requests =
+            self.empty_rhs_validated_private_call_arrays.private_call_requests.length;
         let mut should_check = true;
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
@@ -300,7 +302,7 @@ impl PrivateCallDataValidator {
         validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
             min_revertible_side_effect_counter,
             public_inputs.private_call_requests,
-            self.empty_rhs_private_call_arrays.private_call_requests.length,
+            self.empty_rhs_validated_private_call_arrays.private_call_requests.length,
         );
     }
 
@@ -309,7 +311,7 @@ impl PrivateCallDataValidator {
 
         let call_requests = public_inputs.public_call_requests;
         // partially-trimmed length >= actual length
-        let num_requests = self.empty_rhs_private_call_arrays.public_call_requests.length;
+        let num_requests = self.empty_rhs_validated_private_call_arrays.public_call_requests.length;
         let mut should_check = true;
         for i in 0..call_requests.len() {
             should_check &= i != num_requests;
@@ -350,49 +352,49 @@ impl PrivateCallDataValidator {
             counter_start,
             counter_end,
             public_inputs.note_hash_read_requests,
-            self.empty_rhs_private_call_arrays.note_hash_read_requests.length,
+            self.empty_rhs_validated_private_call_arrays.note_hash_read_requests.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.nullifier_read_requests,
-            self.empty_rhs_private_call_arrays.nullifier_read_requests.length,
+            self.empty_rhs_validated_private_call_arrays.nullifier_read_requests.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.note_hashes,
-            self.empty_rhs_private_call_arrays.note_hashes.length,
+            self.empty_rhs_validated_private_call_arrays.note_hashes.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.nullifiers,
-            self.empty_rhs_private_call_arrays.nullifiers.length,
+            self.empty_rhs_validated_private_call_arrays.nullifiers.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.l2_to_l1_msgs,
-            self.empty_rhs_private_call_arrays.l2_to_l1_msgs.length,
+            self.empty_rhs_validated_private_call_arrays.l2_to_l1_msgs.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.private_logs,
-            self.empty_rhs_private_call_arrays.private_logs.length,
+            self.empty_rhs_validated_private_call_arrays.private_logs.length,
         );
         validate_incrementing_counters_within_range(
             counter_start,
             counter_end,
             public_inputs.contract_class_logs_hashes,
-            self.empty_rhs_private_call_arrays.contract_class_logs_hashes.length,
+            self.empty_rhs_validated_private_call_arrays.contract_class_logs_hashes.length,
         );
         validate_incrementing_counter_ranges_within_range(
             counter_start,
             counter_end,
             public_inputs.private_call_requests,
-            self.empty_rhs_private_call_arrays.private_call_requests.length,
+            self.empty_rhs_validated_private_call_arrays.private_call_requests.length,
         );
 
         // Validate the public call requests by checking their start counters only, as their end counters are unknown.
@@ -400,7 +402,7 @@ impl PrivateCallDataValidator {
             counter_start,
             counter_end,
             public_inputs.public_call_requests,
-            self.empty_rhs_private_call_arrays.public_call_requests.length,
+            self.empty_rhs_validated_private_call_arrays.public_call_requests.length,
         );
     }
 
