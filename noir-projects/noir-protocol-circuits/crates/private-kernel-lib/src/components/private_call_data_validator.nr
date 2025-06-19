@@ -142,7 +142,6 @@ impl PrivateCallDataValidator {
         assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
 
         // Notice: msg_sender MUST be `-1` for the first function call in a tx.
-        // Within aztec_nr, this can be abstracted to an `Option<AztecAddress>`
         assert(
             call_context.msg_sender == AztecAddress::from_field(MAX_FIELD_VALUE),
             "Users cannot set msg_sender in first call",
@@ -227,8 +226,9 @@ impl PrivateCallDataValidator {
     // "validate_call" is not descriptive enough.
     fn validate_call(self) {
         let call_context = self.data.public_inputs.call_context;
-        // How do we restrict nested calls of a staticcall to also be staticcalls?
-        // When we introduce a dedicated static_call kernel, we might want to consider disallowing static_calls to come through this circuit at all.
+        // Note: See `validate_private_call_requests` for how we ensure that _nested calls_
+        // of a staticcall are also staticcalls.
+        // TODO: When we introduce a dedicated static_call kernel, we might want to consider disallowing static_calls to come through this circuit at all.
         if call_context.is_static_call {
             // No state changes are allowed for static calls.
             // Note: Although a EmptyRHSArray usually gives weak guarantees, if its
