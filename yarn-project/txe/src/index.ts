@@ -1,7 +1,6 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import {
   AztecAddress,
-  type ContractArtifact,
   type ContractInstanceWithAddress,
   Fr,
   type NoirCompiledContract,
@@ -75,8 +74,8 @@ class TXEDispatcher {
 
   private fastHashFile(path: string) {
     return new Promise(resolve => {
-      var fd = createReadStream(path);
-      var hash = createHash('sha1');
+      const fd = createReadStream(path);
+      const hash = createHash('sha1');
       hash.setEncoding('hex');
 
       fd.on('end', function () {

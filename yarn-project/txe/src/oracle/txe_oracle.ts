@@ -25,7 +25,6 @@ import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
   CapsuleDataProvider,
-  ContractDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
   PrivateEventDataProvider,
