@@ -747,7 +747,7 @@ b \cdot c = q \cdot \const{p} + a,
 $$
 
 where quotient $q$ is computed by dividing the product $(b \cdot c)$ by the modulus $p$.
-One important difference between checking this multiplication and the previously discussed modular multiplication is that the remainder $a$ in this case is an input and it may not necessarily be range-constrained to $[0, p)$ as we allow overflows. This could lead to underflows in the subtraction operation if $b \cdot c < a$. To handle this, we need to ensure that the subtraction does not lead to underflows. To do this, we introduce a constant term $\const{u \cdot p}$ such that:
+One important difference between checking this multiplication and the previously discussed modular multiplication is that the remainder $a$ in this case is an input and it may not necessarily be range-constrained to $[0, 2^s)$ as we allow overflows. This could lead to underflows in the subtraction operation if $b \cdot c < a$. To handle this, we need to ensure that the subtraction does not lead to underflows. To do this, we introduce a constant term $\const{u \cdot p}$ such that:
 
 $$
 \begin{aligned}
