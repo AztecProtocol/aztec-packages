@@ -145,10 +145,10 @@ container_script=$(cat <<EOF
     fi
 
     # Capture cpu load.
-    mpstat 2 &> | cache_log 'cpufile' &
+    mpstat 2 | cache_log 'cpufile' &
 
     # Capture mem load.
-    vmstat -w -S M 2 &> | cache_log 'memfile' &
+    vmstat -w -S M 2 | cache_log 'memfile' &
 
     set +e
     set -x
@@ -200,6 +200,8 @@ function run {
     sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
     echo Done in \$SECONDS seconds.
 
+    aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -237,6 +239,7 @@ function run {
         -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
         -e NPM_TOKEN=${NPM_TOKEN:-} \
         -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
+        -e AWS_TOKEN=\$aws_token \
         --pids-limit=32768 \
         aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
     }
@@ -248,7 +251,6 @@ function run {
       trap 'kill \$build_pid &>/dev/null' EXIT
 
       # While the docker container is running, check for spot termination notices.
-      aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
       while kill -0 \$docker_pid &>/dev/null; do
         if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
           # Termination notice found, exit with 155.
