@@ -325,7 +325,12 @@ describe('sequencer', () => {
     publisher.validateBlockHeader.mockResolvedValue();
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
     expectPublisherProposeL2Block([txHash]);
   });
 
@@ -351,7 +356,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
   });
@@ -380,7 +390,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
     expectPublisherProposeL2Block([]);
   });
 
@@ -410,7 +425,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
 
     expectPublisherProposeL2Block(postFlushTxHashes);
   });

@@ -8,6 +8,7 @@ import type {
   ITxCollector,
   MerkleTreeWriteOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -21,6 +22,7 @@ import { EpochPruneWatcher } from './epoch_prune_watcher.js';
 describe('EpochPruneWatcher', () => {
   let watcher: EpochPruneWatcher;
   let l2BlockSource: L2BlockSourceEventEmitter;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let epochCache: MockProxy<EpochCache>;
   let txCollector: MockProxy<ITxCollector>;
   let blockBuilder: MockProxy<IFullNodeBlockBuilder>;
@@ -30,13 +32,23 @@ describe('EpochPruneWatcher', () => {
 
   beforeEach(async () => {
     l2BlockSource = new MockL2BlockSource() as unknown as L2BlockSourceEventEmitter;
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     epochCache = mock<EpochCache>();
     txCollector = mock<ITxCollector>();
     blockBuilder = mock<IFullNodeBlockBuilder>();
     fork = mock<MerkleTreeWriteOperations>();
     blockBuilder.getFork.mockResolvedValue(fork);
 
-    watcher = new EpochPruneWatcher(l2BlockSource, epochCache, txCollector, blockBuilder, penalty, maxPenalty);
+    watcher = new EpochPruneWatcher(
+      l2BlockSource,
+      l1ToL2MessageSource,
+      epochCache,
+      txCollector,
+      blockBuilder,
+      penalty,
+      maxPenalty,
+    );
     await watcher.start();
   });
 
@@ -172,7 +184,7 @@ describe('EpochPruneWatcher', () => {
       },
     ]);
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], block.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], block.header.globalVariables, {}, fork);
   });
 
   it('should not slash if the data is available but the epoch could not have been proven', async () => {
@@ -215,7 +227,7 @@ describe('EpochPruneWatcher', () => {
 
     expect(emitSpy).not.toHaveBeenCalled();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], blockFromL1.header.globalVariables, {}, fork);
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith([tx], [], blockFromL1.header.globalVariables, {}, fork);
   });
 });
 

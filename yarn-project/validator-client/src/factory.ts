@@ -5,6 +5,7 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherConfig } from '@aztec/slasher/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { generatePrivateKey } from 'viem/accounts';
@@ -19,6 +20,7 @@ export function createValidatorClient(
     blockBuilder: IFullNodeBlockBuilder;
     p2pClient: P2P;
     blockSource: L2BlockSource;
+    l1ToL2MessageSource: L1ToL2MessageSource;
     telemetry: TelemetryClient;
     dateProvider: DateProvider;
     epochCache: EpochCache;
@@ -37,6 +39,7 @@ export function createValidatorClient(
     deps.epochCache,
     deps.p2pClient,
     deps.blockSource,
+    deps.l1ToL2MessageSource,
     deps.dateProvider,
     deps.telemetry,
   );

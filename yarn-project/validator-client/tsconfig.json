@@ -22,6 +22,9 @@
       "path": "../p2p"
     },
     {
+      "path": "../prover-client"
+    },
+    {
       "path": "../slasher"
     },
     {

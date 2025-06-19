@@ -906,18 +906,20 @@ export function makeHeader(
   seed = 0,
   blockNumber: number | undefined = undefined,
   slotNumber: number | undefined = undefined,
+  overrides: Partial<FieldsOf<BlockHeader>> = {},
 ): BlockHeader {
-  return new BlockHeader(
-    makeAppendOnlyTreeSnapshot(seed + 0x100),
-    makeContentCommitment(seed + 0x200),
-    makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), {
+  return BlockHeader.from({
+    lastArchive: makeAppendOnlyTreeSnapshot(seed + 0x100),
+    contentCommitment: makeContentCommitment(seed + 0x200),
+    state: makeStateReference(seed + 0x600),
+    globalVariables: makeGlobalVariables((seed += 0x700), {
       ...(blockNumber ? { blockNumber } : {}),
       ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
     }),
-    fr(seed + 0x800),
-    fr(seed + 0x900),
-  );
+    totalFees: fr(seed + 0x800),
+    totalManaUsed: fr(seed + 0x900),
+    ...overrides,
+  });
 }
 
 /**

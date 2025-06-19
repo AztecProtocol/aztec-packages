@@ -1,4 +1,5 @@
-import type { TxHash } from '@aztec/stdlib/tx';
+import type { Fr } from '@aztec/foundation/fields';
+import type { StateReference, TxHash } from '@aztec/stdlib/tx';
 
 export class ValidatorError extends Error {
   constructor(message: string) {
@@ -35,7 +36,12 @@ export class FailedToReExecuteTransactionsError extends ValidatorError {
 }
 
 export class ReExStateMismatchError extends ValidatorError {
-  constructor() {
+  constructor(
+    public readonly expectedArchiveRoot: Fr,
+    public readonly actualArchiveRoot: Fr,
+    public readonly expectedStateReference?: StateReference,
+    public readonly actualStateReference?: StateReference,
+  ) {
     super('Re-execution state mismatch');
   }
 }
