@@ -275,7 +275,7 @@ namespace tx;
     pol commit should_note_hash_append;
     should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
-    // lookup for now: Should be a multipermutation from here and tx trace
+    // lookup for now: Should be a multipermutation from here and execution trace
     #[NOTE_HASH_APPEND]
     should_note_hash_append {
         leaf_value,
