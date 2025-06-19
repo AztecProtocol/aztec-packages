@@ -61,9 +61,6 @@ interface IStakingAssetHandler {
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
 
-  // TODO: think about this - we originally wanted it to be a different address, now it has to be the same???????
-  // - the frontend will have to change because of this - or we will have to require a signature - but this could be front run????
-  error AttesterNotSender();
   error MerkleProofInvalid();
 
   function addValidatorToQueue(
@@ -432,8 +429,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    */
   function _validateMerkleProof(address _attester, bytes32[] memory _merkleProof) internal view {
     if (!skipMerkleCheck) {
-      require(msg.sender == _attester, AttesterNotSender());
-
       bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
       require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
     }
