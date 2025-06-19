@@ -123,7 +123,7 @@ impl PrivateKernelCircuitOutputValidator {
             "incorrect initial min_revertible_side_effect_counter",
         );
 
-        let include_by_timestamp = Self::update_max_block_number_for_contract_updates(
+        let include_by_timestamp = Self::update_include_by_timestamp_for_contract_updates(
             private_call,
             private_call.public_inputs.include_by_timestamp,
         );
@@ -175,8 +175,10 @@ impl PrivateKernelCircuitOutputValidator {
             private_call.public_inputs.include_by_timestamp,
         );
 
-        let include_by_timestamp =
-            Self::update_max_block_number_for_contract_updates(private_call, include_by_timestamp);
+        let include_by_timestamp = Self::update_include_by_timestamp_for_contract_updates(
+            private_call,
+            include_by_timestamp,
+        );
 
         assert_eq(
             self.output.validation_requests.for_rollup.include_by_timestamp,
@@ -369,11 +371,18 @@ impl PrivateKernelCircuitOutputValidator {
         );
     }
 
-    fn update_max_block_number_for_contract_updates(
+    fn update_include_by_timestamp_for_contract_updates(
         private_call: PrivateCallData,
         include_by_timestamp: IncludeByTimestamp,
     ) -> IncludeByTimestamp {
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
+        // If we are proving at genesis, we ignore contract updates.
+        // TODO(benesjan): Is this really fine? How should we handle this? Could this be exploited by proving at
+        // "genesis block" (block with number 0)?
+        let proving_at_genesis =
+            private_call.public_inputs.historical_header.global_variables.block_number == 0;
+
+        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract()
+            & !proving_at_genesis {
             let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
                 private_call.verification_key_hints.updated_class_id_shared_mutable_values,
             );
@@ -382,7 +391,7 @@ impl PrivateKernelCircuitOutputValidator {
                 include_by_timestamp,
                 IncludeByTimestamp::new(compute_shared_mutable_timestamp_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number,
+                    private_call.public_inputs.historical_header.global_variables.timestamp,
                 )),
             )
         } else {

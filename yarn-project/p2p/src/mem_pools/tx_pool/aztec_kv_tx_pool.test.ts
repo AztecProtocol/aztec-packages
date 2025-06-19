@@ -5,7 +5,14 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
-import { IncludeByTimestamp, Tx, TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  IncludeByTimestamp,
+  Tx,
+  TxHash,
+  type TxValidationResult,
+} from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -20,6 +27,14 @@ describe('KV TX pool', () => {
   let db: MockProxy<MerkleTreeReadOperations>;
   let nextTxSeed: number;
   let mockTxSize: number;
+
+  const block1Header = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1, timestamp: 0n }) });
+  const block2Header = BlockHeader.empty({
+    globalVariables: GlobalVariables.empty({ blockNumber: 2, timestamp: 36n }),
+  });
+  const block10Header = BlockHeader.empty({
+    globalVariables: GlobalVariables.empty({ blockNumber: 10, timestamp: 360n }),
+  });
 
   const checkPendingTxConsistency = async () => {
     const pendingTxHashCount = await txPool.getPendingTxHashes().then(h => h.length);
@@ -133,7 +148,7 @@ describe('KV TX pool', () => {
     ]);
 
     // if a tx is mined, any txs can be added until the tx pool size limit is reached
-    await txPool.markAsMined([await tx4.getTxHash()], 1);
+    await txPool.markAsMined([await tx4.getTxHash()], block1Header);
     const tx8 = await mockTx(8, { maxPriorityFeesPerGas: new GasFees(3, 3) });
     await txPool.addTxs([tx8]);
     await checkPendingTxConsistency();
@@ -277,7 +292,7 @@ describe('KV TX pool', () => {
       tx1.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
 
     await txPool.addTxs([tx1, tx2, tx3, tx4]);
-    await txPool.markAsMined([await tx1.getTxHash()], 1);
+    await txPool.markAsMined([await tx1.getTxHash()], block1Header);
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([await tx4.getTxHash()]);
   });
 
@@ -296,23 +311,23 @@ describe('KV TX pool', () => {
     });
 
     await txPool.addTxs([tx1, tx2, tx3, tx4]);
-    await txPool.markAsMined([await tx4.getTxHash()], 1);
+    await txPool.markAsMined([await tx4.getTxHash()], block1Header);
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([await tx2.getTxHash(), await tx3.getTxHash()]));
     expect(pendingTxHashes).toHaveLength(2);
   });
 
-  it('Evicts txs with a max block number lower than or equal to the mined block', async () => {
+  it('Evicts txs with a max inclusion timestamp lower than or equal to the timestamp of the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 1);
+    tx1.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 0n);
     const tx2 = await mockTx(2);
-    tx2.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 2);
+    tx2.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 32n);
     const tx3 = await mockTx(3);
-    tx3.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 3);
+    tx3.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, 64n);
 
     await txPool.addTxs([tx1, tx2, tx3]);
-    await txPool.markAsMined([await tx1.getTxHash()], 2);
+    await txPool.markAsMined([await tx1.getTxHash()], block2Header);
     await expect(txPool.getPendingTxHashes()).resolves.toEqual([await tx3.getTxHash()]);
   });
 
@@ -333,7 +348,7 @@ describe('KV TX pool', () => {
 
     await txPool.addTxs([tx1, tx2, tx3]);
     const txHashes = [await tx1.getTxHash(), await tx2.getTxHash(), await tx3.getTxHash()];
-    await txPool.markAsMined(txHashes, 1);
+    await txPool.markAsMined(txHashes, block1Header);
     await txPool.markMinedAsPending(txHashes);
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
@@ -347,7 +362,7 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
 
     await txPool.addTxs([tx1, tx2, tx3]);
-    await txPool.markAsMined([await tx2.getTxHash()], 1);
+    await txPool.markAsMined([await tx2.getTxHash()], block1Header);
     await checkPendingTxConsistency();
 
     // modify tx1 to have an insufficient fee payer balance after the reorg
@@ -425,7 +440,7 @@ describe('KV TX pool', () => {
     const newTx = await mockTx();
     // We are marking a completely different tx as mined, but that fact that any block has been mined should
     // clear the non-evictable status
-    await txPool.markAsMined([await newTx.getTxHash()], 10);
+    await txPool.markAsMined([await newTx.getTxHash()], block10Header);
 
     // if another tx is added after the tx pool size limit is reached, the lowest priority tx that is evictable (tx1) should be evicted
     const tx6 = await mockTx(6, { maxPriorityFeesPerGas: new GasFees(6, 6) });

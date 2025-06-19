@@ -9,7 +9,7 @@ import {
   type NULLIFIER_TREE_HEIGHT,
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
   type ExtendedViemWalletClient,
   type L1ContractAddresses,
@@ -145,6 +145,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    private readonly epochCache: EpochCacheInterface,
     private readonly packageVersion: string,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -393,6 +394,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
+      epochCache,
       packageVersion,
       proofVerifier,
       telemetry,
@@ -1053,11 +1055,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     tx: Tx,
     { isSimulation, skipFeeEnforcement }: { isSimulation?: boolean; skipFeeEnforcement?: boolean } = {},
   ): Promise<TxValidationResult> {
-    const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const db = this.worldStateSynchronizer.getCommitted();
     const verifier = isSimulation ? undefined : this.proofVerifier;
+
+    // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
+    const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
-      blockNumber,
+      timestamp: nextSlotTimestamp,
       l1ChainId: this.l1ChainId,
       rollupVersion: this.version,
       setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),

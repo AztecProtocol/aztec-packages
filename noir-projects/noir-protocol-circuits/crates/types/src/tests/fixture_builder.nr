@@ -1252,7 +1252,7 @@ impl FixtureBuilder {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
-    pub fn set_max_block_number(&mut self, include_by_timestamp: u32) {
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
         self.include_by_timestamp = IncludeByTimestamp::new(include_by_timestamp);
     }
 

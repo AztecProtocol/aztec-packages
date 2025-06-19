@@ -1,24 +1,29 @@
-import { MAX_BLOCK_NUMBER_LENGTH } from '@aztec/constants';
+import { MAX_INCLUDE_BY_TIMESTAMP_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import type { UInt32 } from '../types/index.js';
+import type { UInt64 } from '../types/index.js';
 
 /**
- * Maximum block number.
+ * Maximum block timestamp value at which tx tx can be included.
  */
 export class IncludeByTimestamp {
   constructor(
     /**
-     * Whether a max block number was requested.
+     * Whether max inclusion timestamp was requested.
      */
     public isSome: boolean,
     /**
-     * The requested max block number, if isSome is true.
+     * The requested max inclusion timestamp of a block, if isSome is true.
      */
-    public value: UInt32,
-  ) {}
+    public value: UInt64,
+  ) {
+    // For sanity we check that the value is less than 2 ** 64.
+    if (value >= 1n << 64n) {
+      throw new Error('Value is not a u64.');
+    }
+  }
 
   /**
    * Serialize as a buffer.
@@ -30,9 +35,9 @@ export class IncludeByTimestamp {
 
   toFields(): Fr[] {
     const fields = serializeToFields(...IncludeByTimestamp.getFields(this));
-    if (fields.length !== MAX_BLOCK_NUMBER_LENGTH) {
+    if (fields.length !== MAX_INCLUDE_BY_TIMESTAMP_LENGTH) {
       throw new Error(
-        `Invalid number of fields for IncludeByTimestamp. Expected ${MAX_BLOCK_NUMBER_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for IncludeByTimestamp. Expected ${MAX_INCLUDE_BY_TIMESTAMP_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;
@@ -45,20 +50,24 @@ export class IncludeByTimestamp {
    */
   static fromBuffer(buffer: Buffer | BufferReader): IncludeByTimestamp {
     const reader = BufferReader.asReader(buffer);
-    return new IncludeByTimestamp(reader.readBoolean(), reader.readNumber());
+    const isSome = reader.readBoolean();
+    // UInt64 is aliased to bigint in TypeScript, causing it to be serialized as a 256-bit integer.
+    // Therefore, we must read it back using readUInt256() rather than readUInt64().
+    const value = reader.readUInt256();
+    return new IncludeByTimestamp(isSome, value);
   }
 
   static fromFields(fields: Fr[] | FieldReader): IncludeByTimestamp {
     const reader = FieldReader.asReader(fields);
-    return new IncludeByTimestamp(reader.readBoolean(), reader.readU32());
+    return new IncludeByTimestamp(reader.readBoolean(), reader.readU64());
   }
 
   static empty() {
-    return new IncludeByTimestamp(false, 0);
+    return new IncludeByTimestamp(false, 0n);
   }
 
   isEmpty(): boolean {
-    return !this.isSome && this.value === 0;
+    return !this.isSome && this.value === 0n;
   }
 
   /**

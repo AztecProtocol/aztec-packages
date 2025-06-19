@@ -55,10 +55,10 @@ fn new_from_previous_kernel_with_private_call_min_revertible_side_effect_counter
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_prev_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_prev_empty_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.set_max_block_number(3);
+    builder.private_call.set_include_by_timestamp(3);
 
     let output = builder.compose_from_previous_kernel();
 
@@ -66,10 +66,10 @@ fn new_from_previous_kernel_with_private_call_max_block_number_prev_empty_succee
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_curr_empty_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_curr_empty_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
+    builder.previous_kernel.set_include_by_timestamp(3);
 
     let output = builder.compose_from_previous_kernel();
 
@@ -77,11 +77,11 @@ fn new_from_previous_kernel_with_private_call_max_block_number_curr_empty_succee
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_pick_prev_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_prev_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(3);
-    builder.private_call.set_max_block_number(4);
+    builder.previous_kernel.set_include_by_timestamp(3);
+    builder.private_call.set_include_by_timestamp(4);
 
     let output = builder.compose_from_previous_kernel();
 
@@ -89,11 +89,11 @@ fn new_from_previous_kernel_with_private_call_max_block_number_pick_prev_succeed
 }
 
 #[test]
-fn new_from_previous_kernel_with_private_call_max_block_number_pick_curr_succeeds() {
+fn new_from_previous_kernel_with_private_call_include_by_timestamp_pick_curr_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(4);
-    builder.private_call.set_max_block_number(3);
+    builder.previous_kernel.set_include_by_timestamp(4);
+    builder.private_call.set_include_by_timestamp(3);
 
     let output = builder.compose_from_previous_kernel();
 

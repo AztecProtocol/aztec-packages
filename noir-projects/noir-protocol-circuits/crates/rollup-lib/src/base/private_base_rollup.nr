@@ -1048,26 +1048,26 @@ mod tests {
     }
 
     #[test(should_fail_with = "kernel include_by_timestamp is smaller than block number")]
-    unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
+    unconstrained fn constants_dont_satisfy_smaller_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(5);
+        builder.tube_data.set_include_by_timestamp(5);
         builder.fails();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_equal_max_block_number() {
+    unconstrained fn constants_satisfy_equal_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(42);
+        builder.tube_data.set_include_by_timestamp(42);
         builder.succeeds();
     }
 
     #[test]
-    unconstrained fn constants_satisfy_larger_max_block_number() {
+    unconstrained fn constants_satisfy_larger_include_by_timestamp() {
         let mut builder = PrivateBaseRollupInputsBuilder::new();
         builder.constants.global_variables.block_number = 42;
-        builder.tube_data.set_max_block_number(4294967295);
+        builder.tube_data.set_include_by_timestamp(4294967295);
         builder.succeeds();
     }
 

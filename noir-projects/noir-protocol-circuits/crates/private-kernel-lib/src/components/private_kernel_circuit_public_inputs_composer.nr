@@ -150,7 +150,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
     }
 
     fn propagate_from_private_call(&mut self, private_call: PrivateCallData) {
-        self.propagate_max_block_number(private_call);
+        self.propagate_include_by_timestamp(private_call);
         self.propagate_note_hash_read_requests(private_call.public_inputs);
         self.propagate_nullifier_read_requests(private_call.public_inputs);
         self.propagate_key_validation_requests(private_call.public_inputs);
@@ -180,14 +180,22 @@ impl PrivateKernelCircuitPublicInputsComposer {
         };
     }
 
-    fn propagate_max_block_number(&mut self, private_call: PrivateCallData) {
+    fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
         // Update the max block number if the private call requested a lower one.
         self.public_inputs.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
             self.public_inputs.validation_requests.include_by_timestamp,
             private_call.public_inputs.include_by_timestamp,
         );
+
+        // If we are proving at genesis, we ignore contract updates.
+        // TODO(benesjan): Is this really fine? How should we handle this? Could this be exploited by proving at
+        // "genesis block" (block with number 0)?
+        let proving_at_genesis =
+            private_call.public_inputs.historical_header.global_variables.block_number == 0;
+
         // Update the max block number for the shared mutable read
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
+        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract()
+            & !proving_at_genesis {
             let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
                 private_call.verification_key_hints.updated_class_id_shared_mutable_values,
             );
@@ -196,7 +204,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 self.public_inputs.validation_requests.include_by_timestamp,
                 IncludeByTimestamp::new(compute_shared_mutable_timestamp_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number,
+                    private_call.public_inputs.historical_header.global_variables.timestamp,
                 )),
             );
         }

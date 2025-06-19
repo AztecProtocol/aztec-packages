@@ -11,6 +11,7 @@ import {
   type TxValidationResult,
   type TxValidator,
 } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');
@@ -19,7 +20,9 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     private values: {
       l1ChainId: Fr;
       rollupVersion: Fr;
-      blockNumber: number;
+      // Timestamp at which we will validate that the tx is not expired. This is typically the timestamp of the block
+      // being built.
+      timestamp: UInt64;
       vkTreeRoot: Fr;
       protocolContractTreeRoot: Fr;
     },
@@ -33,7 +36,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     if (!(await this.#hasCorrectRollupVersion(tx))) {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
-    if (!(await this.#isValidForBlockNumber(tx))) {
+    if (!(await this.#isValidForTimestamp(tx))) {
       errors.push(TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
     }
     if (!(await this.#hasCorrectVkTreeRoot(tx))) {
@@ -84,14 +87,12 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     }
   }
 
-  async #isValidForBlockNumber(tx: T): Promise<boolean> {
+  async #isValidForTimestamp(tx: T): Promise<boolean> {
     const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
 
-    if (includeByTimestamp.isSome && includeByTimestamp.value < this.values.blockNumber) {
+    if (includeByTimestamp.isSome && includeByTimestamp.value < this.values.timestamp) {
       this.#log.verbose(
-        `Rejecting tx ${await Tx.getHash(tx)} for low max block number. Tx max block number: ${
-          includeByTimestamp.value
-        }, current block number: ${this.values.blockNumber}.`,
+        `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp.value}, timestamp: ${this.values.timestamp}.`,
       );
       return false;
     } else {
