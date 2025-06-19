@@ -530,7 +530,7 @@ typename Curve::Element MSM<Curve>::evaluate_pippenger_round(MSMData& msm_data,
     }
 
     Element result = previous_round_output;
-    const size_t num_rounds = (NUM_BITS_IN_FIELD + (bits_per_slice - 1)) / bits_per_slice;
+    const size_t num_rounds = numeric::ceil_div(NUM_BITS_IN_FIELD, bits_per_slice);
     size_t num_doublings = ((round_index == num_rounds - 1) && (NUM_BITS_IN_FIELD % bits_per_slice != 0))
                                ? NUM_BITS_IN_FIELD % bits_per_slice
                                : bits_per_slice;
@@ -852,6 +852,7 @@ typename Curve::AffineElement MSM<Curve>::msm(std::span<const typename Curve::Af
     // unfortnately we need to remove const on this data type to prevent duplicating _scalars (which is typically
     // large) We need to convert `_scalars` out of montgomery form for the MSM. We then convert the scalars back
     // into Montgomery form at the end of the algorithm. NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1449): handle const correctness.
     ScalarField* scalars = const_cast<ScalarField*>(&_scalars[_scalars.start_index]);
 
     std::vector<std::span<const AffineElement>> pp{ points.subspan(_scalars.start_index) };
