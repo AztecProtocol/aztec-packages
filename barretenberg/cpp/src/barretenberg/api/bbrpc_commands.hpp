@@ -9,27 +9,15 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "bbrpc_common.hpp"
+#include <map>
 
 namespace bb::bbrpc {
 
 /**
- * @struct CircuitLoad
- * @brief Represents a request to load a circuit into the BB RPC state.
- *
- * Takes an ID, name and the circuit bytecode. It
+ * @struct CircuitInput
+ * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
  */
-struct CircuitLoad {
-    using Reponse = bool;
-
-    /**
-     * @brief Unique identifier for the circuit
-     *
-     * A 128-bit identifier designed to support UUID format (16 random bytes chosen by the client).
-     * The client sets this ID to avoid waiting for barretenberg to assign one, enabling
-     * operations to be queued that reference the circuit before loading is complete.
-     */
-    CircuitId circuit_id;
-
+struct CircuitInput {
     /**
      * @brief Human-readable name for the circuit
      *
@@ -52,74 +40,7 @@ struct CircuitLoad {
     std::vector<uint8_t> verification_key;
 };
 
-/**
- * @struct CircuitDrop
- * @brief Represents a request to remove a circuit from the BB RPC state.
- *
- * Deallocate resources associated with a previously loaded circuit.
- * If the circuit is not found, the operation is a no-op but prints a warning to stderr.
- */
-struct CircuitDrop {
-    using Reponse = bool;
-
-    /**
-     * @brief Unique identifier of the circuit to be dropped
-     *
-     * Must match the circuit_id of a previously loaded circuit. After this
-     * operation, the circuit will no longer be available for use.
-     */
-    CircuitId circuit_id;
-};
-
-// if (flags.ipa_accumulation) {
-//     _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// } else if (flags.oracle_hash_type == "poseidon2") {
-//     _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-//     _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-//     _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// #ifdef STARKNET_GARAGA_FLAVORS
-// } else if (flags.oracle_hash_type == "starknet" && !flags.zk) {
-//     _write(_prove<UltraStarknetFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// } else if (flags.oracle_hash_type == "starknet" && flags.zk) {
-//     _write(_prove<UltraStarknetZKFlavor>(flags.write_vk, bytecode_path, witness_path, vk_path));
-// #endif
-// }
-
-/**
- * @struct CircuitProve
- * @brief Represents a request to generate a proof using the UltraHonk proving system.
- * Currently, this is the only proving system supported by BB (after plonk was deprecated and removed).
- *
- * This structure is used to encapsulate all necessary parameters for generating a proof
- * for a specific circuit, including the circuit ID, witness data, and options for the proving process.
- * This is not used for ClientIVC honk, the other proving option, as it has a differently structured output and takes
- * multiple accumulated circuits as input.
- */
-struct CircuitProve {
-    using Reponse = bool;
-
-    /**
-     * @brief Contains proof and public inputs.
-     * Both are given as vectors of fields. To be used for verification.
-     * Example uses would be verification in native BB, WASM BB, solidity or recursively through Noir.
-     */
-    using Response = PublicInputsAndProof;
-
-    /**
-     * @brief Unique identifier of the circuit to be used for proving
-     *
-     * This ID must match a previously loaded circuit. The proof will be generated
-     * using the circuit's bytecode and parameters.
-     */
-    CircuitId circuit_id;
-
-    std::vector<uint8_t> witness;
-
-    /************************
-     * PROOF SYSTEM SETTINGS
-     ************************/
+struct ProofSystemSettings {
     /**
      * @brief Optional flag to indicate if the proof should be generated with IPA accumulation (i.e. for rollup
      * circuits).
@@ -139,6 +60,74 @@ struct CircuitProve {
      * Useful for cases that don't require privacy, such as when all inputs are public or zk-SNARK proofs themselves.
      */
     bool disable_zk;
+
+    /**
+     * @brief Honk recursion setting.
+     * 0 = no recursion, 1 = UltraHonk recursion, 2 = UltraRollupHonk recursion.
+     * Controls whether pairing point accumulators and IPA claims are added to public inputs.
+     */
+    uint32_t honk_recursion = 0;
+
+    /**
+     * @brief Flag to indicate if this circuit will be recursively verified.
+     */
+    bool recursive = false;
+};
+
+/**
+ * @struct CircuitProve
+ * @brief Represents a request to generate a proof.
+ * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
+ * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
+ *
+ * This structure is used to encapsulate all necessary parameters for generating a proof
+ * for a specific circuit, including the circuit bytecode, verification key, witness data, and options for the proving
+ * process.
+ */
+struct CircuitProve {
+    /**
+     * @brief Contains proof and public inputs.
+     * Both are given as vectors of fields. To be used for verification.
+     * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
+     */
+    struct Response {
+        PublicInputsVector public_inputs;
+        HonkProof proof;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    ProofSystemSettings settings;
+};
+
+struct CircuitDeriveVk {
+    struct Response {
+        /**
+         * @brief Serialized verification key.
+         */
+        std::vector<uint8_t> verification_key;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    ProofSystemSettings settings;
+};
+
+struct ClientIvcDeriveVk {
+    struct Response {
+        /**
+         * @brief Serialized verification key.
+         */
+        std::vector<uint8_t> verification_key;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    bool standalone;
 };
 
 /**
@@ -146,38 +135,148 @@ struct CircuitProve {
  * Note, only one IVC request can be made at a time for each batch_request.
  */
 struct ClientIvcStart {
-    using Reponse = bool;
+    struct Response {
+        // Empty if successful.
+        std::string error_message;
+    };
 };
 
-struct ClientIvcProve {
-    using Reponse = ClientIVC::Proof;
+struct ClientIvcLoad {
+    struct Response {
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
 };
 
 struct ClientIvcAccumulate {
-    using Reponse = bool;
+    struct Response {
+        // Empty if successful.
+        std::string error_message;
+    };
 
     /**
-     * @brief Unique identifier of the circuit to be used for proving
-     *
-     * This ID must match a previously loaded circuit. The proof will be generated
-     * using the circuit's bytecode and parameters.
-     */
-    CircuitId circuit_id;
-
-    /**
-     * @brief Serialized witness for the circuit.
+     * @brief Serialized witness for the last loaded circuit.
      */
     std::vector<uint8_t> witness;
 };
 
-using Command =
-    std::variant<CircuitLoad, CircuitDrop, CircuitProve, ClientIvcStart, ClientIvcProve, ClientIvcAccumulate>;
+struct ClientIvcProve {
+    struct Response {
+        ClientIVC::Proof proof;
+        // Empty if successful.
+        std::string error_message;
+    };
+};
 
-using CommandResponse = std::variant<CircuitLoad::Reponse,
-                                     CircuitDrop::Reponse,
-                                     CircuitProve::Response,
-                                     ClientIvcStart::Reponse,
-                                     ClientIvcProve::Reponse,
-                                     ClientIvcAccumulate::Reponse>;
+/**
+ * @struct CircuitInfo
+ * @brief Consolidated command for retrieving circuit information.
+ * Combines gate count, circuit size, and other metadata into a single command.
+ */
+struct CircuitInfo {
+    struct Response {
+        uint32_t total_gates;
+        uint32_t subgroup_size;
+        // Optional: gate counts per opcode
+        std::map<std::string, uint32_t> gates_per_opcode;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    bool include_gates_per_opcode = false;
+    ProofSystemSettings settings;
+};
+
+/**
+ * @struct CircuitCheck
+ * @brief Verify that a witness satisfies a circuit's constraints.
+ * For debugging and validation purposes.
+ */
+struct CircuitCheck {
+    struct Response {
+        bool satisfied;
+        // Empty if successful, contains constraint failure details if not satisfied.
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    ProofSystemSettings settings;
+};
+
+/**
+ * @struct CircuitVerify
+ * @brief Verify a proof against a verification key and public inputs.
+ */
+struct CircuitVerify {
+    struct Response {
+        bool verified;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    std::vector<uint8_t> verification_key;
+    PublicInputsVector public_inputs;
+    HonkProof proof;
+    ProofSystemSettings settings;
+};
+
+/**
+ * @struct ProofAsFields
+ * @brief Convert a proof to field elements representation.
+ */
+struct ProofAsFields {
+    struct Response {
+        std::vector<bb::fr> fields;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    HonkProof proof;
+};
+
+/**
+ * @struct VkAsFields
+ * @brief Convert a verification key to field elements representation.
+ */
+struct VkAsFields {
+    struct Response {
+        std::vector<bb::fr> fields;
+        // Empty if successful.
+        std::string error_message;
+    };
+
+    std::vector<uint8_t> verification_key;
+    bool is_mega_honk = false;
+};
+
+using Command = std::variant<CircuitProve,
+                             CircuitDeriveVk,
+                             CircuitInfo,
+                             CircuitCheck,
+                             CircuitVerify,
+                             ClientIvcDeriveVk,
+                             ClientIvcStart,
+                             ClientIvcLoad,
+                             ClientIvcAccumulate,
+                             ClientIvcProve,
+                             ProofAsFields,
+                             VkAsFields>;
+
+using CommandResponse = std::variant<CircuitProve::Response,
+                                     CircuitDeriveVk::Response,
+                                     CircuitInfo::Response,
+                                     CircuitCheck::Response,
+                                     CircuitVerify::Response,
+                                     ClientIvcDeriveVk::Response,
+                                     ClientIvcStart::Response,
+                                     ClientIvcLoad::Response,
+                                     ClientIvcAccumulate::Response,
+                                     ClientIvcProve::Response,
+                                     ProofAsFields::Response,
+                                     VkAsFields::Response>;
 
 } // namespace bb::bbrpc

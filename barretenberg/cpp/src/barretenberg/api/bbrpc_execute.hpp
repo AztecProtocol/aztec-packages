@@ -19,55 +19,19 @@ struct BBRpcRequest {
     {}
 };
 
-// The response to a command.
-template <typename T> struct BBRpcResponse {
-    /** The response object. Default-constructed if there was an error. */
-    CommandResponse response;
-    /* If present, this command had an error. This describes it. */
-    std::string error_message;
-};
+const std::string& get_error_message(const CommandResponse& response)
+{
+    return std::visit([](const auto& resp) -> const std::string& { return resp.error_message; }, response);
+}
 
-inline BBRpcResponse<CircuitLoad::Reponse> execute(BBRpcRequest& request, CircuitLoad&& command)
+inline CircuitProve::Response execute(BBRpcRequest& request, CircuitProve&& command)
 {
     (void)request;
     (void)command;
     throw std::runtime_error("TODO: Implement CircuitLoad command");
 }
 
-inline BBRpcResponse<CircuitDrop::Reponse> execute(BBRpcRequest& request, CircuitDrop&& command)
-{
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement CircuitDrop command");
-}
-
-inline BBRpcResponse<CircuitProve::Response> execute(BBRpcRequest& request, CircuitProve&& command)
-{
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement CircuitProve command");
-}
-
-inline BBRpcResponse<ClientIvcStart::Reponse> execute(BBRpcRequest& request, ClientIvcStart&& command)
-{
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement ClientIvcStart command");
-}
-
-inline BBRpcResponse<ClientIvcProve::Reponse> execute(BBRpcRequest& request, ClientIvcProve&& command)
-{
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement ClientIvcProve command");
-}
-
-inline BBRpcResponse<ClientIvcAccumulate::Reponse> execute(BBRpcRequest& request, ClientIvcAccumulate&& command)
-{
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement ClientIvcAccumulate command");
-}
+// ... etc
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
@@ -76,24 +40,21 @@ inline BBRpcResponse<ClientIvcAccumulate::Reponse> execute(BBRpcRequest& request
  * @param request The circuit registry (acting as the request context).
  * @return A variant of all possible command responses.
  */
-inline BBRpcResponse<CommandResponse> execute(BBRpcRequest& request, Command&& command)
+inline CommandResponse execute(BBRpcRequest& request, Command&& command)
 {
     return std::visit(
-        [&request](auto&& cmd) -> BBRpcResponse<CommandResponse> {
-            auto response = execute(request, std::forward<decltype(cmd)>(cmd));
-            return { response.response, response.error_message };
-        },
+        [&request](auto&& cmd) -> CommandResponse { return execute(request, std::forward<decltype(cmd)>(cmd)); },
         std::move(command));
 }
 
 // Can only be called from the execution thread (the same as the main thread, except in threaded WASM).
-inline std::vector<BBRpcResponse<CommandResponse>> execute_request(BBRpcRequest&& request)
+inline std::vector<CommandResponse> execute_request(BBRpcRequest&& request)
 {
-    std::vector<BBRpcResponse<CommandResponse>> responses;
+    std::vector<CommandResponse> responses;
     responses.reserve(request.commands.size());
     for (Command& command : request.commands) {
         responses.push_back(execute(request, std::move(command)));
-        if (!responses.back().error_message.empty()) {
+        if (!get_error_message(responses.back()).empty()) {
             // If there was an error, we stop processing further commands.
             break;
         }
