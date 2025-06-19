@@ -2,11 +2,15 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+// solhint-disable quotes
+
+import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
+import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
+import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
  * @title StakingAssetHandler
@@ -73,11 +77,25 @@ interface IStakingAssetHandler {
 
   // View
   function getRollup() external view returns (address);
-
 }
 
-
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
+  struct StakingAssetHandlerArgs {
+    address owner;
+    address stakingAsset;
+    IRegistry registry;
+    address withdrawer;
+    uint256 mintInterval;
+    uint256 depositsPerMint;
+    bytes32 depositMerkleRoot;
+    ZKPassportVerifier zkPassportVerifier;
+    address[] unhinged;
+    string scope;
+    string subscope;
+    bool skipBindCheck;
+    bool skipMerkleCheck;
+  }
+
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
@@ -100,25 +118,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   string public validScope;
   string public validSubscope;
 
-  struct StakingAssetHandlerArgs {
-    address owner;
-    address stakingAsset;
-    IRegistry registry;
-    address withdrawer;
-    uint256 mintInterval;
-    uint256 depositsPerMint;
-    bytes32 depositMerkleRoot;
-    ZKPassportVerifier zkPassportVerifier;
-    address[] unhinged;
-    string scope;
-    string subscope;
-    bool skipBindCheck;
-    bool skipMerkleCheck;
-  }
-
-  constructor(
-    StakingAssetHandlerArgs memory _args
-  ) Ownable(_args.owner) {
+  constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
 
     STAKING_ASSET = IMintableERC20(_args.stakingAsset);
@@ -255,7 +255,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit SkipBindCheckUpdated(_skipBindCheck);
   }
 
-  function setSkipMerkleCheck(bool _skipMerkleCheck) external override(IStakingAssetHandler) onlyOwner {
+  function setSkipMerkleCheck(bool _skipMerkleCheck)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     skipMerkleCheck = _skipMerkleCheck;
     emit SkipMerkleCheckUpdated(_skipMerkleCheck);
   }
@@ -348,5 +352,22 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
     _rollup.deposit(_attester, withdrawer, true);
     emit ValidatorAdded(address(_rollup), _attester, withdrawer);
+  }
+
+  /**
+   * Validate Merkle Proof
+   *
+   * Check the provided merkle proof is correct for the given address
+   *
+   * @param _attester - the attester
+   * @param _merkleProof - a merkle proof for the attester
+   */
+  function _validateMerkleProof(address _attester, bytes32[] memory _merkleProof) internal view {
+    if (!skipMerkleCheck) {
+      require(msg.sender == _attester, AttesterNotSender());
+
+      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
+      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
+    }
   }
 }

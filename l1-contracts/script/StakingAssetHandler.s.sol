@@ -36,7 +36,6 @@ contract StakingAssetHandlerScript is Test {
   TestERC20 public constant stakingAsset = TestERC20(0x5C30c66847866A184ccb5197cBE31Fce7A92eB26);
   IRegistry public constant registry = IRegistry(0x4d2cC1d5fb6BE65240e0bFC8154243e69c0Fb19E);
 
-
   function setUp() public {}
 
   function deploy() public {
@@ -45,7 +44,8 @@ contract StakingAssetHandlerScript is Test {
     address[] memory isUnhinged = new address[](1);
     isUnhinged[0] = amin;
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler.StakingAssetHandlerArgs({
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
       owner: ME,
       stakingAsset: address(stakingAsset),
       registry: registry,
