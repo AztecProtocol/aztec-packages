@@ -2,17 +2,24 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
+  publicMetricsCollectorUrl?: URL;
+  publicIncludeMetrics: string[];
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
   otelCollectIntervalMs: number;
   otelExportTimeoutMs: number;
-  otelExcludeMetrics?: string[];
+  otelExcludeMetrics: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',
+    parseEnv: (val: string) => val && new URL(val),
+  },
+  publicMetricsCollectorUrl: {
+    env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
+    description: 'A URL to publish a subset of metrics for public consumption',
     parseEnv: (val: string) => val && new URL(val),
   },
   tracesCollectorUrl: {
@@ -40,6 +47,18 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',
     description: 'A list of metric prefixes to exclude from export',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
+  },
+  publicIncludeMetrics: {
+    env: 'PUBLIC_OTEL_INCLUDE_METRICS',
+    description: 'A list of metric prefixes to publicly export',
     parseEnv: (val: string) =>
       val
         ? val
