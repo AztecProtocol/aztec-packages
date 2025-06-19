@@ -46,7 +46,6 @@ TEST(AvmSimulationNoteHashTree, Read)
 
     NoteHashTreeCheckEvent expect_event = {
         .note_hash = note_hash,
-        .sibling_path = sibling_path,
         .leaf_index = leaf_index,
         .prev_snapshot = snapshot,
     };
@@ -78,7 +77,6 @@ TEST(AvmSimulationNoteHashTree, WriteUnique)
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
     NoteHashTreeCheckEvent expect_event = { .note_hash = note_hash,
-                                            .sibling_path = sibling_path,
                                             .leaf_index = snapshot.nextAvailableLeafIndex,
                                             .prev_snapshot = snapshot,
                                             .append_data = NoteHashAppendData{
@@ -123,7 +121,6 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
     NoteHashTreeCheckEvent expect_event = { .note_hash = siloed_note_hash,
-                                            .sibling_path = sibling_path,
                                             .leaf_index = snapshot.nextAvailableLeafIndex,
                                             .prev_snapshot = snapshot,
                                             .append_data = NoteHashAppendData{
@@ -182,7 +179,6 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
     NoteHashTreeCheckEvent expect_event = { .note_hash = raw_note_hash,
-                                            .sibling_path = sibling_path,
                                             .leaf_index = snapshot.nextAvailableLeafIndex,
                                             .prev_snapshot = snapshot,
                                             .append_data = NoteHashAppendData{

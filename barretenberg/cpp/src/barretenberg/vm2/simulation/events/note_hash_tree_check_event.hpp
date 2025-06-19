@@ -35,7 +35,6 @@ struct NoteHashAppendData {
 
 struct NoteHashTreeCheckEvent {
     FF note_hash;
-    std::vector<FF> sibling_path;
     uint64_t leaf_index;
     AppendOnlyTreeSnapshot prev_snapshot;
 
