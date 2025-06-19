@@ -20,6 +20,14 @@ use crate::oracle::execution::get_block_number;
 use crate::oracle::execution::get_timestamp;
 use crate::oracle::execution_cache;
 
+// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
+// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
+// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
+// I get feedback.
+
+// Aztec slot duration is copied from TestConstants.sol.
+global AZTEC_SLOT_DURATION: u64 = 36;
+
 pub struct Deployer<let N: u32, let M: u32> {
     pub path: str<N>,
     pub name: str<M>,
@@ -43,8 +51,6 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.secret,
         );
 
-        // Aztec slot duration is copied from TestConstants.sol.
-        let AZTEC_SLOT_DURATION = 36;
         let inputs = cheatcodes::get_private_context_inputs(
             get_block_number() - 1,
             get_timestamp() - AZTEC_SLOT_DURATION,

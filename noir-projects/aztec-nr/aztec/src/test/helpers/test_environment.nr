@@ -30,6 +30,14 @@ use crate::oracle::{
 };
 use super::cheatcodes::public_call_new_flow;
 
+// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
+// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
+// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
+// I get feedback.
+
+// Aztec slot duration is copied from TestConstants.sol.
+global AZTEC_SLOT_DURATION: u64 = 36;
+
 pub struct TestEnvironment {}
 
 pub struct CallResult<T> {
@@ -77,8 +85,6 @@ impl TestEnvironment {
     }
 
     pub unconstrained fn committed_timestamp(self: Self) -> u64 {
-        // Aztec slot duration is copied from TestConstants.sol.
-        let AZTEC_SLOT_DURATION: u64 = 36;
         self.pending_timestamp() - AZTEC_SLOT_DURATION
     }
 

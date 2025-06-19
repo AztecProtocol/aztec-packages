@@ -146,9 +146,20 @@ import { TXEStateMachine } from '../state_machine/index.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 
+// TODO(benesjan): Having these hardcoded values below is not ideal as they are not hardcoded anywhere else in the
+// codebase other than in TestConstants.sol (they are loaded from config set at runtime). We could set them via oracles
+// from tests though but would do that in a followup PR if the reviewer agrees. Will create an issue for this once
+// I get feedback.
+
+// Aztec slot duration is copied from TestConstants.sol.
+const AZTEC_SLOT_DURATION = 36n;
+// Put here Thu Jan 01 2026 00:00:00 GMT+0000. In the future we would want to use the actual genesis time here.
+const GENESIS_TIMESTAMP = 1767225600n;
+
 export class TXE implements TypedOracle {
   private blockNumber = 1;
-  private timestamp = 0n;
+  private timestamp = GENESIS_TIMESTAMP;
+
   private sideEffectCounter = 0;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
@@ -169,8 +180,6 @@ export class TXE implements TypedOracle {
 
   private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
-  // Aztec slot duration is copied from TestConstants.sol.
-  private AZTEC_SLOT_DURATION = 36n;
 
   private node: AztecNode;
 
@@ -307,11 +316,12 @@ export class TXE implements TypedOracle {
     this.contractAddress = contractAddress;
   }
 
+  // TODO: Currently this is only ever used to increment this.blockNumber by 1. Refactor this as `advanceBlock()`.
   setBlockNumber(blockNumber: number) {
     this.blockNumber = blockNumber;
   }
 
-  advanceTimestampBy(duration: bigint) {
+  advanceTimestampBy(duration: UInt64) {
     this.timestamp = this.timestamp + duration;
   }
 
@@ -362,9 +372,11 @@ export class TXE implements TypedOracle {
         `Tried to request private context inputs for timestamp ${timestamp}, which is greater than our current timestamp of ${this.timestamp}`,
       );
     } else if (timestamp === this.timestamp) {
-      throw new Error(
-        `Tried to request private context inputs for timestamp ${timestamp}, equal to current timestamp of ${this.timestamp}. Timestamp must be less than current timestamp.`,
+      this.logger.debug(
+        `Tried to request private context inputs for timestamp ${timestamp}, equal to current timestamp of ${this.timestamp}. Clamping to current timestamp - AZTEC_SLOT_DURATION.`,
       );
+      // TODO: Auto-modifying the timestamp here seems wrong. Would just throw instead.
+      timestamp = this.timestamp - AZTEC_SLOT_DURATION;
     }
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
@@ -843,6 +855,7 @@ export class TXE implements TypedOracle {
     );
 
     header.globalVariables.blockNumber = blockNumber;
+    header.globalVariables.timestamp = await this.getTimestamp();
 
     l2Block.header = header;
 
@@ -1009,7 +1022,7 @@ export class TXE implements TypedOracle {
 
     const privateContextInputs = await this.getPrivateContextInputs(
       this.blockNumber - 1,
-      this.timestamp - this.AZTEC_SLOT_DURATION,
+      this.timestamp - AZTEC_SLOT_DURATION,
       sideEffectCounter,
       isStaticCall,
     );
@@ -1042,6 +1055,7 @@ export class TXE implements TypedOracle {
     globalVariables.chainId = new Fr(this.CHAIN_ID);
     globalVariables.version = new Fr(this.ROLLUP_VERSION);
     globalVariables.blockNumber = this.blockNumber;
+    globalVariables.timestamp = this.timestamp;
     globalVariables.gasFees = new GasFees(1, 1);
 
     let result: PublicTxResult;
@@ -1527,6 +1541,7 @@ export class TXE implements TypedOracle {
 
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
+    globals.timestamp = this.timestamp;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1653,7 +1668,7 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(this.timestamp + this.AZTEC_SLOT_DURATION);
+    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
     return {
       endSideEffectCounter: result.entrypoint.publicInputs.endSideEffectCounter,
       returnsHash: result.entrypoint.publicInputs.returnsHash,
@@ -1699,6 +1714,7 @@ export class TXE implements TypedOracle {
 
     const globals = makeGlobalVariables();
     globals.blockNumber = this.blockNumber;
+    globals.timestamp = this.timestamp;
     globals.gasFees = GasFees.empty();
 
     const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
@@ -1817,7 +1833,7 @@ export class TXE implements TypedOracle {
     const txRequestHash = this.getTxRequestHash();
 
     this.setBlockNumber(this.blockNumber + 1);
-    this.advanceTimestampBy(this.AZTEC_SLOT_DURATION);
+    this.advanceTimestampBy(AZTEC_SLOT_DURATION);
 
     return {
       returnsHash: returnValuesHash ?? Fr.ZERO,

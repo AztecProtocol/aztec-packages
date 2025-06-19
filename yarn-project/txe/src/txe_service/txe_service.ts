@@ -72,12 +72,10 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async advanceTimestampBy(duration: ForeignCallSingle) {
+  advanceTimestampBy(duration: ForeignCallSingle) {
     const durationBigInt = fromSingle(duration).toBigInt();
     this.logger.debug(`time traveling ${durationBigInt} seconds`);
     (this.typedOracle as TXE).advanceTimestampBy(durationBigInt);
-    // We commit state as currently it is the expectations that these "advanceBy" calls do that.
-    await (this.typedOracle as TXE).commitState();
     return toForeignCallResult([]);
   }
 
