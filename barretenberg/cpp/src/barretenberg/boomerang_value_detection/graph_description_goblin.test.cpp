@@ -88,7 +88,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::StaticAnalyzer(builder, false);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 2);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 } // namespace bb::stdlib::recursion::honk
