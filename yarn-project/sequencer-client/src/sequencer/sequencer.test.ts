@@ -161,17 +161,20 @@ describe('sequencer', () => {
     l1Constants = { l1GenesisTime, slotDuration, ethereumSlotDuration };
 
     const epochCache = mockDeep<EpochCache>();
-    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n }));
+    epochCache.getEpochAndSlotInNextL1Slot.mockImplementation(() => ({ epoch: 1n, slot: 1n, ts: 1000n, now: 1000n }));
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
-    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: BigInt(newSlotNumber),
+      blockNumber: BigInt(newBlockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -302,23 +305,24 @@ describe('sequencer', () => {
 
     // Not your turn!
     publisher.canProposeAtNextEthBlock.mockReturnValue(Promise.resolve(undefined));
-    publisher.validateBlockForSubmission.mockRejectedValue(new Error());
+    publisher.validateBlockHeader.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([
-      block.header.globalVariables.slotNumber.toBigInt(),
-      BigInt(block.header.globalVariables.blockNumber),
-    ]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue({
+      slot: block.header.globalVariables.slotNumber.toBigInt(),
+      blockNumber: BigInt(block.header.globalVariables.blockNumber),
+      timeOfNextL1Slot: 1000n,
+    });
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now it is!
-    publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.validateBlockHeader.mockClear();
+    publisher.validateBlockHeader.mockResolvedValue();
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
@@ -479,7 +483,7 @@ describe('sequencer', () => {
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockHeader.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
 
     await sequencer.doRealWork();
 

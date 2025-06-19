@@ -1,8 +1,4 @@
-import {
-  AVM_ADDRESSING_BASE_L2_GAS,
-  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
-} from '@aztec/constants';
+import { AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS, AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -15,7 +11,7 @@ import type { PublicPersistableStateManager } from '../../state_manager/state_ma
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockL1ToL2MessageExists,
@@ -325,9 +321,7 @@ describe('Accrued Substate', () => {
       const daGasBefore = context.machineState.daGasLeft;
       await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
 
-      expect(context.machineState.l2GasLeft).toEqual(
-        l2GasBefore - AVM_ADDRESSING_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-      );
+      expect(context.machineState.l2GasLeft).toEqual(l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS);
       expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
     });
   });

@@ -2,9 +2,57 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
+
+// @notice if this changes, please update the enum in governance.ts
+enum ProposalState {
+  Pending,
+  Active,
+  Queued,
+  Executable,
+  Rejected,
+  Executed,
+  Dropped,
+  Expired
+}
+
+struct ProposeConfiguration {
+  Timestamp lockDelay;
+  uint256 lockAmount;
+}
+
+struct Configuration {
+  ProposeConfiguration proposeConfig;
+  Timestamp votingDelay;
+  Timestamp votingDuration;
+  Timestamp executionDelay;
+  Timestamp gracePeriod;
+  uint256 quorum;
+  uint256 voteDifferential;
+  uint256 minimumVotes;
+}
+
+struct Ballot {
+  uint256 yea;
+  uint256 nea;
+}
+
+struct Proposal {
+  Configuration config;
+  ProposalState state;
+  IPayload payload;
+  address proposer;
+  Timestamp creation;
+  Ballot summedBallot;
+}
+
+struct Withdrawal {
+  uint256 amount;
+  Timestamp unlocksAt;
+  address recipient;
+  bool claimed;
+}
 
 interface IGovernance {
   event DepositorAdded(address depositor);
@@ -24,7 +72,7 @@ interface IGovernance {
   function openFloodgates() external;
 
   function updateGovernanceProposer(address _governanceProposer) external;
-  function updateConfiguration(DataStructures.Configuration memory _configuration) external;
+  function updateConfiguration(Configuration memory _configuration) external;
   function deposit(address _onBehalfOf, uint256 _amount) external;
   function initiateWithdraw(address _to, uint256 _amount) external returns (uint256);
   function finaliseWithdraw(uint256 _withdrawalId) external;
@@ -39,14 +87,8 @@ interface IGovernance {
 
   function powerAt(address _owner, Timestamp _ts) external view returns (uint256);
   function totalPowerAt(Timestamp _ts) external view returns (uint256);
-  function getProposalState(uint256 _proposalId)
-    external
-    view
-    returns (DataStructures.ProposalState);
-  function getConfiguration() external view returns (DataStructures.Configuration memory);
-  function getProposal(uint256 _proposalId) external view returns (DataStructures.Proposal memory);
-  function getWithdrawal(uint256 _withdrawalId)
-    external
-    view
-    returns (DataStructures.Withdrawal memory);
+  function getProposalState(uint256 _proposalId) external view returns (ProposalState);
+  function getConfiguration() external view returns (Configuration memory);
+  function getProposal(uint256 _proposalId) external view returns (Proposal memory);
+  function getWithdrawal(uint256 _withdrawalId) external view returns (Withdrawal memory);
 }

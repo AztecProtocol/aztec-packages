@@ -98,7 +98,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // FIXME: remove this once all execution opcodes are supported.
     if (!instr_fetching_event.error.has_value() &&
         !EXEC_INSTRUCTION_SPEC.contains(instr_fetching_event.instruction.get_exec_opcode())) {
-        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode());
+        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
         instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
 

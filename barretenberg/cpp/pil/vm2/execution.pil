@@ -1,15 +1,7 @@
 include "alu.pil";
 include "addressing.pil";
-include "address_derivation.pil";
-include "bc_decomposition.pil";
-include "bc_hashing.pil";
-include "bc_retrieval.pil";
-include "call_opcode.pil";
-include "instr_fetching.pil";
-include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
-include "merkle_check.pil";
 include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
@@ -23,13 +15,31 @@ include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
 include "execution_discard.pil";
-include "public_data_check.pil";
-include "update_check.pil";
-include "nullifier_check.pil";
 include "public_inputs.pil";
 include "gas.pil";
+include "data_copy.pil";
+include "internal_call_stack.pil";
+
+include "trees/merkle_check.pil";
+include "trees/nullifier_check.pil";
+include "trees/public_data_check.pil";
+
+include "bytecode/address_derivation.pil";
+include "bytecode/bc_decomposition.pil";
+include "bytecode/bc_hashing.pil";
+include "bytecode/bc_retrieval.pil";
+include "bytecode/instr_fetching.pil";
+include "bytecode/class_id_derivation.pil";
+include "bytecode/update_check.pil";
+
+include "opcodes/internal_call.pil";
+include "opcodes/external_call.pil";
 
 namespace execution;
+
+// If `sel` is 0, then the Execution relation should pass.
+#[skippable_if]
+sel = 0;
 
 pol commit sel; // subtrace selector
 pol commit last; // last row selector
@@ -40,9 +50,6 @@ last * (1 - last) = 0;
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
 
-// If `sel` is 0, then the Execution relation should pass.
-#[skippable_if]
-sel = 0;
 
 /**************************************************************************************************
  *  Setup (some general constraints)
@@ -201,16 +208,10 @@ pol commit rop[7];
 // The "output we want is" sel_addressing_error from addressing.pil.
 
 /**************************************************************************************************
- *  Temporality group N: Dynamic gas
- **************************************************************************************************/
-
-// TODO: gate this group with sel_addressing_error, etc.
-
-/**************************************************************************************************
  *  Temporality group N: Registers + Dispatch opcode
  **************************************************************************************************/
 
-// TODO: gate this group with oog_dynamic, etc.
+// TODO: gate this group.
 
 // Registers
 pol commit register[7];
@@ -237,6 +238,19 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_jump;
+pol commit sel_jumpi;
+
+// This is used in context.pil
+pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+
+/**************************************************************************************************
+ *  Temporality group N: Dynamic gas
+ **************************************************************************************************/
+
+// TODO: gate this group. This is actually interleaved with the previous group.
 
 /**************************************************************************************************
  *  Error collection
@@ -249,3 +263,4 @@ sel_error * (1 - sel_error) = 0;
 // TODO: complete.
 // This implies mutual exclusivity of the failure selectors.
 // sel_error = sel_gas_failure + sel_instruction_fetching_failure;
+

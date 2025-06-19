@@ -27,7 +27,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerifica
 template <typename Flavor>
 typename DeciderVerifier_<Flavor>::Output DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     return verify();
 }
 

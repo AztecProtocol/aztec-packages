@@ -145,8 +145,8 @@ export class RollupContract {
   }
 
   @memoize
-  getProofSubmissionWindow() {
-    return this.rollup.read.getProofSubmissionWindow();
+  getProofSubmissionEpochs() {
+    return this.rollup.read.getProofSubmissionEpochs();
   }
 
   @memoize
@@ -239,13 +239,20 @@ export class RollupContract {
     return this.rollup.read.getFeeAssetPerEth();
   }
 
-  async getCommitteeAt(timestamp: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getCommitteeAt',
-      args: [timestamp],
-    });
+  async getCommitteeAt(timestamp: bigint): Promise<readonly `0x${string}`[] | undefined> {
+    const { result } = await this.client
+      .simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'getCommitteeAt',
+        args: [timestamp],
+      })
+      .catch(e => {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+          return { result: undefined };
+        }
+        throw e;
+      });
 
     return result;
   }
@@ -262,13 +269,20 @@ export class RollupContract {
     return this.rollup.read.getCurrentEpoch();
   }
 
-  async getCurrentEpochCommittee() {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getCurrentEpochCommittee',
-      args: [],
-    });
+  async getCurrentEpochCommittee(): Promise<readonly `0x${string}`[] | undefined> {
+    const { result } = await this.client
+      .simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'getCurrentEpochCommittee',
+        args: [],
+      })
+      .catch(e => {
+        if (e instanceof Error && e.message.includes('ValidatorSelection__InsufficientCommitteeSize')) {
+          return { result: undefined };
+        }
+        throw e;
+      });
 
     return result;
   }
@@ -290,17 +304,6 @@ export class RollupContract {
       abi: RollupAbi,
       functionName: 'getProposerAt',
       args: [timestamp],
-    });
-
-    return result;
-  }
-
-  async getEpochCommittee(epoch: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getEpochCommittee',
-      args: [epoch],
     });
 
     return result;
@@ -375,7 +378,6 @@ export class RollupContract {
       ViemHeader,
       ViemCommitteeAttestation[],
       `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;
@@ -410,11 +412,12 @@ export class RollupContract {
     archive: Buffer,
     account: `0x${string}` | Account,
     slotDuration: bigint | number,
-  ): Promise<[bigint, bigint]> {
+  ): Promise<{ slot: bigint; blockNumber: bigint; timeOfNextL1Slot: bigint }> {
     if (typeof slotDuration === 'number') {
       slotDuration = BigInt(slotDuration);
     }
-    const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+    const latestBlock = await this.client.getBlock();
+    const timeOfNextL1Slot = latestBlock.timestamp + slotDuration;
 
     try {
       const {
@@ -427,7 +430,7 @@ export class RollupContract {
         account,
       });
 
-      return [slot, blockNumber];
+      return { slot, blockNumber, timeOfNextL1Slot };
     } catch (err: unknown) {
       throw formatViemError(err);
     }

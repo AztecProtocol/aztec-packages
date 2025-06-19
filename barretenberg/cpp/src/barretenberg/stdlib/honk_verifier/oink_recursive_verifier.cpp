@@ -6,13 +6,13 @@
 
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_recursive_flavor.hpp"
 #include <utility>
 
 namespace bb::stdlib::recursion::honk {
@@ -39,7 +39,7 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
 
 template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(const OinkProof& proof)
 {
-    transcript = std::make_shared<Transcript>(proof);
+    transcript->load_proof(proof);
     verify();
 }
 
@@ -50,7 +50,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     WitnessCommitments commitments;
     CommitmentLabels labels;
 
-    verification_key->verification_key->add_to_transcript(domain_separator, transcript);
+    verification_key->verification_key->add_to_transcript(domain_separator, *transcript);
     auto [vkey_hash] = transcript->template get_challenges<FF>(domain_separator + "vkey_hash");
     vinfo("vkey hash in Oink recursive verifier: ", vkey_hash);
 
