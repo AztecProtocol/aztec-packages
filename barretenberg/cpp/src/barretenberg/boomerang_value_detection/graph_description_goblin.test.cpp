@@ -104,7 +104,7 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
     translator_pairing_points.P1.y.fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::StaticAnalyzer(builder, false);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
