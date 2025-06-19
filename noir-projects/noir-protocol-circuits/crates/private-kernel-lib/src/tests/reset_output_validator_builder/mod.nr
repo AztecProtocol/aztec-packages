@@ -2,7 +2,7 @@ mod validate_sorted_siloed_unique_padded_note_hashes;
 mod validate_sorted_siloed_padded_nullifiers;
 
 use crate::{
-    abis::PaddedSideEffectHints,
+    abis::PaddedSideEffects,
     components::{
         reset_output_composer::reset_output_hints::{generate_reset_output_hints, ResetOutputHints},
         reset_output_validator::ResetOutputValidator,
@@ -43,7 +43,7 @@ pub struct ResetOutputValidatorBuilder {
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
     private_log_siloing_amount: u32,
-    padded_side_effect_hints: PaddedSideEffectHints,
+    padded_side_effects: PaddedSideEffects,
 }
 
 impl ResetOutputValidatorBuilder {
@@ -79,7 +79,7 @@ impl ResetOutputValidatorBuilder {
                 note_hash_siloing_amount: 0,
                 nullifier_siloing_amount: 0,
                 private_log_siloing_amount: 0,
-                padded_side_effect_hints: PaddedSideEffectHints::empty(),
+                padded_side_effects: PaddedSideEffects::empty(),
             }
         }
 
@@ -129,7 +129,7 @@ impl ResetOutputValidatorBuilder {
             self.note_hash_siloing_amount,
             self.nullifier_siloing_amount,
             self.private_log_siloing_amount,
-            self.padded_side_effect_hints,
+            self.padded_side_effects,
             hints,
         )
             .validate();

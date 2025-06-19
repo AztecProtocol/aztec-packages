@@ -89,9 +89,9 @@ fn validate_sorted_siloed_note_hashes_with_padded_succeeds() {
     builder.previous_kernel.append_note_hashes(6);
 
     // Pop the last two note hashes and use them as padded note hashes.
-    builder.padded_side_effect_hints.note_hashes[5] =
+    builder.padded_side_effects.note_hashes[5] =
         builder.previous_kernel.note_hashes.pop().note_hash.value;
-    builder.padded_side_effect_hints.note_hashes[4] =
+    builder.padded_side_effects.note_hashes[4] =
         builder.previous_kernel.note_hashes.pop().note_hash.value;
 
     builder.output.append_siloed_note_hashes(4);

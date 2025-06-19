@@ -1,4 +1,4 @@
-use crate::{abis::PaddedSideEffectHints, components::reset_output_composer::ResetOutputHints};
+use crate::{abis::PaddedSideEffects, components::reset_output_composer::ResetOutputHints};
 use dep::reset_kernel_lib::{
     PrivateValidationRequestProcessor, TransientDataIndexHint, verify_squashed_transient_data,
 };
@@ -86,7 +86,7 @@ pub struct ResetOutputValidator<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, 
     note_hash_siloing_amount: u32,
     nullifier_siloing_amount: u32,
     private_log_siloing_amount: u32,
-    padded_side_effect_hints: PaddedSideEffectHints,
+    padded_side_effects: PaddedSideEffects,
     hints: ResetOutputHints,
 }
 
@@ -100,7 +100,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
         private_log_siloing_amount: u32,
-        padded_side_effect_hints: PaddedSideEffectHints,
+        padded_side_effects: PaddedSideEffects,
         hints: ResetOutputHints,
     ) -> Self {
         ResetOutputValidator {
@@ -112,7 +112,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             private_log_siloing_amount,
-            padded_side_effect_hints,
+            padded_side_effects,
             hints,
         }
     }
@@ -269,7 +269,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // tweaks to make "padding" make sense). It is _padding_; it is not something that has been padded.
         // Hmm, but "padding note hash" isn't clear either.
         // Dummy note hash? Eurgh.
-        let padded_note_hash_hints = self.padded_side_effect_hints.note_hashes;
+        let padded_note_hash_hints = self.padded_side_effects.note_hashes;
 
         // Q: Why are we computing these scoped padded note hashes, when we already
         // computed them in reset_output_composer.nr?
@@ -318,7 +318,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         //---------------
 
         // Assign counter and contract address to the padded nullifiers.
-        let padded_values = self.padded_side_effect_hints.nullifiers;
+        let padded_values = self.padded_side_effects.nullifiers;
         let padded_nullifiers = padded_values.map(|value| {
             let (counter, contract_address) = if value != 0 {
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)
@@ -368,7 +368,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         //---------------
 
         // Assign counter and contract address to the padded private logs.
-        let padded_values = self.padded_side_effect_hints.private_logs;
+        let padded_values = self.padded_side_effects.private_logs;
         let padded_logs = padded_values.map(|log| {
             let (counter, contract_address) = if log.length != 0 {
                 (MAX_U32_VALUE, SIDE_EFFECT_MASKING_ADDRESS)

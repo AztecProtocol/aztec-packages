@@ -1,5 +1,5 @@
 use crate::{
-    abis::PaddedSideEffectHints,
+    abis::PaddedSideEffects,
     components::{
         previous_kernel_validator::PreviousKernelValidator,
         reset_output_composer::{ResetOutputComposer, ResetOutputHints},
@@ -42,7 +42,7 @@ pub struct PrivateKernelResetDimensions {
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32> {
     previous_kernel: PrivateKernelData,
-    padded_side_effect_hints: PaddedSideEffectHints,
+    padded_side_effects: PaddedSideEffects,
     hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN>,
     dimensions: PrivateKernelResetDimensions,
 }
@@ -51,13 +51,13 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     pub fn new(
         previous_kernel: PrivateKernelDataWithoutPublicInputs,
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
-        padded_side_effect_hints: PaddedSideEffectHints,
+        padded_side_effects: PaddedSideEffects,
         hints: PrivateKernelResetHints<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN, TRANSIENT_DATA_SQUASHING_HINTS_LEN>,
         dimensions: PrivateKernelResetDimensions,
     ) -> Self {
         Self {
             previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-            padded_side_effect_hints,
+            padded_side_effects,
             hints,
             dimensions,
         }
@@ -71,7 +71,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         let composer = ResetOutputComposer::new(
             self.previous_kernel.public_inputs,
             validation_request_processor,
-            self.padded_side_effect_hints,
+            self.padded_side_effects,
             self.hints.transient_data_index_hints,
             self.dimensions.note_hash_siloing,
             self.dimensions.nullifier_siloing,
@@ -131,7 +131,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 self.dimensions.note_hash_siloing,
                 self.dimensions.nullifier_siloing,
                 self.dimensions.private_log_siloing,
-                self.padded_side_effect_hints,
+                self.padded_side_effects,
                 output_hints,
             )
                 .validate();
@@ -143,7 +143,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
 mod tests {
     use crate::{
-        abis::PaddedSideEffectHints,
+        abis::PaddedSideEffects,
         private_kernel_reset::{
             ALLOWED_PREVIOUS_CIRCUITS, PrivateKernelResetCircuitPrivateInputs,
             PrivateKernelResetDimensions, PrivateKernelResetHints,
@@ -194,7 +194,7 @@ mod tests {
 
     struct PrivateKernelResetInputsBuilder {
         previous_kernel: FixtureBuilder,
-        padded_side_effect_hints: PaddedSideEffectHints,
+        padded_side_effects: PaddedSideEffects,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<NOTE_HASH_PENDING_READ_HINTS_LEN, NOTE_HASH_SETTLED_READ_HINTS_LEN>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<NULLIFIER_PENDING_READ_HINTS_LEN, NULLIFIER_SETTLED_READ_HINTS_LEN>,
@@ -230,7 +230,7 @@ mod tests {
                     key_validation_hints: BoundedVec::new(),
                     validation_requests_split_counter: 0,
                     dimensions,
-                    padded_side_effect_hints: PaddedSideEffectHints::empty(),
+                    padded_side_effects: PaddedSideEffects::empty(),
                 }
             }
 
@@ -362,7 +362,7 @@ mod tests {
 
             let kernel = PrivateKernelResetCircuitPrivateInputs {
                 previous_kernel: self.previous_kernel.to_private_kernel_data(),
-                padded_side_effect_hints: self.padded_side_effect_hints,
+                padded_side_effects: self.padded_side_effects,
                 hints,
                 dimensions: self.dimensions,
             };
@@ -813,10 +813,10 @@ mod tests {
         }
             .scope(SIDE_EFFECT_MASKING_ADDRESS)];
 
-        builder.padded_side_effect_hints.note_hashes[2] = padded_note_hashes[0].value();
-        builder.padded_side_effect_hints.note_hashes[3] = padded_note_hashes[1].value();
-        builder.padded_side_effect_hints.nullifiers[3] = padded_nullifiers[0].value();
-        builder.padded_side_effect_hints.private_logs[2] = padded_private_logs[0].inner.log;
+        builder.padded_side_effects.note_hashes[2] = padded_note_hashes[0].value();
+        builder.padded_side_effects.note_hashes[3] = padded_note_hashes[1].value();
+        builder.padded_side_effects.nullifiers[3] = padded_nullifiers[0].value();
+        builder.padded_side_effects.private_logs[2] = padded_private_logs[0].inner.log;
 
         let public_inputs = builder.execute();
 

@@ -7,7 +7,7 @@ mod private_kernel_tail_to_public;
 mod private_kernel_reset;
 mod tests;
 
-pub use abis::{PaddedSideEffectAmounts, PaddedSideEffectHints};
+pub use abis::{PaddedSideEffectAmounts, PaddedSideEffects};
 pub use private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
 pub use private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
 pub use private_kernel_reset::{

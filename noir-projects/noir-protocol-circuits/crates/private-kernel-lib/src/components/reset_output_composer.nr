@@ -3,7 +3,7 @@ pub mod reset_output_hints;
 pub use reset_output_hints::ResetOutputHints;
 
 use crate::{
-    abis::PaddedSideEffectHints,
+    abis::PaddedSideEffects,
     components::reset_output_composer::reset_output_hints::generate_reset_output_hints,
 };
 use dep::reset_kernel_lib::{PrivateValidationRequestProcessor, TransientDataIndexHint};
@@ -27,7 +27,7 @@ use dep::types::{
 pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> {
     pub previous_kernel: PrivateKernelCircuitPublicInputs,
     pub validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
-    pub padded_side_effect_hints: PaddedSideEffectHints, // this is a hint, of sorts. TODO(MC): consider renaming.
+    pub padded_side_effects: PaddedSideEffects, // this is a hint, of sorts. TODO(MC): consider renaming.
     pub note_hash_siloing_amount: u32,
     pub nullifier_siloing_amount: u32,
     pub private_log_siloing_amount: u32,
@@ -51,7 +51,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     pub unconstrained fn new<let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_HINTS_LEN>,
-        padded_side_effect_hints: PaddedSideEffectHints,
+        padded_side_effects: PaddedSideEffects,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
         note_hash_siloing_amount: u32,
         nullifier_siloing_amount: u32,
@@ -66,7 +66,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         ResetOutputComposer {
             previous_kernel,
             validation_request_processor,
-            padded_side_effect_hints,
+            padded_side_effects,
             note_hash_siloing_amount,
             nullifier_siloing_amount,
             private_log_siloing_amount,
@@ -125,7 +125,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             length: self.hints.kept_note_hashes.length,
         };
         let num_kept_note_hashes = sorted_kept_note_hashes.length;
-        let padded_note_hashes = self.padded_side_effect_hints.note_hashes;
+        let padded_note_hashes = self.padded_side_effects.note_hashes;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_kept_note_hashes, self.note_hash_siloing_amount). The values will simply be ignored.
@@ -199,7 +199,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         };
 
         let num_kept_nullifiers = sorted_kept_nullifiers.length;
-        let padded_nullifiers = self.padded_side_effect_hints.nullifiers;
+        let padded_nullifiers = self.padded_side_effects.nullifiers;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_nullifiers, self.nullifier_siloing_amount). The values will simply be ignored.
@@ -246,7 +246,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         };
 
         let num_kept_private_logs = sorted_kept_private_logs.length;
-        let padded_private_logs = self.padded_side_effect_hints.private_logs;
+        let padded_private_logs = self.padded_side_effects.private_logs;
 
         // Calling this in the unconstrained context is not a problem. Since it doesn't matter if there are non-empty
         // items outside of the range [num_private_logs, self.private_log_siloing_amount). The values will simply be ignored.

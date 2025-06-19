@@ -5,16 +5,16 @@ use dep::types::{
 };
 
 #[derive(Eq)]
-pub struct PaddedSideEffectHints {
+pub struct PaddedSideEffects {
     // [0, 0, 0, 0, 0 | p, p, p, p, 0, 0, 0] <-- empty until padding, then empty thereafter
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     pub private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX],
 }
 
-impl Empty for PaddedSideEffectHints {
+impl Empty for PaddedSideEffects {
     fn empty() -> Self {
-        PaddedSideEffectHints {
+        PaddedSideEffects {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
             private_logs: [PrivateLog::empty(); MAX_PRIVATE_LOGS_PER_TX],
