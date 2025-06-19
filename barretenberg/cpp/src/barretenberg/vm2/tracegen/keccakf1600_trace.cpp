@@ -15,11 +15,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
-#include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 using C = Column;
@@ -636,155 +632,151 @@ void KeccakF1600TraceBuilder::process_memory_slices(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> KeccakF1600TraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition KeccakF1600TraceBuilder::interactions =
+    InteractionDefinition()
         // Theta XOR values
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_01_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_02_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_03_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_11_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_12_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_13_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_21_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_22_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_23_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_31_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_32_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_33_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_41_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_42_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_xor_row_4_settings>>(),
+        .add<lookup_keccakf1600_theta_xor_01_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_02_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_03_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_row_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_11_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_12_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_13_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_row_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_21_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_22_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_23_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_row_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_31_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_32_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_33_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_row_3_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_41_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_42_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_43_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_xor_row_4_settings, InteractionType::LookupSequential>()
         // Theta XOR combined values
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_theta_combined_xor_4_settings>>(),
+        .add<lookup_keccakf1600_theta_combined_xor_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_combined_xor_1_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_combined_xor_2_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_combined_xor_3_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_theta_combined_xor_4_settings, InteractionType::LookupSequential>()
         // State Theta final values
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_00_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_01_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_02_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_03_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_04_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_10_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_11_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_12_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_13_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_14_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_20_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_21_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_22_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_23_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_24_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_30_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_31_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_32_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_33_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_34_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_40_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_41_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_42_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_theta_44_settings>>(),
+        .add<lookup_keccakf1600_state_theta_00_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_01_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_02_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_03_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_04_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_10_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_11_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_12_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_13_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_14_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_20_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_21_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_22_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_23_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_24_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_30_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_31_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_32_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_33_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_34_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_40_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_41_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_42_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_43_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_theta_44_settings, InteractionType::LookupSequential>()
         // Range check on some state theta limbs
-        // Range checks are de-duplicated and therefore we can't use the interaction builder
-        // LookupIntoDynamicTableSequential.
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_01_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_02_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_03_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_04_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_10_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_11_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_12_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_13_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_14_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_20_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_21_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_22_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_23_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_24_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_30_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_31_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_32_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_33_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_34_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_40_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_41_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_42_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_43_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_theta_limb_44_range_settings>>(),
+        .add<lookup_keccakf1600_theta_limb_01_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_02_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_03_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_04_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_10_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_11_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_12_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_13_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_14_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_20_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_21_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_22_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_23_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_24_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_30_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_31_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_32_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_33_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_34_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_40_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_41_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_42_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_43_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_theta_limb_44_range_settings, InteractionType::LookupGeneric>()
         // "pi and" values
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_00_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_01_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_02_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_03_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_04_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_10_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_11_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_12_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_13_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_14_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_20_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_21_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_22_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_23_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_24_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_30_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_31_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_32_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_33_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_34_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_40_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_41_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_42_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_pi_and_44_settings>>(),
+        .add<lookup_keccakf1600_state_pi_and_00_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_01_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_02_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_03_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_04_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_10_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_11_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_12_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_13_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_14_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_20_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_21_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_22_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_23_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_24_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_30_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_31_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_32_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_33_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_34_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_40_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_41_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_42_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_43_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_pi_and_44_settings, InteractionType::LookupSequential>()
         // chi values
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_00_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_01_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_02_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_03_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_04_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_10_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_11_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_12_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_13_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_14_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_20_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_21_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_22_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_23_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_24_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_30_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_31_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_32_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_33_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_34_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_40_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_41_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_42_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_43_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_chi_44_settings>>(),
-        // iota_00 value
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccakf1600_state_iota_00_settings>>(),
+        .add<lookup_keccakf1600_state_chi_00_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_01_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_02_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_03_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_04_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_10_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_11_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_12_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_13_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_14_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_20_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_21_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_22_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_23_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_24_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_30_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_31_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_32_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_33_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_34_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_40_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_41_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_42_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_43_settings, InteractionType::LookupSequential>()
+        .add<lookup_keccakf1600_state_chi_44_settings, InteractionType::LookupSequential>()
+        // iota_00
+        .add<lookup_keccakf1600_state_iota_00_settings, InteractionType::LookupSequential>()
         // round constants lookup
-        std::make_unique<LookupIntoIndexedByClk<lookup_keccakf1600_round_cst_settings>>(),
+        .add<lookup_keccakf1600_round_cst_settings, InteractionType::LookupIntoIndexedByClk>()
         // Memory slices permutations
-        std::make_unique<PermutationBuilder<perm_keccakf1600_read_to_slice_settings>>(),
-        std::make_unique<PermutationBuilder<perm_keccakf1600_write_to_slice_settings>>(),
+        .add<perm_keccakf1600_read_to_slice_settings, InteractionType::Permutation>()
+        .add<perm_keccakf1600_write_to_slice_settings, InteractionType::Permutation>()
         // Range check for slice memory ranges.
         // Range checks are de-duplicated and therefore we can't use the interaction builder
         // LookupIntoDynamicTableSequential.
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_src_abs_diff_positive_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_keccakf1600_dst_abs_diff_positive_settings>>(),
+        .add<lookup_keccakf1600_src_abs_diff_positive_settings, InteractionType::LookupGeneric>()
+        .add<lookup_keccakf1600_dst_abs_diff_positive_settings, InteractionType::LookupGeneric>()
         // Keccak slice memory to memory sub-trace
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_keccak_memory_slice_to_mem_settings>>());
-};
+        .add<lookup_keccak_memory_slice_to_mem_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

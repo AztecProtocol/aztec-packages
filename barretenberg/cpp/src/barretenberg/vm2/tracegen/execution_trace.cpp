@@ -813,7 +813,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<PermutationBuilder<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation);
-;
+        // Dispatch to gadget sub-traces
+        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen
