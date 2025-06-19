@@ -111,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn propagate_previous_kernel_max_block_number() {
+    fn propagate_previous_kernel_include_by_timestamp() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
         builder.previous_kernel.include_by_timestamp = IncludeByTimestamp::new(13);
         let public_inputs = builder.execute();

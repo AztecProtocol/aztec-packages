@@ -57,7 +57,7 @@ pub fn validate_contract_address(
     );
 
     let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.block_number,
+        private_call_data.public_inputs.historical_header.global_variables.timestamp,
     );
 
     let contract_address_field = contract_address.to_field();

@@ -54,7 +54,7 @@ use dep::aztec::protocol_types::contract_class_id::ContractClassId;
 use contract_instance_deployer::ContractInstanceDeployer;
 
 #[private]
-fn set_update_delay(new_delay: u32) {
+fn set_update_delay(new_delay: u64) {
    ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
       .set_update_delay(new_delay)
       .enqueue(&mut context);
@@ -175,7 +175,7 @@ contract Updatable {
     }
 
     #[private]
-    fn set_update_delay(new_delay: u32) {
+    fn set_update_delay(new_delay: u64) {
         // TODO: Add access control
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
             .set_update_delay(new_delay)

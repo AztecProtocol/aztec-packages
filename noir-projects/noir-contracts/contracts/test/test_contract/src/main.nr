@@ -70,7 +70,7 @@ pub contract Test {
         value4: Field,
     }
 
-    global SHARED_MUTABLE_INITIAL_DELAY: u32 = 2;
+    global SHARED_MUTABLE_INITIAL_DELAY: u64 = 2;
 
     // This struct is used to test the storage slot allocation mechanism - if modified the test_storage_slot_allocation
     // test function must also be updated accordingly.
@@ -113,7 +113,7 @@ pub contract Test {
     }
 
     #[private]
-    fn set_include_by_timestamp(include_by_timestamp: u32, enqueue_public_call: bool) {
+    fn set_include_by_timestamp(include_by_timestamp: u64, enqueue_public_call: bool) {
         context.set_include_by_timestamp(include_by_timestamp);
 
         if enqueue_public_call {

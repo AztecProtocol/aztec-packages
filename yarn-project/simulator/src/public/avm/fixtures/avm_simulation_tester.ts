@@ -9,7 +9,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
-  DEFAULT_BLOCK_NUMBER,
+  DEFAULT_TIMESTAMP,
   getContractFunctionAbi,
   getFunctionSelector,
   initContext,
@@ -22,7 +22,6 @@ import { PublicPersistableStateManager } from '../../state_manager/state_manager
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 
-const TIMESTAMP = 99833n;
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 /**
@@ -53,7 +52,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
       trace,
       /*doMerkleOperations=*/ false,
       firstNullifier,
-      DEFAULT_BLOCK_NUMBER,
+      DEFAULT_TIMESTAMP,
     );
     return new AvmSimulationTester(contractDataSource, merkleTrees, stateManager);
   }
@@ -78,7 +77,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const calldata = [fnSelector.toField(), ...encodedArgs];
 
     const globals = GlobalVariables.empty();
-    globals.timestamp = TIMESTAMP;
+    globals.timestamp = DEFAULT_TIMESTAMP;
     globals.gasFees = DEFAULT_GAS_FEES;
 
     const environment = initExecutionEnvironment({

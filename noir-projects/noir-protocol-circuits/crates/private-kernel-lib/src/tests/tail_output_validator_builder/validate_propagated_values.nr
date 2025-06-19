@@ -62,22 +62,22 @@ fn validate_propagated_values_protocol_contract_tree_root_mismatch_fails() {
  * include_by_timestamp
  */
 #[test]
-fn validate_propagated_values_max_block_number_succeeds() {
+fn validate_propagated_values_include_by_timestamp_succeeds() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.previous_kernel.set_include_by_timestamp(123);
+    builder.output.set_include_by_timestamp(123);
 
     builder.validate();
 }
 
 #[test(should_fail_with = "mismatch rollup_validation_requests")]
-fn validate_propagated_values_max_block_number_mismatch_fails() {
+fn validate_propagated_values_include_by_timestamp_mismatch_fails() {
     let mut builder = TailOutputValidatorBuilder::new();
 
-    builder.previous_kernel.set_max_block_number(123);
+    builder.previous_kernel.set_include_by_timestamp(123);
     // Tweak the value in the output.
-    builder.output.set_max_block_number(45);
+    builder.output.set_include_by_timestamp(45);
 
     builder.validate();
 }

@@ -667,7 +667,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private async markTxsAsMinedFromBlocks(blocks: L2Block[]): Promise<void> {
     for (const block of blocks) {
       const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-      await this.txPool.markAsMined(txHashes, block.number);
+      await this.txPool.markAsMined(txHashes, block.header);
     }
   }
 

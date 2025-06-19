@@ -65,7 +65,6 @@ import type {
   L2ToL1Message as L2ToL1MessageNoir,
   LogHash as LogHashNoir,
   Log as LogNoir,
-  MaxBlockNumber,
   MembershipWitness as MembershipWitnessNoir,
   AztecAddress as NoirAztecAddress,
   EthAddress as NoirEthAddress,
@@ -86,6 +85,7 @@ import type {
   TxContext as TxContextNoir,
   VerificationKey as VerificationKeyNoir,
   VkData as VkDataNoir,
+  u64,
 } from '../types/index.js';
 
 /* eslint-disable camelcase */
@@ -419,14 +419,14 @@ export function mapHeaderFromNoir(header: BlockHeaderNoir): BlockHeader {
   );
 }
 
-export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir {
+export function mapOptionalNumberToNoir(option: OptionalNumber): OptionalNumberNoir<u64> {
   return {
     _is_some: option.isSome,
     _value: mapNumberToNoir(option.value),
   };
 }
 
-export function mapOptionalNumberFromNoir(option: OptionalNumberNoir) {
+export function mapOptionalNumberFromNoir(option: OptionalNumberNoir<u64>) {
   return new OptionalNumber(option._is_some, mapNumberFromNoir(option._value));
 }
 
@@ -434,13 +434,13 @@ export function mapIncludeByTimestampToNoir(includeByTimestamp: IncludeByTimesta
   return {
     _opt: {
       _is_some: includeByTimestamp.isSome,
-      _value: mapNumberToNoir(includeByTimestamp.value),
+      _value: mapBigIntToNoir(includeByTimestamp.value),
     },
   };
 }
 
 export function mapIncludeByTimestampFromNoir(includeByTimestamp: IncludeByTimestampNoir): IncludeByTimestamp {
-  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapNumberFromNoir(includeByTimestamp._opt._value));
+  return new IncludeByTimestamp(includeByTimestamp._opt._is_some, mapBigIntFromNoir(includeByTimestamp._opt._value));
 }
 
 /**

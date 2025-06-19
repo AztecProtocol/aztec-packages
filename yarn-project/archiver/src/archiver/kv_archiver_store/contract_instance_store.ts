@@ -7,6 +7,7 @@ import {
   SerializableContractInstance,
   SerializableContractInstanceUpdate,
 } from '@aztec/stdlib/contract';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 type ContractInstanceUpdateKey = [string, number] | [string, number, number];
 
@@ -41,46 +42,40 @@ export class ContractInstanceStore {
     });
   }
 
-  getUpdateKey(contractAddress: AztecAddress, blockNumber: number, logIndex?: number): ContractInstanceUpdateKey {
+  getUpdateKey(contractAddress: AztecAddress, timestamp: UInt64, logIndex?: number): ContractInstanceUpdateKey {
     if (logIndex === undefined) {
-      return [contractAddress.toString(), blockNumber];
+      return [contractAddress.toString(), Number(timestamp)];
     } else {
-      return [contractAddress.toString(), blockNumber, logIndex];
+      return [contractAddress.toString(), Number(timestamp), logIndex];
     }
   }
 
   addContractInstanceUpdate(
     contractInstanceUpdate: ContractInstanceUpdateWithAddress,
-    blockNumber: number,
+    timestamp: UInt64,
     logIndex: number,
   ): Promise<void> {
     return this.#contractInstanceUpdates.set(
-      this.getUpdateKey(contractInstanceUpdate.address, blockNumber, logIndex),
+      this.getUpdateKey(contractInstanceUpdate.address, timestamp, logIndex),
       new SerializableContractInstanceUpdate(contractInstanceUpdate).toBuffer(),
     );
   }
 
   deleteContractInstanceUpdate(
     contractInstanceUpdate: ContractInstanceUpdateWithAddress,
-    blockNumber: number,
+    timestamp: UInt64,
     logIndex: number,
   ): Promise<void> {
-    return this.#contractInstanceUpdates.delete(
-      this.getUpdateKey(contractInstanceUpdate.address, blockNumber, logIndex),
-    );
+    return this.#contractInstanceUpdates.delete(this.getUpdateKey(contractInstanceUpdate.address, timestamp, logIndex));
   }
 
-  async getCurrentContractInstanceClassId(
-    address: AztecAddress,
-    blockNumber: number,
-    originalClassId: Fr,
-  ): Promise<Fr> {
-    // We need to find the last update before the given block number
+  async getCurrentContractInstanceClassId(address: AztecAddress, timestamp: UInt64, originalClassId: Fr): Promise<Fr> {
+    // We need to find the last update before the given timestamp
     const queryResult = await this.#contractInstanceUpdates
       .valuesAsync({
         reverse: true,
-        start: this.getUpdateKey(address, 0), // Make sure we only look at updates for this contract
-        end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
+        start: this.getUpdateKey(address, 0n), // Make sure we only look at updates for this contract
+        end: this.getUpdateKey(address, timestamp + 1n), // No update can match this key since it doesn't have a log index. We want the highest key <= timestamp
         limit: 1,
       })
       .next();
@@ -90,7 +85,7 @@ export class ContractInstanceStore {
 
     const serializedUpdate = queryResult.value;
     const update = SerializableContractInstanceUpdate.fromBuffer(serializedUpdate);
-    if (blockNumber < update.blockOfChange) {
+    if (timestamp < update.timestampOfChange) {
       return update.prevContractClassId.isZero() ? originalClassId : update.prevContractClassId;
     }
     return update.newContractClassId;
@@ -98,7 +93,7 @@ export class ContractInstanceStore {
 
   async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
     const contractInstance = await this.#contractInstances.getAsync(address.toString());
     if (!contractInstance) {
@@ -108,7 +103,7 @@ export class ContractInstanceStore {
     const instance = SerializableContractInstance.fromBuffer(contractInstance).withAddress(address);
     instance.currentContractClassId = await this.getCurrentContractInstanceClassId(
       address,
-      blockNumber,
+      timestamp,
       instance.originalContractClassId,
     );
     return instance;

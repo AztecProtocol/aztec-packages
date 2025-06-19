@@ -226,10 +226,10 @@ impl PrivateContext {
     }
 
     // docs:start:include-by-timestamp
-    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u32) {
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
         // docs:end:include-by-timestamp
         self.include_by_timestamp =
-            IncludeByTimestamp::min_with_u32(self.include_by_timestamp, include_by_timestamp);
+            IncludeByTimestamp::min_with_u64(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {

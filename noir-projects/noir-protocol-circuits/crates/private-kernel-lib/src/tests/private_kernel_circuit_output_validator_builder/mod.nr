@@ -35,8 +35,8 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
         output.claimed_first_nullifier = 27;
-        output.set_max_block_number(
-            previous_kernel.historical_header.global_variables.block_number + DEFAULT_UPDATE_DELAY,
+        output.set_include_by_timestamp(
+            previous_kernel.historical_header.global_variables.timestamp + DEFAULT_UPDATE_DELAY,
         );
         previous_kernel.claimed_first_nullifier = 27;
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);

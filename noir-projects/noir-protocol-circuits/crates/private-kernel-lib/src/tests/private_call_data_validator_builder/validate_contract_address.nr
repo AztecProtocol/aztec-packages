@@ -23,7 +23,7 @@ impl PrivateCallDataValidatorBuilder {
     pub fn compute_updated_contract(
         &mut self,
         new_class_id: ContractClassId,
-        block_of_change: u32,
+        timestamp_of_change: u64,
     ) {
         let original_class_id = ContractClassId::from_field(27);
         self.private_call.contract_address = AztecAddress::compute_from_class_id(
@@ -33,7 +33,7 @@ impl PrivateCallDataValidatorBuilder {
         );
 
         self.private_call.updated_class_id_value_change =
-            ScheduledValueChange::new(original_class_id, new_class_id, block_of_change);
+            ScheduledValueChange::new(original_class_id, new_class_id, timestamp_of_change);
 
         self.private_call.compute_update_tree_and_hints();
     }
@@ -180,7 +180,7 @@ fn validate_contract_address_with_updated_contract_succeeds() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.block_number,
+        builder.private_call.historical_header.global_variables.timestamp,
     );
 
     builder.validate();
@@ -192,7 +192,7 @@ fn validate_contract_address_not_yet_updated_contract_fails() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.block_number + 1,
+        builder.private_call.historical_header.global_variables.timestamp + 1,
     );
 
     builder.validate();
@@ -207,7 +207,7 @@ fn validate_contract_address_updated_to_different_class_fails() {
     );
     builder.compute_updated_contract(
         new_class_id,
-        builder.private_call.historical_header.global_variables.block_number,
+        builder.private_call.historical_header.global_variables.timestamp,
     );
 
     builder.validate();

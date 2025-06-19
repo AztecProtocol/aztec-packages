@@ -1,7 +1,7 @@
-use crate::{constants::MAX_BLOCK_NUMBER_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use crate::{constants::MAX_INCLUDE_BY_TIMESTAMP_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct IncludeByTimestamp {
-    _opt: Option<u32>,
+    _opt: Option<u64>,
 }
 
 impl Empty for IncludeByTimestamp {
@@ -16,17 +16,17 @@ impl Eq for IncludeByTimestamp {
     }
 }
 
-impl Serialize<MAX_BLOCK_NUMBER_LENGTH> for IncludeByTimestamp {
-    fn serialize(self) -> [Field; MAX_BLOCK_NUMBER_LENGTH] {
+impl Serialize<MAX_INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
+    fn serialize(self) -> [Field; MAX_INCLUDE_BY_TIMESTAMP_LENGTH] {
         [self._opt.is_some() as Field, self._opt.unwrap_unchecked() as Field]
     }
 }
 
-impl Deserialize<MAX_BLOCK_NUMBER_LENGTH> for IncludeByTimestamp {
-    fn deserialize(serialized: [Field; MAX_BLOCK_NUMBER_LENGTH]) -> IncludeByTimestamp {
+impl Deserialize<MAX_INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
+    fn deserialize(serialized: [Field; MAX_INCLUDE_BY_TIMESTAMP_LENGTH]) -> IncludeByTimestamp {
         IncludeByTimestamp {
             _opt: if serialized[0] != 0 {
-                Option::some(serialized[1] as u32)
+                Option::some(serialized[1] as u64)
             } else {
                 Option::none()
             },
@@ -35,7 +35,7 @@ impl Deserialize<MAX_BLOCK_NUMBER_LENGTH> for IncludeByTimestamp {
 }
 
 impl IncludeByTimestamp {
-    pub fn new(include_by_timestamp: u32) -> Self {
+    pub fn new(include_by_timestamp: u64) -> Self {
         Self { _opt: Option::some(include_by_timestamp) }
     }
 
@@ -47,11 +47,11 @@ impl IncludeByTimestamp {
         self._opt.is_some()
     }
 
-    pub fn unwrap(self) -> u32 {
+    pub fn unwrap(self) -> u64 {
         self._opt.unwrap()
     }
 
-    pub fn unwrap_unchecked(self) -> u32 {
+    pub fn unwrap_unchecked(self) -> u64 {
         self._opt.unwrap_unchecked()
     }
 
@@ -59,11 +59,11 @@ impl IncludeByTimestamp {
         if rhs.is_none() {
             lhs // lhs might also be none, but in that case both would be
         } else {
-            IncludeByTimestamp::min_with_u32(lhs, rhs.unwrap_unchecked())
+            IncludeByTimestamp::min_with_u64(lhs, rhs.unwrap_unchecked())
         }
     }
 
-    pub fn min_with_u32(lhs: IncludeByTimestamp, rhs: u32) -> IncludeByTimestamp {
+    pub fn min_with_u64(lhs: IncludeByTimestamp, rhs: u64) -> IncludeByTimestamp {
         if lhs._opt.is_none() {
             IncludeByTimestamp::new(rhs)
         } else {
@@ -138,19 +138,19 @@ fn min_some_some() {
 }
 
 #[test]
-fn min_with_u32_default() {
+fn min_with_u64_default() {
     let a = IncludeByTimestamp::empty();
     let b = 42;
 
-    assert_eq(IncludeByTimestamp::min_with_u32(a, b).unwrap(), 42);
+    assert_eq(IncludeByTimestamp::min_with_u64(a, b).unwrap(), 42);
 }
 
 #[test]
-fn min_with_u32_some() {
+fn min_with_u64_some() {
     let a = IncludeByTimestamp::new(13);
     let b = 42;
     let c = 8;
 
-    assert_eq(IncludeByTimestamp::min_with_u32(a, b).unwrap(), 13);
-    assert_eq(IncludeByTimestamp::min_with_u32(a, c).unwrap(), 8);
+    assert_eq(IncludeByTimestamp::min_with_u64(a, b).unwrap(), 13);
+    assert_eq(IncludeByTimestamp::min_with_u64(a, c).unwrap(), 8);
 }

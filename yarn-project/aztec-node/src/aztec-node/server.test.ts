@@ -1,6 +1,9 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
+import { EpochCache } from '@aztec/epoch-cache';
+import type { RollupContract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
@@ -10,6 +13,7 @@ import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -36,6 +40,18 @@ import { fileURLToPath } from 'url';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
+// Arbitrary fixed timestamp for the mock date provider. DateProvider.now() returns milliseconds but IncludeByTimestamp
+// is denominated in seconds.
+const NOW_MS = 1718745600000;
+const NOW_S = NOW_MS / 1000;
+
+// We create a mock date provider to have control over the next slot timestamp.
+class MockDateProvider extends DateProvider {
+  public override now(): number {
+    return NOW_MS;
+  }
+}
+
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
@@ -44,6 +60,7 @@ describe('aztec node', () => {
   let lastBlockNumber: number;
   let node: AztecNode;
   let feePayer: AztecAddress;
+  let epochCache: EpochCache;
 
   const chainId = new Fr(12345);
   const rollupVersion = new Fr(1);
@@ -118,6 +135,12 @@ describe('aztec node', () => {
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
+    // We never request any info from the rollup contract here, since only the `getEpochAndSlotInNextL1Slot` method
+    // on the epoch cache is used so a simple mock will suffice.
+    const rollupContract = mock<RollupContract>();
+    // We pass MockDateProvider to the epoch cache to have control over the next slot timestamp
+    epochCache = new EpochCache(rollupContract, 0n, undefined, 0n, EmptyL1RollupConstants, new MockDateProvider());
+
     node = new AztecNodeService(
       {
         ...aztecNodeConfig,
@@ -142,6 +165,7 @@ describe('aztec node', () => {
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      epochCache,
       getPackageVersion() ?? '',
       new TestCircuitVerifier(),
     );
@@ -205,21 +229,19 @@ describe('aztec node', () => {
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
 
-    it('tests that the node correctly validates max block numbers', async () => {
+    it('tests that the node correctly validates expiration timestamps', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
       const noIncludeByTimestampMetadata = txs[0];
       const invalidIncludeByTimestampMetadata = txs[1];
       const validIncludeByTimestampMetadata = txs[2];
 
       invalidIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, 1),
+        new IncludeByTimestamp(true, BigInt(NOW_S)),
       );
 
       validIncludeByTimestampMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new IncludeByTimestamp(true, 5),
+        new IncludeByTimestamp(true, BigInt(NOW_S + 1)),
       );
-
-      lastBlockNumber = 3;
 
       // Default tx with no should be valid
       expect(await node.isValidTx(noIncludeByTimestampMetadata)).toEqual({ result: 'valid' });

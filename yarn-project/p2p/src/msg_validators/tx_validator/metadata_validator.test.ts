@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { AnyTx, Tx } from '@aztec/stdlib/tx';
+import type { Tx } from '@aztec/stdlib/tx';
 import {
   IncludeByTimestamp,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -13,28 +13,20 @@ import {
 import { MetadataTxValidator } from './metadata_validator.js';
 
 describe('MetadataTxValidator', () => {
-  let blockNumber: number;
-  let chainId: Fr;
-  let rollupVersion: Fr;
-  let vkTreeRoot: Fr;
-  let protocolContractTreeRoot: Fr;
+  const chainId = new Fr(1);
+  // Timestamp against which we will validate the expiration timestamp.
+  const currentTimestamp = 10n;
+  const rollupVersion = new Fr(2);
+  const vkTreeRoot = new Fr(3);
+  const protocolContractTreeRoot = new Fr(4);
+  let seed = 1;
 
-  let seed: number = 1;
-  let validator: MetadataTxValidator<AnyTx>;
-
-  beforeEach(() => {
-    chainId = new Fr(1);
-    blockNumber = 42;
-    rollupVersion = new Fr(2);
-    vkTreeRoot = new Fr(3);
-    protocolContractTreeRoot = new Fr(4);
-    validator = new MetadataTxValidator({
-      l1ChainId: chainId,
-      rollupVersion,
-      blockNumber,
-      vkTreeRoot,
-      protocolContractTreeRoot,
-    });
+  const validator = new MetadataTxValidator({
+    l1ChainId: chainId,
+    rollupVersion,
+    timestamp: currentTimestamp,
+    vkTreeRoot,
+    protocolContractTreeRoot,
   });
 
   const expectValid = async (tx: Tx) => {
@@ -94,23 +86,23 @@ describe('MetadataTxValidator', () => {
     await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT);
   });
 
-  it.each([42, 43])('allows txs with valid max block number', async includeByTimestamp => {
+  it.each([10n, 11n])('allows txs with valid expiration timestamp', async includeByTimestamp => {
     const [goodTx] = await makeTxs();
     goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, includeByTimestamp);
 
     await expectValid(goodTx);
   });
 
-  it('allows txs with unset max block number', async () => {
+  it('allows txs with unset expiration timestamp', async () => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(false, 0);
+    goodTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(false, 0n);
 
     await expectValid(goodTx);
   });
 
-  it('rejects txs with lower max block number', async () => {
+  it('rejects txs with lower expiration timestamp', async () => {
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, blockNumber - 1);
+    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, currentTimestamp - 1n);
 
     await expectInvalid(badTx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
   });
