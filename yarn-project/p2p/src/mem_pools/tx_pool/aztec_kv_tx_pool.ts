@@ -535,7 +535,7 @@ export class AztecKVTxPool implements TxPool {
    * Eviction criteria includes:
    *   - txs with nullifiers that are already included in the mined block
    *   - txs with an insufficient fee payer balance
-   *   - txs with a max block number lower than the mined block
+   *   - txs with an expiration timestamp lower than that of the mined block
    *
    * @param minedTxHashes - The tx hashes of the txs mined in the block.
    * @param blockHeader - The header of the mined block.
