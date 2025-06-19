@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
+// solhint-disable func-param-name-leading-underscore
+
 struct Queue {
   mapping(uint256 index => address addr) attester;
   mapping(uint256 index => address addr) proposer;
@@ -18,7 +20,10 @@ library QueueLib {
     self.last = 1;
   }
 
-  function enqueue(Queue storage self, address _attester, address _proposer) internal returns (uint256) {
+  function enqueue(Queue storage self, address _attester, address _proposer)
+    internal
+    returns (uint256)
+  {
     require(!self.inQueue[_attester], AlreadySeen(_attester));
 
     uint256 queueLocation = self.last;

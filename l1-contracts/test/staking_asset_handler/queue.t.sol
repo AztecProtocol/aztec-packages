@@ -67,7 +67,7 @@ contract QueueTest is Test {
       (address attester, address proposer) = queue.dequeue();
       // First come first served
       assertEq(attester, address(uint160(i)));
-      assertEq(proposer, address(uint160(i+ 1)));
+      assertEq(proposer, address(uint160(i + 1)));
 
       assertEq(queue.length(), _validatorsToAdd - i - 1);
     }

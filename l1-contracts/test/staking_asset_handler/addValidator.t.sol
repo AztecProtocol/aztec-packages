@@ -37,7 +37,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // If exiting, we need to create a sequencer that can be exited and exit it first.
     if (_isExiting) {
       vm.prank(unhinged);
-      stakingAssetHandler.addValidatorToQueue(_attester, _proposer, fakeProof);
+      stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, fakeProof);
 
       vm.prank(WITHDRAWER);
       staking.initiateWithdraw(_attester, address(this));
@@ -47,7 +47,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     }
 
     vm.prank(unhinged);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, fakeProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, fakeProof);
 
     ValidatorInfo memory info = staking.getInfo(_attester);
     assertEq(info.proposer, _proposer);
@@ -79,7 +79,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, realProof);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -104,14 +104,17 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _proposer != address(0) && _attester != unhinged && _caller != unhinged);
+    vm.assume(
+      _attester != address(0) && _proposer != address(0) && _attester != unhinged
+        && _caller != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
@@ -154,14 +157,17 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // it deposits into the rollup
     // it emits a {ValidatorAdded} event
 
-    vm.assume(_attester != address(0) && _proposer != address(0) && _caller != address(this) && _attester != address(this) && _caller != unhinged);
+    vm.assume(
+      _attester != address(0) && _proposer != address(0) && _caller != address(this)
+        && _attester != address(this) && _caller != unhinged
+    );
     uint256 revertTimestamp = stakingAssetHandler.lastMintTimestamp() + mintInterval;
     vm.warp(revertTimestamp);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, proof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(MINIMUM_STAKE * depositsPerMint);
@@ -197,7 +203,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, proof);
 
     uint256 uniqueIdentifierLocation = proof.publicInputs.length - 16 - 1;
     vm.expectRevert(
@@ -207,7 +213,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     // Call from somebody else
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, proof);
   }
 
   function test_WhenPassportProofIsInDevMode(address _caller, address _attester, address _proposer)
@@ -228,7 +234,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, proof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, proof);
   }
 
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
@@ -249,7 +255,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(attester, attester, proof);
+    stakingAssetHandler.addValidatorToQueue(attester, attester, validMerkleProof, proof);
   }
 
   function test_GivenTheDepositCallFails(
@@ -284,7 +290,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, _proposer, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_attester, _proposer, validMerkleProof, realProof);
 
     // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
     mockZKPassportVerifier.incrementUniqueIdentifier();
@@ -293,14 +299,14 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_secondAttester, _proposer, 2);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_secondAttester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_secondAttester, _proposer, validMerkleProof, realProof);
 
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_thirdAttester, _proposer, 3);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_thirdAttester, _proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(_thirdAttester, _proposer, validMerkleProof, realProof);
 
     // Expected successful events
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
@@ -308,7 +314,9 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, _proposer, WITHDRAWER);
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), _thirdAttester, _proposer, WITHDRAWER);
+    emit IStakingAssetHandler.ValidatorAdded(
+      address(staking), _thirdAttester, _proposer, WITHDRAWER
+    );
 
     IStaking rollup = IStaking(address(IRegistry(registry).getCanonicalRollup()));
     uint256 depositAmount = rollup.getMinimumStake();
@@ -316,7 +324,9 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // Mock that the second add validator call will fail
     vm.mockCallRevert(
       address(staking),
-      abi.encodeWithSelector(IStakingCore.deposit.selector, _secondAttester, _proposer, WITHDRAWER, depositAmount),
+      abi.encodeWithSelector(
+        IStakingCore.deposit.selector, _secondAttester, _proposer, WITHDRAWER, depositAmount
+      ),
       bytes(string(""))
     );
     vm.prank(_caller);

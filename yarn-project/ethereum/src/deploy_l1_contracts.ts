@@ -12,7 +12,6 @@ import {
   FeeJuicePortalBytecode,
   ForwarderAbi,
   ForwarderBytecode,
-  GSEBytecode,
   GovernanceAbi,
   GovernanceBytecode,
   GovernanceProposerAbi,
@@ -206,10 +205,6 @@ export const l1Artifacts = {
   multiAdder: {
     contractAbi: MultiAdderAbi,
     contractBytecode: MultiAdderBytecode as Hex,
-  },
-  gse: {
-    contractAbi: GSEAbi,
-    contractBytecode: GSEBytecode as Hex,
   },
   honkVerifier: {
     contractAbi: HonkVerifierAbi,

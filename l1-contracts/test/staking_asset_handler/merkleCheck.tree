@@ -1,0 +1,6 @@
+MerkleCheck
+├── When providing a valid merkle proof
+│   └── it emits {AddedToQueue} event
+└── When not providing a valid merkle proof
+   └── it reverts
+
