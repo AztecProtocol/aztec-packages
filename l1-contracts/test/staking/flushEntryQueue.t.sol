@@ -120,7 +120,7 @@ contract FlushEntryQueueTest is StakingBase {
     }
 
     // Check the canonical set has the proper validators
-    address canonicalMagicAddress = gse.CANONICAL_MAGIC_ADDRESS();
+    address canonicalMagicAddress = gse.getCanonicalMagicAddress();
     address[] memory attestersOnCanonical =
       gse.getAttestersAtTime(canonicalMagicAddress, Timestamp.wrap(block.timestamp));
     assertEq(

@@ -1,0 +1,10 @@
+VoteWithCanonicalTest
+├── given caller is not canonical at proposal time
+│   └── it reverts
+└── given caller is canonical at proposal time
+    ├── given amount greater than available canonical power
+    │   └── it reverts
+    └── given amount less or equal to available canonical power
+        ├── it uses delegation power for canonical
+        ├── it votes in governance
+        └── it returns true

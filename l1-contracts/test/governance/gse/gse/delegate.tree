@@ -1,0 +1,8 @@
+DelegateTest
+├── given instance is not registered
+│   └── it reverts
+└── given instance is registered
+    ├── given caller is not withdrawer
+    │   └── it reverts
+    └── given caller is withdrawer
+        └── it delegates voting power
