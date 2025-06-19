@@ -77,13 +77,13 @@ template <typename FF_> class note_hash_tree_checkImpl {
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DISABLE_SILOING_ON_READ
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = note_hash_tree_check_READ * in.get(C::note_hash_tree_check_should_silo);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PASSTHROUGH_SILOING
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = in.get(C::note_hash_tree_check_sel) * (FF(1) - in.get(C::note_hash_tree_check_should_silo)) *
                        (in.get(C::note_hash_tree_check_note_hash) - in.get(C::note_hash_tree_check_siloed_note_hash));
@@ -97,13 +97,13 @@ template <typename FF_> class note_hash_tree_checkImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DISABLE_UNIQUENESS_ON_READ
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = note_hash_tree_check_READ * in.get(C::note_hash_tree_check_should_unique);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PASSTHROUGH_UNIQUENESS
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::note_hash_tree_check_sel) * (FF(1) - in.get(C::note_hash_tree_check_should_unique)) *
@@ -184,9 +184,24 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
 
     static std::string get_subrelation_label(size_t index)
     {
-        switch (index) {}
+        switch (index) {
+        case 6:
+            return "DISABLE_SILOING_ON_READ";
+        case 7:
+            return "PASSTHROUGH_SILOING";
+        case 9:
+            return "DISABLE_UNIQUENESS_ON_READ";
+        case 10:
+            return "PASSTHROUGH_UNIQUENESS";
+        }
         return std::to_string(index);
     }
+
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_DISABLE_SILOING_ON_READ = 6;
+    static constexpr size_t SR_PASSTHROUGH_SILOING = 7;
+    static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 9;
+    static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 10;
 };
 
 } // namespace bb::avm2

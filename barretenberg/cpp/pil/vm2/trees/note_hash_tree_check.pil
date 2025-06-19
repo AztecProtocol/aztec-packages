@@ -64,9 +64,11 @@ namespace note_hash_tree_check;
 
     // ====== SILOING ======
     // If reading we should pass an already siloed note hash
+    #[DISABLE_SILOING_ON_READ]
     READ * should_silo = 0;
 
     pol commit siloed_note_hash;
+    #[PASSTHROUGH_SILOING]
     sel * (1 - should_silo) * (note_hash - siloed_note_hash) = 0;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
@@ -80,9 +82,11 @@ namespace note_hash_tree_check;
 
     // ====== UNIQUE ======
     // If reading we should pass an already unique note hash
+    #[DISABLE_UNIQUENESS_ON_READ]
     READ * should_unique = 0;
 
     pol commit unique_note_hash;
+    #[PASSTHROUGH_UNIQUENESS]
     sel * (1 - should_unique) * (siloed_note_hash - unique_note_hash) = 0;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
@@ -111,7 +115,7 @@ namespace note_hash_tree_check;
     should_unique { nonce_separator, first_nullifier, note_hash_index, nonce, sel }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.start };
 
-        // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit unique_note_hash_separator;
     sel * (constants.GENERATOR_INDEX__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
 
