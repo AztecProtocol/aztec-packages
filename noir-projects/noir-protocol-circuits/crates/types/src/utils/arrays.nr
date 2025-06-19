@@ -273,18 +273,6 @@ where
  *
  *
  * An AppendedUnvalidatedArray is distinct from a regular array [T; N], because it carries a validated length.
- *
- *
- * Possible routes towards eventually fully-constraining an array:
- * 
- * [T; N] -----> EmptyRHSArray --(splice into)-----> AppendedUnvalidatedArray 
- *   | |               |                                        |
- *   | |               v                                        |
- *   |  ---------------------------> TrimmedArray               |
- *   |                                   |                      |
- *   |                                   v                      v
- *    ------------------------------------------------------------------------> DenseTrimmedArray
- *
  * 
  */
 
