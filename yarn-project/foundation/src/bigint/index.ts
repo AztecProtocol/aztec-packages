@@ -13,3 +13,8 @@ export function maxBigint(...values: bigint[]): bigint {
   }
   return values.reduce((max, value) => (value > max ? value : max), values[0]);
 }
+
+/** Sums an array of bigints */
+export function sumBigint(values: bigint[]): bigint {
+  return values.reduce((sum, value) => sum + value, 0n);
+}

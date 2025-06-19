@@ -17,9 +17,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -377,32 +375,29 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> BytecodeTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition BytecodeTraceBuilder::interactions =
+    InteractionDefinition()
         // Bytecode Hashing
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_get_packed_field_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_iv_is_len_settings>>(),
+        .add<lookup_bc_hashing_get_packed_field_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_iv_is_len_settings, InteractionType::LookupSequential>()
         // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-        // std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_hashing_poseidon2_hash_settings>>(),
+        // .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
         // Bytecode Retrieval
-        // std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_update_check_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_deployment_nullifier_read_settings>>(),
+        // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_address_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_update_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
-        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
+        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_bc_decomposition_abs_diff_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
         // Instruction Fetching
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytes_from_bc_dec_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_tag_value_validation_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>());
-}
+        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

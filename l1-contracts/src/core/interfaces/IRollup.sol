@@ -73,7 +73,7 @@ struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
-  uint256 aztecProofSubmissionWindow;
+  uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
@@ -84,7 +84,7 @@ struct RollupConfigInput {
 }
 
 struct RollupConfig {
-  uint256 proofSubmissionWindow;
+  uint256 aztecProofSubmissionEpochs;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
   IRewardDistributor rewardDistributor;
@@ -145,7 +145,6 @@ interface IRollup is IRollupCore, IHaveVersion {
     ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external;
@@ -213,7 +212,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     returns (bool);
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
-  function getProofSubmissionWindow() external view returns (uint256);
+  function getProofSubmissionEpochs() external view returns (uint256);
   function getManaTarget() external view returns (uint256);
   function getManaLimit() external view returns (uint256);
   function getProvingCostPerManaInEth() external view returns (EthValue);
