@@ -3,7 +3,7 @@ use protocol_types::traits::Serialize;
 /// Emits data that will be delivered off-chain rather than through the data availability layer.
 ///
 /// Sends data through an alternative app-specific channel without incurring data availability (DA) costs. After
-/// receiving it, the recipient is expected interpret it freely. For example if this mechanism is used to emit a note
+/// receiving it, the recipient is expected to interpret it freely. For example if this mechanism is used to emit a note
 /// it should  call the `process_message` function implemented on the contract that originally emitted the message.
 ///
 /// # Example use cases
