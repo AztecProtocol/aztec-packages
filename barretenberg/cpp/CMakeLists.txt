@@ -123,34 +123,9 @@ if(COVERAGE)
         message(FATAL_ERROR "Creating coverage is only available for clang")
     endif()
 
-    # Get major clang version
-    string(REPLACE "." ";" VERSION_LIST ${CMAKE_CXX_COMPILER_VERSION})
-    list(GET VERSION_LIST 0 CLANG_VERSION_MAJOR)
-
-    # Find llvm-profdata
-    set(PROFDATA_EXECUTABLE_NAME "llvm-profdata-${CLANG_VERSION_MAJOR}")
-    find_program(PROFDATA_EXECUTABLE ${PROFDATA_EXECUTABLE_NAME})
-
-    if(PROFDATA_EXECUTABLE MATCHES "NOTFOUND")
-        message(FATAL_ERROR "Couldn't find ${PROFDATA_EXECUTABLE_NAME}")
-    endif()
-
-    # Find llvm-cov
-    set(COV_EXECUTABLE_NAME "llvm-cov-${CLANG_VERSION_MAJOR}")
-    find_program(COV_EXECUTABLE ${COV_EXECUTABLE_NAME})
-
-    if(COV_EXECUTABLE MATCHES "NOTFOUND")
-        message(FATAL_ERROR "Couldn't find ${COV_EXECUTABLE_NAME}")
-    endif()
-
-    # Add profiling compile options and disable optimizations
-    add_compile_options(-fprofile-instr-generate -fcoverage-mapping -O0)
-
-    # Add a custom target for creating the report
-    add_custom_target(create_full_coverage_report
-        COMMAND "${CMAKE_SOURCE_DIR}/scripts/collect_coverage_information.sh" ${PROFDATA_EXECUTABLE} ${COV_EXECUTABLE}
-        VERBATIM
-    )
+    # Add profiling compile/link options and disable optimizations
+    add_definitions(-fprofile-instr-generate -fcoverage-mapping)
+    add_link_options(-fprofile-instr-generate -fcoverage-mapping)
 endif()
 
 include(cmake/build.cmake)

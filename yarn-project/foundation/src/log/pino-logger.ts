@@ -101,13 +101,14 @@ const customLevels = { verbose: 25 };
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
 
 const redactedPaths = [
-  'validatorPrivateKey',
+  'validatorPrivateKeys',
   // for both the validator and the prover
   'publisherPrivateKey',
   'peerIdPrivateKey',
   // bot keys
   'l1PrivateKey',
   'senderPrivateKey',
+  'recipientEncryptionSecret',
   // blob sink
   'l1ConsensusHostApiKeys',
   // sensitive options used in the CLI

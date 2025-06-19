@@ -107,14 +107,14 @@ The `on_behalf_of` should assert that we are indeed authenticated and then retur
 
 #### Example
 
-```rust title="assert_current_call_valid_authwit" showLineNumbers
+```rust title="assert_current_call_valid_authwit" showLineNumbers 
 if (!from.eq(context.msg_sender())) {
     assert_current_call_valid_authwit(&mut context, from);
 } else {
     assert(nonce == 0, "invalid nonce");
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372</a></sub></sup>
 
 
 ### Utilities for public calls
@@ -123,14 +123,14 @@ Very similar to the above, we have variations that work in the public domain (`a
 
 #### Example
 
-```rust title="assert_current_call_valid_authwit_public" showLineNumbers
+```rust title="assert_current_call_valid_authwit_public" showLineNumbers 
 if (!from.eq(context.msg_sender())) {
     assert_current_call_valid_authwit_public(&mut context, from);
 } else {
     assert(nonce == 0, "invalid nonce");
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232</a></sub></sup>
 
 
 ## Usage
@@ -143,19 +143,19 @@ To add it to your project, add the `authwit` library to your `Nargo.toml` file.
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/authwit"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/authwit"}
 ```
 
 Then you will be able to import it into your contracts as follows.
 
-```rust title="import_authwit" showLineNumbers
+```rust title="import_authwit" showLineNumbers 
 use dep::authwit::auth::{
     assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
     compute_authwit_nullifier,
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45</a></sub></sup>
 
 
 ### Private Functions
@@ -164,7 +164,7 @@ use dep::authwit::auth::{
 
 Based on the diagram earlier on this page let's take a look at how we can implement the `transfer` function such that it checks if the tokens are to be transferred `from` the caller or needs to be authenticated with an authentication witness.
 
-```rust title="transfer_in_private" showLineNumbers
+```rust title="transfer_in_private" showLineNumbers 
 #[private]
 fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -181,7 +181,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce
     storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383</a></sub></sup>
 
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
@@ -192,7 +192,7 @@ In the snippet we are constraining the `else` case such that only `nonce = 0` is
 
 Cool, so we have a function that checks if the current call is authenticated, but how do we actually authenticate it? Well, assuming that we use a wallet that is following the spec, we import `computeAuthWitMessageHash` from `aztec.js` to help us compute the hash, and then we simply `addAuthWitness` to the wallet. Behind the scenes this will make the witness available to the oracle.
 
-```typescript title="authwit_transfer_example" showLineNumbers
+```typescript title="authwit_transfer_example" showLineNumbers 
 const action = asset
   .withWallet(wallets[1])
   .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
@@ -205,7 +205,7 @@ expect(
   isValidInPublic: false,
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_private.test.ts#L32-L44" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_private.test.ts#L32-L44</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_private.test.ts#L32-L44" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_private.test.ts#L32-L44</a></sub></sup>
 
 
 Learn more about authwits in Aztec.js by [following this guide](../../js_apps/authwit.md).
@@ -216,7 +216,7 @@ With private functions covered, how can we use this in a public function? Well, 
 
 #### Checking if the current call is authenticated
 
-```rust title="transfer_in_public" showLineNumbers
+```rust title="transfer_in_public" showLineNumbers 
 #[public]
 fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
     if (!from.eq(context.msg_sender())) {
@@ -230,7 +230,7 @@ fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce:
     storage.public_balances.at(to).write(to_balance);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221</a></sub></sup>
 
 
 #### Authenticating an action in TypeScript
@@ -239,7 +239,7 @@ Authenticating an action in the public domain is slightly different from the pri
 
 In the snippet below, this is done as a separate contract call, but can also be done as part of a batch as mentioned in the [Accounts concepts](../../../../aztec/concepts/advanced/authwit.md#what-about-public).
 
-```typescript title="authwit_public_transfer_example" showLineNumbers
+```typescript title="authwit_public_transfer_example" showLineNumbers 
 const action = asset
   .withWallet(wallets[1])
   .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, nonce);
@@ -247,7 +247,7 @@ const action = asset
 const validateActionInteraction = await wallets[0].setPublicAuthWit({ caller: accounts[1].address, action }, true);
 await validateActionInteraction.send().wait();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_token_contract/transfer_in_public.test.ts#L69-L76</a></sub></sup>
 
 
 #### Updating approval state in Noir
@@ -260,7 +260,7 @@ When another contract later is consuming the authwit using `assert_current_call_
 
 An example of this would be our Uniswap example which performs a cross chain swap on L1. In here, we both do private and public auth witnesses, where the public is set by the uniswap L2 contract itself. In the below snippet, you can see that we compute the action hash and update the value in the registry. When we then call the `token_bridge` to execute afterwards, it reads this value, burns the tokens, and consumes the authentication.
 
-```rust title="authwit_uniswap_set" showLineNumbers
+```rust title="authwit_uniswap_set" showLineNumbers 
 // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
 // Assumes contract already has funds.
 // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
@@ -297,7 +297,7 @@ fn _approve_bridge_and_exit_input_asset_to_L1(
         .call(&mut context)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
 
 
 Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.

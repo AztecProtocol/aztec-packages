@@ -1,4 +1,4 @@
-import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 
@@ -95,7 +95,7 @@ describe('e2e_state_vars', () => {
       // Jest executes the tests sequentially and the first call to initialize_public_immutable was executed
       // in the previous test, so the call below should fail.
       await expect(contract.methods.initialize_public_immutable(1).simulate()).rejects.toThrow(
-        'Assertion failed: PublicImmutable already initialized',
+        'Attempted to emit duplicate nullifier',
       );
     });
   });
@@ -245,7 +245,7 @@ describe('e2e_state_vars', () => {
 
       // The validity of our SharedMutable read request should be limited to 2 blocks
       expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedModifiedMaxBlockNumber));
+      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(expectedModifiedMaxBlockNumber);
     });
   });
 });

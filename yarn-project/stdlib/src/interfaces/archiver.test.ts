@@ -1,6 +1,5 @@
 import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
@@ -9,6 +8,7 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -99,7 +99,7 @@ describe('ArchiverApiSchema', () => {
     const response = await context.client.getPublishedBlocks(1, 1);
     expect(response).toHaveLength(1);
     expect(response[0].block.constructor.name).toEqual('L2Block');
-    expect(response[0].signatures[0]).toBeInstanceOf(Signature);
+    expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
   });
 
@@ -204,7 +204,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('getL1ToL2Messages', async () => {
-    const result = await context.client.getL1ToL2Messages(1n);
+    const result = await context.client.getL1ToL2Messages(1);
     expect(result).toEqual([expect.any(Fr)]);
   });
 
@@ -214,7 +214,7 @@ describe('ArchiverApiSchema', () => {
   });
 
   it('registerContractFunctionSignatures', async () => {
-    await context.client.registerContractFunctionSignatures(await AztecAddress.random(), ['test()']);
+    await context.client.registerContractFunctionSignatures(['test()']);
   });
 
   it('getContract', async () => {
@@ -239,6 +239,11 @@ describe('ArchiverApiSchema', () => {
 
   it('syncImmediate', async () => {
     await context.client.syncImmediate();
+  });
+
+  it('getL1Timestamp', async () => {
+    const result = await context.client.getL1Timestamp();
+    expect(result).toBe(1n);
   });
 });
 
@@ -273,14 +278,19 @@ class MockArchiver implements ArchiverApi {
     return [
       {
         block: await L2Block.random(from),
-        signatures: [Signature.random()],
+        attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
       },
     ];
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
+    return {
+      l2BlockNumber: 1,
+      l2BlockHash: L2BlockHash.fromNumber(0x12),
+      data: await TxEffect.random(),
+      txIndexInBlock: randomInt(10),
+    };
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
@@ -374,13 +384,12 @@ class MockArchiver implements ArchiverApi {
     expect(address).toBeInstanceOf(AztecAddress);
     return Promise.resolve(this.artifact);
   }
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
-    expect(address).toBeInstanceOf(AztecAddress);
+  registerContractFunctionSignatures(signatures: string[]): Promise<void> {
     expect(Array.isArray(signatures)).toBe(true);
     return Promise.resolve();
   }
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    expect(blockNumber).toEqual(1n);
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+    expect(blockNumber).toEqual(1);
     return Promise.resolve([Fr.random()]);
   }
   getL1ToL2MessageIndex(l1ToL2Message: Fr): Promise<bigint | undefined> {
@@ -389,5 +398,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+  getL1Timestamp(): Promise<bigint> {
+    return Promise.resolve(1n);
   }
 }

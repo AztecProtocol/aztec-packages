@@ -1,3 +1,4 @@
+import { REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { bufferFromFields } from '@aztec/stdlib/abi';
@@ -8,7 +9,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
-import { REGISTERER_CONTRACT_CLASS_REGISTERED_TAG } from '../protocol_contract_data.js';
+import { ProtocolContractAddress } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class ContractClassRegisteredEvent {
@@ -21,7 +22,10 @@ export class ContractClassRegisteredEvent {
   ) {}
 
   static isContractClassRegisteredEvent(log: ContractClassLog) {
-    return log.fields.fields[0].equals(REGISTERER_CONTRACT_CLASS_REGISTERED_TAG);
+    return (
+      log.contractAddress.equals(ProtocolContractAddress.ContractClassRegisterer) &&
+      log.fields.fields[0].toBigInt() === REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
+    );
   }
 
   static fromLog(log: ContractClassLog) {

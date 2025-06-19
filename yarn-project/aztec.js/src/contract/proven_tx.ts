@@ -1,4 +1,4 @@
-import { type ProvingTimings, Tx } from '@aztec/stdlib/tx';
+import { type OffchainMessage, type ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { SentTx } from './sent_tx.js';
@@ -10,25 +10,25 @@ export class ProvenTx extends Tx {
   constructor(
     protected wallet: Wallet,
     tx: Tx,
+    /** The offchain messages emitted during the execution of the transaction. */
+    public offchainMessages: OffchainMessage[],
     // eslint-disable-next-line jsdoc/require-jsdoc
-    public timings?: ProvingTimings,
+    public stats?: ProvingStats,
   ) {
-    super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
+    super(tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   // Clone the TX data to get a serializable object.
   protected getPlainDataTx(): Tx {
-    return new Tx(this.data, this.clientIvcProof, this.contractClassLogs, this.publicFunctionCalldata);
+    return new Tx(this.data, this.clientIvcProof, this.contractClassLogFields, this.publicFunctionCalldata);
   }
 
   /**
    * Sends the transaction to the network via the provided wallet.
    */
   public send(): SentTx {
-    const promise = (() => {
-      return this.wallet.sendTx(this.getPlainDataTx());
-    })();
+    const sendTx = () => this.wallet.sendTx(this.getPlainDataTx());
 
-    return new SentTx(this.wallet, promise);
+    return new SentTx(this.wallet, sendTx);
   }
 }

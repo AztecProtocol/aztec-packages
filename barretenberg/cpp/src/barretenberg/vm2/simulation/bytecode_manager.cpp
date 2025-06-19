@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -83,7 +84,6 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     const auto& bytecode = *bytecode_ptr;
 
-    // TODO: Propagate instruction fetching error to the upper layer (execution loop)
     try {
         instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
 
@@ -92,8 +92,14 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
             instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
         };
     } catch (const InstrDeserializationError& error) {
-        assert(error != InstrDeserializationError::TAG_OUT_OF_RANGE);
         instr_fetching_event.error = error;
+    }
+
+    // FIXME: remove this once all execution opcodes are supported.
+    if (!instr_fetching_event.error.has_value() &&
+        !EXEC_INSTRUCTION_SPEC.contains(instr_fetching_event.instruction.get_exec_opcode())) {
+        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
+        instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
 
     // We are showing whether bytecode_size > pc or not. If there is no fetching error,
@@ -104,6 +110,12 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
 
     // The event will be deduplicated internally.
     fetching_events.emit(InstructionFetchingEvent(instr_fetching_event));
+
+    // Communicate error to the caller.
+    if (instr_fetching_event.error.has_value()) {
+        throw std::runtime_error("Instruction fetching error: " +
+                                 std::to_string(static_cast<int>(instr_fetching_event.error.value())));
+    }
 
     return instr_fetching_event.instruction;
 }

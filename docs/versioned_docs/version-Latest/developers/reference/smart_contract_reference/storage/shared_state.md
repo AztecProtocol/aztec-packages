@@ -54,14 +54,14 @@ This prevents the network-wide privacy set from being split between transactions
 
 ## `SharedMutable`
 
-`SharedMutable` is a shared state variable for mutable state. It provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/state_vars/shared_mutable/shared_mutable.nr).
+`SharedMutable` is a shared state variable for mutable state. It provides capabilities to read the same state both in private and public, and to schedule value changes after a delay. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/state_vars/shared_mutable/shared_mutable.nr).
 
 Unlike other state variables, `SharedMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of blocks.
 
-```rust title="shared_mutable_storage" showLineNumbers
+```rust title="shared_mutable_storage" showLineNumbers 
 authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L22-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L22-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L22-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L22-L24</a></sub></sup>
 
 
 :::note
@@ -76,13 +76,13 @@ This is the means by which a `SharedMutable` variable mutates its contents. It s
 
 This function can only be called in public, typically after some access control check:
 
-```rust title="shared_mutable_schedule" showLineNumbers
+```rust title="shared_mutable_schedule" showLineNumbers 
 #[public]
 fn set_authorized(authorized: AztecAddress) {
     assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
     storage.authorized.schedule_value_change(authorized);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L39" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L39</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L39" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L34-L39</a></sub></sup>
 
 
 If one wishes to schedule a value change from private, simply enqueue a public call to a public `internal` contract function. Recall that **all scheduled value changes, including the new value and scheduled block are public**.
@@ -95,31 +95,31 @@ A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`
 
 Returns the current value in a public, private or utility execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
 
-```rust title="shared_mutable_get_current_public" showLineNumbers
+```rust title="shared_mutable_get_current_public" showLineNumbers 
 storage.authorized.get_current_value()
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L46-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L46-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L46-L48" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L46-L48</a></sub></sup>
 
 
 Calling this function in a private execution context will have a 1 block delay, as compared to calling in the public context. This is because calling `get_current_value` in private constructs a historical state proof, using the latest proven block, for the public value, so the "current value" in private execution will be delayed by 1 block when compared to what the public value is.
 
 Also, calling in private will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
 
-```rust title="shared_mutable_get_current_private" showLineNumbers
+```rust title="shared_mutable_get_current_private" showLineNumbers 
 let authorized = storage.authorized.get_current_value();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L78-L80" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L78-L80</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L78-L80" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L78-L80</a></sub></sup>
 
 
 ### `get_scheduled_value`
 
 Returns the last scheduled value change, along with the block number at which the scheduled value becomes the current value. This may either be a pending change, if the block number is in the future, or the last executed scheduled change if the block number is in the past (in which case there are no pending changes).
 
-```rust title="shared_mutable_get_scheduled_public" showLineNumbers
+```rust title="shared_mutable_get_scheduled_public" showLineNumbers 
 let (scheduled_value, _block_of_change): (AztecAddress, u32) =
     storage.authorized.get_scheduled_value();
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58</a></sub></sup>
 
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.

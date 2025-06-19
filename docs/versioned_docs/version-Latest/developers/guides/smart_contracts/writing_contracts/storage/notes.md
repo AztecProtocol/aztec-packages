@@ -26,7 +26,7 @@ A detailed explanation of the transaction lifecycle can be found [here](../../..
 
 ## Private state variables in Aztec
 
-State variables in an Aztec contract are defined inside a struct specifically named `Storage`, and must satisfy the [Note Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) and contain a [Note header (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note/note_header.nr).
+State variables in an Aztec contract are defined inside a struct specifically named `Storage`, and must satisfy the [Note Interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) and contain a [Note header (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note/note_header.nr).
 
 The Note header struct contains the contract address which the value is effectively siloed to, a nonce to ensure unique Note hashes, and a storage "slot" (or ID) to associate multiple notes.
 
@@ -97,19 +97,19 @@ The way Aztec benefits from the Noir language is via three important components:
 - `noir contracts` - example Aztec contracts
 - `noir-protocol-circuits` - a crate containing essential circuits for the protocol (public circuits and private wrappers)
 
-A lot of what we will look at will be in [aztec-nr/aztec/src/note (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note), specifically the lifecycle and note interface.
+A lot of what we will look at will be in [aztec-nr/aztec/src/note (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note), specifically the lifecycle and note interface.
 
 Looking at the noir circuits in these components, you will see references to the distinction between public/private execution and state.
 
 ### Lifecycle functions
 
-Inside the [lifecycle (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) circuits we see the functions to create and destroy a note, implemented as insertions of note hashes and nullifiers respectively. This is helpful for regular private variables.
+Inside the [lifecycle (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note/lifecycle.nr) circuits we see the functions to create and destroy a note, implemented as insertions of note hashes and nullifiers respectively. This is helpful for regular private variables.
 
 We also see a function to create a note hash from the public context, a way of creating a private variable from a public call (run in the sequencer). This could be used in application contracts to give private digital assets to users.
 
 ### Note Interface functions
 
-To see a [note_interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote GitHub link](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/value-note/src/value_note.nr).
+To see a [note_interface (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implementation, we will look at a simple [ValueNote GitHub link](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/value-note/src/value_note.nr).
 
 The interface is required to work within an Aztec contract's storage, and a ValueNote is a specific type of note to hold a number (as a `Field`).
 
@@ -119,7 +119,7 @@ A few key functions in the note interface are around computing the note hash and
 
 In the ValueNote implementation you'll notice that it uses the `pedersen_hash` function. This is currently required by the protocol, but may be updated to another hashing function, like poseidon.
 
-As a convenience, the outer [note/utils.nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains implementations of functions that may be needed in Aztec contracts, for example computing note hashes.
+As a convenience, the outer [note/utils.nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/aztec/src/note/utils.nr) contains implementations of functions that may be needed in Aztec contracts, for example computing note hashes.
 
 #### Serialization and deserialization
 
@@ -140,7 +140,7 @@ A couple of things worth clarifying:
 
 ### Example - Notes in action
 
-The Aztec.nr framework includes examples of high-level states [easy_private_uint (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr) for use in contracts.
+The Aztec.nr framework includes examples of high-level states [easy_private_uint (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr) for use in contracts.
 
 The struct (`EasyPrivateUint`) contains a Context, Set of ValueNotes, and storage_slot (used when setting the Set).
 

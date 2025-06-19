@@ -37,17 +37,17 @@ This would create a typescript file like `Example.ts` in `./src/artifacts`.
 
 Import the typescript artifact into your file.
 
-```typescript title="import_artifact" showLineNumbers
+```typescript title="import_artifact" showLineNumbers 
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L5-L7</a></sub></sup>
 
 
 Then you can use the `Contract` class **or** the [generated contract class](#using-generated-contract-class) to deploy the contract.
 
 To use the `Contract` class to deploy a contract:
 
-```typescript title="dapp-deploy" showLineNumbers
+```typescript title="dapp-deploy" showLineNumbers 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
@@ -67,7 +67,7 @@ async function main() {
   writeFileSync('addresses.json', JSON.stringify(addresses, null, 2));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/deploy.mjs#L13-L32</a></sub></sup>
 
 
 #### Deploy Arguments
@@ -78,7 +78,7 @@ The `deploy(...)` method is generated automatically with the typescript class re
 
 Additionally the `.send()` method can have a few optional arguments too, which are specified in an optional object:
 
-```typescript title="deploy_options" showLineNumbers
+```typescript title="deploy_options" showLineNumbers 
 export type DeployOptions = {
   /** An optional salt value used to deterministically calculate the contract address. */
   contractAddressSalt?: Fr;
@@ -92,7 +92,7 @@ export type DeployOptions = {
   skipInitialization?: boolean;
 } & SendMethodOptions;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45" target="_blank" rel="noopener noreferrer">Source code: yarn-project/aztec.js/src/contract/deploy_method.ts#L32-L45</a></sub></sup>
 
 
 ### Using generated contract class

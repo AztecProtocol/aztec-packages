@@ -108,7 +108,7 @@ export async function createAccount(
     } else {
       const provenTx = await deployMethod.prove({ ...deployOpts, universalDeploy: true, contractAddressSalt: salt });
       if (verbose) {
-        printProfileResult(provenTx.timings!, log);
+        printProfileResult(provenTx.stats!, log);
       }
       tx = provenTx.send();
 

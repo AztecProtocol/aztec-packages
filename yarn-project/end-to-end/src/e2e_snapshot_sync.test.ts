@@ -43,7 +43,7 @@ describe('e2e_snapshot_sync', () => {
   });
 
   afterAll(async () => {
-    monitor.stop();
+    await monitor.stop();
     await context.teardown();
     await tryRmDir(snapshotDir, log);
   });

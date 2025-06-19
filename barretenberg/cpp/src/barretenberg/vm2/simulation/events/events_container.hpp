@@ -5,11 +5,14 @@
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
+#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
+#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
@@ -19,11 +22,13 @@
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
 struct EventsContainer {
+    EventEmitterInterface<TxEvent>::Container tx;
     EventEmitterInterface<ExecutionEvent>::Container execution;
     EventEmitterInterface<AluEvent>::Container alu;
     EventEmitterInterface<BitwiseEvent>::Container bitwise;
@@ -48,6 +53,9 @@ struct EventsContainer {
     EventEmitterInterface<PublicDataTreeCheckEvent>::Container public_data_tree_check_events;
     EventEmitterInterface<UpdateCheckEvent>::Container update_check_events;
     EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
+    EventEmitterInterface<DataCopyEvent>::Container data_copy_events;
+    EventEmitterInterface<CalldataEvent>::Container calldata_events;
+    EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
 };
 
 } // namespace bb::avm2::simulation

@@ -26,6 +26,7 @@ import { ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import {
   BlockHeader,
+  GlobalVariables,
   HashedValues,
   PublicCallRequestWithCalldata,
   Tx,
@@ -45,6 +46,7 @@ export function createTxForPublicCalls(
   teardownCallRequest?: PublicCallRequestWithCalldata,
   feePayer = AztecAddress.zero(),
   gasUsedByPrivate: Gas = Gas.empty(),
+  globals: GlobalVariables = GlobalVariables.empty(),
 ): Tx {
   assert(
     setupCallRequests.length > 0 || appCallRequests.length > 0 || teardownCallRequest !== undefined,
@@ -71,7 +73,9 @@ export function createTxForPublicCalls(
   const teardownGasLimits = teardownCallRequest ? gasLimits : Gas.empty();
   const gasSettings = new GasSettings(gasLimits, teardownGasLimits, maxFeesPerGas, GasFees.empty());
   const txContext = new TxContext(Fr.zero(), Fr.zero(), gasSettings);
-  const constantData = new TxConstantData(BlockHeader.empty(), txContext, Fr.zero(), Fr.zero());
+  const header = BlockHeader.empty();
+  header.globalVariables = globals;
+  const constantData = new TxConstantData(header, txContext, Fr.zero(), Fr.zero());
 
   const txData = new PrivateKernelTailCircuitPublicInputs(
     constantData,
@@ -127,10 +131,10 @@ export async function addNewContractClassToTx(
   ];
   const contractAddress = new AztecAddress(new Fr(REGISTERER_CONTRACT_ADDRESS));
   const emittedLength = contractClassLogFields.length;
-  const log = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+  const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
 
   const contractClassLogHash = LogHash.from({
-    value: await log.hash(),
+    value: await logFields.hash(),
     length: emittedLength,
   }).scope(contractAddress);
 
@@ -143,7 +147,7 @@ export async function addNewContractClassToTx(
   const nextLogIndex = countAccumulatedItems(accumulatedData.contractClassLogsHashes);
   accumulatedData.contractClassLogsHashes[nextLogIndex] = contractClassLogHash;
 
-  tx.contractClassLogs.push(log);
+  tx.contractClassLogFields.push(logFields);
 }
 
 export async function addNewContractInstanceToTx(

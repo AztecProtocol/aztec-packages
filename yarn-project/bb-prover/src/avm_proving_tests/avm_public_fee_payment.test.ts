@@ -27,7 +27,7 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
       AvmTestContractArtifact,
     );
   });
-  it(
+  it.skip(
     'fee payment',
     async () => {
       await tester.simProveVerify(

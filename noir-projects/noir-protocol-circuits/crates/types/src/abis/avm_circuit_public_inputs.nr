@@ -1,7 +1,7 @@
 use crate::{
     abis::{
         accumulated_data::{
-            avm_accumulated_data::AvmAccumulatedData,
+            avm_accumulated_data::{AvmAccumulatedData, AvmAccumulatedDataArrayLengths},
             private_to_avm_accumulated_data::{
                 PrivateToAvmAccumulatedData, PrivateToAvmAccumulatedDataArrayLengths,
             },
@@ -11,21 +11,27 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
-        public_call_request::PublicCallRequest,
+        public_call_request::{PublicCallRequest, PublicCallRequestArrayLengths},
         public_data_write::PublicDataWrite,
         public_log::PublicLog,
+        side_effect::scoped::Scoped,
         tree_snapshots::TreeSnapshots,
     },
     address::{AztecAddress, EthAddress},
     constants::{
         AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_NUM_PUBLIC_INPUT_COLUMNS,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
+        AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_L1_TO_L2_MESSAGE_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
@@ -42,15 +48,22 @@ use crate::{
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX,
         AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX,
+        AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX,
         AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_GAS_USED_ROW_IDX,
@@ -58,10 +71,10 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
-        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        MAX_ENQUEUED_CALLS_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
     utils::reader::Reader,
@@ -74,7 +87,9 @@ pub struct AvmCircuitPublicInputs {
     pub start_tree_snapshots: TreeSnapshots,
     pub start_gas_used: Gas,
     pub gas_settings: GasSettings,
+    pub effective_gas_fees: GasFees,
     pub fee_payer: AztecAddress,
+    pub public_call_request_array_lengths: PublicCallRequestArrayLengths,
     pub public_setup_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_app_logic_call_requests: [PublicCallRequest; MAX_ENQUEUED_CALLS_PER_TX],
     pub public_teardown_call_request: PublicCallRequest,
@@ -87,6 +102,7 @@ pub struct AvmCircuitPublicInputs {
     // Outputs.
     pub end_tree_snapshots: TreeSnapshots,
     pub end_gas_used: Gas,
+    pub accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths,
     pub accumulated_data: AvmAccumulatedData,
     pub transaction_fee: Field,
     pub reverted: bool,
@@ -99,7 +115,9 @@ impl Empty for AvmCircuitPublicInputs {
             start_tree_snapshots: TreeSnapshots::empty(),
             start_gas_used: Gas::empty(),
             gas_settings: GasSettings::empty(),
+            effective_gas_fees: GasFees::empty(),
             fee_payer: AztecAddress::zero(),
+            public_call_request_array_lengths: PublicCallRequestArrayLengths::empty(),
             public_setup_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_app_logic_call_requests: [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
             public_teardown_call_request: PublicCallRequest::empty(),
@@ -109,6 +127,7 @@ impl Empty for AvmCircuitPublicInputs {
             previous_revertible_accumulated_data: PrivateToAvmAccumulatedData::empty(),
             end_tree_snapshots: TreeSnapshots::empty(),
             end_gas_used: Gas::empty(),
+            accumulated_data_array_lengths: AvmAccumulatedDataArrayLengths::empty(),
             accumulated_data: AvmAccumulatedData::empty(),
             transaction_fee: 0,
             reverted: false,
@@ -122,7 +141,9 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.start_tree_snapshots == other.start_tree_snapshots)
             & (self.start_gas_used == other.start_gas_used)
             & (self.gas_settings == other.gas_settings)
+            & (self.effective_gas_fees == other.effective_gas_fees)
             & (self.fee_payer == other.fee_payer)
+            & (self.public_call_request_array_lengths == other.public_call_request_array_lengths)
             & (self.public_setup_call_requests == other.public_setup_call_requests)
             & (self.public_app_logic_call_requests == other.public_app_logic_call_requests)
             & (self.public_teardown_call_request == other.public_teardown_call_request)
@@ -146,6 +167,7 @@ impl Eq for AvmCircuitPublicInputs {
             & (self.end_gas_used == other.end_gas_used)
             & (self.accumulated_data == other.accumulated_data)
             & (self.transaction_fee == other.transaction_fee)
+            & (self.accumulated_data_array_lengths == other.accumulated_data_array_lengths)
             & (self.reverted == other.reverted)
     }
 }
@@ -158,7 +180,9 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.start_tree_snapshots.serialize());
         fields.extend_from_array(self.start_gas_used.serialize());
         fields.extend_from_array(self.gas_settings.serialize());
+        fields.extend_from_array(self.effective_gas_fees.serialize());
         fields.push(self.fee_payer.to_field());
+        fields.extend_from_array(self.public_call_request_array_lengths.serialize());
         for i in 0..self.public_setup_call_requests.len() {
             fields.extend_from_array(self.public_setup_call_requests[i].serialize());
         }
@@ -174,6 +198,7 @@ impl Serialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
         fields.extend_from_array(self.previous_revertible_accumulated_data.serialize());
         fields.extend_from_array(self.end_tree_snapshots.serialize());
         fields.extend_from_array(self.end_gas_used.serialize());
+        fields.extend_from_array(self.accumulated_data_array_lengths.serialize());
         fields.extend_from_array(self.accumulated_data.serialize());
         fields.push(self.transaction_fee);
         fields.push(self.reverted as Field);
@@ -192,7 +217,11 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             start_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
             start_gas_used: reader.read_struct(Gas::deserialize),
             gas_settings: reader.read_struct(GasSettings::deserialize),
+            effective_gas_fees: reader.read_struct(GasFees::deserialize),
             fee_payer: AztecAddress::from_field(reader.read()),
+            public_call_request_array_lengths: reader.read_struct(
+                PublicCallRequestArrayLengths::deserialize,
+            ),
             public_setup_call_requests: reader.read_struct_array(
                 PublicCallRequest::deserialize,
                 [PublicCallRequest::empty(); MAX_ENQUEUED_CALLS_PER_TX],
@@ -216,9 +245,12 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
             ),
             end_tree_snapshots: reader.read_struct(TreeSnapshots::deserialize),
             end_gas_used: reader.read_struct(Gas::deserialize),
+            accumulated_data_array_lengths: reader.read_struct(
+                AvmAccumulatedDataArrayLengths::deserialize,
+            ),
             accumulated_data: reader.read_struct(AvmAccumulatedData::deserialize),
             transaction_fee: reader.read(),
-            reverted: reader.read() as bool,
+            reverted: reader.read_bool(),
         };
         reader.finish();
         item
@@ -251,8 +283,8 @@ fn set_gas_fees_in_cols(
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     row_idx: u32,
 ) {
-    cols[0][row_idx] = gas_fees.fee_per_da_gas;
-    cols[1][row_idx] = gas_fees.fee_per_l2_gas;
+    cols[0][row_idx] = gas_fees.fee_per_da_gas as Field;
+    cols[1][row_idx] = gas_fees.fee_per_l2_gas as Field;
 }
 
 fn set_public_call_request_in_cols(
@@ -277,16 +309,6 @@ fn set_public_call_request_array_in_cols<let SIZE: u32>(
     }
 }
 
-fn set_previous_accumulated_data_lengths_in_cols(
-    lengths: PrivateToAvmAccumulatedDataArrayLengths,
-    cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
-    row_idx: u32,
-) {
-    cols[0][row_idx] = lengths.note_hashes as Field;
-    cols[1][row_idx] = lengths.nullifiers as Field;
-    cols[2][row_idx] = lengths.l2_to_l1_msgs as Field;
-}
-
 fn set_field_array_in_cols<let SIZE: u32>(
     arr: [Field; SIZE],
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
@@ -299,16 +321,15 @@ fn set_field_array_in_cols<let SIZE: u32>(
 }
 
 fn set_l2_to_l1_msg_array_in_cols<let SIZE: u32>(
-    arr: [ScopedL2ToL1Message; SIZE],
+    arr: [Scoped<L2ToL1Message>; SIZE],
     cols: &mut [[Field; AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH]; AVM_NUM_PUBLIC_INPUT_COLUMNS],
     array_start_row_idx: u32,
 ) {
     for i in 0..arr.len() {
         let row = array_start_row_idx + i;
-        cols[0][row] = arr[i].message.recipient.to_field();
-        cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter as Field;
-        cols[3][row] = arr[i].contract_address.to_field();
+        cols[0][row] = arr[i].inner.recipient.to_field();
+        cols[1][row] = arr[i].inner.content;
+        cols[2][row] = arr[i].contract_address.to_field();
     }
 }
 
@@ -355,7 +376,7 @@ impl AvmCircuitPublicInputs {
             self.global_variables.chain_id;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX] = self.global_variables.version;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX] =
-            self.global_variables.block_number;
+            self.global_variables.block_number as Field;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_SLOT_NUMBER_ROW_IDX] =
             self.global_variables.slot_number;
         cols[0][AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX] =
@@ -422,8 +443,23 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX,
         );
 
+        // Effective gas fees
+        set_gas_fees_in_cols(
+            self.global_variables.gas_fees,
+            &mut cols,
+            AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX,
+        );
+
         // Fee payer
         cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = self.fee_payer.to_field();
+
+        // Setup, app logic, and teardown call request array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
+            self.public_call_request_array_lengths.setup_calls as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
+            self.public_call_request_array_lengths.app_logic_calls as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
+            self.public_call_request_array_lengths.teardown_call as Field;
 
         // Setup, app logic, and teardown call requests
         set_public_call_request_array_in_cols(
@@ -442,17 +478,21 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX,
         );
 
-        // Previous non-revertible & revertible accumulated data lengths
-        set_previous_accumulated_data_lengths_in_cols(
-            self.previous_non_revertible_accumulated_data_array_lengths,
-            &mut cols,
-            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
-        );
-        set_previous_accumulated_data_lengths_in_cols(
-            self.previous_revertible_accumulated_data_array_lengths,
-            &mut cols,
-            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX,
-        );
+        // Previous non-revertible accumulated data array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][
+    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
+        // Previous revertible accumulated data array lengths
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
 
         // Previous non-revertible accumulated data
         set_field_array_in_cols(
@@ -517,31 +557,43 @@ impl AvmCircuitPublicInputs {
             AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX,
         );
 
-        // End accumulated data
+        // Accumulated Data Array Lengths
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+            self.accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+            self.accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            self.accumulated_data_array_lengths.l2_to_l1_msgs as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
+            self.accumulated_data_array_lengths.public_logs as Field;
+        cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
+            self.accumulated_data_array_lengths.public_data_writes as Field;
+
+        // AVM accumulated data
         set_field_array_in_cols(
             self.accumulated_data.note_hashes,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
         );
         set_field_array_in_cols(
             self.accumulated_data.nullifiers,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
         );
         set_l2_to_l1_msg_array_in_cols(
             self.accumulated_data.l2_to_l1_msgs,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX,
         );
         set_public_logs_in_cols(
             self.accumulated_data.public_logs,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX,
         );
         set_public_data_writes_in_cols(
             self.accumulated_data.public_data_writes,
             &mut cols,
-            AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
+            AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX,
         );
 
         // transaction fee
@@ -571,12 +623,18 @@ impl AvmCircuitPublicInputs {
 pub struct AvmProofData {
     pub public_inputs: AvmCircuitPublicInputs,
     pub proof: AvmProof,
-    pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
 }
 
 impl Verifiable for AvmProofData {
     fn verify(self) {
-        // TODO(#8470)
+        std::verify_proof_with_type(
+            self.vk_data.vk.key,
+            self.proof.fields,
+            self.public_inputs.to_columns_flat(),
+            0,
+            PROOF_TYPE_AVM,
+        );
     }
 }
 
@@ -611,10 +669,9 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     item.fee_payer = AztecAddress::from_field(12345);
 
     // revertible l2_to_l1_msgs from private
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.recipient =
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.recipient =
         EthAddress::from_field(1234);
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content = 5678;
-    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.counter = 9012;
+    item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content = 5678;
     item.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].contract_address =
         AztecAddress::from_field(3456);
 
@@ -650,7 +707,6 @@ fn flat_columns_of_avm_circuit_public_inputs() {
     let col0_offset = 0;
     let col1_offset = col0_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
     let col2_offset = col1_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
-    let col3_offset = col2_offset + AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
 
     // Verify serialized values are at the expected positions
 
@@ -667,18 +723,17 @@ fn flat_columns_of_avm_circuit_public_inputs() {
         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX;
     assert_eq(flat[col0_offset + l2_to_l1_msg_row], 1234);
     assert_eq(flat[col1_offset + l2_to_l1_msg_row], 5678);
-    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 9012);
-    assert_eq(flat[col3_offset + l2_to_l1_msg_row], 3456);
+    assert_eq(flat[col2_offset + l2_to_l1_msg_row], 3456);
 
     // Array elements
     // Note hash array
     assert_eq(
-        flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
+        flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + 2],
         54321,
     );
 
     // Public logs
-    let public_log_row = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
+    let public_log_row = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX;
     assert_eq(flat[col1_offset + public_log_row], (PUBLIC_LOG_SIZE_IN_FIELDS - 2) as Field);
     for j in 0..PUBLIC_LOG_SIZE_IN_FIELDS - 2 {
         assert_eq(flat[col2_offset + public_log_row + j], 10000 + j as Field);
@@ -686,13 +741,13 @@ fn flat_columns_of_avm_circuit_public_inputs() {
 
     // Public data writes
     let public_data_write_row =
-        AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
+        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX + 1;
     assert_eq(flat[col0_offset + public_data_write_row], 5555);
     assert_eq(flat[col1_offset + public_data_write_row], 6666);
 
     // Pick a an unset/empty element and confirm that it is zero
-    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
-    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
+    assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
+    assert_eq(flat[col1_offset + AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX], 0);
 
     // End gas used
     assert_eq(flat[col0_offset + AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX], 5000);

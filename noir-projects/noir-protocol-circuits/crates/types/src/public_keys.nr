@@ -165,28 +165,28 @@ impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
                 inner: Point {
                     x: serialized[0],
                     y: serialized[1],
-                    is_infinite: serialized[2] as bool,
+                    is_infinite: serialized[2] != 0,
                 },
             },
             ivpk_m: IvpkM {
                 inner: Point {
                     x: serialized[3],
                     y: serialized[4],
-                    is_infinite: serialized[5] as bool,
+                    is_infinite: serialized[5] != 0,
                 },
             },
             ovpk_m: OvpkM {
                 inner: Point {
                     x: serialized[6],
                     y: serialized[7],
-                    is_infinite: serialized[8] as bool,
+                    is_infinite: serialized[8] != 0,
                 },
             },
             tpk_m: TpkM {
                 inner: Point {
                     x: serialized[9],
                     y: serialized[10],
-                    is_infinite: serialized[11] as bool,
+                    is_infinite: serialized[11] != 0,
                 },
             },
         }

@@ -1,8 +1,8 @@
 import { Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
-  type ARCHIVE_HEIGHT,
+  ARCHIVE_HEIGHT,
   INITIAL_L2_BLOCK_NUM,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type NOTE_HASH_TREE_HEIGHT,
@@ -10,7 +10,15 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
+import {
+  type ExtendedViemWalletClient,
+  type L1ContractAddresses,
+  RegistryContract,
+  RollupContract,
+  createEthereumChain,
+  createExtendedL1Client,
+} from '@aztec/ethereum';
+import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -19,23 +27,34 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import { SiblingPath } from '@aztec/foundation/trees';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
-import { RollupAbi } from '@aztec/l1-artifacts';
-import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
+import {
+  type P2P,
+  type P2PClientDeps,
+  TxCollector,
+  createP2PClient,
+  getDefaultAllowedSetupFunctions,
+} from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
+  BlockBuilder,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createSlasherClient,
   createValidatorForAcceptingTxs,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { EpochPruneWatcher, SlasherClient, type Watcher } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block, L2BlockNumber, L2BlockSource, PublishedL2Block } from '@aztec/stdlib/block';
+import {
+  type InBlock,
+  type L2Block,
+  L2BlockHash,
+  type L2BlockNumber,
+  type L2BlockSource,
+  type PublishedL2Block,
+} from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -90,7 +109,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import { createPublicClient, fallback, getContract, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -120,7 +139,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
+    protected readonly slasherClient: SlasherClient | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
+    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -152,18 +173,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @returns - A fully synced Aztec Node for use in development/testing.
    */
   public static async createAndSync(
-    config: AztecNodeConfig,
+    inputConfig: AztecNodeConfig,
     deps: {
       telemetry?: TelemetryClient;
       logger?: Logger;
       publisher?: SequencerPublisher;
       dateProvider?: DateProvider;
       blobSinkClient?: BlobSinkClientInterface;
+      p2pClientDeps?: P2PClientDeps<P2PClientType.Full>;
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
+      dontStartSequencer?: boolean;
     } = {},
   ): Promise<AztecNodeService> {
+    const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
     const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -181,7 +205,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const publicClient = createPublicClient({
       chain: ethereumChain.chainInfo,
-      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(config.l1RpcUrls.map((url: string) => http(url))),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
@@ -194,17 +218,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Overwrite the passed in vars.
     config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
 
-    const rollup = getContract({
-      address: l1ContractsAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: publicClient,
-    });
+    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const [l1GenesisTime, slotDuration, rollupVersionFromRollup] = await Promise.all([
+      rollupContract.getL1GenesisTime(),
+      rollupContract.getSlotDuration(),
+      rollupContract.getVersion(),
+    ] as const);
 
-    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
+    config.rollupVersion ??= Number(rollupVersionFromRollup);
 
-    config.rollupVersion ??= rollupVersionFromRollup;
-
-    if (config.rollupVersion !== rollupVersionFromRollup) {
+    if (config.rollupVersion !== Number(rollupVersionFromRollup)) {
       log.warn(
         `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
       );
@@ -222,10 +245,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       options.prefilledPublicData,
       telemetry,
     );
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+    const circuitVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
     if (!config.realProofs) {
       log.warn(`Aztec node is accepting fake proofs`);
     }
+    const proofVerifier = new QueuedIVCVerifier(config, circuitVerifier);
 
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
 
@@ -239,6 +263,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       packageVersion,
       telemetry,
+      deps.p2pClientDeps,
     );
 
     // Start world state and wait for it to sync to the archiver.
@@ -247,38 +272,110 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Start p2p. Note that it depends on world state to be running.
     await p2pClient.start();
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
-    slasherClient.start();
+    config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    const blockBuilder = new BlockBuilder(
+      {
+        l1GenesisTime,
+        slotDuration: Number(slotDuration),
+        rollupVersion: config.rollupVersion,
+        l1ChainId: config.l1ChainId,
+        txPublicSetupAllowList: config.txPublicSetupAllowList,
+      },
+      archiver,
+      worldStateSynchronizer,
+      archiver,
+      dateProvider,
+      telemetry,
+    );
+
+    const watchers: Watcher[] = [];
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    if (validatorsSentinel) {
+      // we can run a sentinel without trying to slash.
+      await validatorsSentinel.start();
+      if (config.slashInactivityEnabled) {
+        watchers.push(validatorsSentinel);
+      }
+    }
+
+    let epochPruneWatcher: EpochPruneWatcher | undefined;
+    if (config.slashPruneEnabled) {
+      const txCollector = new TxCollector(p2pClient);
+      epochPruneWatcher = new EpochPruneWatcher(
+        archiver,
+        epochCache,
+        txCollector,
+        blockBuilder,
+        config.slashPrunePenalty,
+        config.slashPruneMaxPenalty,
+      );
+      await epochPruneWatcher.start();
+      watchers.push(epochPruneWatcher);
+    }
     const validatorClient = createValidatorClient(config, {
       p2pClient,
       telemetry,
       dateProvider,
       epochCache,
+      blockBuilder,
       blockSource: archiver,
     });
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    await validatorsSentinel?.start();
+    if (validatorClient) {
+      watchers.push(validatorClient);
+    }
 
     log.verbose(`All Aztec Node subsystems synced`);
 
-    // now create the sequencer
-    const sequencer = config.disableValidator
-      ? undefined
-      : await SequencerClient.new(config, {
-          ...deps,
-          validatorClient,
-          p2pClient,
-          worldStateSynchronizer,
-          slasherClient,
-          contractDataSource: archiver,
-          l2BlockSource: archiver,
-          l1ToL2MessageSource: archiver,
-          telemetry,
-          dateProvider,
-          blobSinkClient,
-        });
+    let sequencer: SequencerClient | undefined;
+    let slasherClient: SlasherClient | undefined;
+    let l1TxUtils: L1TxUtilsWithBlobs | undefined;
+    let l1Client: ExtendedViemWalletClient | undefined;
+
+    if (config.publisherPrivateKey) {
+      // we can still run a slasher client if a private key is provided
+      l1Client = createExtendedL1Client(
+        config.l1RpcUrls,
+        config.publisherPrivateKey.getValue(),
+        ethereumChain.chainInfo,
+      );
+      l1TxUtils = new L1TxUtilsWithBlobs(l1Client, log, config);
+      slasherClient = await SlasherClient.new(config, config.l1Contracts, l1TxUtils, watchers, dateProvider);
+      slasherClient.start();
+    }
+
+    // Validator enabled, create/start relevant service
+    if (!config.disableValidator) {
+      // This shouldn't happen, validators need a publisher private key.
+      if (!config.publisherPrivateKey) {
+        throw new Error('A publisher private key is required to run a validator');
+      }
+
+      sequencer = await SequencerClient.new(config, {
+        // if deps were provided, they should override the defaults,
+        // or things that we created in this function
+        ...deps,
+        epochCache,
+        l1TxUtils,
+        validatorClient,
+        p2pClient,
+        worldStateSynchronizer,
+        slasherClient: slasherClient!,
+        blockBuilder,
+        l2BlockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        telemetry,
+        dateProvider,
+        blobSinkClient,
+      });
+    }
+
+    if (!options.dontStartSequencer && sequencer) {
+      await sequencer.start();
+      log.verbose(`Sequencer started`);
+    }
 
     return new AztecNodeService(
       config,
@@ -289,7 +386,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       worldStateSynchronizer,
       sequencer,
+      slasherClient,
       validatorsSentinel,
+      epochPruneWatcher,
       ethereumChain.chainInfo.id,
       config.rollupVersion,
       new GlobalVariableBuilder(config),
@@ -450,11 +549,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - The maximum number of logs to return for each tag. By default no limit is set
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  public getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
-    return this.logsSource.getLogsByTags(tags);
+  public getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]> {
+    return this.logsSource.getLogsByTags(tags, logsPerTag);
   }
 
   /**
@@ -526,26 +626,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to stop the aztec node.
    */
   public async stop() {
-    this.log.info(`Stopping`);
+    this.log.info(`Stopping Aztec Node`);
     await this.txQueue.end();
-    await this.validatorsSentinel?.stop();
-    await this.sequencer?.stop();
-    await this.p2pClient.stop();
-    await this.worldStateSynchronizer.stop();
+    await tryStop(this.validatorsSentinel);
+    await tryStop(this.epochPruneWatcher);
+    await tryStop(this.slasherClient);
+    await tryStop(this.proofVerifier);
+    await tryStop(this.sequencer);
+    await tryStop(this.p2pClient);
+    await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
-    await this.telemetry.stop();
-    this.log.info(`Stopped`);
+    await tryStop(this.telemetry);
+    this.log.info(`Stopped Aztec Node`);
   }
 
   /**
    * Method to retrieve pending txs.
+   * @param limit - The number of items to returns
+   * @param after - The last known pending tx. Used for pagination
    * @returns - The pending txs.
    */
-  public getPendingTxs() {
-    return this.p2pClient!.getPendingTxs();
+  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after);
   }
 
-  public getPendingTxCount() {
+  public getPendingTxCount(): Promise<number> {
     return this.p2pClient!.getPendingTxCount();
   }
 
@@ -554,7 +659,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param txHash - The transaction hash to return.
    * @returns - The tx if it exists.
    */
-  public getTxByHash(txHash: TxHash) {
+  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
   }
 
@@ -563,7 +668,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param txHash - The transaction hash to return.
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]) {
+  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
     return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
   }
 
@@ -626,13 +731,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         return undefined;
       }
       const blockHashIndex = uniqueBlockNumbers.indexOf(blockNumber);
-      const blockHash = blockHashes[blockHashIndex]?.toString();
+      const blockHash = blockHashes[blockHashIndex];
       if (!blockHash) {
         return undefined;
       }
       return {
         l2BlockNumber: Number(blockNumber),
-        l2BlockHash: blockHash,
+        l2BlockHash: L2BlockHash.fromField(blockHash),
         data: index,
       };
     });
@@ -666,6 +771,31 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return committedDb.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
   }
 
+  public async getArchiveMembershipWitness(
+    blockNumber: L2BlockNumber,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.ARCHIVE>(MerkleTreeId.ARCHIVE, [archive]);
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
+  }
+
+  public async getNoteHashMembershipWitness(
+    blockNumber: L2BlockNumber,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
+    const committedDb = await this.#getWorldState(blockNumber);
+    const [pathAndIndex] = await committedDb.findSiblingPaths<MerkleTreeId.NOTE_HASH_TREE>(
+      MerkleTreeId.NOTE_HASH_TREE,
+      [noteHash],
+    );
+    return pathAndIndex === undefined
+      ? undefined
+      : MembershipWitness.fromSiblingPath(pathAndIndex.index, pathAndIndex.path);
+  }
+
   /**
    * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
    * @param blockNumber - The block number at which to get the data.
@@ -676,16 +806,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     blockNumber: L2BlockNumber,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    if (index === undefined) {
+    const db = await this.#getWorldState(blockNumber);
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, [l1ToL2Message]);
+    if (!witness) {
       return undefined;
     }
-    const committedDb = await this.#getWorldState(blockNumber);
-    const siblingPath = await committedDb.getSiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>(
-      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      index,
-    );
-    return [index, siblingPath];
+
+    // REFACTOR: Return a MembershipWitness object
+    return [witness.index, witness.path];
   }
 
   /**
@@ -698,120 +826,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Returns the index and sibling path for a L2->L1 message in a block's message tree.
-   * @remarks The message tree is constructed on-demand by taking all L2->L1 messages in a block
-   * and creating a variable depth append-only tree with the messages as leaves.
-   * The tree is constructed in two layers:
-   * 1. Subtree - For each transaction in the block, a subtree is created containing all L2->L1 messages from that
-   * transaction.
-   * 2. Top tree - A tree containing the roots of all the subtrees as leaves
-   * The final path is constructed by concatenating the path in the subtree with the path in the top tree.
-   * When there is only one transaction in the block, the subtree itself becomes the block's L2->L1 message tree,
-   * and no top tree is needed. The out hash is the root of the the block's L2->L1 message tree.
-   * TODO: Handle the case where two messages in the same tx have the same hash.
-   * @param blockNumber - Block number to get data from
-   * @param l2ToL1Message - Message to get index/path for
-   * @returns [index, siblingPath] for the message
+   * Returns all the L2 to L1 messages in a block.
+   * @param blockNumber - The block number at which to get the data.
+   * @returns The L2 to L1 messages (undefined if the block number is not found).
    */
-  public async getL2ToL1MessageMembershipWitness(
-    blockNumber: L2BlockNumber,
-    l2ToL1Message: Fr,
-  ): Promise<[bigint, SiblingPath<number>]> {
+  public async getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined> {
     const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
-
-    if (block === undefined) {
-      throw new Error('Block not found in getL2ToL1MessageMembershipWitness');
-    }
-
-    const messagesPerTx = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-
-    // Find index of message in subtree and index of tx in a block
-    let messageIndexInTx = -1,
-      txIndex = -1;
-    {
-      txIndex = messagesPerTx.findIndex(messages => {
-        const idx = messages.findIndex(msg => msg.equals(l2ToL1Message));
-        messageIndexInTx = Math.max(messageIndexInTx, idx);
-        return idx !== -1;
-      });
-    }
-
-    if (txIndex === -1) {
-      throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
-    }
-
-    // Get the message path in subtree and message subtree height
-    let messagePathInSubtree: SiblingPath<number>;
-    let messageSubtreeHeight: number;
-    {
-      const subtreeStore = openTmpStore(true);
-      const txMessages = messagesPerTx[txIndex];
-      messageSubtreeHeight = txMessages.length <= 1 ? 1 : Math.ceil(Math.log2(txMessages.length));
-      const subtree = new StandardTree(
-        subtreeStore,
-        new SHA256Trunc(),
-        `subtree_${txIndex}`,
-        messageSubtreeHeight,
-        0n,
-        Fr,
-      );
-      subtree.appendLeaves(txMessages);
-      messagePathInSubtree = await subtree.getSiblingPath(BigInt(messageIndexInTx), true);
-      await subtreeStore.delete();
-    }
-
-    // If the number of txs is 1 we are dealing with a special case where the tx subtree itself is the whole block's
-    // l2 to l1 message tree.
-    const numTransactions = block.body.txEffects.length;
-    if (numTransactions === 1) {
-      return [BigInt(messageIndexInTx), messagePathInSubtree];
-    }
-
-    // Calculate roots for all tx subtrees
-    const txSubtreeRoots = await Promise.all(
-      messagesPerTx.map(async (messages, txIdx) => {
-        // For a tx with no messages, we have to set an out hash of 0 to match what the circuit does.
-        if (messages.length === 0) {
-          return Fr.ZERO;
-        }
-
-        const txStore = openTmpStore(true);
-        const txTreeHeight = messages.length <= 1 ? 1 : Math.ceil(Math.log2(messages.length));
-        const txTree = new StandardTree(
-          txStore,
-          new SHA256Trunc(),
-          `tx_messages_subtree_${txIdx}`,
-          txTreeHeight,
-          0n,
-          Fr,
-        );
-        txTree.appendLeaves(messages);
-        const root = Fr.fromBuffer(txTree.getRoot(true));
-        await txStore.delete();
-        return root;
-      }),
-    );
-
-    // Construct the top tree and compute the combined path
-    let combinedPath: Buffer[];
-    {
-      const topTreeHeight = Math.ceil(Math.log2(txSubtreeRoots.length));
-      // The root of this tree is the out_hash calculated in Noir => we truncate to match Noir's SHA
-      const topTree = new UnbalancedTree(new SHA256Trunc(), 'top_tree', topTreeHeight, Fr);
-      await topTree.appendLeaves(txSubtreeRoots);
-
-      const txPathInTopTree = await topTree.getSiblingPath(txSubtreeRoots[txIndex].toBigInt());
-      // Append subtree path to top tree path
-      combinedPath = messagePathInSubtree.toBufferArray().concat(txPathInTopTree.toBufferArray());
-    }
-
-    // Append binary index of subtree path to binary index of top tree path
-    const combinedIndex = parseInt(
-      txIndex.toString(2).concat(messageIndexInTx.toString(2).padStart(messageSubtreeHeight, '0')),
-      2,
-    );
-
-    return [BigInt(combinedIndex), new SiblingPath(combinedPath.length, combinedPath)];
+    return block?.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
   }
 
   /**
@@ -853,24 +874,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
     const db = await this.#getWorldState(blockNumber);
-    const index = (await db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    if (!index) {
+    const [witness] = await db.findSiblingPaths(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]);
+    if (!witness) {
       return undefined;
     }
 
-    const leafPreimagePromise = db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
-    const siblingPathPromise = db.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
-
-    const [leafPreimage, siblingPath] = await Promise.all([leafPreimagePromise, siblingPathPromise]);
-
+    const { index, path } = witness;
+    const leafPreimage = await db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index);
     if (!leafPreimage) {
       return undefined;
     }
 
-    return new NullifierMembershipWitness(BigInt(index), leafPreimage as NullifierLeafPreimage, siblingPath);
+    return new NullifierMembershipWitness(index, leafPreimage as NullifierLeafPreimage, path);
   }
 
   /**
@@ -902,10 +917,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     }
     const preimageData = (await committedDb.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, index))!;
 
-    const siblingPath = await committedDb.getSiblingPath<typeof NULLIFIER_TREE_HEIGHT>(
-      MerkleTreeId.NULLIFIER_TREE,
-      BigInt(index),
-    );
+    const siblingPath = await committedDb.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, BigInt(index));
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
@@ -919,10 +931,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      const path = await committedDb.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      );
+      const path = await committedDb.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
       return new PublicDataWitness(lowLeafResult.index, preimage, path);
     }
   }
@@ -993,7 +1002,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const feeRecipient = this.sequencer?.feeRecipient || AztecAddress.ZERO;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      new Fr(blockNumber),
+      blockNumber,
       coinbase,
       feeRecipient,
     );
@@ -1029,7 +1038,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const [processedTx] = processedTxs;
       return new PublicSimulationOutput(
         processedTx.revertReason,
-        processedTx.constants,
+        processedTx.globalVariables,
         processedTx.txEffect,
         returns,
         processedTx.gasUsed,
@@ -1060,7 +1069,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    await this.sequencer?.updateSequencerConfig(config);
+    this.sequencer?.updateSequencerConfig(config);
+    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
 
     if (newConfig.realProofs !== this.config.realProofs) {
@@ -1079,8 +1089,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     });
   }
 
-  public registerContractFunctionSignatures(_address: AztecAddress, signatures: string[]): Promise<void> {
-    return this.contractDataSource.registerContractFunctionSignatures(_address, signatures);
+  public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
+    return this.contractDataSource.registerContractFunctionSignatures(signatures);
   }
 
   public flushTxs(): Promise<void> {

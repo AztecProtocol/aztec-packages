@@ -13,7 +13,7 @@ constexpr size_t NUM_OP_DC_SELECTORS = 18;
 
 struct ExecInstructionSpec {
     struct GasInfo {
-        uint16_t base_l2;
+        uint16_t opcode_gas; // Base l2 gas is computed as opcode_gas + addressing_gas
         uint16_t base_da;
         uint16_t dyn_l2;
         uint16_t dyn_da;

@@ -40,8 +40,8 @@ where
     NOTE: Packable<N>,
 {
     let contract_address = AztecAddress::from_field(packed_retrieved_note[0]);
-    let nonce = packed_retrieved_note[1];
-    let nonzero_note_hash_counter = packed_retrieved_note[2] as bool;
+    let note_nonce = packed_retrieved_note[1];
+    let nonzero_note_hash_counter = (packed_retrieved_note[2] as u1) != 0;
 
     let packed_note = subarray(packed_retrieved_note, RETRIEVED_NOTE_OVERHEAD);
     let note = NOTE::unpack(packed_note);
@@ -49,6 +49,6 @@ where
     RetrievedNote {
         note,
         contract_address,
-        metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, nonce),
+        metadata: NoteMetadata::from_raw_data(nonzero_note_hash_counter, note_nonce),
     }
 }

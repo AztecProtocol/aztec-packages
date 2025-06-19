@@ -20,7 +20,7 @@ pub contract EasyPrivateVoting {
 
 2. Define imports in your contract block
 
-```rust title="imports" showLineNumbers
+```rust title="imports" showLineNumbers 
 use dep::aztec::{
     keys::getters::get_public_keys,
     macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
@@ -28,12 +28,12 @@ use dep::aztec::{
 use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
 use dep::aztec::protocol_types::traits::{Hash, ToField};
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L8-L16</a></sub></sup>
 
 
 3. Declare your contract storage below your imports
 
-```rust title="storage_struct" showLineNumbers
+```rust title="storage_struct" showLineNumbers 
 #[storage]
 struct Storage<Context> {
     admin: PublicMutable<AztecAddress, Context>, // admin can end vote
@@ -42,12 +42,12 @@ struct Storage<Context> {
     active_at_block: PublicImmutable<u32, Context>, // when people can start voting
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L17-L25</a></sub></sup>
 
 
 4. Declare a constructor with `#[initializer]`. Constructors can be private or public functions.
 
-```rust title="constructor" showLineNumbers
+```rust title="constructor" showLineNumbers 
 #[public]
 #[initializer]
 // annotation to mark function as a constructor
@@ -57,12 +57,12 @@ fn constructor(admin: AztecAddress) {
     storage.active_at_block.initialize(context.block_number() as u32);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L27-L36</a></sub></sup>
 
 
 5. Declare your contract functions
 
-```rust title="cast_vote" showLineNumbers
+```rust title="cast_vote" showLineNumbers 
 #[private]
 // annotation to mark function as private and expose private context
 fn cast_vote(candidate: Field) {
@@ -76,7 +76,7 @@ fn cast_vote(candidate: Field) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
 
 
 There is a lot more detail and nuance to writing contracts, but this should give you a good starting point.

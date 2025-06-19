@@ -10,9 +10,8 @@
   },
   "files": ["dest", "src", "!*.test.*"],
   "devDependencies": {
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "jest": "^29.5.0",
+    "@jest/globals": "^30.0.0",
+    "jest": "^30.0.0",
     "typescript": "^5.3.3",
     "ts-node": "^10.9.1"
   },
@@ -41,6 +40,8 @@
     "testTimeout": 120000,
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
-    "setupFiles": ["../../foundation/src/jest/setup.mjs"]
+    "setupFiles": ["../../foundation/src/jest/setup.mjs"],
+    "setupFilesAfterEnv": ["../../foundation/src/jest/setupAfterEnv.mjs"],
+    "testEnvironment": "../../foundation/src/jest/env.mjs"
   }
 }

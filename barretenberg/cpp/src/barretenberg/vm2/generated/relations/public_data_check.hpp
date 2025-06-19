@@ -18,6 +18,7 @@ template <typename FF_> class public_data_checkImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::public_data_check_sel)).is_zero();
     }
 

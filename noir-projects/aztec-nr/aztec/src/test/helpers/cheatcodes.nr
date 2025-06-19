@@ -1,9 +1,13 @@
 use crate::context::inputs::PrivateContextInputs;
 use crate::test::helpers::utils::TestAccount;
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance,
-    public_keys::PublicKeys, traits::Deserialize, utils::reader::Reader,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::CONTRACT_INSTANCE_LENGTH,
+    contract_instance::ContractInstance,
+    public_keys::PublicKeys,
+    traits::{Deserialize, ToField},
+    utils::reader::Reader,
 };
 
 pub unconstrained fn reset() {
@@ -116,6 +120,24 @@ pub unconstrained fn private_call_new_flow(
     (end_side_effect_counter, returns_hash, tx_hash)
 }
 
+pub unconstrained fn public_call_new_flow(
+    from: AztecAddress,
+    contract_address: AztecAddress,
+    function_selector: FunctionSelector,
+    args: [Field],
+    is_static_call: bool,
+) -> (Field, Field) {
+    let calldata = args.push_front(function_selector.to_field());
+
+    let fields = oracle_public_call_new_flow(from, contract_address, calldata, is_static_call);
+
+    let mut reader = Reader::new(fields);
+    let returns_hash = reader.read();
+    let tx_hash = reader.read();
+
+    (returns_hash, tx_hash)
+}
+
 pub unconstrained fn disable_oracles() {
     oracle_disable_oracles();
 }
@@ -203,3 +225,11 @@ unconstrained fn oracle_disable_oracles() {}
 
 #[oracle(disableOracles)]
 unconstrained fn oracle_enable_oracles() {}
+
+#[oracle(publicCallNewFlow)]
+unconstrained fn oracle_public_call_new_flow(
+    from: AztecAddress,
+    contract_address: AztecAddress,
+    calldata: [Field],
+    is_static_call: bool,
+) -> [Field; 2] {}

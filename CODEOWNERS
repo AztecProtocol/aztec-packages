@@ -12,6 +12,7 @@
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
 
+
 #####################################################
 # Notify the AVM team
 #
@@ -35,3 +36,6 @@
 
 # Notify turtles of changes to L1-contracts
 /l1-contracts/src @LHerskind @Maddiaa0 @just-mitch
+
+# Notify the circuit team of changes to the protocol circuits
+/noir-projects/noir-protocol-circuits @LeilaWang

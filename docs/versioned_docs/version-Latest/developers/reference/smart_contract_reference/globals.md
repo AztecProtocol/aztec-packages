@@ -12,14 +12,14 @@ For developers coming from solidity, this concept will be similar to how the glo
 
 ## Private Global Variables
 
-```rust title="tx-context" showLineNumbers
+```rust title="tx-context" showLineNumbers 
 pub struct TxContext {
     pub chain_id: Field,
     pub version: Field,
     pub gas_settings: GasSettings,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/transaction/tx_context.nr#L8-L14</a></sub></sup>
 
 
 The private global variables are equal to the transaction context and contain:
@@ -46,7 +46,7 @@ The gas limits set by the user for the transaction, the max fee per gas, and the
 
 ## Public Global Variables
 
-```rust title="global-variables" showLineNumbers
+```rust title="global-variables" showLineNumbers 
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,
@@ -58,7 +58,7 @@ pub struct GlobalVariables {
     pub gas_fees: GasFees,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-protocol-circuits/crates/types/src/abis/global_variables.nr#L9-L20</a></sub></sup>
 
 
 The public global variables contain the values present in the `private global variables` described above, with the addition of:

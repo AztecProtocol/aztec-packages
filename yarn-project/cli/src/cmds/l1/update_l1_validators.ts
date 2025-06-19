@@ -4,14 +4,14 @@ import {
   RollupContract,
   createEthereumChain,
   createExtendedL1Client,
-  getExpectedAddress,
   getL1ContractsConfigEnvVars,
   getPublicClient,
   isAnvilTestChain,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -48,17 +48,17 @@ export function generateL1Account() {
   };
 }
 
-export async function addL1Validator({
+export async function addL1ValidatorToQueue({
   rpcUrls,
   chainId,
   privateKey,
   mnemonic,
   attesterAddress,
-  proposerEOAAddress,
   stakingAssetHandlerAddress,
+  proofParams,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proposerEOAAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -71,26 +71,17 @@ export async function addL1Validator({
   });
 
   const rollup = await stakingAssetHandler.read.getRollup();
-
-  const forwarderAddress = getExpectedAddress(
-    ForwarderAbi,
-    ForwarderBytecode,
-    [proposerEOAAddress.toString()],
-    proposerEOAAddress.toString(),
-  ).address;
-
-  dualLog(
-    `Adding validator (${attesterAddress}, ${proposerEOAAddress} [forwarder: ${forwarderAddress}]) to rollup ${rollup.toString()}`,
-  );
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollup.toString()}`);
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
-      functionName: 'addValidator',
-      args: [attesterAddress.toString(), forwarderAddress],
+      functionName: 'addValidatorToQueue',
+      args: [attesterAddress.toString(), proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -99,13 +90,49 @@ export async function addL1Validator({
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
-    await cheatCodes.setBalance(proposerEOAAddress, 10n ** 20n);
+    await cheatCodes.setBalance(attesterAddress, 10n ** 20n);
   } else {
-    const balance = await l1Client.getBalance({ address: proposerEOAAddress.toString() });
-    dualLog(`Proposer balance: ${formatEther(balance)} ETH`);
+    const balance = await l1Client.getBalance({ address: attesterAddress.toString() });
+    dualLog(`Validator balance: ${formatEther(balance)} ETH`);
     if (balance === 0n) {
       dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }
+  }
+}
+
+export async function dripQueue({
+  rpcUrls,
+  chainId,
+  privateKey,
+  mnemonic,
+  stakingAssetHandlerAddress,
+  log,
+  debugLogger,
+}: StakingAssetHandlerCommandArgs & LoggerArgs) {
+  const dualLog = makeDualLog(log, debugLogger);
+  const account = getAccount(privateKey, mnemonic);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
+
+  dualLog('Dripping Queue');
+
+  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+
+  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+    to: stakingAssetHandlerAddress.toString(),
+    data: encodeFunctionData({
+      abi: StakingAssetHandlerAbi,
+      functionName: 'dripQueue',
+      args: [],
+    }),
+    abi: StakingAssetHandlerAbi,
+  });
+  dualLog(`Receipt: ${receipt.transactionHash}`);
+
+  if (receipt.status === 'success') {
+    dualLog('Queue dripped successfully');
+  } else {
+    dualLog('Queue drip failed');
   }
 }
 
@@ -209,7 +236,7 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.getCurrentEpochCommittee();
-  log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+  log(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.archive();
   log(`Archive: ${archive}`);
   const epochNum = await rollup.getEpochNumber();

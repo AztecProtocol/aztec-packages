@@ -1164,7 +1164,8 @@ template <typename Builder> class FieldBase {
                                                       std::vector<ExecutionHandler>& stack,
                                                       Instruction& instruction)
         {
-            auto v = field_t(witness_t(builder, instruction.arguments.element));
+
+            auto v = field_t(instruction.arguments.element);
             v.convert_constant_to_fixed_witness(builder);
             stack.push_back(ExecutionHandler(instruction.arguments.element, std::move(v)));
 #ifdef SHOW_INFORMATION

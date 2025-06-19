@@ -82,6 +82,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     private readonly previousSideEffectArrayLengths: SideEffectArrayLengths = SideEffectArrayLengths.empty(),
     /** We need to track the set of class IDs used, to enforce limits. */
     private uniqueClassIds: UniqueClassIds = new UniqueClassIds(),
+    private writtenPublicDataSlots: Set<string> = new Set(),
   ) {
     this.sideEffectCounter = startSideEffectCounter;
   }
@@ -98,6 +99,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
         this.previousSideEffectArrayLengths.publicLogs + this.publicLogs.length,
       ),
       this.uniqueClassIds.fork(),
+      new Set(this.writtenPublicDataSlots),
     );
   }
 
@@ -111,6 +113,8 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.sideEffectCounter = forkedTrace.sideEffectCounter;
     this.uniqueClassIds.acceptAndMerge(forkedTrace.uniqueClassIds);
+    // Accept even if reverted, since the user already paid for the writes
+    this.writtenPublicDataSlots = new Set(forkedTrace.writtenPublicDataSlots);
 
     if (!reverted) {
       this.publicDataWrites.push(...forkedTrace.publicDataWrites);
@@ -170,6 +174,15 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
       `Traced public data write (address=${contractAddress}, slot=${slot}): value=${value} (counter=${this.sideEffectCounter}, isProtocol:${protocolWrite})`,
     );
     this.incrementSideEffectCounter();
+    this.writtenPublicDataSlots.add(this.computePublicDataSlotKey(contractAddress, slot));
+  }
+
+  private computePublicDataSlotKey(contractAddress: AztecAddress, slot: Fr): string {
+    return `${contractAddress.toString()}:${slot.toString()}`;
+  }
+
+  public isStorageCold(contractAddress: AztecAddress, slot: Fr): boolean {
+    return !this.writtenPublicDataSlots.has(this.computePublicDataSlotKey(contractAddress, slot));
   }
 
   public traceNewNoteHash(noteHash: Fr) {
@@ -199,7 +212,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
     }
 
     const recipientAddress = EthAddress.fromField(recipient);
-    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content, 0).scope(contractAddress));
+    this.l2ToL1Messages.push(new L2ToL1Message(recipientAddress, content).scope(contractAddress));
     this.log.trace(`Tracing new l2 to l1 message (counter=${this.sideEffectCounter})`);
     this.incrementSideEffectCounter();
   }

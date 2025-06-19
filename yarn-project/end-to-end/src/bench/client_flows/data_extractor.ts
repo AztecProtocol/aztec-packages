@@ -5,7 +5,7 @@ import { createLogger, logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import type { ProvingTimings, SimulationTimings } from '@aztec/stdlib/tx';
+import type { ProvingStats, ProvingTimings, SimulationStats } from '@aztec/stdlib/tx';
 
 import { Decoder } from 'msgpackr';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
@@ -16,13 +16,17 @@ import { type Log, type ProverType, ProxyLogger, generateBenchmark } from './ben
 type NativeProverConfig = { bbBinaryPath?: string; bbWorkingDirectory?: string };
 
 async function createProver(config: NativeProverConfig = {}, log: Logger) {
-  const simulationProvider = new WASMSimulator();
+  const simulator = new WASMSimulator();
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
-    return { prover: new BBWASMBundlePrivateKernelProver(simulationProvider, 16, log), type: 'wasm' as ProverType };
+    return { prover: new BBWASMBundlePrivateKernelProver(simulator, 16, log), type: 'wasm' as ProverType };
   } else {
     const bbConfig = config as Required<NativeProverConfig>;
     return {
-      prover: await BBNativePrivateKernelProver.new({ bbSkipCleanup: false, ...bbConfig }, simulationProvider, log),
+      prover: await BBNativePrivateKernelProver.new(
+        { bbSkipCleanup: false, numConcurrentIVCVerifiers: 1, bbIVCConcurrency: 1, ...bbConfig },
+        simulator,
+        log,
+      ),
       type: 'native' as ProverType,
     };
   }
@@ -55,7 +59,7 @@ async function main() {
     });
     const profileFile = await readFile(join(ivcFolder, flow, 'profile.json'));
     const profile = JSON.parse(profileFile.toString()) as {
-      timings: ProvingTimings | SimulationTimings;
+      stats: ProvingStats | SimulationStats;
       steps: {
         functionName: string;
         gateCount: number;
@@ -71,7 +75,7 @@ async function main() {
       vk: stepsFromFile[i].vk,
       timings: {
         witgen: step.timings.witgen,
-        gateCount: step.timings.witgen,
+        gateCount: step.timings.gateCount,
       },
     }));
 
@@ -89,10 +93,10 @@ async function main() {
     // Extract logs from this run from the proxy and write them to disk unconditionally
     currentLogs = proxyLogger.getLogs();
     await writeFile(join(ivcFolder, flow, 'logs.json'), JSON.stringify(currentLogs, null, 2));
-    if (!(profile.timings as ProvingTimings).proving) {
-      (profile.timings as ProvingTimings).proving = provingTime;
+    if (!(profile.stats.timings as ProvingTimings).proving) {
+      (profile.stats.timings as ProvingTimings).proving = provingTime;
     }
-    const benchmark = generateBenchmark(flow, currentLogs, profile.timings, privateExecutionSteps, proverType, error);
+    const benchmark = generateBenchmark(flow, currentLogs, profile.stats, privateExecutionSteps, proverType, error);
     await writeFile(join(ivcFolder, flow, 'benchmark.json'), JSON.stringify(benchmark, null, 2));
     proxyLogger.flushLogs();
   }

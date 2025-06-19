@@ -1,3 +1,4 @@
+import { AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS, AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -10,7 +11,7 @@ import type { PublicPersistableStateManager } from '../../state_manager/state_ma
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockL1ToL2MessageExists,
@@ -127,8 +128,8 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });
@@ -303,6 +304,25 @@ describe('Accrued Substate', () => {
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
+    });
+
+    it('Should charge dynamic gas', async () => {
+      const startOffset = 0;
+      const logSizeOffset = 20;
+
+      const values = [new Fr(69n), new Fr(420n), new Fr(Fr.MODULUS - 1n)];
+      context.machineState.memory.setSlice(
+        startOffset,
+        values.map(f => new Field(f)),
+      );
+      context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
+
+      const l2GasBefore = context.machineState.l2GasLeft;
+      const daGasBefore = context.machineState.daGasLeft;
+      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+
+      expect(context.machineState.l2GasLeft).toEqual(l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS);
+      expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
     });
   });
 

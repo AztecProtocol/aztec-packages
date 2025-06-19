@@ -24,7 +24,7 @@ describe('e2e_epochs/epochs_partial_proof', () => {
   });
 
   it('submits partial proofs when instructed manually', async () => {
-    await test.waitUntilL2BlockNumber(4, 60);
+    await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.startProof(0);

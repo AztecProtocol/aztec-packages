@@ -1,10 +1,12 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
+  secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
@@ -18,69 +20,43 @@ import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqr
  * P2P client configuration values.
  */
 export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
-  /**
-   * A flag dictating whether the P2P subsystem should be enabled.
-   */
+  /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
-  /**
-   * The frequency in which to check for new L2 blocks.
-   */
+  /** The frequency in which to check for new L2 blocks. */
   blockCheckIntervalMS: number;
 
-  /**
-   * The number of blocks to fetch in a single batch.
-   */
+  /** The number of blocks to fetch in a single batch. */
   blockRequestBatchSize: number;
 
-  /**
-   * DEBUG: Disable colocation penalty - for testing purposes only
-   */
+  /** DEBUG: Disable colocation penalty - for testing purposes only */
   debugDisableColocationPenalty: boolean;
 
-  /**
-   * The frequency in which to check for new peers.
-   */
+  /** The frequency in which to check for new peers. */
   peerCheckIntervalMS: number;
 
-  /**
-   * Size of queue of L2 blocks to store.
-   */
+  /** Size of queue of L2 blocks to store. */
   l2QueueSize: number;
 
-  /**
-   * The port for the P2P service.
-   */
+  /** The port for the P2P service. */
   p2pPort: number;
 
-  /**
-   * The port to broadcast the P2P service on (included in the node's ENR).
-   */
+  /** The port to broadcast the P2P service on (included in the node's ENR). */
   p2pBroadcastPort?: number;
 
-  /**
-   * The IP address for the P2P service.
-   */
+  /** The IP address for the P2P service. */
   p2pIp?: string;
 
-  /**
-   * The listen address.
-   */
+  /** The listen address. */
   listenAddress: string;
 
-  /**
-   * An optional peer id private key. If blank, will generate a random key.
-   */
+  /** An optional peer id private key. If blank, will generate a random key. */
   peerIdPrivateKey?: string;
 
-  /**
-   * An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory.
-   */
+  /** An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory. */
   peerIdPrivateKeyPath?: string;
 
-  /**
-   * A list of bootstrap peers to connect to.
-   */
+  /** A list of bootstrap peers to connect to. */
   bootstrapNodes: string[];
 
   /** Whether to execute the version check in the bootstrap node ENR. */
@@ -89,113 +65,80 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   /** Whether to consider any configured bootnodes as full peers, e.g. for transaction gossiping */
   bootstrapNodesAsFullPeers: boolean;
 
-  /**
-   * The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
-   */
+  /** The maximum number of peers (a peer count above this will cause the node to refuse connection attempts) */
   maxPeerCount: number;
 
-  /**
-   * If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.
-   */
+  /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
 
-  /**
-   * The interval of the gossipsub heartbeat to perform maintenance tasks.
-   */
+  /** The interval of the gossipsub heartbeat to perform maintenance tasks. */
   gossipsubInterval: number;
 
-  /**
-   * The D parameter for the gossipsub protocol.
-   */
+  /** The D parameter for the gossipsub protocol. */
   gossipsubD: number;
 
-  /**
-   * The Dlo parameter for the gossipsub protocol.
-   */
+  /** The Dlo parameter for the gossipsub protocol. */
   gossipsubDlo: number;
 
-  /**
-   * The Dhi parameter for the gossipsub protocol.
-   */
+  /** The Dhi parameter for the gossipsub protocol. */
   gossipsubDhi: number;
 
-  /**
-   * The Dlazy parameter for the gossipsub protocol.
-   */
+  /** The Dlazy parameter for the gossipsub protocol. */
   gossipsubDLazy: number;
 
-  /**
-   * Whether to flood publish messages. - For testing purposes only
-   */
+  /** Whether to flood publish messages. - For testing purposes only */
   gossipsubFloodPublish: boolean;
 
-  /**
-   * The number of gossipsub interval message cache windows to keep.
-   */
+  /** The number of gossipsub interval message cache windows to keep. */
   gossipsubMcacheLength: number;
 
-  /**
-   * How many message cache windows to include when gossiping with other pears.
-   */
+  /** How many message cache windows to include when gossiping with other pears. */
   gossipsubMcacheGossip: number;
 
-  /**
-   * How long to keep message IDs in the seen cache (ms).
-   */
+  /** How long to keep message IDs in the seen cache (ms). */
   gossipsubSeenTTL: number;
 
-  /**
-   * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
-   */
+  /** The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it. */
   doubleSpendSeverePeerPenaltyWindow: number;
 
-  /**
-   * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
-   */
+  /** The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score. */
   gossipsubTxTopicWeight: number;
 
-  /**
-   * This is the weight applied to the penalty for delivering invalid messages.
-   */
+  /** This is the weight applied to the penalty for delivering invalid messages. */
   gossipsubTxInvalidMessageDeliveriesWeight: number;
 
-  /**
-   * determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.
-   */
+  /** determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1. */
   gossipsubTxInvalidMessageDeliveriesDecay: number;
 
-  /**
-   * The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.
-   */
+  /** The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors. */
   peerPenaltyValues: number[];
 
-  /**
-   *  Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged.
-   */
+  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
   archivedTxLimit: number;
 
-  /**
-   * A list of trusted peers.
-   */
+  /** A list of trusted peers. */
   trustedPeers: string[];
 
-  /**
-   * A list of private peers.
-   */
+  /** A list of private peers. */
   privatePeers: string[];
 
-  /**
-   * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
-   */
+  /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB. */
   p2pStoreMapSizeKb?: number;
 
   /** Which calls are allowed in the public setup phase of a tx. */
   txPublicSetupAllowList: AllowedElement[];
 
-  /**
-   * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
-   */
+  /** The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs. */
   maxTxPoolSize: number;
+
+  /** If the pool is full, it will still accept a few more txs until it reached maxTxPoolOverspillFactor * maxTxPoolSize. Then it will evict */
+  txPoolOverflowFactor: number;
+
+  /** The node's seen message ID cache size */
+  seenMessageCacheSize: number;
+
+  /** True to disable the status handshake on peer connected. */
+  p2pDisableStatusHandshake?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -247,6 +190,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
     description: 'An optional peer id private key. If blank, will generate a random key.',
+    ...secretStringConfigHelper(),
   },
   peerIdPrivateKeyPath: {
     env: 'PEER_ID_PRIVATE_KEY_PATH',
@@ -308,7 +252,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubFloodPublish: {
     env: 'P2P_GOSSIPSUB_FLOOD_PUBLISH',
     description: 'Whether to flood publish messages. - For testing purposes only',
-    ...booleanConfigHelper(true),
+    ...booleanConfigHelper(false),
   },
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
@@ -392,6 +336,21 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MAX_TX_POOL_SIZE',
     description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
     ...numberConfigHelper(100_000_000), // 100MB
+  },
+  txPoolOverflowFactor: {
+    env: 'P2P_TX_POOL_OVERFLOW_FACTOR',
+    description: 'How much the tx pool can overflow before it starts evicting txs. Must be greater than 1',
+    ...floatConfigHelper(1.1), // 10% overflow
+  },
+  seenMessageCacheSize: {
+    env: 'P2P_SEEN_MSG_CACHE_SIZE',
+    description: 'The number of messages to keep in the seen message cache',
+    ...numberConfigHelper(100_000), // 100K
+  },
+  p2pDisableStatusHandshake: {
+    env: 'P2P_DISABLE_STATUS_HANDSHAKE',
+    description: 'True to disable the status handshake on peer connected.',
+    ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

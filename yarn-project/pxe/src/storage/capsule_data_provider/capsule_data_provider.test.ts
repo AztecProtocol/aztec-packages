@@ -177,36 +177,130 @@ describe('capsule data provider', () => {
     });
   });
 
-  describe('append to capsule array', () => {
-    it('creates a new array', async () => {
-      const baseSlot = new Fr(3);
-      const array = range(4).map(x => [new Fr(x)]);
+  describe('arrays', () => {
+    describe('appendToCapsuleArray', () => {
+      it('creates a new array', async () => {
+        const baseSlot = new Fr(3);
+        const array = range(4).map(x => [new Fr(x)]);
 
-      await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, array);
+        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, array);
 
-      expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(array.length)]);
-      for (const i of range(array.length)) {
-        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(array[i]);
-      }
+        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(array.length)]);
+        for (const i of range(array.length)) {
+          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(array[i]);
+        }
+      });
+
+      it('appends to an existing array', async () => {
+        const baseSlot = new Fr(3);
+        const originalArray = range(4).map(x => [new Fr(x)]);
+
+        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, originalArray);
+
+        const newElements = [[new Fr(13)], [new Fr(42)]];
+        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, newElements);
+
+        const expectedLength = originalArray.length + newElements.length;
+
+        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(expectedLength)]);
+        for (const i of range(expectedLength)) {
+          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(
+            [...originalArray, ...newElements][i],
+          );
+        }
+      });
     });
 
-    it('appends to an existing array', async () => {
-      const baseSlot = new Fr(3);
-      const originalArray = range(4).map(x => [new Fr(x)]);
+    describe('readCapsuleArray', () => {
+      it('reads an empty array', async () => {
+        const baseSlot = new Fr(3);
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual([]);
+      });
 
-      await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, originalArray);
+      it('reads an existing array', async () => {
+        const baseSlot = new Fr(3);
+        const storedArray = range(4).map(x => [new Fr(x)]);
 
-      const newElements = [[new Fr(13)], [new Fr(42)]];
-      await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, newElements);
+        await capsuleDataProvider.appendToCapsuleArray(contract, baseSlot, storedArray);
 
-      const expectedLength = originalArray.length + newElements.length;
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual(storedArray);
+      });
 
-      expect(await capsuleDataProvider.loadCapsule(contract, baseSlot)).toEqual([new Fr(expectedLength)]);
-      for (const i of range(expectedLength)) {
-        expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toEqual(
-          [...originalArray, ...newElements][i],
+      it('throws on a corrupted array', async () => {
+        const baseSlot = new Fr(3);
+
+        // Store in the base slot a non-zero value, indicating a non-zero array length
+        await capsuleDataProvider.storeCapsule(contract, baseSlot, [new Fr(1)]);
+
+        // Reading should now fail as some of the capsules in the array are empty
+        await expect(capsuleDataProvider.readCapsuleArray(contract, baseSlot)).rejects.toThrow(
+          'Expected non-empty value',
         );
-      }
+      });
+    });
+
+    describe('resetCapsuleArray', () => {
+      it('resets an empty array', async () => {
+        const baseSlot = new Fr(3);
+        const newArray = range(4).map(x => [new Fr(x)]);
+
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual(newArray);
+      });
+
+      it('resets an existing shorter array', async () => {
+        const baseSlot = new Fr(3);
+
+        const originalArray = range(4, 0).map(x => [new Fr(x)]);
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+
+        const newArray = range(10, 10).map(x => [new Fr(x)]);
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual(newArray);
+      });
+
+      it('resets an existing longer array', async () => {
+        const baseSlot = new Fr(3);
+
+        const originalArray = range(10, 0).map(x => [new Fr(x)]);
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+
+        const newArray = range(4, 10).map(x => [new Fr(x)]);
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual(newArray);
+
+        // Not only do we read the expected array, but also all capsules past the new array length have been cleared
+        for (const i of range(originalArray.length - newArray.length)) {
+          expect(
+            await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + newArray.length + i))),
+          ).toBeNull();
+        }
+      });
+
+      it('clears an existing array', async () => {
+        const baseSlot = new Fr(3);
+
+        const originalArray = range(10, 0).map(x => [new Fr(x)]);
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+
+        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, []);
+
+        const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
+        expect(retrievedArray).toEqual([]);
+
+        // All capsules from the original array have been cleared
+        for (const i of range(originalArray.length)) {
+          expect(await capsuleDataProvider.loadCapsule(contract, baseSlot.add(new Fr(1 + i)))).toBeNull();
+        }
+      });
     });
   });
 
@@ -225,9 +319,21 @@ describe('capsule data provider', () => {
     const ARRAY_LENGTH = 50;
 
     it(
-      'create large array',
+      'create large array by appending',
       async () => {
         await capsuleDataProvider.appendToCapsuleArray(
+          contract,
+          new Fr(0),
+          times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+        );
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    it(
+      'create large array by resetting',
+      async () => {
+        await capsuleDataProvider.resetCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
@@ -262,6 +368,34 @@ describe('capsule data provider', () => {
 
         // We just move the entire thing one slot.
         await capsuleDataProvider.copyCapsule(contract, new Fr(0), new Fr(1), NUMBER_OF_ITEMS);
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    it(
+      'read a large array',
+      async () => {
+        await capsuleDataProvider.appendToCapsuleArray(
+          contract,
+          new Fr(0),
+          times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+        );
+
+        await capsuleDataProvider.readCapsuleArray(contract, new Fr(0));
+      },
+      TEST_TIMEOUT_MS,
+    );
+
+    it(
+      'clear a large array',
+      async () => {
+        await capsuleDataProvider.appendToCapsuleArray(
+          contract,
+          new Fr(0),
+          times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
+        );
+
+        await capsuleDataProvider.resetCapsuleArray(contract, new Fr(0), []);
       },
       TEST_TIMEOUT_MS,
     );

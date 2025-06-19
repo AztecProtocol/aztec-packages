@@ -55,13 +55,13 @@ pub fn unpack_delay_change<let INITIAL_DELAY: u32>(
     let sdc_block_of_change = tmp as u32;
 
     tmp = (tmp - sdc_block_of_change as Field) / TWO_POW_32;
-    let sdc_post_is_some = tmp as bool;
+    let sdc_post_is_some = (tmp as u1) != 0;
 
     tmp = (tmp - sdc_post_is_some as Field) / TWO_POW_8;
     let sdc_post_inner = tmp as u32;
 
     tmp = (tmp - sdc_post_inner as Field) / TWO_POW_32;
-    let sdc_pre_is_some = tmp as bool;
+    let sdc_pre_is_some = (tmp as u1) != 0;
 
     tmp = (tmp - sdc_pre_is_some as Field) / TWO_POW_8;
     let sdc_pre_inner = tmp as u32;

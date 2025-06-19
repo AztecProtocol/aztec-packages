@@ -1,25 +1,25 @@
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract ContractInstanceDeployer {
-    use dep::aztec::macros::{events::event, functions::{private, public, view}, storage::storage};
-    use dep::aztec::prelude::{Map, SharedMutable};
-    use dep::aztec::protocol_types::{
-        address::{AztecAddress, PartialAddress},
-        constants::{
-            DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
-            DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, MINIMUM_UPDATE_DELAY,
-            REGISTERER_CONTRACT_ADDRESS,
+    use aztec::{
+        macros::{events::event, functions::{private, public, view}, storage::storage},
+        prelude::{Map, SharedMutable},
+        protocol_types::{
+            address::{AztecAddress, PartialAddress},
+            constants::{
+                DEFAULT_UPDATE_DELAY, DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE,
+                DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE, MINIMUM_UPDATE_DELAY,
+                REGISTERER_CONTRACT_ADDRESS,
+            },
+            contract_class_id::ContractClassId,
+            public_keys::PublicKeys,
+            traits::{Serialize, ToField},
+            utils::arrays::array_concat,
         },
-        contract_class_id::ContractClassId,
-        public_keys::PublicKeys,
-        traits::{Serialize, ToField},
-        utils::arrays::array_concat,
     };
-    use dep::contract_class_registerer::ContractClassRegisterer;
-    use std::meta::derive;
+    use contract_class_registerer::ContractClassRegisterer;
 
-    #[derive(Serialize)]
     #[event]
     struct ContractInstanceDeployed {
         DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field,
@@ -83,7 +83,6 @@ pub contract ContractInstanceDeployer {
         }
     }
 
-    #[derive(Serialize)]
     #[event]
     struct ContractInstanceUpdated {
         DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field,
@@ -138,7 +137,7 @@ pub contract ContractInstanceDeployer {
         };
 
         let payload = event.serialize_non_standard();
-        dep::aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
+        aztec::oracle::debug_log::debug_log_format("ContractInstanceDeployed: {}", payload);
 
         let padded_log = array_concat(payload, [0; 3]);
         // Only the payload needs to be emitted. Since the siloed tag of this event log is publicly known, it's

@@ -64,7 +64,7 @@ export async function deploy(
 
   const provenTx = await deploy.prove(deployOpts);
   if (verbose) {
-    printProfileResult(provenTx.timings!, log);
+    printProfileResult(provenTx.stats!, log);
   }
 
   const tx = provenTx.send();

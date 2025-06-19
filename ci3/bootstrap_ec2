@@ -42,10 +42,13 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-if [ "$REF_NAME" == "master" ]; then
-  # Allow parallelism on master by having the instance name be the commit.
-  instance_name="$current_commit"_$arch
+# Our instance_name acts as a uniqueness key for the instance.
+# Instances are terminated if they exist with the same name.
+if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
+  # In merge queue, use the pr number as the instance name.
+  instance_name="${BASH_REMATCH[1]}_$arch"
 else
+  # In local or pr's, use the branch name as the instance name.
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 
@@ -231,6 +234,7 @@ function run {
       -e TARGET_BRANCH=${TARGET_BRANCH:-} \
       -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
       -e NO_CACHE=${NO_CACHE:-} \
+      -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
       -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
       -e SSH_CONNECTION=' ' \
       -e LOCAL_USER_ID=\$(id -u) \

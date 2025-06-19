@@ -49,6 +49,11 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
       sepolia_accounts_mnemonic_secret_name:
         description: The name of the secret which holds the sepolia accounts mnemonic
         required: false
@@ -90,14 +95,33 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
       sepolia_accounts_mnemonic_secret_name:
-        description: The name of the secret which holds the sepolia accounts mnemonic
+        description: The name of the secret which holds the sepolia accounts mnemonic (if not provided, will use '{namespace}-accounts-mnemonic').
         required: false
         type: string
-        default: sepolia-accounts-mnemonic
 
 jobs:
+  fund_sepolia_accounts:
+    if: ${{ inputs.sepolia_deployment == 'true' && !inputs.skip_funding }}
+    uses: ./.github/workflows/fund-sepolia-accounts.yml
+    with:
+      values_file: ${{ inputs.values_file }}
+      sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name || format('{0}-accounts-mnemonic', inputs.namespace) }}
+      ref: ${{ inputs.ref || github.ref || 'master' }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      SEPOLIA_FUNDING_PRIVATE_KEY: ${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+      GCP_SEPOLIA_URL: ${{ secrets.GCP_SEPOLIA_URL }}
+      GCP_SEPOLIA_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
+
   network_deployment:
+    needs: fund_sepolia_accounts
+    if: always() && (needs.fund_sepolia_accounts.result == 'success' || needs.fund_sepolia_accounts.result == 'skipped')
     # This job will run on Ubuntu
     runs-on: ubuntu-latest
     concurrency:
@@ -128,6 +152,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
+
+      - name: Check values
+        run: |
+          echo "inputs.ref: ${{ inputs.ref }}"
+          echo "github.ref: ${{ github.ref }}"
+          ls -la .github/workflows/
+          ls -la .github/workflows/fund-sepolia-accounts.yml
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -172,28 +203,6 @@ jobs:
 
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
-      - name: Fund sepolia accounts
-        uses: ./.github/workflows/fund-sepolia-accounts.yml
-        if: ${{ inputs.sepolia_deployment == 'true' }}
-        with:
-          values_file: ${{ env.VALUES_FILE }}
-          sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name }}
-
-      - name: Generate sepolia accounts
-        id: generate-sepolia-accounts
-        if: ${{ inputs.sepolia_deployment == 'true' }}
-        run: |
-          REPO=$(git rev-parse --show-toplevel)
-          export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
-          echo "Preparing sepolia accounts..."
-          MNEMONIC_FILE=$(mktemp)
-          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 30 "$MNEMONIC_FILE"
-          mnemonic=$(cat "$MNEMONIC_FILE")
-          rm "$MNEMONIC_FILE"
-          echo "::add-mask::$mnemonic"
-          echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -213,7 +222,16 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
+            else
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
+            fi
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -244,7 +262,16 @@ jobs:
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=${{ inputs.sepolia_accounts_mnemonic_secret_name }})
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
+            else
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
+            fi
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \

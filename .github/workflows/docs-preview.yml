@@ -21,6 +21,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      USE_CIRCUITS_CACHE: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,7 +42,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5
+          version: nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8
 
       - name: Configure Git
         run: |
@@ -51,7 +52,7 @@ jobs:
       - name: Build dependencies
         run: |
           export NOIR_HASH=$(./noir/bootstrap.sh hash)
-          for project in noir barretenberg l1-contracts noir-projects yarn-project; do
+          for project in noir barretenberg noir-projects l1-contracts yarn-project; do
             $project/bootstrap.sh
           done
 

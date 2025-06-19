@@ -20,10 +20,10 @@ If we fetch the notes using an oracle call, we can keep the function signature i
 Oracles introduce **non-determinism** into a circuit, and thus are `unconstrained`. It is important that any information that is injected into a circuit through an oracle is later constrained for correctness. Otherwise, the circuit will be **under-constrained** and potentially insecure!
 
 `Aztec.nr` has a module dedicated to its oracles. If you are interested, you can view them by following the link below:
-```rust title="oracles-module" showLineNumbers
+```rust title="oracles-module" showLineNumbers 
 /// Oracles module
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/oracle/mod.nr#L1-L3</a></sub></sup>
 
 
 ## Inbuilt oracles

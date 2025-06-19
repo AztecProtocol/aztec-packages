@@ -19,15 +19,15 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/authwit"}
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/uint-note" }
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/compressed-string"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/authwit"}
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/uint-note" }
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/compressed-string"}
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-```rust title="token_all" showLineNumbers
+```rust title="token_all" showLineNumbers 
 mod types;
 mod test;
 
@@ -391,7 +391,9 @@ pub contract Token {
     }
 
     /// This function exists separately from `prepare_private_balance_increase` solely as an optimization as it allows
-    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration.
+    /// us to have it inlined in the `transfer_to_private` function which results in one fewer kernel iteration. Note
+    /// that in this case we don't pass `completer` as an argument to this function because in all the callsites we
+    /// want to use the message sender as the completer anyway.
     ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
@@ -408,21 +410,8 @@ pub contract Token {
             context,
             to,
             from,
+            context.msg_sender(),
         );
-
-        // We can't simply return the partial note because we won't be able to later on verify that it was created
-        // correctly (e.g. that the storage slot corresponds to the owner, and that we're using the balance set and not
-        // a different one) once this information is hidden in the partial note commitment. We also want to verify that
-        // only the caller of this function can complete the partial note.
-
-        // We achieve the above by storing a flag in public storage under a slot index equal to its
-        // `validity_commitment`. This commitment contains all the necessary information to verify the completer and
-        // to validate the partial note.
-        let validity_commitment = partial_note.compute_validity_commitment(context.msg_sender());
-
-        Token::at(context.this_address())
-            ._set_uint_partial_note_validity(validity_commitment)
-            .enqueue(context);
 
         partial_note
     }
@@ -483,17 +472,8 @@ pub contract Token {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
 
-        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
-        // state variable's storage slot, and it is internally consistent). We *could* clear the storage since each
-        // partial note should only be used once, but since the AVM offers no gas refunds for doing so this would just
-        // make the transaction be more expensive. We don't worry about the validity commitment being checked against
-        // multiple times because it is up to the caller to ensure that a partial note is used only once (see function
-        // docs of `finalize_transfer_to_private`).
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(from_and_completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, from_and_completer, amount);
     }
 
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
@@ -574,25 +554,8 @@ pub contract Token {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
 
-        // We verify that the partial note we're completing is valid (i.e. it uses the correct state variable's storage
-        // slot, and it is internally consistent). We *could* clear the storage since each partial note should only be
-        // used once, but since the AVM offers no gas refunds for doing so this would just make the transaction be more
-        // expensive.
-        assert(
-            context.storage_read(partial_note.compute_validity_commitment(completer)),
-            "Invalid partial note or completer",
-        );
-        partial_note.complete(amount, context);
-    }
-
-    #[public]
-    #[internal]
-    fn _set_uint_partial_note_validity(validity_commitment: Field) {
-        // We store the partial note validity flag in a slot equal to its validity commitment. This is safe because
-        // the commitment is computed using a generator different from the one used to compute storage slots, so there
-        // can be no collisions. We could consider storing all pending partial notes in e.g. some array, but ultimately
-        // this is pointless: all we need to verify is that the note is valid.
-        context.storage_write(validity_commitment, true);
+        // We finalize the transfer by completing the partial note.
+        partial_note.complete(context, completer, amount);
     }
 
     /// Internal ///
@@ -628,7 +591,7 @@ pub contract Token {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L684" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L684</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L647" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L647</a></sub></sup>
 
 
 ### Helper files
@@ -637,11 +600,11 @@ pub contract Token {
 Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
 :::
 
-The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
 
-```rust title="balance_set" showLineNumbers
+```rust title="balance_set" showLineNumbers 
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
     note::{
@@ -773,7 +736,7 @@ pub fn preprocess_notes_min_sum(
     selected
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136</a></sub></sup>
 
 
 ## Compile your contract

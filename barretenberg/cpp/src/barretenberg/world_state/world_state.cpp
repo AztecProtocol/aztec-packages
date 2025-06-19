@@ -49,6 +49,11 @@ WorldState::WorldState(uint64_t thread_pool_size,
     // We set the max readers to be high, at least the number of given threads or the default if higher
     uint64_t maxReaders = std::max(thread_pool_size, DEFAULT_MIN_NUMBER_OF_READERS);
     create_canonical_fork(data_dir, map_size, prefilled_public_data, maxReaders);
+    try {
+        attempt_tree_resync();
+    } catch (std::exception& e) {
+        // We don't do anything with this. If any attept to re-sync failed it will be picked up later in TS land
+    }
 }
 
 WorldState::WorldState(uint64_t thread_pool_size,
@@ -187,7 +192,7 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
     }
     return it->second;
 }
-uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
+uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
 {
     block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
@@ -711,51 +716,70 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info.inner;
 }
 
-WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockNumber)
+WorldStateStatusSummary WorldState::set_finalised_blocks(const block_number_t& toBlockNumber)
 {
-    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
-    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    if (toBlockNumber <= archive_state.meta.finalisedBlockHeight) {
-        throw std::runtime_error(format("Unable to finalise blocks to block number ",
-                                        toBlockNumber,
-                                        ", current finalised block: ",
-                                        archive_state.meta.finalisedBlockHeight));
-    }
     // This will throw if it fails
     set_finalised_block(toBlockNumber);
     WorldStateStatusSummary status;
     get_status_summary(status);
     return status;
 }
-WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
+WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
-    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    if (toBlockNumber >= archive_state.meta.unfinalisedBlockHeight) {
-        throw std::runtime_error("Unable to unwind block, block not found");
+    std::array<TreeMeta, NUM_TREES> responses;
+    get_all_tree_info(revision, responses);
+
+    // Get the set of unfinalised block numbers and unwind to the target block
+    std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
+        responses[NULLIFIER_TREE].unfinalisedBlockHeight,
+        responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
+        responses[PUBLIC_DATA_TREE].unfinalisedBlockHeight,
+        responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
+        responses[ARCHIVE].unfinalisedBlockHeight
+    };
+
+    auto* const it = std::max_element(std::begin(unfinalisedBlockNumbers), std::end(unfinalisedBlockNumbers));
+    block_number_t highestUnfinalisedBlock = *it;
+
+    if (toBlockNumber >= highestUnfinalisedBlock) {
+        throw std::runtime_error(format("Unable to unwind blocks to block number ",
+                                        toBlockNumber,
+                                        ", current pending block ",
+                                        highestUnfinalisedBlock));
     }
+
     WorldStateStatusFull status;
-    for (block_number_t blockNumber = archive_state.meta.unfinalisedBlockHeight; blockNumber > toBlockNumber;
-         blockNumber--) {
+    for (block_number_t blockNumber = highestUnfinalisedBlock; blockNumber > toBlockNumber; blockNumber--) {
         // This will throw if it fails
         unwind_block(blockNumber, status);
     }
     populate_status_summary(status);
     return status;
 }
-WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlockNumber)
+
+WorldStateStatusFull WorldState::remove_historical_blocks(const block_number_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
-    TreeMetaResponse archive_state = get_tree_info(revision, MerkleTreeId::ARCHIVE);
-    if (toBlockNumber <= archive_state.meta.oldestHistoricBlock) {
+    std::array<TreeMeta, NUM_TREES> responses;
+    get_all_tree_info(revision, responses);
+
+    // Get the set of historic block numbers and remove to the target block
+    std::array<block_number_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
+                                                                  responses[NOTE_HASH_TREE].oldestHistoricBlock,
+                                                                  responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
+                                                                  responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
+                                                                  responses[ARCHIVE].oldestHistoricBlock };
+    auto* const it = std::min_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
+    block_number_t oldestHistoricBlock = *it;
+    if (toBlockNumber <= oldestHistoricBlock) {
         throw std::runtime_error(format("Unable to remove historical blocks to block number ",
                                         toBlockNumber,
                                         ", blocks not found. Current oldest block: ",
-                                        archive_state.meta.oldestHistoricBlock));
+                                        oldestHistoricBlock));
     }
     WorldStateStatusFull status;
-    for (block_number_t blockNumber = archive_state.meta.oldestHistoricBlock; blockNumber < toBlockNumber;
-         blockNumber++) {
+    for (block_number_t blockNumber = oldestHistoricBlock; blockNumber < toBlockNumber; blockNumber++) {
         // This will throw if it fails
         remove_historical_block(blockNumber, status);
     }
@@ -929,13 +953,12 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
     // noir-project/noir-protocol-circuits/crates/types/src/block_header.nr
     return HashPolicy::hash({ generator_point,
                               // last archive - which, at genesis, is all 0s
-                              0,
-                              0,
+                              0, // root
+                              0, // next_available_leaf_index
                               // content commitment - all 0s
-                              0,
-                              0,
-                              0,
-                              0,
+                              0, // blobs_hash
+                              0, // in_hash
+                              0, // out_hash
                               // state reference - the initial state for all the trees (accept the archive tree)
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
@@ -946,15 +969,15 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
                               // global variables
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
+                              0, // chain_id
+                              0, // version
+                              0, // block_number
+                              0, // slot_number
+                              0, // timestamp
+                              0, // coinbase
+                              0, // fee_recipient
+                              0, // gas_fee.fee_per_da_gas
+                              0, // gas_fee.fee_per_l2_gas
                               // total fees
                               0,
                               // total mana used
@@ -1027,8 +1050,12 @@ void WorldState::validate_trees_are_equally_synched()
 bool WorldState::determine_if_synched(std::array<TreeMeta, NUM_TREES>& metaResponses)
 {
     block_number_t blockNumber = metaResponses[0].unfinalisedBlockHeight;
+    block_number_t finalisedBlockNumber = metaResponses[0].finalisedBlockHeight;
     for (size_t i = 1; i < metaResponses.size(); i++) {
         if (blockNumber != metaResponses[i].unfinalisedBlockHeight) {
+            return false;
+        }
+        if (finalisedBlockNumber != metaResponses[i].finalisedBlockHeight) {
             return false;
         }
     }
@@ -1114,6 +1141,123 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
             throw std::runtime_error(m.message);
         }
     }
+}
+
+void WorldState::commit_all_checkpoints(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->commit_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+void WorldState::revert_all_checkpoints(const uint64_t& forkId)
+{
+    Fork::SharedPtr fork = retrieve_fork(forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    std::array<Response, NUM_TREES> local;
+    std::mutex mtx;
+    for (auto& [id, tree] : fork->_trees) {
+        std::visit(
+            [&signal, &local, id, &mtx](auto&& wrapper) {
+                wrapper.tree->revert_all_checkpoints([&signal, &local, &mtx, id](Response& resp) {
+                    {
+                        std::lock_guard<std::mutex> lock(mtx);
+                        local[id] = std::move(resp);
+                    }
+                    signal.signal_decrement();
+                });
+            },
+            tree);
+    }
+    signal.wait_for_level();
+    for (auto& m : local) {
+        if (!m.success) {
+            throw std::runtime_error(m.message);
+        }
+    }
+}
+
+WorldStateStatusFull WorldState::attempt_tree_resync()
+{
+    WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
+    std::array<TreeMeta, NUM_TREES> responses;
+    get_all_tree_info(revision, responses);
+
+    // Get all historic block numbers
+    std::array<block_number_t, NUM_TREES> historicalBlockNumbers{ responses[NULLIFIER_TREE].oldestHistoricBlock,
+                                                                  responses[NOTE_HASH_TREE].oldestHistoricBlock,
+                                                                  responses[PUBLIC_DATA_TREE].oldestHistoricBlock,
+                                                                  responses[L1_TO_L2_MESSAGE_TREE].oldestHistoricBlock,
+                                                                  responses[ARCHIVE].oldestHistoricBlock };
+
+    // Get all unfinalised block numbers
+    std::array<block_number_t, NUM_TREES> unfinalisedBlockNumbers{
+        responses[NULLIFIER_TREE].unfinalisedBlockHeight,
+        responses[NOTE_HASH_TREE].unfinalisedBlockHeight,
+        responses[PUBLIC_DATA_TREE].unfinalisedBlockHeight,
+        responses[L1_TO_L2_MESSAGE_TREE].unfinalisedBlockHeight,
+        responses[ARCHIVE].unfinalisedBlockHeight
+    };
+
+    // Get all finalised block numbers
+    std::array<block_number_t, NUM_TREES> finalisedBlockNumbers{ responses[NULLIFIER_TREE].finalisedBlockHeight,
+                                                                 responses[NOTE_HASH_TREE].finalisedBlockHeight,
+                                                                 responses[PUBLIC_DATA_TREE].finalisedBlockHeight,
+                                                                 responses[L1_TO_L2_MESSAGE_TREE].finalisedBlockHeight,
+                                                                 responses[ARCHIVE].finalisedBlockHeight };
+
+    // Get the min and max of each set of block numbers
+    auto historicBlockRange = std::minmax_element(std::begin(historicalBlockNumbers), std::end(historicalBlockNumbers));
+
+    auto unfinalisedBlockRange =
+        std::minmax_element(std::begin(unfinalisedBlockNumbers), std::end(unfinalisedBlockNumbers));
+
+    auto finalisedBlockRange = std::minmax_element(std::begin(finalisedBlockNumbers), std::end(finalisedBlockNumbers));
+
+    // We re-sync by
+    // 1. Unwinding any blocks that are ahread of the lowest unfinalised block number
+    // 2. Increasing finalised block numbers to the highest finalised block number
+    // 3. Removing any historical blocks that are lower then the highest historic block number
+
+    WorldStateStatusFull status;
+    block_number_t blockToUnwind = *unfinalisedBlockRange.second;
+    while (blockToUnwind > *unfinalisedBlockRange.first) {
+        unwind_block(blockToUnwind, status);
+        blockToUnwind--;
+    }
+
+    if (*finalisedBlockRange.first != *finalisedBlockRange.second) {
+        set_finalised_block(*finalisedBlockRange.second);
+    }
+
+    block_number_t blockToRemove = *historicBlockRange.first;
+    while (blockToRemove < *historicBlockRange.second) {
+        remove_historical_block(blockToRemove, status);
+        blockToRemove++;
+    }
+
+    populate_status_summary(status);
+    return status;
 }
 
 } // namespace bb::world_state

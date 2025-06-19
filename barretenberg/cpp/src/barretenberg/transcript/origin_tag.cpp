@@ -10,7 +10,7 @@
 
 namespace bb {
 using namespace numeric;
-#ifndef NDEBUG
+#ifndef AZTEC_NO_ORIGIN_TAGS
 
 /**
  * @brief Detect if two elements from the same transcript are performing a suspicious interaction
@@ -39,10 +39,59 @@ bool OriginTag::operator==(const OriginTag& other) const
     return this->parent_tag == other.parent_tag && this->child_tag == other.child_tag &&
            this->instant_death == other.instant_death;
 }
+OriginTag::OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
+{
+    // Elements with instant death should not be touched
+    if (tag_a.instant_death || tag_b.instant_death) {
+        throw_or_abort("Touched an element that should not have been touched");
+    }
+    // If one of the tags is a constant, just use the other tag
+    if (tag_a.parent_tag == CONSTANT) {
+        *this = tag_b;
+        return;
+    }
+    if (tag_b.parent_tag == CONSTANT) {
+        *this = tag_a;
+        return;
+    }
+
+    // A free witness element should not interact with an element that has an origin
+    if (tag_a.is_free_witness()) {
+        if (!tag_b.is_free_witness() && !tag_b.is_empty()) {
+            throw_or_abort("A free witness element should not interact with an element that has an origin");
+        } else {
+            // If both are free witnesses or one of them is empty, just use tag_a
+            *this = tag_a;
+            return;
+        }
+    }
+    if (tag_b.is_free_witness()) {
+        if (!tag_a.is_free_witness() && !tag_a.is_empty()) {
+            throw_or_abort("A free witness element should not interact with an element that has an origin");
+        } else {
+            // If both are free witnesses or one of them is empty, just use tag_b
+            *this = tag_b;
+            return;
+        }
+    }
+    // Elements from different transcripts shouldn't interact
+#ifndef DISABLE_DIFFERENT_TRANSCRIPT_CHECKS
+    if (tag_a.parent_tag != tag_b.parent_tag) {
+        throw_or_abort("Tags from different transcripts were involved in the same computation");
+    }
+#endif
+#ifndef DISABLE_CHILD_TAG_CHECKS
+    check_child_tags(tag_a.child_tag, tag_b.child_tag);
+#endif
+    parent_tag = tag_a.parent_tag;
+    child_tag = tag_a.child_tag | tag_b.child_tag;
+}
+
 #else
 bool OriginTag::operator==(const OriginTag&) const
 {
     return true;
 }
+
 #endif
 } // namespace bb

@@ -3,14 +3,14 @@
 pragma solidity >=0.8.27;
 
 import {ISlasher} from "@aztec/core/interfaces/ISlasher.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EmpireBase} from "@aztec/governance/proposer/EmpireBase.sol";
 
 /**
  * @notice  A SlashingProposer implementation following the empire model
  */
-contract SlashingProposer is IGovernanceProposer, EmpireBase {
+contract SlashingProposer is IEmpire, EmpireBase {
   address public immutable INSTANCE;
   ISlasher public immutable SLASHER;
 
@@ -21,11 +21,11 @@ contract SlashingProposer is IGovernanceProposer, EmpireBase {
     SLASHER = _slasher;
   }
 
-  function getExecutor() public view override(EmpireBase, IGovernanceProposer) returns (address) {
+  function getExecutor() public view override(EmpireBase, IEmpire) returns (address) {
     return address(SLASHER);
   }
 
-  function getInstance() public view override(EmpireBase, IGovernanceProposer) returns (address) {
+  function getInstance() public view override(EmpireBase, IEmpire) returns (address) {
     return INSTANCE;
   }
 

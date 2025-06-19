@@ -35,7 +35,7 @@ fn constructor(){
 
 Initializers are commonly used to set an admin, such as this example:
 
-```rust title="constructor" showLineNumbers
+```rust title="constructor" showLineNumbers 
 #[public]
 #[initializer]
 fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
@@ -47,7 +47,7 @@ fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8
     storage.decimals.initialize(decimals);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L90-L103</a></sub></sup>
 
 
 Here, the initializer is writing to storage. It can also call another function. Learn more about calling functions from functions [here](./call_contracts.md).

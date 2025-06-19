@@ -29,10 +29,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(public_witness_ct(&builder, fr::one())); // a is a legit wire value in our circuit
         field_ct b(&builder,
                    (fr::one())); // b is just a constant, and should not turn up as a wire value in our circuit
+        const size_t num_gates = builder.get_estimated_num_finalized_gates();
 
-        // this shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
-        // involved in c should point to the same wire value as a
+        // This shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
+        // involved in, `c` should have the same witness index as `a`, i.e. point to the same wire value
         field_ct c = a + b;
+        EXPECT_TRUE(c.witness_index == a.witness_index);
+        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
         field_ct d(&builder, fr::coset_generator(0)); // like b, d is just a constant and not a wire value
 
         // by this point, we shouldn't have added any constraints in our circuit
@@ -81,7 +84,39 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Ensure that the context is not missing
         EXPECT_FALSE(elt.is_constant());
     }
+    static void test_add()
+    {
+        Builder builder = Builder();
+        // Case 1: both summands are witnesses
+        field_ct a(witness_ct(&builder, fr::random_element()));
+        field_ct b(witness_ct(&builder, fr::random_element()));
+        field_ct sum = a + b;
+        EXPECT_TRUE(sum.get_value() == a.get_value() + b.get_value());
+        EXPECT_FALSE(sum.is_constant());
 
+        // Case 2: second summand is a constant
+        field_ct c(fr::random_element());
+        field_ct sum_with_constant = sum + c;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 3: first summand is a constant
+        sum_with_constant = c + sum;
+        EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
+        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+
+        // Case 4: both summands are witnesses with matching indices
+        field_ct sum_with_same_witness_index = sum_with_constant + sum;
+        EXPECT_TRUE(sum_with_same_witness_index.get_value() == sum.get_value() + sum_with_constant.get_value());
+        EXPECT_TRUE((sum_with_same_witness_index.witness_index == sum_with_constant.witness_index) &&
+                    (sum_with_same_witness_index.witness_index == sum.witness_index));
+
+        // Case 5: both summands are constant
+        field_ct d(fr::random_element());
+        field_ct constant_sum = c + d;
+        EXPECT_TRUE(constant_sum.is_constant());
+        EXPECT_TRUE(constant_sum.get_value() == d.get_value() + c.get_value());
+    }
     static void create_range_constraint()
     {
         auto run_test = [&](fr elt, size_t num_bits, bool expect_verified) {
@@ -110,6 +145,39 @@ template <typename Builder> class stdlib_field : public testing::Test {
         run_test(-1, fr::modulus.get_msb() + 1, true);
     }
 
+    static void test_bool_conversion()
+    {
+        // Test the conversion from field_t to bool_t.
+
+        std::array<bb::fr, 5> input_array{ 0, 1, 0, 1, bb::fr::random_element() };
+        // Cases 0,1: Constant  0, 1
+        // Cases 2,3: Witnesses 0, 1
+        for (size_t idx = 0; idx < 4; idx++) {
+            bool expected_to_be_constant = (idx < 2);
+            Builder builder = Builder();
+            field_ct field_elt = (expected_to_be_constant) ? field_ct(input_array[idx])
+                                                           : field_ct(witness_ct(&builder, input_array[idx]));
+            bool_ct converted(field_elt);
+            EXPECT_TRUE(converted.is_constant() == expected_to_be_constant);
+            EXPECT_TRUE(field_elt.get_value() == converted.get_value());
+
+            if (!expected_to_be_constant) {
+                EXPECT_TRUE(CircuitChecker::check(builder));
+                EXPECT_TRUE(converted.witness_index == field_elt.witness_index);
+            }
+        }
+#ifndef NDEBUG
+        // Check that the conversion aborts in the case of random field elements.
+        bool_ct invalid_bool;
+        // Case 4: Invalid constant conversion
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(input_array.back())),
+                     "Assertion failed: (additive_constant == bb::fr::one() || additive_constant == bb::fr::zero())");
+        // Case 5: Invalid witness conversion
+        Builder builder = Builder();
+        EXPECT_DEATH(invalid_bool = bool_ct(field_ct(witness_ct(&builder, input_array.back()))),
+                     "Assertion failed: ((witness == bb::fr::zero()) || (witness == bb::fr::one()) == true)");
+#endif
+    }
     /**
      * @brief Test that bool is converted correctly
      *
@@ -259,18 +327,23 @@ template <typename Builder> class stdlib_field : public testing::Test {
         b *= fr::random_element();
         b += fr::random_element();
 
-        // numerator constant
+        // Case 0: Numerator = const, denominator != const
         field_ct out = field_ct(&builder, b.get_value()) / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
+        EXPECT_FALSE(out.is_constant());
+        // Check that the result is normalized in this case
+        EXPECT_TRUE(out.multiplicative_constant == 1 && out.additive_constant == 0);
 
+        // Case 1: Numerator and denominator != const
         out = b / a;
         EXPECT_EQ(out.get_value(), b.get_value() / a.get_value());
 
-        // denominator constant
+        // Case 2: Numerator != const, denominator = const,
         out = a / b.get_value();
         EXPECT_EQ(out.get_value(), a.get_value() / b.get_value());
+        EXPECT_EQ(out.witness_index, a.witness_index);
 
-        // numerator 0
+        // Case 3: Numerator = const 0.
         out = field_ct(0) / b;
         EXPECT_EQ(out.get_value(), 0);
         EXPECT_EQ(out.is_constant(), true);
@@ -279,6 +352,63 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_div_edge_cases()
+    {
+        // Case 0. Numerator = const, denominator = const. Check the correctness of the value and that the result is
+        // constant.
+        field_ct a(bb::fr::random_element());
+        field_ct b(bb::fr::random_element());
+        field_ct q = a / b;
+        EXPECT_TRUE(q.is_constant());
+        EXPECT_EQ(a.get_value() / b.get_value(), q.get_value());
+
+#ifndef NDEBUG
+        {
+            // Case 1. Numerator = const, denominator = const 0. Check that the division is aborted
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+        { // Case 2. Numerator != const, denominator = const 0. Check that the division is aborted
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = 0;
+            EXPECT_DEATH(a / b, ".*");
+        }
+#endif
+        {
+            // Case 3. Numerator != const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a = witness_ct(&builder, bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+        {
+            // Case 4. Numerator = const, denominator = witness 0 . Check that the circuit fails.
+            Builder builder = Builder();
+            field_ct a(bb::fr::random_element());
+            b = witness_ct(&builder, bb::fr::zero());
+            q = a / b;
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+    static void test_invert()
+    {
+        // Test constant case
+        field_ct a(bb::fr::random_element());
+        field_ct b = a.invert();
+        // Check that the result is constant and correct
+        EXPECT_TRUE(a.is_constant() && (b.get_value() * a.get_value() == 1));
+
+        // Test non-constant case
+        Builder builder = Builder();
+        a = witness_ct(&builder, a.get_value());
+        b = a.invert();
+        // Check that the result is normalized
+        EXPECT_TRUE((b.multiplicative_constant == 1) && (b.additive_constant == 0));
+        // Check that the result is correct
+        EXPECT_TRUE(a.get_value() * b.get_value() == 1);
+    }
     static void test_postfix_increment()
     {
         Builder builder = Builder();
@@ -289,9 +419,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         EXPECT_EQ(b.get_value(), 10);
         EXPECT_EQ(a.get_value(), 11);
+        EXPECT_TRUE(!b.is_constant());
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_prefix_increment()
@@ -364,12 +494,12 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         fr x = r.get_value();
         EXPECT_EQ(x, fr(1));
-
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 3UL);
-        }
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0.
+        EXPECT_EQ(gates_after - gates_before, 4UL);
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
@@ -383,49 +513,40 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct a(witness_ct(&builder, 4));
         field_ct b(witness_ct(&builder, 3));
         bool_ct r = a == b;
-
-        EXPECT_EQ(r.get_value(), false);
-
         auto gates_after = builder.get_estimated_num_finalized_gates();
 
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(0));
+        EXPECT_FALSE(r.get_value());
 
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 3UL);
-        }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        // Using a == b, when both a and b are witnesses, adds 4 constraints:
+        // 1) compute a - b;
+        // 2) ensure r is bool;
+        // 3) (a - b) * I + r - 1 = 0;
+        // 4) -I * r + r = 0
+        EXPECT_EQ(gates_after - gates_before, 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_equality_with_constants()
     {
         Builder builder = Builder();
+        field_ct a(witness_ct(&builder, 4));
 
         auto gates_before = builder.get_estimated_num_finalized_gates();
-        field_ct a(witness_ct(&builder, 4));
         field_ct b = 3;
         field_ct c = 7;
-        bool_ct r = a * c == b * c + c && b + 1 == a;
-
-        EXPECT_EQ(r.get_value(), true);
-
+        // Note that the lhs is constant, hence (rhs - lhs) can be computed without adding new gates, using == in this
+        // case requires 3 constraints
+        // 1) ensure r is bool;
+        // 2) (a - b) * I + r - 1 = 0;
+        // 3) -I * r + r = 0
+        bool_ct r = (a * c) == (b * c + c);
         auto gates_after = builder.get_estimated_num_finalized_gates();
-
-        fr x = r.get_value();
-        EXPECT_EQ(x, fr(1));
-
-        // This logic requires on madd in field, which creates a big mul gate.
-        // This gate is implemented in standard by create 2 actual gates, while in ultra there are 2
-        if (std::same_as<Builder, UltraCircuitBuilder>) {
-            EXPECT_EQ(gates_after - gates_before, 5UL);
-        }
-
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_EQ(gates_after - gates_before, 3UL);
+        r = r && (b + 1 == a);
+        EXPECT_EQ(r.get_value(), true);
+        // The situation is as above, but we also applied && to bool_t witnesses, which adds an extra gate.
+        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - gates_after, 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_larger_circuit()
@@ -439,39 +560,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
-    static void is_zero()
+    static void test_is_zero()
     {
         Builder builder = Builder();
-
-        // yuck
-        field_ct a = (public_witness_ct(&builder, fr::random_element()));
-        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
-        field_ct c_1(&builder,
-                     uint256_t(0x1122334455667788, 0x8877665544332211, 0xaabbccddeeff9933, 0x1122112211221122));
-        field_ct c_2(&builder,
-                     uint256_t(0xaabbccddeeff9933, 0x8877665544332211, 0x1122334455667788, 0x1122112211221122));
-        field_ct c_3(&builder, bb::fr::one());
-
-        field_ct c_4 = c_1 + c_2;
-        a = a * c_4 + c_4; // add some constant terms in to validate our normalization check works
-        b = b * c_4 + c_4;
-        b = (b - c_1 - c_2) / c_4;
-        b = b + c_3;
-
+        // Create constant elements
         field_ct d(&builder, fr::zero());
         field_ct e(&builder, fr::one());
-
+        // Validate that `is_zero()` check does not add any gates in this case
         const size_t old_n = builder.get_estimated_num_finalized_gates();
         bool_ct d_zero = d.is_zero();
         bool_ct e_zero = e.is_zero();
         const size_t new_n = builder.get_estimated_num_finalized_gates();
         EXPECT_EQ(old_n, new_n);
 
+        // Create witnesses
+        field_ct a = (public_witness_ct(&builder, fr::random_element()));
+        field_ct b = (public_witness_ct(&builder, fr::neg_one()));
+        // Create constants
+        field_ct c_1(&builder, engine.get_random_uint256());
+        field_ct c_2(&builder, engine.get_random_uint256());
+        field_ct c_3(&builder, bb::fr::one());
+        field_ct c_4 = c_1 + c_2;
+
+        // Ensure that `a` and `b` are not normalized
+        a = a * c_4 + c_4;
+        b = b * c_4 + c_4;         // = -c_4 + c_4
+        b = (b - c_1 - c_2) / c_4; // = (-c_1 - c_2 )/c_4 = -1
+        b = b + c_3;               //  = -1 + 1 = 0
+        EXPECT_TRUE(a.additive_constant != 0 || a.multiplicative_constant != 1);
+        EXPECT_TRUE(b.additive_constant != 0 || b.multiplicative_constant != 1);
+
         bool_ct a_zero = a.is_zero();
         bool_ct b_zero = b.is_zero();
 
+        bool_ct a_normalized_zero = a.normalize().is_zero();
+        bool_ct b_normalized_zero = b.normalize().is_zero();
+
         EXPECT_EQ(a_zero.get_value(), false);
         EXPECT_EQ(b_zero.get_value(), true);
+        EXPECT_EQ(a_normalized_zero.get_value(), false);
+        EXPECT_EQ(b_normalized_zero.get_value(), true);
         EXPECT_EQ(d_zero.get_value(), true);
         EXPECT_EQ(e_zero.get_value(), false);
 
@@ -527,7 +655,39 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
+    static void test_conditional_negate()
+    {
+        Builder builder = Builder();
+        std::array<bool_ct, 4> predicates{
+            bool_ct(true), bool_ct(false), bool_ct(witness_ct(&builder, true)), bool_ct(witness_ct(&builder, false))
+        };
+        field_ct constant_summand(bb::fr::random_element());
+        field_ct witness_summand(witness_ct(&builder, bb::fr::random_element()));
+        for (auto& predicate : predicates) {
 
+            const bool predicate_is_witness = !predicate.is_constant();
+
+            // Conditionally negate a constant
+            size_t num_gates_before = builder.get_estimated_num_finalized_gates();
+            auto result = constant_summand.conditional_negate(predicate);
+            auto expected_result = predicate.get_value() ? -constant_summand.get_value() : constant_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // Check that `result` is constant if and only if both the predicate and (*this) are constant.
+            EXPECT_TRUE(result.is_constant() == predicate.is_constant());
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
+
+            // Conditionally negate a witness
+            num_gates_before = builder.get_estimated_num_finalized_gates();
+            result = witness_summand.conditional_negate(predicate);
+            expected_result = predicate.get_value() ? -witness_summand.get_value() : witness_summand.get_value();
+            EXPECT_TRUE(result.get_value() == expected_result);
+            // The result must be a witness
+            EXPECT_FALSE(result.is_constant());
+            // A gate is only added if the predicate is a witness
+            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_before == predicate_is_witness);
+        }
+    }
     static void two_bit_table()
     {
         Builder builder = Builder();
@@ -566,13 +726,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         //
         field_ct a(witness_ct(&builder, fr(126283)));
         auto slice_data = a.slice(10, 3);
-
         EXPECT_EQ(slice_data[0].get_value(), fr(3));
         EXPECT_EQ(slice_data[1].get_value(), fr(169));
         EXPECT_EQ(slice_data[2].get_value(), fr(61));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
     }
 
     static void test_slice_equal_msb_lsb()
@@ -601,21 +759,28 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         uint8_t lsb = 106;
         uint8_t msb = 189;
-        fr a_ = fr(uint256_t(fr::random_element()) && ((uint256_t(1) << 252) - 1));
+        fr a_ = fr(engine.get_random_uint256() && ((uint256_t(1) << 252) - 1));
         field_ct a(witness_ct(&builder, a_));
         auto slice = a.slice(msb, lsb);
 
-        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << uint64_t(lsb)) - 1);
-        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (uint64_t(msb - lsb) + 1)) - 1);
-        const uint256_t expected2 =
-            (uint256_t(a_) >> uint64_t(msb + 1)) & ((uint256_t(1) << (uint64_t(252 - msb) - 1)) - 1);
+        const uint256_t expected0 = uint256_t(a_) & ((uint256_t(1) << lsb) - 1);
+        const uint256_t expected1 = (uint256_t(a_) >> lsb) & ((uint256_t(1) << (msb - lsb + 1)) - 1);
+        const uint256_t expected2 = (uint256_t(a_) >> (msb + 1)) & ((uint256_t(1) << (252 - msb - 1)) - 1);
 
         EXPECT_EQ(slice[0].get_value(), fr(expected0));
         EXPECT_EQ(slice[1].get_value(), fr(expected1));
         EXPECT_EQ(slice[2].get_value(), fr(expected2));
 
-        bool result = CircuitChecker::check(builder);
-        EXPECT_EQ(result, true);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Check that attempting to slice a full uint256_t value leads to a circuit failure.
+        while (static_cast<uint256_t>(a.get_value()).get_msb() < grumpkin::MAX_NO_WRAP_INTEGER_BIT_LENGTH + 1) {
+            a = witness_ct(&builder, engine.get_random_uint256());
+        }
+        info(static_cast<uint256_t>(a.get_value()).get_msb());
+        slice = a.slice(msb, lsb);
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.err() == "slice: hi value too large.");
     }
 
     static void three_bit_table()
@@ -664,36 +829,27 @@ template <typename Builder> class stdlib_field : public testing::Test {
      * `val_256`. We supply bit vectors to test some failure cases.
      */
 
-    static void decompose_into_bits()
+    static void test_decompose_into_bits()
     {
         using witness_supplier_type = std::function<witness_ct(Builder * ctx, uint64_t, uint256_t)>;
 
         // check that constraints are satisfied for a variety of inputs
-        auto run_success_test = [&]() {
+        auto run_success_test = [&](size_t num_bits) {
             Builder builder = Builder();
 
-            constexpr uint256_t modulus_minus_one = fr::modulus - 1;
-            const fr p_lo = modulus_minus_one.slice(0, 130);
+            uint256_t random_val(engine.get_random_uint256());
+            // For big values (num_bits>=254), ensure that they can't overflow by shifting by 4 bits.
+            uint256_t scalar_raw = (num_bits < 254) ? random_val >> (256 - num_bits) : random_val >> 4;
+            field_ct a = witness_ct(&builder, scalar_raw);
+            std::vector<bool_ct> c = a.decompose_into_bits(num_bits);
+            uint256_t bit_sum = 0;
+            for (size_t i = 0; i < c.size(); i++) {
+                uint256_t scaling_factor_value(uint256_t(1) << i);
+                bit_sum += fr(c[i].get_value()) * scaling_factor_value;
+            }
+            EXPECT_EQ(bit_sum, scalar_raw);
 
-            std::vector<fr> test_elements = { bb::fr::random_element(),
-                                              0,
-                                              -1,
-                                              fr(static_cast<uint256_t>(engine.get_random_uint8())),
-                                              fr((static_cast<uint256_t>(1) << 130) + 1 + p_lo) };
-
-            for (auto a_expected : test_elements) {
-                field_ct a = witness_ct(&builder, a_expected);
-                std::vector<bool_ct> c = a.decompose_into_bits();
-                fr bit_sum = 0;
-                for (size_t i = 0; i < c.size(); i++) {
-                    fr scaling_factor_value = fr(2).pow(static_cast<uint64_t>(i));
-                    bit_sum += (fr(c[i].get_value()) * scaling_factor_value);
-                }
-                EXPECT_EQ(bit_sum, a_expected);
-            };
-
-            bool verified = CircuitChecker::check(builder);
-            ASSERT_TRUE(verified);
+            ASSERT_TRUE(CircuitChecker::check(builder));
         };
 
         // Now try to supply unintended witness values and test for failure.
@@ -710,23 +866,28 @@ template <typename Builder> class stdlib_field : public testing::Test {
             if (j > 127) {
                 return witness_ct(ctx, val_256.get_bit(j));
             };
+
             return witness_ct(ctx, (fr::modulus).get_bit(j));
         };
 
-        auto run_failure_test = [&](witness_supplier_type witness_supplier) {
+        auto run_failure_test = [&](witness_supplier_type witness_supplier, std::string err_msg) {
             Builder builder = Builder();
 
             fr a_expected = 0;
             field_ct a = witness_ct(&builder, a_expected);
-            std::vector<bool_ct> c = a.decompose_into_bits(witness_supplier);
+            std::vector<bool_ct> c = a.decompose_into_bits(256, witness_supplier);
 
             bool verified = CircuitChecker::check(builder);
             ASSERT_FALSE(verified);
+            EXPECT_TRUE(err_msg == builder.err());
         };
 
-        run_success_test();
-        run_failure_test(supply_modulus_bits);
-        run_failure_test(supply_half_modulus_bits);
+        for (size_t idx = 1; idx <= 256; idx++) {
+            run_success_test(idx);
+        }
+
+        run_failure_test(supply_modulus_bits, "field_t: bit decomposition fails: y_hi is too large.");
+        run_failure_test(supply_half_modulus_bits, "field_t: bit decomposition_fails: copy constraint");
     }
 
     static void test_assert_is_in_set()
@@ -770,114 +931,51 @@ template <typename Builder> class stdlib_field : public testing::Test {
     {
         Builder builder = Builder();
 
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
+        std::array<uint32_t, 3> const_exponent_values{ 0, 1, engine.get_random_uint32() };
+        std::array<field_ct, 3> witness_exponent_values{ witness_ct(&builder, 0),
+                                                         witness_ct(&builder, 1),
+                                                         witness_ct(&builder, engine.get_random_uint32()) };
 
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
+        std::array<uint256_t, 3> base_values{ 0, 1, engine.get_random_uint256() };
+        for (auto& base : base_values) {
+            for (auto& exponent : const_exponent_values) {
+                // Test constant base && integer exponent cases
+                field_ct result = field_ct(base).pow(exponent);
+                EXPECT_TRUE(result.is_constant());
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent));
+                // Test witness base && integer exponent cases
+                field_ct witness_base(witness_ct(&builder, base));
+                result = witness_base.pow(exponent);
 
-        EXPECT_EQ(result.get_value(), expected);
+                if (exponent != 0) {
+                    EXPECT_TRUE(!result.is_constant());
+                } else {
+                    EXPECT_TRUE(result.is_constant());
+                }
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent));
+
+                EXPECT_TRUE(CircuitChecker::check(builder));
+            }
+            for (auto& exponent : witness_exponent_values) {
+
+                // Test constant base && witness exponent cases
+                field_ct result = field_ct(base).pow(exponent);
+                // Normalized witness == 1 leads to constant results in `conditional_assign(predicate, 1, 1)`
+                EXPECT_EQ(result.is_constant(), base == 1);
+
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
+                // Test witness base && witness exponent cases
+                field_ct witness_base(witness_ct(&builder, base));
+                result = witness_base.pow(exponent);
+
+                EXPECT_TRUE(!result.is_constant());
+                EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
+
+                EXPECT_TRUE(CircuitChecker::check(builder));
+            }
+        }
     }
-
-    static void test_pow_zero()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = 0;
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-
-        EXPECT_EQ(result.get_value(), bb::fr(1));
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_one()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = 1;
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-
-        EXPECT_EQ(result.get_value(), base_val);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_both_constant()
-    {
-        Builder builder = Builder();
-
-        const size_t num_gates_start = builder.num_gates;
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base(&builder, base_val);
-        field_ct exponent(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        const size_t num_gates_end = builder.num_gates;
-        EXPECT_EQ(num_gates_start, num_gates_end);
-    }
-
-    static void test_pow_base_constant()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    }
-
-    static void test_pow_exponent_constant()
-    {
-        Builder builder = Builder();
-
-        fr base_val(engine.get_random_uint256());
-        uint32_t exponent_val = engine.get_random_uint32();
-
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent(&builder, exponent_val);
-        field_ct result = base.pow(exponent);
-        fr expected = base_val.pow(exponent_val);
-
-        EXPECT_EQ(result.get_value(), expected);
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
-
-        bool check_result = CircuitChecker::check(builder);
-        EXPECT_EQ(check_result, true);
-    };
 
     static void test_pow_exponent_out_of_range()
     {
@@ -895,6 +993,11 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_NE(result.get_value(), expected);
         EXPECT_EQ(builder.failed(), true);
         EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+
+        exponent = field_ct(exponent_val);
+#ifndef NDEBUG
+        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+#endif
     };
 
     static void test_copy_as_new_witness()
@@ -917,6 +1020,110 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
+    }
+
+    static void test_assert_is_zero()
+    {
+        // Create a constant 0, `assert_is_zero()` does nothing in-circuit in this case
+        field_ct elt = bb::fr::zero();
+        elt.assert_is_zero();
+        // If we apply `assert_is_zero()` to a non-zero constant, we hit an ASSERT failure
+        elt = bb::fr::random_element();
+#ifndef NDEBUG
+
+        if (elt.get_value() != 0) {
+            EXPECT_DEATH(elt.assert_is_zero(), "field_t::assert_is_zero");
+        }
+#endif
+        // Create a witness 0
+        Builder builder = Builder();
+        elt = witness_ct(&builder, bb::fr::zero());
+        elt.assert_is_zero();
+        // The circuit must be correct
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // If we apply `assert_is_zero()` to a non-zero witness, an unsatisfiable `poly_gate` constraint is created
+        field_ct non_zero_elt = witness_ct(&builder, bb::fr::random_element());
+        if (non_zero_elt.get_value() != 0) {
+            non_zero_elt.assert_is_zero();
+            EXPECT_FALSE(CircuitChecker::check(builder));
+        }
+    }
+
+    static void test_accumulate()
+    {
+        for (size_t max_vector_length = 1; max_vector_length < 100; max_vector_length++) {
+            Builder builder = Builder();
+            std::vector<bb::fr> native_input(max_vector_length, 0);
+            for (auto& entry : native_input) {
+                entry = bb::fr::random_element();
+            }
+
+            // Compute the native sum
+            bb::fr native_sum = std::accumulate(native_input.begin(), native_input.end(), bb::fr::zero());
+            std::vector<field_ct> input(max_vector_length);
+            size_t idx = 0;
+            // Convert native vector to a vector of field_t elements. Every 5th element is set to be constant.
+            for (auto& native_entry : native_input) {
+                field_ct entry = ((idx % 5) == 0) ? field_ct(native_entry) : witness_ct(&builder, native_entry);
+                input.emplace_back(entry);
+                idx++;
+            }
+            // Compute the accumulation result
+            field_ct sum = field_ct::accumulate(input);
+            EXPECT_EQ(native_sum, sum.get_value());
+
+            // Check that the result is normalized
+            if (!sum.is_constant()) {
+                EXPECT_TRUE(sum.multiplicative_constant == 1 && sum.additive_constant == 0);
+            }
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+
+            // Check that the number of gates is as expected
+            size_t num_witnesses = max_vector_length - (max_vector_length + 4) / 5;
+            size_t padding = (3 - (num_witnesses % 3)) % 3;
+            size_t expected_num_gates = (num_witnesses + padding) / 3;
+
+            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - 1, expected_num_gates);
+
+            // Check that the accumulation of constant entries does not create a witness
+            std::vector<field_ct> constant_input;
+            for (auto& entry : input) {
+                if (entry.is_constant()) {
+                    constant_input.emplace_back(entry);
+                }
+            }
+            field_ct constant_sum = field_ct::accumulate(constant_input);
+            EXPECT_TRUE(constant_sum.is_constant());
+        }
+        // Test edge cases
+        // 1. Accumulating an empty vector should lead to constant zero.
+        std::vector<field_ct> empty_input;
+        field_ct result(field_ct::accumulate(empty_input));
+        EXPECT_TRUE(result.is_constant() && result.get_value() == bb::fr::zero());
+        // 2. Check that the result of accumulating a single witness summand is correct and normalized.
+        Builder builder = Builder();
+        field_ct single_summand = witness_ct(&builder, bb::fr::random_element());
+        single_summand += field_ct(bb::fr(3));
+        single_summand *= field_ct(bb::fr(2));
+        // `single_summand` isn't normalized anymore
+        EXPECT_TRUE(single_summand.additive_constant != 0 && single_summand.multiplicative_constant != 1);
+        std::vector<field_ct> single_element_input{ single_summand };
+        // The accumulation result is expected to be normalized
+        result = field_ct::accumulate(single_element_input);
+        EXPECT_TRUE(result.get_value() == single_summand.get_value() && result.additive_constant == 0 &&
+                    result.multiplicative_constant == 1);
+    }
+
+    static void test_fix_witness()
+    {
+        Builder builder = Builder();
+
+        field_ct witness = witness_ct(&builder, bb::fr::random_element());
+        witness.fix_witness();
+        // Validate that the negated value of the witness is recorded in q_c.
+        EXPECT_TRUE(builder.blocks.arithmetic.q_c().back() == -witness.get_value());
     }
 
     static void test_ranged_less_than()
@@ -1125,6 +1332,11 @@ TYPED_TEST(stdlib_field, test_constructor_from_witness)
 {
     TestFixture::test_constructor_from_witness();
 }
+
+TYPED_TEST(stdlib_field, test_add)
+{
+    TestFixture::test_add();
+}
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
@@ -1141,15 +1353,26 @@ TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
 }
+TYPED_TEST(stdlib_field, test_bool_conversion)
+{
+    TestFixture::test_bool_conversion();
+}
 
 TYPED_TEST(stdlib_field, test_bool_conversion_regression)
 {
     TestFixture::test_bool_conversion_regression();
 }
-
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();
+}
+TYPED_TEST(stdlib_field, test_div_edge_cases)
+{
+    TestFixture::test_div_edge_cases();
+}
+TYPED_TEST(stdlib_field, test_invert)
+{
+    TestFixture::test_invert();
 }
 TYPED_TEST(stdlib_field, test_postfix_increment)
 {
@@ -1183,9 +1406,13 @@ TYPED_TEST(stdlib_field, test_larger_circuit)
 {
     TestFixture::test_larger_circuit();
 }
-TYPED_TEST(stdlib_field, is_zero)
+TYPED_TEST(stdlib_field, test_is_zero)
 {
-    TestFixture::is_zero();
+    TestFixture::test_is_zero();
+}
+TYPED_TEST(stdlib_field, test_fix_witness)
+{
+    TestFixture::test_fix_witness();
 }
 TYPED_TEST(stdlib_field, madd)
 {
@@ -1211,9 +1438,9 @@ TYPED_TEST(stdlib_field, three_bit_table)
 {
     TestFixture::three_bit_table();
 }
-TYPED_TEST(stdlib_field, decompose_into_bits)
+TYPED_TEST(stdlib_field, test_decompose_into_bits)
 {
-    TestFixture::decompose_into_bits();
+    TestFixture::test_decompose_into_bits();
 }
 TYPED_TEST(stdlib_field, test_assert_is_in_set)
 {
@@ -1226,26 +1453,6 @@ TYPED_TEST(stdlib_field, test_assert_is_in_set_fails)
 TYPED_TEST(stdlib_field, test_pow)
 {
     TestFixture::test_pow();
-}
-TYPED_TEST(stdlib_field, test_pow_zero)
-{
-    TestFixture::test_pow_zero();
-}
-TYPED_TEST(stdlib_field, test_pow_one)
-{
-    TestFixture::test_pow_one();
-}
-TYPED_TEST(stdlib_field, test_pow_both_constant)
-{
-    TestFixture::test_pow_both_constant();
-}
-TYPED_TEST(stdlib_field, test_pow_base_constant)
-{
-    TestFixture::test_pow_base_constant();
-}
-TYPED_TEST(stdlib_field, test_pow_exponent_constant)
-{
-    TestFixture::test_pow_exponent_constant();
 }
 TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
 {
@@ -1268,4 +1475,23 @@ TYPED_TEST(stdlib_field, test_origin_tag_consistency)
 TYPED_TEST(stdlib_field, test_add_two)
 {
     TestFixture::test_add_two();
+}
+
+TYPED_TEST(stdlib_field, test_add_mul_with_constants)
+{
+    TestFixture::test_add_mul_with_constants();
+}
+
+TYPED_TEST(stdlib_field, test_assert_is_zero)
+{
+    TestFixture::test_assert_is_zero();
+}
+TYPED_TEST(stdlib_field, test_accumulate)
+{
+    TestFixture::test_accumulate();
+}
+
+TYPED_TEST(stdlib_field, test_conditional_negate)
+{
+    TestFixture::test_conditional_negate();
 }

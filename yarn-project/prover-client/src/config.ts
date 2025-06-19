@@ -1,5 +1,10 @@
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/server';
 
 import {
@@ -36,6 +41,16 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     env: 'BB_SKIP_CLEANUP',
     description: 'Whether to skip cleanup of bb temporary files',
     ...booleanConfigHelper(false),
+  },
+  numConcurrentIVCVerifiers: {
+    env: 'BB_NUM_IVC_VERIFIERS',
+    description: 'Max number of client IVC verifiers to run concurrently',
+    ...numberConfigHelper(8),
+  },
+  bbIVCConcurrency: {
+    env: 'BB_IVC_CONCURRENCY',
+    description: 'Number of threads to use for IVC verification',
+    ...numberConfigHelper(1),
   },
 };
 

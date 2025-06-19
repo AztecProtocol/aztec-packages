@@ -80,7 +80,7 @@ However if one wants to implement authorization logic containing signatures (e.g
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-```rust title="is_valid_impl" showLineNumbers
+```rust title="is_valid_impl" showLineNumbers 
 // Load public key from storage
 let storage = Storage::init(context);
 let public_key = storage.signing_public_key.get_note();
@@ -102,7 +102,7 @@ let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {
 // Verify signature of the payload bytes
 schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L65-L86</a></sub></sup>
 
 
 ### Storing signing keys
@@ -117,10 +117,10 @@ Storing the signing public key in a private note makes it accessible from the `e
 
 Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
 
-```rust title="public_key" showLineNumbers
+```rust title="public_key" showLineNumbers 
 signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L28-L30</a></sub></sup>
 
 
 :::note

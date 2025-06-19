@@ -46,8 +46,12 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto prover_transcript = std::make_shared<NativeTranscript>();
         NativeIPA::compute_opening_proof(this->ck(), { poly, opening_pair }, prover_transcript);
 
+        // Export proof
+        auto proof = prover_transcript->export_proof();
+
         // initialize verifier transcript from proof data
-        auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
@@ -59,8 +63,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         OpeningClaim<Curve> stdlib_opening_claim{ { stdlib_x, stdlib_eval }, stdlib_comm };
 
         // Construct stdlib verifier transcript
-        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>(
-            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data));
+        auto recursive_verifier_transcript = std::make_shared<StdlibTranscript>();
+        recursive_verifier_transcript->load_proof(bb::convert_native_proof_to_stdlib(&builder, proof));
         return { recursive_verifier_transcript, stdlib_opening_claim };
     }
     template <size_t log_poly_length> Builder build_ipa_recursive_verifier_circuit()
@@ -125,7 +129,8 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         const OpeningClaim<NativeCurve> opening_claim{ opening_pair, native_comm };
 
         // Natively verify this proof to check it.
-        auto verifier_transcript = std::make_shared<NativeTranscript>(ipa_proof);
+        auto verifier_transcript = std::make_shared<NativeTranscript>();
+        verifier_transcript->load_proof(ipa_proof);
 
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
@@ -194,7 +199,7 @@ TEST_F(IPARecursiveTests, FullRecursiveVerifier)
     Builder builder;
     auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder);
 
-    auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<Curve>>(&builder, 1UL << log_poly_length, this->vk());
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&builder, POLY_LENGTH, this->vk());
     auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, stdlib_claim, stdlib_transcript);
     EXPECT_TRUE(result);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
@@ -232,10 +237,9 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
 
     Builder root_rollup;
     // Fully recursively verify this proof to check it.
-    auto stdlib_pcs_vkey =
-        std::make_shared<VerifierCommitmentKey<Curve>>(&root_rollup, 1UL << log_poly_length, this->vk());
-    auto stdlib_verifier_transcript =
-        std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&root_rollup, 1UL << log_poly_length, this->vk());
+    auto stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
+    stdlib_verifier_transcript->load_proof(convert_native_proof_to_stdlib(&root_rollup, ipa_proof));
     OpeningClaim<Curve> ipa_claim;
     ipa_claim.opening_pair.challenge =
         Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());

@@ -9,7 +9,7 @@ Address notes hold one main property of the type `AztecAddress`. It also holds `
 
 This is the AddressNote:
 
-```rust title="address_note_def" showLineNumbers
+```rust title="address_note_def" showLineNumbers 
 #[note]
 #[derive(Eq)]
 pub struct AddressNote {
@@ -29,7 +29,7 @@ impl AddressNote {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/address-note/src/address_note.nr#L5-L24</a></sub></sup>
 
 
 ## Importing AddressNote
@@ -37,15 +37,15 @@ impl AddressNote {
 ### In Nargo.toml
 
 ```toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.3", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.4", directory="noir-projects/aztec-nr/address-note" }
 ```
 
 ### In your contract
 
-```rust title="addressnote_import" showLineNumbers
+```rust title="addressnote_import" showLineNumbers 
 use dep::address_note::address_note::AddressNote;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L14-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L14-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L14-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L14-L16</a></sub></sup>
 
 
 ## Working with AddressNote
@@ -57,10 +57,10 @@ Creating a new `AddressNote` takes the following args:
 - `address` (`AztecAddress`): the address to store in the AddressNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-```rust title="addressnote_new" showLineNumbers
+```rust title="addressnote_new" showLineNumbers 
 let note = AddressNote::new(owner, owner);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L28-L30</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/escrow_contract/src/main.nr#L28-L30</a></sub></sup>
 
 
 In this example, `owner` is the `address` and the `npk_m_hash` of the donor was computed earlier.

@@ -91,7 +91,7 @@ impl Deserialize<SPONGE_BLOB_LENGTH> for SpongeBlob {
                 cache: [fields[0], fields[1], fields[2]],
                 state: [fields[3], fields[4], fields[5], fields[6]],
                 cache_size: fields[7] as u32,
-                squeeze_mode: fields[8] as bool,
+                squeeze_mode: fields[8] != 0,
             },
             fields: fields[9] as u32,
             expected_fields: fields[10] as u32,

@@ -81,6 +81,8 @@ class AvmFlavor {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
+    static_assert(MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
+
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
@@ -123,9 +125,10 @@ class AvmFlavor {
     //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
     //               "in constants.nr accordingly.");
 
-    template <typename DataType> class PrecomputedEntities {
+    template <typename DataType_> class PrecomputedEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType_, AVM2_PRECOMPUTED_ENTITIES)
     };
 
   private:
@@ -203,7 +206,7 @@ class AvmFlavor {
         size_t log_circuit_size;
         size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
-        std::shared_ptr<CommitmentKey> commitment_key;
+        CommitmentKey commitment_key;
 
         // Offset off the public inputs from the start of the execution trace
         size_t pub_inputs_offset = 0;
@@ -218,26 +221,25 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
-        using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : VerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
+            : NativeVerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
@@ -280,7 +282,6 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        size_t get_polynomial_size() const { return execution_input.size(); }
         // Only const-access is allowed here. That's all that the logderivative library requires.
         // https://github.com/AztecProtocol/aztec-packages/blob/e50d8e0/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L44.
         PolynomialEntitiesAtFixedRow<ProverPolynomials> get_row(size_t row_idx) const { return { row_idx, *this }; }
@@ -350,10 +351,6 @@ class AvmFlavor {
         Commitment kzg_w_comm;
 
         Transcript() = default;
-
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
-        {}
 
         void deserialize_full_transcript();
         void serialize_full_transcript();

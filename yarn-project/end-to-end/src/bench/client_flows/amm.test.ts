@@ -110,7 +110,7 @@ describe('AMM benchmark', () => {
             const nonceForAuthwits = Fr.random();
             const token0Authwit = await benchysWallet.createAuthWit({
               caller: amm.address,
-              action: bananaCoin.methods.transfer_to_public(
+              action: bananaCoin.methods.transfer_to_public_and_prepare_private_balance_increase(
                 benchysWallet.getAddress(),
                 amm.address,
                 amountToSend,
@@ -119,7 +119,7 @@ describe('AMM benchmark', () => {
             });
             const token1Authwit = await benchysWallet.createAuthWit({
               caller: amm.address,
-              action: candyBarCoin.methods.transfer_to_public(
+              action: candyBarCoin.methods.transfer_to_public_and_prepare_private_balance_increase(
                 benchysWallet.getAddress(),
                 amm.address,
                 amountToSend,
@@ -140,12 +140,10 @@ describe('AMM benchmark', () => {
                 1 + // Kernel init
                 paymentMethod.circuits + // Payment method circuits
                 2 + // AMM add_liquidity + kernel inner
-                2 + // Token transfer_to_public + kernel inner (token0)
+                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token0)
                 2 + // Account verify_private_authwit + kernel inner
-                2 + // Token prepare_private_balance_increase + kernel inner (token0 refund)
-                2 + // Token transfer_to_public + kernel inner (token1)
+                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token1)
                 2 + // Account verify_private_authwit + kernel inner
-                2 + // Token prepare_private_balance_increase + kernel inner (token1 refund)
                 2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
                 1 + // Kernel reset
                 1, // Kernel tail

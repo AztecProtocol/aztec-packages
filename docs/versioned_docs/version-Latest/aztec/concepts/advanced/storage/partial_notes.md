@@ -113,7 +113,7 @@ We also need to create a point for the owner of the FPC (whom we call Bob) to re
 So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
-We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L491) of `setup_refund` function)
+We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L491) of `setup_refund` function)
 :::
 
 $$
@@ -144,7 +144,7 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `fee_entrypoint_private`
 
-```rust title="fee_entrypoint_private" showLineNumbers
+```rust title="fee_entrypoint_private" showLineNumbers 
 #[private]
 fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
     let accepted_asset = storage.config.read().accepted_asset;
@@ -170,7 +170,7 @@ fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
     context.set_as_fee_payer();
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L78-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L78-L103</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L78-L103" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L78-L103</a></sub></sup>
 
 
 The `fee_entrypoint_private` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`).
@@ -178,7 +178,7 @@ This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-```rust title="complete_refund" showLineNumbers
+```rust title="complete_refund" showLineNumbers 
 #[public]
 #[internal]
 fn _complete_refund(
@@ -201,7 +201,7 @@ fn _complete_refund(
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L107-L129" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L107-L129</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L107-L129" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L107-L129</a></sub></sup>
 
 
 ## Note discovery

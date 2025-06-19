@@ -11,9 +11,9 @@
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
@@ -66,44 +66,47 @@ void create_dummy_vkey_and_proof(Builder& builder,
     const auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
 
     // First key field is circuit size
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
+    builder.set_variable(key_fields[0].witness_index, 1 << log_circuit_size);
     // Second key field is number of public inputs
-    builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
+    builder.set_variable(key_fields[1].witness_index, public_inputs_size);
 
     size_t offset = 2;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), key_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), key_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), key_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), key_fields[offset + 3].witness_index);
+        builder.set_variable(key_fields[offset].witness_index, frs[0]);
+        builder.set_variable(key_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(key_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(key_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
-    builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    offset = 1;
+    // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
+    // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
+    builder.set_variable(proof_fields[0].witness_index, 1);
+    builder.set_variable(proof_fields[1].witness_index, 1 << log_circuit_size);
+    offset = 2; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
 
     // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
     // now the univariates
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
     // now the sumcheck evaluations
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
@@ -111,16 +114,16 @@ void create_dummy_vkey_and_proof(Builder& builder,
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 
     // the gemini fold evaluations which are CONST_PROOF_SIZE_LOG_N
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
         offset++;
     }
 
@@ -128,10 +131,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
     for (size_t i = 0; i < 2; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.assert_equal(builder.add_variable(frs[0]), proof_fields[offset].witness_index);
-        builder.assert_equal(builder.add_variable(frs[1]), proof_fields[offset + 1].witness_index);
-        builder.assert_equal(builder.add_variable(frs[2]), proof_fields[offset + 2].witness_index);
-        builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
         offset += 4;
     }
 

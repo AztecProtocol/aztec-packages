@@ -4,7 +4,7 @@ use crate::hash::{
 };
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use dep::protocol_types::address::{AztecAddress, EthAddress};
-use dep::protocol_types::constants::MAX_FIELD_VALUE;
+use dep::protocol_types::constants::MAX_U32_VALUE;
 use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField};
 
 pub struct PublicContext {
@@ -87,8 +87,8 @@ impl PublicContext {
         let calldata = args.push_front(function_selector.to_field());
 
         call(
-            gas_opts.l2_gas.unwrap_or(MAX_FIELD_VALUE),
-            gas_opts.da_gas.unwrap_or(MAX_FIELD_VALUE),
+            gas_opts.l2_gas.unwrap_or(MAX_U32_VALUE),
+            gas_opts.da_gas.unwrap_or(MAX_U32_VALUE),
             contract_address,
             calldata,
         );
@@ -113,8 +113,8 @@ impl PublicContext {
         let calldata = args.push_front(function_selector.to_field());
 
         call_static(
-            gas_opts.l2_gas.unwrap_or(MAX_FIELD_VALUE),
-            gas_opts.da_gas.unwrap_or(MAX_FIELD_VALUE),
+            gas_opts.l2_gas.unwrap_or(MAX_U32_VALUE),
+            gas_opts.da_gas.unwrap_or(MAX_U32_VALUE),
             contract_address,
             calldata,
         );
@@ -182,7 +182,7 @@ impl PublicContext {
             version()
         }
     }
-    pub fn block_number(_self: Self) -> Field {
+    pub fn block_number(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             block_number()
@@ -194,26 +194,26 @@ impl PublicContext {
             timestamp()
         }
     }
-    pub fn fee_per_l2_gas(_self: Self) -> Field {
+    pub fn fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             fee_per_l2_gas()
         }
     }
-    pub fn fee_per_da_gas(_self: Self) -> Field {
+    pub fn fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             fee_per_da_gas()
         }
     }
 
-    pub fn l2_gas_left(_self: Self) -> Field {
+    pub fn l2_gas_left(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             l2_gas_left()
         }
     }
-    pub fn da_gas_left(_self: Self) -> Field {
+    pub fn da_gas_left(_self: Self) -> u32 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
             da_gas_left()
@@ -271,22 +271,22 @@ unconstrained fn chain_id() -> Field {
 unconstrained fn version() -> Field {
     version_opcode()
 }
-unconstrained fn block_number() -> Field {
+unconstrained fn block_number() -> u32 {
     block_number_opcode()
 }
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> Field {
+unconstrained fn fee_per_l2_gas() -> u128 {
     fee_per_l2_gas_opcode()
 }
-unconstrained fn fee_per_da_gas() -> Field {
+unconstrained fn fee_per_da_gas() -> u128 {
     fee_per_da_gas_opcode()
 }
-unconstrained fn l2_gas_left() -> Field {
+unconstrained fn l2_gas_left() -> u32 {
     l2_gas_left_opcode()
 }
-unconstrained fn da_gas_left() -> Field {
+unconstrained fn da_gas_left() -> u32 {
     da_gas_left_opcode()
 }
 unconstrained fn is_static_call() -> Field {
@@ -314,8 +314,8 @@ unconstrained fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
     send_l2_to_l1_msg_opcode(recipient, content)
 }
 unconstrained fn call(
-    l2_gas_allocation: Field,
-    da_gas_allocation: Field,
+    l2_gas_allocation: u32,
+    da_gas_allocation: u32,
     address: AztecAddress,
     args: [Field],
 ) {
@@ -323,8 +323,8 @@ unconstrained fn call(
 }
 
 unconstrained fn call_static(
-    l2_gas_allocation: Field,
-    da_gas_allocation: Field,
+    l2_gas_allocation: u32,
+    da_gas_allocation: u32,
     address: AztecAddress,
     args: [Field],
 ) {
@@ -391,22 +391,22 @@ unconstrained fn chain_id_opcode() -> Field {}
 unconstrained fn version_opcode() -> Field {}
 
 #[oracle(avmOpcodeBlockNumber)]
-unconstrained fn block_number_opcode() -> Field {}
+unconstrained fn block_number_opcode() -> u32 {}
 
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
 
 #[oracle(avmOpcodeFeePerL2Gas)]
-unconstrained fn fee_per_l2_gas_opcode() -> Field {}
+unconstrained fn fee_per_l2_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeFeePerDaGas)]
-unconstrained fn fee_per_da_gas_opcode() -> Field {}
+unconstrained fn fee_per_da_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
-unconstrained fn l2_gas_left_opcode() -> Field {}
+unconstrained fn l2_gas_left_opcode() -> u32 {}
 
 #[oracle(avmOpcodeDaGasLeft)]
-unconstrained fn da_gas_left_opcode() -> Field {}
+unconstrained fn da_gas_left_opcode() -> u32 {}
 
 #[oracle(avmOpcodeIsStaticCall)]
 unconstrained fn is_static_call_opcode() -> Field {}
@@ -454,16 +454,16 @@ unconstrained fn revert_opcode(revertdata: [Field]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode(
-    l2_gas_allocation: Field,
-    da_gas_allocation: Field,
+    l2_gas_allocation: u32,
+    da_gas_allocation: u32,
     address: AztecAddress,
     args: [Field],
 ) {}
 
 #[oracle(avmOpcodeStaticCall)]
 unconstrained fn call_static_opcode(
-    l2_gas_allocation: Field,
-    da_gas_allocation: Field,
+    l2_gas_allocation: u32,
+    da_gas_allocation: u32,
     address: AztecAddress,
     args: [Field],
 ) {}

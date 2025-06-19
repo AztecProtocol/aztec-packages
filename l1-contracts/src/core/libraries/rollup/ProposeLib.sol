@@ -8,17 +8,15 @@ import {
   BlockLog,
   BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
-import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
-import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {ValidatorSelectionLib} from
-  "@aztec/core/libraries/validator-selection/ValidatorSelectionLib.sol";
+import {
+  SignatureDomainSeparator, CommitteeAttestation
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
-import {Header, HeaderLib} from "./HeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
 import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
@@ -27,15 +25,15 @@ struct ProposeArgs {
   // It doesn't need to be in the proposed header as the values are not used in propose() and they are committed to
   // by the last archive and blobs hash.
   // It can be removed if the archiver can refer to world state for the updated roots.
-  bytes stateReference;
+  StateReference stateReference;
   OracleInput oracleInput;
-  bytes header;
+  ProposedHeader header;
   bytes32[] txHashes;
 }
 
 struct ProposePayload {
   bytes32 archive;
-  bytes stateReference;
+  StateReference stateReference;
   OracleInput oracleInput;
   bytes32 headerHash;
   bytes32[] txHashes;
@@ -44,9 +42,8 @@ struct ProposePayload {
 struct InterimProposeValues {
   bytes32[] blobHashes;
   bytes32 blobsHashesCommitment;
-  bytes32 blobPublicInputsHash;
+  bytes[] blobCommitments;
   bytes32 inHash;
-  uint256 outboxMinsize;
   bytes32 headerHash;
 }
 
@@ -59,10 +56,9 @@ struct InterimProposeValues {
  * @param flags - Flags specific to the execution, whether certain checks should be skipped
  */
 struct ValidateHeaderArgs {
-  Header header;
-  Signature[] attestations;
+  ProposedHeader header;
+  CommitteeAttestation[] attestations;
   bytes32 digest;
-  Timestamp currentTime;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
   BlockHeaderValidationFlags flags;
@@ -78,13 +74,17 @@ library ProposeLib {
    * @dev     `eth_log_handlers` rely on this function
    *
    * @param _args - The arguments to propose the block
-   * @param _signatures - Signatures from the validators
-   * @param _blobInput - The blob evaluation KZG proof, challenge, and opening required for the precompile.
+   * @param _attestations - Signatures (or empty) from the validators
+   * Input _blobsInput bytes:
+   * input[:1] - num blobs in block
+   * input[1:] - blob commitments (48 bytes * num blobs in block)
+   * @param _blobsInput - The above bytes to verify our input blob commitments match real blobs
+   * @param _checkBlob - Whether to skip blob related checks. Hardcoded to true (See RollupCore.sol -> checkBlob), exists only to be overriden in tests.
    */
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
-    bytes calldata _blobInput,
+    CommitteeAttestation[] memory _attestations,
+    bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
@@ -93,16 +93,17 @@ library ProposeLib {
     FeeLib.updateL1GasFeeOracle();
 
     InterimProposeValues memory v;
-    // Since an invalid blob hash here would fail the consensus checks of
-    // the header, the `blobInput` is implicitly accepted by consensus as well.
-    (v.blobHashes, v.blobsHashesCommitment, v.blobPublicInputsHash) =
-      BlobLib.validateBlobs(_blobInput, _checkBlob);
 
-    Header memory header = HeaderLib.decode(_args.header);
-    v.headerHash = HeaderLib.hash(_args.header);
+    // TODO(#13430): The below blobsHashesCommitment known as blobsHash elsewhere in the code. The name is confusingly similar to blobCommitmentsHash,
+    // see comment in BlobLib.sol -> validateBlobs().
+    (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) =
+      BlobLib.validateBlobs(_blobsInput, _checkBlob);
+
+    ProposedHeader memory header = _args.header;
+    v.headerHash = ProposedHeaderLib.hash(_args.header);
 
     Epoch currentEpoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-    ValidatorSelectionLib.setupEpoch(StakingLib.getStorage(), currentEpoch);
+    ValidatorSelectionLib.setupEpoch(currentEpoch);
 
     ManaBaseFeeComponents memory components =
       getManaBaseFeeComponentsAt(Timestamp.wrap(block.timestamp), true);
@@ -110,7 +111,7 @@ library ProposeLib {
     validateHeader(
       ValidateHeaderArgs({
         header: header,
-        attestations: _signatures,
+        attestations: _attestations,
         digest: digest(
           ProposePayload({
             archive: _args.archive,
@@ -120,7 +121,6 @@ library ProposeLib {
             txHashes: _args.txHashes
           })
         ),
-        currentTime: Timestamp.wrap(block.timestamp),
         manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
@@ -130,8 +130,21 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] =
-      BlockLog({archive: _args.archive, headerHash: v.headerHash, slotNumber: header.slotNumber});
+    // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
+    bool isFirstBlockOfEpoch =
+      currentEpoch > STFLib.getEpochForBlock(blockNumber - 1) || blockNumber == 1;
+    bytes32 blobCommitmentsHash = BlobLib.calculateBlobCommitmentsHash(
+      rollupStore.blocks[blockNumber - 1].blobCommitmentsHash,
+      v.blobCommitments,
+      isFirstBlockOfEpoch
+    );
+
+    rollupStore.blocks[blockNumber] = BlockLog({
+      archive: _args.archive,
+      headerHash: v.headerHash,
+      blobCommitmentsHash: blobCommitmentsHash,
+      slotNumber: header.slotNumber
+    });
 
     FeeLib.writeFeeHeader(
       blockNumber,
@@ -141,8 +154,6 @@ library ProposeLib {
       components.proverCost
     );
 
-    rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
-
     // @note  The block number here will always be >=1 as the genesis block is at 0
     v.inHash = rollupStore.config.inbox.consume(blockNumber);
     require(
@@ -150,23 +161,20 @@ library ProposeLib {
       Errors.Rollup__InvalidInHash(v.inHash, header.contentCommitment.inHash)
     );
 
-    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-    // Min size = smallest path of the rollup tree + 1
-    (v.outboxMinsize,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    rollupStore.config.outbox.insert(
-      blockNumber, header.contentCommitment.outHash, v.outboxMinsize + 1
-    );
+    rollupStore.config.outbox.insert(blockNumber, header.contentCommitment.outHash);
 
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
 
   // @note: not view as sampling validators uses tstore
   function validateHeader(ValidateHeaderArgs memory _args) internal {
+    require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
+    Timestamp currentTime = Timestamp.wrap(block.timestamp);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(currentTime);
 
     bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
     require(
@@ -178,7 +186,7 @@ library ProposeLib {
     Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
-    Slot currentSlot = _args.currentTime.slotFromTimestamp();
+    Slot currentSlot = currentTime.slotFromTimestamp();
     require(slot == currentSlot, Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot));
 
     Timestamp timestamp = TimeLib.toTimestamp(slot);
@@ -187,9 +195,7 @@ library ProposeLib {
       Errors.Rollup__InvalidTimestamp(timestamp, _args.header.timestamp)
     );
 
-    require(
-      timestamp <= _args.currentTime, Errors.Rollup__TimestampInFuture(_args.currentTime, timestamp)
-    );
+    require(timestamp <= currentTime, Errors.Rollup__TimestampInFuture(currentTime, timestamp));
 
     require(
       _args.flags.ignoreDA
@@ -204,12 +210,7 @@ library ProposeLib {
     );
 
     ValidatorSelectionLib.verify(
-      StakingLib.getStorage(),
-      slot,
-      slot.epochFromSlot(),
-      _args.attestations,
-      _args.digest,
-      _args.flags
+      slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
     );
   }
 
@@ -233,6 +234,6 @@ library ProposeLib {
   }
 
   function digest(ProposePayload memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
+    return keccak256(abi.encode(SignatureDomainSeparator.blockAttestation, _args));
   }
 }

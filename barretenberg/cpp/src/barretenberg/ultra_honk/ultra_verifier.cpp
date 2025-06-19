@@ -65,7 +65,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
         ipa_claim.commitment = { ipa_claim_limbs[8], ipa_claim_limbs[9] };
 
         // verify the ipa_proof with this claim
-        ipa_transcript = std::make_shared<Transcript>(ipa_proof);
+        ipa_transcript->load_proof(ipa_proof);
         ipa_transcript->enable_manifest(); // Enable manifest for the verifier.
         bool ipa_result = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
         if (!ipa_result) {
@@ -75,6 +75,14 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const HonkP
 
     DeciderVerifier decider_verifier{ verification_key, transcript };
     auto decider_output = decider_verifier.verify();
+    if (!decider_output.sumcheck_verified) {
+        info("Sumcheck failed!");
+        return false;
+    }
+    if (!decider_output.libra_evals_verified) {
+        info("Libra evals failed!");
+        return false;
+    }
 
     // Extract nested pairing points from the proof
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Handle pairing points in keccak flavors.

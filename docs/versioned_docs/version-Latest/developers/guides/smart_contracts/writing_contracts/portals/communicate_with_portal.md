@@ -21,7 +21,7 @@ When sending messages, we need to specify quite a bit of information beyond just
 
 With all that information at hand, we can call the `sendL2Message` function on the Inbox. The function will return a `field` (inside `bytes32`) that is the hash of the message. This hash can be used as an identifier to spot when your message has been included in a rollup block.
 
-```solidity title="send_l1_to_l2_message" showLineNumbers
+```solidity title="send_l1_to_l2_message" showLineNumbers 
 /**
  * @notice Inserts a new message into the Inbox
  * @dev Emits `MessageSent` with data for easy access by the sequencer
@@ -36,7 +36,7 @@ function sendL2Message(
   bytes32 _secretHash
 ) external returns (bytes32, uint256);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IInbox.sol#L35-L49</a></sub></sup>
 
 
 A sequencer will consume the message batch your message was included in and include it in their block.
@@ -53,7 +53,7 @@ To consume the message, we can use the `consume_l1_to_l2_message` function withi
 Note that while the `secret` and the `content` are both hashed, they are actually hashed with different hash functions!
 :::
 
-```rust title="context_consume_l1_to_l2_message" showLineNumbers
+```rust title="context_consume_l1_to_l2_message" showLineNumbers 
 pub fn consume_l1_to_l2_message(
     &mut self,
     content: Field,
@@ -62,14 +62,14 @@ pub fn consume_l1_to_l2_message(
     leaf_index: Field,
 ) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L292-L301" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L292-L301</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L292-L301" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L292-L301</a></sub></sup>
 
 
 ### Token bridge example
 
 Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/js_tutorials/token_bridge.md).
 
-```rust title="claim_public" showLineNumbers
+```rust title="claim_public" showLineNumbers 
 // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
 #[public]
 fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
@@ -84,7 +84,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
     Token::at(config.token).mint_to_public(to, amount).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
 
 
 :::info
@@ -93,7 +93,7 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 ### Token portal hash library
 
-```rust title="mint_to_public_content_hash_nr" showLineNumbers
+```rust title="mint_to_public_content_hash_nr" showLineNumbers 
 use dep::aztec::prelude::{AztecAddress, EthAddress};
 use dep::aztec::protocol_types::{hash::sha256_to_field, traits::ToField};
 
@@ -122,20 +122,20 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: u128) -> Fie
     content_hash
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29</a></sub></sup>
 
 
 ### Token Portal contract
 
 In Solidity, you can use our `Hash.sha256ToField()` method:
 
-```solidity title="content_hash_sol_import" showLineNumbers
+```solidity title="content_hash_sol_import" showLineNumbers 
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/test/portals/TokenPortal.sol#L12-L14" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L12-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/TokenPortal.sol#L12-L14" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L12-L14</a></sub></sup>
 
 
-```solidity title="deposit_public" showLineNumbers
+```solidity title="deposit_public" showLineNumbers 
 /**
  * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
  * @param _to - The aztec address of the recipient
@@ -147,7 +147,7 @@ function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
   external
   returns (bytes32, uint256)
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/test/portals/TokenPortal.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L55-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/TokenPortal.sol#L55-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L55-L66</a></sub></sup>
 
 
 The `secret_hash` uses the pederson hash which fits in a field element. You can use the utility method `computeSecretHash()`in `@aztec/aztec.js` npm package to generate a secret and its corresponding hash.
@@ -170,10 +170,10 @@ The portal must ensure that the sender is as expected. One flexible solution is 
 
 To send a message to L1 from your Aztec contract, you must use the `message_portal` function on the `context`. When messaging to L1, only the `content` is required (as a `Field`).
 
-```rust title="context_message_portal" showLineNumbers
+```rust title="context_message_portal" showLineNumbers 
 pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L285-L287" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L285-L287</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L285-L287" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L285-L287</a></sub></sup>
 
 
 When sending a message from L2 to L1 we don't need to pass in a secret.
@@ -186,7 +186,7 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-```rust title="exit_to_l1_private" showLineNumbers
+```rust title="exit_to_l1_private" showLineNumbers 
 // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
 // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
 #[private]
@@ -210,12 +210,12 @@ fn exit_to_l1_private(
     Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
 
 
 When the transaction is included in a rollup block and published to Ethereum the message will be inserted into the `Outbox` on Ethereum, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
-```solidity title="l2_to_l1_msg" showLineNumbers
+```solidity title="l2_to_l1_msg" showLineNumbers 
 /**
  * @notice Struct containing a message from L2 to L1
  * @param sender - The sender of the message
@@ -229,12 +229,12 @@ struct L2ToL1Msg {
   bytes32 content;
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/libraries/DataStructures.sol#L53-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L53-L66</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/libraries/DataStructures.sol#L53-L66" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/libraries/DataStructures.sol#L53-L66</a></sub></sup>
 
 
 #### Outbox `consume`
 
-```solidity title="outbox_consume" showLineNumbers
+```solidity title="outbox_consume" showLineNumbers 
 /**
  * @notice Consumes an entry from the Outbox
  * @dev Only useable by portals / recipients of messages
@@ -253,7 +253,7 @@ function consume(
   bytes32[] calldata _path
 ) external;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol#L35-L53</a></sub></sup>
 
 
 #### Withdraw
@@ -262,7 +262,7 @@ As noted earlier, the portal contract should check that the sender is as expecte
 
 It is possible to support multiple senders from L2. You could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
 
-```solidity title="token_portal_withdraw" showLineNumbers
+```solidity title="token_portal_withdraw" showLineNumbers 
 /**
  * @notice Withdraw funds from the portal
  * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
@@ -302,7 +302,7 @@ function withdraw(
   underlying.transfer(_recipient, _amount);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/test/portals/TokenPortal.sol#L122-L161" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L122-L161</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/TokenPortal.sol#L122-L161" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L122-L161</a></sub></sup>
 
 
 ## Considerations
@@ -375,5 +375,5 @@ Designated callers are enforced at the contract level for contracts that are not
 ## Examples of portals
 
 - Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
-  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/l1-contracts/test/portals/TokenPortal.sol)
-  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)
+  - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/l1-contracts/test/portals/TokenPortal.sol)
+  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)

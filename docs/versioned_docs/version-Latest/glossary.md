@@ -31,7 +31,7 @@ You can read more about `nargo` [here](#nargo).
 
 <Glossary.Libs.aztec_js />
 
-Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/aztec.js).
+Read more and review the source code [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/aztec.js).
 
 ### Aztec.nr
 

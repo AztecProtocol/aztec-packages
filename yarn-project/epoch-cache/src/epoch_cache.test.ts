@@ -45,7 +45,7 @@ describe('EpochCache', () => {
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
-      proofSubmissionWindow: EPOCH_DURATION * 2,
+      proofSubmissionEpochs: 1,
     };
 
     epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);
@@ -91,17 +91,17 @@ describe('EpochCache', () => {
     // Hence the chosen values for testCommittee below
 
     // Get validator for slot 0
-    const { currentProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(currentProposer).toEqual(testCommittee[1]);
 
     // Move to next slot
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 1000);
-    const { currentProposer: nextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(nextProposer).toEqual(testCommittee[1]);
 
     // Move to slot that wraps around validator set
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * 3 * 1000);
-    const { currentProposer: nextNextProposer } = await epochCache.getProposerInCurrentOrNextSlot();
+    const { currentProposer: nextNextProposer } = await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(nextNextProposer).toEqual(testCommittee[0]);
   });
 
@@ -114,7 +114,7 @@ describe('EpochCache', () => {
     jest.setSystemTime(initialTime + Number(SLOT_DURATION) * (EPOCH_DURATION - 1) * 1000);
 
     // Should request to update the validator set
-    await epochCache.getProposerInCurrentOrNextSlot();
+    await epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
     expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(1);
   });
 

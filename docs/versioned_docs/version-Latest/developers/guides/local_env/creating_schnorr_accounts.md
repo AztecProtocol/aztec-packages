@@ -26,16 +26,16 @@ Let's assume you have a file `src/index.ts` from the example used in the Sandbox
 
 1. Import relevant modules:
 
-```typescript title="imports1" showLineNumbers
+```typescript title="imports1" showLineNumbers 
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L54-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L54-L57" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L54-L57</a></sub></sup>
 
 
 2. Code to create an account. You must run this inside of a function:
 
-```typescript title="create_accounts" showLineNumbers
+```typescript title="create_accounts" showLineNumbers 
 ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
 
 // Use one of the pre-funded accounts to pay for the deployments.
@@ -79,7 +79,7 @@ for (const [account, name] of [
   logger.info(`Failed to create account for ${name}!`);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L201-L244" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L201-L244</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L201-L244" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts#L201-L244</a></sub></sup>
 
 
 3. Running `yarn start` should now output:

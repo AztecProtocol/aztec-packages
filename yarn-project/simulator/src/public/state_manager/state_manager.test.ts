@@ -7,7 +7,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { initPersistableStateManager } from '../avm/fixtures/index.js';
+import { initPersistableStateManager } from '../avm/fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockGetBytecodeCommitment,
@@ -80,8 +80,8 @@ describe('state_manager', () => {
       await persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, utxo);
-      const nonce = await computeNoteHashNonce(firstNullifier, 1);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 1);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 

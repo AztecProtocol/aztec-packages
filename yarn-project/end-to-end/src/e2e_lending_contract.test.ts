@@ -128,14 +128,14 @@ describe('e2e_lending_contract', () => {
   describe('Deposits', () => {
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const depositAmount = 420n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       const transferToPublicAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
           lendingContract.address,
           depositAmount,
-          nonce,
+          authwitNonce,
         ),
       });
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
@@ -151,7 +151,7 @@ describe('e2e_lending_contract', () => {
         .deposit_private(
           lendingAccount.address,
           depositAmount,
-          nonce,
+          authwitNonce,
           lendingAccount.secret,
           0n,
           collateralAsset.address,
@@ -162,14 +162,14 @@ describe('e2e_lending_contract', () => {
 
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const depositAmount = 421n;
-      const nonce = Fr.random();
-      const transferToPublicAuhtwit = await wallet.createAuthWit({
+      const authwitNonce = Fr.random();
+      const transferToPublicAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
         action: collateralAsset.methods.transfer_to_public(
           lendingAccount.address,
           lendingContract.address,
           depositAmount,
-          nonce,
+          authwitNonce,
         ),
       });
 
@@ -185,19 +185,19 @@ describe('e2e_lending_contract', () => {
         .deposit_private(
           lendingAccount.address,
           depositAmount,
-          nonce,
+          authwitNonce,
           0n,
           lendingAccount.address,
           collateralAsset.address,
         )
-        .send({ authWitnesses: [transferToPublicAuhtwit] })
+        .send({ authWitnesses: [transferToPublicAuthwit] })
         .wait();
     });
 
     it('Depositing: 💰 -> 🏦', async () => {
       const depositAmount = 211n;
 
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       // Add it to the wallet as approved
       const validateAction = await wallet.setPublicAuthWit(
@@ -207,7 +207,7 @@ describe('e2e_lending_contract', () => {
             lendingAccount.address,
             lendingContract.address,
             depositAmount,
-            nonce,
+            authwitNonce,
           ),
         },
         true,
@@ -225,7 +225,7 @@ describe('e2e_lending_contract', () => {
 
       logger.info('Depositing: 💰 -> 🏦');
       await lendingContract.methods
-        .deposit_public(depositAmount, nonce, lendingAccount.address, collateralAsset.address)
+        .deposit_public(depositAmount, authwitNonce, lendingAccount.address, collateralAsset.address)
         .send()
         .wait();
     });
@@ -269,10 +269,10 @@ describe('e2e_lending_contract', () => {
   describe('Repay', () => {
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       const burnPrivateAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
@@ -286,17 +286,17 @@ describe('e2e_lending_contract', () => {
 
       logger.info('Repay 🥸 : 🍌 -> 🏦');
       await lendingContract.methods
-        .repay_private(lendingAccount.address, repayAmount, nonce, lendingAccount.secret, 0n, stableCoin.address)
+        .repay_private(lendingAccount.address, repayAmount, authwitNonce, lendingAccount.secret, 0n, stableCoin.address)
         .send({ authWitnesses: [burnPrivateAuthwit] })
         .wait();
     });
 
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       const burnPrivateAuthwit = await wallet.createAuthWit({
         caller: lendingContract.address,
-        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, nonce),
+        action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
 
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
@@ -310,20 +310,27 @@ describe('e2e_lending_contract', () => {
 
       logger.info('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       await lendingContract.methods
-        .repay_private(lendingAccount.address, repayAmount, nonce, 0n, lendingAccount.address, stableCoin.address)
+        .repay_private(
+          lendingAccount.address,
+          repayAmount,
+          authwitNonce,
+          0n,
+          lendingAccount.address,
+          stableCoin.address,
+        )
         .send({ authWitnesses: [burnPrivateAuthwit] })
         .wait();
     });
 
     it('Repay: 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
 
       // Add it to the wallet as approved
       const validateAction = await wallet.setPublicAuthWit(
         {
           caller: lendingContract.address,
-          action: stableCoin.methods.burn_public(lendingAccount.address, repayAmount, nonce),
+          action: stableCoin.methods.burn_public(lendingAccount.address, repayAmount, authwitNonce),
         },
         true,
       );
@@ -340,7 +347,7 @@ describe('e2e_lending_contract', () => {
 
       logger.info('Repay: 🍌 -> 🏦');
       await lendingContract.methods
-        .repay_public(repayAmount, nonce, lendingAccount.address, stableCoin.address)
+        .repay_public(repayAmount, authwitNonce, lendingAccount.address, stableCoin.address)
         .send()
         .wait();
     });

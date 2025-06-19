@@ -19,7 +19,7 @@ To test the connection works, we'll request and print the node's chain id.
 
 Let's create our first file `src/index.mjs` with the following contents:
 
-```javascript title="all" showLineNumbers
+```javascript title="all" showLineNumbers 
 import { createPXEClient } from '@aztec/aztec.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -35,7 +35,7 @@ main().catch(err => {
   process.exit(1);
 });
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/connect.mjs#L1-L16</a></sub></sup>
 
 
 Make sure the [Sandbox is running](../../../../getting_started.md) and run the example
@@ -59,13 +59,13 @@ Should the above fail due to a connection error, make sure the Sandbox is runnin
 In sandbox PXE comes with a set of pre-initialized accounts that you can use from your app.
 Let's try loading the accounts:
 
-```javascript title="showAccounts" showLineNumbers
+```javascript title="showAccounts" showLineNumbers 
 async function showAccounts(pxe) {
   const accounts = await pxe.getRegisteredAccounts();
   console.log(`User accounts:\n${accounts.map(a => a.address).join('\n')}`);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.3/yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.4/yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L12-L17</a></sub></sup>
 
 
 Call the `showAccounts` function from `main`, run again the above, and you should see something like:

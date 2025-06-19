@@ -21,6 +21,7 @@
 !/yarn-project/noir-protocol-circuits-types/artifacts/
 !/yarn-project/protocol-contracts/artifacts/
 !/yarn-project/noir-contracts.js/artifacts/
+!/yarn-project/simulator/artifacts/
 !/yarn-project/native/build/nodejs_module.node
 
 # Needed to generate list of env vars to know what to be able to inject into the container.

@@ -59,6 +59,7 @@
     "rollup-provider",
     "sequencer-client",
     "scripts",
+    "slasher",
     "txe",
     "world-state",
     "telemetry-client"

@@ -52,7 +52,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
 
-    std::shared_ptr<CK> ck = create_commitment_key<CK>(this->n);
+    CK ck = create_commitment_key<CK>(this->n);
 
     // Generate mock challenges
     Fr rho = Fr::random_element();
@@ -161,7 +161,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     using Polynomial = typename bb::Polynomial<Fr>;
     using CK = typename TypeParam::CommitmentKey;
 
-    std::shared_ptr<CK> ck = create_commitment_key<CK>(this->n);
+    CK ck = create_commitment_key<CK>(this->n);
 
     // Generate mock challenges
     Fr rho = Fr::random_element();
@@ -195,7 +195,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     std::vector<Commitment> prover_commitments;
     for (size_t l = 0; l < this->log_n - 1; ++l) {
-        auto commitment = ck->commit(fold_polynomials[l]);
+        auto commitment = ck.commit(fold_polynomials[l]);
         prover_commitments.emplace_back(commitment);
     }
 
@@ -283,7 +283,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
 
     // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
     static constexpr size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
-    std::shared_ptr<CK> ck = create_commitment_key<CK>(std::max<size_t>(this->n, 1ULL << (log_subgroup_size + 1)));
+    CK ck = create_commitment_key<CK>(std::max<size_t>(this->n, 1ULL << (log_subgroup_size + 1)));
 
     // Generate Libra polynomials, compute masked concatenated Libra polynomial, commit to it
     ZKData zk_sumcheck_data(this->log_n, prover_transcript, ck);
@@ -356,7 +356,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    this->vk()->get_g1_identity(),
+                                                                                    this->vk().get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
@@ -372,7 +372,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
 
@@ -392,7 +392,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     using ShpleminiProver = ShpleminiProver_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
 
-    std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
+    CK ck = create_commitment_key<CK>(4096);
 
     // Generate Sumcheck challenge
     std::vector<Fr> challenge = this->random_evaluation_point(this->log_n);
@@ -464,7 +464,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     challenge,
-                                                                                    this->vk()->get_g1_identity(),
+                                                                                    this->vk().get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     {},
                                                                                     true,
@@ -482,7 +482,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
         // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
-        EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);
+        EXPECT_EQ(this->vk().pairing_check(pairing_points[0], pairing_points[1]), true);
     }
 }
 } // namespace bb

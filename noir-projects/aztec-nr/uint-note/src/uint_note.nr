@@ -1,5 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
+    history::nullifier_inclusion::ProveNullifierInclusion,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     messages::logs::note,
@@ -9,10 +10,10 @@ use dep::aztec::{
         address::AztecAddress,
         constants::{
             GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
-            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT, PRIVATE_LOG_SIZE_IN_FIELDS,
         },
-        hash::poseidon2_hash_with_separator,
-        traits::{Deserialize, Hash, Packable, Serialize, ToField},
+        hash::{compute_siloed_nullifier, poseidon2_hash_with_separator},
+        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
     },
 };
@@ -207,10 +208,12 @@ impl NoteType for PrivateUintPartialNotePrivateLogContent {
 /// slot, but the value field has not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the value to the public), resulting in a UintNote that can be used like any other one (except
 /// of course that its value is known).
-#[derive(Packable, Serialize, Deserialize)]
+#[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
+
+global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
@@ -240,6 +243,38 @@ impl PartialUintNote {
         context.push_note_hash(self.compute_complete_note_hash(value));
     }
 
+    /// Completes the partial note, creating a new note that can be used like any other UintNote. Same as `complete`
+    /// function but works from private context.
+    pub fn complete_from_private(
+        self,
+        context: &mut PrivateContext,
+        completer: AztecAddress,
+        value: u128,
+    ) {
+        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // state variable's storage slot, and it is internally consistent).
+        let validity_commitment = self.compute_validity_commitment(completer);
+        // `prove_nullifier_inclusion` function expects the nullifier to be siloed (hashed with the address of
+        // the contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all
+        // the nullifiers in the tree are siloed by the protocol.
+        let siloed_validity_commitment =
+            compute_siloed_nullifier(context.this_address(), validity_commitment);
+        context.get_block_header().prove_nullifier_inclusion(siloed_validity_commitment);
+
+        // We need to do two things:
+        //  - emit an unencrypted log containing the public fields (the value) via the private log channel. The
+        //  contract will later find it by searching for the expected tag (which is simply the partial note
+        //  commitment).
+        //  - insert the completion note hash (i.e. the hash of the note) into the note hash tree. This is typically
+        //  only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
+        //  inserted in public as the public values are provided and the note hash computed.
+        context.emit_private_log(
+            self.compute_note_completion_log_padded_for_private_log(value),
+            NOTE_COMPLETION_LOG_LENGTH,
+        );
+        context.push_note_hash(self.compute_complete_note_hash(value));
+    }
+
     /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
     /// data with the designated completer address. When the note is later completed in public execution, we can load
     /// this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
@@ -252,10 +287,19 @@ impl PartialUintNote {
         )
     }
 
-    fn compute_note_completion_log(self, value: u128) -> [Field; 2] {
+    fn compute_note_completion_log(self, value: u128) -> [Field; NOTE_COMPLETION_LOG_LENGTH] {
         // The first field of this log must be the tag that the recipient of the partial note private field logs
         // expects, which is equal to the partial note commitment.
         [self.commitment, value.to_field()]
+    }
+
+    fn compute_note_completion_log_padded_for_private_log(
+        self,
+        value: u128,
+    ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS] {
+        let note_completion_log = self.compute_note_completion_log(value);
+        let padding = [0; PRIVATE_LOG_SIZE_IN_FIELDS - NOTE_COMPLETION_LOG_LENGTH];
+        array_concat(note_completion_log, padding)
     }
 
     fn compute_complete_note_hash(self, value: u128) -> Field {
@@ -265,6 +309,18 @@ impl PartialUintNote {
             [self.commitment, value.to_field()],
             GENERATOR_INDEX__NOTE_HASH,
         )
+    }
+}
+
+impl ToField for PartialUintNote {
+    fn to_field(self) -> Field {
+        self.commitment
+    }
+}
+
+impl FromField for PartialUintNote {
+    fn from_field(field: Field) -> Self {
+        Self { commitment: field }
     }
 }
 

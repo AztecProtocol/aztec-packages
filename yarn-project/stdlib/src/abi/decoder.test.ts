@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { AztecAddress } from '../aztec-address/index.js';
 import type { ABIParameterVisibility, FunctionArtifact } from './abi.js';
 import { decodeFromAbi, decodeFunctionSignature, decodeFunctionSignatureWithParameterNames } from './decoder.js';
 
@@ -181,5 +182,91 @@ describe('decoder', () => {
       [Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000007fffffffffffffff', 'hex'))],
     );
     expect(decoded).toBe(2n ** 63n - 1n);
+  });
+
+  it('decodes a tuple', () => {
+    // ABI copied from noir-projects/noir-contracts/target/returning_tuple_contract-ReturningTuple.json
+    const decoded = decodeFromAbi(
+      [
+        {
+          kind: 'tuple',
+          fields: [
+            {
+              kind: 'field',
+            },
+            {
+              kind: 'integer',
+              sign: 'unsigned',
+              width: 128,
+            },
+            {
+              kind: 'boolean',
+            },
+            {
+              kind: 'string',
+              length: 3,
+            },
+            {
+              kind: 'struct',
+              path: 'aztec::protocol_types::address::aztec_address::AztecAddress',
+              fields: [
+                {
+                  name: 'inner',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+              ],
+            },
+            {
+              kind: 'struct',
+              path: 'std::embedded_curve_ops::EmbeddedCurvePoint',
+              fields: [
+                {
+                  name: 'x',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+                {
+                  name: 'y',
+                  type: {
+                    kind: 'field',
+                  },
+                },
+                {
+                  name: 'is_infinite',
+                  type: {
+                    kind: 'boolean',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      [
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // field
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // u128
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // bool
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000078', 'hex')), // "x"
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000079', 'hex')), // "y"
+        Fr.fromBuffer(Buffer.from('000000000000000000000000000000000000000000000000000000000000007a', 'hex')), // "z"
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // address
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000001', 'hex')), // point.x
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000002', 'hex')), // point.y
+        Fr.fromBuffer(Buffer.from('0000000000000000000000000000000000000000000000000000000000000000', 'hex')), // point.is_infinite
+      ],
+    );
+
+    expect(decoded).toEqual([
+      1n,
+      2n,
+      false,
+      'xyz',
+      AztecAddress.fromBigInt(1n),
+      // eslint-disable-next-line camelcase
+      { x: 1n, y: 2n, is_infinite: false },
+    ]);
   });
 });
