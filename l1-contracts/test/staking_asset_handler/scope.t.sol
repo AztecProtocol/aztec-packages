@@ -45,7 +45,7 @@ contract ScopeTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(attester, proposer, 1);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, validMerkleProof, realProof);
   }
 
   function test_WhenScopeIsValidAndSubscopeIsInvalid() external {
@@ -59,7 +59,7 @@ contract ScopeTest is StakingAssetHandlerBase {
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, validMerkleProof, realProof);
   }
 
   function test_WhenScopeIsInvalidButSubscopeIsValid() external {
@@ -73,7 +73,7 @@ contract ScopeTest is StakingAssetHandlerBase {
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, validMerkleProof, realProof);
   }
 
   function test_WhenScopeIsInvalidAndSubscopeIsInvalid() external {
@@ -87,6 +87,6 @@ contract ScopeTest is StakingAssetHandlerBase {
 
     vm.expectRevert(IStakingAssetHandler.InvalidScope.selector);
     vm.prank(attester);
-    stakingAssetHandler.addValidatorToQueue(attester, proposer, realProof);
+    stakingAssetHandler.addValidatorToQueue(attester, proposer, validMerkleProof, realProof);
   }
 }

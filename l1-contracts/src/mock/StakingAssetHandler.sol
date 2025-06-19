@@ -6,6 +6,7 @@ import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
+import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 
 import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
@@ -43,6 +44,10 @@ interface IStakingAssetHandler {
   event ScopeUpdated(string newScope);
   event SubScopeUpdated(string newSubScope);
   event SkipBindCheckUpdated(bool _skipBindCheck);
+  event SkipMerkleCheckUpdated(bool _skipMerkleCheck);
+  event DepositMerkleRootUpdated(bytes32 _root);
+
+
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -57,9 +62,15 @@ interface IStakingAssetHandler {
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
 
+  // TODO: think about this - we originally wanted it to be a different address, now it has to be the same???????
+  // - the frontend will have to change because of this - or we will have to require a signature - but this could be front run????
+  error AttesterNotSender();
+  error MerkleProofInvalid();
+
   function addValidatorToQueue(
     address _attester,
     address _proposer,
+    bytes32[] memory _merkleProof,
     ProofVerificationParams memory _params
   ) external;
   function reenterExitedValidator(address _attester, address _proposer) external;
@@ -75,13 +86,17 @@ interface IStakingAssetHandler {
   function setScope(string memory _scope) external;
   function setSubscope(string memory _subscope) external;
   function setSkipBindCheck(bool _skipBindCheck) external;
+  function setSkipMerkleCheck(bool _skipMerkleCheck) external;
+  function setDepositMerkleRoot(bytes32 _root) external;
 
   // View
   function getQueueLength() external view returns (uint256);
   function getFrontOfQueue() external view returns (uint256);
   function getEndOfQueue() external view returns (uint256);
   function getRollup() external view returns (address);
+
 }
+
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   using QueueLib for Queue;
@@ -92,6 +107,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   ZKPassportVerifier public zkPassportVerifier;
 
   bool internal skipBindCheck;
+  bool internal skipMerkleCheck;
 
   mapping(address => bool) public isUnhinged;
   mapping(bytes32 nullifier => bool exists) public nullifiers;
@@ -100,6 +116,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
   uint256 public depositsPerMint;
+  bytes32 public depositMerkleRoot;
 
   address public withdrawer;
 
@@ -108,47 +125,57 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   string public validScope;
   string public validSubscope;
 
+  struct StakingAssetHandlerArgs {
+    address owner;
+    address stakingAsset;
+    IRegistry registry;
+    address withdrawer;
+    uint256 mintInterval;
+    uint256 depositsPerMint;
+    bytes32 depositMerkleRoot;
+    ZKPassportVerifier zkPassportVerifier;
+    address[] unhinged;
+    string scope;
+    string subscope;
+    bool skipBindCheck;
+    bool skipMerkleCheck;
+  }
+
   constructor(
-    address _owner,
-    address _stakingAsset,
-    IRegistry _registry,
-    address _withdrawer,
-    uint256 _mintInterval,
-    uint256 _depositsPerMint,
-    ZKPassportVerifier _zkPassportVerifier,
-    address[] memory _unhinged,
-    string memory _scope,
-    string memory _subscope,
-    bool _skipBindCheck
-  ) Ownable(_owner) {
-    require(_depositsPerMint > 0, CannotMintZeroAmount());
+    StakingAssetHandlerArgs memory _args
+  ) Ownable(_args.owner) {
+    require(_args.depositsPerMint > 0, CannotMintZeroAmount());
 
-    STAKING_ASSET = IMintableERC20(_stakingAsset);
-    REGISTRY = _registry;
+    STAKING_ASSET = IMintableERC20(_args.stakingAsset);
+    REGISTRY = _args.registry;
 
-    withdrawer = _withdrawer;
-    emit WithdrawerUpdated(_withdrawer);
+    withdrawer = _args.withdrawer;
+    emit WithdrawerUpdated(_args.withdrawer);
 
-    mintInterval = _mintInterval;
-    emit IntervalUpdated(_mintInterval);
+    mintInterval = _args.mintInterval;
+    emit IntervalUpdated(_args.mintInterval);
 
-    depositsPerMint = _depositsPerMint;
-    emit DepositsPerMintUpdated(_depositsPerMint);
+    depositsPerMint = _args.depositsPerMint;
+    emit DepositsPerMintUpdated(_args.depositsPerMint);
 
-    for (uint256 i = 0; i < _unhinged.length; i++) {
-      isUnhinged[_unhinged[i]] = true;
-      emit UnhingedAdded(_unhinged[i]);
+    for (uint256 i = 0; i < _args.unhinged.length; i++) {
+      isUnhinged[_args.unhinged[i]] = true;
+      emit UnhingedAdded(_args.unhinged[i]);
     }
-    isUnhinged[_owner] = true;
-    emit UnhingedAdded(_owner);
+    isUnhinged[_args.owner] = true;
+    emit UnhingedAdded(_args.owner);
 
-    zkPassportVerifier = _zkPassportVerifier;
-    emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
+    zkPassportVerifier = _args.zkPassportVerifier;
+    emit ZKPassportVerifierUpdated(address(_args.zkPassportVerifier));
 
-    validScope = _scope;
-    validSubscope = _subscope;
+    depositMerkleRoot = _args.depositMerkleRoot;
+    emit DepositMerkleRootUpdated(_args.depositMerkleRoot);
 
-    skipBindCheck = _skipBindCheck;
+    validScope = _args.scope;
+    validSubscope = _args.subscope;
+
+    skipBindCheck = _args.skipBindCheck;
+    skipMerkleCheck = _args.skipMerkleCheck;
 
     entryQueue.init();
   }
@@ -161,6 +188,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   function addValidatorToQueue(
     address _attester,
     address _proposer,
+    bytes32[] memory _merkleProof,
     ProofVerificationParams calldata _params
   ) external override(IStakingAssetHandler) {
     // If the sender is unhinged, will mint the required amount (to not impact other users).
@@ -173,6 +201,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
       _triggerDeposit(rollup, depositAmount, _attester, _proposer);
     } else {
+      _validateMerkleProof(_attester, _merkleProof);
       _validatePassportProof(_attester, _proposer, _params);
     }
   }
@@ -283,6 +312,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit SkipBindCheckUpdated(_skipBindCheck);
   }
 
+  function setSkipMerkleCheck(bool _skipMerkleCheck) external override(IStakingAssetHandler) onlyOwner {
+    skipMerkleCheck = _skipMerkleCheck;
+    emit SkipMerkleCheckUpdated(_skipMerkleCheck);
+  }
+
+  function setDepositMerkleRoot(bytes32 _root) external override(IStakingAssetHandler) onlyOwner {
+    depositMerkleRoot = _root;
+    emit DepositMerkleRootUpdated(_root);
+  }
+
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
   }
@@ -297,6 +336,18 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function getEndOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
     return entryQueue.getLast();
+  }
+
+  function _validateMerkleProof(
+    address _attester,
+    bytes32[] memory _merkleProof
+  ) internal view {
+    if (!skipMerkleCheck) {
+      require(msg.sender == _attester, AttesterNotSender());
+
+      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
+      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
+    }
   }
 
   /**
