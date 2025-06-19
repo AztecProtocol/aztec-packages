@@ -34,6 +34,12 @@ template <typename Builder, typename T> class bigfield {
         size_t num_bits;
     };
 
+    /**
+     * @brief Represents a single limb of a bigfield element, with its value and maximum value.
+
+     * @details The default maximum value of a new limb is set to 2^L - 1.
+     *
+     */
     struct Limb {
         Limb() {}
         Limb(const field_t<Builder>& input, const uint256_t& max = DEFAULT_MAXIMUM_LIMB)
@@ -59,17 +65,51 @@ template <typename Builder, typename T> class bigfield {
         field_t<Builder> element;
         uint256_t maximum_value;
     };
+
+    // Number of limbs used to represent a bigfield element in the binary basis
     static constexpr size_t NUM_LIMBS = 4;
 
     Builder* context;
+
+    /**
+     * @brief Represents a bigfield element in the binary basis. A bigfield element is represented as a combination of 4
+     * binary basis limbs: a = a[0] + a[1] * 2^L + a[2] * 2^2L + a[3] * 2^3L.
+     */
     mutable std::array<Limb, NUM_LIMBS> binary_basis_limbs;
+
+    /**
+     * @brief Represents a bigfield element in the prime basis: (a mod n) where n is the native modulus.
+     */
     mutable field_t<Builder> prime_basis_limb;
 
+    /**
+     * @brief Constructs a new bigfield object from two field elements representing the low and high bits.
+     *
+     * @param low_bits The field element representing the low 2L bits of the bigfield.
+     * @param high_bits The field element representing the high 2L bits of the bigfield.
+     * @param can_overflow Whether the bigfield can overflow the modulus.
+     * @param maximum_bitlength The maximum bitlength of the bigfield. If 0, it defaults to |p| (target modulus
+     * bitlength).
+     */
     bigfield(const field_t<Builder>& low_bits,
              const field_t<Builder>& high_bits,
              const bool can_overflow = false,
              const size_t maximum_bitlength = 0);
+
+    /**
+     * @brief Constructs a zero bigfield object: all limbs are set to zero.
+     *
+     * @details This constructor is used to create a bigfield element without any context. It is useful for creating
+     * bigfield elements that will be later assigned to a context.
+     */
     bigfield(Builder* parent_context = nullptr);
+
+    /**
+     * @brief Constructs a new bigfield object from a uint256_t value.
+     *
+     * @param parent_context The circuit context in which the bigfield element will be created.
+     * @param value The uint256_t value to be converted to a bigfield element.
+     */
     bigfield(Builder* parent_context, const uint256_t& value);
 
     explicit bigfield(const uint256_t& value)
@@ -175,6 +215,7 @@ template <typename Builder, typename T> class bigfield {
 
         return result;
     };
+
     /**
      * @brief Construct a bigfield element from binary limbs and a prime basis limb that are already reduced
      *
@@ -202,10 +243,40 @@ template <typename Builder, typename T> class bigfield {
         return result;
     };
 
+    /**
+     * @brief Constructs a bigfield element from a 256-bit byte array.
+     *
+     * This constructor interprets the input byte array as a 256-bit little-endian integer,
+     * and decomposes it into 4 limbs as follows:
+     *
+     * - Limb 0: 68 bits — bytes b24 to b31 and the high 4 bits of b23
+     * - Limb 1: 68 bits — bytes b14 to b22, and the low 4 bits of b23
+     * - Limb 2: 68 bits — bytes b7 to b14 and the high 4 bits of b6
+     * - Limb 3: 52 bits — bytes b0 to b5 and the low 4 bits of b6
+     *
+     * @param bytes The 32-byte input representing the 256-bit integer (little-endian).
+     */
     bigfield(const byte_array<Builder>& bytes);
+
+    // Copy constructor
     bigfield(const bigfield& other);
+
+    // Move constructor
     bigfield(bigfield&& other);
 
+    /**
+     * @brief Creates a bigfield element from a uint512_t.
+     * Bigfield element is constructed as a witness and not a circuit constant
+     *
+     * @param ctx
+     * @param value
+     * @param can_overflow Can the input value have more than log2(modulus) bits?
+     * @param maximum_bitlength Provide the explicit maximum bitlength if known. Otherwise bigfield max value will be
+     * either log2(modulus) bits iff can_overflow = false, or (4 * NUM_LIMB_BITS) iff can_overflow = true
+     * @return bigfield<Builder, T>
+     *
+     * @details This method is 1 gate more efficient than constructing from 2 field_ct elements.
+     */
     static bigfield create_from_u512_as_witness(Builder* ctx,
                                                 const uint512_t& value,
                                                 const bool can_overflow = false,
@@ -244,7 +315,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr size_t MAXIMUM_SUMMAND_COUNT = 1 << MAXIMUM_SUMMAND_COUNT_LOG;
 
     static constexpr uint256_t prime_basis_maximum_limb =
-        uint256_t(modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS));
+        modulus_u512.slice(NUM_LIMB_BITS * (NUM_LIMBS - 1), NUM_LIMB_BITS* NUM_LIMBS).lo;
     static constexpr Basis prime_basis{ uint512_t(bb::fr::modulus), bb::fr::modulus.get_msb() + 1 };
     static constexpr Basis binary_basis{ uint512_t(1) << LOG2_BINARY_MODULUS, LOG2_BINARY_MODULUS };
     static constexpr Basis target_basis{ modulus_u512, static_cast<size_t>(modulus_u512.get_msb() + 1) };
@@ -256,10 +327,10 @@ template <typename Builder, typename T> class bigfield {
     static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
     static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
     static constexpr uint256_t neg_modulus_limbs_u256[NUM_LIMBS]{
-        uint256_t(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
-        uint256_t(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+        negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
+        negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
     };
     static constexpr bb::fr neg_modulus_limbs[NUM_LIMBS]{
         bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
@@ -268,6 +339,15 @@ template <typename Builder, typename T> class bigfield {
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
     };
 
+    /**
+     * @brief Convert the bigfield element to a byte array. Concatenates byte arrays of the high (2L bits) and low (2L
+     * bits) parts of the bigfield element.
+     *
+     * @details Assumes that 2L is divisible by 8, i.e. (NUM_LIMB_BITS * 2) % 8 == 0. Also we check that the bigfield
+     * element is in the target field.
+     *
+     * @return byte_array<Builder>
+     */
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
@@ -288,21 +368,106 @@ template <typename Builder, typename T> class bigfield {
         return result;
     }
 
+    // Gets the integer (uint512_t) value of the bigfield element by combining the binary basis limbs.
     uint512_t get_value() const;
+
+    // Gets the maximum value of the bigfield element by combining the maximum values of the binary basis limbs.
     uint512_t get_maximum_value() const;
 
+    /**
+     * @brief Add a field element to the lower limb. CAUTION (the element has to be constrained before using this
+     * function)
+     *
+     * @details Sometimes we need to add a small constrained value to a bigfield element (for example, a boolean value),
+     * but we don't want to construct a full bigfield element for that as it would take too many gates. If the maximum
+     * value of the field element being added is small enough, we can simply add it to the lowest limb and increase its
+     * maximum value. That will create 2 additional constraints instead of 5/3 needed to add 2 bigfield elements and
+     * several needed to construct a bigfield element.
+     *
+     * @tparam Builder Builder
+     * @tparam T Field Parameters
+     * @param other Field element that will be added to the lower
+     * @param other_maximum_value The maximum value of other
+     * @return bigfield<Builder, T> Result
+     */
     bigfield add_to_lower_limb(const field_t<Builder>& other, uint256_t other_maximum_value) const;
+
+    /**
+     * @brief Adds two bigfield elements. Inputs are reduced to the modulus if necessary. Requires 4 gates if both
+     * elements are witnesses.
+     *
+     * @details Naive addition of two bigfield elements would require 5 gates: 4 gates to add the binary basis limbs and
+     * 1 gate to add the prime basis limbs. However, if both elements are witnesses, we can use an optimised addition
+     * trick that uses 4 gates instead of 5. In this case, we add the prime basis limbs and one of the binary basis
+     * limbs in a single gate.
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param other
+     * @return bigfield<Builder, T>
+     */
     bigfield operator+(const bigfield& other) const;
+
+    /**
+     * @brief Create constraints for summing three bigfield elements efficiently
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param add_a
+     * @param add_b
+     * @return The sum of three terms
+     *
+     * @details Uses five gates (one for each limb) to add three bigfield elements.
+     */
     bigfield add_two(const bigfield& add_a, const bigfield& add_b) const;
+
+    /**
+     * @brief Subtraction operator.
+     *
+     * @param other
+     * @return bigfield
+     *
+     * @details Uses lazy reduction techniques (similar to operator+) to save on field reductions. Instead of computing
+     * `*this - other`, we compute a constant `X = s * p` and compute: `*this + X - other` to ensure we do not
+     * underflow. Note that NOT enough to ensure that the integer value of `*this + X - other` does not underflow. We
+     * must ALSO ensure that each LIMB of the result does not underflow. Based on this condition, we compute the minimum
+     * value of `s` such that, for each limb `i`, the following result is positive:
+     * `*this.limb[i] + X.limb[i] - other.limb[i] ≥ 0`.
+     */
     bigfield operator-(const bigfield& other) const;
+
+    /**
+     * @brief Evaluate a non-native field multiplication: (a * b = c mod p) where p == target_basis.modulus
+     *
+     * @param other
+     * @return bigfield
+     *
+     * @details We compute quotient term `q` and remainder `c` and evaluate that:
+     * a * b - q * p - c = 0 mod modulus_u512 (binary basis modulus, currently 2**272)
+     * a * b - q * p - c = 0 mod circuit modulus
+     * We also check that:
+     * a * b < M  and  q * p - c < M, where M = (2^t * n) is CRT modulus.
+     *
+     */
     bigfield operator*(const bigfield& other) const;
 
     /**
-     * FOR TESTING PURPOSES ONLY DO NOT USE THIS IN PRODUCTION CODE FOR THE LOVE OF GOD!
-     **/
-    bigfield bad_mul(const bigfield& other) const;
-
+     * Division operator: a / b. Creates constraints for division in the circuit and checks b != 0.
+     * If you need a variant without the zero check, use `div_without_denominator_check`.
+     *
+     * @param other The denominator.
+     * @return The result of the division c = (a / b) mod p.
+     *
+     * @details To evaluate (a / b = c mod p), we instead evaluate (c * b = a mod p), where p is the target modulus.
+     * We also check that b != 0.
+     */
     bigfield operator/(const bigfield& other) const;
+
+    /**
+     * @brief Negation operator, works by subtracting `this` from zero.
+     *
+     * @return bigfield
+     */
     bigfield operator-() const { return bigfield(get_context(), uint256_t(0)) - *this; }
 
     bigfield operator+=(const bigfield& other)
@@ -326,9 +491,47 @@ template <typename Builder, typename T> class bigfield {
         return *this;
     }
 
+    /**
+     * @brief Square operator, computes a * a = c mod p.
+     *
+     * @return bigfield
+     *
+     * @details Costs the same as operator* as it just sets a = b.
+     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/15089): can optimise this further.
+     */
     bigfield sqr() const;
+
+    /**
+     * @brief Square and add operator, computes a * a + ...to_add = c mod p.
+     *
+     * @param to_add The bigfield element to add to the square.
+     * @return bigfield
+     *
+     * @details We can chain multiple additions to a square/multiply with a single quotient/remainder. Chaining the
+     * additions here is cheaper than calling operator+ because we can combine some gates in `evaluate_multiply_add`
+     */
     bigfield sqradd(const std::vector<bigfield>& to_add) const;
+
+    /**
+     * @brief Raise the bigfield element to the power of (out-of-circuit) exponent.
+     *
+     * @param exponent The exponent to raise the bigfield element to.
+     * @return this ** (exponent)
+     *
+     * @details Uses the square-and-multiply algorithm to compute a^exponent mod p.
+     *
+     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+     */
     bigfield pow(const size_t exponent) const;
+
+    /**
+     * @brief Compute a * b + ...to_add = c mod p
+     *
+     * @param to_mul Bigfield element to multiply by
+     * @param to_add Vector of elements to add
+     *
+     * @return New bigfield element c
+     **/
     bigfield madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const;
 
     static void perform_reductions_for_mult_madd(std::vector<bigfield>& mul_left,
@@ -379,6 +582,13 @@ template <typename Builder, typename T> class bigfield {
 
     void self_reduce() const;
 
+    /**
+     * @brief Check if the bigfield is constant, i.e. its prime limb is constant.
+     *
+     * @return true if the bigfield is constant, false otherwise.
+     *
+     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
+     */
     bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
 
     /**
@@ -519,7 +729,7 @@ template <typename Builder, typename T> class bigfield {
     static constexpr uint512_t get_maximum_unreduced_value()
     {
         // This = `T * n = 2^272 * |BN(Fr)|` So this equals n*2^t
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint1024_t maximum_product = get_maximum_crt_product();
 
         // In multiplying two bigfield elements a and b, we must check that:
         //
@@ -546,14 +756,23 @@ template <typename Builder, typename T> class bigfield {
     }
 
     // If we encounter this maximum value of a bigfield we stop execution
-    static constexpr uint512_t get_prohibited_maximum_value()
+    static constexpr uint512_t get_prohibited_value()
     {
-        uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
+        uint1024_t maximum_product = get_maximum_crt_product();
         uint64_t maximum_product_bits = maximum_product.get_msb() - 1;
         const size_t arbitrary_secure_margin = 20;
         return (uint512_t(1) << ((maximum_product_bits >> 1) + arbitrary_secure_margin)) - uint512_t(1);
     }
 
+    /**
+     * @brief Compute the maximum product of two bigfield elements in CRT: M = 2^t * n.
+     *
+     * @details When we multiply two bigfield elements a and b, we need to check that: a * b = q * p + r,
+     * where q is the quotient, r is the remainder, and p is the size of the non-native field. With the CRT, we should
+     * have both sizes less than the maximum product M = 2^t * n.
+     *
+     * @return uint1024_t Maximum product of two bigfield elements in CRT form
+     */
     static constexpr uint1024_t get_maximum_crt_product()
     {
         uint1024_t maximum_product = uint1024_t(binary_basis.modulus) * uint1024_t(prime_basis.modulus);
@@ -562,6 +781,10 @@ template <typename Builder, typename T> class bigfield {
 
     /**
      * @brief Compute the maximum number of bits for quotient range proof to protect against CRT underflow
+     *
+     * @details When multiplying a and b, we need to check that: a * b = q * p + r, and each side of the equation
+     * is less than the maximum product M = 2^t * n. The quotient q is a size of the non-native field, and we need to
+     * ensure it fits within the available bits. q * p + r < M  ==>  q < (M - r_max) / p
      *
      * @param remainders_max Maximum sizes of resulting remainders
      * @return Desired length of range proof
@@ -578,7 +801,7 @@ template <typename Builder, typename T> class bigfield {
     }
 
     /**
-     * Check that the maximum value of a bigfield product with added values overflows ctf modulus.
+     * Check that the maximum value of a bigfield product with added values overflows crt modulus.
      *
      * @param a_max multiplicand maximum value
      * @param b_max multiplier maximum value
@@ -591,7 +814,7 @@ template <typename Builder, typename T> class bigfield {
                                                   const std::vector<bigfield>& to_add)
     {
         uint1024_t product = a_max * b_max;
-        uint1024_t add_term;
+        uint1024_t add_term = 0;
         for (const auto& add : to_add) {
             add_term += add.get_maximum_value();
         }
@@ -619,8 +842,8 @@ template <typename Builder, typename T> class bigfield {
         std::vector<uint1024_t> products;
         ASSERT(as_max.size() == bs_max.size());
         // Computing individual products
-        uint1024_t product_sum;
-        uint1024_t add_term;
+        uint1024_t product_sum = 0;
+        uint1024_t add_term = 0;
         for (size_t i = 0; i < as_max.size(); i++) {
             product_sum += uint1024_t(as_max[i]) * uint1024_t(bs_max[i]);
         }
@@ -634,45 +857,47 @@ template <typename Builder, typename T> class bigfield {
         ASSERT(add_term + maximum_default_bigint < get_maximum_crt_product());
         return ((product_sum + add_term) >= get_maximum_crt_product());
     }
-    // static bool mul_quotient_crt_check(const uint1024_t& q, const std::vector<uint1024_t>& remainders)
-    // {
-    //     uint1024_t product = (q * modulus_u512);
-    //     for (const auto& add : remainders) {
-    //         product += add;
-    //     }
-    //     std::cout << "product = " << product << std::endl;
-    //     std::cout << "crt product = " << get_maximum_crt_product() << std::endl;
 
-    //     if (product >= get_maximum_crt_product()) {
-    //         count++;
-    //         std::cout << "count = " << count << std::endl;
-    //     }
-    //     return (product >= get_maximum_crt_product());
-    // }
     // a (currently generous) upper bound on the log of number of fr additions in any of the class operations
     static constexpr uint64_t MAX_ADDITION_LOG = 10;
-    // the rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
-    // starting with this max limb size
 
-    static constexpr uint64_t MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW =
+    // The rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
+    // starting with this max limb size
+    //
+    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form: 2^L . ai . bj.
+    // Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
+    // doesn't overflow the native field modulus. Hence:
+    // 2^k . 2^L . 2^Q . 2^Q < n  ==> Q < (log(n) - k - L) / 2
+    //
+    static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
         (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
 
-    // If the logarithm of the maximum value of a limb is more than this, we need to reduce
-    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS =
-        NUM_LIMB_BITS + 10; // We allowa an element to be added to itself 10 times. There is no actual usecase
+    // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
+    // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
+    // Number 10 is arbitrary, there's no actual usecase for adding 1024 elements together.
+    static constexpr uint64_t MAX_UNREDUCED_LIMB_BITS = NUM_LIMB_BITS + 10;
 
-    static constexpr uint64_t PROHIBITED_LIMB_BITS =
-        MAX_UNREDUCED_LIMB_BITS +
-        5; // Shouldn't be reachable through addition, reduction should happen earlier. If we detect this, we stop
+    // If we reach this size of a limb, we stop execution (as safety measure). This should never reach during addition
+    // as we would reduce the limbs before they reach this size.
+    static constexpr uint64_t PROHIBITED_LIMB_BITS = MAX_UNREDUCED_LIMB_BITS + 5;
 
+    // If we encounter this maximum value of a bigfield we need to reduce it.
     static constexpr uint256_t get_maximum_unreduced_limb_value() { return uint256_t(1) << MAX_UNREDUCED_LIMB_BITS; }
 
     // If we encounter this maximum value of a limb we stop execution
-    static constexpr uint256_t get_prohibited_maximum_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
+    static constexpr uint256_t get_prohibited_limb_value() { return uint256_t(1) << PROHIBITED_LIMB_BITS; }
 
-    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_SIZE_THAT_WOULDNT_OVERFLOW);
+    static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
+    /**
+     * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p
+     *
+     * @param a Left multiplicand
+     * @param b Right multiplier
+     * @param to_add Vector of elements to add
+     * @return std::pair<uint512_t, uint512_t> Quotient and remainder values
+     */
     static std::pair<uint512_t, uint512_t> compute_quotient_remainder_values(const bigfield& a,
                                                                              const bigfield& b,
                                                                              const std::vector<bigfield>& to_add);
@@ -704,29 +929,103 @@ template <typename Builder, typename T> class bigfield {
                                                                const std::vector<uint1024_t>& remainders_max = {
                                                                    DEFAULT_MAXIMUM_REMAINDER });
 
+    /**
+     * @brief Evaluate a multiply add identity with several added elements and several remainders
+     *
+     * @param left Left multiplicand
+     * @param right Right multiplicand
+     * @param to_add Vector of elements to add
+     * @param quotient Quotient term
+     * @param remainders Vector of remainders
+     *
+     * @details This function evaluates the relationship:
+     * a * b + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod 2^t (binary basis modulus)
+     * a * b + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod n (circuit modulus)
+     *
+     * @note This method supports multiple "remainders" because, when evaluating division of the form:
+     * (n[0] * n[1] + ... + n[-1]) / d, the numerator (which becomes the remainder term) can be a sum of multiple
+     * elements.
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_multiply_add(const bigfield& left,
                                              const bigfield& right_mul,
                                              const std::vector<bigfield>& to_add,
                                              const bigfield& quotient,
                                              const std::vector<bigfield>& remainders);
 
+    /**
+     * @brief Evaluate a relation involving multiple multiplications and additions.
+     *
+     * @param input_left Vector of left multiplication operands.
+     * @param input_right Vector of right multiplication operands.
+     * @param to_add Vector of elements to add to the product.
+     * @param input_quotient Quotient term.
+     * @param input_remainders Vector of remainders.
+     *
+     * @details This function evaluates the relationship:
+     * (a[0] * b[0] + ... + (a[-1] * b[-1])) + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod 2^t
+     * (a[0] * b[0] + ... + (a[-1] * b[-1])) + (to_add[0] + .. + to_add[-1]) - q * p - (r[0] + .. + r[-1]) = 0 mod n
+     *
+     * @note This method supports multiple "remainders" because, when evaluating division of the form:
+     * (n[0] * n[1] + ... + n[-1]) / d, the numerator (which becomes the remainder term) can be a sum of multiple
+     * elements. See `msub_div` for more details on how this is used.
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_multiple_multiply_add(const std::vector<bigfield>& input_left,
                                                       const std::vector<bigfield>& input_right,
                                                       const std::vector<bigfield>& to_add,
                                                       const bigfield& input_quotient,
                                                       const std::vector<bigfield>& input_remainders);
 
+    /**
+     * @brief Evaluate a square with several additions.
+     *
+     * @param left Left multiplicand
+     * @param to_add Vector of elements to add
+     * @param quotient Quotient term
+     * @param remainder Remainder term
+     *
+     * @details This function evaluates the relationship:
+     * (a * a) + (to_add[0] + .. + to_add[-1]) - q * p - r = 0 mod 2^t (binary basis modulus)
+     * (a * a) + (to_add[0] + .. + to_add[-1]) - q * p - r = 0 mod n (circuit modulus)
+     *
+     * @warning THIS FUNCTION IS UNSAFE TO USE IN CIRCUITS AS IT DOES NOT PROTECT AGAINST CRT OVERFLOWS.
+     */
     static void unsafe_evaluate_square_add(const bigfield& left,
                                            const std::vector<bigfield>& to_add,
                                            const bigfield& quotient,
                                            const bigfield& remainder);
 
-    static void evaluate_product(const bigfield& left,
-                                 const bigfield& right,
-                                 const bigfield& quotient,
-                                 const bigfield& remainder);
+    /**
+     * @brief Check if the bigfield element needs to be reduced.
+     *
+     * @details This function checks if the bigfield element is within the valid range and reduces it if necessary.
+     * When multiplying bigfield elements a and b, we need to ensure that each side of the equation:
+     *      a * b = q * p + r
+     * (a) holds modulo the size of the native field n,
+     * (b) holds modulo the size of the bigger ring 2^t.
+     * (c) is less than the maximum value: M = 2^t * n.
+     * This implies a, b must always be less than √M, and their limbs must be less than the maximum limb value.
+     *
+     * Given a bigfield element c, this function applies these checks:
+     *  (i) c < √M (see note below).
+     * (ii) each limb (binary basis) of c is less than the maximum limb value.
+     *
+     * These checks prevent our field arithmetic from overflowing the native modulus boundary, whilst ensuring we can
+     * still use the chinese remainder theorem to validate field multiplications with a reduced number of range checks.
+     *
+     * Note: We actually apply a stricter bound, see @ref get_maximum_unreduced_value for an explanation.
+     */
     void reduction_check() const;
 
+    /**
+     * @brief Perform a sanity check on a value that is about to interact with another value.
+     *
+     * @details ASSERTs that the value of all limbs is less than or equal to the prohibited maximum value. Checks that
+     *the maximum value of the whole element is also less than a prohibited maximum value.
+     */
     void sanity_check() const;
 
 }; // namespace stdlib
