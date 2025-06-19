@@ -47,7 +47,7 @@ So the `update_to` function above allows anyone to update the contract that impl
 :::
 
 Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
-This means that they have a delay before entering into effect. The default delay is `3600` blocks but can be configured by the contract:
+This means that they have a delay before entering into effect. The default delay is `86400` seconds but can be configured by the contract:
 
 ```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
@@ -64,14 +64,14 @@ fn set_update_delay(new_delay: u64) {
 Where `new_delay` is denominated in blocks. However, take into account that changing the update delay also has as its delay that is the previous delay. So the first delay change will take 3600 blocks to take into effect.
 
 :::info
-The update delay cannot be set lower than `25` blocks
+The update delay cannot be set lower than `600` seconds
 :::
 
-When sending a transaction, the max_block_number of your TX will be the current block number you're simulating with + the minimum of the update delays that you're interacting with.
-If your TX interacts with a contract that can be upgraded in 30 blocks and another one that can be upgraded in 300 blocks, the max_block_number will be current block + 30.
+When sending a transaction, the expiration timestamp of your tx will be the timestamp of the current block number you're simulating with + the minimum of the update delays that you're interacting with.
+If your tx interacts with a contract that can be upgraded in 1000 seconds and another one that can be upgraded in 10000 seconds, the expiration timestamp (include_by_timestamp property on the tx) will be current block timestamp + 1000.
 Note that this can be even lower if there is an upgrade pending in one of the contracts you're interacting with.
-If the contract you interacted with will upgrade in 2 blocks, the max block number of your tx will be current + 1 blocks.
-Other SharedMutable storage variables read in your tx might reduce this max_block_number further.
+If the contract you interacted with will upgrade in 100 seconds, the expiration timestamp of your tx will be current block timestamp + 99 seconds.
+Other SharedMutable storage variables read in your tx might reduce this expiration timestamp further.
 
 :::note
 Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.
