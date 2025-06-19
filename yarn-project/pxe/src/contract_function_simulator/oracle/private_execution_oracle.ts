@@ -141,7 +141,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   }
 
   /**
-   * Return the offchain messages emitted during this execution.
+   * Return the offchain effects emitted during this execution.
    */
   public getOffchainEffects() {
     return this.offchainEffects;

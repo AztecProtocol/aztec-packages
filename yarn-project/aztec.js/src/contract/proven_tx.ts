@@ -10,7 +10,7 @@ export class ProvenTx extends Tx {
   constructor(
     protected wallet: Wallet,
     tx: Tx,
-    /** The offchain messages emitted during the execution of the transaction. */
+    /** The offchain effects emitted during the execution of the transaction. */
     public offchainEffects: OffchainEffect[],
     // eslint-disable-next-line jsdoc/require-jsdoc
     public stats?: ProvingStats,

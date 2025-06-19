@@ -133,7 +133,7 @@ export class PrivateCallExecutionResult {
     public noteHashNullifierCounterMap: Map<number, number>,
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
-    /** The offchain messages emitted during execution of this function call via the `emit_offchain_effect` oracle. */
+    /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
     public offchainEffects: { data: Fr[] }[],
     /** The nested executions. */
     public nestedExecutions: PrivateCallExecutionResult[],
@@ -246,15 +246,15 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
 
 /**
  * Collect all offchain messages emitted across all nested executions.
- * @param execResult - The execution result to collect messages from.
- * @returns Array of offchain messages.
+ * @param execResult - The execution result to collect offchain effects from.
+ * @returns Array of offchain effects.
  */
 export function collectOffchainEffects(execResult: PrivateExecutionResult): OffchainEffect[] {
-  const collectMessagesRecursive = (callResult: PrivateCallExecutionResult): OffchainEffect[] => {
+  const collectEffectsRecursive = (callResult: PrivateCallExecutionResult): OffchainEffect[] => {
     return [
       ...callResult.offchainEffects.map(msg => ({
         ...msg,
-        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the message
+        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the effect
       })),
       ...callResult.nestedExecutions.flatMap(nested => collectMessagesRecursive(nested)),
     ];

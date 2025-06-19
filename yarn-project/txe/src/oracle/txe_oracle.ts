@@ -1318,7 +1318,7 @@ export class TXE implements TypedOracle {
   }
 
   emitOffchainEffect(_data: Fr[]) {
-    // Offchain messages are discarded in the TXE tests.
+    // Offchain effects are discarded in TXE tests.
     return Promise.resolve();
   }
 

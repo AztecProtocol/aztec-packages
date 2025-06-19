@@ -34,7 +34,7 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
        */
       stats: SimulationStats;
       /**
-       * Offchain messages generated during the simulation
+       * Offchain effects generated during the simulation
        */
       offchainEffects: OffchainEffect[];
       /**
