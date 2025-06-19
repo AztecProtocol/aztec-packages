@@ -253,13 +253,14 @@ function run {
       -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
       -e NPM_TOKEN=${NPM_TOKEN:-} \
       -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-      -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
       --pids-limit=32768 \
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script") &
 
     docker_pid=\$!
+    aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
+
     while true; do
-      if curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
+      if curl -fs -H "X-aws-ec2-metadata-token: \$aws_token" http://169.254.169.254/latest/meta-data/spot/termination-time &>/dev/null; then
         # Termination notice found, exit with 155.
         echo "Spot will be terminated! Exiting early."
         kill \$docker_pid || true
