@@ -34,7 +34,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     // If exiting, we need to create a sequencer that can be exited and exit it first.
     if (_isExiting) {
       vm.prank(unhinged);
-      stakingAssetHandler.addValidator(_attester, fakeProof);
+      stakingAssetHandler.addValidator(_attester, validMerkleProof, fakeProof);
       staking.flushEntryQueue();
 
       vm.prank(WITHDRAWER);
@@ -45,7 +45,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     }
 
     vm.prank(unhinged);
-    stakingAssetHandler.addValidator(_attester, fakeProof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, fakeProof);
     staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
@@ -106,7 +106,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
 
     vm.prank(_caller);
     staking.flushEntryQueue();
@@ -156,7 +156,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
 
     vm.prank(_caller);
     staking.flushEntryQueue();
@@ -189,7 +189,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
 
     uint256 uniqueIdentifierLocation = proof.publicInputs.length - 16 - 1;
     vm.expectRevert(
@@ -199,7 +199,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     );
     // Call from somebody else
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
   }
 
   function test_WhenPassportProofIsInDevMode(address _caller, address _attester)
@@ -220,7 +220,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
   }
 
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
@@ -241,6 +241,6 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(attester, proof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
   }
 }
