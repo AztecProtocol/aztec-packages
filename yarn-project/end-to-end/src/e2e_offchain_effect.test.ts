@@ -65,7 +65,7 @@ describe('e2e_offchain_effect', () => {
 
   it('should emit event as offchain message and process it', async () => {
     const [a, b, c] = [1n, 2n, 3n];
-    const provenTx = await contract1.methods.emit_event_as_offchain_effect_for_msg_sender(a, b, c).prove();
+    const provenTx = await contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c).prove();
     const { txHash, blockNumber } = await provenTx.send().wait();
 
     const offchainEffects = provenTx.offchainEffects;
@@ -79,7 +79,7 @@ describe('e2e_offchain_effect', () => {
     expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
 
     const recipientAddressFr = offchainEffect.data[1];
-    // Recipient was set to message sender inside the emit_event_as_offchain_effect_for_msg_sender function
+    // Recipient was set to message sender inside the emit_event_as_offchain_message_for_msg_sender function
     const recipient = wallets[0].getAddress();
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
@@ -112,7 +112,7 @@ describe('e2e_offchain_effect', () => {
   it('should emit note as offchain message and process it', async () => {
     const value = 123n;
     const owner = wallets[0].getAddress();
-    const provenTx = await contract1.methods.emit_note_as_offchain_effect(value, owner).prove();
+    const provenTx = await contract1.methods.emit_note_as_offchain_message(value, owner).prove();
     const { txHash } = await provenTx.send().wait();
 
     const offchainEffects = provenTx.offchainEffects;
@@ -126,7 +126,7 @@ describe('e2e_offchain_effect', () => {
     expect(identifier).toEqual(OFFCHAIN_MESSAGE_IDENTIFIER);
 
     const recipientAddressFr = offchainEffect.data[1];
-    // Recipient was set to message sender inside the emit_note_as_offchain_effect function
+    // Recipient was set to message sender inside the emit_note_as_offchain_message function
     const recipient = wallets[0].getAddress();
     expect(recipient.toField()).toEqual(recipientAddressFr);
 
