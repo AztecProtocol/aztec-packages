@@ -180,7 +180,7 @@ fn validate_contract_address_with_updated_contract_succeeds() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.block_number as u32,
+        builder.private_call.historical_header.global_variables.block_number,
     );
 
     builder.validate();
@@ -192,7 +192,7 @@ fn validate_contract_address_not_yet_updated_contract_fails() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        (builder.private_call.historical_header.global_variables.block_number + 1) as u32,
+        builder.private_call.historical_header.global_variables.block_number + 1,
     );
 
     builder.validate();
@@ -207,7 +207,7 @@ fn validate_contract_address_updated_to_different_class_fails() {
     );
     builder.compute_updated_contract(
         new_class_id,
-        builder.private_call.historical_header.global_variables.block_number as u32,
+        builder.private_call.historical_header.global_variables.block_number,
     );
 
     builder.validate();

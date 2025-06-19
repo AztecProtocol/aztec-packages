@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include <cstdint>
 
 namespace bb {

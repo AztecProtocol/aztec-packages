@@ -5,11 +5,6 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 interface ISlashFactory {
-  struct Offender {
-    address validator;
-    uint96 amount;
-  }
-
   event SlashPayloadCreated(
     address payloadAddress, address[] validators, uint96[] amounts, uint256[] offenses
   );

@@ -8,21 +8,20 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
-import {
-  DEFAULT_BLOCK_NUMBER,
-  getContractFunctionAbi,
-  getFunctionSelector,
-  initContext,
-  initExecutionEnvironment,
-  resolveContractAssertionMessage,
-} from '../../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
+import { initContext, initExecutionEnvironment } from './initializers.js';
+import {
+  DEFAULT_BLOCK_NUMBER,
+  getContractFunctionAbi,
+  getFunctionSelector,
+  resolveContractAssertionMessage,
+} from './utils.js';
 
-const TIMESTAMP = new Fr(99833);
+const TIMESTAMP = 99833n;
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 /**

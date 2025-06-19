@@ -8,6 +8,7 @@ import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 /**
  * @title Outbox
@@ -17,11 +18,12 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
  */
 contract Outbox is IOutbox {
   using Hash for DataStructures.L2ToL1Msg;
+  using BitMaps for BitMaps.BitMap;
 
   struct RootData {
     // This is the outhash specified by header.globalvariables.outHash of any given block.
     bytes32 root;
-    mapping(uint256 index => bool nullified) nullified;
+    BitMaps.BitMap nullified;
   }
 
   IRollup public immutable ROLLUP;
@@ -91,14 +93,15 @@ contract Outbox is IOutbox {
     require(blockRoot != bytes32(0), Errors.Outbox__NothingToConsumeAtBlock(_l2BlockNumber));
 
     require(
-      !rootData.nullified[_leafIndex], Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
+      !rootData.nullified.get(_leafIndex),
+      Errors.Outbox__AlreadyNullified(_l2BlockNumber, _leafIndex)
     );
 
     bytes32 messageHash = _message.sha256ToField();
 
     MerkleLib.verifyMembership(_path, messageHash, _leafIndex, blockRoot);
 
-    rootData.nullified[_leafIndex] = true;
+    rootData.nullified.set(_leafIndex);
 
     emit MessageConsumed(_l2BlockNumber, blockRoot, messageHash, _leafIndex);
   }
@@ -119,7 +122,7 @@ contract Outbox is IOutbox {
     override(IOutbox)
     returns (bool)
   {
-    return roots[_l2BlockNumber].nullified[_leafIndex];
+    return roots[_l2BlockNumber].nullified.get(_leafIndex);
   }
 
   /**

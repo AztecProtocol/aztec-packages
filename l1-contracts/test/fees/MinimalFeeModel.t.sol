@@ -10,7 +10,7 @@ import {
 } from "./FeeModelTestPoints.t.sol";
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
   OracleInput,
   FeeLib,
@@ -23,10 +23,10 @@ import {Math} from "@oz/utils/math/Math.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
   using Math for uint256;
-  using SlotLib for Slot;
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
+  uint256 internal constant PROOF_SUBMISSION_EPOCHS = 1;
 
   MinimalFeeModel internal model;
 
@@ -45,7 +45,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION);
+    model = new MinimalFeeModel(SLOT_DURATION, EPOCH_DURATION, PROOF_SUBMISSION_EPOCHS);
     model.setProvingCost(provingCost);
   }
 
@@ -89,12 +89,14 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
       model.photograph();
 
       if (model.getCurrentSlot() == nextSlot) {
-        TestPoint memory expected = points[nextSlot.unwrap() - 1];
+        TestPoint memory expected = points[Slot.unwrap(nextSlot) - 1];
         L1FeesModel memory fees = model.getCurrentL1Fees();
 
         assertEq(expected.block_header.l1_block_number, block.number, "invalid l1 block number");
-        assertEq(expected.block_header.block_number, nextSlot.unwrap(), "invalid l2 block number");
-        assertEq(expected.block_header.slot_number, nextSlot.unwrap(), "invalid l2 slot number");
+        assertEq(
+          expected.block_header.block_number, Slot.unwrap(nextSlot), "invalid l2 block number"
+        );
+        assertEq(expected.block_header.slot_number, Slot.unwrap(nextSlot), "invalid l2 slot number");
         assertEq(expected.outputs.l1_fee_oracle_output.base_fee, fees.base_fee, "baseFee mismatch");
         assertEq(expected.outputs.l1_fee_oracle_output.blob_fee, fees.blob_fee, "blobFee mismatch");
         nextSlot = nextSlot + Slot.wrap(1);
@@ -112,7 +114,7 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
       model.photograph();
 
       if (model.getCurrentSlot() == nextSlot) {
-        uint256 index = nextSlot.unwrap() - 1;
+        uint256 index = Slot.unwrap(nextSlot) - 1;
         TestPoint memory point = points[index];
 
         // Get a hold of the values that is used for the next block

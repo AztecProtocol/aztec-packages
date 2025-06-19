@@ -16,7 +16,11 @@ void Memory::set(MemoryAddress index, MemoryValue value)
     validate_tag(value);
     memory[index] = value;
     debug("Memory write: ", index, " <- ", value.to_string());
-    events.emit({ .mode = MemoryMode::WRITE, .addr = index, .value = value, .space_id = space_id });
+    events.emit({ .execution_clk = execution_id_manager.get_execution_id(),
+                  .mode = MemoryMode::WRITE,
+                  .addr = index,
+                  .value = value,
+                  .space_id = space_id });
 }
 
 const MemoryValue& Memory::get(MemoryAddress index) const
@@ -26,7 +30,11 @@ const MemoryValue& Memory::get(MemoryAddress index) const
 
     auto it = memory.find(index);
     const auto& vt = it != memory.end() ? it->second : default_value;
-    events.emit({ .mode = MemoryMode::READ, .addr = index, .value = vt, .space_id = space_id });
+    events.emit({ .execution_clk = execution_id_manager.get_execution_id(),
+                  .mode = MemoryMode::READ,
+                  .addr = index,
+                  .value = vt,
+                  .space_id = space_id });
 
     debug("Memory read: ", index, " -> ", vt.to_string());
     return vt;

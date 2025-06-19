@@ -58,7 +58,7 @@ template <class Curve> class CommitmentKey {
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
-    CommitmentKey() = delete;
+    CommitmentKey() = default;
 
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS
@@ -72,12 +72,19 @@ template <class Curve> class CommitmentKey {
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
     /**
+     * @brief Checks the commitment key is properly initialized.
+     *
+     * @return bool
+     */
+    bool initialized() const { return srs != nullptr; }
+
+    /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(PolynomialSpan<const Fr> polynomial)
+    Commitment commit(PolynomialSpan<const Fr> polynomial) const
     {
         // Note: this fn used to expand polynomials to the dyadic size,
         // due to a quirk in how our pippenger algo used to function.

@@ -47,17 +47,23 @@ import type {
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
-import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
+import type {
+  PrivateExecutionStep,
+  PrivateKernelExecutionProofOutput,
+  PrivateKernelTailCircuitPublicInputs,
+} from '@aztec/stdlib/kernel';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { computeL2ToL1MembershipWitness, getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type ContractOverrides,
   type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   type ProvingTimings,
   PublicSimulationOutput,
+  SimulationOverrides,
   type SimulationTimings,
   Tx,
   TxExecutionRequest,
@@ -73,8 +79,12 @@ import { inspect } from 'util';
 
 import type { PXEServiceConfig } from '../config/index.js';
 import { getPackageInfo } from '../config/package_info.js';
-import { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
+import {
+  ContractFunctionSimulator,
+  generateSimulatedProvingResult,
+} from '../contract_function_simulator/contract_function_simulator.js';
 import { readCurrentClassId } from '../contract_function_simulator/oracle/private_execution.js';
+import { ProxiedContractDataProviderFactory } from '../contract_function_simulator/proxied_contract_data_source.js';
 import { ProxiedNodeFactory } from '../contract_function_simulator/proxied_node.js';
 import { PXEOracleInterface } from '../contract_function_simulator/pxe_oracle_interface.js';
 import {
@@ -245,11 +255,11 @@ export class PXEService implements PXE {
 
   // Internal methods
 
-  #getSimulatorForTx(): ContractFunctionSimulator {
+  #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
     const pxeOracleInterface = new PXEOracleInterface(
       ProxiedNodeFactory.create(this.node),
       this.keyStore,
-      this.contractDataProvider,
+      ProxiedContractDataProviderFactory.create(this.contractDataProvider, overrides?.contracts),
       this.noteDataProvider,
       this.capsuleDataProvider,
       this.syncDataProvider,
@@ -587,7 +597,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
@@ -621,7 +631,7 @@ export class PXEService implements PXE {
         contractAddress,
         currentInstance,
         this.node,
-        header.globalVariables.blockNumber.toNumber(),
+        header.globalVariables.blockNumber,
       );
       if (!contractClass.id.equals(currentClassId)) {
         throw new Error('Could not update contract to a class different from the current one.');
@@ -632,7 +642,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
       await this.contractDataProvider.addContractInstance(currentInstance);
@@ -819,9 +829,9 @@ export class PXEService implements PXE {
   public simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     skipFeeEnforcement: boolean = false,
+    overrides?: SimulationOverrides,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -834,7 +844,7 @@ export class PXEService implements PXE {
           origin: txRequest.origin,
           functionSelector: txRequest.functionSelector,
           simulatePublic,
-          msgSender,
+          msgSender: overrides?.msgSender,
           chainId: txRequest.txContext.chainId,
           version: txRequest.txContext.version,
           authWitnesses: txRequest.authWitnesses.map(w => w.requestHash),
@@ -847,24 +857,40 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
 
-        const contractFunctionSimulator = this.#getSimulatorForTx();
+        const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
+        // Temporary: in case there are overrides, we have to skip the kernels or validations
+        // will fail. Consider handing control to the user/wallet on whether they want to run them
+        // or not.
+        const skipKernels = overrides?.contracts !== undefined && Object.keys(overrides.contracts ?? {}).length > 0;
         const privateExecutionResult = await this.#executePrivate(
           contractFunctionSimulator,
           txRequest,
-          msgSender,
+          overrides?.msgSender,
           scopes,
         );
 
-        const { publicInputs, executionSteps } = await this.#prove(
-          txRequest,
-          this.proofCreator,
-          privateExecutionResult,
-          {
+        let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
+        let executionSteps: PrivateExecutionStep[] = [];
+
+        if (skipKernels) {
+          // According to the protocol rules, the nonce generator for the note hashes
+          // can either be the first nullifier in the tx or the hash of the initial tx request
+          // if there are none.
+          const nonceGenerator = privateExecutionResult.firstNullifier.equals(Fr.ZERO)
+            ? await txRequest.toTxRequest().hash()
+            : privateExecutionResult.firstNullifier;
+          ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
+            privateExecutionResult,
+            nonceGenerator,
+            this.contractDataProvider,
+          ));
+        } else {
+          ({ publicInputs, executionSteps } = await this.#prove(txRequest, this.proofCreator, privateExecutionResult, {
             simulate: true,
             skipFeeEnforcement,
             profileMode: 'none',
-          },
-        );
+          }));
+        }
 
         const privateSimulationResult = new PrivateSimulationResult(privateExecutionResult, publicInputs);
         const simulatedTx = privateSimulationResult.toSimulatedTx();
@@ -877,7 +903,7 @@ export class PXEService implements PXE {
         }
 
         let validationTime: number | undefined;
-        if (!skipTxValidation) {
+        if (!skipTxValidation && !skipKernels) {
           const validationTimer = new Timer();
           const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           validationTime = validationTimer.ms();
@@ -932,7 +958,7 @@ export class PXEService implements PXE {
           err,
           inspect(txRequest),
           `simulatePublic=${simulatePublic}`,
-          `msgSender=${msgSender?.toString() ?? 'undefined'}`,
+          `msgSender=${overrides?.msgSender?.toString() ?? 'undefined'}`,
           `skipTxValidation=${skipTxValidation}`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );

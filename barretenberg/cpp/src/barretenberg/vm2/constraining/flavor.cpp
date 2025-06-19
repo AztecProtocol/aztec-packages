@@ -100,7 +100,7 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
     , num_public_inputs(num_public_inputs)
     , evaluation_domain(bb::EvaluationDomain<FF>(circuit_size, circuit_size))
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
-    , commitment_key(std::make_shared<CommitmentKey>(circuit_size + 1)){
+    , commitment_key(circuit_size + 1){
         // The proving key's polynomials are not allocated here because they are later overwritten
         // AvmComposer::compute_witness(). We should probably refactor this flow.
     };

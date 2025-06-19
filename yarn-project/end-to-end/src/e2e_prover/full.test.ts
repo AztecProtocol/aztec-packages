@@ -14,7 +14,7 @@ import TOML from '@iarna/toml';
 import '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from './e2e_prover_test.js';
+import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;
@@ -306,7 +306,8 @@ describe('full_prover', () => {
 
       // Verify the tx proof
       logger.info(`Verifying the valid tx proof`);
-      await expect(t.circuitProofVerifier?.verifyProof(provenTx)).resolves.toBeTrue();
+      const verificationResult = await t.circuitProofVerifier?.verifyProof(provenTx);
+      expect(verificationResult?.valid).toBeTrue();
 
       // Spam node with invalid txs
       logger.info(`Submitting ${NUM_INVALID_TXS} invalid transactions to simulate a ddos attack`);

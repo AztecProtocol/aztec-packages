@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {Test} from "forge-std/Test.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -15,6 +16,14 @@ contract Sampler {
     returns (uint256[] memory)
   {
     return SampleLib.computeCommittee(_committeeSize, _indexCount, _seed);
+  }
+
+  function computeSampleIndex(uint256 _index, uint256 _indexCount, uint256 _seed)
+    public
+    pure
+    returns (uint256)
+  {
+    return SampleLib.computeSampleIndex(_index, _indexCount, _seed);
   }
 }
 
@@ -67,5 +76,27 @@ contract SamplingTest is Test {
     }
     assertGt(saw0, 400, "should have seen more 0s");
     assertGt(saw1, 400, "should have seen more 1s");
+  }
+
+  function test_committeeRevert(uint256 _committeeSize, uint256 _indexCount) public {
+    uint256 totalSize = bound(_indexCount, 1, type(uint256).max - 1);
+    uint256 committeeSize = bound(_committeeSize, totalSize + 1, type(uint256).max);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.SampleLib__SampleLargerThanIndex.selector, committeeSize, totalSize
+      )
+    );
+    sampler.computeCommittee(committeeSize, totalSize, 0);
+  }
+
+  function test_emptyCommittee(uint256 _seed) public {
+    uint256[] memory committee = sampler.computeCommittee(0, 0, _seed);
+    assertEq(committee.length, 0);
+  }
+
+  function testSampleIndex(uint256 _index, uint256 _seed) public view {
+    // Test modulo 0 case
+    assertEq(sampler.computeSampleIndex(_index, 0, _seed), 0);
   }
 }

@@ -4,6 +4,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  ExtRollupLib2Abi,
+  ExtRollupLib2Bytecode,
   ExtRollupLibAbi,
   ExtRollupLibBytecode,
   FeeAssetHandlerAbi,
@@ -66,7 +68,7 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import { DefaultRewardConfig, type L1ContractsConfig } from './config.js';
+import { DefaultEntryQueueConfig, DefaultRewardConfig, type L1ContractsConfig } from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -92,14 +94,12 @@ export type Operator = {
  * Return type of the deployL1Contract function.
  */
 export type DeployL1ContractsReturnType = {
-  /**
-   * Extended Wallet Client Type.
-   */
+  /** Extended Wallet Client Type. */
   l1Client: ExtendedViemWalletClient;
-  /**
-   * The currently deployed l1 contract addresses
-   */
+  /** The currently deployed l1 contract addresses */
   l1ContractAddresses: L1ContractAddresses;
+  /** Version of the current rollup contract. */
+  rollupVersion: number;
 };
 
 export interface LinkReferences {
@@ -161,6 +161,10 @@ export const l1Artifacts = {
           contractAbi: ExtRollupLibAbi,
           contractBytecode: ExtRollupLibBytecode as Hex,
         },
+        ExtRollupLib2: {
+          contractAbi: ExtRollupLib2Abi,
+          contractBytecode: ExtRollupLib2Bytecode as Hex,
+        },
       },
     },
   },
@@ -216,10 +220,16 @@ export const l1Artifacts = {
     contractAbi: GSEAbi,
     contractBytecode: GSEBytecode as Hex,
   },
+};
+
+export const l1ArtifactsVerifiers = {
   honkVerifier: {
     contractAbi: HonkVerifierAbi,
     contractBytecode: HonkVerifierBytecode as Hex,
   },
+};
+
+const mockVerifiers = {
   mockVerifier: {
     contractAbi: MockVerifierAbi,
     contractBytecode: MockVerifierBytecode as Hex,
@@ -515,7 +525,7 @@ export const deploySharedContracts = async (
 
 const getZkPassportVerifierAddress = async (deployer: L1Deployer, args: DeployL1ContractsArgs): Promise<EthAddress> => {
   if (args.zkPassportArgs?.mockZkPassportVerifier) {
-    return await deployer.deploy(l1Artifacts.mockZkPassportVerifier);
+    return await deployer.deploy(mockVerifiers.mockZkPassportVerifier);
   }
   return ZK_PASSPORT_VERIFIER_ADDRESS;
 };
@@ -603,10 +613,10 @@ export const deployRollup = async (
   let epochProofVerifier = EthAddress.ZERO;
 
   if (args.realVerifier) {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.honkVerifier);
+    epochProofVerifier = await deployer.deploy(l1ArtifactsVerifiers.honkVerifier);
     logger.verbose(`Rollup will use the real verifier at ${epochProofVerifier}`);
   } else {
-    epochProofVerifier = await deployer.deploy(l1Artifacts.mockVerifier);
+    epochProofVerifier = await deployer.deploy(mockVerifiers.mockVerifier);
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
@@ -614,10 +624,12 @@ export const deployRollup = async (
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
     targetCommitteeSize: args.aztecTargetCommitteeSize,
-    aztecProofSubmissionWindow: args.aztecProofSubmissionWindow,
+    aztecProofSubmissionEpochs: args.aztecProofSubmissionEpochs,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
+    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
+    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: DefaultRewardConfig,
   };
@@ -1036,6 +1048,7 @@ export const deployL1Contracts = async (
   }
 
   return {
+    rollupVersion: Number(await rollup.getVersion()),
     l1Client: l1Client,
     l1ContractAddresses: {
       ...l1Contracts,

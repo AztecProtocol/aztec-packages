@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/ecc//batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/mem_bn254_crs_factory.hpp"
@@ -12,11 +13,11 @@
 
 namespace bb {
 
-template <typename Curve> std::shared_ptr<CommitmentKey<Curve>> create_commitment_key(const size_t num_points)
+template <typename Curve> CommitmentKey<Curve> create_commitment_key(const size_t num_points)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     std::string srs_path;
-    return std::make_shared<CommitmentKey<Curve>>(num_points);
+    return CommitmentKey<Curve>(num_points);
 }
 
 // Generate a polynomial with a specified number of nonzero random coefficients
@@ -99,7 +100,7 @@ template <typename Curve> void bench_commit_zero(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     const auto polynomial = Polynomial<typename Curve::ScalarField>(num_points);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -118,7 +119,7 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
     }
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -137,7 +138,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
     }
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -153,7 +154,7 @@ template <typename Curve> void bench_commit_sparse_random(::benchmark::State& st
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -169,7 +170,7 @@ template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchma
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -182,7 +183,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     const size_t num_points = 1 << state.range(0);
     Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -196,7 +197,7 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     const size_t num_points = 1 << state.range(0);
     Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points - 1);
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -209,7 +210,7 @@ template <typename Curve> void bench_commit_structured_random_poly(::benchmark::
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -222,7 +223,7 @@ template <typename Curve> void bench_commit_structured_random_poly_preprocessed(
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>();
 
     for (auto _ : state) {
-        key->commit_structured(polynomial, active_range_endpoints);
+        key.commit_structured(polynomial, active_range_endpoints);
     }
 }
 
@@ -235,7 +236,7 @@ template <typename Curve> void bench_commit_mock_z_perm(::benchmark::State& stat
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
-        key->commit(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -248,9 +249,47 @@ template <typename Curve> void bench_commit_mock_z_perm_preprocessed(::benchmark
     auto [polynomial, active_range_endpoints] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
 
     for (auto _ : state) {
-        key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
+        key.commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
     }
 }
+
+constexpr size_t MIN_LOG_NUM_GRUMPKIN_POINTS = 12;
+constexpr size_t MAX_LOG_NUM_GRUMPKIN_POINTS = 16;
+constexpr size_t MAX_NUM_GRUMPKIN_POINTS = 1 << MAX_LOG_NUM_GRUMPKIN_POINTS;
+
+/**
+ * @brief Benchmark pippenger_without_endomorphism_basis_points function, which is used notably in the IPA verifier.
+ *
+ * @tparam Curve
+ * @param state
+ */
+template <typename Curve> void bench_pippenger_without_endomorphism_basis_points(::benchmark::State& state)
+{
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    auto pcs_verification_key = std::make_shared<VerifierCommitmentKey<Curve>>(MAX_NUM_GRUMPKIN_POINTS + 1);
+
+    for (auto _ : state) {
+        state.PauseTiming();
+        const size_t num_points = 1 << state.range(0);
+        Polynomial<Fr> s_poly = Polynomial<Fr>::random(num_points);
+
+        state.ResumeTiming();
+        std::span<const Commitment> srs_elements = pcs_verification_key->get_monomial_points();
+        std::vector<Commitment> G_vec_local(num_points);
+        parallel_for_heuristic(
+            num_points, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST * 2);
+
+        // IPA MSM
+        bb::scalar_multiplication::pippenger_unsafe<Curve>(s_poly, { &G_vec_local[0], num_points });
+    }
+}
+
+BENCHMARK(bench_pippenger_without_endomorphism_basis_points<curve::Grumpkin>)
+    ->DenseRange(MIN_LOG_NUM_GRUMPKIN_POINTS, MAX_LOG_NUM_GRUMPKIN_POINTS)
+    ->Unit(benchmark::kMillisecond);
 
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)

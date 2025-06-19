@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 import {TestBase} from "@test/base/Base.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
@@ -19,6 +20,8 @@ contract StakingBase is TestBase {
   uint256 internal DEPOSIT_AMOUNT;
   uint256 internal MINIMUM_STAKE;
 
+  uint256 internal EPOCH_DURATION_SECONDS;
+
   address internal SLASHER;
 
   function setUp() public virtual {
@@ -28,12 +31,15 @@ contract StakingBase is TestBase {
 
     registry = builder.getConfig().registry;
 
+    RollupConfigInput memory rollupConfig = builder.getConfig().rollupConfigInput;
+
+    EPOCH_DURATION_SECONDS = rollupConfig.aztecEpochDuration * rollupConfig.aztecSlotDuration;
+
     staking = IStaking(address(builder.getConfig().rollup));
     stakingAsset = builder.getConfig().testERC20;
 
     DEPOSIT_AMOUNT = staking.getDepositAmount();
     MINIMUM_STAKE = staking.getMinimumStake();
-
     SLASHER = staking.getSlasher();
   }
 }

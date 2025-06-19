@@ -95,10 +95,9 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey
-        : public StdlibVerificationKey_<BuilderType, FF, ECCVMFlavor::PrecomputedEntities<Commitment>> {
+    class VerificationKey : public StdlibVerificationKey_<BuilderType, ECCVMFlavor::PrecomputedEntities<Commitment>> {
       public:
-        std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+        VerifierCommitmentKey pcs_verification_key;
 
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
@@ -108,18 +107,17 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
          * @param native_key Native verification key from which to extract the precomputed commitments
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-            : pcs_verification_key(std::make_shared<VerifierCommitmentKey>(
-                  builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key))
+            : pcs_verification_key(builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key)
         {
 
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
             // `log_circuit_size` from MSGPACK and the verification key.
-            this->circuit_size = FF{ 1UL << CONST_ECCVM_LOG_N };
+            this->circuit_size = BF{ 1UL << CONST_ECCVM_LOG_N };
             this->circuit_size.convert_constant_to_fixed_witness(builder);
-            this->log_circuit_size = FF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
+            this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);

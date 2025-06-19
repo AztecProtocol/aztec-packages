@@ -2,8 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "./interfaces/IPayload.sol";
 import {IProposerPayload} from "./interfaces/IProposerPayload.sol";
@@ -55,8 +54,11 @@ contract GSEPayload is IProposerPayload {
    */
   function amIValid() external view override(IProposerPayload) returns (bool) {
     uint256 totalSupply = GSE.totalSupply();
-    uint256 supplyOf = GSE.effectiveSupplyOfAt(GSE.getCanonical(), Timestamp.wrap(block.timestamp));
-    require(supplyOf > totalSupply * 2 / 3, Errors.GovernanceProposer__GSEPayloadInvalid());
+    address canonical = GSE.getCanonical();
+    address magicCanonical = GSE.getCanonicalMagicAddress();
+    uint256 supplyOfInstance = GSE.supplyOf(canonical) + GSE.supplyOf(magicCanonical);
+
+    require(supplyOfInstance > totalSupply * 2 / 3, Errors.GovernanceProposer__GSEPayloadInvalid());
     return true;
   }
 }

@@ -166,26 +166,23 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
-    const leafIndex = await this.#findLeafIndex(blockNumber, treeId, leafValue);
-    if (!leafIndex) {
-      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]}`);
+    const witness = await this.#tryGetMembershipWitness(blockNumber, treeId, leafValue);
+    if (!witness) {
+      throw new Error(`Leaf value ${leafValue} not found in tree ${MerkleTreeId[treeId]} at block ${blockNumber}`);
     }
-
-    const siblingPath = await this.#getSiblingPath(blockNumber, treeId, leafIndex);
-
-    return [new Fr(leafIndex), ...siblingPath];
+    return witness;
   }
 
-  async #getSiblingPath(blockNumber: number, treeId: MerkleTreeId, leafIndex: bigint): Promise<Fr[]> {
+  async #tryGetMembershipWitness(blockNumber: number, treeId: MerkleTreeId, value: Fr): Promise<Fr[] | undefined> {
     switch (treeId) {
       case MerkleTreeId.NULLIFIER_TREE:
-        return (await this.aztecNode.getNullifierSiblingPath(blockNumber, leafIndex)).toFields();
+        return (await this.aztecNode.getNullifierMembershipWitness(blockNumber, value))?.withoutPreimage().toFields();
       case MerkleTreeId.NOTE_HASH_TREE:
-        return (await this.aztecNode.getNoteHashSiblingPath(blockNumber, leafIndex)).toFields();
+        return (await this.aztecNode.getNoteHashMembershipWitness(blockNumber, value))?.toFields();
       case MerkleTreeId.PUBLIC_DATA_TREE:
-        return (await this.aztecNode.getPublicDataSiblingPath(blockNumber, leafIndex)).toFields();
+        return (await this.aztecNode.getPublicDataWitness(blockNumber, value))?.withoutPreimage().toFields();
       case MerkleTreeId.ARCHIVE:
-        return (await this.aztecNode.getArchiveSiblingPath(blockNumber, leafIndex)).toFields();
+        return (await this.aztecNode.getArchiveMembershipWitness(blockNumber, value))?.toFields();
       default:
         throw new Error('Not implemented');
     }
@@ -706,7 +703,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       siloedNullifier,
       txHash,
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
-      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash.toString(),
       uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );

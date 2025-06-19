@@ -24,7 +24,7 @@ describe('tx collector', () => {
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
     const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty(), txHashes);
-    return new BlockProposal(new Fr(1), payload, Signature.empty(), txs);
+    return new BlockProposal(1, payload, Signature.empty(), txs);
   };
 
   const setupTxPools = async (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {

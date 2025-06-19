@@ -234,7 +234,7 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
     throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
   }
 
-  const siblingPath = await db.getSiblingPath<typeof PUBLIC_DATA_TREE_HEIGHT>(MerkleTreeId.PUBLIC_DATA_TREE, index);
+  const siblingPath = await db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, index);
   const membershipWitness = new MembershipWitness(PUBLIC_DATA_TREE_HEIGHT, index, siblingPath.toTuple());
 
   const leafPreimage = (await db.getLeafPreimage(MerkleTreeId.PUBLIC_DATA_TREE, index)) as PublicDataTreeLeafPreimage;
@@ -323,7 +323,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     l1ToL2Messages: Fr[],
     db: MerkleTreeReadOperations,
   ) => {
-    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber.toNumber());
+    span.setAttribute(Attributes.BLOCK_NUMBER, globalVariables.blockNumber);
     const stateReference = new StateReference(
       await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db),
       new PartialStateReference(
@@ -351,16 +351,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
               ),
             );
 
-    l1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    const hasher = (left: Buffer, right: Buffer) =>
-      Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
-    const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
-    const parityCalculator = await MerkleTreeCalculator.create(
-      parityHeight,
-      Fr.ZERO.toBuffer() as Buffer<ArrayBuffer>,
-      hasher,
-    );
-    const parityShaRoot = new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
+    const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
     const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
@@ -373,6 +364,16 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     return { header, body };
   },
 );
+
+/** Computes the inHash for a block's ContentCommitment given its l1 to l2 messages. */
+export async function computeInHashFromL1ToL2Messages(unpaddedL1ToL2Messages: Fr[]): Promise<Fr> {
+  const l1ToL2Messages = padArrayEnd(unpaddedL1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+  const hasher = (left: Buffer, right: Buffer) =>
+    Promise.resolve(sha256Trunc(Buffer.concat([left, right])) as Buffer<ArrayBuffer>);
+  const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
+  const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
+  return new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
+}
 
 export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
   return sha256ToField(inputs.map(b => b.getEthVersionedBlobHash()));

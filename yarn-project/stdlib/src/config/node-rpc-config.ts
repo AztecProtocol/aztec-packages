@@ -11,6 +11,11 @@ export const nodeRpcConfigMappings: ConfigMappingsType<NodeRPCConfig> = {
     description: 'Maximum allowed batch size for JSON RPC batch requests.',
     ...numberConfigHelper(100),
   },
+  rpcMaxBodySize: {
+    env: 'RPC_MAX_BODY_SIZE',
+    description: 'Maximum allowed batch size for JSON RPC batch requests.',
+    defaultValue: '50mb',
+  },
 };
 
 export type NodeRPCConfig = {
@@ -18,4 +23,6 @@ export type NodeRPCConfig = {
   rpcSimulatePublicMaxGasLimit: number;
   /** Maximum allowed batch size for JSON RPC batch requests. */
   rpcMaxBatchSize: number;
+  /** The maximum body size the RPC server will accept */
+  rpcMaxBodySize: string;
 };

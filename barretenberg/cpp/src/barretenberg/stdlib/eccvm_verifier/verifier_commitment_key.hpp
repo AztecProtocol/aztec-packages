@@ -29,22 +29,23 @@ template <typename Curve_> class VerifierCommitmentKey {
      * @details The Grumpkin SRS points will be initialised as constants in the circuit but might be subsequently
      * turned into constant witnesses to make operations in the circuit more efficient.
      */
-    VerifierCommitmentKey(
-        [[maybe_unused]] Builder* builder,
-        size_t num_points,
-        const std::shared_ptr<VerifierCommitmentKey<NativeEmbeddedCurve>>& native_pcs_verification_key)
-        : g1_identity(Commitment(native_pcs_verification_key->get_g1_identity()))
+    VerifierCommitmentKey([[maybe_unused]] Builder* builder,
+                          size_t num_points,
+                          const VerifierCommitmentKey<NativeEmbeddedCurve>& native_pcs_verification_key)
+        : g1_identity(Commitment(native_pcs_verification_key.get_g1_identity()))
     {
 
-        auto native_points = native_pcs_verification_key->get_monomial_points();
+        auto native_points = native_pcs_verification_key.get_monomial_points();
         BB_ASSERT_LTE(num_points, native_points.size());
         for (size_t i = 0; i < num_points; i += 1) {
             monomial_points.emplace_back(Commitment(native_points[i]));
         }
     }
 
-    Commitment get_g1_identity() { return g1_identity; }
-    std::vector<Commitment> get_monomial_points() { return monomial_points; }
+    VerifierCommitmentKey() = default;
+
+    Commitment get_g1_identity() const { return g1_identity; }
+    std::vector<Commitment> get_monomial_points() const { return monomial_points; }
 
   private:
     Commitment g1_identity;

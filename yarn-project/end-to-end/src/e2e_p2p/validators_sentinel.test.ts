@@ -42,7 +42,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       initialConfig: {
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecProofSubmissionWindow: 640,
+        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: EPOCH_DURATION,
@@ -56,7 +56,6 @@ describe('e2e_p2p_validators_sentinel', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
 
