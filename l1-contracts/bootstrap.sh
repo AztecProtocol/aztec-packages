@@ -170,10 +170,28 @@ function bench {
         # Define our cases with their column numbers
         cases["no_validators"] = 3;
         cases["100_validators"] = 4;
-        cases["overhead"] = 5;
+        cases["100_validators_slashing"] = 5;
+        cases["overhead"] = 6;
 
         for (case_name in cases) {
           col = cases[case_name];
+
+          # Filter: only include aggregate3 functions with 100_validators_slashing, and vice versa
+          has_aggregate3 = index(tolower(func_name), "aggregate3") > 0;
+          is_slashing_case = (case_name == "100_validators_slashing");
+
+          # Skip if aggregate3 function but not slashing case, or slashing case but not aggregate3 function
+          if ((has_aggregate3 && !is_slashing_case) || (is_slashing_case && !has_aggregate3)) {
+            continue;
+          }
+
+
+          # Rename aggregate3 to proposeAndVote in function name
+          display_func_name = func_name;
+          if (has_aggregate3) {
+            gsub(/aggregate3/, "proposeAndVote", display_func_name);
+          }
+
           if (match(cols[col], /([0-9]+)[ ]*\(([0-9.]+)\)/)) {
             # Extract the raw gas value (first number)
             match(cols[col], /[0-9]+/);
@@ -188,14 +206,14 @@ function bench {
 
             # Output raw gas value
             print "  {";
-            print "    \"name\": \"" func_name " (" case_name ")\",";
+            print "    \"name\": \"" display_func_name " (" case_name ")\",";
             print "    \"value\": " raw_gas ",";
             print "    \"unit\": \"gas\"";
             print "  },";
 
             # Output per tx value
             print "  {";
-            print "    \"name\": \"" func_name " (" case_name ") per l2 tx\",";
+            print "    \"name\": \"" display_func_name " (" case_name ") per l2 tx\",";
             print "    \"value\": " per_tx ",";
             print "    \"unit\": \"gas\"";
             print "  }";
@@ -243,18 +261,27 @@ function validator_costs {
     --fuzz-seed 42 \
     > with_validators.tmp
 
+  # Run test with 100 validators and slashing
+  echo "Running test with 100 validators and slashing..."
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "BenchmarkRollupTest" \
+    --match-test "test_100_slashing_validators" \
+    --fuzz-seed 42 \
+    > with_slashing_validators.tmp
+
   file_no="no_validators.tmp"          # without validators
   file_yes="with_validators.tmp"       # with    validators
+  file_yes_slashing="with_slashing_validators.tmp"       # with    validators and slashing
   report="gas_benchmark.new.md"        # will be overwritten each run
 
   # keep ONLY these functions, in this order
-  wanted_funcs="propose setupEpoch submitEpochRootProof"
+  wanted_funcs="propose setupEpoch submitEpochRootProof aggregate3"
 
   # one label per numeric column (use | to separate)
   labels='Min|Avg|Median|Max|# Calls'
 
   awk -v keep="$wanted_funcs" -v lbl="$labels" \
-      -v f_no="$file_no" -v f_yes="$file_yes" '
+      -v f_no="$file_no" -v f_yes="$file_yes" -v f_yes_slashing="$file_yes_slashing" '
   function trim(s){gsub(/^[[:space:]]+|[[:space:]]+$/,"",s); return s}
   #   cell(raw [, scaled])
   #   If you call it with ONE argument, you get the raw value only.
@@ -306,11 +333,20 @@ function validator_costs {
       for(i=3; i<=NF-1; i++) with[fn,i] = trim(C[i]) + 0
       cols[fn] = NF - 3
   }
+  # ---------- third file: with validators and slashing --------------------------
+  {
+      if($0 !~ /^\|/) next
+      split($0, C)
+      fn = trim(C[2])
+      if(!(fn in want)) next
+      for(i=3; i<=NF-1; i++) with_slashing[fn,i] = trim(C[i]) + 0
+      cols[fn] = NF - 3
+  }
   # ---------- emit table -------------------------------------------------------
   END{
       for (k = 1; k <= nf; k++) {
           fn = order[k]
-          div = (fn == "propose" ? 360 : 11520)   # change 11520→720 if desired
+          div = (fn == "propose" || fn == "aggregate3" ? 360 : 11520)   # change 11520→720 if desired
 
           for (j = 1; j <= cols[fn]; j++) {
               idx    = j + 2
@@ -334,10 +370,10 @@ function validator_costs {
           print sep
       }
   }
-  ' "$file_no" "$file_yes" > "$report"
+  ' "$file_no" "$file_yes" "$file_yes_slashing" > "$report"
 
   # Clean up temporary files
-  rm no_validators.tmp with_validators.tmp
+  rm no_validators.tmp with_validators.tmp with_slashing_validators.tmp
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.

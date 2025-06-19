@@ -13,8 +13,10 @@ import {
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {SlotDerivation} from "@oz/utils/SlotDerivation.sol";
 import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
+import {TransientSlot} from "@oz/utils/TransientSlot.sol";
 
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -25,9 +27,14 @@ library ValidatorSelectionLib {
   using TimeLib for Slot;
   using Checkpoints for Checkpoints.Trace224;
   using SafeCast for *;
+  using TransientSlot for *;
+  using SlotDerivation for string;
+  using SlotDerivation for bytes32;
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
+  // Namespace for cached proposer computations
+  string private constant PROPOSER_NAMESPACE = "aztec.validator_selection.transient.proposer";
 
   function initialize(uint256 _targetCommitteeSize) internal {
     ValidatorSelectionStorage storage store = getStorage();
@@ -160,9 +167,20 @@ library ValidatorSelectionLib {
         reconstructedCommitment, committeeCommitment
       );
     }
+
+    setCachedProposer(_slot, proposer);
+  }
+
+  function setCachedProposer(Slot _slot, address _proposer) internal {
+    PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tstore(_proposer);
   }
 
   function getProposerAt(Slot _slot) internal returns (address) {
+    address cachedProposer = getCachedProposer(_slot);
+    if (cachedProposer != address(0)) {
+      return cachedProposer;
+    }
+
     // @note this is deliberately "bad" for the simple reason of code reduction.
     //       it does not need to actually return the full committee and then draw from it
     //       it can just return the proposer directly, but then we duplicate the code
@@ -277,6 +295,10 @@ library ValidatorSelectionLib {
       uint224 nextSeed = computeNextSeed(_epoch);
       store.seeds.push(epoch, nextSeed);
     }
+  }
+
+  function getCachedProposer(Slot _slot) internal view returns (address) {
+    return PROPOSER_NAMESPACE.erc7201Slot().deriveMapping(Slot.unwrap(_slot)).asAddress().tload();
   }
 
   function epochToSampleTime(Epoch _epoch) internal view returns (uint32) {
