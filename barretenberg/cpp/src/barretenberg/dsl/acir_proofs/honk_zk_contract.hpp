@@ -26,6 +26,7 @@ using {equal as ==} for Fr global;
 
 uint256 constant SUBGROUP_SIZE = 256;
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+uint256 constant P = MODULUS;
 Fr constant SUBGROUP_GENERATOR = Fr.wrap(0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76);
 Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6);
 Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
@@ -1481,43 +1482,6 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
     result = string(str);
 }
 
-function logG(string memory name, Honk.G1ProofPoint memory p) pure {
-    Honk.G1Point memory point = convertProofPoint(p);
-
-    string memory x = bytes32ToString(bytes32(point.x));
-    string memory y = bytes32ToString(bytes32(point.y));
-
-    string memory message = string(abi.encodePacked(name, " x: ", x, " y: ", y));
-    console2.log(message);
-}
-
-function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
-    string memory x = bytes32ToString(bytes32(point.x));
-    string memory y = bytes32ToString(bytes32(point.y));
-
-    string memory message = string(abi.encodePacked(" x: ", x, " y: ", y));
-    console2.log(name, i, message);
-}
-
-function logUint(string memory name, uint256 value) pure {
-    string memory as_hex = bytes32ToString(bytes32(value));
-    console2.log(name, as_hex);
-}
-
-function logUint(string memory name, uint256 i, uint256 value) pure {
-    string memory as_hex = bytes32ToString(bytes32(value));
-    console2.log(name, i, as_hex);
-}
-
-function logFr(string memory name, Fr value) pure {
-    string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
-    console2.log(name, as_hex);
-}
-
-function logFr(string memory name, uint256 i, Fr value) pure {
-    string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
-    console2.log(name, i, as_hex);
-}
 
 // Fr utility
 
@@ -1570,31 +1534,6 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
 }
 
 
-function print_transcript(Transcript memory t) pure {
-        // Print alphas
-        for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
-            logFr("alpha", i, t.alphas[i]);
-        }
-
-        // Print gate challenges
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("gateChallenge", i, t.gateChallenges[i]);
-        }
-
-        // Print sumcheck challenges
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("sumCheckUChallenge", i, t.sumCheckUChallenges[i]);
-        }
-
-        // Print Gemini parameters
-        logFr("rho", t.rho);
-        logFr("geminiR", t.geminiR);
-
-        // Print Shplonk parameters
-        logFr("shplonkNu", t.shplonkNu);
-        logFr("shplonkZ", t.shplonkZ);
-    }
-
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 
 
@@ -1623,7 +1562,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 507;
-    uint256 constant PAIRING_POINTS_SIZE = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 

@@ -11,7 +11,8 @@ import {
     NUMBER_OF_ALPHAS,
     NUMBER_UNSHIFTED,
     ZK_BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N
+    CONST_PROOF_SIZE_LOG_N,
+    PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
@@ -50,7 +51,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 507;
-    uint256 constant PAIRING_POINTS_SIZE = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
