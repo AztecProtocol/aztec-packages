@@ -13,7 +13,7 @@ import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
 
-contract addValidatorToQueueTest is StakingAssetHandlerBase {
+contract addValidatorTest is StakingAssetHandlerBase {
   using stdStorage for StdStorage;
 
   address public unhinged = address(0xdead);
@@ -34,7 +34,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     // If exiting, we need to create a sequencer that can be exited and exit it first.
     if (_isExiting) {
       vm.prank(unhinged);
-      stakingAssetHandler.addValidatorToQueue(_attester, fakeProof);
+      stakingAssetHandler.addValidator(_attester, fakeProof);
       staking.flushEntryQueue();
 
       vm.prank(WITHDRAWER);
@@ -45,7 +45,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     }
 
     vm.prank(unhinged);
-    stakingAssetHandler.addValidatorToQueue(_attester, fakeProof);
+    stakingAssetHandler.addValidator(_attester, fakeProof);
     staking.flushEntryQueue();
 
     AttesterView memory attesterView = staking.getAttesterView(_attester);
@@ -77,7 +77,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, realProof);
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -110,7 +110,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
@@ -163,7 +163,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, proof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ToppedUp(DEPOSIT_AMOUNT * depositsPerMint);
@@ -199,7 +199,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, proof);
 
     uint256 uniqueIdentifierLocation = proof.publicInputs.length - 16 - 1;
     vm.expectRevert(
@@ -209,7 +209,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     );
     // Call from somebody else
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, proof);
   }
 
   function test_WhenPassportProofIsInDevMode(address _caller, address _attester)
@@ -230,7 +230,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InvalidProof.selector));
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, proof);
+    stakingAssetHandler.addValidator(_attester, proof);
   }
 
   function test_WhenPassportProofIsInThePast(address _caller, uint16 _daysInFuture)
@@ -251,7 +251,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(attester, proof);
+    stakingAssetHandler.addValidator(attester, proof);
   }
 
   function test_GivenTheDepositCallFails(
@@ -285,7 +285,7 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_attester, 1);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, realProof);
 
     // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
     mockZKPassportVerifier.incrementUniqueIdentifier();
@@ -294,14 +294,14 @@ contract addValidatorToQueueTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_secondAttester, 2);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_secondAttester, realProof);
+    stakingAssetHandler.addValidator(_secondAttester, realProof);
 
     mockZKPassportVerifier.incrementUniqueIdentifier();
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(_thirdAttester, 3);
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_thirdAttester, realProof);
+    stakingAssetHandler.addValidator(_thirdAttester, realProof);
 
     // Expected successful events
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
