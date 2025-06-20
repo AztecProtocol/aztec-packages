@@ -111,7 +111,7 @@ template <typename Curve_> class IPA {
     * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
     *
     * @tparam Transcript Transcript type. Useful for testing
-    * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+    * @param ck The commitment key containing srs
     * @param opening_pair (challenge, evaluation)
     * @param polynomial The witness polynomial whose opening proof needs to be computed
     * @param transcript Prover transcript
@@ -181,17 +181,15 @@ template <typename Curve_> class IPA {
         std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
-        if (poly_length * 2 > srs_elements.size()) {
+        if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
 
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
+        // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
             poly_length,
             [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
+                G_vec_local[i] = srs_elements[i];
             }, thread_heuristics::FF_COPY_COST);
 
         // Step 5.
@@ -238,14 +236,14 @@ template <typename Curve_> class IPA {
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck.pippenger_runtime_state.get());
+
+            L_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(0), /*size*/ round_size}},{&G_vec_local[round_size], round_size});
+
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck.pippenger_runtime_state.get());
+            R_i = scalar_multiplication::pippenger_unsafe<Curve>({0, {&a_vec.at(round_size), /*size*/ round_size}},{&G_vec_local[0], /*size*/ round_size});
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -307,7 +305,7 @@ template <typename Curve_> class IPA {
      * @brief Natively verify the correctness of a Proof
      *
      * @tparam Transcript Allows to specify a transcript class. Useful for testing
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
@@ -387,8 +385,7 @@ template <typename Curve_> class IPA {
 
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk.pippenger_runtime_state.get());
+        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>({0, {&msm_scalars[0], /*size*/ pippenger_size}},{&msm_elements[0], /*size*/ pippenger_size});
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -406,25 +403,13 @@ template <typename Curve_> class IPA {
         Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(log_poly_length, std::span(round_challenges_inv).subspan(0, log_poly_length)));
 
         std::span<const Commitment> srs_elements = vk.get_monomial_points();
-        if (poly_length * 2 > srs_elements.size()) {
+        if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
-        // Copy the G_vector to local memory.
-        std::vector<Commitment> G_vec_local(poly_length);
-
-        // The SRS stored in the commitment key is the result after applying the pippenger point table so the
-        // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
-        // G_vec_local should use only the original SRS thus we extract only the even indices.
-        parallel_for_heuristic(
-            poly_length,
-            [&](size_t i) {
-                G_vec_local[i] = srs_elements[i * 2];
-            }, thread_heuristics::FF_COPY_COST * 2);
 
         // Step 8.
         // Compute G₀
-        Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk.pippenger_runtime_state.get());
+        Commitment G_zero = scalar_multiplication::pippenger_unsafe<Curve>(s_poly,{&srs_elements[0], /*size*/ poly_length});
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
         BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
@@ -549,7 +534,7 @@ template <typename Curve_> class IPA {
     /**
      * @brief Compute an inner product argument proof for opening a single polynomial at a single evaluation point.
      *
-     * @param ck The commitment key containing srs and pippenger_runtime_state for computing MSM
+     * @param ck The commitment key containing srs
      * @param opening_pair (challenge, evaluation)
      * @param polynomial The witness polynomial whose opening proof needs to be computed
      * @param transcript Prover transcript
@@ -567,7 +552,7 @@ template <typename Curve_> class IPA {
     /**
      * @brief Natively verify the correctness of an IPA Proof
      *
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
@@ -586,7 +571,7 @@ template <typename Curve_> class IPA {
     /**
      * @brief Recursively verify the correctness of a proof
      *
-     * @param vk Verification_key containing srs and pippenger_runtime_state to be used for MSM
+     * @param vk Verification_key containing srs
      * @param opening_claim Contains the commitment C and opening pair \f$(\beta, f(\beta))\f$
      * @param transcript Transcript with elements from the prover and generated challenges
      *
