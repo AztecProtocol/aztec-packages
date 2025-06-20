@@ -10,7 +10,13 @@
 #include <cstdint>
 
 namespace bb::scalar_multiplication {
-void radix_sort(uint64_t* keys, size_t num_entries, uint32_t shift) noexcept;
-
-void process_buckets(uint64_t* wnaf_entries, size_t num_entries, uint32_t num_bits) noexcept;
+void radix_sort_count_zero_entries(uint64_t* keys,
+                                   const size_t num_entries,
+                                   const uint32_t shift,
+                                   size_t& num_zero_entries,
+                                   const uint32_t total_bits,
+                                   const uint64_t* start_pointer) noexcept;
+size_t process_buckets_count_zero_entries(uint64_t* wnaf_entries,
+                                          const size_t num_entries,
+                                          const uint32_t num_bits) noexcept;
 } // namespace bb::scalar_multiplication
