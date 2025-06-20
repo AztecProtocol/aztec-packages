@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -19,13 +20,15 @@ class AluInterface {
 
 class Alu : public AluInterface {
   public:
-    Alu(EventEmitterInterface<AluEvent>& event_emitter)
-        : events(event_emitter)
+    Alu(RangeCheckInterface& range_check, EventEmitterInterface<AluEvent>& event_emitter)
+        : range_check(range_check)
+        , events(event_emitter)
     {}
 
     MemoryValue add(const MemoryValue& a, const MemoryValue& b) override;
 
   private:
+    RangeCheckInterface& range_check;
     EventEmitterInterface<AluEvent>& events;
 };
 

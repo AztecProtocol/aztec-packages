@@ -1,13 +1,116 @@
+include "execution.pil";
+include "precomputed.pil";
+include "range_check.pil";
 namespace alu;
 
+pol commit sel;
+
 pol commit sel_op_add;
+pol commit op_id;
+
 pol commit ia;
 pol commit ib;
 pol commit ic;
-pol commit op;
+
+pol commit ia_tag;
+pol commit ib_tag;
+pol commit ic_tag;
+
+// carry flag
+pol commit cf;
+// u1s are a special case (see TAG_BITS_CHECK)
+pol commit is_u1;
+// number of bits to 'mod' by if cf is true (0 for FF)
+pol commit max_bits;
+// TODO(MW): Rename this - it's the max value the num can hold PLUS ONE (i.e. 256 for a u8)
+pol commit max_value;
+
+#[SEL_BINARY]
+sel * (1 - sel) = 0;
+
+#[CF_BINARY]
+cf * (1 - cf) = 0;
+
+#[IS_U1_BINARY]
+is_u1 * (is_u1 - 1) = 0;
+
+#[VALUE_TAG_LOOKUP]
+execution.sel_alu {
+    execution.register[0], execution.mem_tag[0], execution.register[1],
+    execution.mem_tag[1], execution.register[2], execution.mem_tag[2], execution.subtrace_operation_id
+} in sel {
+    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id
+};
+
+// TODO(MW): Only considering cases where all values have same tag for now (e.g. LTE won't have equal tags)
+#[AB_TAG_EQUAL]
+ia_tag - ib_tag = 0;
+#[AC_TAG_EQUAL]
+ia_tag - ic_tag = 0;
+
+#[C_RANGE_CHECK]
+sel { ic, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+
+// Note: The complication below is to check:
+//  is_u1 => tag == 1 (equiv, tag_m_1 := tag - 1 == 0 => tag_m_1 := * tag_m_1 :=^-1 == 1 )
+//  !is_u1 => tag != 1 (equiv, tag_m_1 := tag - 1 != 0)=> tag_m_1 := * tag_m_1 :=^-1 == 0 )
+// We need a special u1 case to map from tag to max_bits (see below table)
+pol TAG_M_1 = ia_tag - 1;
+pol commit tag_m1_inv;
+// This must be 0, otherwise either the inv is wrong, or is_u1 is wrong
+pol INVERSE_CHECK = sel * ( TAG_M_1 * tag_m1_inv - 1 + is_u1 );
+
+// good paths
+//  tag is u1, is_u1 true => TAG_M_1 = 0, INVERSE_CHECK = 0 showing is_u1 = 1 -> passes
+//  tag is not u1, is_u1 false => is_u1 = 0, INVERSE_CHECK = 0 showing is_u1 = 0 -> passes
+// bad paths
+//  tag is u1, is_u1 false => TAG_M_1 = 0, INVERSE_CHECK = -1 -> correctly fails
+//  tag is not u1, is_u1 true => TAG_M_1 != 0 & is_u1 = 1 so below becomes:
+//      TAG_M_1 - TAG_M_1 * tag_m1_inv + TAG_M_1 * tag_m1_inv = TAG_M_1 != 0 -> correctly fails
+#[TAG_IS_U1_CHECK]
+TAG_M_1 * is_u1 * (1 - tag_m1_inv) + INVERSE_CHECK = 0;
+
+// GOAL - tag -> bits -> max
+//      | tag |  max  | bits  |
+// F    |  0  |   0   |   0   |
+// u1   |  1  |  2    |   1   |
+// u8   |  2  |  2^8  |   8   |
+// u16  |  3  |  2^16 |   16  |
+// u32  |  4  |  2^32 |   32  |
+// u64  |  5  |  ...  |  ...  |
+// u128 |  6  |  ...  |  ...  |
+
+// Note: checking max_bits against the tag (see above table):
+//  POS_MAX_BITS is correct for all cases apart from u1 (gives 0) and F (gives p - 8)
+//  u8 to u128: we check max_bits == POS_MAX_BITS in TAG_BITS_CHECK
+//  u1: We have constrained that is_u1 is correct vs the tag, so we assign max_bits = 1 if is_u1 is true in TAG_BITS_CHECK
+//  F: For fields, we shouldn't care about max_bits or max_value, and we shouldn't carry, cf == 0 should be covered by TAG_BITS_LOOKUP
+pol POS_MAX_BITS = sel * ((ia_tag - 1) * 8);
+#[TAG_BITS_CHECK] // **
+sel * ( (1 - POS_MAX_BITS) * is_u1 + POS_MAX_BITS - max_bits ) = 0;
+// If we have F and have set cf = true (incorrectly), the below lookup will fail because p - 8 will not exist:
+#[TAG_BITS_LOOKUP]
+cf { max_bits, max_value } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
+
+
+// ADD
+
+// TODO(MW): Add other ops
+// Shorthand for sel_op_add * 2^0 - op_id = 0;
+// Will become e.g. sel_op_add * 2^0 + sel_op_sub * 2^1 + sel_op_mul * 2^2 - op_id = 0;
+#[OP_ID_CHECK]
+sel_op_add - op_id = 0;
 
 #[SEL_ADD_BINARY]
 sel_op_add * (1 - sel_op_add) = 0;
 
 #[ALU_ADD]
-ia + ib = ic;
+sel_op_add * (ia + ib - ic - cf * max_value ) = 0;
+
+// ** Note on TAG_BITS_CHECK relation
+// If we simply had:
+// sel * ((ia_tag - 1) * 8) - max_bits = 0
+// This would work for all cases apart from u1, where tag = 1 and we could incorrectly set max_bits = 0.
+// This is a problem because we could input a = 1, b = 0, c = 0, max_bits = 0, max_value = 1 and the circuit would pass.
+// I don't think this would not be caught by the bits range check on c since max_bits = c = 0?

@@ -114,7 +114,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
-    Alu alu(alu_emitter);
+    Alu alu(range_check, alu_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
