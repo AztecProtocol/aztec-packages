@@ -66,7 +66,9 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
                 nullifier.counter() > note_hash.counter(),
                 "Cannot nullify a note hash created afterwards",
             );
-            // TODO: double-check whether `>=` or `>` is correct. Explain why.
+            // Note: `>=` is correct, because split_counter is the min_revertible_side_effect_counter.
+            // So when a nullifier's counter equals split_counter, the nullifier is revertible,
+            // and its corresponding note hash must be revertible, too.
             if nullifier.counter() >= split_counter {
                 assert(
                     note_hash.counter() >= split_counter,
@@ -80,12 +82,9 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let to_be_padded_note_hash =
                 expected_kept_note_hashes.array[NUM_NOTE_HASHES - squashed_counter];
 
-            // Q: Is this saying this is the position into which a padded note hash will be inserted,
-            // so ensure it's empty so that we're not overwriting an actual note hash?
-            // I've renamed it to: `to_be_padded_note_hash`
             // TODO: might not need to do this, given how we track lengths,
             // although asserting empty might be zero cost, so...
-            // TODO(MC): this check might be more at home in the next for loop, below, where we're
+            // TODO: this check might be more at home in the next for loop, below, where we're
             // validating the correctness of the data in `expected_kept_note_hashes`.
             to_be_padded_note_hash.assert_empty("Empty note hash must be padded to the right");
 
@@ -200,7 +199,7 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let transient_note_hash = previous_kernel_note_hashes.array[transient_note_hash_index];
             assert_eq(
                 // Q: is it sufficient to only assert equality of the counters?
-                // Shouldn't we also be asserting:
+                // TODO: Shouldn't we also be asserting:
                 // - equality of contract_address (of log & note hash)
                 // - disallow squashing of a non-revertible log and a revertible note hash (and vice versa)
                 //    - (I'm not sure why an app would do this, and you could argue it's the app's fault...
@@ -225,6 +224,13 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
 }
 
 // Q: We already computed a load of hints relating to squashing earlier. Why weren't these computed back then?
+// A: I haven't got the chance to refactor this, I wanted to bring the functions that create hints to the file
+// that verifies the data, and generate the hints in the main function using the data to be verified whenever possible.
+// And if the hints are used outside of the function, then they will be given as args, like the
+// expected_kept_ arrays here. But the functions creating them will also live here.
+// And of course, there's always a function verify_with_hints that the main function calls,
+// so that we can test the cases where the hints are tweaked.
+// I think it's easier to see how the hints are created and used, and easier to test them all together.
 pub unconstrained fn get_squashed_note_hash_hints<let NUM_INDEX_HINTS: u32, let NUM_NOTE_HASHES: u32>(
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
 ) -> [bool; NUM_NOTE_HASHES] {

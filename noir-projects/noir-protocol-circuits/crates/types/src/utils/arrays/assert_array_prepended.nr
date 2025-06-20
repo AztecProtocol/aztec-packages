@@ -1,5 +1,6 @@
 use super::AppendedUnvalidatedArray;
 
+use crate::traits::Empty;
 use crate::utils::for_loop::for_i_only_in_0_;
 
 // I tried replacing these functions with `for_i_in_0_()`, but it increased constraints
@@ -10,14 +11,11 @@ pub fn assert_array_prepended<T, let N: u32>(
     source: AppendedUnvalidatedArray<T, N>,
 )
 where
-    T: Eq,
+    T: Empty,
 {
-    for_i_only_in_0_(
-        source.length,
-        source.array.len(),
-        |i| { assert_eq(dest.array[i], source.array[i], "source item does not prepend to dest"); },
-        false,
-    );
+    source.for_each_i(|source_item, i| {
+        assert_eq(dest.array[i], source_item, "source item does not prepend to dest");
+    });
 }
 
 pub fn assert_array_prepended_up_to_some_length<T, let N: u32>(

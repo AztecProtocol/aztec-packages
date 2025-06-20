@@ -37,7 +37,7 @@ pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use sort_by_counter::sort_by_counter_asc;
 
 use crate::traits::Empty;
-use super::for_loop::{for_i_in_, for_i_in_0_, for_loop_no_op};
+use super::for_loop::{for_i_in_, for_i_in_0_, for_i_only_in_0_, for_loop_no_op};
 
 //**********************************************************************************
 // ARRAY
@@ -481,19 +481,21 @@ where
         self.length -= 1;
         popped_item
     }
-    // pub unconstrained fn reverse(self) -> Self {
-    //     let mut reversed = Self::empty();
-    //     let length = self.length;
-    //     for i in 0..N {
-    //         if i < length {
-    //             reversed.push_hint(self.array[length - i - 1]);
-    //         }
-    //     }
-    //     reversed
-    // }
+
+    // E.g.
+    // dest.for_each_i(|source_item, i| { assert_eq(dest.array[i], source_item, "bad copy"); })
+    pub fn for_each_i<Env>(self, f: fn[Env](T, u32) -> ()) {
+        // We pass `false`, because by construction, we should know that self.length <= self.array.len().
+        for_i_only_in_0_(
+            self.length,
+            self.array.len(),
+            |i| f(self.array[i], i),
+            false,
+        );
+    }
 }
 
-// Q: no idea why this is needed, if we have #[derive(Eq)] above the struct definition.
+// TODO: compiler bug. No idea why this is needed, if we have #[derive(Eq)] above the struct definition.
 impl<T, let N: u32> Eq for AppendedUnvalidatedArray<T, N>
 where
     T: Eq,
@@ -549,7 +551,6 @@ where
     }
 }
 
-// TODO: subsume into the wrapped array structs above, somehow.
 // Helper function to check if an array is padded with a given value from a given index.
 // Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
 pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool

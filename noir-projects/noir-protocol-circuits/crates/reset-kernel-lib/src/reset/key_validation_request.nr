@@ -99,7 +99,8 @@ pub unconstrained fn get_unverified_key_validation_requests<let N: u32>(
         AppendedUnvalidatedArray::empty();
 
     // We'll process a number of requests up to the `key_validation_amount`. We'll propagate any beyond that.
-    // Q: why do we "shift" (from the front) items that we want to process, instead of "pop" (from the back) them?
+    // We "shift" (from the front) items that we want to process, instead of "pop" (from the back),
+    // to process the requests in the order in which they were made. It will also be easier to verify later.
     for i in key_validation_amount..N {
         propagated.array[i - key_validation_amount] = key_validation_requests.array[i];
     }
