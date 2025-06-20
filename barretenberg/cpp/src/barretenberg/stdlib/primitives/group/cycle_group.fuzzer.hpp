@@ -1039,7 +1039,7 @@ template <typename Builder> class CycleGroupBase {
                 std::cout << "cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
                           << to_mul[i] << "\")), ";
 #endif
-                auto scalar = is_witness ? cycle_scalar_t(to_mul[i]): cycle_scalar_t::from_witness(builder, to_mul[i]);
+                auto scalar = is_witness ? cycle_scalar_t(to_mul[i]) : cycle_scalar_t::from_witness(builder, to_mul[i]);
                 to_mul_cs.push_back(scalar);
 
                 accumulator_cg += to_add[i].base * to_mul[i];
