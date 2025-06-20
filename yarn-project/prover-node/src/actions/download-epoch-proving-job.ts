@@ -1,4 +1,4 @@
-import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { urlJoin } from '@aztec/foundation/string';
 import { snapshotSync } from '@aztec/node-lib/actions';
@@ -26,7 +26,7 @@ export async function downloadEpochProvingJob(
   const fileStore = await createReadOnlyFileStore(location);
   const metadataUrl = urlJoin(location, 'metadata.json');
   const metadataRaw = await fileStore.read(metadataUrl);
-  const metadata = jsonParseWithSchemaSync(metadataRaw.toString(), UploadSnapshotMetadataSchema);
+  const metadata = jsonParseWithSchema(metadataRaw.toString(), UploadSnapshotMetadataSchema);
 
   const dataUrls = makeSnapshotPaths(location);
   log.info(`Downloading state snapshot from ${location} to local data directory`, { metadata, dataUrls });

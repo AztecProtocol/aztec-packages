@@ -10,7 +10,7 @@ describe('Avm circuit inputs', () => {
   it(`serializes to JSON and deserializes it back`, async () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(randomInt(2000));
     const json = jsonStringify(avmCircuitInputs);
-    const res = await jsonParseWithSchema(json, AvmCircuitInputs.schema);
+    const res = jsonParseWithSchema(json, AvmCircuitInputs.schema);
     // Note: ideally we don't want to use toStrictEqual here (see other test),
     // but I couldn't find an equivalent equality check.
     expect(res).toStrictEqual(avmCircuitInputs);

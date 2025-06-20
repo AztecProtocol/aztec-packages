@@ -16,7 +16,7 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     writeTestData(path, Buffer.from(json), /*raw=*/ true);
 
     const expectedJson = readTestData(path);
-    const expectedAvmInputs = await jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
+    const expectedAvmInputs = jsonParseWithSchema(expectedJson.toString(), AvmCircuitInputs.schema);
     expect(expectedAvmInputs).toStrictEqual(inputs);
   });
 

@@ -52,7 +52,7 @@ export class InlineProofStore implements ProofStore {
     return (PREFIX + SEPARATOR + encoded) as ProofUri;
   }
 
-  private decode<T>(uri: ProofUri, schema: ZodFor<T>): Promise<T> {
+  private decode<T>(uri: ProofUri, schema: ZodFor<T>): T {
     const [prefix, data] = uri.split(SEPARATOR);
     if (prefix !== PREFIX) {
       throw new Error('Invalid proof input URI: ' + prefix);
