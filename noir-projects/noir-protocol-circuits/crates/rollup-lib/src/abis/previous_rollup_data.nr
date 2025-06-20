@@ -13,8 +13,6 @@ pub struct PreviousRollupData {
 
 impl Verifiable for PreviousRollupData {
     fn verify(self) {
-        self.vk_data.vk.check_hash();
-
         let inputs =
             BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
         std::verify_proof_with_type(

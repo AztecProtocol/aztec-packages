@@ -15,9 +15,6 @@ pub struct PublicTubeData {
 
 impl Verifiable for PublicTubeData {
     fn verify(self) {
-        // TODO(#7410)
-        // self.vk_data.vk.check_hash();
-
         let inputs = PrivateToPublicKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.vk_data.vk.key,
@@ -29,6 +26,15 @@ impl Verifiable for PublicTubeData {
     }
 }
 
+impl PublicTubeData {
+    pub fn validate_in_vk_tree(self) {
+        let allowed_indices = [
+            // TODO(#7410): Add public tube vk hash to the tree and add the index here.
+        ];
+        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root, allowed_indices);
+    }
+}
+
 pub struct PrivateTubeData {
     pub public_inputs: PrivateToRollupKernelCircuitPublicInputs,
     pub proof: TubeProof,
@@ -37,9 +43,6 @@ pub struct PrivateTubeData {
 
 impl Verifiable for PrivateTubeData {
     fn verify(self) {
-        // TODO(#7410)
-        // self.vk_data.vk.check_hash();
-
         let inputs = PrivateToRollupKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.vk_data.vk.key,
@@ -48,5 +51,14 @@ impl Verifiable for PrivateTubeData {
             self.vk_data.vk.hash,
             PROOF_TYPE_ROLLUP_HONK,
         );
+    }
+}
+
+impl PrivateTubeData {
+    pub fn validate_in_vk_tree(self) {
+        let allowed_indices = [
+            // TODO(#7410): Add private tube vk hash to the tree and add the index here.
+        ];
+        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root, allowed_indices);
     }
 }

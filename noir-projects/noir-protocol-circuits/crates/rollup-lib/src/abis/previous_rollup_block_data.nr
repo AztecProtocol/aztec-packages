@@ -13,8 +13,6 @@ pub struct PreviousRollupBlockData {
 
 impl PreviousRollupBlockData {
     pub fn verify(self, proof_type_id: u32) {
-        self.vk_data.vk.check_hash();
-
         let inputs = BlockRootOrBlockMergePublicInputs::serialize(
             self.block_root_or_block_merge_public_inputs,
         );

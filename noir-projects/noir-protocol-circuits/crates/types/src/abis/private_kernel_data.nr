@@ -40,7 +40,6 @@ impl PrivateKernelData {
 
 impl Verifiable for PrivateKernelData {
     fn verify(self) {
-        self.vk_data.vk.check_hash();
         // Client IVC public inputs are linked in the backend via the databus
         std::verify_proof_with_type(
             self.vk_data.vk.key,
