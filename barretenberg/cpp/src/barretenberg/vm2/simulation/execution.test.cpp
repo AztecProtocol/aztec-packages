@@ -17,6 +17,7 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_bitwise.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
@@ -25,7 +26,9 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -46,6 +49,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockContext> context;
     StrictMock<MockDataCopy> data_copy;
     StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
+    StrictMock<MockKeccakF1600> keccakf1600;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
@@ -58,7 +62,8 @@ class ExecutionSimulationTest : public ::testing::Test {
                                     instruction_info_db,
                                     execution_id_manager,
                                     execution_event_emitter,
-                                    context_stack_event_emitter);
+                                    context_stack_event_emitter,
+                                    keccakf1600);
 };
 
 TEST_F(ExecutionSimulationTest, Add)

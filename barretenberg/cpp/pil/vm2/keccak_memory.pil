@@ -1,0 +1,250 @@
+include "memory.pil";
+include "constants_gen.pil";
+
+/**
+ * Two usages exist for this gadget (read and write). Explanations below.
+ *
+ * Usage for reading a slice (permutation and not lookup):
+ * sel { state_in_00, state_in_01, ... state_in_44,
+ *       clk, src_addr, space_id, tag_error }
+ * is
+ * keccak_memory.start_read { keccak_memory.val00, keccak_memory.val01, ... keccak_memory.val44,
+ *                            keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, keccak_memory.tag_error };
+ *
+ * Inputs: state_in_00, state_in_01, ... state_in_44, clk, src_addr, space_id
+ * Output: tag_error
+ *
+ * Usage for writing a slice (permutation and not lookup):
+ * sel_slice_write { state_out_00, state_out_01, ... state_out_44,
+ *                   clk, dst_addr, space_id, round }
+ * is
+ * keccak_memory.start_write { keccak_memory.val00, keccak_memory.val01, ... keccak_memory.val44,
+ *                             keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, 24 };
+ *
+ * Inputs: state_out_00, state_out_01, ... state_out_44, clk, dst_addr, space_id, round
+ * No output. Write can never fail. The state_out values are assumed fit in U64.
+ * Parameter: round is fixed to 24.
+ *
+ * - state_in_00, state_in_01, ... state_in_44 are the 25 U64 keccak state values of the read slice.
+ * - state_out_00, state_out_01, ... state_out_44 are the 25 U64 keccak state values of the write slice.
+ * - dst_addr and src_addr are the first memory offset of the pertaining slice.
+ * - space_id serves to propagate the right memory space up to the memory trace.
+ * - clk is required for the unicity in the permutation and to propagate to the memory trace
+ *   to unambiguously order the memory operations.
+ * - tag_error is set to 1 if any tag error is detected.
+ * - Passing the tuple element `round` serves to constrain it to be equal to 24 (see keccakf1600.pil).
+ */
+
+namespace keccak_memory;
+
+// This gadget is only dedicated to read and write memory slices corresponding
+// to the input and output of keccakf1600. An input and output state for keccakf1600
+// is composed of 25 U64 contiguous memory values. This gadget will read or write
+// 25 such values based on a passed memory offset. It read/writes the 25 values
+// and for the read case checks that each tag is U64. Otherwise, we return a tag error.
+//
+// Precondition: We assume the passed offset being such that offset + 24 < 2^32, so
+//               that the slice fits into the memory space.
+
+// We use a multi-row computation to shift the read/written values to the row where the lookup
+// applies. Values are indexed according to 2 indices 0 <= i,j <= 4 in accordance to keccak
+// state values: val{ij}. The multi-row computation is performed by toggling the `start_read`
+// or `start_write` columns. We need two different `start` selectors because the read and write
+// operations are using different source tuples in keccakf1600.pil.
+
+//#################################################################################################
+//                  High-Level Trace Structure Columns
+//#################################################################################################
+//   ctr   ctr_end  sel   start_read  last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1          0      0   38    U64    43    267     17          238       0                 0
+//    2       0      1      0          0      0   39    U64   267     17          238              0                 0
+//    3       0      1      0          0      0   40    U64    17                                  0                 0
+//    ...    ...    ...    ...        ...     0   ..    U64    **     ***                          0                 0
+//    25      1      1      0          1      0   62    U64   238     0      0     ...    0        0                 0
+
+// A read/write memory operation is performed at each row at memory offset `addr`, `rw` boolean indicates
+// whether we write or read. The column val00 stores the read/write value and tag the tag value.
+// Note that in this case, val00 might not be in range of U64 values, this is not an issue because
+// whenever a tag error applies, the main keccak permutation is disabled (conditioned by sel_no_error
+// in keccakf1600.pil).
+// Each column value val{ij} is shifted to the right going bottom-up and finally is laid out
+// horizontally in the first row.
+// For a read operation, single_tag_error is toggled whenever tag is not U64.
+// When this happens, we toggle `last` and stop the multi-rows computation prematurely.
+// Therefore, when a tag error occurs the trace looks like:
+
+//   ctr  ctr_end   sel   start_read last   rw  addr  tag   val00  val01  val02 ....  val44  single_tag_error  tag_error
+//    1       0      1      1         0      0   38    U64    43    267     17          0         0                 1
+//    2       0      1      0         0      0   39    U64   267     17                           0                 1
+//    3       0      1      0         1      0   40    FF     17     0      0  ....     0         1                 1
+
+// The selector `last` is defined to be `ctr_end` OR `single_tag_error`.
+// To propagate the single_tag_error value, we use the column `tag_error`.
+// Note that we need a separate column because `single_tag_error` defines `last` which
+// controls when the computation or propagation stops.
+
+pol commit sel;
+sel * (1 - sel) = 0;
+
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel + last = 0;
+
+pol commit start_read;
+start_read * (1 - start_read) = 0;
+
+pol commit start_write;
+start_write * (1 - start_write) = 0;
+
+pol commit clk;
+pol commit ctr;
+pol commit addr;
+pol commit tag;
+pol commit space_id;
+pol commit tag_error;
+pol commit single_tag_error;
+
+// Values for memory slice
+pol commit val00, val01, val02, val03, val04,
+           val10, val11, val12, val13, val14,
+           val20, val21, val22, val23, val24,
+           val30, val31, val32, val33, val34,
+           val40, val41, val42, val43, val44;
+
+// We enforce the initial ctr to be set to 1.
+#[CTR_INIT]
+(start_read + start_write) * (ctr - 1) = 0;
+
+#[RW_READ_INIT]
+start_read * rw = 0;
+#[RW_WRITE_INIT]
+start_write * (1 - rw) = 0;
+
+// sel == 1 <==> ctr != 0
+pol commit ctr_inv;
+#[SEL_CTR_NON_ZERO]
+ctr * ((1 - sel) * (1 - ctr_inv) + ctr_inv) - sel = 0;
+
+// ctr_end is toggled when all slice rows have been processed.
+pol commit ctr_end;
+ctr_end * (1 - ctr_end) = 0;
+
+// We define ctr_end == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
+pol commit ctr_min_state_size_inv;
+#[CTR_END]
+sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (ctr_end * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + ctr_end - 1) = 0;
+
+// Last ctr of a multi-rows processing of a slice
+pol commit last;
+
+// last == ctr_end || single_tag_error
+// `last` is boolean by definition
+#[LAST]
+last = 1 - (1 - ctr_end) * (1 - single_tag_error);
+
+#[CTR_INCREMENT]
+// Note: sel factor is required for an empty row to satisfy this relation
+sel * (1 - last) * (ctr' - ctr - 1) = 0;
+
+// Copied from memory.pil through lookup and constrained to be boolean in memory.pil.
+pol commit rw;
+
+single_tag_error * (1 - single_tag_error) = 0;
+
+#[NO_TAG_ERROR_ON_WRITE]
+rw * single_tag_error = 0;
+
+#[TAG_ERROR_INIT]
+last * (tag_error - single_tag_error) = 0;
+
+#[TAG_ERROR_PROPAGATION]
+(1 - last) * (tag_error - tag_error') = 0;
+
+// No need to enforce a boolean constraint for tag_error as it follows from the above constraints.
+
+#[MEM_ADDR_INCREMENT]
+sel * (1 - last) * (addr + 1 - addr') = 0;
+
+#[SPACEID_PROPAGATION]
+(1 - last) * (space_id - space_id') = 0;
+
+#[CLK_PROPAGATION]
+(1 - last) * (clk' - clk) = 0;
+
+#[RW_PROPAGATION]
+(1 - last) * (rw' - rw) = 0;
+
+// Check if the tag is U64
+// We constrain single_tag_error == 1 <==> tag is not U64.
+pol commit tag_min_u64_inv;
+pol TAG_MIN_U64 = tag - constants.MEM_TAG_U64;
+#[SINGLE_TAG_ERROR]
+sel * (TAG_MIN_U64 * ((1 - single_tag_error) * (1 - tag_min_u64_inv) + tag_min_u64_inv) - single_tag_error) = 0;
+
+#[SINGLE_TAG_ERROR_BOOLEAN]
+single_tag_error * (1 - single_tag_error) = 0;
+
+#[VAL01]
+val01 = (1 - last) * val00';
+#[VAL02]
+val02 = (1 - last) * val01';
+#[VAL03]
+val03 = (1 - last) * val02';
+#[VAL04]
+val04 = (1 - last) * val03';
+
+#[VAL10]
+val10 = (1 - last) * val04';
+#[VAL11]
+val11 = (1 - last) * val10';
+#[VAL12]
+val12 = (1 - last) * val11';
+#[VAL13]
+val13 = (1 - last) * val12';
+#[VAL14]
+val14 = (1 - last) * val13';
+
+#[VAL20]
+val20 = (1 - last) * val14';
+#[VAL21]
+val21 = (1 - last) * val20';
+#[VAL22]
+val22 = (1 - last) * val21';
+#[VAL23]
+val23 = (1 - last) * val22';
+#[VAL24]
+val24 = (1 - last) * val23';
+
+#[VAL30]
+val30 = (1 - last) * val24';
+#[VAL31]
+val31 = (1 - last) * val30';
+#[VAL32]
+val32 = (1 - last) * val31';
+#[VAL33]
+val33 = (1 - last) * val32';
+#[VAL34]
+val34 = (1 - last) * val33';
+
+#[VAL40]
+val40 = (1 - last) * val34';
+#[VAL41]
+val41 = (1 - last) * val40';
+#[VAL42]
+val42 = (1 - last) * val41';
+#[VAL43]
+val43 = (1 - last) * val42';
+#[VAL44]
+val44 = (1 - last) * val43';
+
+// Memory permutation
+// TODO: Proper memory permutation (not a lookup), and introduce a specific
+// selector for keccak in memory sub-trace.
+#[SLICE_TO_MEM]
+sel {clk, addr, val00, tag, rw, space_id}
+in // TODO: replace with `is` (permutation)
+memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+
+// Used to constrain the number of rounds in keccakf1600.pil through the slice_write lookup.
+pol commit num_rounds;
+sel * (num_rounds - constants.AVM_KECCAKF1600_NUM_ROUNDS) = 0; // TODO: Remove once we support constants in lookups
