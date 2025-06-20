@@ -6,6 +6,8 @@ use protocol_types::{
     utils::arrays::array_concat,
 };
 
+// The following identifier was copied over to `yarn-project/stdlib/src/tx/offchain_effect.ts`. If you modify it don't
+// forget to update it there as well.
 pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
     comptime { poseidon2_hash_bytes("aztecnr_offchain_message".as_bytes()) };
 
