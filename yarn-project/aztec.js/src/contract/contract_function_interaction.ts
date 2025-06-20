@@ -5,11 +5,11 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type Capsule,
   type HashedValues,
-  type OffchainMessage,
+  type OffchainEffect,
   type SimulationStats,
   type TxExecutionRequest,
   type TxProfileResult,
-  collectOffchainMessages,
+  collectOffchainEffects,
 } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
@@ -34,9 +34,9 @@ type SimulationReturn<T extends boolean | undefined> = T extends true
        */
       stats: SimulationStats;
       /**
-       * Offchain messages generated during the simulation
+       * Offchain effects generated during the simulation
        */
-      offchainMessages: OffchainMessage[];
+      offchainEffects: OffchainEffect[];
       /**
        * Return value of the function
        */
@@ -178,7 +178,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     if (options.includeMetadata) {
       return {
         stats: simulatedTx.stats,
-        offchainMessages: collectOffchainMessages(simulatedTx.privateExecutionResult),
+        offchainEffects: collectOffchainEffects(simulatedTx.privateExecutionResult),
         result: returnValue,
       };
     } else {

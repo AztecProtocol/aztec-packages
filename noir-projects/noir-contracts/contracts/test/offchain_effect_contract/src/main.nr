@@ -1,14 +1,14 @@
 use aztec::macros::aztec;
 
-/// This contract is used to test that emitting offchain messages works correctly.
+/// This contract is used to test that emitting offchain effects works correctly.
 #[aztec]
-contract OffchainMessage {
+contract OffchainEffect {
     use aztec::{
         event::event_interface::emit_event_as_offchain_message,
         macros::{events::event, functions::{private, utility}, storage::storage},
         messages::logs::note::encode_and_encrypt_note_and_emit_as_offchain_message,
         note::note_viewer_options::NoteViewerOptions,
-        oracle::offchain_message::emit_offchain_message,
+        oracle::offchain_effect::emit_offchain_effect,
         prelude::{AztecAddress, Map, PrivateSet},
         protocol_types::traits::Serialize,
     };
@@ -22,9 +22,8 @@ contract OffchainMessage {
     }
 
     #[derive(Serialize)]
-    pub struct MessagePayload {
-        pub message: [Field; 5],
-        pub recipient: AztecAddress,
+    pub struct EffectPayload {
+        pub data: [Field; 5],
         pub next_contract: AztecAddress,
     }
 
@@ -34,16 +33,16 @@ contract OffchainMessage {
     }
 
     #[private]
-    fn emit_offchain_message_for_recipient(messages: BoundedVec<MessagePayload, 6>) {
-        if messages.len() > 0 {
-            let mut messages = messages;
-            let messagePayload = messages.pop();
-            emit_offchain_message(messagePayload.message, messagePayload.recipient);
+    fn emit_offchain_effects(effects: BoundedVec<EffectPayload, 6>) {
+        if effects.len() > 0 {
+            let mut effects = effects;
+            let payload = effects.pop();
+            emit_offchain_effect(payload.data);
 
-            if messages.len() > 0 {
-                OffchainMessage::at(messagePayload.next_contract)
-                    .emit_offchain_message_for_recipient(messages)
-                    .call(&mut context);
+            if effects.len() > 0 {
+                OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
+                    &mut context,
+                );
             }
         }
     }
@@ -67,8 +66,8 @@ contract OffchainMessage {
     }
 
     #[utility]
-    unconstrained fn emitting_offchain_message_from_utility_reverts() {
-        emit_offchain_message([0; 5], AztecAddress::zero());
+    unconstrained fn emitting_offchain_effect_from_utility_reverts() {
+        emit_offchain_effect([0; 5]);
     }
 
     #[utility]

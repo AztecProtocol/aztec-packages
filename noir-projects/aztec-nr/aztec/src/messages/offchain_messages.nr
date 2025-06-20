@@ -1,6 +1,17 @@
-use protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::oracle::offchain_effect::emit_offchain_effect;
+use protocol_types::{
+    address::AztecAddress,
+    hash::poseidon2_hash_bytes,
+    traits::{Serialize, ToField},
+    utils::arrays::array_concat,
+};
 
-/// Emits message that will be delivered off-chain rather than through the data availability layer.
+// The following identifier was copied over to `yarn-project/stdlib/src/tx/offchain_effect.ts`. If you modify it don't
+// forget to update it there as well.
+pub global OFFCHAIN_MESSAGE_IDENTIFIER: Field =
+    comptime { poseidon2_hash_bytes("aztecnr_offchain_message".as_bytes()) };
+
+/// Emits a message that will be delivered off-chain rather than through the data availability layer.
 ///
 /// Sends data through an alternative app-specific channel without incurring data availability (DA) costs. After
 /// receiving the message, the recipient is expected to call the `process_message` function implemented on the
@@ -30,23 +41,8 @@ pub fn emit_offchain_message<T, let N: u32>(message: T, recipient: AztecAddress)
 where
     T: Serialize<N>,
 {
-    // Safety: This oracle call returns nothing: we only call it for its side effects. It is therefore always safe
-    // to call.
-    unsafe { emit_offchain_message_oracle_wrapper(message, recipient) };
+    emit_offchain_effect(array_concat(
+        [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.to_field()],
+        message.serialize(),
+    ));
 }
-
-unconstrained fn emit_offchain_message_oracle_wrapper<T, let N: u32>(
-    message: T,
-    recipient: AztecAddress,
-)
-where
-    T: Serialize<N>,
-{
-    emit_offchain_message_oracle(message.serialize(), recipient);
-}
-
-#[oracle(emitOffchainMessage)]
-unconstrained fn emit_offchain_message_oracle<let N: u32>(
-    message: [Field; N],
-    recipient: AztecAddress,
-) {}
