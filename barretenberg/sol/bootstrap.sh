@@ -75,8 +75,6 @@ function build_code {
 
 export -f build_code build_cpp generate_vks build_sol download_old_crs
 
-
-## TODO: caching
 function build {
     echo_header "barretenberg/sol building"
     build_code
