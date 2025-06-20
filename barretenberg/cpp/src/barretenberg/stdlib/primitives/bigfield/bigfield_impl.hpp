@@ -1504,59 +1504,15 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     }
     reduction_check();
 
-    // We must adjust the maximum value of the limbs of `this` to account for the multiplication by 2.
-    // And we must compute the constant to add based on this updated maximum value.
+    // We want to check:
+    // predicate = 1 ==> (0 - *this)
+    // predicate = 0 ==> *this
     //
-    // This is because we are computing:
-    // (1 - predicate) * value + predicate * (0 - value)
-    // = value - predicate * 2 * value
+    // We just use the conditional_assign method to do this as it costs the same number of gates as computing
+    // p * (0 - *this) + (1 - p) * (*this)
     //
-    bigfield<Builder, T> updated_this = *this;
-    updated_this.binary_basis_limbs[0].maximum_value *= 2;
-    updated_this.binary_basis_limbs[1].maximum_value *= 2;
-    updated_this.binary_basis_limbs[2].maximum_value *= 2;
-    updated_this.binary_basis_limbs[3].maximum_value *= 2;
-
-    uint512_t constant_to_add = 0;
-    std::array<uint256_t, bigfield<Builder, T>::NUM_LIMBS> to_add_limbs{ 0, 0, 0, 0 };
-    std::tie(constant_to_add, to_add_limbs) =
-        bigfield<Builder, T>::get_multiple_of_modulus_for_subtracting(updated_this);
-
-    // predicate = 0 ==> limb_i
-    // predicate = 1 ==> X_i - 2 * limb_i
-    // ==> (1 - predicate) * limb_i + predicate * (X_i - limb_i)
-    //
-    field_t limb_0 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[0].element) + bb::fr(to_add_limbs[0]), binary_basis_limbs[0].element);
-    field_t limb_1 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[1].element) + bb::fr(to_add_limbs[1]), binary_basis_limbs[1].element);
-    field_t limb_2 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[2].element) + bb::fr(to_add_limbs[2]), binary_basis_limbs[2].element);
-    field_t limb_3 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[3].element) + bb::fr(to_add_limbs[3]), binary_basis_limbs[3].element);
-
-    uint256_t max_limb_0 =
-        binary_basis_limbs[0].maximum_value > to_add_limbs[0] ? binary_basis_limbs[0].maximum_value : to_add_limbs[0];
-    uint256_t max_limb_1 =
-        binary_basis_limbs[1].maximum_value > to_add_limbs[1] ? binary_basis_limbs[1].maximum_value : to_add_limbs[1];
-    uint256_t max_limb_2 =
-        binary_basis_limbs[2].maximum_value > to_add_limbs[2] ? binary_basis_limbs[2].maximum_value : to_add_limbs[2];
-    uint256_t max_limb_3 =
-        binary_basis_limbs[3].maximum_value > to_add_limbs[3] ? binary_basis_limbs[3].maximum_value : to_add_limbs[3];
-
-    bigfield result(ctx);
-    result.binary_basis_limbs[0] = Limb(limb_0, max_limb_0);
-    result.binary_basis_limbs[1] = Limb(limb_1, max_limb_1);
-    result.binary_basis_limbs[2] = Limb(limb_2, max_limb_2);
-    result.binary_basis_limbs[3] = Limb(limb_3, max_limb_3);
-
-    uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
-    result.prime_basis_limb =
-        field_t<Builder>::conditional_assign(predicate, -(prime_basis_limb) + prime_basis_to_add, prime_basis_limb);
-
-    result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
-
+    bigfield<Builder, T> negative_this = zero() - *this;
+    bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
     return result;
 }
 
