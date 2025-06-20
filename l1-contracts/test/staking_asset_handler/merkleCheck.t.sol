@@ -29,15 +29,15 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
   // 1. Read the address at that index in the tree
   // 2. Get the merkle proof for that index in the tree
   /// forge-config: default.fuzz.runs = 10
-  function test_WhenProvidingAValidMerkleProof(uint8 index, address _proposer) external {
+  function test_WhenProvidingAValidMerkleProof(uint8 index) external {
     // it emits {AddedToQueue} event
 
     (address addr, bytes32[] memory merkleProof) = getAddressAndProof(index);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(addr, _proposer, 1);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), addr, WITHDRAWER);
     vm.prank(addr);
-    stakingAssetHandler.addValidatorToQueue(addr, _proposer, merkleProof, realProof);
+    stakingAssetHandler.addValidator(addr, merkleProof, realProof);
   }
 
   /// forge-config: default.fuzz.runs = 10
@@ -50,6 +50,6 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
 
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.MerkleProofInvalid.selector));
     vm.prank(addr);
-    stakingAssetHandler.addValidatorToQueue(addr, addr, proof, realProof);
+    stakingAssetHandler.addValidator(addr, proof, realProof);
   }
 }
