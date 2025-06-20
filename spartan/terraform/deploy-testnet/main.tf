@@ -48,31 +48,20 @@ data "terraform_remote_state" "metrics" {
   }
 }
 
+data "terraform_remote_state" "cluster" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "terraform/state/gke-cluster/terraform.tfstate"
+  }
+}
+
 data "google_secret_manager_secret_version" "mnemonic_latest" {
   secret = "${var.RELEASE_PREFIX}-mnemonic"
 }
 
 data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
   secret = "${var.RELEASE_PREFIX}-geth-api-key"
-}
-
-import {
-  id = "projects/${var.GCP_PROJECT}/locations/${var.GCP_BLOCKCHAIN_NODE_REGION}/blockchainNodes/${var.GCP_BLOCKCHAIN_NODE_ID}"
-  to = google_blockchain_node_engine_blockchain_nodes.default
-}
-
-resource "google_blockchain_node_engine_blockchain_nodes" "default" {
-  location           = var.GCP_BLOCKCHAIN_NODE_REGION
-  blockchain_node_id = var.GCP_BLOCKCHAIN_NODE_ID
-  blockchain_type    = "ETHEREUM"
-  ethereum_details {
-    api_enable_admin = false
-    api_enable_debug = false
-    consensus_client = "LIGHTHOUSE"
-    execution_client = "GETH"
-    network          = "TESTNET_SEPOLIA"
-    node_type        = "FULL"
-  }
 }
 
 data "kubernetes_service" "reth" {
@@ -94,14 +83,14 @@ data "kubernetes_service" "lighthouse" {
 locals {
   ethereum_hosts = [
     "http://${data.kubernetes_service.reth.metadata.0.name}.${data.kubernetes_service.reth.metadata.0.namespace}.svc.cluster.local:8545",
-    "https://${google_blockchain_node_engine_blockchain_nodes.default.connection_info.0.endpoint_info.0.json_rpc_api_endpoint}?key=${
+    "https://${data.terraform_remote_state.cluster.outputs.sepolia_node_rpc_api_url}?key=${
       data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
     }"
   ]
 
   consensus_hosts = [
     "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052",
-    "https://${google_blockchain_node_engine_blockchain_nodes.default.ethereum_details.0.additional_endpoints.0.beacon_api_endpoint}"
+    "https://${data.terraform_remote_state.cluster.outputs.sepolia_node_beacon_api_url}"
   ]
 
   consensus_api_keys = [
