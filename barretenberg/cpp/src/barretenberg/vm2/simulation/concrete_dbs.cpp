@@ -131,14 +131,15 @@ FF MerkleDB::note_hash_read(index_t leaf_index) const
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
-    // We need to silo and make unique just to fetch the hint. Oof
+    // We need to silo and make unique just to fetch the sibling path. Oof
     FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
     FF unique_note_hash =
         make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
-    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+    auto append_result =
+        raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
 
     AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.append_note_hash(
-        note_hash, contract_address, note_hash_counter, hint.path, snapshot_before);
+        note_hash, contract_address, note_hash_counter, append_result.path, snapshot_before);
 
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.

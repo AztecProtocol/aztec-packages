@@ -69,6 +69,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Throws if the nullifier already exists
     void nullifier_write(const FF& nullifier) override;
 
+    // Returns a unique note hash stored in the tree at leaf_index.
     FF note_hash_read(index_t leaf_index) const override;
     void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
     void siloed_note_hash_write(const FF& note_hash) override;

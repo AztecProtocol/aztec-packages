@@ -34,7 +34,8 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash(const FF& note_hash,
                                                            std::span<const FF> sibling_path,
                                                            const AppendOnlyTreeSnapshot& prev_snapshot)
 {
-    return append_note_hash_internal(note_hash, contract_address, true, note_hash_counter, sibling_path, prev_snapshot);
+    return append_note_hash_internal(
+        note_hash, contract_address, /*should_make_unique=*/true, note_hash_counter, sibling_path, prev_snapshot);
 }
 
 AppendOnlyTreeSnapshot NoteHashTreeCheck::append_siloed_note_hash(const FF& siloed_note_hash,
@@ -42,8 +43,12 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_siloed_note_hash(const FF& silo
                                                                   std::span<const FF> sibling_path,
                                                                   const AppendOnlyTreeSnapshot& prev_snapshot)
 {
-    return append_note_hash_internal(
-        siloed_note_hash, std::nullopt, true, note_hash_counter, sibling_path, prev_snapshot);
+    return append_note_hash_internal(siloed_note_hash,
+                                     /* contract_address */ std::nullopt,
+                                     /* should_make_unique */ true,
+                                     note_hash_counter,
+                                     sibling_path,
+                                     prev_snapshot);
 }
 
 AppendOnlyTreeSnapshot NoteHashTreeCheck::append_unique_note_hash(const FF& unique_note_hash,
@@ -51,8 +56,12 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_unique_note_hash(const FF& uniq
                                                                   std::span<const FF> sibling_path,
                                                                   const AppendOnlyTreeSnapshot& prev_snapshot)
 {
-    return append_note_hash_internal(
-        unique_note_hash, std::nullopt, false, note_hash_counter, sibling_path, prev_snapshot);
+    return append_note_hash_internal(unique_note_hash,
+                                     /* contract_address */ std::nullopt,
+                                     /* should_make_unique */ false,
+                                     note_hash_counter,
+                                     sibling_path,
+                                     prev_snapshot);
 }
 
 AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash,

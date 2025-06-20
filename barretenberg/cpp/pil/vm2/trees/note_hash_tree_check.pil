@@ -10,6 +10,7 @@ include "../public_inputs.pil";
  * - Computing a nonce as the hash of the first nullifier and the index of the note hash
  * - Computing the unique note hash as the hash of the nonce and the siloed note hash
  * This gadget allows to conditionally write note hashes that can be raw, already siloed or already uniqued.
+ * Note that if you ask the gadget to silo the note hash, you also need to ask it to make it unique.
  * For reading, we enforce that the note hash is already unique.
  *
  * Read usage (lookup):
