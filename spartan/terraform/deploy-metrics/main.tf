@@ -176,7 +176,7 @@ resource "helm_release" "aztec-gke-cluster" {
 }
 
 locals {
-  public_otel_ingress_host = "public-otel.alpha-testnet.aztec.network"
+  public_otel_ingress_host = "telemetry.alpha-testnet.aztec.network"
 }
 
 resource "kubernetes_manifest" "public_otel_ingress_certificate" {
@@ -213,7 +213,6 @@ resource "helm_release" "public_otel_collector" {
   values = [file("./values/public-otel-collector.yaml")]
 
   set {
-    # name  = "service.loadBalancerIP"
     name  = "ingress.annotations.kubernetes\\.io/ingress\\.global-static-ip-name\""
     value = google_compute_address.public_otel_collector_ip.address
   }
