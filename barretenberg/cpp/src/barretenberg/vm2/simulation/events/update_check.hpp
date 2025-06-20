@@ -11,7 +11,7 @@ struct UpdateCheckEvent {
     FF current_class_id;
     FF original_class_id;
     FF public_data_tree_root;
-    uint32_t current_block_number;
+    uint64_t current_timestamp;
 
     // Hash
     FF update_hash;

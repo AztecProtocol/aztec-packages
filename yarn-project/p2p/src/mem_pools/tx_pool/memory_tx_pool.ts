@@ -1,6 +1,6 @@
 import { createLogger } from '@aztec/foundation/log';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
@@ -47,10 +47,10 @@ export class InMemoryTxPool implements TxPool {
     return Promise.resolve(this.txs.size === 0);
   }
 
-  public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
+  public markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {
-      this.minedTxs.set(key, blockNumber);
+      this.minedTxs.set(key, blockHeader.globalVariables.blockNumber);
       this.pendingTxs.delete(key);
     }
     return Promise.resolve();

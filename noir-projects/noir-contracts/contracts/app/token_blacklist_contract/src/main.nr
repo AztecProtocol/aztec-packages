@@ -49,8 +49,8 @@ pub contract TokenBlacklist {
         constants::MAX_NOTE_HASHES_PER_TX, traits::Packable, utils::arrays::array_concat,
     };
 
-    // Changing an address' roles has a certain block delay before it goes into effect.
-    global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
+    // Changing an address' roles has a certain delay before it goes into effect. Here set to 2 slots.
+    global CHANGE_ROLES_DELAY: u64 = 72;
 
     #[storage]
     struct Storage<Context> {
@@ -58,7 +58,7 @@ pub contract TokenBlacklist {
         total_supply: PublicMutable<u128, Context>,
         pending_shields: PrivateSet<TransparentNote, Context>,
         public_balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY, Context>, Context>,
     }
 
     // docs:start:constructor

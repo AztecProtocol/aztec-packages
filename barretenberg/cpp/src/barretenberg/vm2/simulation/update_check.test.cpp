@@ -32,7 +32,7 @@ namespace {
 
 TEST(AvmSimulationUpdateCheck, NeverWritten)
 {
-    uint32_t current_block_number = 100;
+    uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
@@ -50,7 +50,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(0)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -65,7 +65,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .current_class_id = instance.current_class_id,
                     .original_class_id = instance.original_class_id,
                     .public_data_tree_root = trees.publicDataTree.root,
-                    .current_block_number = current_block_number,
+                    .current_timestamp = current_timestamp,
                     .update_hash = 0,
                     .update_preimage_metadata = 0,
                     .update_preimage_pre_class_id = 0,
@@ -85,7 +85,7 @@ struct TestParams {
     FF current_class_id;
     FF update_pre_class;
     FF update_post_class;
-    FF update_block_of_change;
+    FF update_timestamp_of_change;
     bool should_throw;
 };
 
@@ -102,51 +102,51 @@ std::vector<TestParams> hash_nonzero_tests = {
                 .should_throw = true },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 2,
-                .update_pre_class = 2,         // From 2
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 101, // At next block
+                .update_pre_class = 2,             // From 2
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 101, // At timestamp after current
                 .should_throw = false },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 2,
-                .update_pre_class = 2,        // From 2
-                .update_post_class = 3,       // To 3
-                .update_block_of_change = 99, // At past block
+                .update_pre_class = 2,            // From 2
+                .update_post_class = 3,           // To 3
+                .update_timestamp_of_change = 99, // At timestamp before current
                 .should_throw = true },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 3,
-                .update_pre_class = 2,        // From 2
-                .update_post_class = 3,       // To 3
-                .update_block_of_change = 99, // At past block
+                .update_pre_class = 2,            // From 2
+                .update_post_class = 3,           // To 3
+                .update_timestamp_of_change = 99, // At timestamp before current
                 .should_throw = false },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 3,
-                .update_pre_class = 2,         // From 2
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 101, // At next block
+                .update_pre_class = 2,             // From 2
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 101, // At timestamp after current
                 .should_throw = true },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 3,
-                .update_pre_class = 2,         // From 2
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 100, // At current (past) block
+                .update_pre_class = 2,             // From 2
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 100, // At current (past) timestamp
                 .should_throw = false },
     TestParams{ .original_class_id = 27,
                 .current_class_id = 2,
-                .update_pre_class = 2,         // From 2
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 100, // At current (past) block
+                .update_pre_class = 2,             // From 2
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 100, // At current (past) timestamp
                 .should_throw = true },
     TestParams{ .original_class_id = 1,
                 .current_class_id = 1,
-                .update_pre_class = 0,         // From original
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 101, // At next block
+                .update_pre_class = 0,             // From original
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 101, // At timestamp after current
                 .should_throw = false },
     TestParams{ .original_class_id = 1,
                 .current_class_id = 3,
-                .update_pre_class = 0,         // From original
-                .update_post_class = 3,        // To 3
-                .update_block_of_change = 101, // At next block
+                .update_pre_class = 0,             // From original
+                .update_post_class = 3,            // To 3
+                .update_timestamp_of_change = 101, // At timestamp after current
                 .should_throw = true },
 };
 
@@ -156,7 +156,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 {
     const auto& param = GetParam();
 
-    uint32_t current_block_number = 100;
+    uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = param.current_class_id;
     instance.original_class_id = param.original_class_id;
@@ -167,7 +167,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     FF shared_mutable_leaf_slot =
         poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, DEPLOYER_CONTRACT_ADDRESS, shared_mutable_hash_slot });
 
-    FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + param.update_block_of_change;
+    FF update_metadata = FF(static_cast<uint64_t>(123) << 32) + param.update_timestamp_of_change;
     std::vector<FF> update_preimage = { update_metadata, param.update_pre_class, param.update_post_class };
     std::vector<FF> update_preimage_slots;
 
@@ -188,7 +188,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     NiceMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(update_hash));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -236,7 +236,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .current_class_id = instance.current_class_id,
                         .original_class_id = instance.original_class_id,
                         .public_data_tree_root = trees.publicDataTree.root,
-                        .current_block_number = current_block_number,
+                        .current_timestamp = current_timestamp,
                         .update_hash = update_hash,
                         .update_preimage_metadata = update_metadata,
                         .update_preimage_pre_class_id = param.update_pre_class,
@@ -251,7 +251,7 @@ INSTANTIATE_TEST_SUITE_P(AvmSimulationUpdateCheck, UpdateCheckHashNonzeroTest, :
 
 TEST(AvmSimulationUpdateCheck, HashMismatch)
 {
-    uint32_t current_block_number = 100;
+    uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
@@ -268,7 +268,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(27)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
