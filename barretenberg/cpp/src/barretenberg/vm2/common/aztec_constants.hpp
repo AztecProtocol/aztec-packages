@@ -1,6 +1,7 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
+#define NOTE_HASH_TREE_HEIGHT 40
 #define PUBLIC_DATA_TREE_HEIGHT 40
 #define NULLIFIER_TREE_HEIGHT 40
 #define MAX_NOTE_HASHES_PER_TX 64

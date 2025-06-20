@@ -12,6 +12,7 @@ struct RegistryStorage {
   mapping(uint256 version => IHaveVersion rollup) versionToRollup;
   uint256[] versions;
   address governance;
+  IRewardDistributor rewardDistributor;
 }
 
 /**
@@ -20,12 +21,10 @@ struct RegistryStorage {
  * @notice Keeps track of addresses of current rollup and historical addresses.
  */
 contract Registry is IRegistry, Ownable {
-  IRewardDistributor internal immutable REWARD_DISTRIBUTOR;
-
   RegistryStorage internal $;
 
   constructor(address _owner, IERC20 _rewardAsset) Ownable(_owner) {
-    REWARD_DISTRIBUTOR = IRewardDistributor(
+    $.rewardDistributor = IRewardDistributor(
       address(new RewardDistributor(_rewardAsset, IRegistry(address(this)), _owner))
     );
   }
@@ -45,6 +44,15 @@ contract Registry is IRegistry, Ownable {
   function updateGovernance(address _governance) external override(IRegistry) onlyOwner {
     $.governance = _governance;
     emit GovernanceUpdated(_governance);
+  }
+
+  function updateRewardDistributor(address _rewardDistributor)
+    external
+    override(IRegistry)
+    onlyOwner
+  {
+    $.rewardDistributor = IRewardDistributor(_rewardDistributor);
+    emit RewardDistributorUpdated(_rewardDistributor);
   }
 
   /**
@@ -79,6 +87,6 @@ contract Registry is IRegistry, Ownable {
   }
 
   function getRewardDistributor() external view override(IRegistry) returns (IRewardDistributor) {
-    return REWARD_DISTRIBUTOR;
+    return $.rewardDistributor;
   }
 }

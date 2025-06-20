@@ -199,14 +199,14 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     }
 
     // 2. Write already unique note hashes.
-    for (const auto& siloed_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
-        merkle_db.note_hash_write(siloed_note_hash);
+    for (const auto& unique_note_hash : tx.nonRevertibleAccumulatedData.noteHashes) {
+        merkle_db.unique_note_hash_write(unique_note_hash);
 
         auto next_tree_state = merkle_db.get_tree_state();
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NOTE_INSERTION,
                                   .prev_tree_state = prev_tree_state,
                                   .next_tree_state = next_tree_state,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = unique_note_hash } });
         prev_tree_state = next_tree_state;
     }
 
@@ -245,23 +245,15 @@ void TxExecution::insert_revertibles(const Tx& tx)
         prev_tree_state = next_tree_state;
     }
 
-    // 2. Write the note hashes
-    for (const auto& note_hash : tx.revertibleAccumulatedData.noteHashes) {
-        // todo: this silo/unique-fying needs to be constrained  by the avm. (#14544)
-        // This is guaranteed to not fail by a private kernel, otherwise we can't prove
-        FF first_nullifier = tx.revertibleAccumulatedData.nullifiers[0];
-        uint32_t num_note_hash_emitted = prev_tree_state.noteHashTree.counter;
-        auto note_hash_nonce = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-            { GENERATOR_INDEX__NOTE_HASH_NONCE, first_nullifier, num_note_hash_emitted });
-        auto siloedNoteHash = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(
-            { GENERATOR_INDEX__UNIQUE_NOTE_HASH, note_hash_nonce, note_hash });
-        merkle_db.note_hash_write(siloedNoteHash);
+    // 2. Write the siloed non uniqued note hashes
+    for (const auto& siloed_note_hash : tx.revertibleAccumulatedData.noteHashes) {
+        merkle_db.siloed_note_hash_write(siloed_note_hash);
 
         auto next_tree_state = merkle_db.get_tree_state();
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NOTE_INSERTION,
                                   .prev_tree_state = prev_tree_state,
                                   .next_tree_state = next_tree_state,
-                                  .event = PrivateAppendTreeEvent{ .leaf_value = note_hash } });
+                                  .event = PrivateAppendTreeEvent{ .leaf_value = siloed_note_hash } });
         prev_tree_state = next_tree_state;
     }
 

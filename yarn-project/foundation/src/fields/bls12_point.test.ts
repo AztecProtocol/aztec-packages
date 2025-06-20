@@ -223,9 +223,9 @@ describe('BLS12Point', () => {
       expect(p).toEqual(p2);
     });
 
-    it('serializes from and to JSON', async () => {
+    it('serializes from and to JSON', () => {
       const p = BLS12Point.random();
-      const p2 = await jsonParseWithSchema(jsonStringify(p), BLS12Point.schema);
+      const p2 = jsonParseWithSchema(jsonStringify(p), BLS12Point.schema);
       expect(p).toEqual(p2);
       expect(p2).toBeInstanceOf(BLS12Point);
     });

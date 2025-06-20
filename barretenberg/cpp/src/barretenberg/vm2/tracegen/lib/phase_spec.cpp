@@ -31,28 +31,28 @@ const std::unordered_map<TransactionPhase, TxPhaseOffsetsTable::Offsets> PHASE_P
     { TransactionPhase::NR_NOTE_INSERTION,
       {
           .read_pi_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
-          .write_pi_offset = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+          .write_pi_offset = 0, // No write offset for tree insertions, they happen in the tree gadget.
           .read_pi_length_offset =
               AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
       } },
     { TransactionPhase::NR_NULLIFIER_INSERTION,
       {
           .read_pi_offset = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-          .write_pi_offset = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+          .write_pi_offset = 0, // No write offset for tree insertions, they happen in the tree gadget.
           .read_pi_length_offset =
               AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
       } },
     { TransactionPhase::R_NOTE_INSERTION,
       {
           .read_pi_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
-          .write_pi_offset = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX,
+          .write_pi_offset = 0, // No write offset for tree insertions, they happen in the tree gadget..
           .read_pi_length_offset =
               AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX,
       } },
     { TransactionPhase::R_NULLIFIER_INSERTION,
       {
           .read_pi_offset = AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
-          .write_pi_offset = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX,
+          .write_pi_offset = 0, // No write offset for tree insertions, they happen in the tree gadget..
           .read_pi_length_offset =
               AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX,
       } },

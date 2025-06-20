@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
@@ -43,10 +44,12 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
     MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db,
              PublicDataTreeCheckInterface& public_data_tree_check,
-             NullifierTreeCheckInterface& nullifier_tree_check)
+             NullifierTreeCheckInterface& nullifier_tree_check,
+             NoteHashTreeCheckInterface& note_hash_tree_check)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
         , nullifier_tree_check(nullifier_tree_check)
+        , note_hash_tree_check(note_hash_tree_check)
     {}
 
     // Unconstrained.
@@ -66,8 +69,11 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Throws if the nullifier already exists
     void nullifier_write(const FF& nullifier) override;
 
-    bool note_hash_exists(const FF& note_hash) const override;
-    void note_hash_write(const FF& note_hash) override;
+    // Returns a unique note hash stored in the tree at leaf_index.
+    FF note_hash_read(index_t leaf_index) const override;
+    void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
+    void siloed_note_hash_write(const FF& note_hash) override;
+    void unique_note_hash_write(const FF& note_hash) override;
 
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
@@ -77,6 +83,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // It's usually ok for mutexes but a gadget is big...
     PublicDataTreeCheckInterface& public_data_tree_check;
     NullifierTreeCheckInterface& nullifier_tree_check;
+    NoteHashTreeCheckInterface& note_hash_tree_check;
 
     // Counters only in the HighLevel interface.
     uint32_t nullifier_counter = 0;

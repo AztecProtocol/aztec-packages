@@ -2,6 +2,7 @@ import {
   PublicTxSimulationTester,
   SimpleContractDataSource,
   type TestEnqueuedCall,
+  type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
 import { type AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -91,8 +92,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
     feePayer = sender,
+    privateInsertions?: TestPrivateInsertions,
   ) {
-    const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
+    const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;

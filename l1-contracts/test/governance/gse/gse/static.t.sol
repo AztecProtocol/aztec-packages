@@ -58,6 +58,7 @@ contract StaticTest is WithGSE {
 
   function test_getVotingPower(address _instance, address _attester) external {
     vm.assume(_instance != address(0) && _instance != gse.getCanonicalMagicAddress());
+    vm.assume(_attester != address(0) && _attester != _instance);
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);

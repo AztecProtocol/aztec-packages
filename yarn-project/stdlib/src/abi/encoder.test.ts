@@ -7,7 +7,7 @@ import { type FunctionAbi, FunctionType } from './abi.js';
 import { encodeArguments } from './encoder.js';
 
 describe('abi/encoder', () => {
-  it('serializes fields as fields', async () => {
+  it('serializes fields as fields', () => {
     const abi: FunctionAbi = {
       name: 'constructor',
       functionType: FunctionType.PRIVATE,
@@ -30,7 +30,7 @@ describe('abi/encoder', () => {
     const field = Fr.random();
     expect(encodeArguments(abi, [field])).toEqual([field]);
 
-    const serializedField = await jsonParseWithSchema(jsonStringify(field), schemas.Fr);
+    const serializedField = jsonParseWithSchema(jsonStringify(field), schemas.Fr);
     expect(encodeArguments(abi, [serializedField])).toEqual([field]);
   });
 
@@ -122,7 +122,7 @@ describe('abi/encoder', () => {
     const completeAddressLike = { address, publicKey: await Point.random(), partialAddress: Fr.random() };
     expect(encodeArguments(abi, [completeAddressLike])).toEqual([address.toField()]);
 
-    const serializedAddress = await jsonParseWithSchema(jsonStringify(address), schemas.AztecAddress);
+    const serializedAddress = jsonParseWithSchema(jsonStringify(address), schemas.AztecAddress);
     expect(encodeArguments(abi, [serializedAddress])).toEqual([address.toField()]);
   });
 

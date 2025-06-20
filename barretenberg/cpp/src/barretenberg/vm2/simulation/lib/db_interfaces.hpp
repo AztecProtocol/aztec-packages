@@ -79,8 +79,10 @@ class HighLevelMerkleDBInterface {
     virtual void storage_write(const FF& leaf_slot, const FF& value) = 0;
     virtual bool nullifier_exists(const FF& nullifier) const = 0;
     virtual void nullifier_write(const FF& nullifier) = 0;
-    virtual bool note_hash_exists(const FF& note_hash) const = 0;
-    virtual void note_hash_write(const FF& note_hash) = 0;
+    virtual FF note_hash_read(index_t leaf_index) const = 0;
+    virtual void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) = 0;
+    virtual void siloed_note_hash_write(const FF& note_hash) = 0;
+    virtual void unique_note_hash_write(const FF& note_hash) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;

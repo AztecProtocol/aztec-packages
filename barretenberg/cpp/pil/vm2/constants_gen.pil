@@ -1,5 +1,6 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
+    pol NOTE_HASH_TREE_HEIGHT = 40;
     pol PUBLIC_DATA_TREE_HEIGHT = 40;
     pol NULLIFIER_TREE_HEIGHT = 40;
     pol MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS = 3000;
