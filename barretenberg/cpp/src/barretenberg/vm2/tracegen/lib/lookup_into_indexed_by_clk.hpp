@@ -14,8 +14,8 @@ namespace bb::avm2::tracegen {
  * An example with a size 2 tuple (p denotes precomputed):
  * start {tag, ctr} in p.sel_integral_tag {p.clk, p.integral_tag_length};
  */
-template <typename LookupSettings> class LookupIntoIndexedByClk : public BaseLookupTraceBuilder<LookupSettings> {
-  private:
+template <typename LookupSettings> class LookupIntoIndexedByClk : public IndexedLookupTraceBuilder<LookupSettings> {
+  protected:
     // This is an efficient implementation of indexing into the precomputed table.
     uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
     {

@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/test_interaction_builder.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -52,18 +53,33 @@ class InteractionDefinition {
     template <typename InteractionSettings, InteractionType type> static Factory get_interaction_factory()
     {
         if constexpr (type == InteractionType::LookupGeneric) {
-            return [](bool) { return std::make_unique<LookupIntoDynamicTableGeneric<InteractionSettings>>(); };
+            return [](bool) {
+                // This class always checks.
+                return std::make_unique<LookupIntoDynamicTableGeneric<InteractionSettings>>();
+            };
         } else if constexpr (type == InteractionType::LookupIntoBitwise) {
-            return [](bool) { return std::make_unique<LookupIntoBitwise<InteractionSettings>>(); };
+            return [](bool strict) {
+                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoBitwise<InteractionSettings>>>()
+                              : std::make_unique<LookupIntoBitwise<InteractionSettings>>();
+            };
         } else if constexpr (type == InteractionType::LookupIntoIndexedByClk) {
-            return [](bool) { return std::make_unique<LookupIntoIndexedByClk<InteractionSettings>>(); };
+            return [](bool strict) {
+                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoIndexedByClk<InteractionSettings>>>()
+                              : std::make_unique<LookupIntoIndexedByClk<InteractionSettings>>();
+            };
         } else if constexpr (type == InteractionType::LookupIntoPDecomposition) {
-            return [](bool) { return std::make_unique<LookupIntoPDecomposition<InteractionSettings>>(); };
+            return [](bool strict) {
+                return strict ? std::make_unique<AddChecksToBuilder<LookupIntoPDecomposition<InteractionSettings>>>()
+                              : std::make_unique<LookupIntoPDecomposition<InteractionSettings>>();
+            };
         } else if constexpr (type == InteractionType::LookupSequential) {
-            return [](bool) { return std::make_unique<LookupIntoDynamicTableSequential<InteractionSettings>>(); };
+            return [](bool) {
+                // This class always checks.
+                return std::make_unique<LookupIntoDynamicTableSequential<InteractionSettings>>();
+            };
         } else if constexpr (type == InteractionType::Permutation) {
             return [](bool strict) {
-                return strict ? std::make_unique<DebugPermutationBuilder<InteractionSettings>>()
+                return strict ? std::make_unique<CheckingPermutationBuilder<InteractionSettings>>()
                               : std::make_unique<PermutationBuilder<InteractionSettings>>();
             };
         } else {
