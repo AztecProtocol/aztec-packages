@@ -21,7 +21,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      USE_CIRCUITS_CACHE: 1
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
