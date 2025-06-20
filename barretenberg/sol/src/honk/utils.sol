@@ -120,28 +120,27 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
     decodedResult = success && abi.decode(result, (bool));
 }
 
-
 function print_transcript(Transcript memory t) pure {
-        // Print alphas
-        for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
-            logFr("alpha", i, t.alphas[i]);
-        }
-
-        // Print gate challenges
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("gateChallenge", i, t.gateChallenges[i]);
-        }
-
-        // Print sumcheck challenges
-        for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
-            logFr("sumCheckUChallenge", i, t.sumCheckUChallenges[i]);
-        }
-
-        // Print Gemini parameters
-        logFr("rho", t.rho);
-        logFr("geminiR", t.geminiR);
-
-        // Print Shplonk parameters
-        logFr("shplonkNu", t.shplonkNu);
-        logFr("shplonkZ", t.shplonkZ);
+    // Print alphas
+    for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
+        logFr("alpha", i, t.alphas[i]);
     }
+
+    // Print gate challenges
+    for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        logFr("gateChallenge", i, t.gateChallenges[i]);
+    }
+
+    // Print sumcheck challenges
+    for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        logFr("sumCheckUChallenge", i, t.sumCheckUChallenges[i]);
+    }
+
+    // Print Gemini parameters
+    logFr("rho", t.rho);
+    logFr("geminiR", t.geminiR);
+
+    // Print Shplonk parameters
+    logFr("shplonkNu", t.shplonkNu);
+    logFr("shplonkZ", t.shplonkZ);
+}
