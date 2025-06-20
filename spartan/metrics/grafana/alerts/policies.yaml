@@ -1,11 +1,21 @@
 apiVersion: 1
 policies:
     - orgId: 1
-      receiver: 'Slack #network-alerts channel'
-      object_matchers:
-        - - k8s_namespace_name
-          - =~
-          - $PRODUCTION_NAMESPACES_REGEX
+      receiver: grafana-default-email
       group_by:
         - grafana_folder
         - alertname
+      routes:
+        - receiver: 'Slack #network-alerts channel'
+          object_matchers:
+            - - k8s_namespace_name
+              - =~
+              - $PRODUCTION_NAMESPACES_REGEX
+        - receiver: 'Slack #network-alerts channel'
+          object_matchers:
+            - - k8s_namespace_name
+              - =~
+              - next-rc-1
+          mute_time_intervals:
+            - next-rc-1_nightly_deployment
+

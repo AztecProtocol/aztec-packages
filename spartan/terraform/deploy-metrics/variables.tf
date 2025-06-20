@@ -7,23 +7,25 @@ variable "GKE_CLUSTER_CONTEXT" {
 variable "RELEASE_NAME" {
   description = "Name of helm deployment and k8s namespace"
   type        = string
+  default     = "metrics"
 }
 
 variable "VALUES_FILE" {
   description = "Name of the values file to use for deployment"
   type        = string
+  default     = "prod.yaml"
 }
 
-variable "GRAFANA_DASHBOARD_PASSWORD" {
+variable "GRAFANA_PASSWORD_SECRET_NAME" {
   description = "Grafana dashboard password"
   type        = string
-  sensitive   = true
+  default     = "grafana-dashboard-password"
 }
 
-variable "SLACK_WEBHOOK_URL" {
+variable "SLACK_WEBHOOK_SECRET_NAME" {
   description = "Webhook to use to send to notifications"
   type        = string
-  sensitive   = true
+  default     = "slack-webhook-url"
 }
 
 variable "project" {
