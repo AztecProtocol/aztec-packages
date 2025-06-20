@@ -1,4 +1,4 @@
-use crate::{constants::MAX_INCLUDE_BY_TIMESTAMP_LENGTH, traits::{Deserialize, Empty, Serialize}};
+use crate::{constants::INCLUDE_BY_TIMESTAMP_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct IncludeByTimestamp {
     _opt: Option<u64>,
@@ -16,14 +16,14 @@ impl Eq for IncludeByTimestamp {
     }
 }
 
-impl Serialize<MAX_INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
-    fn serialize(self) -> [Field; MAX_INCLUDE_BY_TIMESTAMP_LENGTH] {
+impl Serialize<INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
+    fn serialize(self) -> [Field; INCLUDE_BY_TIMESTAMP_LENGTH] {
         [self._opt.is_some() as Field, self._opt.unwrap_unchecked() as Field]
     }
 }
 
-impl Deserialize<MAX_INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
-    fn deserialize(serialized: [Field; MAX_INCLUDE_BY_TIMESTAMP_LENGTH]) -> IncludeByTimestamp {
+impl Deserialize<INCLUDE_BY_TIMESTAMP_LENGTH> for IncludeByTimestamp {
+    fn deserialize(serialized: [Field; INCLUDE_BY_TIMESTAMP_LENGTH]) -> IncludeByTimestamp {
         IncludeByTimestamp {
             _opt: if serialized[0] != 0 {
                 Option::some(serialized[1] as u64)

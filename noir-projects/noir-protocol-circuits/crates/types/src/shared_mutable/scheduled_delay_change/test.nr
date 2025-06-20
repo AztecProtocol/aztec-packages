@@ -166,7 +166,7 @@ unconstrained fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u6
     historical_timestamp: u64,
     effective_minimum_delay: u64,
 ) {
-    // The effective minimum delays guarantees the earliest timestamp in which a scheduled value change could be made
+    // The effective minimum delay guarantees the earliest timestamp in which a scheduled value change could be made
     // effective. No action, even if executed immediately after the historical timestamp, should result in a scheduled
     // value change having a timestamp of change lower than this.
     let expected_earliest_value_change_timestamp =
@@ -227,7 +227,7 @@ unconstrained fn test_get_effective_delay_at_before_change_to_long_delay() {
 
     let mut delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
-    // The scheduled delay change will be effective soon (it's fewer timestamps away than the current delay), but due to
+    // The scheduled delay change will be effective soon (it's fewer seconds away than the current delay), but due to
     // it being larger than the current one it doesn't affect the effective delay, which is simply the current one
     // (pre).
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
@@ -250,10 +250,10 @@ unconstrained fn test_get_effective_delay_at_before_near_change_to_short_delay()
 
     let mut delay_change = get_non_initial_delay_change(pre, post, timestamp_of_change);
 
-    // The scheduled delay change will be effective soon (it's fewer timestamps away than the current delay), and it's
+    // The scheduled delay change will be effective soon (it's fewer seconds away than the current delay), and it's
     // changing to a value smaller than the current one. This means that at the timestamp of change the delay will be
     // reduced, and a delay change would be scheduled there with an overall delay lower than the current one.
-    // The effective delay therefore is the new delay plus the number of timestamps that need to elapse until it becomes
+    // The effective delay therefore is the new delay plus the number of seconds that need to elapse until it becomes
     // effective (i.e. until the timestamp of change).
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_timestamp);
     assert_eq(effective_minimum_delay, post + timestamp_of_change - (historical_timestamp + 1));
