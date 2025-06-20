@@ -1,7 +1,7 @@
 From c2f3d108b6fd42e22faa167ea729efc645093079 Mon Sep 17 00:00:00 2001
 From: TomAFrench <tom@tomfren.ch>
 Date: Sat, 15 Mar 2025 15:36:12 +0000
-Subject: [PATCH 1/9] chore: turn on `skipLibCheck`
+Subject: [PATCH 01/11] chore: turn on `skipLibCheck`
 
 ---
  tooling/noir_codegen/tsconfig.json | 1 +
@@ -25,7 +25,7 @@ index 30dd2a7..a2712fd 100644
 From 65c48a25b3254e1c9773862dc8e115f64878695e Mon Sep 17 00:00:00 2001
 From: Tom French <15848336+TomAFrench@users.noreply.github.com>
 Date: Thu, 19 Jun 2025 16:33:18 +0000
-Subject: [PATCH 2/9] fix: patch deduplicating calls
+Subject: [PATCH 02/11] fix: patch deduplicating calls
 
 ---
  .../src/ssa/opt/constant_folding.rs           | 23 ++++++++++++++-----
@@ -72,7 +72,7 @@ index b08c99c..e31f2f6 100644
 From 1adce00facdf43bd4e27e89f8ff6c8dca0d609bb Mon Sep 17 00:00:00 2001
 From: Tom French <15848336+TomAFrench@users.noreply.github.com>
 Date: Thu, 19 Jun 2025 16:40:57 +0000
-Subject: [PATCH 3/9] snapshots
+Subject: [PATCH 03/11] snapshots
 
 ---
  ...lig_true_inliner_-9223372036854775808.snap |  4 +-
@@ -417,7 +417,7 @@ index a225e0c..f0d2441 100644
 From 383aa1615f9c0ee170fdf454704e10bf9629f6d3 Mon Sep 17 00:00:00 2001
 From: Tom French <15848336+TomAFrench@users.noreply.github.com>
 Date: Thu, 19 Jun 2025 19:18:19 +0000
-Subject: [PATCH 5/9] fix
+Subject: [PATCH 05/11] fix
 
 ---
  compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs | 2 +-
@@ -442,7 +442,7 @@ index e31f2f6..d637943 100644
 From 64ec2070594c0111848b02e70dd59755a034b14b Mon Sep 17 00:00:00 2001
 From: Tom French <15848336+TomAFrench@users.noreply.github.com>
 Date: Thu, 19 Jun 2025 19:57:19 +0000
-Subject: [PATCH 7/9] snapshot
+Subject: [PATCH 07/11] snapshot
 
 ---
  ...ig_false_inliner_-9223372036854775808.snap |  2 +-
@@ -693,7 +693,7 @@ index f741f6f..a9b8f32 100644
 From 863d991c9c3ff3511e57ed9ed1795662878b809b Mon Sep 17 00:00:00 2001
 From: Tom French <15848336+TomAFrench@users.noreply.github.com>
 Date: Thu, 19 Jun 2025 20:57:11 +0000
-Subject: [PATCH 9/9] snapshot
+Subject: [PATCH 09/11] snapshot
 
 ---
  compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs | 1 +
@@ -711,6 +711,31 @@ index d637943..d5976c6 100644
              v6 = cast v2 as Field
              v7 = mul v0, v6
              v8 = call to_be_radix(v7, u32 256) -> [u8; 1]
+-- 
+2.43.0
+
+From 9949b9bcdb7d604f791b5c8a62973a07d6153802 Mon Sep 17 00:00:00 2001
+From: Tom French <15848336+TomAFrench@users.noreply.github.com>
+Date: Fri, 20 Jun 2025 10:28:51 +0000
+Subject: [PATCH 11/11] .
+
+---
+ compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs b/compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs
+index d5976c6..226a045 100644
+--- a/compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs
++++ b/compiler/noirc_evaluator/src/ssa/opt/constant_folding.rs
+@@ -1264,7 +1264,7 @@ mod test {
+         let main = ssa.main();
+         let instructions = main.dfg[main.entry_block()].instructions();
+         let ending_instruction_count = instructions.len();
+-        assert_eq!(ending_instruction_count, 3);
++        assert_eq!(ending_instruction_count, 4);
+     }
+ 
+     #[test]
 -- 
 2.43.0
 
