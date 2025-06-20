@@ -128,6 +128,7 @@ export class ArchiverInstrumentation {
 
     instance.syncBlockCount.add(0);
     instance.syncMessageCount.add(0);
+    instance.pruneCount.add(0);
 
     await instance.telemetry.flush();
 
