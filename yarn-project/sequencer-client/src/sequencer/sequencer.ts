@@ -454,8 +454,8 @@ export class Sequencer {
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
-    const publicProcessorDBFork = await this.worldState.fork();
-    const orchestratorDBFork = await this.worldState.fork();
+    const publicProcessorDBFork = await this.worldState.fork(blockNumber - 1);
+    const orchestratorDBFork = await this.worldState.fork(blockNumber - 1);
 
     const previousBlockHeader =
       (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();

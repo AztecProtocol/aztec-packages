@@ -78,7 +78,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
    * Adds transactions to the pool. Does not send to peers or validate the tx.
    * @param txs - The transactions.
    **/
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxsToPool(txs: Tx[]): Promise<void>;
 
   /**
    * Deletes 'txs' from the pool, given hashes.

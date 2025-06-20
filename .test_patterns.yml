@@ -185,10 +185,12 @@ tests:
     error_regex: "CodeError: writable end state is .writing. not .ready."
     owners:
       - *sean
+      - *alex
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+      - *alex
   - regex: "p2p/src/testbench/port_change.test.ts"
     error_regex: "Timeout waiting for worker"
     owners:

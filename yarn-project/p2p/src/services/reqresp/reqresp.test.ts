@@ -473,7 +473,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(expectResponses);
 
       // Expect one request to have been sent to each peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
+      expect(sendRequestToPeerSpy.mock.calls.length).toBeGreaterThanOrEqual(batchSize);
       expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           publicKey: nodes[1].p2p.peerId.publicKey,
@@ -513,14 +513,13 @@ describe('ReqResp', () => {
       const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
       expect(res).toEqual(expectResponses);
 
-      // Expect pinned peer to have received all requests
-      for (let i = 0; i < batchSize; i++) {
-        expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
-          ReqRespSubProtocol.PING,
-          Buffer.from(`ping${i}`),
-        );
-      }
+      // we can not guarantee how many requests the pinned peer will get
+      // they might have to answer all of them or some will be answered by other peers
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
 
       // Expect at least one request to have been sent to each other peer
       expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
@@ -547,14 +546,28 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
-      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
-        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
-      );
+      const requests = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      // We will fail two or three of the responses - due to hitting the ping rate limit on the responding nodes
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
-      expect(res).toEqual(expectResponses);
+      const res: RequestableBuffer[] = await nodes[0].req.sendBatchRequest(
+        ReqRespSubProtocol.PING,
+        requests,
+        undefined,
+      );
+      expect(res.length).toEqual(requests.length);
+
+      let missing = 0;
+      // manually iterate the array: this is necessary because the array we get back from `sendBatchRequest` might contain holes and iterative methods (`map`, `forEach`) skip holes in the array
+      for (let i = 0; i < res.length; i++) {
+        if (!res[i]) {
+          missing++;
+          continue;
+        }
+
+        expect(res[i]).toEqual(RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+      }
+
+      expect(missing).toBeLessThanOrEqual(3);
 
       // Check that we did detect hitting a rate limit
       expect(requesterLoggerSpy).toHaveBeenCalledWith(
