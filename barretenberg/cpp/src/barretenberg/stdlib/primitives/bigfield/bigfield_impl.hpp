@@ -1522,19 +1522,20 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     std::tie(constant_to_add, to_add_limbs) =
         bigfield<Builder, T>::get_multiple_of_modulus_for_subtracting(updated_this);
 
-    // we either return current value if predicate is false, or (limb_i - value) if predicate is true
-    // (1 - predicate) * value + predicate * (limb_i - value)
-    // = predicate * (limb_i - 2 * value) + value
+    // predicate = 0 ==> limb_i
+    // predicate = 1 ==> X_i - 2 * limb_i
+    // ==> (1 - predicate) * limb_i + predicate * (X_i - limb_i)
+    //
     bb::fr two(2);
 
     field_t limb_0 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[0].element * two) + bb::fr(to_add_limbs[0]), binary_basis_limbs[0].element);
+        predicate, -(binary_basis_limbs[0].element) + bb::fr(to_add_limbs[0]), binary_basis_limbs[0].element);
     field_t limb_1 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[1].element * two) + bb::fr(to_add_limbs[1]), binary_basis_limbs[1].element);
+        predicate, -(binary_basis_limbs[1].element) + bb::fr(to_add_limbs[1]), binary_basis_limbs[1].element);
     field_t limb_2 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[2].element * two) + bb::fr(to_add_limbs[2]), binary_basis_limbs[2].element);
+        predicate, -(binary_basis_limbs[2].element) + bb::fr(to_add_limbs[2]), binary_basis_limbs[2].element);
     field_t limb_3 = field_t<Builder>::conditional_assign(
-        predicate, -(binary_basis_limbs[3].element * two) + bb::fr(to_add_limbs[3]), binary_basis_limbs[3].element);
+        predicate, -(binary_basis_limbs[3].element) + bb::fr(to_add_limbs[3]), binary_basis_limbs[3].element);
 
     uint256_t max_limb_0 =
         binary_basis_limbs[0].maximum_value > to_add_limbs[0] ? binary_basis_limbs[0].maximum_value : to_add_limbs[0];
@@ -1554,7 +1555,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
     field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
     result.prime_basis_limb =
-        static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
+        field_t<Builder>::conditional_assign(predicate, -(prime_basis_limb) + prime_basis_to_add, prime_basis_limb);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
 
