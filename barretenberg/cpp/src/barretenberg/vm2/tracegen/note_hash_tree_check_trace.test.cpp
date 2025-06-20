@@ -51,7 +51,6 @@ TEST(NoteHashTreeCheckTracegenTest, DiscardNestedReverts)
     NoteHashTreeCheckTraceBuilder builder;
     TestTraceContainer trace;
     builder.process(events, trace);
-    EXPECT_EQ(trace.as_rows().size(), 4);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(ROW_FIELD_EQ(note_hash_tree_check_sel, 1),
@@ -111,7 +110,6 @@ TEST(NoteHashTreeCheckTracegenTest, DiscardSequentialReverts)
     NoteHashTreeCheckTraceBuilder builder;
     TestTraceContainer trace;
     builder.process(events, trace);
-    EXPECT_EQ(trace.as_rows().size(), 5);
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(ROW_FIELD_EQ(note_hash_tree_check_sel, 1),

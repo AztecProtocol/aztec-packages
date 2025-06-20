@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <memory>
+#include <stack>
 #include <unordered_map>
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
@@ -23,24 +24,24 @@ void NoteHashTreeCheckTraceBuilder::process(
     // Maps the index of the checkpoint to the index it was reverted in.
     std::unordered_map<size_t, size_t> reverted_in;
 
-    std::vector<size_t> checkpoint_stack;
+    std::stack<size_t> checkpoint_stack;
 
     for (size_t i = 0; i < events.size(); i++) {
-        const auto& event = events[i];
+        const auto& event = events.at(i);
 
         if (std::holds_alternative<simulation::CheckPointEventType>(event)) {
             switch (std::get<simulation::CheckPointEventType>(event)) {
             case simulation::CheckPointEventType::CREATE_CHECKPOINT:
-                checkpoint_stack.push_back(i);
+                checkpoint_stack.push(i);
                 break;
             case simulation::CheckPointEventType::COMMIT_CHECKPOINT:
                 assert(!checkpoint_stack.empty());
-                checkpoint_stack.pop_back();
+                checkpoint_stack.pop();
                 break;
             case simulation::CheckPointEventType::REVERT_CHECKPOINT:
                 assert(!checkpoint_stack.empty());
-                reverted_in[checkpoint_stack.back()] = i;
-                checkpoint_stack.pop_back();
+                reverted_in[checkpoint_stack.top()] = i;
+                checkpoint_stack.pop();
                 break;
             }
         }
@@ -51,12 +52,12 @@ void NoteHashTreeCheckTraceBuilder::process(
     std::optional<size_t> waiting_for_revert = std::nullopt;
 
     for (size_t i = 0; i < events.size(); i++) {
-        const auto& event = events[i];
+        const auto& event = events.at(i);
         if (std::holds_alternative<simulation::CheckPointEventType>(event)) {
             auto check_point_event = std::get<simulation::CheckPointEventType>(event);
             if (check_point_event == simulation::CheckPointEventType::CREATE_CHECKPOINT && reverted_in.contains(i) &&
                 !waiting_for_revert.has_value()) {
-                waiting_for_revert = reverted_in[i];
+                waiting_for_revert = reverted_in.at(i);
                 discard = true;
             } else if (check_point_event == simulation::CheckPointEventType::REVERT_CHECKPOINT &&
                        waiting_for_revert.has_value() && waiting_for_revert.value() == i) {
