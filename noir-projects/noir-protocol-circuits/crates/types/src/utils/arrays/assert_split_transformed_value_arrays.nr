@@ -6,15 +6,12 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     transformed_value_array_gte: [S; N], // Values whose counters are greater than or equal to the split counter.
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32,
-    maybe_num_non_revertibles: Option<u32>, // Hint. Should check in this function.
+    num_non_revertibles: u32, // Hint. Should check in this function.
 )
 where
     T: Ordered + Empty,
     S: Empty,
 {
-    // Disallowing no non-revertibles...
-    let num_non_revertibles = maybe_num_non_revertibles.unwrap();
-
     if num_non_revertibles != 0 {
         // If num_non_revertibles == 0, then the below can still underflow and cause 'Failed constraint' error,
         // even though it shouldn't reach here. See noir issue #7612.
@@ -78,7 +75,7 @@ where
         transformed_value_array_gte,
         is_transformed,
         split_counter,
-        num_non_revertibles,
+        num_non_revertibles.unwrap(),
     );
 }
 
@@ -143,7 +140,7 @@ mod tests {
                 self.transformed_value_array_gte,
                 is_transformed,
                 self.split_counter,
-                Option::some(num_non_revertibles),
+                num_non_revertibles,
             );
         }
     }
