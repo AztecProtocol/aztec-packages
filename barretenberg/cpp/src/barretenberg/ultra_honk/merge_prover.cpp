@@ -33,7 +33,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1270): connect [t_j] used herein those used in PG verifier
+ * Note: the prover doesn't commit to t_j because it shares a transcript with the PG instance the folds the present
+ * circuit, and therefore t_j has already been added to the transcript by PG.
  *
  * @return honk::proof
  */
@@ -49,23 +50,27 @@ MergeProver::MergeProof MergeProver::construct_proof()
     const size_t current_subtable_size = t_current[0].size();
 
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
+    // info("subtable_size: ", current_subtable_size);
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
-        Commitment t_commitment = pcs_commitment_key.commit(t_current[idx]);
         Commitment T_prev_commitment = pcs_commitment_key.commit(T_prev[idx]);
         Commitment T_commitment = pcs_commitment_key.commit(T_current[idx]);
 
         std::string suffix = std::to_string(idx);
-        transcript->send_to_verifier("t_CURRENT_" + suffix, t_commitment);
         transcript->send_to_verifier("T_PREV_" + suffix, T_prev_commitment);
         transcript->send_to_verifier("T_CURRENT_" + suffix, T_commitment);
+
+        // info("t_comm_" + std::to_string(idx), t_commitment);
+        // info("T_prev_comm_" + std::to_string(idx), T_prev_commitment);
+        // info("T_comm" + std::to_string(idx), T_commitment);
     }
 
     // Compute evaluations T_j(\kappa), T_{j,prev}(\kappa), t_j(\kappa), add to transcript. For each polynomial we add a
     // univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
     const FF kappa = transcript->template get_challenge<FF>("kappa");
+    // info("kappa: ", kappa);
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
@@ -89,6 +94,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
+    // info("alpha: ", alpha);
 
     // Construct batched polynomial to be opened via KZG
     Polynomial batched_polynomial(current_table_size);

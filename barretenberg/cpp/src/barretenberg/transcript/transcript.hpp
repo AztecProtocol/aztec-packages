@@ -593,6 +593,33 @@ template <typename TranscriptParams> class BaseTranscript {
         }
         manifest.print();
     }
+
+    BaseTranscript branch_transcript()
+    {
+        /// Increase the round_number of the original transcript (+1000
+        /// Set round_number of branched == round number of original
+        /// Set transcript_index branch == original
+        ASSERT(current_round_data.size() == 0, "Trying to branch a transcript with non empty round data");
+
+        /*
+         * Create the branched transcript. The requirements are:
+         *  - branched_transcript.unique_transcript_index = unique_transcript_index, so that we don't get false errors
+         * of witnesses from different transcripts interacting
+         *  - branched_transcript.round_index = round_index, so that it is clear that branched_transcript builds on the
+         * original transcript
+         *  - branched_transcript.current_round_data = { previous_challenge }, so that the branched transcripts builds
+         * on the previous one
+         *  - round_index += 1000, so that it is clear what is done in the original transcript after branching
+         */
+        BaseTranscript branched_transcript;
+
+        branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
+        branched_transcript.round_index = round_index;
+        branched_transcript.add_to_hash_buffer("init", previous_challenge);
+        round_index += 1000;
+
+        return branched_transcript;
+    }
 };
 
 template <typename Builder>
