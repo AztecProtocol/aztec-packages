@@ -69,22 +69,18 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.AddedToQueue(validators[i], 1 + i);
+      emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
       stakingAssetHandler.addValidator(validators[i], realProof);
 
       // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
       mockZKPassportVerifier.incrementUniqueIdentifier();
     }
-    assertEq(stakingAssetHandler.getQueueLength(), _depositsPerMint);
 
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
       emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
     }
-    // Drip the queue to allow validators to join the set
-    stakingAssetHandler.dripQueue();
-    assertEq(stakingAssetHandler.getQueueLength(), 0);
 
     uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
 
@@ -92,7 +88,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     // Added to the queue successfully
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), _depositsPerMint + 1);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), address(0xbeefdeef), WITHDRAWER);
     vm.prank(caller);
     stakingAssetHandler.addValidator(address(0xbeefdeef), realProof);
 
@@ -102,7 +98,6 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
       )
     );
-    stakingAssetHandler.dripQueue();
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

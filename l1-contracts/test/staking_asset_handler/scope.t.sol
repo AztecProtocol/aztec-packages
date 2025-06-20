@@ -34,7 +34,7 @@ contract ScopeTest is StakingAssetHandlerBase {
   }
 
   function test_WhenScopeIsValidAndSubscopeIsValid() external {
-    // it emits {AddedToQueue} event
+    // it emits {ValidatorAdded} event
 
     _setCorrectScope();
     _setCorrectSubScope();
@@ -42,7 +42,7 @@ contract ScopeTest is StakingAssetHandlerBase {
     address attester = address(1);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(attester, 1);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), attester, WITHDRAWER);
     vm.prank(attester);
     stakingAssetHandler.addValidator(attester, realProof);
   }
