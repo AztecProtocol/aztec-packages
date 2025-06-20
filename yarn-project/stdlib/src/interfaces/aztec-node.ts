@@ -423,8 +423,9 @@ export interface AztecNode
   /**
    * Returns a publicly deployed contract instance given its address.
    * @param address - Address of the deployed contract.
+   * @param blockNumber - Block number at which to retrieve the contract instance. If not provided, the latest block is used.
    */
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined>;
 
   /**
    * Returns the ENR of this node for peer discovery, if available.
@@ -589,7 +590,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
 
-  getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
+  getContract: z.function().args(schemas.AztecAddress, optional(schemas.Integer)).returns(ContractInstanceWithAddressSchema.optional()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
 };
