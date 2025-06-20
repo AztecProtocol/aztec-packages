@@ -6,7 +6,7 @@ use crate::{
             get_unverified_key_validation_requests, KeyValidationHint,
             verify_reset_key_validation_requests,
         },
-        read_request::{get_unverified_read_requests, verify_reset_read_requests},
+        read_request::{get_skipped_read_requests, verify_reset_read_requests},
     },
 };
 use dep::types::{
@@ -51,20 +51,14 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
     // "Compose" is an inconsistent word.
     // I think this is outputting arrays of items that will be propagated from this circuit (i.e. items that will not be processed within this circuit). Is this function in the right place?
     pub unconstrained fn compose(self) -> PrivateValidationRequests {
-        // Splice-removes all but the "NADA" read_requests. I find this confusing.
-        // What have we computed here?
-        // - The read requests that will be propagated to the next circuit? <-- this one
-        // - Or the read requests that will be processed by this circuit?
-        // TODO(MC): consider renaming to `kept_note_hash_read_requests`, in line with the naming of the other arrays.
-        let note_hash_read_requests = get_unverified_read_requests(
+        let kept_note_hash_read_requests = get_skipped_read_requests(
             self.validation_requests.note_hash_read_requests,
-            self.note_hash_read_request_hints.read_request_statuses,
+            self.note_hash_read_request_hints.read_request_actions,
         );
 
-        // Splice-removes all but the "NADA" read_requests. I find this confusing.
-        let nullifier_read_requests = get_unverified_read_requests(
+        let kept_nullifier_read_requests = get_skipped_read_requests(
             self.validation_requests.nullifier_read_requests,
-            self.nullifier_read_request_hints.read_request_statuses,
+            self.nullifier_read_request_hints.read_request_actions,
         );
 
         let scoped_key_validation_requests_and_generators = get_unverified_key_validation_requests(
@@ -74,8 +68,8 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         PrivateValidationRequests {
             for_rollup: self.validation_requests.for_rollup,
-            note_hash_read_requests,
-            nullifier_read_requests,
+            note_hash_read_requests: kept_note_hash_read_requests,
+            nullifier_read_requests: kept_nullifier_read_requests,
             scoped_key_validation_requests_and_generators,
             split_counter: Option::some(self.validation_requests_split_counter),
         }
@@ -92,7 +86,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         verify_reset_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.pending_note_hashes,
-            self.note_hash_read_request_hints.read_request_statuses,
+            self.note_hash_read_request_hints.read_request_actions,
             self.note_hash_read_request_hints.pending_read_hints,
             self.pending_note_hash_read_amount,
             self.note_hash_read_request_hints.settled_read_hints,
@@ -105,7 +99,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         verify_reset_read_requests(
             self.validation_requests.nullifier_read_requests,
             self.pending_nullifiers,
-            self.nullifier_read_request_hints.read_request_statuses,
+            self.nullifier_read_request_hints.read_request_actions,
             self.nullifier_read_request_hints.pending_read_hints,
             self.pending_nullifier_read_amount,
             self.nullifier_read_request_hints.settled_read_hints,

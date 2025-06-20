@@ -1,6 +1,6 @@
 // This will be moved to a separate Read Request Reset Circuit.
 use crate::reset::read_request::{
-    PendingReadHint, ReadRequestStatus, ReadValueHint, SettledReadHint,
+    PendingReadHint, ReadRequestAction, ReadValueHint, SettledReadHint,
 };
 use dep::types::{
     abis::nullifier_leaf_preimage::NullifierLeafPreimage,
@@ -30,7 +30,7 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
         self.leaf_preimage
     }
 
-    fn nada(read_request_len: u32) -> Self {
+    fn skip(read_request_len: u32) -> Self {
         NullifierSettledReadHint {
             read_request_index: read_request_len,
             membership_witness: MembershipWitness::empty(),
@@ -40,7 +40,7 @@ impl SettledReadHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifier
 }
 
 pub struct NullifierReadRequestHints<let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
-    pub read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
+    pub read_request_actions: [ReadRequestAction; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     pub pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pub settled_read_hints: [NullifierSettledReadHint; SETTLED_READ_HINTS_LEN],
 }
@@ -48,7 +48,7 @@ pub struct NullifierReadRequestHints<let PENDING_READ_HINTS_LEN: u32, let SETTLE
 mod tests {
     use crate::nullifier_read_request_reset::NullifierSettledReadHint;
     use crate::reset::read_request::{
-        get_unverified_read_requests, PendingReadHint, ReadRequestState, ReadRequestStatus,
+        get_skipped_read_requests, PendingReadHint, ReadRequestAction, ReadRequestActions,
         verify_reset_read_requests,
     };
     use dep::types::{
@@ -68,7 +68,7 @@ mod tests {
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
         read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-        read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
+        read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
         pending_values: AppendedUnvalidatedArray<ScopedNullifier, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         pending_read_amount: u32,
@@ -130,17 +130,32 @@ mod tests {
                 },
             ];
 
-            let read_request_statuses = [
-                ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 0 },
-                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 0 },
-                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 1 },
-                ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index: 1 },
-                ReadRequestStatus { state: ReadRequestState.PENDING, hint_index: 2 },
+            let read_request_actions = [
+                ReadRequestAction {
+                    action_enum: ReadRequestActions.READ_AS_SETTLED,
+                    hint_index: 0,
+                },
+                ReadRequestAction {
+                    action_enum: ReadRequestActions.READ_AS_PENDING,
+                    hint_index: 0,
+                },
+                ReadRequestAction {
+                    action_enum: ReadRequestActions.READ_AS_PENDING,
+                    hint_index: 1,
+                },
+                ReadRequestAction {
+                    action_enum: ReadRequestActions.READ_AS_SETTLED,
+                    hint_index: 1,
+                },
+                ReadRequestAction {
+                    action_enum: ReadRequestActions.READ_AS_PENDING,
+                    hint_index: 2,
+                },
             ];
 
             TestBuilder {
                 read_requests,
-                read_request_statuses,
+                read_request_actions,
                 pending_values,
                 pending_read_hints,
                 pending_read_amount: pending_read_hints.len(),
@@ -186,20 +201,20 @@ mod tests {
             (hints, tree_root)
         }
 
-        pub unconstrained fn get_unverified_read_requests(
+        pub unconstrained fn get_skipped_read_requests(
             self,
         ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
-            get_unverified_read_requests(self.read_requests, self.read_request_statuses)
+            get_skipped_read_requests(self.read_requests, self.read_request_actions)
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
             // Safety: this is only used in tests.
-            let unverified_read_requests = unsafe { self.get_unverified_read_requests() };
+            let unverified_read_requests = unsafe { self.get_skipped_read_requests() };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
-                self.read_request_statuses,
+                self.read_request_actions,
                 self.pending_read_hints,
                 self.pending_read_amount,
                 settled_hints,
@@ -214,7 +229,7 @@ mod tests {
     fn verify_reset_nullifier_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
         // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
+        let unverified_read_requests = unsafe { builder.get_skipped_read_requests() };
         assert(unverified_read_requests.is_empty());
 
         builder.verify();
@@ -224,12 +239,12 @@ mod tests {
     fn verify_reset_nullifier_read_requests_clears_partial_succeeds() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_statuses[2] = ReadRequestStatus::empty();
-        builder.read_request_statuses[4] = ReadRequestStatus::empty();
+        builder.read_request_actions[2] = ReadRequestAction::empty();
+        builder.read_request_actions[4] = ReadRequestAction::empty();
 
         let read_requests = builder.read_requests;
         // Safety: this is a test.
-        let unverified_read_requests = unsafe { builder.get_unverified_read_requests() };
+        let unverified_read_requests = unsafe { builder.get_skipped_read_requests() };
         assert_array_eq(
             unverified_read_requests.array,
             [read_requests.array[2], read_requests.array[4]],

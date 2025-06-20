@@ -5,38 +5,38 @@ use dep::types::{
     utils::arrays::AppendedUnvalidatedArray,
 };
 
-pub struct ReadRequestStateEnum {
-    pub NADA: u8,
-    pub PENDING: u8,
-    pub SETTLED: u8,
+pub struct ReadRequestActionsEnum {
+    pub SKIP: u8,
+    pub READ_AS_PENDING: u8,
+    pub READ_AS_SETTLED: u8,
 }
 
-pub global ReadRequestState: ReadRequestStateEnum =
-    ReadRequestStateEnum { NADA: 0, PENDING: 1, SETTLED: 2 };
+pub global ReadRequestActions: ReadRequestActionsEnum =
+    ReadRequestActionsEnum { SKIP: 0, READ_AS_PENDING: 1, READ_AS_SETTLED: 2 };
 
 #[derive(Eq)]
-pub struct ReadRequestStatus {
-    pub state: u8,
+pub struct ReadRequestAction {
+    pub action_enum: u8,
     pub hint_index: u32,
 }
 
-impl Empty for ReadRequestStatus {
+impl Empty for ReadRequestAction {
     fn empty() -> Self {
-        ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
+        ReadRequestAction { action_enum: ReadRequestActions.SKIP, hint_index: 0 }
     }
 }
 
-impl ReadRequestStatus {
-    pub fn nada() -> Self {
-        ReadRequestStatus { state: ReadRequestState.NADA, hint_index: 0 }
+impl ReadRequestAction {
+    pub fn set_as_skip() -> Self {
+        ReadRequestAction { action_enum: ReadRequestActions.SKIP, hint_index: 0 }
     }
 
-    pub fn pending(hint_index: u32) -> Self {
-        ReadRequestStatus { state: ReadRequestState.PENDING, hint_index }
+    pub fn set_as_pending(hint_index: u32) -> Self {
+        ReadRequestAction { action_enum: ReadRequestActions.READ_AS_PENDING, hint_index }
     }
 
-    pub fn settled(hint_index: u32) -> Self {
-        ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index }
+    pub fn set_as_settled(hint_index: u32) -> Self {
+        ReadRequestAction { action_enum: ReadRequestActions.READ_AS_SETTLED, hint_index }
     }
 }
 
@@ -56,7 +56,7 @@ impl ReadValueHint for PendingReadHint {
 }
 
 impl PendingReadHint {
-    pub fn nada(read_request_len: u32) -> Self {
+    pub fn skip(read_request_len: u32) -> Self {
         PendingReadHint { read_request_index: read_request_len, pending_value_index: 0 }
     }
 }
@@ -67,7 +67,7 @@ where
 {
     fn membership_witness(self) -> MembershipWitness<TREE_HEIGHT>;
     fn leaf_preimage(self) -> LEAF_PREIMAGE;
-    fn nada(read_request_len: u32) -> Self;
+    fn skip(read_request_len: u32) -> Self;
 }
 
 // Validate the values being read were emitted in the same transaction before the read request were made.
@@ -127,7 +127,7 @@ where
 
 fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, let PENDING_READ_HINTS_LEN: u32, T, let SETTLED_READ_HINTS_LEN: u32, S>(
     read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
+    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
     pending_read_hints: [T; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [S; SETTLED_READ_HINTS_LEN],
@@ -141,14 +141,14 @@ where
     let mut num_propagated = 0;
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests.array[i];
-        let status = read_request_statuses[i];
-        if status.state == ReadRequestState.PENDING {
+        let status = read_request_actions[i];
+        if status.action_enum == ReadRequestActions.READ_AS_PENDING {
             assert_eq(
                 pending_read_hints[status.hint_index].read_request_index(),
                 i,
                 "Hinted pending read request does not match status",
             );
-        } else if status.state == ReadRequestState.SETTLED {
+        } else if status.action_enum == ReadRequestActions.READ_AS_SETTLED {
             assert_eq(
                 settled_read_hints[status.hint_index].read_request_index(),
                 i,
@@ -195,7 +195,7 @@ where
 pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
     read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
     pending_values: AppendedUnvalidatedArray<P, PENDING_VALUE_LEN>,
-    read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
+    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
     pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [H; SETTLED_READ_HINTS_LEN],
@@ -224,7 +224,7 @@ where
 
     verify_propagated_read_requests(
         read_requests,
-        read_request_statuses,
+        read_request_actions,
         pending_read_hints,
         pending_read_amount,
         settled_read_hints,
@@ -233,20 +233,18 @@ where
     );
 }
 
-// TODO: consider renaming to `get_propagated_read_requests` or `get_kept_read_requests`
-pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
+pub unconstrained fn get_skipped_read_requests<let READ_REQUEST_LEN: u32>(
     read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
+    read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
 ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
     let mut propagated_read_requests = AppendedUnvalidatedArray::empty();
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests.array[i];
-        // Q: I guess "NADA" is being used here to mean "It is not going to be processed in this Reset iteration"?
-        // It's confusing, because actually, all read requests are reads of Pending or Settled notes: there is no 3rd category of read request.
-        // For that reason, it feels like "Nada" should not be an element of this enum.
-        //
+
         // Q: Why don't we just pop a subarray of read_requests off the pile, and process those?
-        if read_request_statuses[i].state == ReadRequestState.NADA {
+        // A: Unlike key validation request, we can't always process the first N read requests,
+        // because some of them might be reading a pending note hash that's not included yet.
+        if read_request_actions[i].action_enum == ReadRequestActions.SKIP {
             propagated_read_requests.push(read_request);
         }
     }
@@ -255,7 +253,7 @@ pub unconstrained fn get_unverified_read_requests<let READ_REQUEST_LEN: u32>(
 
 mod tests {
     use crate::reset::read_request::{
-        get_unverified_read_requests, PendingReadHint, ReadRequestState, ReadRequestStatus,
+        get_skipped_read_requests, PendingReadHint, ReadRequestAction, ReadRequestActions,
         ReadValueHint, SettledReadHint, validate_pending_read_requests,
         validate_settled_read_requests, verify_reset_read_requests,
     };
@@ -333,7 +331,7 @@ mod tests {
             self.leaf_preimage
         }
 
-        fn nada(read_request_len: u32) -> Self {
+        fn skip(read_request_len: u32) -> Self {
             TestSettledReadHint {
                 read_request_index: read_request_len,
                 membership_witness: MembershipWitness::empty(),
@@ -344,7 +342,7 @@ mod tests {
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
         read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-        read_request_statuses: [ReadRequestStatus; READ_REQUEST_LEN],
+        read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
         pending_values: AppendedUnvalidatedArray<TestValue, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         leaf_preimages: [TestLeafPreimage; SETTLED_READ_HINTS_LEN],
@@ -389,16 +387,16 @@ mod tests {
                 TestLeafPreimage { value: siloed_values[1] },
             ];
 
-            let read_request_statuses = [
-                ReadRequestStatus::settled(0),
-                ReadRequestStatus::pending(0),
-                ReadRequestStatus::pending(1),
-                ReadRequestStatus::settled(1),
+            let read_request_actions = [
+                ReadRequestAction::set_as_settled(0),
+                ReadRequestAction::set_as_pending(0),
+                ReadRequestAction::set_as_pending(1),
+                ReadRequestAction::set_as_settled(1),
             ];
 
             TestBuilder {
                 read_requests,
-                read_request_statuses,
+                read_request_actions,
                 pending_values,
                 pending_read_hints,
                 leaf_preimages,
@@ -441,26 +439,26 @@ mod tests {
                         leaf_preimage: self.leaf_preimages[0],
                     },
                 ],
-                TestSettledReadHint::nada(READ_REQUEST_LEN),
+                TestSettledReadHint::skip(READ_REQUEST_LEN),
             );
             let tree_root = tree.get_root();
             (hints, tree_root)
         }
 
         pub fn get_nada_pending_read_hint(self) -> PendingReadHint {
-            PendingReadHint::nada(self.read_requests.array.len())
+            PendingReadHint::skip(self.read_requests.array.len())
         }
 
         pub fn get_nada_settled_read_hint(self) -> TestSettledReadHint {
-            TestSettledReadHint::nada(self.read_requests.array.len())
+            TestSettledReadHint::skip(self.read_requests.array.len())
         }
 
-        pub fn get_unverified_read_requests(
+        pub fn get_skipped_read_requests(
             self,
         ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
             // Safety: this is only used in tests.
             unsafe {
-                get_unverified_read_requests(self.read_requests, self.read_request_statuses)
+                get_skipped_read_requests(self.read_requests, self.read_request_actions)
             }
         }
 
@@ -501,11 +499,11 @@ mod tests {
             settled_hints: [TestSettledReadHint; SETTLED_READ_HINTS_LEN],
         ) {
             let tree = self.build_tree();
-            let unverified = self.get_unverified_read_requests();
+            let unverified = self.get_skipped_read_requests();
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
-                self.read_request_statuses,
+                self.read_request_actions,
                 self.pending_read_hints,
                 self.pending_read_amount,
                 settled_hints,
@@ -517,11 +515,11 @@ mod tests {
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            let unverified = self.get_unverified_read_requests();
+            let unverified = self.get_skipped_read_requests();
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
-                self.read_request_statuses,
+                self.read_request_actions,
                 self.pending_read_hints,
                 self.pending_read_amount,
                 settled_hints,
@@ -625,7 +623,7 @@ mod tests {
     #[test]
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = builder.get_skipped_read_requests();
         assert(unverified_read_requests.is_empty());
 
         builder.verify();
@@ -635,15 +633,15 @@ mod tests {
     fn verify_reset_read_requests_partial_succeeds() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_statuses[0] = ReadRequestStatus::empty();
-        builder.read_request_statuses[2] = ReadRequestStatus::empty();
+        builder.read_request_actions[0] = ReadRequestAction::empty();
+        builder.read_request_actions[2] = ReadRequestAction::empty();
         builder.pending_read_hints[1] = builder.get_nada_pending_read_hint();
 
         let mut (settled_hints, _) = builder.get_settled_read_hints();
         settled_hints[0] = builder.get_nada_settled_read_hint();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = builder.get_skipped_read_requests();
         assert_array_eq(
             unverified_read_requests.array,
             [read_requests.array[0], read_requests.array[2]],
@@ -656,7 +654,7 @@ mod tests {
     fn verify_reset_read_requests_wrong_pending_read_status_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_statuses[0].state = ReadRequestState.PENDING;
+        builder.read_request_actions[0].action_enum = ReadRequestActions.READ_AS_PENDING;
 
         builder.verify();
     }
@@ -665,7 +663,7 @@ mod tests {
     fn verify_reset_read_requests_wrong_settled_read_status_fails() {
         let mut builder = TestBuilder::new();
 
-        builder.read_request_statuses[2].state = ReadRequestState.SETTLED;
+        builder.read_request_actions[2].action_enum = ReadRequestActions.READ_AS_SETTLED;
 
         builder.verify();
     }
@@ -678,14 +676,14 @@ mod tests {
         builder.pending_read_amount = 1;
         // Clear the status.
         let request_index = builder.pending_read_hints[1].read_request_index;
-        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        builder.read_request_actions[request_index] = ReadRequestAction::set_as_skip();
         // Clear the hint.
-        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.array.len());
+        builder.pending_read_hints[1] = PendingReadHint::skip(builder.read_requests.array.len());
 
         builder.verify();
 
         let read_request = builder.read_requests.array[request_index];
-        let unverified = builder.get_unverified_read_requests();
+        let unverified = builder.get_skipped_read_requests();
         assert_array_eq(unverified.array, [read_request]);
     }
 
@@ -696,7 +694,7 @@ mod tests {
         // Only verify 1 pending request.
         builder.pending_read_amount = 1;
         let request_index = builder.pending_read_hints[1].read_request_index;
-        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        builder.read_request_actions[request_index] = ReadRequestAction::set_as_skip();
         // The hint at index 1 is not removed, but it should be.
 
         builder.verify();
@@ -708,8 +706,8 @@ mod tests {
 
         // Only verify 1 pending request.
         builder.pending_read_amount = 1;
-        builder.pending_read_hints[1] = PendingReadHint::nada(builder.read_requests.array.len());
-        // The status for the read request is still PENDING.
+        builder.pending_read_hints[1] = PendingReadHint::skip(builder.read_requests.array.len());
+        // The status for the read request is still READ_AS_PENDING.
 
         builder.verify();
     }
@@ -723,14 +721,14 @@ mod tests {
         builder.settled_read_amount = 1;
         // Clear the status.
         let request_index = settled_hints[1].read_request_index;
-        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        builder.read_request_actions[request_index] = ReadRequestAction::set_as_skip();
         // Clear the hint.
         settled_hints[1] = builder.get_nada_settled_read_hint();
 
         builder.verify_with_settled_hints(settled_hints);
 
         let read_request = builder.read_requests.array[request_index];
-        let unverified = builder.get_unverified_read_requests();
+        let unverified = builder.get_skipped_read_requests();
         assert_array_eq(unverified.array, [read_request]);
     }
 
@@ -743,7 +741,7 @@ mod tests {
         builder.settled_read_amount = 1;
         // Clear the status.
         let request_index = settled_hints[1].read_request_index;
-        builder.read_request_statuses[request_index] = ReadRequestStatus::nada();
+        builder.read_request_actions[request_index] = ReadRequestAction::set_as_skip();
         // The hint at index 1 is not removed, but it should be.
 
         builder.verify_with_settled_hints(settled_hints);
@@ -758,7 +756,7 @@ mod tests {
         builder.settled_read_amount = 1;
         // Clear the hint.
         settled_hints[1] = builder.get_nada_settled_read_hint();
-        // The status for the read request is still SETTLED.
+        // The status for the read request is still READ_AS_SETTLED.
 
         builder.verify_with_settled_hints(settled_hints);
     }
