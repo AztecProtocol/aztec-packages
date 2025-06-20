@@ -26,4 +26,4 @@ jobs:
         with:
           context: container-builds/fuzzing-container/src/
           push: true
-          tags: ghcr.io/${{ github.repository }}/fuzzing-container:latest
+          tags: ghcr.io/aztecprotocol/fuzzing-container:latest
