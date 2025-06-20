@@ -16,8 +16,9 @@ impl RootParityInputs {
 
         let vk_tree_root = self.children[0].public_inputs.vk_tree_root;
         for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
-            assert(
-                self.children[i].public_inputs.vk_tree_root == vk_tree_root,
+            assert_eq(
+                self.children[i].public_inputs.vk_tree_root,
+                vk_tree_root,
                 "Inconsistent vk tree roots across base parity circuits",
             );
         }
@@ -40,21 +41,25 @@ impl RootParityInputs {
     }
 
     fn verify_child_proofs(self) {
-        for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
-            assert(
-                self.children[i].verification_key.hash == self.children[0].verification_key.hash,
+        for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
+            // No need to check verification_key.key directly, as it's verified in bb that it produces the given hash.
+            // We ensure that all the keys are the same by asserting that their hashes are equal across all children.
+            assert_eq(
+                self.children[i].verification_key.hash,
+                self.children[0].verification_key.hash,
                 "Inconsistent vk hashes across base parity circuits",
             );
-            assert(
-                self.children[i].vk_path == self.children[0].vk_path,
+            assert_eq(
+                self.children[i].vk_path,
+                self.children[0].vk_path,
                 "Inconsistent vk paths across base parity circuits",
             );
             self.children[i].verify();
         }
 
-        // The verification_key.hash and vk_path for all the children are checked above to ensure they are the same.
-        // So we only need to validate one of them that it is in the vk tree.
-        self.children[0].validate_in_vk_tree();
+        // Since the vk hash and path have been checked to be consistent across all children,
+        // it's sufficient to validate that one of them exists in the vk tree.
+        self.children[0].validate_vk_in_vk_tree();
     }
 }
 

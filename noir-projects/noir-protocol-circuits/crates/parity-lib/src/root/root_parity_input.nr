@@ -1,11 +1,11 @@
 use crate::parity_public_inputs::ParityPublicInputs;
 use dep::types::{
     constants::{BASE_PARITY_INDEX, PROOF_TYPE_HONK, VK_TREE_HEIGHT},
-    merkle_tree::membership::assert_check_membership,
     proof::{
         recursive_proof::RecursiveProof,
         traits::Verifiable,
         verification_key::{HonkVerificationKey, VerificationKey},
+        vk_data::VkData,
     },
     traits::{Empty, Serialize},
 };
@@ -42,12 +42,12 @@ impl Verifiable for RootParityInput {
 }
 
 impl RootParityInput {
-    pub fn validate_in_vk_tree(self) {
-        assert_check_membership(
-            self.verification_key.hash,
-            BASE_PARITY_INDEX as Field,
-            self.vk_path,
-            self.public_inputs.vk_tree_root,
-        );
+    pub fn validate_vk_in_vk_tree(self) {
+        VkData {
+            vk: self.verification_key,
+            leaf_index: BASE_PARITY_INDEX,
+            sibling_path: self.vk_path,
+        }
+            .validate_in_vk_tree(self.public_inputs.vk_tree_root);
     }
 }

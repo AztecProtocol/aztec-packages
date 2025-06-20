@@ -3,7 +3,6 @@ use crate::{
     constants::{
         CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_INDEX, PROOF_TYPE_PG,
     },
-    merkle_tree::membership::assert_check_membership,
     proof::{traits::Verifiable, vk_data::VkData},
     utils::arrays::find_index_hint,
 };
@@ -14,7 +13,7 @@ pub struct PrivateKernelData {
 }
 
 impl PrivateKernelData {
-    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+    pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         let index_in_allowed_list = if self.vk_data.leaf_index >= PRIVATE_KERNEL_RESET_INDEX {
             // Kernel circuits only need to include PRIVATE_KERNEL_RESET_INDEX in the list to allow all private kernel reset variants.
             PRIVATE_KERNEL_RESET_INDEX
@@ -29,12 +28,7 @@ impl PrivateKernelData {
         assert(index_hint < N, "Invalid vk index");
         assert_eq(allowed_indices[index_hint], index_in_allowed_list, "Invalid vk index");
 
-        assert_check_membership(
-            self.vk_data.vk.hash,
-            self.vk_data.leaf_index as Field,
-            self.vk_data.sibling_path,
-            self.public_inputs.constants.vk_tree_root,
-        );
+        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 }
 

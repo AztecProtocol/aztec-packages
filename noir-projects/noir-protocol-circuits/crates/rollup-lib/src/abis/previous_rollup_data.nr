@@ -25,6 +25,15 @@ impl Verifiable for PreviousRollupData {
     }
 }
 
+impl PreviousRollupData {
+    pub fn validate_vk_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        self.vk_data.validate_allowed_in_vk_tree(
+            self.base_or_merge_rollup_public_inputs.constants.vk_tree_root,
+            allowed_indices,
+        );
+    }
+}
+
 impl Empty for PreviousRollupData {
     fn empty() -> Self {
         PreviousRollupData {
@@ -32,14 +41,5 @@ impl Empty for PreviousRollupData {
             proof: NestedRecursiveProof::empty(),
             vk_data: VkData::empty(),
         }
-    }
-}
-
-impl PreviousRollupData {
-    pub fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        self.vk_data.validate_in_vk_tree(
-            self.base_or_merge_rollup_public_inputs.constants.vk_tree_root,
-            allowed_indices,
-        );
     }
 }

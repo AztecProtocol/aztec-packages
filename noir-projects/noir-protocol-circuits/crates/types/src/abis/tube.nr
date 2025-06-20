@@ -2,7 +2,10 @@ use crate::{
     abis::kernel_circuit_public_inputs::{
         PrivateToPublicKernelCircuitPublicInputs, PrivateToRollupKernelCircuitPublicInputs,
     },
-    constants::{PROOF_TYPE_ROLLUP_HONK, ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS},
+    constants::{
+        PRIVATE_TUBE_VK_INDEX, PROOF_TYPE_ROLLUP_HONK, PUBLIC_TUBE_VK_INDEX,
+        ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+    },
     proof::{traits::Verifiable, tube_proof::TubeProof, vk_data::VkData},
     traits::Serialize,
 };
@@ -27,11 +30,9 @@ impl Verifiable for PublicTubeData {
 }
 
 impl PublicTubeData {
-    pub fn validate_in_vk_tree(self) {
-        let allowed_indices = [
-            // TODO(#7410): Add public tube vk hash to the tree and add the index here.
-        ];
-        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root, allowed_indices);
+    pub fn validate_vk_in_vk_tree(self) {
+        assert_eq(self.vk_data.leaf_index, PUBLIC_TUBE_VK_INDEX);
+        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 }
 
@@ -55,10 +56,8 @@ impl Verifiable for PrivateTubeData {
 }
 
 impl PrivateTubeData {
-    pub fn validate_in_vk_tree(self) {
-        let allowed_indices = [
-            // TODO(#7410): Add private tube vk hash to the tree and add the index here.
-        ];
-        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root, allowed_indices);
+    pub fn validate_vk_in_vk_tree(self) {
+        assert_eq(self.vk_data.leaf_index, PRIVATE_TUBE_VK_INDEX);
+        self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 }
