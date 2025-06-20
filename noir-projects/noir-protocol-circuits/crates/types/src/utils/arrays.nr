@@ -36,7 +36,7 @@ pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_
 pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use sort_by_counter::sort_by_counter_asc;
 
-use crate::traits::Empty;
+use crate::traits::{Deserialize, Empty, Serialize};
 use super::for_loop::{for_i_in_, for_i_in_0_, for_i_only_in_0_, for_loop_no_op};
 
 //**********************************************************************************
@@ -105,7 +105,7 @@ where
 }
 
 //**********************************************************************************
-// TO DELETE
+// TO DEPRECATE
 //**********************************************************************************
 
 /// Deprecated.
@@ -162,6 +162,8 @@ where
     length
 }
 
+// Returns an array length defined by fully trimming _all_ "empty" items
+// from the RHS.
 unconstrained fn trimmed_array_length_hint<T, let N: u32>(array: [T; N]) -> u32
 where
     T: Empty,
@@ -240,7 +242,7 @@ where
  *                          |-----------------------------------------|------------------------------| 
  *                          | LHS                                     | RHS                          |
  *                          |-----------------------------------------|------------------------------|
- * AppendedUnvalidatedArray | Interspersed 0s possible.               | Unvalidated.                 |
+ *       ClaimedLengthArray | Interspersed 0s possible.               | Unvalidated.                 |
  *                          | Possibly not fully trimmed.             | Nonempty elements possible.  |
  *                          |-----------------------------------------|------------------------------|
  *            EmptyRHSArray | Interspersed 0s possible.               | All 0s (validated).          |
@@ -258,7 +260,7 @@ where
  *                          |--------|--------|--------------------------------| 
  *                          | Dense? | RHS    | Length vs Fully Trimmed Length |
  *                          |--------|--------|--------------------------------|
- * AppendedUnvalidatedArray | ?      | ?      | ?                              |
+ *       ClaimedLengthArray | ?      | ?      | ?                              |
  *                          |        |        |                                |
  *                          |--------|--------|--------------------------------|
  *            EmptyRHSArray | ?      | All 0s | Length >= Fully Trimmed Length |
@@ -272,7 +274,7 @@ where
  *                          |--------|--------|--------------------------------|
  *
  *
- * An AppendedUnvalidatedArray is distinct from a regular array [T; N], because it carries a validated length.
+ * An ClaimedLengthArray is distinct from a regular array [T; N], because it carries a length.
  * 
  */
 
@@ -295,23 +297,6 @@ pub struct EmptyRHSArray<T, let N: u32> {
     pub length: u32,
 }
 
-/// A TrimmedArray is a wrapped array whose `length` hint has been validated
-/// (constrained) to be correct.
-/// The `length` is defined as the length of the array ignoring _all_ trailing `0`s.
-///
-/// Importantly, the "left part" of a TrimmedArray _can_ contain interspersed `0` elements.
-/// [3, 3, 3, 3, 3, 0, 0, 0] <-- length = 5 exactly.
-/// [3, 0, 0, 3, 3, 0, 0, 0] <-- length = 5 exactly.
-/// [3, 3, 3, 3, 3, 3, 3, 3] <-- length = 8 exactly.
-/// [0, 0, 0, 0, 0, 0, 0, 0] <-- length = 0 exactly.
-///
-/// Notice: any array can be converted into a valid TrimmedArray. There are no restrictions.
-#[derive(Eq)]
-pub struct TrimmedArray<T, let N: u32> {
-    pub array: [T; N],
-    pub length: u32,
-}
-
 /// A DenseTrimmedArray is a wrapped array where:
 /// - nonempty elements are tightly-packed to the left (with no interspersed `0`s).
 /// - the `length` hint has been validated (constrained) to be correct.
@@ -330,12 +315,12 @@ pub struct DenseTrimmedArray<T, let N: u32> {
     pub length: u32,
 }
 
-/// AppendedUnvalidatedArray - A weird one: Created by iteratively splicing EmptyRHSArrays into an (Unvalidated) array.
-/// It's not a completely unvalidated array, because with each splicing, we correctly sum together lengths of the spliced-in arrays.
-/// We know that none of the source data (of the spliced-in EmptyRHSArrays) gets lost, because length >= trimmed length.
-/// We defer validating that the AppendedUnvalidatedArray is dense and trimmed until a later circuit.
-// #[derive(Eq)]
-pub struct AppendedUnvalidatedArray<T, let N: u32> {
+/// ClaimedLengthArray - An array interpreted by Kernel circuits.
+/// Its `length` is merely a claim that must eventually be validated.
+/// Validation must include:
+/// - Asserting all items to the LHS of the length are nonempty (dense).
+/// - Asserting all items to the RHS of the length are empty.
+pub struct ClaimedLengthArray<T, let N: u32> {
     pub array: [T; N],
     pub length: u32,
 }
@@ -373,34 +358,6 @@ where
     }
 }
 
-impl<T, let N: u32> TrimmedArray<T, N>
-where
-    T: Empty,
-{
-    pub fn new(array: [T; N]) -> Self {
-        // We leverage that a rhs-empty array already has its rhs validated to be empty.
-        let empty_rhs_array = EmptyRHSArray::new(array);
-        Self::new_from_empty_rhs_array(empty_rhs_array)
-    }
-
-    /// Requires the length of the EmptyRHSArray to actually
-    /// be the fully_trimmed_length (which will always be the case unless the prover
-    /// is meddling with the unconstrained functions) or it will throw.
-    pub fn new_from_empty_rhs_array(empty_rhs_array: EmptyRHSArray<T, N>) -> Self {
-        Self::validate_fully_trimmed(empty_rhs_array);
-        Self { array: empty_rhs_array.array, length: empty_rhs_array.length }
-    }
-
-    // Asserting not empty can cost constraints, so we try to call it infrequently.
-    fn validate_fully_trimmed(arr: EmptyRHSArray<T, N>) {
-        // A rhs-empty array is actually _fully_ trimmed if its "last" element
-        // (measured according to the length) is nonempty.
-        if arr.length != 0 {
-            arr.array[arr.length - 1].assert_not_empty(); // "Input array is not fully trimmed");
-        }
-    }
-}
-
 impl<T, let N: u32> DenseTrimmedArray<T, N>
 where
     T: Empty,
@@ -413,7 +370,7 @@ where
         DenseTrimmedArray { array, length: trimmed_array_length_hint }
     }
 
-    pub fn new_from_appended_unvalidated_array(array: AppendedUnvalidatedArray<T, N>) -> Self {
+    pub fn new_from_appended_unvalidated_array(array: ClaimedLengthArray<T, N>) -> Self {
         Self::assert_dense_trimmed(array.array, array.length);
         DenseTrimmedArray { array: array.array, length: array.length }
     }
@@ -435,7 +392,7 @@ where
     }
 }
 
-impl<T, let N: u32> AppendedUnvalidatedArray<T, N>
+impl<T, let N: u32> ClaimedLengthArray<T, N>
 where
     T: Empty,
 {
@@ -493,10 +450,14 @@ where
             false,
         );
     }
+
+    pub fn from_bounded_vec(vec: BoundedVec<T, N>) -> Self {
+        Self { array: vec.storage(), length: vec.len() }
+    }
 }
 
 // TODO: compiler bug. No idea why this is needed, if we have #[derive(Eq)] above the struct definition.
-impl<T, let N: u32> Eq for AppendedUnvalidatedArray<T, N>
+impl<T, let N: u32> Eq for ClaimedLengthArray<T, N>
 where
     T: Eq,
 {
@@ -505,12 +466,65 @@ where
     }
 }
 
-impl<T, let N: u32> Empty for AppendedUnvalidatedArray<T, N>
+impl<T, let N: u32> Empty for ClaimedLengthArray<T, N>
 where
     T: Empty + Eq,
 {
     fn empty() -> Self {
         Self { array: [T::empty(); N], length: 0 }
+    }
+}
+
+// T_N: serialized length of type T
+// N: max length of the ClaimedLengthArray
+// T_N * N + 1: The serialized length of a ClaimedLengthArray<T, N> (the +1 is the `length` field).
+impl<T, let T_N: u32, let N: u32> Deserialize<T_N * N + 1> for ClaimedLengthArray<T, N>
+where
+    T: Deserialize<T_N> + Empty,
+{
+    #[inline_always]
+    fn deserialize(fields: [Field; T_N * N + 1]) -> Self {
+        let mut new_arr: Self = Self::empty();
+
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field.
+        let len = fields[T_N * N] as u32;
+
+        for i in 0..len {
+            let mut nested_fields = [0; T_N];
+            for j in 0..T_N {
+                nested_fields[j] = fields[i * T_N + j];
+            }
+
+            let item = T::deserialize(nested_fields);
+            new_arr.push(item);
+        }
+
+        new_arr
+    }
+}
+
+impl<T, let T_N: u32, let N: u32> Serialize<T_N * N + 1> for ClaimedLengthArray<T, N>
+where
+    T: Serialize<T_N>,
+{
+    #[inline_always]
+    fn serialize(self) -> [Field; T_N * N + 1] {
+        let mut fields = [0; T_N * N + 1];
+
+        for i in 0..N {
+            let serialized_item = self.array[i].serialize();
+
+            for j in 0..T_N {
+                fields[i * T_N + j] = serialized_item[j];
+            }
+        }
+
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        fields[T_N * N] = self.array.len() as Field;
+
+        fields
     }
 }
 
@@ -585,30 +599,6 @@ fn smoke_left_packed_array() {
 
     let valid_array = [1, 2, 3, 0, 0];
     assert(DenseTrimmedArray::new(valid_array).length == 3);
-}
-
-#[test]
-fn smoke_trimmed_array() {
-    let valid_array: [Field; 0] = [];
-    assert(TrimmedArray::new(valid_array).length == 0);
-
-    let valid_array = [0];
-    assert(TrimmedArray::new(valid_array).length == 0);
-
-    let valid_array = [3];
-    assert(TrimmedArray::new(valid_array).length == 1);
-
-    let valid_array = [1, 0, 3];
-    assert(TrimmedArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 0, 3, 0];
-    assert(TrimmedArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 2, 3, 0, 0];
-    assert(TrimmedArray::new(valid_array).length == 3);
-
-    let valid_array = [0, 0, 3, 0, 0];
-    assert(TrimmedArray::new(valid_array).length == 3);
 }
 
 #[test]

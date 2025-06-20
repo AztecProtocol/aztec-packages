@@ -78,7 +78,6 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             self.previous_kernel.public_inputs,
             self.private_call,
-            private_call_data_validator.empty_rhs_validated_private_call_arrays,
         );
     }
     output

@@ -94,7 +94,7 @@ use crate::{
     },
     traits::{Deserialize, Empty, FromField, Hash, Packable, ToField},
     transaction::{tx_context::TxContext, tx_request::TxRequest},
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 /// For testing only.
@@ -120,12 +120,12 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
 }
 
 /// For testing only. Not safe.
-/// Not part of the AppendedUnvalidatedArray methods, because we don't want it
+/// Not part of the ClaimedLengthArray methods, because we don't want it
 /// to be accidentally called in production code.
-pub fn appended_unvalidated_array_from_bounded_vec<T, let N: u32>(
+pub fn claimed_length_array_from_bounded_vec<T, let N: u32>(
     vec: BoundedVec<T, N>,
-) -> AppendedUnvalidatedArray<T, N> {
-    AppendedUnvalidatedArray { array: vec.storage(), length: vec.len() }
+) -> ClaimedLengthArray<T, N> {
+    ClaimedLengthArray { array: vec.storage(), length: vec.len() }
 }
 
 #[derive(Eq)]
@@ -432,40 +432,68 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(self
-                .note_hash_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            nullifier_read_requests: subarray(self
-                .nullifier_read_requests
-                .storage()
-                .map(|r: ScopedReadRequest| r.read_request)),
-            key_validation_requests_and_generators: subarray(self
-                .scoped_key_validation_requests_and_generators
-                .storage()
-                .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
-            note_hashes: subarray(
-                self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
-            ),
-            nullifiers: subarray(
-                self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
-            ),
-            private_call_requests: subarray(self.private_call_requests.storage()),
-            public_call_requests: subarray(self.public_call_requests.storage()),
+            note_hash_read_requests: ClaimedLengthArray {
+                array: subarray(self.note_hash_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.note_hash_read_requests.len(),
+            },
+            nullifier_read_requests: ClaimedLengthArray {
+                array: subarray(self.nullifier_read_requests.storage().map(|r: ScopedReadRequest| {
+                    r.read_request
+                })),
+                length: self.nullifier_read_requests.len(),
+            },
+            key_validation_requests_and_generators: ClaimedLengthArray {
+                array: subarray(self
+                    .scoped_key_validation_requests_and_generators
+                    .storage()
+                    .map(|r: ScopedKeyValidationRequestAndGenerator| r.request)),
+                length: self.scoped_key_validation_requests_and_generators.len(),
+            },
+            note_hashes: ClaimedLengthArray {
+                array: subarray(
+                    self.note_hashes.storage().map(|n: ScopedNoteHash| n.note_hash),
+                ),
+                length: self.note_hashes.len(),
+            },
+            nullifiers: ClaimedLengthArray {
+                array: subarray(
+                    self.nullifiers.storage().map(|n: ScopedNullifier| n.nullifier),
+                ),
+                length: self.nullifiers.len(),
+            },
+            private_call_requests: ClaimedLengthArray {
+                array: subarray(self.private_call_requests.storage()),
+                length: self.private_call_requests.len(),
+            },
+            public_call_requests: ClaimedLengthArray {
+                array: subarray(self.public_call_requests.storage()),
+                length: self.public_call_requests.len(),
+            },
             public_teardown_call_request: self.public_teardown_call_request,
-            l2_to_l1_msgs: subarray(self
-                .l2_to_l1_msgs
-                .storage()
-                .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+            l2_to_l1_msgs: ClaimedLengthArray {
+                array: subarray(self
+                    .l2_to_l1_msgs
+                    .storage()
+                    .map(|r: Scoped<Counted<L2ToL1Message>>| r.inner)),
+                length: self.l2_to_l1_msgs.len(),
+            },
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,
-            private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
-                l.inner
-            })),
-            contract_class_logs_hashes: subarray(self
-                .contract_class_logs_hashes
-                .storage()
-                .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+            private_logs: ClaimedLengthArray {
+                array: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
+                    l.inner
+                })),
+                length: self.private_logs.len(),
+            },
+            contract_class_logs_hashes: ClaimedLengthArray {
+                array: subarray(self
+                    .contract_class_logs_hashes
+                    .storage()
+                    .map(|l: Scoped<Counted<LogHash>>| l.inner)),
+                length: self.contract_class_logs_hashes.len(),
+            },
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -567,17 +595,15 @@ impl FixtureBuilder {
 
     pub fn to_private_accumulated_data_builder(self) -> PrivateAccumulatedDataBuilder {
         PrivateAccumulatedDataBuilder {
-            note_hashes: appended_unvalidated_array_from_bounded_vec(self.note_hashes),
-            nullifiers: appended_unvalidated_array_from_bounded_vec(self.nullifiers),
-            l2_to_l1_msgs: appended_unvalidated_array_from_bounded_vec(self.l2_to_l1_msgs),
-            private_logs: appended_unvalidated_array_from_bounded_vec(self.private_logs),
-            contract_class_logs_hashes: appended_unvalidated_array_from_bounded_vec(
+            note_hashes: claimed_length_array_from_bounded_vec(self.note_hashes),
+            nullifiers: claimed_length_array_from_bounded_vec(self.nullifiers),
+            l2_to_l1_msgs: claimed_length_array_from_bounded_vec(self.l2_to_l1_msgs),
+            private_logs: claimed_length_array_from_bounded_vec(self.private_logs),
+            contract_class_logs_hashes: claimed_length_array_from_bounded_vec(
                 self.contract_class_logs_hashes,
             ),
-            public_call_requests: appended_unvalidated_array_from_bounded_vec(
-                self.public_call_requests,
-            ),
-            private_call_stack: appended_unvalidated_array_from_bounded_vec(vec_reverse(
+            public_call_requests: claimed_length_array_from_bounded_vec(self.public_call_requests),
+            private_call_stack: claimed_length_array_from_bounded_vec(vec_reverse(
                 self.private_call_requests,
             )),
         }
@@ -642,13 +668,13 @@ impl FixtureBuilder {
     pub fn to_private_validation_requests(self) -> PrivateValidationRequests {
         PrivateValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
-            note_hash_read_requests: appended_unvalidated_array_from_bounded_vec(
+            note_hash_read_requests: claimed_length_array_from_bounded_vec(
                 self.note_hash_read_requests,
             ),
-            nullifier_read_requests: appended_unvalidated_array_from_bounded_vec(
+            nullifier_read_requests: claimed_length_array_from_bounded_vec(
                 self.nullifier_read_requests,
             ),
-            scoped_key_validation_requests_and_generators: appended_unvalidated_array_from_bounded_vec(
+            scoped_key_validation_requests_and_generators: claimed_length_array_from_bounded_vec(
                 self.scoped_key_validation_requests_and_generators,
             ),
             split_counter: self.validation_requests_split_counter,

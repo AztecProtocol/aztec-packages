@@ -1,4 +1,4 @@
-use super::AppendedUnvalidatedArray;
+use super::ClaimedLengthArray;
 
 use crate::traits::Empty;
 use crate::utils::for_loop::for_i_only_in_0_;
@@ -7,8 +7,8 @@ use crate::utils::for_loop::for_i_only_in_0_;
 // by 750.
 
 pub fn assert_array_prepended<T, let N: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: AppendedUnvalidatedArray<T, N>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, N>,
 )
 where
     T: Empty,
@@ -19,8 +19,8 @@ where
 }
 
 pub fn assert_array_prepended_up_to_some_length<T, let N: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: AppendedUnvalidatedArray<T, N>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, N>,
     source_length: u32,
 )
 where

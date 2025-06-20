@@ -64,13 +64,13 @@ mod tests {
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::assert_array_eq},
         traits::{Empty, FromField},
     };
-    use types::utils::arrays::AppendedUnvalidatedArray;
+    use types::utils::arrays::ClaimedLengthArray;
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
         contract_address: AztecAddress,
-        read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+        read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
         read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-        pending_values: AppendedUnvalidatedArray<ScopedNoteHash, PENDING_VALUE_LEN>,
+        pending_values: ClaimedLengthArray<ScopedNoteHash, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         pending_read_amount: u32,
         leaf_preimages: [NoteHashLeafPreimage; SETTLED_READ_HINTS_LEN],
@@ -88,7 +88,7 @@ mod tests {
             // We don't need to hash it with a real nonce
             let unique_note_hashes = siloed_note_hashes.map(|note_hash| note_hash + 1000);
             // Create 5 read requests. 0 and 3 are reading settled note hashes. 1, 2 and 4 are reading pending note hashes.
-            let read_requests = AppendedUnvalidatedArray {
+            let read_requests = ClaimedLengthArray {
                 array: [
                     ReadRequest { value: unique_note_hashes[1], counter: 11 }.scope(
                         contract_address,
@@ -126,7 +126,7 @@ mod tests {
                 },
             ];
 
-            let pending_values = AppendedUnvalidatedArray {
+            let pending_values = ClaimedLengthArray {
                 array: [
                     NoteHash { value: note_hashes[2], counter: 2 }.scope(contract_address),
                     NoteHash { value: note_hashes[3], counter: 8 }.scope(contract_address),
@@ -198,7 +198,7 @@ mod tests {
 
         pub unconstrained fn get_skipped_read_requests(
             self,
-        ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
+        ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
             get_skipped_read_requests(self.read_requests, self.read_request_actions)
         }
 

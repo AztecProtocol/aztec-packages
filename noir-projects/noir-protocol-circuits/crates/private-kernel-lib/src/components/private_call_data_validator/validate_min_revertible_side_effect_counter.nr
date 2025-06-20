@@ -1,5 +1,9 @@
 use super::find_index_of_first_fully_revertible_private_call_request::find_index_of_first_fully_revertible_private_call_request;
-use dep::types::{abis::side_effect::{Ordered, RangeOrdered}, traits::Empty};
+use dep::types::{
+    abis::side_effect::{Ordered, RangeOrdered},
+    traits::Empty,
+    utils::arrays::ClaimedLengthArray,
+};
 
 // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
 // E.g. If it were possible, one could create a custom account contract, set the min_revertible_side_effect_counter to a
@@ -49,8 +53,7 @@ use dep::types::{abis::side_effect::{Ordered, RangeOrdered}, traits::Empty};
 // In this case, we can simply use 0 and make the following check pass.
 pub fn validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame<T, let N: u32>(
     min_revertible_side_effect_counter: u32, // Could be 0.
-    private_call_requests: [T; N],
-    num_private_call_requests: u32, // the array "length" of the private call requests
+    private_call_requests: ClaimedLengthArray<T, N>,
 )
 where
     T: RangeOrdered + Ordered + Empty,
@@ -59,21 +62,26 @@ where
     let first_fully_revertible_private_call_index_hint = unsafe {
         find_index_of_first_fully_revertible_private_call_request(
             min_revertible_side_effect_counter,
-            private_call_requests,
+            private_call_requests.array,
         )
     };
+
+    let num_private_call_requests = private_call_requests.length;
 
     // Note: we assert that the counters of the private call requests are in ascending
     // order, within `PrivateCallDataValidator.validate_counters`.
 
-    // If the first_fully_revertible_private_call_index_hint is 0, then the min_revertible_side_effect_counter should have been set before any of the nested function calls. We need to validate this in here.
-    // If the first_fully_revertible_private_call_index_hint is some other valid index of a nested private call request, then the min_revertible_size_effect_counter should have been set _in between_ that private call and the previous private call. We need to validate this.
+    // If the first_fully_revertible_private_call_index_hint is 0, then the min_revertible_side_effect_counter
+    // should have been set before any of the nested function calls. We need to validate this in here.
+    // If the first_fully_revertible_private_call_index_hint is some other valid index of a nested private call request,
+    // then the min_revertible_size_effect_counter should have been set _in between_ that private call and the
+    // previous private call. We need to validate this.
     // If the first_fully_revertible_private_call_index_hint is none, then:
     // - It means the min_revertible_size_effect_counter must get set after all of these nested private function call requests.
     if first_fully_revertible_private_call_index_hint.is_some() {
         // 0 <= index < num_private_call_requests:
         let index = first_fully_revertible_private_call_index_hint.unwrap_unchecked();
-        let first_fully_revertible_private_call_request = private_call_requests[index];
+        let first_fully_revertible_private_call_request = private_call_requests.array[index];
         assert(
             min_revertible_side_effect_counter
                 <= first_fully_revertible_private_call_request.counter_start(),
@@ -85,7 +93,7 @@ where
             // We ignore `index = 0`, because in that case the `min_revertible_side_effect_counter` was already checked above to be less than the start counter of the 0th private call request.
             let last_non_revertible_private_call_index = index - 1;
             let last_non_revertible_private_call =
-                private_call_requests[last_non_revertible_private_call_index];
+                private_call_requests.array[last_non_revertible_private_call_index];
             assert(
                 min_revertible_side_effect_counter > last_non_revertible_private_call.counter_end(),
                 "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item",
@@ -94,7 +102,7 @@ where
     } else {
         // they must all have counters less than the min_revertible_side_effect_counter,
         // so ensure the last one's counter satisfies this:
-        let last_private_call = private_call_requests[num_private_call_requests - 1];
+        let last_private_call = private_call_requests.array[num_private_call_requests - 1];
         assert(
             min_revertible_side_effect_counter > last_private_call.counter_end(),
             "expected min_revertible_side_effect_counter to be greater than the counters of all calls",
@@ -104,7 +112,7 @@ where
 
 mod tests {
     use super::validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame;
-    use dep::types::tests::fixture_builder::FixtureBuilder;
+    use dep::types::tests::fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder};
 
     struct TestBuilder {
         private_call: FixtureBuilder,
@@ -133,8 +141,7 @@ mod tests {
         pub fn execute(self) {
             validate_that_this_call_doesnt_try_to_set_a_phase_change_within_a_child_calls_execution_frame(
                 self.private_call.min_revertible_side_effect_counter,
-                self.private_call.private_call_requests.storage(),
-                self.private_call.private_call_requests.len(),
+                claimed_length_array_from_bounded_vec(self.private_call.private_call_requests),
             );
         }
     }

@@ -13,15 +13,15 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
     traits::Empty,
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 #[derive(Eq)]
 pub struct PrivateValidationRequestsBuilder {
     pub max_block_number: MaxBlockNumber,
-    pub note_hash_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub nullifier_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     pub split_counter: Option<u32>,
 }
 
@@ -47,9 +47,9 @@ impl Empty for PrivateValidationRequestsBuilder {
     fn empty() -> Self {
         PrivateValidationRequestsBuilder {
             max_block_number: MaxBlockNumber::empty(),
-            note_hash_read_requests: AppendedUnvalidatedArray::empty(),
-            nullifier_read_requests: AppendedUnvalidatedArray::empty(),
-            scoped_key_validation_requests_and_generators: AppendedUnvalidatedArray::empty(),
+            note_hash_read_requests: ClaimedLengthArray::empty(),
+            nullifier_read_requests: ClaimedLengthArray::empty(),
+            scoped_key_validation_requests_and_generators: ClaimedLengthArray::empty(),
             split_counter: Option::none(),
         }
     }

@@ -12,18 +12,18 @@ use dep::types::{
         nullifier::ScopedNullifier, private_log::PrivateLogData, side_effect::scoped::Scoped,
     },
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
-    utils::arrays::{AppendedUnvalidatedArray, get_order_hints_asc, OrderHint},
+    utils::arrays::{ClaimedLengthArray, get_order_hints_asc, OrderHint},
 };
 
 pub struct ResetOutputHints {
     // note_hashes
-    pub kept_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     pub sorted_kept_note_hash_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
     // nullifiers
-    pub kept_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub kept_nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
     pub sorted_kept_nullifier_indexes: [u32; MAX_NULLIFIERS_PER_TX],
     // private_logs
-    pub kept_private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub kept_private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
     pub transient_or_propagated_note_hash_index_for_each_log: [u32; MAX_PRIVATE_LOGS_PER_TX],
     pub sorted_kept_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }

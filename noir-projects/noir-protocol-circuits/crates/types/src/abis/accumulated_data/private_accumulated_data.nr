@@ -17,18 +17,18 @@ use crate::constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     MAX_PRIVATE_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH,
 };
-use crate::utils::arrays::AppendedUnvalidatedArray;
+use crate::utils::arrays::ClaimedLengthArray;
 
 pub struct PrivateAccumulatedData {
-    pub note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    pub nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
-    pub l2_to_l1_msgs: AppendedUnvalidatedArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub l2_to_l1_msgs: ClaimedLengthArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
 
-    pub private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: AppendedUnvalidatedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: ClaimedLengthArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
 
-    pub public_call_requests: AppendedUnvalidatedArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
-    pub private_call_stack: AppendedUnvalidatedArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    pub public_call_requests: ClaimedLengthArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,
+    pub private_call_stack: ClaimedLengthArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
 }
 
 impl Eq for PrivateAccumulatedData {
@@ -45,20 +45,20 @@ impl Eq for PrivateAccumulatedData {
 
 impl Empty for PrivateAccumulatedData {
     fn empty() -> Self {
-        let note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let l2_to_l1_msgs: AppendedUnvalidatedArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>
-             = AppendedUnvalidatedArray::empty();
-        let contract_class_logs_hashes: AppendedUnvalidatedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let public_call_requests: AppendedUnvalidatedArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let private_call_stack: AppendedUnvalidatedArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> =
-            AppendedUnvalidatedArray::empty();
+        let note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> =
+            ClaimedLengthArray::empty();
+        let nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let l2_to_l1_msgs: ClaimedLengthArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let contract_class_logs_hashes: ClaimedLengthArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let public_call_requests: ClaimedLengthArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let private_call_stack: ClaimedLengthArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> =
+            ClaimedLengthArray::empty();
 
         PrivateAccumulatedData {
             note_hashes,

@@ -69,7 +69,7 @@ mod tests {
             let index = unsafe {
                 find_index_of_first_fully_revertible_private_call_request(
                     private_call.min_revertible_side_effect_counter,
-                    private_call.private_call_requests,
+                    private_call.private_call_requests.array,
                 )
             };
             assert_eq(index, expected);

@@ -2,15 +2,12 @@ use crate::{
     abis::side_effect::{Scoped as ScopedTrait, scoped::Scoped},
     address::aztec_address::AztecAddress,
     traits::Empty,
-    utils::{
-        arrays::{AppendedUnvalidatedArray, EmptyRHSArray},
-        for_loop::{for_i_in_0_, for_i_only_in_, for_loop_no_op},
-    },
+    utils::{arrays::ClaimedLengthArray, for_loop::{for_i_in_0_, for_i_only_in_, for_loop_no_op}},
 };
 
 pub fn assert_array_appended_to_empty_dest<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, M>,
 )
 where
     T: Empty,
@@ -24,8 +21,8 @@ where
 
 // Similar to assert_array_appended, except that the source items will be appended to dest in reversed order.
 pub fn assert_array_appended_reversed_to_empty_dest<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, M>,
 )
 where
     T: Empty,
@@ -41,8 +38,8 @@ where
 
 // An optimisation that assumes the dest array is empty, so the dest indices that we access can be known at comptime.
 pub fn assert_array_appended_to_empty_dest_scoped<ST, T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<ST, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<ST, N>,
+    source: ClaimedLengthArray<T, M>,
     contract_address: AztecAddress,
 )
 where
@@ -74,8 +71,8 @@ where
 }
 
 pub fn assert_array_appended_to_empty_dest_and_scoped<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<Scoped<T>, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<Scoped<T>, N>,
+    source: ClaimedLengthArray<T, M>,
     contract_address: AztecAddress,
 )
 where
@@ -106,8 +103,8 @@ where
 }
 
 pub fn assert_array_appended<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, M>,
     num_prepended_items: u32,
 )
 where
@@ -135,8 +132,8 @@ where
 
 // Similar to assert_array_appended, except that the source items will be appended to dest in reversed order.
 pub fn assert_array_appended_reversed_up_to_some_length<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<T, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<T, N>,
+    source: ClaimedLengthArray<T, M>,
     num_prepended_items: u32,
 )
 where
@@ -168,8 +165,8 @@ where
 
 // Similar to assert_array_appended, except that the contract address of the dest items will also be checked.
 pub fn assert_array_appended_scoped<ST, T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<ST, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<ST, N>,
+    source: ClaimedLengthArray<T, M>,
     num_prepended_items: u32,
     contract_address: AztecAddress,
 )
@@ -199,8 +196,8 @@ where
 // Similar to assert_array_appended, except that the contract address of the dest items will also be checked.
 // Slightly different from `assert_array_appended_scoped`: the `dest` properties are accessed directly instead of via getters.
 pub fn assert_array_appended_and_scoped<T, let N: u32, let M: u32>(
-    dest: AppendedUnvalidatedArray<Scoped<T>, N>,
-    source: EmptyRHSArray<T, M>,
+    dest: ClaimedLengthArray<Scoped<T>, N>,
+    source: ClaimedLengthArray<T, M>,
     num_prepended_items: u32,
     contract_address: AztecAddress,
 )

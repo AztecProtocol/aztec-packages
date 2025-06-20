@@ -89,7 +89,6 @@ impl PrivateKernelInitCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
                 self.private_call,
-                private_call_data_validator.empty_rhs_validated_private_call_arrays,
                 self.vk_tree_root,
                 self.protocol_contract_tree_root,
                 self.is_private_only,
@@ -105,7 +104,7 @@ mod tests {
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         tests::{
-            fixture_builder::{appended_unvalidated_array_from_bounded_vec, FixtureBuilder},
+            fixture_builder::{claimed_length_array_from_bounded_vec, FixtureBuilder},
             utils::assert_array_eq,
         },
         transaction::tx_request::TxRequest,
@@ -146,14 +145,12 @@ mod tests {
 
         // note_hash_read_requests
         builder.private_call.append_note_hash_read_requests(2);
-        let note_hash_read_requests = appended_unvalidated_array_from_bounded_vec(
-            builder.private_call.note_hash_read_requests,
-        );
+        let note_hash_read_requests =
+            claimed_length_array_from_bounded_vec(builder.private_call.note_hash_read_requests);
 
         // private_logs
         builder.private_call.append_private_logs(2);
-        let private_logs =
-            appended_unvalidated_array_from_bounded_vec(builder.private_call.private_logs);
+        let private_logs = claimed_length_array_from_bounded_vec(builder.private_call.private_logs);
 
         let public_inputs = builder.execute();
         assert_array_eq(

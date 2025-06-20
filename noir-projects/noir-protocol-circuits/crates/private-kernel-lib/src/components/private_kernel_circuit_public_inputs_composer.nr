@@ -17,7 +17,7 @@ use dep::types::{
     shared_mutable::{compute_shared_mutable_block_horizon, SharedMutableValues},
     traits::{Empty, Hash, Packable},
     transaction::tx_request::TxRequest,
-    utils::arrays::{AppendedUnvalidatedArray, array_length, sort_by_counter_asc},
+    utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
 };
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
@@ -26,9 +26,9 @@ pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
 }
 
 unconstrained fn transform_array<T, let N: u32, Env>(
-    array: AppendedUnvalidatedArray<T, N>,
+    array: ClaimedLengthArray<T, N>,
     f: unconstrained fn[Env]([T; N]) -> [T; N],
-) -> AppendedUnvalidatedArray<T, N>
+) -> ClaimedLengthArray<T, N>
 where
     T: Ordered + Empty,
 {
@@ -220,8 +220,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let read_requests = private_call_public_inputs.note_hash_read_requests;
-        for i in 0..read_requests.len() {
-            let request = read_requests[i];
+        for i in 0..read_requests.array.len() {
+            let request = read_requests.array[i];
             if !request.is_empty() {
                 self.public_inputs_builder.validation_requests.note_hash_read_requests.push(request
                     .scope(private_call_public_inputs.call_context.contract_address));
@@ -234,8 +234,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let nullifier_read_requests = private_call_public_inputs.nullifier_read_requests;
-        for i in 0..nullifier_read_requests.len() {
-            let request = nullifier_read_requests[i];
+        for i in 0..nullifier_read_requests.array.len() {
+            let request = nullifier_read_requests.array[i];
             if !request.is_empty() {
                 self.public_inputs_builder.validation_requests.nullifier_read_requests.push(request
                     .scope(private_call_public_inputs.call_context.contract_address));
@@ -249,8 +249,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
     ) {
         let key_validation_requests_and_generators =
             private_call_public_inputs.key_validation_requests_and_generators;
-        for i in 0..key_validation_requests_and_generators.len() {
-            let request = key_validation_requests_and_generators[i];
+        for i in 0..key_validation_requests_and_generators.array.len() {
+            let request = key_validation_requests_and_generators.array[i];
             if !request.is_empty() {
                 self
                     .public_inputs_builder
@@ -268,8 +268,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         // BUG: If we delete this print, the resoluting note_hashes bounded vec is missing the original items.
         no_op(self.public_inputs_builder.end.note_hashes);
         let note_hashes = private_call_public_inputs.note_hashes;
-        for i in 0..note_hashes.len() {
-            let note_hash = note_hashes[i];
+        for i in 0..note_hashes.array.len() {
+            let note_hash = note_hashes.array[i];
             if note_hash.value != 0 {
                 self.public_inputs_builder.end.note_hashes.push(note_hash.scope(
                     private_call_public_inputs.call_context.contract_address,
@@ -283,8 +283,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let nullifiers = private_call_public_inputs.nullifiers;
-        for i in 0..nullifiers.len() {
-            let nullifier = nullifiers[i];
+        for i in 0..nullifiers.array.len() {
+            let nullifier = nullifiers.array[i];
             if nullifier.value != 0 {
                 self.public_inputs_builder.end.nullifiers.push(nullifier.scope(
                     private_call_public_inputs.call_context.contract_address,
@@ -298,8 +298,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let l2_to_l1_msgs = private_call_public_inputs.l2_to_l1_msgs;
-        for i in 0..l2_to_l1_msgs.len() {
-            let msg = l2_to_l1_msgs[i];
+        for i in 0..l2_to_l1_msgs.array.len() {
+            let msg = l2_to_l1_msgs.array[i];
             if !msg.is_empty() {
                 self.public_inputs_builder.end.l2_to_l1_msgs.push(msg.scope(
                     private_call_public_inputs.call_context.contract_address,
@@ -313,8 +313,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let private_logs = private_call_public_inputs.private_logs;
-        for i in 0..private_logs.len() {
-            let log = private_logs[i];
+        for i in 0..private_logs.array.len() {
+            let log = private_logs.array[i];
             if !log.is_empty() {
                 self.public_inputs_builder.end.private_logs.push(log.scope(
                     private_call_public_inputs.call_context.contract_address,
@@ -323,8 +323,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         }
 
         let contract_class_logs = private_call_public_inputs.contract_class_logs_hashes;
-        for i in 0..contract_class_logs.len() {
-            let log = contract_class_logs[i];
+        for i in 0..contract_class_logs.array.len() {
+            let log = contract_class_logs.array[i];
             if !log.is_empty() {
                 self.public_inputs_builder.end.contract_class_logs_hashes.push(log.scope(
                     private_call_public_inputs.call_context.contract_address,
@@ -338,12 +338,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let call_requests = private_call_public_inputs.private_call_requests;
-        // TODO: make `array_length` an `unconstrained` function.
-        let num_requests = array_length(call_requests);
-        for i in 0..call_requests.len() {
+        let num_requests = call_requests.length;
+        for i in 0..call_requests.array.len() {
             if i < num_requests {
                 // Push the call requests to the stack in reverse order.
-                let call_request = call_requests[num_requests - i - 1];
+                let call_request = call_requests.array[num_requests - i - 1];
                 self.public_inputs_builder.end.private_call_stack.push(call_request);
             }
         }
@@ -354,8 +353,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         private_call_public_inputs: PrivateCircuitPublicInputs,
     ) {
         let call_requests = private_call_public_inputs.public_call_requests;
-        for i in 0..call_requests.len() {
-            let call_request = call_requests[i];
+        for i in 0..call_requests.array.len() {
+            let call_request = call_requests.array[i];
             if !call_request.is_empty() {
                 self.public_inputs_builder.end.public_call_requests.push_hint(call_request);
             }

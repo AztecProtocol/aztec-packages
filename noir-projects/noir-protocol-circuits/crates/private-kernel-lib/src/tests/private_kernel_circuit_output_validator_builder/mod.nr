@@ -8,11 +8,7 @@ use crate::components::{
     private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
 };
 use dep::types::{
-    abis::{
-        private_call_request::PrivateCallRequest,
-        private_circuit_public_inputs::EmptyRHSValidatedPrivateCallArrays,
-        side_effect::OrderedValue,
-    },
+    abis::{private_call_request::PrivateCallRequest, side_effect::OrderedValue},
     constants::{DEFAULT_UPDATE_DELAY, PRIVATE_KERNEL_INIT_INDEX},
     tests::fixture_builder::FixtureBuilder,
     traits::Empty,
@@ -74,13 +70,10 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
     pub fn validate_as_first_call(self, is_private_only: bool) {
         let private_call = self.private_call.to_private_call_data();
-        let empty_rhs_validated_private_call_arrays =
-            EmptyRHSValidatedPrivateCallArrays::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
             private_call,
-            empty_rhs_validated_private_call_arrays,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
             is_private_only,
@@ -98,13 +91,10 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             98765432;
 
         let private_call = self.private_call.to_private_call_data();
-        let empty_rhs_validated_private_call_arrays =
-            EmptyRHSValidatedPrivateCallArrays::new(private_call.public_inputs);
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             private_call,
-            empty_rhs_validated_private_call_arrays,
         );
     }
 }

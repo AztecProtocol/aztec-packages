@@ -21,7 +21,7 @@ use dep::types::{
         SIDE_EFFECT_MASKING_ADDRESS,
     },
     hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
-    utils::arrays::{AppendedUnvalidatedArray, sort_by_counter_asc, validate_padded_items},
+    utils::arrays::{ClaimedLengthArray, sort_by_counter_asc, validate_padded_items},
 };
 
 pub struct ResetOutputComposer<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32> {
@@ -113,9 +113,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     unconstrained fn get_padded_unique_siloed_sorted_kept_note_hashes(
         self,
-    ) -> AppendedUnvalidatedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> {
+    ) -> ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
-        let sorted_kept_note_hashes = AppendedUnvalidatedArray {
+        let sorted_kept_note_hashes = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_note_hashes.array),
             // If an array is already a DenseTrimmedArray, then the sorted version of
             // that array will have the same length.
@@ -191,9 +191,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     unconstrained fn get_padded_siloed_sorted_kept_nullifiers(
         self,
-    ) -> AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> {
+    ) -> ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> {
         // Sort:
-        let sorted_kept_nullifiers = AppendedUnvalidatedArray {
+        let sorted_kept_nullifiers = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_nullifiers.array),
             length: self.hints.kept_nullifiers.length,
         };
@@ -238,9 +238,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     unconstrained fn get_padded_siloed_sorted_kept_private_logs(
         self,
-    ) -> AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> {
+    ) -> ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> {
         // Sort:
-        let sorted_kept_private_logs = AppendedUnvalidatedArray {
+        let sorted_kept_private_logs = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_private_logs.array),
             length: self.hints.kept_private_logs.length,
         };

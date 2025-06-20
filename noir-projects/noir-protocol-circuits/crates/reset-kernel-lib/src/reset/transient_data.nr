@@ -6,7 +6,7 @@ use dep::types::{
         side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
     traits::Empty,
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 /// Delineates the indices of transient note_hashes and their nullifiers
@@ -22,12 +22,12 @@ impl TransientDataIndexHint {
 }
 
 pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
-    previous_kernel_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    previous_kernel_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>,
-    previous_kernel_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    expected_kept_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>, // hint
-    expected_kept_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>, // hint
-    expected_kept_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>, // hint
+    previous_kernel_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    previous_kernel_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    previous_kernel_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>, // hint
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>, // hint
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>, // hint
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS], // hint
     // This array maps each log to its associated note hash index, identifying whether the log corresponds to a transient or propagated note hash.
     // If a log is associated with a propagated note hash, the index refers to its position in the expected_kept_note_hashes array.
@@ -259,12 +259,12 @@ pub unconstrained fn get_squashed_nullifier_hints<let NUM_INDEX_HINTS: u32, let 
 }
 
 pub fn verify_squashed_transient_data<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32>(
-    note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>,
-    logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>,
-    expected_kept_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-    expected_kept_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>,
-    expected_kept_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+    expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+    expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
     transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
     transient_or_propagated_note_hash_index_for_each_log: [u32; NUM_LOGS],
     split_counter: u32,
@@ -308,7 +308,7 @@ mod tests {
         constants::PRIVATE_LOG_SIZE_IN_FIELDS,
         tests::utils::pad_end,
         traits::{Empty, FromField},
-        utils::arrays::AppendedUnvalidatedArray,
+        utils::arrays::ClaimedLengthArray,
     };
 
     global contract_address: AztecAddress = AztecAddress::from_field(987654);
@@ -321,12 +321,12 @@ mod tests {
     }
 
     struct TestDataBuilder<let NUM_NOTE_HASHES: u32, let NUM_NULLIFIERS: u32, let NUM_LOGS: u32, let NUM_INDEX_HINTS: u32> {
-        note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-        nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>,
-        logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>,
-        expected_kept_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, NUM_NOTE_HASHES>,
-        expected_kept_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, NUM_NULLIFIERS>,
-        expected_kept_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, NUM_LOGS>,
+        note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+        nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+        logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
+        expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NUM_NOTE_HASHES>,
+        expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NUM_NULLIFIERS>,
+        expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, NUM_LOGS>,
         transient_data_index_hints: [TransientDataIndexHint; NUM_INDEX_HINTS],
         transient_or_propagated_note_hash_index_for_each_log: [u32; NUM_LOGS],
         split_counter: u32,
@@ -334,7 +334,7 @@ mod tests {
 
     impl TestDataBuilder<5, 4, 6, 2> {
         pub fn new() -> Self {
-            let note_hashes = AppendedUnvalidatedArray {
+            let note_hashes = ClaimedLengthArray {
                 array: [
                     NoteHash { value: 11, counter: 100 }.scope(contract_address),
                     NoteHash { value: 22, counter: 200 }.scope(contract_address),
@@ -345,7 +345,7 @@ mod tests {
                 length: 3,
             };
 
-            let nullifiers = AppendedUnvalidatedArray {
+            let nullifiers = ClaimedLengthArray {
                 array: [
                     Nullifier { value: 44, counter: 400, note_hash: 33 }.scope(contract_address),
                     Nullifier { value: 55, counter: 500, note_hash: 11 }.scope(contract_address),
@@ -355,7 +355,7 @@ mod tests {
                 length: 3,
             };
 
-            let logs = AppendedUnvalidatedArray {
+            let logs = ClaimedLengthArray {
                 array: pad_end(
                     [
                         PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }
@@ -370,14 +370,11 @@ mod tests {
                 length: 3,
             };
 
-            let mut expected_kept_note_hashes =
-                AppendedUnvalidatedArray::<ScopedNoteHash, 5>::empty();
+            let mut expected_kept_note_hashes = ClaimedLengthArray::<ScopedNoteHash, 5>::empty();
             expected_kept_note_hashes.push(note_hashes.array[1]);
-            let mut expected_kept_nullifiers =
-                AppendedUnvalidatedArray::<ScopedNullifier, 4>::empty();
+            let mut expected_kept_nullifiers = ClaimedLengthArray::<ScopedNullifier, 4>::empty();
             expected_kept_nullifiers.push(nullifiers.array[2]);
-            let mut expected_kept_logs =
-                AppendedUnvalidatedArray::<Scoped<PrivateLogData>, 6>::empty();
+            let mut expected_kept_logs = ClaimedLengthArray::<Scoped<PrivateLogData>, 6>::empty();
             expected_kept_logs.push(logs.array[1]);
             expected_kept_logs.push(logs.array[2]);
 
@@ -406,7 +403,7 @@ mod tests {
 
     impl TestDataBuilder<3, 3, 4, 3> {
         pub fn new_clear_all() -> Self {
-            let note_hashes = AppendedUnvalidatedArray {
+            let note_hashes = ClaimedLengthArray {
                 array: [
                     NoteHash { value: 11, counter: 100 }.scope(contract_address),
                     NoteHash { value: 22, counter: 200 }.scope(contract_address),
@@ -415,7 +412,7 @@ mod tests {
                 length: 3,
             };
 
-            let nullifiers = AppendedUnvalidatedArray {
+            let nullifiers = ClaimedLengthArray {
                 array: [
                     Nullifier { value: 44, counter: 400, note_hash: 33 }.scope(contract_address),
                     Nullifier { value: 55, counter: 500, note_hash: 11 }.scope(contract_address),
@@ -425,7 +422,7 @@ mod tests {
             };
 
             // tests removing two logs for one note hash
-            let logs = AppendedUnvalidatedArray {
+            let logs = ClaimedLengthArray {
                 array: [
                     PrivateLogData { log: mock_log(77), counter: 700, note_hash_counter: 100 }
                         .scope(contract_address),
@@ -439,9 +436,9 @@ mod tests {
                 length: 4,
             };
 
-            let expected_kept_note_hashes = AppendedUnvalidatedArray::<ScopedNoteHash, 3>::empty();
-            let expected_kept_nullifiers = AppendedUnvalidatedArray::<ScopedNullifier, 3>::empty();
-            let expected_kept_logs = AppendedUnvalidatedArray::<Scoped<PrivateLogData>, 4>::empty();
+            let expected_kept_note_hashes = ClaimedLengthArray::<ScopedNoteHash, 3>::empty();
+            let expected_kept_nullifiers = ClaimedLengthArray::<ScopedNullifier, 3>::empty();
+            let expected_kept_logs = ClaimedLengthArray::<Scoped<PrivateLogData>, 4>::empty();
 
             let transient_data_index_hints = [
                 TransientDataIndexHint { nullifier_index: 0, note_hash_index: 2 },
@@ -466,7 +463,7 @@ mod tests {
 
     impl TestDataBuilder<3, 3, 5, 3> {
         pub fn new_identical_note_hashes() -> Self {
-            let note_hashes = AppendedUnvalidatedArray {
+            let note_hashes = ClaimedLengthArray {
                 array: [
                     NoteHash { value: 11, counter: 100 }.scope(contract_address),
                     NoteHash { value: 11, counter: 200 }.scope(contract_address),
@@ -475,7 +472,7 @@ mod tests {
                 length: 3,
             };
 
-            let nullifiers = AppendedUnvalidatedArray {
+            let nullifiers = ClaimedLengthArray {
                 array: [
                     Nullifier { value: 33, counter: 300, note_hash: 11 }.scope(contract_address),
                     Nullifier { value: 44, counter: 400, note_hash: 0 }.scope(contract_address),
@@ -484,7 +481,7 @@ mod tests {
                 length: 3,
             };
 
-            let logs = AppendedUnvalidatedArray {
+            let logs = ClaimedLengthArray {
                 array: [
                     PrivateLogData { log: mock_log(77), counter: 701, note_hash_counter: 200 }
                         .scope(contract_address),
@@ -501,16 +498,15 @@ mod tests {
                 length: 5,
             };
 
-            let expected_kept_note_hashes = AppendedUnvalidatedArray {
+            let expected_kept_note_hashes = ClaimedLengthArray {
                 array: [note_hashes.array[2], ScopedNoteHash::empty(), ScopedNoteHash::empty()],
                 length: 1,
             };
-            let expected_kept_nullifiers = AppendedUnvalidatedArray {
+            let expected_kept_nullifiers = ClaimedLengthArray {
                 array: [nullifiers.array[1], ScopedNullifier::empty(), ScopedNullifier::empty()],
                 length: 1,
             };
-            let mut expected_kept_logs =
-                AppendedUnvalidatedArray::<Scoped<PrivateLogData>, 5>::empty();
+            let mut expected_kept_logs = ClaimedLengthArray::<Scoped<PrivateLogData>, 5>::empty();
             expected_kept_logs.push(logs.array[1]);
             expected_kept_logs.push(logs.array[3]);
 

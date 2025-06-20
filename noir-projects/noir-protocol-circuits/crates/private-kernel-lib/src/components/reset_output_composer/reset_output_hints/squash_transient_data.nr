@@ -7,7 +7,7 @@ use dep::types::{
         side_effect::{Ordered, scoped::Scoped},
     },
     traits::Empty,
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 /// Splice-removes transient elements from the note_hashes, nullifiers, and logs arrays.
@@ -20,11 +20,11 @@ use dep::types::{
 ///
 /// @returns versions of the note_hash, nullifiers, logs arrays, but with the transient data splice-removed.
 pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
-    note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, M>,
-    nullifiers: AppendedUnvalidatedArray<ScopedNullifier, N>,
-    logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, P>,
+    note_hashes: ClaimedLengthArray<ScopedNoteHash, M>,
+    nullifiers: ClaimedLengthArray<ScopedNullifier, N>,
+    logs: ClaimedLengthArray<Scoped<PrivateLogData>, P>,
     transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
-    ) -> (AppendedUnvalidatedArray<ScopedNoteHash, M>, AppendedUnvalidatedArray<ScopedNullifier, N>, AppendedUnvalidatedArray<Scoped<PrivateLogData>, P>) {
+    ) -> (ClaimedLengthArray<ScopedNoteHash, M>, ClaimedLengthArray<ScopedNullifier, N>, ClaimedLengthArray<Scoped<PrivateLogData>, P>) {
     // E.g.
     // note_hashes: [   C0, C1,    C2, C3, C4, C5, C6, C7]
     // nullifiers:  [N(C5),  N, N(C3),  N,  N,  _,  _,  _] <-- Notes C5 and C3 are transient notes.
@@ -52,8 +52,8 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     }
 
     // Only propagate non-transient note_hashes:
-    let mut propagated_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, M> =
-        AppendedUnvalidatedArray::empty();
+    let mut propagated_note_hashes: ClaimedLengthArray<ScopedNoteHash, M> =
+        ClaimedLengthArray::empty();
     for i in 0..note_hashes.array.len() {
         if transient_nullifier_index_for_each_note_hash[i] == N {
             // N meaning "null", meaning "not transient"
@@ -65,8 +65,8 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
     }
 
     // Only propagate non-transient nullifiers:
-    let mut propagated_nullifiers: AppendedUnvalidatedArray<ScopedNullifier, N> =
-        AppendedUnvalidatedArray::empty();
+    let mut propagated_nullifiers: ClaimedLengthArray<ScopedNullifier, N> =
+        ClaimedLengthArray::empty();
     for i in 0..nullifiers.array.len() {
         if transient_note_hash_index_for_each_nullifier[i] == M {
             // M meaning "null", meaning "not transient"
@@ -77,8 +77,8 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
         }
     }
 
-    let mut propagated_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, P> =
-        AppendedUnvalidatedArray::empty();
+    let mut propagated_logs: ClaimedLengthArray<Scoped<PrivateLogData>, P> =
+        ClaimedLengthArray::empty();
     for i in 0..logs.array.len() {
         let log = logs.array[i];
         if log.inner.note_hash_counter == 0 {

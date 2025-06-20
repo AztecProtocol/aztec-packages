@@ -2,7 +2,7 @@ use dep::types::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable},
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness},
     traits::Empty,
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 pub struct ReadRequestActionsEnum {
@@ -75,8 +75,8 @@ where
 // - https://discourse.aztec.network/t/to-read-or-not-to-read/178
 // - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
 fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32>(
-    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    pending_values: AppendedUnvalidatedArray<T, PENDING_VALUE_LEN>,
+    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    pending_values: ClaimedLengthArray<T, PENDING_VALUE_LEN>,
     hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
 )
@@ -99,7 +99,7 @@ where
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
 fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
     hints: [H; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
     tree_root: Field,
@@ -126,13 +126,13 @@ where
 }
 
 fn verify_propagated_read_requests<let READ_REQUEST_LEN: u32, let PENDING_READ_HINTS_LEN: u32, T, let SETTLED_READ_HINTS_LEN: u32, S>(
-    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
     read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
     pending_read_hints: [T; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [S; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
-    propagated_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
 )
 where
     T: ReadValueHint,
@@ -193,15 +193,15 @@ where
 // We created two variables because an array is not allowed to be empty (zero length). In the case a reset circuit skips
 // the read request verification, the array will contain empty items, and the [pending|settled]_read_amount will be zero.
 pub fn verify_reset_read_requests<let READ_REQUEST_LEN: u32, P, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
-    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
-    pending_values: AppendedUnvalidatedArray<P, PENDING_VALUE_LEN>,
+    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    pending_values: ClaimedLengthArray<P, PENDING_VALUE_LEN>,
     read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
     pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
     pending_read_amount: u32,
     settled_read_hints: [H; SETTLED_READ_HINTS_LEN],
     settled_read_amount: u32,
     tree_root: Field,
-    propagated_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    propagated_read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
 )
 where
     P: Readable<ScopedReadRequest>,
@@ -234,10 +234,10 @@ where
 }
 
 pub unconstrained fn get_skipped_read_requests<let READ_REQUEST_LEN: u32>(
-    read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+    read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
     read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
-    let mut propagated_read_requests = AppendedUnvalidatedArray::empty();
+) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
+    let mut propagated_read_requests = ClaimedLengthArray::empty();
     for i in 0..READ_REQUEST_LEN {
         let read_request = read_requests.array[i];
 
@@ -263,7 +263,7 @@ mod tests {
         merkle_tree::{LeafPreimage, MembershipWitness},
         tests::{merkle_tree_utils::NonEmptyMerkleTree, utils::{assert_array_eq, pad_end}},
         traits::{Empty, FromField},
-        utils::arrays::AppendedUnvalidatedArray,
+        utils::arrays::ClaimedLengthArray,
     };
 
     fn silo_test_value(value: Field) -> Field {
@@ -341,9 +341,9 @@ mod tests {
     }
 
     struct TestBuilder<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let PENDING_READ_HINTS_LEN: u32, let SETTLED_READ_HINTS_LEN: u32> {
-        read_requests: AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN>,
+        read_requests: ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN>,
         read_request_actions: [ReadRequestAction; READ_REQUEST_LEN],
-        pending_values: AppendedUnvalidatedArray<TestValue, PENDING_VALUE_LEN>,
+        pending_values: ClaimedLengthArray<TestValue, PENDING_VALUE_LEN>,
         pending_read_hints: [PendingReadHint; PENDING_READ_HINTS_LEN],
         leaf_preimages: [TestLeafPreimage; SETTLED_READ_HINTS_LEN],
         pending_read_amount: u32,
@@ -359,7 +359,7 @@ mod tests {
             let siloed_values = values.map(|n| silo_test_value(n));
 
             // Create 4 read requests. 0 and 3 are reading settled values. 1 and 2 are reading pending values.
-            let read_requests = AppendedUnvalidatedArray {
+            let read_requests = ClaimedLengthArray {
                 array: [
                     ReadRequest { value: values[1], counter: 11 }.scope(contract_address), // settled
                     ReadRequest { value: values[3], counter: 13 }.scope(contract_address), // pending
@@ -369,7 +369,7 @@ mod tests {
                 length: 4,
             };
 
-            let pending_values = AppendedUnvalidatedArray {
+            let pending_values = ClaimedLengthArray {
                 array: [
                     TestValue { value: siloed_values[2], counter: 2 },
                     TestValue { value: siloed_values[3], counter: 8 },
@@ -455,7 +455,7 @@ mod tests {
 
         pub fn get_skipped_read_requests(
             self,
-        ) -> AppendedUnvalidatedArray<ScopedReadRequest, READ_REQUEST_LEN> {
+        ) -> ClaimedLengthArray<ScopedReadRequest, READ_REQUEST_LEN> {
             // Safety: this is only used in tests.
             unsafe {
                 get_skipped_read_requests(self.read_requests, self.read_request_actions)

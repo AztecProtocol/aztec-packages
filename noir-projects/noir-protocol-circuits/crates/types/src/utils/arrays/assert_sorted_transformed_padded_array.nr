@@ -1,5 +1,5 @@
 use crate::{abis::side_effect::Ordered, constants::MAX_U32_VALUE, traits::Empty};
-use super::AppendedUnvalidatedArray;
+use super::ClaimedLengthArray;
 
 // This function ensures that the `sorted_transformed_padded_array` is sorted in ascending order by counter and that all
 // transformations and padding are correctly applied.
@@ -28,9 +28,9 @@ use super::AppendedUnvalidatedArray;
 // - `is_transformed` doesn't need to check the counters. This function makes sure that the item in
 //   `sorted_transformed_padded_array` has the same counter as its corresponding item in `original_array` or `padded_items`.
 pub fn assert_sorted_transformed_padded_array<T, S, let N: u32, Env>(
-    original_array: AppendedUnvalidatedArray<T, N>,
+    original_array: ClaimedLengthArray<T, N>,
     padded_items: [T; N],
-    sorted_transformed_padded_array: AppendedUnvalidatedArray<S, N>,
+    sorted_transformed_padded_array: ClaimedLengthArray<S, N>,
     assert_transformed: fn[Env](T, S) -> (),
     sorted_indexes: [u32; N],
 )
@@ -52,9 +52,9 @@ where
 // `capped_size` should be a known constant at compile time and must be large enough to process all non-empty items in
 // `original_array` and `padded_items`. Padding and transformation rules still apply.
 pub fn assert_sorted_transformed_padded_array_capped_size<T, S, let N: u32, Env>(
-    original_array: AppendedUnvalidatedArray<T, N>,
+    original_array: ClaimedLengthArray<T, N>,
     padded_items: [T; N],
-    output_array: AppendedUnvalidatedArray<S, N>,
+    output_array: ClaimedLengthArray<S, N>,
     assert_transformed: fn[Env](T, S) -> (),
     sorted_indexes: [u32; N],
     capped_size: u32,
@@ -79,10 +79,10 @@ where
 //
 // "Transformed" here, usually means: "assert siloed" or "assert siloed & unique-ified".
 pub fn assert_sorted_transformed_i_padded_array_capped_size<T, S, let N: u32, Env>(
-    original_array: AppendedUnvalidatedArray<T, N>, // "kept" values (after squashing)
+    original_array: ClaimedLengthArray<T, N>, // "kept" values (after squashing)
     padded_items: [T; N], // padding
     // Q: Why is this a different type S, instead of T?
-    output_array: AppendedUnvalidatedArray<S, N>, // output
+    output_array: ClaimedLengthArray<S, N>, // output
     assert_transformed_i: fn[Env](T, S, u32) -> (),
     sorted_index_hints: [u32; N],
     capped_size: u32, // TODO: shouldn't we be looping over this, to reduce constraints?
@@ -215,11 +215,11 @@ mod tests {
         tests::{types::{TestTwoValues, TestValue}, utils::pad_end},
         traits::Empty,
         utils::arrays::{
-            AppendedUnvalidatedArray,
             assert_sorted_transformed_padded_array::{
                 assert_sorted_transformed_padded_array,
                 assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
             },
+            ClaimedLengthArray,
         },
     };
 
@@ -228,16 +228,16 @@ mod tests {
     }
 
     struct TestDataBuilder<let N: u32> {
-        original_array: AppendedUnvalidatedArray<TestTwoValues, N>,
+        original_array: ClaimedLengthArray<TestTwoValues, N>,
         padded_items: [TestTwoValues; N],
-        sorted_transformed_padded_array: AppendedUnvalidatedArray<TestValue, N>,
+        sorted_transformed_padded_array: ClaimedLengthArray<TestValue, N>,
         sorted_indexes: [u32; N],
         padded_start_index: u32,
     }
 
     impl TestDataBuilder<8> {
         pub fn new() -> Self {
-            let original_array = AppendedUnvalidatedArray {
+            let original_array = ClaimedLengthArray {
                 array: [
                     TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
                     TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
@@ -262,7 +262,7 @@ mod tests {
                 TestTwoValues::empty(),
             ];
 
-            let sorted_transformed_padded_array = AppendedUnvalidatedArray {
+            let sorted_transformed_padded_array = ClaimedLengthArray {
                 array: [
                     TestValue { value: 37, counter: 11 },
                     TestValue { value: 26, counter: 22 },
@@ -301,7 +301,7 @@ mod tests {
         }
 
         pub fn without_original(&mut self) -> Self {
-            self.original_array = AppendedUnvalidatedArray::<TestTwoValues, 8>::empty();
+            self.original_array = ClaimedLengthArray::<TestTwoValues, 8>::empty();
             self.original_array.length = 0;
 
             let prev = self.padded_items;

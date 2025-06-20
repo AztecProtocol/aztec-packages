@@ -11,25 +11,25 @@ use crate::{
         MAX_NULLIFIER_READ_REQUESTS_PER_TX,
     },
     traits::Empty,
-    utils::arrays::AppendedUnvalidatedArray,
+    utils::arrays::ClaimedLengthArray,
 };
 
 pub struct PrivateValidationRequests {
     pub for_rollup: RollupValidationRequests,
-    pub note_hash_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
-    pub nullifier_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
-    pub scoped_key_validation_requests_and_generators: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
+    pub note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    pub nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    pub scoped_key_validation_requests_and_generators: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     pub split_counter: Option<u32>,
 }
 
 impl Empty for PrivateValidationRequests {
     fn empty() -> Self {
-        let empty_note_hash_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let empty_nullifier_read_requests: AppendedUnvalidatedArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
-        let empty_scoped_key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
+        let empty_note_hash_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let empty_nullifier_read_requests: ClaimedLengthArray<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX> =
+            ClaimedLengthArray::empty();
+        let empty_scoped_key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX> =
+            ClaimedLengthArray::empty();
         PrivateValidationRequests {
             for_rollup: RollupValidationRequests::empty(),
             note_hash_read_requests: empty_note_hash_read_requests,

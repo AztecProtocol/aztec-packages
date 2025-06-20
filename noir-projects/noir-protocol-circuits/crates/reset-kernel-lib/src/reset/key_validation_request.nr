@@ -1,6 +1,6 @@
 use dep::types::{
     abis::validation_requests::ScopedKeyValidationRequestAndGenerator, hash::compute_app_secret_key,
-    scalar::Scalar, traits::Empty, utils::arrays::AppendedUnvalidatedArray,
+    scalar::Scalar, traits::Empty, utils::arrays::ClaimedLengthArray,
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
@@ -49,10 +49,10 @@ fn verify_key_validation_request(
 // `key_validation_amount` is a known constant at compile time. For all such reset variant
 // amounts, the constant is defined in the main.nr files and passed down to this function.
 pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN: u32>(
-    key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
+    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
     hints: [KeyValidationHint; HINTS_LEN],
     key_validation_amount: u32,
-    unverified_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
+    unverified_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, REQUESTS_LEN>,
 ) {
     assert(
         key_validation_amount <= HINTS_LEN,
@@ -92,11 +92,11 @@ pub fn verify_reset_key_validation_requests<let REQUESTS_LEN: u32, let HINTS_LEN
 
 // Dangerous. Come back to this, because I'm worried I'm missing constraints on the arrays.
 pub unconstrained fn get_unverified_key_validation_requests<let N: u32>(
-    key_validation_requests: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N>,
+    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N>,
     key_validation_amount: u32,
-) -> AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N> {
-    let mut propagated: AppendedUnvalidatedArray<ScopedKeyValidationRequestAndGenerator, N> =
-        AppendedUnvalidatedArray::empty();
+) -> ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N> {
+    let mut propagated: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N> =
+        ClaimedLengthArray::empty();
 
     // We'll process a number of requests up to the `key_validation_amount`. We'll propagate any beyond that.
     // We "shift" (from the front) items that we want to process, instead of "pop" (from the back),
