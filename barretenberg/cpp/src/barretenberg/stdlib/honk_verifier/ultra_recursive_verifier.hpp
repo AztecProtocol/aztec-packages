@@ -28,6 +28,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
+    using DeciderVK = DeciderVerificationKey_<typename Flavor::NativeFlavor>;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
@@ -40,17 +41,17 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using Output = UltraRecursiveVerifierOutput<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                     const std::shared_ptr<DeciderVK>& native_decider_vkey,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<RecursiveDeciderVK>& decider_vkey,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(
         const StdlibProof<Builder>& proof);
 
-    std::shared_ptr<VerificationKey> key;
+    std::shared_ptr<RecursiveDeciderVK> key;
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

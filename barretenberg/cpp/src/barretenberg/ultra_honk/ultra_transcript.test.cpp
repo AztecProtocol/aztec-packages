@@ -35,6 +35,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using Builder = Flavor::CircuitBuilder;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -274,12 +275,13 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
     typename TestFixture::Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    typename TestFixture::Verifier verifier(verification_key);
+    typename TestFixture::Verifier verifier(decider_vk);
     HonkProof honk_proof;
     HonkProof ipa_proof;
     if constexpr (HasIPAAccumulator<TypeParam>) {
@@ -352,9 +354,10 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
     auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
+    auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
     typename TestFixture::Prover prover(proving_key, verification_key);
     auto proof = prover.construct_proof();
-    typename TestFixture::Verifier verifier(verification_key);
+    typename TestFixture::Verifier verifier(decider_vk);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
