@@ -9,7 +9,7 @@ AddValidatorTest
     │   ├── when insufficient time passed
     │   │   └── it reverts
     │   └── when sufficient time passed
-    │       ├── it emits an {AddedToQueue} event
+    │       ├── it emits an {ValidatorAdded} event
     │       ├── it adds validator to the queue
     │       ├── it mints staking asset
     │       ├── it emits a {ToppedUp} event

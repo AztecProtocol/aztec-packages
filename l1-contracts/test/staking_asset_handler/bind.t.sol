@@ -19,10 +19,10 @@ contract BindTest is StakingAssetHandlerBase {
   }
 
   function test_WhenUsingTheBoundAddress() external {
-    // it emits {AddedToQueue} event
+    // it emits {ValidatorAdded} event
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(BOUND_ADDRESS, 1);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), BOUND_ADDRESS, WITHDRAWER);
     vm.prank(BOUND_ADDRESS);
     stakingAssetHandler.addValidator(BOUND_ADDRESS, realProof);
   }

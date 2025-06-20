@@ -145,7 +145,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     override(IStakingAssetHandler)
   {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
+    uint256 depositAmount = rollup.getDepositAmount();
 
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
@@ -189,7 +189,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     // TODO: just deposit as usual
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-    uint256 depositAmount = rollup.getMinimumStake();
+    uint256 depositAmount = rollup.getDepositAmount();
 
     _topUpIfRequired(depositAmount);
     _triggerDeposit(rollup, depositAmount, _attester);
