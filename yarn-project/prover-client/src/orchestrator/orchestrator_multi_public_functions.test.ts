@@ -60,7 +60,11 @@ describe('prover/orchestrator/public-functions', () => {
         ],
         /*teardownCall=*/ undefined,
         /*feePayer=*/ admin,
-        /*firstNullifier=*/ contractAddressNullifier, // as if it was deployed during private portion
+        /*firstNullifier=*/ {
+          nonRevertible: {
+            nullifiers: [contractAddressNullifier],
+          },
+        }, // as if it was deployed during private portion
       );
     });
 

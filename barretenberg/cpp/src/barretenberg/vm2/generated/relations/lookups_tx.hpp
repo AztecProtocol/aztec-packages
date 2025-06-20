@@ -150,27 +150,37 @@ using lookup_tx_read_tree_insert_value_settings = lookup_settings<lookup_tx_read
 template <typename FF_>
 using lookup_tx_read_tree_insert_value_relation = lookup_relation_base<FF_, lookup_tx_read_tree_insert_value_settings>;
 
-/////////////////// lookup_tx_write_tree_insert_value ///////////////////
+/////////////////// lookup_tx_note_hash_append ///////////////////
 
-struct lookup_tx_write_tree_insert_value_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_TX_WRITE_TREE_INSERT_VALUE";
+struct lookup_tx_note_hash_append_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_NOTE_HASH_APPEND";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::tx_successful_tree_insert;
-    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
-    static constexpr Column COUNTS = Column::lookup_tx_write_tree_insert_value_counts;
-    static constexpr Column INVERSES = Column::lookup_tx_write_tree_insert_value_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::tx_write_pi_offset,
-                                                                                    ColumnAndShifts::tx_leaf_value };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_note_hash_append;
+    static constexpr Column DST_SELECTOR = Column::note_hash_tree_check_write;
+    static constexpr Column COUNTS = Column::lookup_tx_note_hash_append_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_note_hash_append_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_leaf_value,
+        ColumnAndShifts::tx_prev_note_hash_tree_size,
+        ColumnAndShifts::tx_prev_note_hash_tree_root,
+        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::tx_sel_revertible_append_note_hash,
+        ColumnAndShifts::tx_prev_num_note_hashes_emitted,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_next_note_hash_tree_root
+    };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+        ColumnAndShifts::note_hash_tree_check_note_hash,     ColumnAndShifts::note_hash_tree_check_leaf_index,
+        ColumnAndShifts::note_hash_tree_check_prev_root,     ColumnAndShifts::note_hash_tree_check_should_silo,
+        ColumnAndShifts::note_hash_tree_check_should_unique, ColumnAndShifts::note_hash_tree_check_note_hash_index,
+        ColumnAndShifts::note_hash_tree_check_discard,       ColumnAndShifts::note_hash_tree_check_next_root
     };
 };
 
-using lookup_tx_write_tree_insert_value_settings = lookup_settings<lookup_tx_write_tree_insert_value_settings_>;
+using lookup_tx_note_hash_append_settings = lookup_settings<lookup_tx_note_hash_append_settings_>;
 template <typename FF_>
-using lookup_tx_write_tree_insert_value_relation =
-    lookup_relation_base<FF_, lookup_tx_write_tree_insert_value_settings>;
+using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_note_hash_append_settings>;
 
 /////////////////// lookup_tx_read_l2_l1_msg ///////////////////
 

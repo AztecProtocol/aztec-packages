@@ -1,6 +1,7 @@
 include "public_inputs.pil";
 include "execution.pil";
 include "precomputed.pil";
+include "trees/note_hash_tree_check.pil";
 
 // Refer to https://excalidraw.com/#json=XcT7u7Ak5rZhWqT51KwTW,VPI-Q1D7hW8_lYhf6V4bNg for a visual guide to the tx trace.
 // The tx trace manages the various phases that a transaction will undergo while it is being executed.
@@ -51,6 +52,9 @@ namespace tx;
 
     // If reverted == 1, is_revertible must be 1
     reverted * (1 - is_revertible) = 0;
+
+    // TODO: Constrain
+    pol commit discard;
 
     // Control flow
     pol commit read_pi_offset; // index in public inputs to read data from
@@ -268,15 +272,39 @@ namespace tx;
     is_tree_insert_phase { read_pi_offset, leaf_value } in
     public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
-    // TODO: Use gadget to update the tree
-    // TODO: Write the tree value to public inputs
+    pol commit should_note_hash_append;
+    should_note_hash_append = sel * (1 - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+
+    // lookup for now: Should be a multipermutation from here and execution trace
+    #[NOTE_HASH_APPEND]
+    should_note_hash_append {
+        leaf_value,
+        prev_note_hash_tree_size,
+        prev_note_hash_tree_root,
+        precomputed.zero,
+        sel_revertible_append_note_hash,
+        prev_num_note_hashes_emitted,
+        discard,
+        next_note_hash_tree_root
+    } in
+    note_hash_tree_check.write {
+        note_hash_tree_check.note_hash,
+        note_hash_tree_check.leaf_index,
+        note_hash_tree_check.prev_root,
+        note_hash_tree_check.should_silo,
+        note_hash_tree_check.should_unique,
+        note_hash_tree_check.note_hash_index,
+        note_hash_tree_check.discard,
+        note_hash_tree_check.next_root
+    };
+    should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
+    should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
+
     pol commit successful_tree_insert;
+    // Note hash appends can't fail
+    should_note_hash_append * (1 - successful_tree_insert) = 0;
     // A tree insert phase must be successful if it didnt revert or isnt a padded row
     sel * ((1 - reverted - is_padded) * is_tree_insert_phase - successful_tree_insert) = 0;
-
-    #[WRITE_TREE_INSERT_VALUE]
-    successful_tree_insert { write_pi_offset, leaf_value } in
-    public_inputs.sel { precomputed.clk, public_inputs.cols[0] };
 
     // Previous Tree State
     pol commit prev_note_hash_tree_root;

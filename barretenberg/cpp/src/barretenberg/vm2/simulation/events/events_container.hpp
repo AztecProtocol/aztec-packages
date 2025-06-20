@@ -15,6 +15,7 @@
 #include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
+#include "barretenberg/vm2/simulation/events/note_hash_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
@@ -56,6 +57,7 @@ struct EventsContainer {
     EventEmitterInterface<DataCopyEvent>::Container data_copy_events;
     EventEmitterInterface<CalldataEvent>::Container calldata_events;
     EventEmitterInterface<InternalCallStackEvent>::Container internal_call_stack_events;
+    EventEmitterInterface<NoteHashTreeCheckEvent>::Container note_hash_tree_check_events;
 };
 
 } // namespace bb::avm2::simulation
