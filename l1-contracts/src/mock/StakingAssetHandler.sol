@@ -12,8 +12,7 @@ import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPasspor
  * @notice This contract is used as a faucet for creating validators.
  *
  * It allows anyone to join the queue to be a validator to the rollup.
- * Validators get added to the queue, then each day `dripQueue` can be called including
- * up to `depositsPerMint` validators per day.
+ * Validators get added to the rollups deposit Queue up to `depositsPerMint` validators per day.
  * With the caveat that the contract can mint itself funds to cover adding `depositsPerMint`
  * validators per `mintInterval` unit of time.
  *
