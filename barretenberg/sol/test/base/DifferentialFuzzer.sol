@@ -1,3 +1,5 @@
+pragma solidity >=0.8.21;
+
 import {Vm} from "forge-std/Vm.sol";
 import {strings} from "stringutils/strings.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
