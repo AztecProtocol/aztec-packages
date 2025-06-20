@@ -15,7 +15,7 @@ policies:
           object_matchers:
             - - k8s_namespace_name
               - =~
-              - master-rc-1
+              - next-rc-1
           mute_time_intervals:
-            - master-rc-1_nightly_deployment
+            - next-rc-1_nightly_deployment
 
