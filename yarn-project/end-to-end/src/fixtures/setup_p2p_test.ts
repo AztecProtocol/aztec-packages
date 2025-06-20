@@ -75,9 +75,9 @@ export async function createNodes(
   }
   const nodes = await Promise.all(nodePromises);
 
-  // Sanity check that we have a sequencer
+  // Sanity check that we have a sequencer if required
   const seqClient = nodes[0].getSequencer();
-  if (!seqClient) {
+  if (!seqClient && config.disableValidator === false) {
     throw new Error('Sequencer not found');
   }
 
@@ -100,6 +100,7 @@ export async function createNode(
   const createNode = async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+    console.log(`Creating Aztec Node Service on port ${tcpPort} with address index ${addressIndex}`);
     return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
   };
   return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();

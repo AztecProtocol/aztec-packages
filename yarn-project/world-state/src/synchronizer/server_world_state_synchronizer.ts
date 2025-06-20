@@ -185,8 +185,12 @@ export class ServerWorldStateSynchronizer
    * @returns A promise that resolves with the block number the world state was synced to
    */
   public async syncImmediate(targetBlockNumber?: number, skipThrowIfTargetNotReached?: boolean): Promise<number> {
-    if (this.currentState !== WorldStateRunningState.RUNNING || this.blockStream === undefined) {
+    if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running. Unable to perform sync.`);
+    }
+
+    if (this.blockStream === undefined) {
+      throw new Error('Block stream is not initialized. Unable to perform sync.');
     }
 
     // If we have been given a block number to sync to and we have reached that number then return
@@ -326,6 +330,7 @@ export class ServerWorldStateSynchronizer
     const result = await this.merkleTreeDb.handleL2BlockAndMessages(l2Block, l1ToL2Messages);
 
     if (this.currentState === WorldStateRunningState.SYNCHING && l2Block.number >= this.latestBlockNumberAtStart) {
+      this.log.info(`Synced to block ${l2Block.number}, moving to running state`);
       this.setCurrentState(WorldStateRunningState.RUNNING);
       this.syncPromise.resolve();
     }
@@ -368,7 +373,7 @@ export class ServerWorldStateSynchronizer
    */
   private setCurrentState(newState: WorldStateRunningState) {
     this.currentState = newState;
-    this.log.debug(`Moved to state ${WorldStateRunningState[this.currentState]}`);
+    this.log.info(`Moved to state ${WorldStateRunningState[this.currentState]}`);
   }
 
   /**

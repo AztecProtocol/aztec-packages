@@ -68,6 +68,8 @@ import {
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
   type ReqRespInterface,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolValidators,
   type SubProtocolMap,
   ValidationError,
 } from '../reqresp/interface.js';
@@ -388,7 +390,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockHandler = reqRespBlockHandler(this.archiver);
     const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
-    const requestResponseHandlers = {
+    const requestResponseHandlers: Partial<Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>> = {
       [ReqRespSubProtocol.PING]: pingHandler,
       [ReqRespSubProtocol.STATUS]: statusHandler.bind(this),
       [ReqRespSubProtocol.TX]: txHandler.bind(this),
@@ -445,6 +447,14 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
+  }
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return this.reqresp.addSubProtocol(subProtocol, handler, validator);
   }
 
   public getPeers(includePending?: boolean): PeerInfo[] {

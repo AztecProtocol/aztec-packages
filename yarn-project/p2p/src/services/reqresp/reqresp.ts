@@ -27,6 +27,7 @@ import {
   type ReqRespInterface,
   type ReqRespResponse,
   ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
@@ -117,6 +118,22 @@ export class ReqResp implements ReqRespInterface {
       );
     }
     this.rateLimiter.start();
+  }
+
+  async addSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol] = DEFAULT_SUB_PROTOCOL_VALIDATORS[subProtocol],
+  ): Promise<void> {
+    this.subProtocolHandlers[subProtocol] = handler;
+    this.subProtocolValidators[subProtocol] = validator;
+    await this.libp2p.handle(
+      subProtocol,
+      (data: IncomingStreamData) =>
+        void this.streamHandler(subProtocol as ReqRespSubProtocol, data).catch(err =>
+          this.logger.error(`Error on libp2p subprotocol ${subProtocol} handler`, err),
+        ),
+    );
   }
 
   /**
@@ -361,9 +378,9 @@ export class ReqResp implements ReqRespInterface {
     try {
       this.metrics.recordRequestSent(subProtocol);
 
-      this.logger.trace(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
+      this.logger.info(`Sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`);
       stream = await this.connectionSampler.dialProtocol(peerId, subProtocol, dialTimeout);
-      this.logger.trace(
+      this.logger.info(
         `Opened stream ${stream.id} for sending request to peer ${peerId.toString()} on sub protocol ${subProtocol}`,
       );
 
