@@ -111,7 +111,7 @@ pub(crate) mod tests {
             recipient: left_rollup.constants.global_variables.coinbase,
             value: left_rollup.accumulated_fees + right_rollup.accumulated_fees,
         };
-        output.fees.assert_eq([expected_fee]);
+        assert_eq(output.fees, [expected_fee]);
     }
 
     #[test]

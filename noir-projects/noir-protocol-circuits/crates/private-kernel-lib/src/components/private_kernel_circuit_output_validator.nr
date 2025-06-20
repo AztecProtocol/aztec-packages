@@ -381,7 +381,7 @@ impl PrivateKernelCircuitOutputValidator {
             nullifier_offset,
             contract_address,
         );
-        assert_array_appended_to_empty_dest_scoped(
+        assert_array_appended_to_empty_dest_and_scoped(
             self.output.end.l2_to_l1_msgs,
             empty_rhs_validated_private_call_arrays.l2_to_l1_msgs,
             contract_address,

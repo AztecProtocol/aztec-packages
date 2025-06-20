@@ -28,7 +28,7 @@ pub struct EmptyRHSValidatedPrivateCallArrays {
     pub key_validation_requests_and_generators: EmptyRHSArray<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
     pub note_hashes: EmptyRHSArray<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
     pub nullifiers: EmptyRHSArray<Nullifier, MAX_NULLIFIERS_PER_CALL>,
-    pub l2_to_l1_msgs: EmptyRHSArray<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub l2_to_l1_msgs: EmptyRHSArray<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     pub private_call_requests: EmptyRHSArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: EmptyRHSArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
     pub private_logs: EmptyRHSArray<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,

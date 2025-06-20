@@ -49,10 +49,10 @@ impl Empty for PrivateAccumulatedData {
             AppendedUnvalidatedArray::empty();
         let nullifiers: AppendedUnvalidatedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX> =
             AppendedUnvalidatedArray::empty();
-        let l2_to_l1_msgs: AppendedUnvalidatedArray<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> =
+        let l2_to_l1_msgs: AppendedUnvalidatedArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX> =
             AppendedUnvalidatedArray::empty();
-        let private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX> =
-            AppendedUnvalidatedArray::empty();
+        let private_logs: AppendedUnvalidatedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>
+             = AppendedUnvalidatedArray::empty();
         let contract_class_logs_hashes: AppendedUnvalidatedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX> =
             AppendedUnvalidatedArray::empty();
         let public_call_requests: AppendedUnvalidatedArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX> =

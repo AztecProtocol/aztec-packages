@@ -15,7 +15,7 @@ use dep::types::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
         MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     proof::traits::Verifiable,
     traits::Empty,
     utils::arrays::DenseTrimmedArray,
@@ -29,7 +29,7 @@ use previous_kernel_validator_hints::{
 pub struct PreviousKernelDenseTrimmedArrays {
     pub note_hashes: Option<DenseTrimmedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>>,
     pub nullifiers: Option<DenseTrimmedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>>,
-    pub l2_to_l1_msgs: Option<DenseTrimmedArray<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>>,
+    pub l2_to_l1_msgs: Option<DenseTrimmedArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>>,
 
     pub private_logs: Option<DenseTrimmedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>>,
     pub contract_class_logs_hashes: Option<DenseTrimmedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>>,
