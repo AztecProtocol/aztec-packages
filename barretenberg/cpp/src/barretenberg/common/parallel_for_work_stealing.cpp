@@ -5,7 +5,6 @@
 #include <deque>
 #include <memory>
 #include <mutex>
-#include <random>
 #include <thread>
 #include <vector>
 
@@ -93,17 +92,18 @@ void process_work_with_stealing(size_t thread_id,
     }
 
     // Steal work from others
-    std::mt19937 rng(static_cast<unsigned>(thread_id));
-    std::uniform_int_distribution<size_t> victim_dist(0, all_queues.size() - 1);
     std::vector<WorkChunk> stolen_chunks;
+    size_t steal_attempts = 0;
 
     while (work_available.load(std::memory_order_relaxed)) {
-        // Try to steal from a random victim
+        // Try to steal from other threads using round-robin with hash-based offset
         size_t attempts = 0;
         bool found_work = false;
 
         while (attempts++ < all_queues.size() * 2 && !found_work) {
-            size_t victim_id = victim_dist(rng);
+            // Use a simple hash to create pseudo-random but deterministic victim selection
+            // This avoids the overhead of RNG initialization
+            size_t victim_id = (thread_id + attempts + (steal_attempts * 7)) % all_queues.size();
             if (victim_id == thread_id) {
                 continue;
             }
@@ -118,6 +118,8 @@ void process_work_with_stealing(size_t thread_id,
                 found_work = true;
             }
         }
+
+        steal_attempts++;
 
         if (!found_work) {
             // Check if any work remains
