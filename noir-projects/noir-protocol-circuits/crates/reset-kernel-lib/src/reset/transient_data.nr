@@ -224,7 +224,7 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
 }
 
 // Q: We already computed a load of hints relating to squashing earlier. Why weren't these computed back then?
-// A: I haven't got the chance to refactor this, I wanted to bring the functions that create hints to the file
+// A: TODO: I haven't got the chance to refactor this, I wanted to bring the functions that create hints to the file
 // that verifies the data, and generate the hints in the main function using the data to be verified whenever possible.
 // And if the hints are used outside of the function, then they will be given as args, like the
 // expected_kept_ arrays here. But the functions creating them will also live here.

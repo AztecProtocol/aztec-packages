@@ -125,9 +125,16 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         );
 
         if self.validation_requests.split_counter.is_some() {
-            // Q: Wait, what's the difference between self.validation_requests.split_counter and
-            // validation_requests_split_counter? Why do we need validation_requests_split_counter if
-            // we already have validation_requests.split_counter?
+            // Q: Wait, what's the difference between `self.validation_requests.split_counter` and
+            // `validation_requests_split_counter`? Why do we need `validation_requests_split_counter` if
+            // we already have `validation_requests.split_counter`?
+            // A: self.validation_requests_split_counter is provided as a hint, because the
+            // `min_revertible_side_effect_counter` might not be set yet at the time a reset
+            // is executed.
+            // So we pass a `validation_requests_split_counter` via private inputs, and set it to
+            // `validation_requests.split_counter`. The check below is done when
+            // `validation_requests.split_counter` is some, meaning a reset has been done previously.
+            // In that case, the hint used in the previous reset must match the current hint.
             assert_eq(
                 self.validation_requests.split_counter.unwrap_unchecked(),
                 self.validation_requests_split_counter,

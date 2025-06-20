@@ -410,6 +410,7 @@ impl PrivateCallDataValidator {
         );
     }
 
+    // TODO: maybe we can do this just once in the reset circuit, before siloing, when the contract address is set to 0.
     fn validate_logs<let N: u32>(
         self,
         accumulated_note_hashes: AppendedUnvalidatedArray<ScopedNoteHash, N>,
