@@ -118,8 +118,12 @@ export class TXEArchiver extends ArchiverStoreHelper {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
 
-  public getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
-    throw new Error('TXE Archiver does not implement "getContract"');
+  public async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    // TXE Archiver currently operates on latest state only
+    // blockNumber parameter is accepted for interface compliance but ignored
+    // TODO: Implement historical state queries if needed for TXE
+    const effectiveBlockNumber = blockNumber ?? (await this.getBlockNumber());
+    return this.getContractInstance(address, effectiveBlockNumber);
   }
 
   public getRollupAddress(): Promise<EthAddress> {
