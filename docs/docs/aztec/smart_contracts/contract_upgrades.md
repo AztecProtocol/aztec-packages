@@ -61,7 +61,7 @@ fn set_update_delay(new_delay: u64) {
 }
 ```
 
-Where `new_delay` is denominated in blocks. However, take into account that changing the update delay also has as its delay that is the previous delay. So the first delay change will take 3600 blocks to take into effect.
+Where `new_delay` is denominated in seconds. However, take into account that changing the update delay also has as its delay that is the previous delay. So the first delay change will take `86400` seconds to take into effect.
 
 :::info
 The update delay cannot be set lower than `600` seconds
