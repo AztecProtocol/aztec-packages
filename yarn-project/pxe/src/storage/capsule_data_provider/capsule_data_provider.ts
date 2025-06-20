@@ -119,7 +119,7 @@ export class CapsuleDataProvider implements DataProvider {
     });
   }
 
-  resetCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]) {
+  setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][]) {
     return this.#store.transactionAsync(async () => {
       // Load current length, defaulting to 0 if not found
       const maybeLength = await this.loadCapsule(contractAddress, baseSlot);
