@@ -42,6 +42,7 @@
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
 #include "relations/lookups_addressing.hpp"
+#include "relations/lookups_alu.hpp"
 #include "relations/lookups_bc_decomposition.hpp"
 #include "relations/lookups_bc_hashing.hpp"
 #include "relations/lookups_bc_retrieval.hpp"
@@ -72,10 +73,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 94;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2496;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2511;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 178;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2768;
+    static constexpr size_t NUM_ALL_ENTITIES = 2783;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -148,6 +149,9 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_range_4_relation<FF_>,
         lookup_addressing_relative_overflow_range_5_relation<FF_>,
         lookup_addressing_relative_overflow_range_6_relation<FF_>,
+        lookup_alu_c_range_check_relation<FF_>,
+        lookup_alu_tag_bits_lookup_relation<FF_>,
+        lookup_alu_value_tag_lookup_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,
