@@ -71,7 +71,6 @@ interface IStakingAssetHandler {
 }
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
-
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
@@ -87,7 +86,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint256 public depositsPerMint;
 
   address public withdrawer;
-
 
   string public validScope;
   string public validSubscope;
@@ -163,18 +161,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
   }
 
-  function _topUpIfRequired(uint256 _depositAmount) internal {
-    if (STAKING_ASSET.balanceOf(address(this)) < _depositAmount) {
-      require(
-        block.timestamp - lastMintTimestamp >= mintInterval,
-        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
-      );
-      STAKING_ASSET.mint(address(this), _depositAmount * depositsPerMint);
-      lastMintTimestamp = block.timestamp;
-      emit ToppedUp(_depositAmount * depositsPerMint);
-    }
-  }
-
   /**
    * Re add a validator that has already supplied a passport proof.
    * Used to re-enter a validator that has been exited during testnet.
@@ -194,8 +180,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     _topUpIfRequired(depositAmount);
     _triggerDeposit(rollup, depositAmount, _attester);
   }
-
-
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
     mintInterval = _interval;
@@ -255,7 +239,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     return address(REGISTRY.getCanonicalRollup());
   }
 
-
   /**
    * Validate an attester's zk passport proof
    *
@@ -295,6 +278,17 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     attesterToNullifier[_attester] = nullifier;
   }
 
+  function _topUpIfRequired(uint256 _depositAmount) internal {
+    if (STAKING_ASSET.balanceOf(address(this)) < _depositAmount) {
+      require(
+        block.timestamp - lastMintTimestamp >= mintInterval,
+        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
+      );
+      STAKING_ASSET.mint(address(this), _depositAmount * depositsPerMint);
+      lastMintTimestamp = block.timestamp;
+      emit ToppedUp(_depositAmount * depositsPerMint);
+    }
+  }
 
   /**
    * Trigger Deposit
