@@ -9,7 +9,6 @@ network:
   # I.e. the sum of the number of validator, boot node, and prover nodes must be
   # less than the number of physical nodes in the cluster.
   public: false
-  setupL2Contracts: true
 
   # If true, pods are scheduled onto specific node pools using selectors
   # This is only applicable to GKE deployments
@@ -17,6 +16,12 @@ network:
 
   # If true then configured bootnodes are considered non-gossiping peers
   p2pBootstrapNodesAsFullPeers: true
+
+  mempoolLimitBytes: "100000000" # approx 100MB
+
+blobs:
+  remoteBlobSinkUrl: ""
+  remoteBlobSinkEnabled: false
 
 storage:
   localSsd: false
@@ -41,9 +46,6 @@ images:
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
-  foundry:
-    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
-    pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
     pullPolicy: IfNotPresent
@@ -56,7 +58,6 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
-    rollupAddress: "" # only needed for blob sink
     feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
@@ -101,7 +102,6 @@ bootNode:
     # This gives enough time to sync
     failureThreshold: 120
   contracts:
-    rollupAddress: ""
     registryAddress: ""
     inboxAddress: ""
     outboxAddress: ""
@@ -154,6 +154,7 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
+  keysPerNode: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -209,12 +210,13 @@ proverNode:
   pollInterval: 1000
   viemPollingInterval: 1000
   dataDir: "/data"
-  storageSize: "1Gi"
+  storageSize: "10Gi"
   txGathering:
     timeoutMs: 60000
     intervalMs: 1000
     maxParallelRequests: 100
   failedProofStore: "gs://aztec-develop/spartan/failed-proofs"
+  failedEpochStore: ""
   l1GasPriceMax: 100
   l1FixedPriorityFeePerGas: ""
   l1GasLimitBufferPercentage: ""
@@ -250,6 +252,8 @@ bot:
   ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
+  dataDir: "/data"
+  storageSize: "2Gi"
   service:
     type: ClusterIP
     nodePort: 8082
@@ -357,6 +361,6 @@ faucet:
   service:
     nodePort: 8085
   apiServerPort: 8086
-  accountIndex: 0
+  addressIndex: 0
   l1Assets: ""
   logLevel: ""

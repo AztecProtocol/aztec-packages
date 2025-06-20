@@ -14,7 +14,6 @@
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -30,7 +29,6 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::root_from_path;
 
-using tracegen::LookupIntoDynamicTableSequential;
 using tracegen::MerkleCheckTraceBuilder;
 using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
@@ -39,9 +37,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using merkle_check = bb::avm2::merkle_check<FF>;
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-
-using lookup_poseidon2_read_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_read_relation<FF>;
-using lookup_poseidon2_write_hash = bb::avm2::lookup_merkle_check_merkle_poseidon2_write_relation<FF>;
 
 TEST(MerkleCheckConstrainingTest, EmptyRow)
 {
@@ -516,9 +511,9 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
-    auto rows = trace.as_rows();
+    uint32_t last_row = static_cast<uint32_t>(trace.get_num_rows() - 1);
     // Corrupt the last row
-    trace.set(C::merkle_check_path_len, static_cast<uint32_t>(rows.size() - 1), 66);
+    trace.set(C::merkle_check_path_len, last_row, 66);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }
@@ -578,17 +573,19 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
     trace.set(Column::merkle_check_read_output_hash, static_cast<uint32_t>(sibling_path.size()), 66);
 
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
-                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_read_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
+    check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 }
 
 TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
@@ -618,8 +615,9 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 
@@ -628,12 +626,13 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     trace.set(Column::merkle_check_write_output_hash, static_cast<uint32_t>(sibling_path.size()), 77);
 
     EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
-        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ.* Could not find tuple in destination");
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_read_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
 
-    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace),
-                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in "
-                              "destination");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<MerkleCheckTraceBuilder, lookup_merkle_check_merkle_poseidon2_write_settings>(trace)),
+        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in "
+        "destination");
 }
 
 TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
@@ -725,8 +724,9 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
+    check_interaction<MerkleCheckTraceBuilder,
+                      lookup_merkle_check_merkle_poseidon2_read_settings,
+                      lookup_merkle_check_merkle_poseidon2_write_settings>(trace);
 
     check_relation<merkle_check>(trace);
 }

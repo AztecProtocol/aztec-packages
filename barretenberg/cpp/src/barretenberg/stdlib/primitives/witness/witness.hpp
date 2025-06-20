@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/stdlib/primitives//circuit_builders/circuit_builders.hpp"
@@ -15,9 +21,7 @@ template <typename Builder> class witness_t {
     {
         context = parent_context;
         witness = in;
-        if constexpr (!IsSimulator<Builder>) {
-            witness_index = context->add_variable(witness);
-        }
+        witness_index = context->add_variable(witness);
     }
 
     witness_t(Builder* parent_context, const bool in)
@@ -28,28 +32,20 @@ template <typename Builder> class witness_t {
         } else {
             bb::fr::__copy(bb::fr::zero(), witness);
         }
-        if constexpr (!IsSimulator<Builder>) {
-            witness_index = context->add_variable(witness);
-        }
+        witness_index = context->add_variable(witness);
     }
 
     witness_t(Builder* parent_context, IntegralOrEnum auto const in)
     {
         context = parent_context;
         witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
-        if constexpr (!IsSimulator<Builder>) {
-            witness_index = context->add_variable(witness);
-        }
+        witness_index = context->add_variable(witness);
     }
 
     static witness_t create_constant_witness(Builder* parent_context, const bb::fr& in)
     {
         witness_t out(parent_context, in);
-        if constexpr (IsSimulator<Builder>) {
-            parent_context->assert_equal_constant(out.witness, in, "Failed to create constant witness.");
-        } else {
-            parent_context->assert_equal_constant(out.witness_index, in, "Failed to create constant witness.");
-        }
+        parent_context->assert_equal_constant(out.witness_index, in, "Failed to create constant witness.");
         return out;
     }
 
@@ -69,9 +65,7 @@ template <typename Builder> class public_witness_t : public witness_t<Builder> {
     {
         context = parent_context;
         bb::fr::__copy(in, witness);
-        if constexpr (!IsSimulator<Builder>) {
-            witness_index = context->add_public_variable(witness);
-        }
+        witness_index = context->add_public_variable(witness);
     }
 
     public_witness_t(Builder* parent_context, const bool in)
@@ -89,9 +83,7 @@ template <typename Builder> class public_witness_t : public witness_t<Builder> {
     {
         context = parent_context;
         witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
-        if constexpr (!IsSimulator<Builder>) {
-            witness_index = context->add_public_variable(witness);
-        }
+        witness_index = context->add_public_variable(witness);
     }
 };
 

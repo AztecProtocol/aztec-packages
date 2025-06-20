@@ -55,12 +55,13 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
+import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SchnorrHardcodedAccountContract } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
-import { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { PXEService } from '@aztec/pxe/server';
 import { SequencerPublisher } from '@aztec/sequencer-client';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -73,13 +74,7 @@ import { getContract } from 'viem';
 
 import { DEFAULT_BLOB_SINK_PORT } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import {
-  type EndToEndContext,
-  createForwarderContract,
-  getPrivateKeyFromIndex,
-  setup,
-  setupPXEService,
-} from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -340,7 +335,7 @@ describe('e2e_synching', () => {
 
       // Now we create all of our interesting blocks.
       // Alter the block requirements for the sequencer such that we ensure blocks sizes as desired.
-      await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
 
       // The setup will mint tokens (private and public)
       const accountsToBeDeployed = initialFundedAccounts.slice(1); // The first one has been deployed in setup.
@@ -400,24 +395,18 @@ describe('e2e_synching', () => {
 
     const sequencerPK: `0x${string}` = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
 
-    const l1TxUtils = new L1TxUtilsWithBlobs(
-      deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.walletClient,
-      logger,
-      config,
-    );
+    const l1TxUtils = new L1TxUtilsWithBlobs(deployL1ContractsValues.l1Client, logger, config);
     const rollupAddress = deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
-    const rollupContract = new RollupContract(deployL1ContractsValues.publicClient, rollupAddress);
+    const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
     const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
     const slashingProposerContract = new SlashingProposerContract(
-      deployL1ContractsValues.publicClient,
+      deployL1ContractsValues.l1Client,
       slashingProposerAddress.toString(),
     );
-    const forwarderContract = await createForwarderContract(config, sequencerPK, rollupAddress);
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, {
       dateProvider: new TestDateProvider(),
     });
@@ -425,7 +414,7 @@ describe('e2e_synching', () => {
       {
         l1RpcUrls: config.l1RpcUrls,
         l1Contracts: deployL1ContractsValues.l1ContractAddresses,
-        publisherPrivateKey: sequencerPK,
+        publisherPrivateKey: new SecretValue(sequencerPK),
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
         viemPollingIntervalMS: 100,
@@ -437,7 +426,6 @@ describe('e2e_synching', () => {
         blobSinkClient,
         l1TxUtils,
         rollupContract,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
         epochCache,
@@ -450,7 +438,7 @@ describe('e2e_synching', () => {
     // We create blocks for every ethereum slot simply to make sure that the test is "closer" to
     // a real world.
     for (const block of blocks) {
-      const targetTime = block.header.globalVariables.timestamp.toNumber() - ETHEREUM_SLOT_DURATION;
+      const targetTime = Number(block.header.globalVariables.timestamp) - ETHEREUM_SLOT_DURATION;
       while ((await cheatCodes.eth.timestamp()) < targetTime) {
         await cheatCodes.eth.mine();
       }
@@ -513,7 +501,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const contracts: Contract[] = [];
@@ -521,7 +509,7 @@ describe('e2e_synching', () => {
             const watcher = new AnvilTestWatcher(
               opts.cheatCodes!.eth,
               opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-              opts.deployL1ContractsValues!.publicClient,
+              opts.deployL1ContractsValues!.l1Client,
             );
             await watcher.start();
 
@@ -635,7 +623,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
@@ -655,11 +643,11 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 
-          await opts.deployL1ContractsValues!.publicClient.waitForTransactionReceipt({
+          await opts.deployL1ContractsValues!.l1Client.waitForTransactionReceipt({
             hash: await rollup.write.prune(),
           });
 
@@ -672,7 +660,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 
@@ -700,7 +688,7 @@ describe('e2e_synching', () => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
-            client: opts.deployL1ContractsValues!.walletClient,
+            client: opts.deployL1ContractsValues!.l1Client,
           });
 
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
@@ -717,7 +705,7 @@ describe('e2e_synching', () => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-            opts.deployL1ContractsValues!.publicClient,
+            opts.deployL1ContractsValues!.l1Client,
           );
           await watcher.start();
 
@@ -731,7 +719,7 @@ describe('e2e_synching', () => {
 
           const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-          await sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
           const txs = await variant.createAndSendTxs();
           await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
 

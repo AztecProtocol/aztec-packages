@@ -1,7 +1,0 @@
-RevokeAddValidatorPermissionTest
-├── when caller of revokeAddValidatorPermission is not owner
-│   └── it reverts
-└── when caller of revokeAddValidatorPermission is owner
-    ├── it revokes add validator permission
-    ├── it emits a {AddValidatorPermissionRevoked} event
-    └── it subsequently reverts when address tries to add a validator

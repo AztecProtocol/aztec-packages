@@ -1,8 +1,12 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include <memory>
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 
 namespace bb::avm2::tracegen {
@@ -29,4 +33,10 @@ void ClassIdDerivationTraceBuilder::process(
         row++;
     }
 }
+
+const InteractionDefinition ClassIdDerivationTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_class_id_derivation_class_id_poseidon2_0_settings, InteractionType::LookupSequential>()
+        .add<lookup_class_id_derivation_class_id_poseidon2_1_settings, InteractionType::LookupSequential>();
+
 } // namespace bb::avm2::tracegen

@@ -25,7 +25,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor, 2>;
-    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
     using Projective = typename Flavor::GroupElement;
@@ -38,14 +38,14 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using GateSeparatorPolynomial = bb::GateSeparatorPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     using TupleOfKeys = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
                                    std::vector<std::shared_ptr<DeciderVerificationKey>>>;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static void construct_circuit(Builder& builder)
     {
@@ -53,6 +53,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         if constexpr (IsMegaFlavor<Flavor>) {
             GoblinMockCircuits::add_some_ecc_op_gates(builder);
         }
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
     }
 
     // Construct decider keys for a provided circuit and add to tuple
@@ -85,7 +86,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
-        FoldingProver folding_prover(proving_keys, trace_usage_tracker);
+        FoldingProver folding_prover(proving_keys, verification_keys, trace_usage_tracker);
         FoldingVerifier folding_verifier(verification_keys);
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
@@ -99,9 +100,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     {
         DeciderProver decider_prover(prover_accumulator);
         DeciderVerifier decider_verifier(verifier_accumulator);
-        HonkProof decider_proof = decider_prover.construct_proof();
-        bool verified = decider_verifier.verify_proof(decider_proof);
-        EXPECT_EQ(verified, expected_result);
+        decider_prover.construct_proof();
+        HonkProof decider_proof = decider_prover.export_proof();
+        auto decider_output = decider_verifier.verify_proof(decider_proof);
+        bool result = decider_output.check();
+        EXPECT_EQ(result, expected_result);
     }
 
     /**
@@ -246,11 +249,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_extended_relation_parameters()
     {
         Builder builder1;
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder1);
         auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
         pk_1->relation_parameters.eta = 1;
 
         Builder builder2;
         builder2.add_variable(3);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->relation_parameters.eta = 3;
 
@@ -276,11 +281,13 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_and_extend_alphas()
     {
         Builder builder1;
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder1);
         auto pk_1 = std::make_shared<DeciderProvingKey>(builder1);
         pk_1->alphas.fill(2);
 
         Builder builder2;
         builder2.add_variable(3);
+        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder2);
         auto pk_2 = std::make_shared<DeciderProvingKey>(builder2);
         pk_2->alphas.fill(4);
 
@@ -333,11 +340,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             // Construct two equivalent circuits
             Builder builder1;
             Builder builder2;
-            construct_circuit(builder1);
-            construct_circuit(builder2);
 
             // Add some arithmetic gates with public inputs to the first circuit
             bb::MockCircuits::add_arithmetic_gates_with_public_inputs(builder1, /*num_gates=*/4);
+
+            construct_circuit(builder1);
+            construct_circuit(builder2);
 
             check_fold_and_decide(builder1, builder2);
         }
@@ -456,6 +464,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             MegaCircuitBuilder builder;
 
             MockCircuits::add_arithmetic_gates(builder, 1 << log2_num_gates[i]);
+            stdlib::recursion::PairingPoints<MegaCircuitBuilder>::add_default_to_public_inputs(builder);
 
             auto decider_proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
             trace_usage_tracker.update(builder);
@@ -570,7 +579,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfKeys insts = construct_keys(total_insts);
 
-        ProtogalaxyProver_<DeciderProvingKeys_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        ProtogalaxyProver_<Flavor, total_insts> folding_prover(get<0>(insts), get<1>(insts));
         ProtogalaxyVerifier_<DeciderVerificationKeys_<Flavor, total_insts>> folding_verifier(get<1>(insts));
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();

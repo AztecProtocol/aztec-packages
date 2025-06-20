@@ -1,11 +1,11 @@
-import { times, timesParallel } from '@aztec/foundation/collection';
+import { BatchedBlob } from '@aztec/blob-lib';
+import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
@@ -14,8 +14,9 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ProverNodeMetrics } from '../metrics.js';
+import { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
+import type { EpochProvingJobData } from './epoch-proving-job-data.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
@@ -23,10 +24,9 @@ describe('epoch-proving-job', () => {
   let prover: MockProxy<EpochProver>;
   let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
-  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
-  let metrics: ProverNodeMetrics;
+  let metrics: ProverNodeJobMetrics;
 
   // Created by a dependency
   let db: MockProxy<MerkleTreeWriteOperations>;
@@ -35,6 +35,7 @@ describe('epoch-proving-job', () => {
   // Objects
   let publicInputs: RootRollupPublicInputs;
   let proof: Proof;
+  let batchedBlobInputs: BatchedBlob;
   let blocks: L2Block[];
   let txs: Tx[];
   let initialHeader: BlockHeader;
@@ -46,35 +47,49 @@ describe('epoch-proving-job', () => {
   const NUM_TXS = NUM_BLOCKS * TXS_PER_BLOCK;
 
   // Subject factory
-  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) =>
-    new EpochProvingJob(
-      worldState,
-      BigInt(epochNumber),
+  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+    const data: EpochProvingJobData = {
       blocks,
       txs,
+      epochNumber: BigInt(epochNumber),
+      l1ToL2Messages: fromEntries(blocks.map(b => [b.number, []])),
+      previousBlockHeader: initialHeader,
+    };
+    return new EpochProvingJob(
+      data,
+      worldState,
       prover,
       publicProcessorFactory,
       publisher,
       l2BlockSource,
-      l1ToL2MessageSource,
       metrics,
       opts.deadline,
       { parallelBlockLimit: opts.parallelBlockLimit ?? 32 },
     );
+  };
 
   beforeEach(async () => {
     prover = mock<EpochProver>();
     publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
-    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     worldState = mock<WorldStateSynchronizer>();
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
     publicProcessor = mock<PublicProcessor>();
-    metrics = new ProverNodeMetrics(getTelemetryClient());
+    metrics = new ProverNodeJobMetrics(
+      getTelemetryClient().getMeter('EpochProvingJob'),
+      getTelemetryClient().getTracer('EpochProvingJob'),
+    );
 
     publicInputs = RootRollupPublicInputs.random();
     proof = Proof.empty();
+    batchedBlobInputs = new BatchedBlob(
+      publicInputs.blobPublicInputs.blobCommitmentsHash,
+      publicInputs.blobPublicInputs.z,
+      publicInputs.blobPublicInputs.y,
+      publicInputs.blobPublicInputs.c,
+      publicInputs.blobPublicInputs.c.negate(),
+    );
     epochNumber = 1;
     initialHeader = BlockHeader.empty();
     blocks = await timesParallel(NUM_BLOCKS, i => L2Block.random(i + 1, TXS_PER_BLOCK));
@@ -84,7 +99,6 @@ describe('epoch-proving-job', () => {
       }),
     );
 
-    l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
     l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
@@ -92,14 +106,14 @@ describe('epoch-proving-job', () => {
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
     prover.startNewBlock.mockImplementation(() => sleep(200));
-    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
+    prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const processedTxs = await Promise.all(
         txsArray.map(async tx => mock<ProcessedTx>({ hash: await tx.getTxHash() })),
       );
-      return [processedTxs, [], []];
+      return [processedTxs, [], txsArray, []];
     });
   });
 
@@ -119,7 +133,7 @@ describe('epoch-proving-job', () => {
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
       const errors = txsArray.map(tx => ({ error: new Error('Failed to process tx'), tx }));
-      return [[], errors, []];
+      return [[], errors, [], []];
     });
 
     const job = createJob();
@@ -130,7 +144,7 @@ describe('epoch-proving-job', () => {
   });
 
   it('fails if does not process all txs for a block', async () => {
-    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], []]));
+    publicProcessor.process.mockImplementation(_txs => Promise.resolve([[], [], [], []]));
 
     const job = createJob();
     await job.run();

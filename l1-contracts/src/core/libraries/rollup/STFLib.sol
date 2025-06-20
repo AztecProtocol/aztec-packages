@@ -24,7 +24,8 @@ library STFLib {
 
     rollupStore.blocks[0] = BlockLog({
       archive: _genesisState.genesisArchiveRoot,
-      blockHash: _genesisState.genesisBlockHash,
+      headerHash: 0,
+      blobCommitmentsHash: 0,
       slotNumber: Slot.wrap(0)
     });
   }
@@ -65,10 +66,9 @@ library STFLib {
     }
 
     Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
-    Slot deadline =
-      oldestPendingEpoch.toSlots() + Slot.wrap(rollupStore.config.proofSubmissionWindow);
+    Epoch currentEpoch = _ts.epochFromTimestamp();
 
-    return deadline < _ts.slotFromTimestamp();
+    return !oldestPendingEpoch.isAcceptingProofsAtEpoch(currentEpoch);
   }
 
   function getStorage() internal pure returns (RollupStore storage storageStruct) {

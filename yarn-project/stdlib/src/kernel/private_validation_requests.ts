@@ -134,7 +134,7 @@ export class PrivateValidationRequests {
     .filter(x => !x.isEmpty())
     .map(h => inspect(h))
     .join(', ')}],
-  splitCounter: ${this.splitCounter}
+  splitCounter: ${this.splitCounter.getSize()}
   `;
   }
 }

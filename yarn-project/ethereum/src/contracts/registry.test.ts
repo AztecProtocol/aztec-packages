@@ -6,12 +6,13 @@ import omit from 'lodash.omit';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';
-import { L1Deployer, createL1Clients, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
+import { L1Deployer, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import type { L1Clients } from '../types.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { RegistryContract } from './registry.js';
 import { RollupContract } from './rollup.js';
 
@@ -25,8 +26,7 @@ describe('Registry', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let publicClient: L1Clients['publicClient'];
-  let walletClient: L1Clients['walletClient'];
+  let l1Client: ExtendedViemWalletClient;
   let registry: RegistryContract;
   let deployedAddresses: L1ContractAddresses;
   let deployedVersion: number;
@@ -40,7 +40,7 @@ describe('Registry', () => {
 
     ({ anvil, rpcUrl } = await startAnvil());
 
-    ({ publicClient, walletClient } = createL1Clients([rpcUrl], privateKey));
+    l1Client = createExtendedL1Client([rpcUrl], privateKey, foundry);
 
     const deployed = await deployL1Contracts([rpcUrl], privateKey, foundry, logger, {
       ...DefaultL1ContractsConfig,
@@ -48,7 +48,7 @@ describe('Registry', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
+      realVerifier: false,
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(
@@ -56,15 +56,16 @@ describe('Registry', () => {
       'slashFactoryAddress',
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
+      'zkPassportVerifierAddress',
     );
-    registry = new RegistryContract(publicClient, deployedAddresses.registryAddress);
+    registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
-    const rollup = new RollupContract(publicClient, deployedAddresses.rollupAddress);
+    const rollup = new RollupContract(l1Client, deployedAddresses.rollupAddress);
     deployedVersion = Number(await rollup.getVersion());
   });
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(logger.error);
   });
 
   it('gets rollup versions', async () => {
@@ -81,6 +82,10 @@ describe('Registry', () => {
       const address = await registry.getRollupAddress(deployedVersion);
       expect(address).toEqual(rollupAddress);
     }
+    {
+      const address = await registry.getRollupAddress(0);
+      expect(address).toEqual(rollupAddress);
+    }
   });
 
   it('handles non-existent versions', async () => {
@@ -89,37 +94,27 @@ describe('Registry', () => {
 
   it('collects addresses', async () => {
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 'canonical'),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 'canonical'),
     ).resolves.toEqual(deployedAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, deployedVersion),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion),
     ).resolves.toEqual(deployedAddresses);
 
     // Version 2 does not exist
 
-    await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 2n),
-    ).rejects.toThrow('Rollup address is undefined');
+    await expect(RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, 2n)).rejects.toThrow(
+      'Rollup address is undefined',
+    );
   });
 
   it('adds a version to the registry', async () => {
     const newVersionSalt = originalVersionSalt + 1;
 
-    const deployer = new L1Deployer(
-      walletClient,
-      publicClient,
-      newVersionSalt,
-      undefined,
-      logger,
-      defaultL1TxUtilsConfig,
-    );
+    const deployer = new L1Deployer(l1Client, newVersionSalt, undefined, logger, defaultL1TxUtilsConfig);
 
     const { rollup: newRollup } = await deployRollup(
-      {
-        walletClient,
-        publicClient,
-      },
+      l1Client,
       deployer,
       {
         ...DefaultL1ContractsConfig,
@@ -127,7 +122,7 @@ describe('Registry', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot: Fr.random(),
-        genesisBlockHash: Fr.random(),
+        realVerifier: false,
       },
       deployedAddresses,
       logger,
@@ -136,7 +131,7 @@ describe('Registry', () => {
     const newAddresses = await newRollup.getRollupAddresses();
 
     const newCanonicalAddresses = await RegistryContract.collectAddresses(
-      publicClient,
+      l1Client,
       deployedAddresses.registryAddress,
       'canonical',
     );
@@ -147,11 +142,11 @@ describe('Registry', () => {
     });
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, await newRollup.getVersion()),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, await newRollup.getVersion()),
     ).resolves.toEqual(newCanonicalAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, deployedVersion),
+      RegistryContract.collectAddresses(l1Client, deployedAddresses.registryAddress, deployedVersion),
     ).resolves.toEqual(deployedAddresses);
   });
 });

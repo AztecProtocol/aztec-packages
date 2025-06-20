@@ -8,13 +8,12 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
-#include "barretenberg/vm2/debugger.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
 
@@ -31,7 +30,7 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
         key_poly = std::move(prover_poly);
     }
 
-    proving_key->commitment_key = std::make_shared<AvmProver::PCSCommitmentKey>(CIRCUIT_SUBGROUP_SIZE);
+    proving_key->commitment_key = AvmProver::PCSCommitmentKey(CIRCUIT_SUBGROUP_SIZE);
 
     return proving_key;
 }
@@ -92,12 +91,6 @@ bool AvmProvingHelper::check_circuit(tracegen::TraceContainer&& trace)
     // of the circuit.
     const size_t num_rows = trace.get_num_rows_without_clk() + 1;
     info("Running check circuit over ", num_rows, " rows.");
-
-    // Go into interactive debug mode if requested.
-    if (getenv("AVM_DEBUG") != nullptr) {
-        InteractiveDebugger debugger(trace);
-        debugger.run();
-    }
 
     // Warning: this destroys the trace.
     auto polynomials = AVM_TRACK_TIME_V("proving/prove:compute_polynomials", constraining::compute_polynomials(trace));

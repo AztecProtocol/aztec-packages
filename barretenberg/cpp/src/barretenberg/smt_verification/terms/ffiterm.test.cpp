@@ -1,12 +1,9 @@
 #include <unordered_map>
 
+#include "barretenberg/smt_verification/util/smt_util.hpp"
 #include "term.hpp"
 
 #include <gtest/gtest.h>
-
-namespace {
-auto& engine = bb::numeric::get_debug_randomness();
-}
 
 using namespace smt_terms;
 
@@ -25,11 +22,8 @@ TEST(FFITerm, addition)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-
-    STerm bval = STerm(b, &s, TermType::FFITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFITerm, subtraction)
@@ -41,16 +35,14 @@ TEST(FFITerm, subtraction)
 
     STerm x = FFIVar("x", &s);
     STerm y = FFIVar("y", &s);
-    STerm bval = STerm(b, &s, TermType::FFITerm);
     STerm z = x - y;
 
     z == c;
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFITerm, multiplication)
@@ -68,11 +60,8 @@ TEST(FFITerm, multiplication)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-
-    STerm bval = STerm(b, &s, TermType::FFITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 TEST(FFITerm, division)
@@ -90,11 +79,8 @@ TEST(FFITerm, division)
     x == a;
     ASSERT_TRUE(s.check());
 
-    std::string yvals = s.getValue(y.term).getIntegerValue();
-
-    STerm bval = STerm(b, &s, TermType::FFITerm);
-    std::string bvals = s.getValue(bval.term).getIntegerValue();
-    ASSERT_EQ(bvals, yvals);
+    bb::fr yvals = string_to_fr(s[y], /*base=*/10);
+    ASSERT_EQ(b, yvals);
 }
 
 // This test aims to check for the absence of unintended

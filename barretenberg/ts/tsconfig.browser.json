@@ -1,8 +1,8 @@
 {
-  "extends": ".",
+  "extends": "./tsconfig.esm.json",
   "compilerOptions": {
     "outDir": "dest/browser",
-    "tsBuildInfoFile": ".tsbuildinfo.browser"
   },
-  "include": ["!src/main.ts", "src", "src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts"]
+  "include": ["src"],
+  "exclude": ["src/main.ts", "src/**/*.test.ts", "src/bindgen", "src/benchmark"]
 }

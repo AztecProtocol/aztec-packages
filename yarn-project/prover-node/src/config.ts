@@ -40,13 +40,14 @@ export type ProverNodeConfig = ArchiverConfig &
   SpecificProverNodeConfig &
   GenesisStateConfig;
 
-type SpecificProverNodeConfig = {
+export type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
-  txGatheringTimeoutMs: number;
+  proverNodeFailedEpochStore: string | undefined;
   txGatheringIntervalMs: number;
-  txGatheringMaxParallelRequests: number;
+  txGatheringBatchSize: number;
+  txGatheringMaxParallelRequestsPerNode: number;
 };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -65,19 +66,24 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     description: 'The Maximum number of blocks to process in parallel while proving an epoch',
     ...numberConfigHelper(32),
   },
-  txGatheringTimeoutMs: {
-    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
-    description: 'The maximum amount of time to wait for tx data to be available',
-    ...numberConfigHelper(60_000),
+  proverNodeFailedEpochStore: {
+    env: 'PROVER_NODE_FAILED_EPOCH_STORE',
+    description: 'File store where to upload node state when an epoch fails to be proven',
+    defaultValue: undefined,
   },
   txGatheringIntervalMs: {
     env: 'PROVER_NODE_TX_GATHERING_INTERVAL_MS',
     description: 'How often to check that tx data is available',
     ...numberConfigHelper(1_000),
   },
-  txGatheringMaxParallelRequests: {
-    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS',
-    description: 'How many txs to load up a time',
+  txGatheringBatchSize: {
+    env: 'PROVER_NODE_TX_GATHERING_BATCH_SIZE',
+    description: 'How many transactions to gather from a node in a single request',
+    ...numberConfigHelper(10),
+  },
+  txGatheringMaxParallelRequestsPerNode: {
+    env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE',
+    description: 'How many tx requests to make in parallel to each node',
     ...numberConfigHelper(100),
   },
 };
@@ -117,6 +123,6 @@ export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & 
   const proverId =
     userConfig.proverId && !userConfig.proverId.isZero()
       ? userConfig.proverId
-      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey));
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey.getValue()));
   return { ...userConfig, proverId };
 }

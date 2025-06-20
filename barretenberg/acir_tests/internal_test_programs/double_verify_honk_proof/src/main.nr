@@ -1,28 +1,26 @@
 // This circuit aggregates two Honk proof from `assert_statement`.
-global SIZE_OF_PROOF_IF_LOGN_IS_28: u32 = 456;
-global HONK_IDENTIFIER: u32 = 1;
+use bb_proof_verification::{UltraHonkVerificationKey, UltraHonkProof, verify_ultrahonk_proof};
+
 fn main(
-    verification_key: [Field; 128],
+    verification_key: UltraHonkVerificationKey,
     // This is the proof without public inputs attached.
     // This means: the size of this does not change with the number of public inputs.
-    proof: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28],
+    proof: UltraHonkProof,
     public_inputs: pub [Field; 1],
     key_hash: Field,
     // The second proof, currently set to be identical
-    proof_b: [Field; SIZE_OF_PROOF_IF_LOGN_IS_28],
+    proof_b: UltraHonkProof,
 ) {
-    std::verify_proof_with_type(
+    verify_ultrahonk_proof(
         verification_key,
         proof,
         public_inputs,
         key_hash,
-        HONK_IDENTIFIER,
     );
-    std::verify_proof_with_type(
+    verify_ultrahonk_proof(
         verification_key,
         proof_b,
         public_inputs,
         key_hash,
-        HONK_IDENTIFIER,
     );
 }

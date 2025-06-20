@@ -26,18 +26,15 @@ template <typename Relation> constexpr bool subrelation_is_linearly_independent(
     }
 }
 
-template <typename Relation, typename Trace, typename RowGetter>
-void check_relation_internal(const Trace& trace,
-                             std::span<const size_t> subrelations,
-                             uint32_t num_rows,
-                             RowGetter get_row)
+template <typename Relation, typename Trace>
+void check_relation_internal(const Trace& trace, std::span<const size_t> subrelations, uint32_t num_rows)
 {
     typename Relation::SumcheckArrayOfValuesOverSubrelations result{};
 
     // Accumulate the trace over the subrelations and check the result
     // if the subrelation is linearly independent.
-    for (size_t r = 0; r < num_rows; ++r) {
-        Relation::accumulate(result, get_row(trace, r), get_test_params(), 1);
+    for (uint32_t r = 0; r < num_rows; ++r) {
+        Relation::accumulate(result, trace.get_row(r), get_test_params(), 1);
         for (size_t j : subrelations) {
             if (subrelation_is_linearly_independent<Relation>(j) && !result[j].is_zero()) {
                 throw std::runtime_error(format("Relation ",
@@ -67,8 +64,7 @@ template <typename Relation, typename... Ts>
 void check_relation(const tracegen::TestTraceContainer& trace, Ts... subrelation)
 {
     std::array<size_t, sizeof...(Ts)> subrelations = { subrelation... };
-    detail::check_relation_internal<Relation>(
-        trace.as_rows(), subrelations, trace.get_num_rows(), [](const auto& trace, size_t r) { return trace.at(r); });
+    detail::check_relation_internal<Relation>(trace, subrelations, trace.get_num_rows());
 }
 
 template <typename Relation> void check_relation(const tracegen::TestTraceContainer& trace)
@@ -77,27 +73,16 @@ template <typename Relation> void check_relation(const tracegen::TestTraceContai
     [&]<size_t... Is>(std::index_sequence<Is...>) { check_relation<Relation>(trace, Is...); }(subrelations);
 }
 
-// Computes logderiv inverses and checks the lookup or permutation.
-template <typename Lookup> void check_interaction(const tracegen::TestTraceContainer& trace)
+template <typename TraceBuilder, typename... Setting> inline void check_interaction(tracegen::TestTraceContainer& trace)
 {
-    using Settings = typename Lookup::Settings;
-    if (trace.get_column_rows(Settings::INVERSES) == 0) {
-        std::cerr << "Inverses for " << Lookup::NAME
-                  << " are unset. Did you forget to run a lookup/permutation builder?" << std::endl;
-        abort();
+    (TraceBuilder::interactions.template get_test_job<Setting>()->process(trace), ...);
+}
+
+template <typename TraceBuilder> inline void check_all_interactions(tracegen::TestTraceContainer& trace)
+{
+    for (auto& job : TraceBuilder::interactions.get_all_test_jobs()) {
+        job->process(trace);
     }
-    // We copy the trace because constructing the polynomials destroys it.
-    auto trace_copy = trace;
-    const auto num_rows = trace.get_num_rows();
-    // We compute the polys and the real inverses.
-    auto polys = constraining::compute_polynomials(trace_copy);
-    bb::compute_logderivative_inverse<FF, Lookup>(polys, detail::get_test_params(), num_rows);
-    // Finally we check the interaction.
-    [&]<size_t... Is>(std::index_sequence<Is...>) {
-        constexpr std::array<size_t, sizeof...(Is)> subrels = { Is... };
-        detail::check_relation_internal<Lookup>(
-            polys, subrels, num_rows, [](const auto& polys, size_t r) { return polys.get_row(r); });
-    }(std::make_index_sequence<Lookup::SUBRELATION_PARTIAL_LENGTHS.size()>());
 }
 
 } // namespace bb::avm2::constraining

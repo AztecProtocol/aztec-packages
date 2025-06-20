@@ -12,16 +12,13 @@ namespace bb::srs::factories {
  */
 class MemGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
   public:
-    MemGrumpkinCrsFactory(std::vector<curve::Grumpkin::AffineElement> const& points);
+    MemGrumpkinCrsFactory(const std::vector<curve::Grumpkin::AffineElement>& points);
     MemGrumpkinCrsFactory(MemGrumpkinCrsFactory&& other) = default;
 
-    std::shared_ptr<bb::srs::factories::ProverCrs<curve::Grumpkin>> get_prover_crs(size_t degree) override;
-
-    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::Grumpkin>> get_verifier_crs(size_t degree = 0) override;
+    std::shared_ptr<Crs<curve::Grumpkin>> get_crs(size_t degree) override;
 
   private:
-    std::shared_ptr<bb::srs::factories::ProverCrs<curve::Grumpkin>> prover_crs_;
-    std::shared_ptr<bb::srs::factories::VerifierCrs<curve::Grumpkin>> verifier_crs_;
+    std::shared_ptr<Crs<curve::Grumpkin>> crs_;
 };
 
 } // namespace bb::srs::factories

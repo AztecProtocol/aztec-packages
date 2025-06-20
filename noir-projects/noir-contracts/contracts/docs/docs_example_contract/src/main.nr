@@ -1,33 +1,21 @@
 mod options;
 mod types;
 
-// Following is a very simple game to show case use of PrivateMutable in as minimalistic way as possible
-// It also serves as an e2e test that you can read and then replace the PrivateMutable in the same call
-// (tests ordering in the circuit)
+use aztec::macros::aztec;
 
-// you have a card (PrivateMutable). Anyone can create a bigger card. Whoever is bigger will be the leader.
-// it also has dummy methods and other examples used for documentation e.g.
-// how to create custom notes, a custom struct for public state, a custom note that may be unencrypted
-// also has `options.nr` which shows various ways of using `NoteGetterOptions` to query notes
-// it also shows what our macros do behind the scenes!
-
-use dep::aztec::macros::aztec;
-
+/// This is a contract with no real functionality. It is only used in documentation to showcase concepts of Aztec.nr.
 #[aztec]
 pub contract DocsExample {
     // how to import dependencies defined in your workspace
-    use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
-        macros::{
-            functions::{internal, private, public, utility, view},
-            storage::{storage, storage_no_init},
-        },
+    use aztec::{
+        macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
+        messages::logs::note::encode_and_encrypt_note,
         note::note_interface::NoteProperties,
+        prelude::{
+            AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,
+            PrivateSet, PublicImmutable, PublicMutable,
+        },
         protocol_types::traits::Hash,
-    };
-    use dep::aztec::prelude::{
-        AztecAddress, Map, NoteViewerOptions, PrivateContext, PrivateImmutable, PrivateMutable,
-        PrivateSet, PublicImmutable, PublicMutable,
     };
 
     // how to import methods from other files/folders within your workspace
@@ -93,72 +81,12 @@ pub contract DocsExample {
         }
     }
 
-    // DO NOT uncomment this and add an initializer in this contract. We specifically need this contract to not have an initializer
-    // because of tests in 'yarn-project/end-to-end/src/e2e_deploy_contract/deploy_method.test.ts'
-    // #[initializer]
-    // #[private]
-    // // We can name our initializer anything we want as long as it's marked as aztec(initializer)
-    // fn initialize() {}
-
     // docs:start:initialize_public_immutable
     #[public]
     fn initialize_public_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.public_immutable.initialize(new_leader);
         // docs:end:initialize_public_immutable
-    }
-
-    #[private]
-    fn match_public_immutable(account: AztecAddress, points: u8) {
-        let expected = Leader { account, points };
-        let read = storage.public_immutable.read();
-
-        assert(read.account == expected.account, "Invalid account");
-        assert(read.points == expected.points, "Invalid points");
-    }
-
-    #[private]
-    fn get_public_immutable_constrained_private_indirect() -> Leader {
-        // This is a private function that calls another private function
-        // and returns the response.
-        // Used to test that we can retrieve values through calls and
-        // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address())
-            .get_public_immutable_constrained_private()
-            .view(&mut context);
-        leader.points += 1;
-        leader
-    }
-
-    #[public]
-    fn get_public_immutable_constrained_public_indirect() -> Leader {
-        // This is a public function that calls another public function
-        // and returns the response.
-        // Used to test that we can retrieve values through calls and
-        // correctly return them in the simulation
-        let mut leader = DocsExample::at(context.this_address())
-            .get_public_immutable_constrained_public()
-            .view(&mut context);
-        leader.points += 1;
-        leader
-    }
-
-    #[public]
-    #[view]
-    fn get_public_immutable_constrained_public() -> Leader {
-        storage.public_immutable.read()
-    }
-
-    #[public]
-    fn get_public_immutable_constrained_public_multiple() -> [Leader; 5] {
-        let a = storage.public_immutable.read();
-        [a, a, a, a, a]
-    }
-
-    #[private]
-    #[view]
-    fn get_public_immutable_constrained_private() -> Leader {
-        storage.public_immutable.read()
     }
 
     // docs:start:read_public_immutable
@@ -180,19 +108,6 @@ pub contract DocsExample {
         ));
     }
     // docs:end:initialize-private-mutable
-
-    #[private]
-    // msg_sender() is 0 at deploy time. So created another function
-    fn initialize_private(randomness: Field, points: u8) {
-        let legendary_card = CardNote::new(points, randomness, context.msg_sender());
-
-        // create and broadcast note
-        storage.legendary_card.initialize(legendary_card).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
-    }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[utility]
@@ -219,46 +134,6 @@ pub contract DocsExample {
             context.msg_sender(),
         ));
         // docs:end:state_vars-PrivateMutableReplace
-        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
-            &mut context,
-        );
-    }
-
-    #[public]
-    fn emit_public(value: Field) {
-        // docs:start:emit_public
-        context.emit_public_log(/*message=*/ value);
-        context.emit_public_log(/*message=*/ [10, 20, 30]);
-        context.emit_public_log(/*message=*/ "Hello, world!");
-        // docs:end:emit_public
-    }
-
-    #[private]
-    #[view]
-    fn verify_private_authwit(inner_hash: Field) -> Field {
-        1
-    }
-
-    #[public]
-    fn spend_public_authwit(inner_hash: Field) -> Field {
-        1
-    }
-
-    #[public]
-    #[internal]
-    fn update_leader(account: AztecAddress, points: u8) {
-        let new_leader = Leader { account, points };
-        storage.leader.write(new_leader);
-    }
-
-    #[utility]
-    unconstrained fn get_leader() -> Leader {
-        storage.leader.read()
-    }
-
-    #[utility]
-    unconstrained fn get_legendary_card() -> CardNote {
-        storage.legendary_card.view_note()
     }
 
     // docs:start:private_mutable_is_initialized
@@ -275,10 +150,6 @@ pub contract DocsExample {
     }
     // docs:end:get_note-private-immutable
 
-    #[utility]
-    unconstrained fn is_priv_imm_initialized() -> bool {
-        storage.private_immutable.is_initialized()
-    }
     /// Macro equivalence section
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
     use dep::aztec::context::inputs::PrivateContextInputs;

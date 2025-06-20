@@ -17,6 +17,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   protected l2Blocks: L2Block[] = [];
 
   private provenBlockNumber: number = 0;
+  private finalizedBlockNumber: number = 0;
 
   private log = createLogger('archiver:mock_l2_block_source');
 
@@ -42,6 +43,13 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   public setProvenBlockNumber(provenBlockNumber: number) {
     this.provenBlockNumber = provenBlockNumber;
+  }
+
+  public setFinalizedBlockNumber(finalizedBlockNumber: number) {
+    if (finalizedBlockNumber > this.provenBlockNumber) {
+      this.provenBlockNumber = finalizedBlockNumber;
+    }
+    this.finalizedBlockNumber = finalizedBlockNumber;
   }
 
   /**
@@ -104,7 +112,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
         blockHash: Buffer32.random().toString(),
         timestamp: BigInt(block.number),
       },
-      signatures: [],
+      attestations: [],
     }));
   }
 
@@ -142,7 +150,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: (await block.hash()).toString(),
+      l2BlockHash: L2BlockHash.fromField(await block.hash()),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -174,7 +182,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const [latest, proven, finalized] = [
       await this.getBlockNumber(),
       await this.getProvenBlockNumber(),
-      await this.getProvenBlockNumber(),
+      this.finalizedBlockNumber,
     ] as const;
 
     const latestBlock = this.l2Blocks[latest - 1];
@@ -210,6 +218,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getL1Constants(): Promise<L1RollupConstants> {
+    throw new Error('Method not implemented.');
+  }
+
+  getL1Timestamp(): Promise<bigint> {
     throw new Error('Method not implemented.');
   }
 
@@ -251,7 +263,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
+    return Promise.resolve();
+  }
+
+  syncImmediate(): Promise<void> {
     return Promise.resolve();
   }
 }

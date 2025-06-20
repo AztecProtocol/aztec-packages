@@ -1,8 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
@@ -255,7 +261,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         auto full_honk_evaluations = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
-        ASSERT(betas.size() == deltas.size());
+        BB_ASSERT_EQ(betas.size(), deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
 
         // Compute the perturbator using only the first log_circuit_size-many betas/deltas
@@ -450,7 +456,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         };
 
         TupleOfTuplesOfUnivariatesNoOptimisticSkipping result;
-        RelationUtils::template apply_to_tuple_of_tuples<0, 0>(result, deoptimise);
+        RelationUtils::template apply_to_tuple_of_tuples(result, deoptimise);
         return result;
     }
 
@@ -462,13 +468,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             std::get<0>(std::get<0>(univariate_accumulators)).template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
         size_t idx = 0;
         const auto scale_and_sum = [&]<size_t outer_idx, size_t inner_idx>(auto& element) {
+            if constexpr (outer_idx == 0 && inner_idx == 0) {
+                return;
+            }
+
             auto extended = element.template extend_to<DeciderPKs::BATCHED_EXTENDED_LENGTH>();
             extended *= alpha[idx];
             result += extended;
             idx++;
         };
 
-        RelationUtils::template apply_to_tuple_of_tuples<0, 1>(univariate_accumulators, scale_and_sum);
+        RelationUtils::template apply_to_tuple_of_tuples(univariate_accumulators, scale_and_sum);
         RelationUtils::zero_univariates(univariate_accumulators);
 
         return result;

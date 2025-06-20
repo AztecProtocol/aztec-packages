@@ -4,7 +4,7 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import type { Hex } from 'viem';
 
 import type { L1ContractsConfig } from './config.js';
-import { GovernanceContract } from './contracts/governance.js';
+import { ReadOnlyGovernanceContract } from './contracts/governance.js';
 import { GovernanceProposerContract } from './contracts/governance_proposer.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { ViemPublicClient } from './types.js';
@@ -18,9 +18,10 @@ export async function getL1ContractsConfig(
     l1StartBlock: bigint;
     l1GenesisTime: bigint;
     rollupVersion: number;
+    genesisArchiveTreeRoot: `0x${string}`;
   }
 > {
-  const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
+  const governance = new ReadOnlyGovernanceContract(addresses.governanceAddress.toString(), publicClient);
   const governanceProposerAddress = await governance.getGovernanceProposerAddress();
   const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
   const rollupAddress = addresses.rollupAddress ?? (await governanceProposer.getRollupAddress());
@@ -31,9 +32,10 @@ export async function getL1ContractsConfig(
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration,
-    aztecProofSubmissionWindow,
     aztecSlotDuration,
+    aztecProofSubmissionEpochs,
     aztecTargetCommitteeSize,
+    depositAmount,
     minimumStake,
     governanceProposerQuorum,
     governanceProposerRoundSize,
@@ -42,13 +44,15 @@ export async function getL1ContractsConfig(
     manaTarget,
     provingCostPerMana,
     rollupVersion,
+    genesisArchiveTreeRoot,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
     rollup.getEpochDuration(),
-    rollup.getProofSubmissionWindow(),
     rollup.getSlotDuration(),
+    rollup.getProofSubmissionEpochs(),
     rollup.getTargetCommitteeSize(),
+    rollup.getDepositAmount(),
     rollup.getMinimumStake(),
     governanceProposer.getQuorumSize(),
     governanceProposer.getRoundSize(),
@@ -57,23 +61,26 @@ export async function getL1ContractsConfig(
     rollup.getManaTarget(),
     rollup.getProvingCostPerMana(),
     rollup.getVersion(),
+    rollup.getGenesisArchiveTreeRoot(),
   ] as const);
 
   return {
     l1StartBlock,
     l1GenesisTime,
     aztecEpochDuration: Number(aztecEpochDuration),
-    aztecProofSubmissionWindow: Number(aztecProofSubmissionWindow),
     aztecSlotDuration: Number(aztecSlotDuration),
+    aztecProofSubmissionEpochs: Number(aztecProofSubmissionEpochs),
     aztecTargetCommitteeSize: Number(aztecTargetCommitteeSize),
     governanceProposerQuorum: Number(governanceProposerQuorum),
     governanceProposerRoundSize: Number(governanceProposerRoundSize),
+    depositAmount,
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
     manaTarget: manaTarget,
     provingCostPerMana: provingCostPerMana,
     rollupVersion: Number(rollupVersion),
+    genesisArchiveTreeRoot,
   };
 }
 

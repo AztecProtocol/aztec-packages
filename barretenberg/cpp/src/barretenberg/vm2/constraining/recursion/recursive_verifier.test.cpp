@@ -1,21 +1,17 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
-#include "barretenberg/vm2/tracegen/trace_container.hpp"
-#include "barretenberg/vm2/tracegen_helper.hpp"
 
 #include <gtest/gtest.h>
 
@@ -28,11 +24,7 @@ class AvmRecursiveTests : public ::testing::Test {
     using InnerVerifier = AvmVerifier;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     // Helper function to create and verify native proof
     struct NativeProofResult {
@@ -75,7 +67,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     if (testing::skip_slow_tests()) {
         GTEST_SKIP();
@@ -85,6 +77,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
 
     auto [proof, verification_key, public_inputs_cols] = proof_result;
+    proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
 
     // Create the outer verifier, to verify the proof
     OuterBuilder outer_circuit;
@@ -93,15 +86,15 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     {
         RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-        auto agg_object = AggregationObject::construct_default(outer_circuit);
-        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
+        auto pairing_points = recursive_verifier.verify_proof(proof, public_inputs_cols);
 
-        bool agg_output_valid =
-            verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
+        NativeVerifierCommitmentKey pcs_vkey{};
+        bool pairing_points_valid =
+            pcs_vkey.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
 
         // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
         // be aggregated with others.
-        ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
+        ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
 
         // Check that no failure flag was raised in the recursive verifier circuit
         ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
@@ -110,7 +103,9 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
         ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-        auto manifest = AvmFlavor::Transcript(proof).get_manifest();
+        auto avm_transcript = AvmFlavor::Transcript();
+        avm_transcript.load_proof(proof);
+        auto manifest = avm_transcript.get_manifest();
         auto recursive_manifest = recursive_verifier.transcript->get_manifest();
 
         // We sanity check that the recursive manifest matches its counterpart one.
@@ -135,11 +130,12 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 24; // Current outer_circuit size is 9.6 millions
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
-        outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
+        outer_circuit, TraceSettings{}, bb::CommitmentKey<curve::BN254>(srs_size));
 
     // Scoped to free memory of OuterProver.
     auto outer_proof = [&]() {
-        OuterProver ultra_prover(ultra_instance);
+        auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
+        OuterProver ultra_prover(ultra_instance, verification_key);
         return ultra_prover.construct_proof();
     }();
 
@@ -164,12 +160,13 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
-    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
+    using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     NativeProofResult proof_result;
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
 
     auto [proof, verification_key, public_inputs_cols] = proof_result;
+    proof.insert(proof.begin(), 0); // TODO(#14234)[Unconditional PIs validation]: remove this
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
@@ -197,13 +194,17 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        auto agg_object = AggregationObject::construct_default(outer_circuit);
-        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
+        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct);
     }();
 
+    verifier_output.points_accumulator.set_public();
+    verifier_output.ipa_claim.set_public();
+    outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
+
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
-    bool agg_output_valid = verification_key->pcs_verification_key->pairing_check(
-        verifier_output.aggregation_object.P0.get_value(), verifier_output.aggregation_object.P1.get_value());
+    NativeVerifierCommitmentKey pcs_vkey{};
+    bool agg_output_valid = pcs_vkey.pairing_check(verifier_output.points_accumulator.P0.get_value(),
+                                                   verifier_output.points_accumulator.P1.get_value());
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
@@ -215,13 +216,14 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Scoped to free memory of UltraRollupProver.
     auto outer_proof = [&]() {
-        UltraRollupProver outer_prover(outer_proving_key);
+        auto verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+        UltraRollupProver outer_prover(outer_proving_key, verification_key);
         return outer_prover.construct_proof();
     }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
     auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
 
     EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));

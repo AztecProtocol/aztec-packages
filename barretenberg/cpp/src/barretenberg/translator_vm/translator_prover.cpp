@@ -1,9 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "translator_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -14,8 +20,8 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
     , key(key)
 {
     PROFILE_THIS();
-    if (key->proving_key->commitment_key == nullptr) {
-        key->proving_key->commitment_key = std::make_shared<CommitmentKey>(key->proving_key->circuit_size);
+    if (!key->proving_key->commitment_key.initialized()) {
+        key->proving_key->commitment_key = CommitmentKey(key->proving_key->circuit_size);
     }
 }
 
@@ -25,16 +31,21 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
  */
 void TranslatorProver::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->proving_key->circuit_size);
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
+    const size_t RESULT_ROW = Flavor::RESULT_ROW;
     const auto accumulated_result =
-        BF(uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[1]) +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[1]) * SHIFT +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
-           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
-    transcript->send_to_verifier("circuit_size", circuit_size);
+        BF(uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW]) +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW]) * SHIFT +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW]) * SHIFTx2 +
+           uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW]) * SHIFTx3);
+
+    relation_parameters.accumulated_result = { key->proving_key->polynomials.accumulators_binary_limbs_0[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_1[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_2[RESULT_ROW],
+                                               key->proving_key->polynomials.accumulators_binary_limbs_3[RESULT_ROW] };
+
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -46,7 +57,7 @@ void TranslatorProver::execute_preamble_round()
  */
 void TranslatorProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
-    transcript->send_to_verifier(label, key->proving_key->commitment_key->commit(polynomial));
+    transcript->send_to_verifier(label, key->proving_key->commitment_key.commit(polynomial));
 }
 
 /**
@@ -89,11 +100,6 @@ void TranslatorProver::execute_grand_product_computation_round()
                                                uint_evaluation_input.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
                                                uint_evaluation_input };
 
-    relation_parameters.accumulated_result = { key->proving_key->polynomials.accumulators_binary_limbs_0[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_1[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_2[1],
-                                               key->proving_key->polynomials.accumulators_binary_limbs_3[1] };
-
     std::vector<uint256_t> uint_batching_challenge_powers;
     auto batching_challenge_v = key->batching_challenge_v;
     uint_batching_challenge_powers.emplace_back(batching_challenge_v);
@@ -127,7 +133,7 @@ void TranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
-    auto sumcheck = Sumcheck(key->proving_key->circuit_size, transcript);
+    Sumcheck sumcheck(key->proving_key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -138,7 +144,7 @@ void TranslatorProver::execute_relation_check_rounds()
     // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
     // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // //  until we enter the PCS round
-    auto ck = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+    CommitmentKey ck(1 << (log_subgroup_size + 1));
 
     zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
@@ -161,7 +167,9 @@ void TranslatorProver::execute_pcs_rounds()
 
     // Check whether the commitment key has been deallocated and reinitialise it if necessary
     auto& ck = key->proving_key->commitment_key;
-    ck = ck ? ck : std::make_shared<CommitmentKey>(key->proving_key->circuit_size);
+    if (!ck.initialized()) {
+        ck = CommitmentKey(key->proving_key->circuit_size);
+    }
 
     SmallSubgroupIPA small_subgroup_ipa_prover(
         zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
@@ -186,8 +194,7 @@ void TranslatorProver::execute_pcs_rounds()
 
 HonkProof TranslatorProver::export_proof()
 {
-    proof = transcript->export_proof();
-    return proof;
+    return transcript->export_proof();
 }
 
 HonkProof TranslatorProver::construct_proof()
@@ -206,7 +213,7 @@ HonkProof TranslatorProver::construct_proof()
 
     // #ifndef __wasm__
     // Free the commitment key
-    key->proving_key->commitment_key = nullptr;
+    key->proving_key->commitment_key = CommitmentKey();
     // #endif
 
     // Fiat-Shamir: alpha

@@ -1,9 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <cstddef>
 
 #include "./eccvm_builder_types.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 
@@ -208,8 +215,8 @@ class ECCVMMSMMBuilder {
         // accumulator_trace tracks the value of the ECCVM accumulator for each row
         std::span<Element> accumulator_trace(&points_to_normalize[num_point_adds_and_doubles * 3], num_accumulators);
 
-        // we start the accumulator at the offset generator point. This ensures we can support an MSM that produces a
-        constexpr auto offset_generator = bb::g1::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        // we start the accumulator at the offset generator point
+        constexpr auto offset_generator = get_precomputed_generators<g1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         accumulator_trace[0] = offset_generator;
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/973): Reinstate multitreading?

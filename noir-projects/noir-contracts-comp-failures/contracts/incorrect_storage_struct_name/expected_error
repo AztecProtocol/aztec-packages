@@ -1,0 +1,1 @@
+The #[storage] macro can only be applied to a struct with name 'Storage'

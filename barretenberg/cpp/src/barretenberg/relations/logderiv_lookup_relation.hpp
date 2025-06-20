@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <array>
 #include <tuple>
@@ -13,24 +19,28 @@ namespace bb {
 template <typename FF_> class LogDerivLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t READ_TERMS = 1;
-    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1; // the number of write terms in the lookup relation
     // 1 + polynomial degree of this relation
-    static constexpr size_t LENGTH = 5; // both subrelations are degree 4
+    static constexpr size_t INVERSE_SUBRELATION_LENGTH = 5; // both subrelations are degree 4
+    static constexpr size_t LOOKUP_SUBRELATION_LENGTH = 5;  // both subrelations are degree 4
+    static constexpr size_t BOOLEAN_CHECK_SUBRELATION_LENGTH =
+        3; // deg + 1 of the relation checking that read_tag_m is a boolean value
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        LENGTH, // inverse construction sub-relation
-        LENGTH  // log derivative lookup argument sub-relation
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
+        INVERSE_SUBRELATION_LENGTH,      // inverse construction sub-relation
+        LOOKUP_SUBRELATION_LENGTH,       // log derivative lookup argument sub-relation
+        BOOLEAN_CHECK_SUBRELATION_LENGTH // boolean check sub-relation
     };
 
     // Note: the required correction for the second sub-relation is technically +1 but the two corrections must agree
     // due to the way the relation algebra is written so both are set to +2.
-    static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
+    static constexpr std::array<size_t, 3> TOTAL_LENGTH_ADJUSTMENTS{
         2, // inverse construction sub-relation
-        2  // log derivative lookup argument sub-relation
+        2, // log derivative lookup argument sub-relation
+        2,
     };
 
-    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
+    static constexpr std::array<bool, 3> SUBRELATION_LINEARLY_INDEPENDENT = { true, false, true };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -216,6 +226,17 @@ template <typename FF_> class LogDerivLookupRelationImpl {
      *
      * and read_tags is a polynomial taking boolean values indicating whether the table entry at the corresponding row
      * has been read or not.
+     * the last (third) subrelation consists of checking that the read_tag is a boolean value
+     * we argue that this is enough for the soundness of the relation.
+     * note that read_tags is not constrained to be related to the readcounts values.
+     * however, if the read_tags are assured to be 0 or 1, the only thing a cheating prover could do is to skip over
+     * an inversion when are not supposed to skip over it.
+     * we argue that this does not give the prover any advantage, as it would only mean an element from the lookup table
+     * is removed. this means that if a proof verifies, we still have that the provers set is a subset of the lookup
+     * table, as the only freedome the prover has is to make the lookup table smaller.
+     * the boolean check is still necessary, as otherwise has_inverse, is a leanier function of read_tags, and the
+     * the prover can set it to zero (by picking a non-binary value for read_tags) even when we have a read gate in the
+     * row.
      * @note This relation utilizes functionality in the log-derivative library to compute the polynomial of inverses
      *
      */
@@ -230,6 +251,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // whereas in ZK Flavors, the accumulator corresponding log derivative lookup argument sub-relation is the
         // longest
         using ShortAccumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using BooleanCheckerAccumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
         using ShortView = typename ShortAccumulator::View;
 
         using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
@@ -260,6 +282,11 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         tmp -= (Accumulator(read_counts_m) * read_term);
         tmp *= inverses;                 // degree 4(5)
         std::get<1>(accumulator) += tmp; // Deg 4 (5)
+
+        // we should make sure that the read_tag is a boolean value
+        const auto read_tag_m = CoefficientAccumulator(in.lookup_read_tags);
+        const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
+        std::get<2>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
     }
 };
 

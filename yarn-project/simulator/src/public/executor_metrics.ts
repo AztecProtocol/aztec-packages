@@ -17,7 +17,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
   private fnDuration: Histogram;
   private manaPerSecond: Histogram;
   private manaUsed: Histogram;
-  private totalInstructions: Histogram;
+  private totalInstructionsExecuted: Histogram;
   private txHashing: Histogram;
   private privateEffectsInsertions: Histogram;
 
@@ -47,9 +47,9 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
       valueType: ValueType.INT,
     });
 
-    this.totalInstructions = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
+    this.totalInstructionsExecuted = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
       description: 'Total number of instructions executed',
-      unit: 'instructions',
+      unit: '#instructions',
       valueType: ValueType.INT,
     });
 
@@ -74,7 +74,12 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     // do nothing (unimplemented)
   }
 
-  recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number) {
+  recordEnqueuedCallSimulation(
+    fnName: string,
+    durationMs: number,
+    manaUsed: number,
+    totalInstructionsExecuted: number,
+  ) {
     this.fnCount.add(1, {
       [Attributes.OK]: true,
       [Attributes.APP_CIRCUIT_NAME]: fnName,
@@ -82,7 +87,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     this.manaUsed.record(Math.ceil(manaUsed), {
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
-    this.totalInstructions.record(Math.ceil(totalInstructions), {
+    this.totalInstructionsExecuted.record(Math.ceil(totalInstructionsExecuted), {
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
     this.fnDuration.record(Math.ceil(durationMs), {
@@ -100,7 +105,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     _fnName: string,
     _durationMs: number,
     _manaUsed: number,
-    _totalInstructions: number,
+    _totalInstructionsExecuted: number,
   ) {
     this.fnCount.add(1, {
       [Attributes.OK]: false,

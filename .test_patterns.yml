@@ -11,6 +11,7 @@
 
 names:
   - adam: &adam "U04BM8H25NJ"
+  - akosh: &akosh "U07PQ3Y4GHJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
   - grego: &grego "U0689QRCE9L"
@@ -26,6 +27,9 @@ names:
   - spyros: &spyros "U03FCET0DQE"
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
+  - saleel: &saleel "U07KJ0AV20J"
+  - nico: &nico "U06D2QSLY10"
+  - lucas: &lucas "U05MW7WQ8LQ"
 
 tests:
   # barretenberg
@@ -42,21 +46,17 @@ tests:
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    owners:
-      - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
       - *adam
-  # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
-    skip: true
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "RuntimeError: Out of bounds memory access"
     owners:
-      - *tom
-  - regex: "tests::execution_success::test_ram_blowup_regression"
-    error_regex: "assertion `left == right` failed"
+      - *adam
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "call_indirect to a null table entry"
     owners:
-      - *tom
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -74,66 +74,108 @@ tests:
     owners:
       - *charlie
 
-  # e2e tests
-  - regex: "simple e2e_p2p"
+  # AD: hit this flake
+  # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
+  # 18:04:38 Brillig loops: 11
+  # 18:04:38 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  - regex: "noir/scripts/run_test.sh calibration.* arb_program_freqs_in_expected_range"
+    error_regex: "panicked at tooling/ast_fuzzer/tests/calibration.rs"
+    owners:
+      - *tom
+
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  - regex: "testbench/port_change.test.ts"
+    skip: true
+    owners:
+      - *sean
+  # e2e tests flakes
+  - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reex"
+  - regex: "src/e2e_p2p/reex"
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p/reex"
+    error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
+    owners:
+      - *sean
+  # http://ci.aztec-labs.com/5a291189b35a1b38
+  # http://ci.aztec-labs.com/b175321d1289021c
+  - regex: "src/e2e_p2p"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p/reqresp"
+    owners:
+      - *palla
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p"
+  - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p/gossip_network"
+  - regex: "src/e2e_p2p/gossip_network"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
-  - regex: "simple e2e_fees/private_payments"
+  - regex: "e2e_p2p/validators_sentinel"
+    error_regex: "Expected: >= 2"
+    owners:
+      - *palla
+  - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil
-  # http://ci.aztec-labs.com/7a5104e136578d64
-  # The "loop that wastes 5m" thing.
-  - regex: "simple e2e_fees/failures"
-    error_regex: "Exceeded timeout"
+  - regex: "src/e2e_token_contract/access_control"
+    error_regex: "HttpRequestError: HTTP request failed."
     owners:
-      - *palla
-  - regex: "simple e2e_lending_contract"
+      - *charlie
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
-  - regex: "simple e2e_lending_contract"
+  - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_private"
+  - regex: "src/e2e_epochs/epochs_empty_blocks"
+    error_regex: "✕ successfully proves multiple epochs"
+    owners:
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
-  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-  - regex: "simple e2e_block_building"
-    error_regex: "Cannot read properties of undefined"
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Publicly deposit funds"
     owners:
-      - *jan
-  - regex: "simple e2e_block_building"
-    error_regex: "Could not retrieve body for block"
+      - *lasse
+  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+    error_regex: "✕ Can't claim funds"
     owners:
-      - *palla
-  - regex: "composed/integration_l1_publisher"
+      - *lasse
+  - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "simple e2e_sequencer_config"
-    error_regex: "Anvil failed to stop in time"
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
+    owners:
+      - *spyros
+  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+    error_regex: "Failed events from sequencers"
     owners:
       - *palla
 
@@ -147,13 +189,16 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  - regex: "p2p/src/testbench/port_change.test.ts"
-    error_regex: "Timeout waiting for worker"
+  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
     owners:
-      - *sean
+      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -167,28 +212,20 @@ tests:
     owners:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "ethereum/src/l1_tx_utils.test.ts"
-    error_regex: "✕ calculates correct gas prices for initial attempt"
-    owners:
-      - *spyros
   - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
       - *alex
-
-  # boxes
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "Test timeout of 90000ms exceeded."
-    owners:
-      - *grego
-
-  - regex: "boxes/scripts/run_test.sh"
-    error_regex: "expect(locator).toBeVisible()"
+  - regex: "ethereum/src/test/tx_delayer.test.ts"
+    error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
+    error_regex: "Exceeded timeout of"
+    owners:
+      - *lucas
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
@@ -201,6 +238,10 @@ tests:
     error_regex: "cp: cannot create regular file"
     owners:
       - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "tar: Error is not recoverable: exiting now"
+    owners:
+      - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"
     error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
@@ -211,6 +252,45 @@ tests:
     error_regex: "Is the docker daemon running"
     owners:
       - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
+
+  # boxes
+  - regex: "vanilla-all-browsers box boxes"
+    error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test vite-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "toBeVisible" # http://ci.aztec-labs.com/b7b10b95167d5ed6
+    owners:
+      - *saleel
+
+  - regex: "tests/browser.spec.ts"
+    error_regex: "Error: locator\\.click: Test timeout of"
+    owners:
+      - *saleel
+
+  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
+    error_regex: "create account and cast vote"
+    owners:
+      - *saleel
 
   # Slack testing.
   - regex: "nonsense to match"
@@ -218,3 +298,9 @@ tests:
     owners:
       - *charlie
       - *adam
+
+  # l1-contracts
+  - regex: "cd l1-contracts && forge test"
+    error_regex: "staking_asset_handler/addValidator.t.sol:addValidatorToQueueTest.*FAIL: next call did not revert as expected;"
+    owners:
+      - *lasse

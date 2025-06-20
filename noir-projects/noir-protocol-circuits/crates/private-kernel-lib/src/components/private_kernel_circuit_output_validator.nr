@@ -334,7 +334,7 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.nullifiers,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.end.l2_to_l1_msgs,
             private_call.l2_to_l1_msgs,
             array_lengths.l2_to_l1_msgs,
@@ -348,7 +348,7 @@ impl PrivateKernelCircuitOutputValidator {
             offsets.private_logs,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.end.contract_class_logs_hashes,
             private_call.contract_class_logs_hashes,
             array_lengths.contract_class_logs_hashes,
@@ -382,12 +382,11 @@ impl PrivateKernelCircuitOutputValidator {
                 max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number
-                         as u32,
-                    )),
-                )
-            } else {
-                max_block_number
-            }
+                    private_call.public_inputs.historical_header.global_variables.block_number,
+                )),
+            )
+        } else {
+            max_block_number
         }
+    }
 }

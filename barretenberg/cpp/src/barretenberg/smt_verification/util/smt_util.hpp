@@ -19,6 +19,6 @@ std::vector<bb::fr> default_model_single(const std::vector<std::string>& special
 bool smt_timer(smt_solver::Solver* s);
 std::pair<std::vector<bb::fr>, std::vector<bb::fr>> base4(uint32_t el);
 void fix_range_lists(bb::UltraCircuitBuilder& builder);
-bb::fr string_to_fr(const std::string& number, int base, size_t step = 0);
+bb::fr string_to_fr(const std::string& number, int base, bool is_signed = true, size_t step = 0);
 std::vector<std::vector<bb::fr>> import_witness(const std::string& fname);
 std::vector<bb::fr> import_witness_single(const std::string& fname);

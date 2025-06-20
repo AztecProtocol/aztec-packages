@@ -1,3 +1,10 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
+#include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "translator_circuit_builder.hpp"
 
@@ -15,8 +22,22 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     if (size < (TOTAL_SIZE)) {
         return 0;
     }
-    Fr op;
-    op = Fr(data[0] & 3);
+    size_t op = data[0] & 3;
+    EccOpCode op_code;
+    switch (op) {
+    case 3:
+        op_code = EccOpCode{ .eq = true, .reset = true };
+        break;
+    case 4:
+        op_code = EccOpCode{ .mul = true };
+        break;
+    case 8:
+        op_code = EccOpCode{ .add = true };
+        break;
+    default:
+        op_code = EccOpCode{};
+        break;
+    }
 
     Fq p_x = Fq(*(uint256_t*)(data + 1));
     Fr p_x_lo = uint256_t(p_x).slice(0, 2 * NUM_LIMB_BITS);
@@ -36,12 +57,20 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     Fr z_2 = Fr(*(uint256_t*)(buffer));
 
     bb::TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
-        bb::TranslatorCircuitBuilder::generate_witness_values(
-            op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
+        bb::TranslatorCircuitBuilder::generate_witness_values(UltraOp{ .op_code = op_code,
+                                                                       .x_lo = p_x_lo,
+                                                                       .x_hi = p_x_hi,
+                                                                       .y_lo = p_y_lo,
+                                                                       .y_hi = p_y_hi,
+                                                                       .z_1 = z_1,
+                                                                       .z_2 = z_2 },
+                                                              previous_accumulator,
+                                                              v,
+                                                              x);
 
     auto circuit_builder = bb::TranslatorCircuitBuilder(v, x);
     circuit_builder.create_accumulation_gate(single_accumulation_step);
-    if (!circuit_builder.check_circuit()) {
+    if (!TranslatorCircuitChecker::check(circuit_builder)) {
         return 1;
     }
     return 0;

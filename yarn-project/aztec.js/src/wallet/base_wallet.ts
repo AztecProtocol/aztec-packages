@@ -1,7 +1,7 @@
 import type { FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
-import type { AbiDecoded, ContractArtifact } from '@aztec/stdlib/abi';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstanceWithAddress, NodeInfo } from '@aztec/stdlib/contract';
@@ -15,6 +15,7 @@ import type {
 } from '@aztec/stdlib/interfaces/client';
 import type {
   PrivateExecutionResult,
+  SimulationOverrides,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -22,6 +23,7 @@ import type {
   TxProvingResult,
   TxReceipt,
   TxSimulationResult,
+  UtilitySimulationResult,
 } from '@aztec/stdlib/tx';
 
 import type { IntentAction, IntentInnerHash } from '../utils/authwit.js';
@@ -78,18 +80,19 @@ export abstract class BaseWallet implements Wallet {
   profileTx(
     txRequest: TxExecutionRequest,
     profileMode: 'gates' | 'execution-steps' | 'full',
+    skipProofGeneration?: boolean,
     msgSender?: AztecAddress,
   ): Promise<TxProfileResult> {
-    return this.pxe.profileTx(txRequest, profileMode, msgSender);
+    return this.pxe.profileTx(txRequest, profileMode, skipProofGeneration, msgSender);
   }
   simulateTx(
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
-    msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
   ): Promise<TxSimulationResult> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, skipFeeEnforcement);
+    return this.pxe.simulateTx(txRequest, simulatePublic, skipTxValidation, skipFeeEnforcement, overrides);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -102,8 +105,8 @@ export abstract class BaseWallet implements Wallet {
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
-    from?: AztecAddress | undefined,
-  ): Promise<AbiDecoded> {
+    from?: AztecAddress,
+  ): Promise<UtilitySimulationResult> {
     return this.pxe.simulateUtility(functionName, args, to, authwits, from);
   }
   getNodeInfo(): Promise<NodeInfo> {

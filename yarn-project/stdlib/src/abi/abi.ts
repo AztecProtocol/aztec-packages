@@ -209,12 +209,19 @@ export interface FunctionDebugMetadata {
 
 export const FunctionDebugMetadataSchema = z.object({
   debugSymbols: z.object({
-    locations: z.record(
-      z.array(z.object({ span: z.object({ start: z.number(), end: z.number() }), file: z.number() })),
-    ),
-    brillig_locations: z.record(
-      z.record(z.array(z.object({ span: z.object({ start: z.number(), end: z.number() }), file: z.number() }))),
-    ),
+    location_tree: z.object({
+      locations: z.array(
+        z.object({
+          parent: z.number().nullable(),
+          value: z.object({
+            span: z.object({ start: z.number(), end: z.number() }),
+            file: z.number(),
+          }),
+        }),
+      ),
+    }),
+    acir_locations: z.record(z.number()),
+    brillig_locations: z.record(z.record(z.number())),
   }),
   files: z.record(z.object({ source: z.string(), path: z.string() })),
 }) satisfies z.ZodType<FunctionDebugMetadata>;
@@ -246,10 +253,10 @@ export const FunctionArtifactSchema = FunctionAbiSchema.and(
 ) satisfies ZodFor<FunctionArtifact>;
 
 /** A file ID. It's assigned during compilation. */
-export type FileId = number;
+type FileId = number;
 
 /** A pointer to a specific section of the source code. */
-export interface SourceCodeLocation {
+interface SourceCodeLocation {
   /** The section of the source code. */
   span: {
     /** The byte where the section starts. */
@@ -269,12 +276,22 @@ export type OpcodeLocation = string;
 
 export type BrilligFunctionId = number;
 
-export type OpcodeToLocationsMap = Record<OpcodeLocation, SourceCodeLocation[]>;
+export type OpcodeToLocationsMap = Record<OpcodeLocation, number>;
+
+export type LocationNodeDebugInfo = {
+  parent: number | null;
+  value: SourceCodeLocation;
+};
+
+export type LocationTree = {
+  locations: LocationNodeDebugInfo[];
+};
 
 /** The debug information for a given function. */
 export interface DebugInfo {
   /** A map of the opcode location to the source code location. */
-  locations: OpcodeToLocationsMap;
+  location_tree: LocationTree;
+  acir_locations: OpcodeToLocationsMap;
   /** For each Brillig function, we have a map of the opcode location to the source code location. */
   brillig_locations: Record<BrilligFunctionId, OpcodeToLocationsMap>;
 }
@@ -481,11 +498,11 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
   const functionAbis = getAllFunctionAbis(contractArtifact);
   const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
-    ? initializers.find(f => f.name === 'constructor') ??
+    ? (initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
         initializers.find(f => f.parameters?.length === 0) ??
         initializers.find(f => f.functionType === FunctionType.PRIVATE) ??
-        initializers[0]
+        initializers[0])
     : initializers[0];
 }
 
@@ -515,4 +532,41 @@ export function getInitializer(
     }
     return initializerNameOrArtifact;
   }
+}
+
+export function emptyFunctionAbi(): FunctionAbi {
+  return {
+    name: '',
+    functionType: FunctionType.PRIVATE,
+    isInternal: false,
+    isStatic: false,
+    parameters: [],
+    returnTypes: [],
+    errorTypes: {},
+    isInitializer: false,
+  };
+}
+
+export function emptyFunctionArtifact(): FunctionArtifact {
+  const abi = emptyFunctionAbi();
+  return {
+    ...abi,
+    bytecode: Buffer.from([]),
+    debugSymbols: '',
+  };
+}
+
+export function emptyContractArtifact(): ContractArtifact {
+  return {
+    name: '',
+    functions: [emptyFunctionArtifact()],
+    nonDispatchPublicFunctions: [emptyFunctionAbi()],
+    outputs: {
+      structs: {},
+      globals: {},
+    },
+    storageLayout: {},
+    fileMap: {},
+    notes: {},
+  };
 }

@@ -1,1 +1,0 @@
-barretenberg_module(plonk_honk_shared polynomials ultra_honk)

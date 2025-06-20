@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -9,22 +9,18 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import {
-  PublicContractsDB,
-  PublicTreesDB,
-  PublicTxSimulationTester,
-  SimpleContractDataSource,
-} from '../../../server.js';
-import { createContractClassAndInstance } from '../../avm/fixtures/index.js';
+import { PublicContractsDB } from '../../../server.js';
+import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
+import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
+import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
 describe('Public processor contract registration/deployment tests', () => {
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
-  let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -36,13 +32,13 @@ describe('Public processor contract registration/deployment tests', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    treesDB = new PublicTreesDB(merkleTrees);
+    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
       globals,
-      treesDB,
+      guardedMerkleTrees,
       contractsDB,
       simulator,
       new TestDateProvider(),
@@ -179,7 +175,7 @@ describe('Public processor contract registration/deployment tests', () => {
     // Second transaction - deploys second token but fails during transfer
     const receiver = AztecAddress.fromNumber(222);
     const transferAmount = 10n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
     const failingConstructorTx = await tester.createTx(
       /*sender=*/ admin,
       /*setupCalls=*/ [],
@@ -194,7 +190,7 @@ describe('Public processor contract registration/deployment tests', () => {
         {
           address: token.address,
           fnName: 'transfer_in_public',
-          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+          args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
           contractArtifact: TokenContractArtifact,
         },
       ],

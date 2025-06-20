@@ -1,5 +1,5 @@
-// docs:start:declaration
 mod test;
+// docs:start:declaration
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -31,7 +31,7 @@ pub contract EasyPrivateVoting {
     fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
         storage.vote_ended.write(false);
-        storage.active_at_block.initialize(context.block_number() as u32);
+        storage.active_at_block.initialize(context.block_number());
     }
     // docs:end:constructor
 

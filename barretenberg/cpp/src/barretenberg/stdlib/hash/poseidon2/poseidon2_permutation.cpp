@@ -1,6 +1,12 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "poseidon2_permutation.hpp"
 
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -17,7 +23,6 @@ namespace bb::stdlib {
 template <typename Params, typename Builder>
 typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
     Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
-    requires(!IsSimulator<Builder>)
 {
     // deep copy
     State current_state(input);
@@ -107,95 +112,6 @@ typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Param
                                current_state[2].witness_index,
                                current_state[3].witness_index);
     return current_state;
-}
-
-/**
- * @brief Circuit form of Poseidon2 permutation from https://eprint.iacr.org/2023/323 for UltraCircuitBuilder.
- * @details The permutation consists of one initial linear layer, then a set of external rounds, a set of internal
- * rounds, and a set of external rounds.
- * @param builder
- * @param input
- * @return State
- */
-template <typename Params, typename Builder>
-typename Poseidon2Permutation<Params, Builder>::State Poseidon2Permutation<Params, Builder>::permutation(
-    Builder* builder, const typename Poseidon2Permutation<Params, Builder>::State& input)
-    requires IsSimulator<Builder>
-{
-    // deep copy
-    State current_state(input);
-
-    // Apply 1st linear layer
-    matrix_multiplication_external(builder, current_state);
-
-    // First set of external rounds
-    constexpr size_t rounds_f_beginning = rounds_f / 2;
-    for (size_t i = 0; i < rounds_f_beginning; ++i) {
-        add_round_constants(current_state, round_constants[i]);
-        apply_sbox(current_state);
-        matrix_multiplication_external(builder, current_state);
-    }
-
-    // Internal rounds
-    const size_t p_end = rounds_f_beginning + rounds_p;
-    for (size_t i = rounds_f_beginning; i < p_end; ++i) {
-        current_state[0] += round_constants[i][0];
-        apply_single_sbox(current_state[0]);
-        matrix_multiplication_internal(current_state);
-    }
-
-    // Remaining external rounds
-    for (size_t i = p_end; i < NUM_ROUNDS; ++i) {
-        add_round_constants(current_state, round_constants[i]);
-        apply_sbox(current_state);
-        matrix_multiplication_external(builder, current_state);
-    }
-    return current_state;
-}
-
-template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::add_round_constants(
-    State& input, const typename Poseidon2Permutation<Params, Builder>::RoundConstants& rc)
-    requires IsSimulator<Builder>
-
-{
-    for (size_t i = 0; i < t; ++i) {
-        input[i] += rc[i];
-    }
-}
-
-template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::apply_sbox(State& input)
-    requires IsSimulator<Builder>
-{
-    for (auto& in : input) {
-        apply_single_sbox(in);
-    }
-}
-
-template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::apply_single_sbox(field_t<Builder>& input)
-    requires IsSimulator<Builder>
-{
-    // hardcoded assumption that d = 5. should fix this or not make d configurable
-    auto xx = input.sqr();
-    auto xxxx = xx.sqr();
-    input *= xxxx;
-}
-
-template <typename Params, typename Builder>
-void Poseidon2Permutation<Params, Builder>::matrix_multiplication_internal(State& input)
-    requires IsSimulator<Builder>
-{
-    // for t = 4
-    auto sum = input[0];
-    for (size_t i = 1; i < t; ++i) {
-        sum += input[i];
-    }
-    for (size_t i = 0; i < t; ++i) {
-        input[i] *= Params::internal_matrix_diagonal[i]; // internal_matrix_diagonal[i];
-        input[i] += sum;
-    }
 }
 
 /**
@@ -312,6 +228,5 @@ void Poseidon2Permutation<Params, Builder>::matrix_multiplication_external(
 
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, MegaCircuitBuilder>;
 template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, UltraCircuitBuilder>;
-template class Poseidon2Permutation<crypto::Poseidon2Bn254ScalarFieldParams, CircuitSimulatorBN254>;
 
 } // namespace bb::stdlib

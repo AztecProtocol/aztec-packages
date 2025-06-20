@@ -4,11 +4,13 @@
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
 set -eu
 
-cd $(dirname $0)/../build
+export native_preset=${NATIVE_PRESET:-clang16-assert}
+
+cd $(dirname $0)/..
+# E.g. build, build-debug or build-coverage
+cd $(scripts/native-preset-build-dir)
 
 export GTEST_COLOR=1
-export HARDWARE_CONCURRENCY=8
-# export IGNITION_CRS_PATH="./barretenberg/cpp/srs_db/ignition"
-# export GRUMPKIN_CRS_PATH="./barretenberg/cpp/srs_db/grumpkin"
+export HARDWARE_CONCURRENCY=${CPUS:-8}
 
-./bin/$1 --gtest_filter=$2
+exec ./bin/$1 --gtest_filter=$2

@@ -1,4 +1,4 @@
-# Formal Verification of ACIR Instructions
+#Formal Verification of ACIR Instructions
 
 This module provides formal verification capabilities for ACIR (Arithmetic Circuit Intermediate Representation) instructions generated from Noir SSA code.
 
@@ -20,10 +20,10 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 
 | Opcode      | Lhs type/size | Rhs type/size | Time/seconds | Memory/GB | Success | SMT Term Type    | Reason                                                                                                        |
 | ----------- | ------------- | ------------- | ------------ | --------- | ------- | ---------------- | ------------------------------------------------------------------------------------------------------------- |
-| Binary::Add | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                                                                                                               |
-| Binary::Add | Unsigned_127  | Unsigned_127  | 2.8          | -         | &check; | TermType::BVTerm |                                                                                                               |
-| Binary::And | Unsigned_32   | Unsigned_32   | 6.7          | -         | &check; | TermType::BVTerm |                                                                                                               |
-| Binary::And | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
+| Binary::Add | Field         | Field         | 0.024        | -         | &check;
+| TermType::FFTerm | | | Binary::Add | Unsigned_127 | Unsigned_127 | 2.8 | - | &check;
+| TermType::BVTerm | | | Binary::And | Unsigned_32 | Unsigned_32 | 6.7 | - | &check;
+| TermType::BVTerm | | | Binary::And | Unsigned_127 | Unsigned_127 | 7.5 | - | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
 | Binary::Div | Field         | Field         | 0.024        | -         | &check; | TermType::FFTerm |                                                                                                               |
 | Binary::Div | Unsigned_126  | Unsigned_126  | 402.7        | 3.5       | &cross; | TermType::BVTerm | [Field and bitvector logic mixing](https://github.com/AztecProtocol/aztec-packages/issues/11722)              |
 | Binary::Div | Signed_126    | Signed_126    | >17 days     | 5.1       | &cross; | TermType::BVTerm | [Field and bitvector logic mixing](https://github.com/AztecProtocol/aztec-packages/issues/11722)              |
@@ -42,10 +42,12 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 | Binary::Xor | Unsigned_32   | Unsigned_32   | 14.7         | -         | &check; | TermType::BVTerm |                                                                                                               |
 | Binary::Xor | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
 | Not         | Unsigned_127  | -             | 0.2          | -         | &check; | TermType::BVTerm |                                                                                                               |
+| Cast        | Field         | Unsigned_64         | 0.05        | -         | &check; | TermType::FFTerm |                                                                                                               |
+| Cast        | Unsigned_64   | Unsigned_8         | 0.07        | -         | &check; | TermType::BVTerm |                                                                                                               |
+| Cast        | Unsigned_8    | Unsigned_64        | 0.6        | -         | &check; | TermType::BVTerm |                                                                                                               |
 
 Each test attempts to find counterexamples that violate the expected behavior. A passing test indicates the operation is correctly implemented, while a failing test reveals potential issues.
 
 ### bugs found
 
 1. 3 bit overflow in AND/XOR/OR operations in barretenberg, fixed in [#11651](https://github.com/AztecProtocol/aztec-packages/commit/dddab22934b3abb798dbf204bccb68b557ee2193)
-

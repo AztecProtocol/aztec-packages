@@ -1,0 +1,234 @@
+{
+  "client_ivc": {
+    "internal": {
+      "not started": 4
+    },
+    "external_1": {
+      "not started": 4
+    },
+    "external_2": {
+      "not started": 4
+    }
+  },
+  "commitment_schemes": {
+    "internal": {
+      "not started": 23
+    },
+    "external_1": {
+      "not started": 23
+    },
+    "external_2": {
+      "not started": 23
+    }
+  },
+  "crypto": {
+    "internal": {
+      "not started": 75
+    },
+    "external_1": {
+      "not started": 75
+    },
+    "external_2": {
+      "not started": 75
+    }
+  },
+  "dsl": {
+    "internal": {
+      "not started": 59
+    },
+    "external_1": {
+      "not started": 59
+    },
+    "external_2": {
+      "not started": 59
+    }
+  },
+  "ecc": {
+    "internal": {
+      "not started": 51
+    },
+    "external_1": {
+      "not started": 51
+    },
+    "external_2": {
+      "not started": 51
+    }
+  },
+  "eccvm": {
+    "internal": {
+      "not started": 14
+    },
+    "external_1": {
+      "not started": 14
+    },
+    "external_2": {
+      "not started": 14
+    }
+  },
+  "flavor": {
+    "internal": {
+      "not started": 6
+    },
+    "external_1": {
+      "not started": 6
+    },
+    "external_2": {
+      "not started": 6
+    }
+  },
+  "goblin": {
+    "internal": {
+      "not started": 5
+    },
+    "external_1": {
+      "not started": 5
+    },
+    "external_2": {
+      "not started": 5
+    }
+  },
+  "honk": {
+    "internal": {
+      "not started": 5
+    },
+    "external_1": {
+      "not started": 5
+    },
+    "external_2": {
+      "not started": 5
+    }
+  },
+  "numeric": {
+    "internal": {
+      "not started": 15
+    },
+    "external_1": {
+      "not started": 15
+    },
+    "external_2": {
+      "not started": 15
+    }
+  },
+  "polynomials": {
+    "internal": {
+      "not started": 24
+    },
+    "external_1": {
+      "not started": 24
+    },
+    "external_2": {
+      "not started": 24
+    }
+  },
+  "protogalaxy": {
+    "internal": {
+      "not started": 9
+    },
+    "external_1": {
+      "not started": 9
+    },
+    "external_2": {
+      "not started": 9
+    }
+  },
+  "relations": {
+    "internal": {
+      "not started": 53
+    },
+    "external_1": {
+      "not started": 53
+    },
+    "external_2": {
+      "not started": 53
+    }
+  },
+  "stdlib": {
+    "internal": {
+      "not started": 167
+    },
+    "external_1": {
+      "not started": 167
+    },
+    "external_2": {
+      "not started": 167
+    }
+  },
+  "stdlib_circuit_builders": {
+    "internal": {
+      "not started": 43
+    },
+    "external_1": {
+      "not started": 43
+    },
+    "external_2": {
+      "not started": 43
+    }
+  },
+  "sumcheck": {
+    "internal": {
+      "not started": 4,
+      "complete": 1
+    },
+    "external_1": {
+      "not started": 5
+    },
+    "external_2": {
+      "not started": 5
+    }
+  },
+  "trace_to_polynomials": {
+    "internal": {
+      "not started": 2
+    },
+    "external_1": {
+      "not started": 2
+    },
+    "external_2": {
+      "not started": 2
+    }
+  },
+  "transcript": {
+    "internal": {
+      "not started": 4
+    },
+    "external_1": {
+      "not started": 4
+    },
+    "external_2": {
+      "not started": 4
+    }
+  },
+  "translator_vm": {
+    "internal": {
+      "not started": 14
+    },
+    "external_1": {
+      "not started": 14
+    },
+    "external_2": {
+      "not started": 14
+    }
+  },
+  "ultra_honk": {
+    "internal": {
+      "not started": 22
+    },
+    "external_1": {
+      "not started": 22
+    },
+    "external_2": {
+      "not started": 22
+    }
+  },
+  "op_queue": {
+    "internal": {
+      "not started": 4
+    },
+    "external_1": {
+      "not started": 4
+    },
+    "external_2": {
+      "not started": 4
+    }
+  }
+}

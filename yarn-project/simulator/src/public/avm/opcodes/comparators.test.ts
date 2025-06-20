@@ -1,7 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Eq, Lt, Lte } from './comparators.js';
 
@@ -26,8 +26,8 @@ describe('Comparators', () => {
         Eq.wireFormat16,
       );
 
-      expect(Eq.as(Eq.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Eq.as(Eq.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -93,8 +93,8 @@ describe('Comparators', () => {
         Lt.wireFormat16,
       );
 
-      expect(Lt.as(Lt.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Lt.as(Lt.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {
@@ -160,8 +160,8 @@ describe('Comparators', () => {
         Lte.wireFormat16,
       );
 
-      expect(Lte.as(Lte.wireFormat16).deserialize(buf)).toEqual(inst);
-      expect(inst.serialize()).toEqual(buf);
+      expect(Lte.as(Lte.wireFormat16).fromBuffer(buf)).toEqual(inst);
+      expect(inst.toBuffer()).toEqual(buf);
     });
 
     it('Works on integral types', async () => {

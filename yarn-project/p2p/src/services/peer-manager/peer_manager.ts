@@ -1,20 +1,24 @@
 import { createLogger } from '@aztec/foundation/log';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import { bufferToHex } from '@aztec/foundation/string';
+import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import type { Multiaddr } from '@multiformats/multiaddr';
+import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
-import type { PubSubLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
+import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
+import { ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
+import type { PeerManagerInterface } from './interface.js';
 import { PeerManagerMetrics } from './metrics.js';
 import { PeerScoreState, type PeerScoring } from './peer_scoring.js';
 
@@ -22,6 +26,7 @@ const MAX_DIAL_ATTEMPTS = 3;
 const MAX_CACHED_PEERS = 100;
 const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
+const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -36,13 +41,15 @@ type TimedOutPeer = {
   timeoutUntilMs: number;
 };
 
-export class PeerManager {
+export class PeerManager implements PeerManagerInterface {
   private cachedPeers: Map<string, CachedPeer> = new Map();
   private heartbeatCounter: number = 0;
   private displayPeerCountsPeerHeartbeat: number = 0;
   private timedOutPeers: Map<string, TimedOutPeer> = new Map();
-  private trustedPeers: Set<PeerId> = new Set();
+  private trustedPeers: Set<string> = new Set();
   private trustedPeersInitialized: boolean = false;
+  private privatePeers: Set<string> = new Set();
+  private privatePeersInitialized: boolean = false;
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -52,13 +59,15 @@ export class PeerManager {
   };
 
   constructor(
-    private libP2PNode: PubSubLibp2p,
+    private libP2PNode: Libp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     telemetryClient: TelemetryClient,
     private logger = createLogger('p2p:peer-manager'),
     private peerScoring: PeerScoring,
     private reqresp: ReqResp,
+    private readonly worldStateSynchronizer: WorldStateSynchronizer,
+    private readonly protocolVersion: string,
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
@@ -87,14 +96,34 @@ export class PeerManager {
    *
    * This function is called when the peer manager is initialized.
    */
-  async initializeTrustedPeers() {
-    const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
-    await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
-      .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId)))
-      .finally(() => {
-        this.trustedPeersInitialized = true;
-      })
-      .catch(e => this.logger.error('Error initializing trusted peers', e));
+  async initializePeers() {
+    if (this.config.trustedPeers) {
+      const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId.toString())))
+        .finally(() => {
+          this.trustedPeersInitialized = true;
+        })
+        .catch(e => this.logger.error('Error initializing trusted peers', e));
+    }
+
+    if (this.config.privatePeers) {
+      const privatePeersEnrs: ENR[] = this.config.privatePeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(privatePeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds =>
+          peerIds.forEach(peerId => {
+            this.trustedPeers.add(peerId.toString());
+            this.privatePeers.add(peerId.toString());
+          }),
+        )
+        .finally(() => {
+          if (!this.config.trustedPeers) {
+            this.trustedPeersInitialized = true;
+          }
+          this.privatePeersInitialized = true;
+        })
+        .catch(e => this.logger.error('Error initializing private peers', e));
+    }
   }
 
   get tracer() {
@@ -129,7 +158,7 @@ export class PeerManager {
   }
 
   /**
-   * Simply logs the type of connected peer.
+   * Performs Status Handshake with a connected peer.
    * @param e - The connected peer event.
    */
   private handleConnectedPeerEvent(e: CustomEvent<PeerId>) {
@@ -138,6 +167,9 @@ export class PeerManager {
       this.logger.verbose(`Connected to bootstrap peer ${peerId.toString()}`);
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
+    }
+    if (!this.config.p2pDisableStatusHandshake) {
+      void this.exchangeStatusHandshake(peerId);
     }
   }
 
@@ -165,7 +197,7 @@ export class PeerManager {
       this.logger.warn('Trusted peers not initialized, returning false');
       return false;
     }
-    return this.trustedPeers.has(peerId);
+    return this.trustedPeers.has(peerId.toString());
   }
 
   /**
@@ -173,9 +205,47 @@ export class PeerManager {
    * @param peerId - The peer ID to add to trusted peers.
    */
   public addTrustedPeer(peerId: PeerId): void {
-    this.trustedPeers.add(peerId);
+    const peerIdStr = peerId.toString();
+
+    this.trustedPeers.add(peerIdStr);
     this.trustedPeersInitialized = true;
-    this.logger.verbose(`Added trusted peer ${peerId.toString()}`);
+    this.logger.verbose(`Added trusted peer ${peerIdStr}`);
+  }
+
+  /**
+   * Adds a peer to the private peers set.
+   * @param peerId - The peer ID to add to private peers.
+   */
+  public addPrivatePeer(peerId: PeerId): void {
+    const peerIdStr = peerId.toString();
+
+    this.trustedPeers.add(peerIdStr);
+    this.privatePeers.add(peerIdStr);
+    this.trustedPeersInitialized = true;
+    this.privatePeersInitialized = true;
+    this.logger.verbose(`Added private peer ${peerIdStr}`);
+  }
+
+  /**
+   * Checks if a peer is private.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is private, false otherwise.
+   */
+  private isPrivatePeer(peerId: PeerId): boolean {
+    if (!this.privatePeersInitialized) {
+      this.logger.warn('Private peers not initialized, returning false');
+      return false;
+    }
+    return this.privatePeers.has(peerId.toString());
+  }
+
+  /**
+   * Checks if a peer is protected (either trusted or private).
+   * @param peerId - The peer ID.
+   * @returns True if the peer is protected, false otherwise.
+   */
+  private isProtectedPeer(peerId: PeerId): boolean {
+    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
   }
 
   /**
@@ -241,15 +311,16 @@ export class PeerManager {
     const connections = this.libP2PNode.getConnections();
 
     const healthyConnections = this.prioritizePeers(
-      this.onlyNotTrustedPeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections))),
+      this.pruneUnhealthyPeers(this.getNonProtectedPeers(this.pruneDuplicatePeers(connections))),
     );
 
     // Calculate how many connections we're looking to make
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
-      connections: healthyConnections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length + this.trustedPeers.size} peers`, {
+      discoveredConnections: healthyConnections.length,
+      protectedConnections: this.trustedPeers.size,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -302,18 +373,14 @@ export class PeerManager {
     }
   }
 
-  private onlyNotTrustedPeers(connections: Connection[]): Connection[] {
-    return connections.filter(conn => !this.isTrustedPeer(conn.remotePeer));
+  private getNonProtectedPeers(connections: Connection[]): Connection[] {
+    return connections.filter(conn => !this.isProtectedPeer(conn.remotePeer));
   }
 
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
-      if (this.isTrustedPeer(peer.remotePeer)) {
-        this.logger.debug(`Not pruning trusted peer ${peer.remotePeer.toString()}`);
-        continue;
-      }
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
@@ -398,7 +465,22 @@ export class PeerManager {
     this.metrics.recordGoodbyeSent(reason);
 
     try {
-      await this.reqresp.sendRequestToPeer(peer, ReqRespSubProtocol.GOODBYE, Buffer.from([reason]));
+      const resp = await this.reqresp.sendRequestToPeer(
+        peer,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([reason]),
+        GOODBYE_DIAL_TIMEOUT_MS,
+      );
+
+      if (resp.status === ReqRespStatus.FAILURE) {
+        this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}`);
+      } else if (resp.status === ReqRespStatus.SUCCESS) {
+        this.logger.verbose(`Sent goodbye to peer ${peer.toString()}`);
+      } else {
+        this.logger.debug(
+          `Unexpected status sending goodbye to peer ${peer.toString()}: ${ReqRespStatus[resp.status]}`,
+        );
+      }
     } catch (error) {
       this.logger.debug(`Failed to send goodbye to peer ${peer.toString()}: ${error}`);
     } finally {
@@ -526,7 +608,7 @@ export class PeerManager {
 
     // Remove the oldest peers
     for (const [key, value] of this.cachedPeers.entries()) {
-      if (this.isTrustedPeer(value.peerId)) {
+      if (this.isProtectedPeer(value.peerId)) {
         this.logger.debug(`Not pruning trusted peer ${key}`);
         continue;
       }
@@ -537,6 +619,54 @@ export class PeerManager {
       if (peersToDelete <= 0) {
         break;
       }
+    }
+  }
+
+  /**
+   * Performs status Handshake with the Peer
+   * The way the protocol is designed is that each peer will call this method on newly established p2p connection.
+   * Both peers request Status message and both peers perform validation of the received Status message.
+   * If this validation fails on any end that peer will initiate disconnect.
+   *  Note: It's important for both peers to request and perform Status validation,
+   *  Because one of the peers can be _bad peer_ and this peer can simply skip the check.
+   *  If we don't implement validation on both ends the _bad peer_ remains connected.
+   * @param: peerId The Id of the peer to request the Status from.
+   * */
+  private async exchangeStatusHandshake(peerId: PeerId) {
+    try {
+      const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+      const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+      //Note: Technically we don't have to send out status to peer as well, but we do.
+      //It will be easier to update protocol in the future this way if need be.
+      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
+      const { status, data } = await this.reqresp.sendRequestToPeer(
+        peerId,
+        ReqRespSubProtocol.STATUS,
+        ourStatus.toBuffer(),
+      );
+      const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
+      if (status !== ReqRespStatus.SUCCESS) {
+        //TODO: maybe hard ban these peers in the future.
+        //We could allow this to happen up to N times, and then hard ban?
+        //Hard ban: Disallow connection via e.g. libp2p's Gater
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const peerStatusMessage = StatusMessage.fromBuffer(data);
+      if (!ourStatus.validate(peerStatusMessage)) {
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake.`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+      this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
+    } catch (err: any) {
+      //TODO: maybe hard ban these peers in the future
+      this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
+        peerId,
+      });
+      await this.disconnectPeer(peerId);
     }
   }
 

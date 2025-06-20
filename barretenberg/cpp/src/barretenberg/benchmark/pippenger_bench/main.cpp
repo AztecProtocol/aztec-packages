@@ -2,8 +2,8 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <chrono>
@@ -64,16 +64,13 @@ const auto init = []() {
 };
 // constexpr double add_to_mixed_add_complexity = 1.36;
 
-auto reference_string =
-    std::make_shared<bb::srs::factories::FileProverCrs<curve::BN254>>(NUM_POINTS, bb::srs::get_ignition_crs_path());
-
 int pippenger()
 {
     scalar_multiplication::pippenger_runtime_state<curve::BN254> state(NUM_POINTS);
     std::chrono::steady_clock::time_point time_start = std::chrono::steady_clock::now();
     g1::element result = scalar_multiplication::pippenger_unsafe<curve::BN254>(
         PolynomialSpan<const curve::BN254::ScalarField>{ /*start_index*/ 0, { &scalars[0], /*size*/ NUM_POINTS } },
-        reference_string->get_monomial_points(),
+        srs::get_bn254_crs_factory()->get_crs(NUM_POINTS)->get_monomial_points(),
         state);
     std::chrono::steady_clock::time_point time_end = std::chrono::steady_clock::now();
     std::chrono::microseconds diff = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_start);
@@ -104,7 +101,7 @@ int coset_fft_regular()
 
 int main()
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     std::cout << "initializing" << std::endl;
     init();
     std::cout << "executing normal fft" << std::endl;

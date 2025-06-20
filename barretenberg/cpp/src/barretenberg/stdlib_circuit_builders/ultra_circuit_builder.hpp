@@ -1,19 +1,22 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
-#include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/honk/execution_trace/ultra_execution_trace.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
+#include "barretenberg/honk/types/merkle_hash_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
 #include <optional>
 #include <unordered_set>
 
-#include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace bb {
@@ -38,7 +41,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = ExecutionTrace::NUM_WIRES;
     static constexpr size_t num_selectors = ExecutionTrace::NUM_SELECTORS;
-    std::vector<std::string> selector_names = ExecutionTrace::selector_names;
 
     static constexpr std::string_view NAME_STRING = "UltraCircuitBuilder";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
@@ -294,7 +296,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     // These are variables that we have used a gate on, to enforce that they are
     // equal to a defined value.
-    // TODO(#216)(Adrian): Why is this not in CircuitBuilderBase
     std::map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
@@ -679,7 +680,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     }
 
     /**
-     * @brief Get the actual finalized size of a Plonk circuit. Assumes the circuit is finalized already.
+     * @brief Get the actual finalized size of a circuit. Assumes the circuit is finalized already.
      *
      * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
      * account the possibility that the tables will dominate the size and checks both the plookup argument
@@ -736,7 +737,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
-        if (this->variables[a_idx] != b && !this->failed()) {
+        if (this->get_variable(a_idx) != b && !this->failed()) {
             this->failure(msg);
         }
         auto b_idx = put_constant_variable(b);
@@ -746,7 +747,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Plookup Methods
      **/
-    void add_table_column_selector_poly_to_proving_key(bb::polynomial& small, const std::string& tag);
     void initialize_precomputed_table(const plookup::BasicTableId id,
                                       bool (*generator)(std::vector<FF>&, std::vector<FF>&, std::vector<FF>&),
                                       std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
@@ -865,7 +865,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
-    uint256_t hash_circuit();
+    uint256_t hash_circuit() const;
 
     msgpack::sbuffer export_circuit() override;
 };

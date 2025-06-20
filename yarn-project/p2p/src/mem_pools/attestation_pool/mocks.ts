@@ -27,18 +27,18 @@ export const generateAccount = (): LocalAccount => {
  * @param slot The slot number the attestation is for
  * @returns A Block Attestation
  */
-export const mockAttestation = async (
+export const mockAttestation = (
   signer: Secp256k1Signer,
   slot: number = 0,
   archive: Fr = Fr.random(),
   txs: TxHash[] = [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
-): Promise<BlockAttestation> => {
+): BlockAttestation => {
   // Use arbitrary numbers for all other than slot
   const header = makeHeader(1, 2, slot);
-  const payload = new ConsensusPayload(header, archive, txs);
+  const payload = new ConsensusPayload(header.toPropose(), archive, header.state, txs);
 
-  const hash = await getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
   const signature = signer.sign(hash);
 
-  return new BlockAttestation(payload, signature);
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, signature);
 };

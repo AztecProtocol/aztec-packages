@@ -16,7 +16,7 @@ import { convertToMultiaddr, getPeerIdPrivateKey } from '../util.js';
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
  */
 export class BootstrapNode implements P2PBootstrapApi {
-  private node?: Discv5 & Discv5EventEmitter = undefined;
+  private node?: Discv5EventEmitter = undefined;
   private peerId?: PeerId;
 
   constructor(
@@ -31,19 +31,23 @@ export class BootstrapNode implements P2PBootstrapApi {
    * @returns An empty promise.
    */
   public async start(config: BootnodeConfig) {
-    const { p2pIp, p2pPort, listenAddress } = config;
-    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, p2pPort, 'udp'));
-
+    const { p2pIp, p2pPort, listenAddress, p2pBroadcastPort } = config;
     if (!p2pIp) {
       throw new Error('You need to provide a P2P IP address.');
     }
 
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
+    if (!p2pBroadcastPort) {
+      config.p2pBroadcastPort = p2pPort;
+    }
+
+    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
+
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
     const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
       peerIdPrivateKey,
       p2pIp,
-      p2pPort,
+      config.p2pBroadcastPort!,
       config.l1ChainId,
     );
     this.peerId = peerId;

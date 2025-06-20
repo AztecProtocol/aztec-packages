@@ -17,15 +17,11 @@ class ClientIVCRecursionTests : public testing::Test {
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
-    using AggregationObject = aggregation_state<Builder>;
+    using PairingAccumulator = PairingPoints<Builder>;
 
-    static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
+    static constexpr TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ClientIVCProverOutput {
         Proof proof;
@@ -105,12 +101,10 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // Generate the recursive verification circuit
     CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
-    // just using default.
-    AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
+    client_ivc_rec_verifier_output.points_accumulator.set_public();
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-    tube_builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
-    tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+    client_ivc_rec_verifier_output.opening_claim.set_public();
+    tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_proof);
 
     info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 
@@ -120,13 +114,13 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
     auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(*tube_builder);
-    UltraProver_<NativeFlavor> tube_prover{ proving_key };
+    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
+    UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
     auto native_tube_proof = tube_prover.construct_proof();
 
     // Natively verify the tube proof
-    auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->proving_key);
-    auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
     EXPECT_TRUE(native_verifier.verify_proof(native_tube_proof, tube_prover.proving_key->proving_key.ipa_proof));
 
@@ -136,20 +130,20 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
-    UltraRecursiveVerifierOutput<RollupFlavor> output =
-        base_verifier.verify_proof(base_tube_proof, AggregationObject::construct_default(base_builder));
+    UltraRecursiveVerifierOutput<Builder> output = base_verifier.verify_proof(base_tube_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
-    output.agg_obj.set_public();
-    base_builder.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+    output.points_accumulator.set_public();
+    output.ipa_claim.set_public();
     base_builder.ipa_proof = tube_prover.proving_key->proving_key.ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 
     // Natively verify the IPA proof for the base rollup circuit
     auto base_proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(base_builder);
-    auto ipa_transcript = std::make_shared<NativeTranscript>(base_proving_key->proving_key.ipa_proof);
+    auto ipa_transcript = std::make_shared<NativeTranscript>();
+    ipa_transcript->load_proof(base_proving_key->proving_key.ipa_proof);
     IPA<curve::Grumpkin>::reduce_verify(
-        ipa_verification_key, output.ipa_opening_claim.get_native_opening_claim(), ipa_transcript);
+        ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }
 
 // Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input
@@ -168,13 +162,10 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
 
         auto client_ivc_rec_verifier_output = verifier.verify(proof);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output
-        // instead of just using default.
-        AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
+        client_ivc_rec_verifier_output.points_accumulator.set_public();
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
-        tube_builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
-        tube_builder->ipa_proof =
-            convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
+        client_ivc_rec_verifier_output.opening_claim.set_public();
+        tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_proof);
 
         info("ClientIVC Recursive Verifier: num prefinalized gates = ", tube_builder->num_gates);
 

@@ -22,6 +22,8 @@ Along the way you will:
 - Wrap an address with its interface (token)
 - Create custom private value notes
 
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 ## Setup
 
 ### Install tools
@@ -63,7 +65,10 @@ Open the project in your preferred editor. If using VSCode and the LSP, you'll b
 
 In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
-#include_code empty-contract /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
+```rust
+#include_code empty-contract /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr raw
+}
+```
 
 Replace the example functions with an initializer that takes the required campaign info as parameters. Notice use of `#[aztec(...)]` macros inform the compiler that the function is a public initializer.
 
@@ -88,7 +93,11 @@ Add the required dependency by going to your project's `Nargo.toml` file, and ad
 ```rust
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
+router = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/protocol/router_contract" }
 ```
+
+This snippet also imports some of the other dependencies we will be using.
 
 A word about versions:
 
@@ -103,27 +112,19 @@ use dep::aztec::protocol_types::address::AztecAddress;
 
 The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src). And like rust dependencies, the relative path inside the dependency corresponds to `address::AztecAddress`.
 
+This contract uses another file called `config.nr`. Create this in the same directory as `main.nr` and paste this in:
+
+#include_code config.nr noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/config.nr rust
+
 #### Storage
 
-To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
+To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct in our `main.nr`:
 
 #include_code storage /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
-
-The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
-
----
-
-Back in main.nr, reference `use` of the type
-
-```rust
-use dep::value_note::value_note::ValueNote;
-```
 
 Now complete the initializer by setting the storage variables with the parameters:
 
 #include_code init /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
-
-You can compile the code so far with `aztec-nargo compile`.
 
 ### 2. Taking private donations
 
@@ -177,6 +178,10 @@ Copy the last function into your Crowdfunding contract:
 
 #include_code operator-withdrawals /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
+This is emitting an event, which we will need to create. Paste this earlier in our contract after our `Storage` declaration:
+
+#include_code withdrawal-processed-event /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
+
 You should be able to compile successfully with `aztec-nargo compile`.
 
 **Congratulations,** you have just built a multi-contract project on Aztec!
@@ -196,7 +201,7 @@ Follow the account contract tutorial on the [next page](./write_accounts_contrac
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
- - [Versions](../../../guides/local_env/versions-updating.md).
- - [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
- - [Public logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)
+- [Initializer functions](../../../guides/smart_contracts/writing_contracts/initializers.md)
+- [Versions](../../../guides/local_env/versions-updating.md).
+- [Authorizing actions](../../../../aztec/concepts/advanced/authwit.md)
+- [Public logs](../../../guides/smart_contracts/writing_contracts/how_to_emit_event.md)

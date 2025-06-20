@@ -23,17 +23,40 @@ class ClientIVCBench : public benchmark::Fixture {
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     }
 };
+
+/**
+ * @brief Benchmark only the verification work for the PG-Goblin IVC protocol
+ */
+BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
+{
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    auto circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    auto circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    auto proof = ivc.prove();
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(ivc.verify(proof));
+    }
+}
 
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
     auto mocked_vkeys = mock_verification_keys(total_num_circuits);
@@ -44,14 +67,13 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
         ivc.prove();
     }
 }
-
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  * @details Processes "dense" circuits of size 2^17 in a size 2^20 structured trace
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 {
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
     auto mocked_vkeys = mock_verification_keys(total_num_circuits);
@@ -68,6 +90,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Ambient_17_in_20)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(ClientIVCBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

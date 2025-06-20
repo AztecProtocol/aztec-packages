@@ -9,6 +9,7 @@
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -30,12 +31,16 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
         // Then we increment the count in the counts column at dst_row.
         // The complexity is O(|src_selector|) * O(find_in_dst).
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
-            uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            uint32_t dst_row = 0;
+            try {
+                dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            } catch (const std::runtime_error& e) {
+                // Add row information and rethrow.
+                throw std::runtime_error(std::string(e.what()) + " at row " + std::to_string(row));
+            }
+
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
     }
@@ -63,10 +68,7 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
     void init(TraceContainer& trace) override
     {
         row_idx.reserve(trace.get_column_rows(LookupSettings::DST_SELECTOR));
-        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF& dst_sel_value) {
-            assert(dst_sel_value == 1);
-            (void)dst_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             row_idx.insert({ dst_values, row });
         });
@@ -79,7 +81,8 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
             return it->second;
         }
         throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                 ". Could not find tuple in destination.");
+                                 ". Could not find tuple in destination. " +
+                                 "SRC tuple: " + column_values_to_string(tup, LookupSettings::SRC_COLUMNS));
     }
 
   private:
@@ -111,11 +114,8 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
         // Since the trace does not guarantee visiting rows in order, we need to collect the rows.
         std::vector<uint32_t> src_rows_in_order;
         src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-            src_rows_in_order.push_back(row);
-        });
+        trace.visit_column(LookupSettings::SRC_SELECTOR,
+                           [&](uint32_t row, const FF&) { src_rows_in_order.push_back(row); });
         std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
         for (uint32_t row : src_rows_in_order) {
@@ -135,8 +135,11 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
             }
 
             if (!found) {
-                throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                         ". Could not find tuple in destination.");
+                throw std::runtime_error(
+                    "Failed computing counts for " + std::string(LookupSettings::NAME) +
+                    ". Could not find tuple in destination.\nSRC tuple (row " + std::to_string(row) +
+                    "): " + column_values_to_string(src_values, LookupSettings::SRC_COLUMNS) +
+                    "\nNOTE: Remember that you cannot use LookupIntoDynamicTableSequential with a deduplicated trace!");
             }
         }
     }

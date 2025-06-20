@@ -8,7 +8,7 @@ export interface ExecutorMetricsInterface {
     fnName: string,
     durationMs: number,
     manaUsed: number,
-    totalInstructions: number,
+    totalInstructionsExecuted: number,
   ): void;
   recordTxHashComputation(durationMs: number): void;
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible'): void;

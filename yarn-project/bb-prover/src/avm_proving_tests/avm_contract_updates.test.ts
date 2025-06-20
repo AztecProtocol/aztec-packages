@@ -1,5 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -60,7 +60,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.originalContractClassId,
         avmTestContractInstance.currentContractClassId,
-        globals.blockNumber.toNumber(),
+        globals.blockNumber,
       );
 
       await tester.simProveVerify(
@@ -97,7 +97,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.originalContractClassId,
         avmTestContractInstance.currentContractClassId,
-        globals.blockNumber.toNumber() + 1,
+        globals.blockNumber + 1,
       );
 
       await expect(
@@ -136,7 +136,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.currentContractClassId,
         newClassId,
-        globals.blockNumber.toNumber() + 1,
+        globals.blockNumber + 1,
       );
 
       await tester.simProveVerify(
@@ -173,7 +173,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.currentContractClassId,
         newClassId,
-        globals.blockNumber.toNumber() - 1,
+        globals.blockNumber - 1,
       );
 
       await expect(

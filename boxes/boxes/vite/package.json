@@ -1,12 +1,12 @@
 {
-  "name": "@aztec/vite",
+  "name": "aztec-example-vite",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "compile": "cd src/contracts && ${AZTEC_NARGO:-aztec-nargo} compile --silence-warnings",
     "codegen": "${AZTEC_BUILDER:-aztec} codegen src/contracts/target -o artifacts",
-    "clean": "rm -rf ./dist .tsbuildinfo ./artifacts ./src/contracts/target",
+    "clean": "rm -rf ./dist .tsbuildinfo ./codegenCache.json ./artifacts ./src/contracts/target",
     "prep": "yarn clean && yarn compile && yarn codegen",
     "build": "yarn prep && tsc -b && vite build",
     "serve": "vite",
@@ -29,7 +29,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react-swc": "^3.7.2",
-    "eslint": "^9.13.0",
+    "eslint": "^9.26.0",
     "eslint-plugin-react-hooks": "^5.1.0",
     "eslint-plugin-react-refresh": "^0.4.16",
     "globals": "^15.11.0",

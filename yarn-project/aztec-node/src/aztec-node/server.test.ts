@@ -1,7 +1,10 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { unfreeze } from '@aztec/foundation/types';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -14,7 +17,16 @@ import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
 import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, MaxBlockNumber, TX_ERROR_INVALID_BLOCK_NUMBER } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  MaxBlockNumber,
+  TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
+  TX_ERROR_INCORRECT_L1_CHAIN_ID,
+  TX_ERROR_INCORRECT_ROLLUP_VERSION,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
+} from '@aztec/stdlib/tx';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -41,6 +53,10 @@ describe('aztec node', () => {
       numberOfNonRevertiblePublicCallRequests: 0,
       numberOfRevertiblePublicCallRequests: 0,
       feePayer,
+      chainId,
+      version: rollupVersion,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
     });
   };
 
@@ -121,9 +137,12 @@ describe('aztec node', () => {
       worldState,
       undefined,
       undefined,
+      undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
     );
   });
@@ -131,10 +150,6 @@ describe('aztec node', () => {
   describe('tx validation', () => {
     it('tests that the node correctly validates double spends', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
-      txs.forEach(tx => {
-        tx.data.constants.txContext.chainId = chainId;
-        tx.data.constants.txContext.version = rollupVersion;
-      });
       const doubleSpendTx = txs[0];
       const doubleSpendWithExistingTx = txs[1];
       lastBlockNumber += 1;
@@ -144,7 +159,10 @@ describe('aztec node', () => {
       // We push a duplicate nullifier that was created in the same transaction
       doubleSpendTx.data.forRollup!.end.nullifiers[1] = doubleSpendTx.data.forRollup!.end.nullifiers[0];
 
-      expect(await node.isValidTx(doubleSpendTx)).toEqual({ result: 'invalid', reason: ['Duplicate nullifier in tx'] });
+      expect(await node.isValidTx(doubleSpendTx)).toEqual({
+        result: 'invalid',
+        reason: [TX_ERROR_DUPLICATE_NULLIFIER_IN_TX],
+      });
 
       expect(await node.isValidTx(doubleSpendWithExistingTx)).toEqual({ result: 'valid' });
 
@@ -169,47 +187,36 @@ describe('aztec node', () => {
 
     it('tests that the node correctly validates chain id', async () => {
       const tx = await mockTxForRollup(0x10000);
-      tx.data.constants.txContext.chainId = chainId;
-      tx.data.constants.txContext.version = rollupVersion;
-
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.chainId = new Fr(1n + chainId.toBigInt());
 
-      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect chain id'] });
+      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_L1_CHAIN_ID] });
     });
 
     it('tests that the node correctly validates rollup version', async () => {
       const tx = await mockTxForRollup(0x10000);
-      tx.data.constants.txContext.chainId = chainId;
-      tx.data.constants.txContext.version = rollupVersion;
-
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
       // We make the chain id on the tx not equal to the configured chain id
       tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
 
-      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect rollup version'] });
+      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: [TX_ERROR_INCORRECT_ROLLUP_VERSION] });
     });
 
     it('tests that the node correctly validates max block numbers', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
-      txs.forEach(tx => {
-        tx.data.constants.txContext.chainId = chainId;
-        tx.data.constants.txContext.version = rollupVersion;
-      });
-
       const noMaxBlockNumberMetadata = txs[0];
       const invalidMaxBlockNumberMetadata = txs[1];
       const validMaxBlockNumberMetadata = txs[2];
 
       invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(1)),
+        new MaxBlockNumber(true, 1),
       );
 
       validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(5)),
+        new MaxBlockNumber(true, 5),
       );
 
       lastBlockNumber = 3;
@@ -219,35 +226,35 @@ describe('aztec node', () => {
       // Tx with max block number < current block number should be invalid
       expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_BLOCK_NUMBER],
+        reason: [TX_ERROR_INVALID_MAX_BLOCK_NUMBER],
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
     });
   });
 
-  describe('Node Info', () => {
-    it('returns the correct node version', async () => {
-      const releasePleaseVersionFile = readFileSync(
-        resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
-      ).toString();
-      const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
-
-      const nodeInfo = await node.getNodeInfo();
-      expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
-    });
-  });
-
   describe('getters', () => {
+    describe('node info', () => {
+      it('returns the correct node version', async () => {
+        const releasePleaseVersionFile = readFileSync(
+          resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
+        ).toString();
+        const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+
+        const nodeInfo = await node.getNodeInfo();
+        expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
+      });
+    });
+
     describe('getBlockHeader', () => {
       let initialHeader: BlockHeader;
       let header1: BlockHeader;
       let header2: BlockHeader;
 
       beforeEach(() => {
-        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(0) }) });
-        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(1) }) });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(2) }) });
+        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 0 }) });
+        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1 }) });
+        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 2 }) });
 
         merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
         l2BlockSource.getBlockNumber.mockResolvedValue(2);
@@ -276,6 +283,14 @@ describe('aztec node', () => {
         l2BlockSource.getBlockHeader.mockResolvedValue(undefined);
         expect(await node.getBlockHeader(3)).toEqual(undefined);
       });
+    });
+  });
+
+  describe('simulatePublicCalls', () => {
+    it('refuses to simulate public calls if the gas limit is too high', async () => {
+      const tx = await mockTxForRollup(0x10000);
+      unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
+      await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
     });
   });
 });

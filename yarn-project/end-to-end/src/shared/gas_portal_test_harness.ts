@@ -11,7 +11,7 @@ import {
   type Wallet,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -31,8 +31,7 @@ export interface FeeJuicePortalTestingHarnessFactoryConfig {
   aztecNode: AztecNode;
   aztecNodeAdmin?: AztecNodeAdmin;
   pxeService: PXE;
-  publicClient: ViemPublicClient;
-  walletClient: ViemWalletClient;
+  l1Client: ExtendedViemWalletClient;
   wallet: Wallet;
   logger: Logger;
   mockL1?: boolean;
@@ -42,9 +41,9 @@ export class FeeJuicePortalTestingHarnessFactory {
   private constructor(private config: FeeJuicePortalTestingHarnessFactoryConfig) {}
 
   private async createReal() {
-    const { aztecNode, aztecNodeAdmin, pxeService, publicClient, walletClient, wallet, logger } = this.config;
+    const { aztecNode, aztecNodeAdmin, pxeService, l1Client, wallet, logger } = this.config;
 
-    const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
+    const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
 
     const feeJuiceAddress = l1ContractAddresses.feeJuiceAddress;
@@ -66,8 +65,7 @@ export class FeeJuicePortalTestingHarnessFactory {
       feeJuicePortalAddress,
       feeJuiceAddress,
       l1ContractAddresses.feeAssetHandlerAddress!,
-      publicClient,
-      walletClient,
+      l1Client,
     );
   }
 
@@ -107,17 +105,14 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     public l1FeeJuiceAddress: EthAddress,
     /** Fee asset handler address. */
     public feeAssetHandlerAddress: EthAddress,
-    /** Viem Public client instance. */
-    public publicClient: ViemPublicClient,
-    /** Viem Wallet Client instance. */
-    public walletClient: ViemWalletClient,
+    /** Viem Extended client instance. */
+    public l1Client: ExtendedViemWalletClient,
   ) {
     this.feeJuicePortalManager = new L1FeeJuicePortalManager(
       this.feeJuicePortalAddress,
       this.l1FeeJuiceAddress,
       this.feeAssetHandlerAddress,
-      this.publicClient,
-      this.walletClient,
+      this.l1Client,
       this.logger,
     );
 
@@ -130,7 +125,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     const feeAssetL1 = getContract({
       address: this.l1FeeJuiceAddress.toString(),
       abi: TestERC20Abi,
-      client: this.walletClient,
+      client: this.l1Client,
     });
 
     await feeAssetL1.write.mint([to.toString(), amount]);

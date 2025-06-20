@@ -26,7 +26,7 @@ describe('e2e_nested_contract manual', () => {
     await expect(
       parentContract.methods
         .entry_point(childContract.address, await (childContract.methods as any).value_internal.selector())
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(/Assertion failed: Function value_internal can only be called internally/);
   });
 });

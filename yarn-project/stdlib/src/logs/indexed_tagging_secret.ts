@@ -4,7 +4,10 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '../aztec-address/index.js';
 
 export class IndexedTaggingSecret {
-  constructor(public appTaggingSecret: Fr, public index: number) {
+  constructor(
+    public appTaggingSecret: Fr,
+    public index: number,
+  ) {
     if (index < 0) {
       throw new Error('IndexedTaggingSecret index out of bounds');
     }

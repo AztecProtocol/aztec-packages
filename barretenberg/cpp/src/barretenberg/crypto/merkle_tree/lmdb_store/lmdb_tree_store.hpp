@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -10,7 +16,7 @@
 #include "barretenberg/lmdblib/lmdb_read_transaction.hpp"
 #include "barretenberg/lmdblib/lmdb_store_base.hpp"
 #include "barretenberg/lmdblib/lmdb_write_transaction.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "lmdb.h"
 #include <cstdint>

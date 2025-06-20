@@ -1,4 +1,4 @@
-import { type ViemPublicClient, type ViemWalletClient, createEthereumChain } from '@aztec/ethereum';
+import { type ExtendedViemWalletClient, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
@@ -10,12 +10,8 @@ import {
   type HttpTransport,
   type LocalAccount,
   type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  fallback,
   getContract,
   parseEther,
-  http as viemHttp,
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
@@ -27,8 +23,7 @@ type L1Asset = {
 };
 
 export class Faucet {
-  private walletClient: ViemWalletClient;
-  private publicClient: ViemPublicClient;
+  private l1Client: ExtendedViemWalletClient;
 
   private dripHistory = new Map<string, Map<string, number>>();
   private l1Assets = new Map<string, L1Asset>();
@@ -41,24 +36,15 @@ export class Faucet {
   ) {
     const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
 
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain: chain.chainInfo,
-      transport: fallback(chain.rpcUrls.map(url => viemHttp(url))),
-    });
-
-    this.publicClient = createPublicClient({
-      chain: chain.chainInfo,
-      transport: fallback(chain.rpcUrls.map(url => viemHttp(url))),
-    });
+    this.l1Client = createExtendedL1Client(config.l1RpcUrls, this.account, chain.chainInfo);
   }
 
   public static async create(config: FaucetConfig): Promise<Faucet> {
-    if (!config.l1Mnemonic) {
+    if (!config.l1Mnemonic || !config.l1Mnemonic.getValue()) {
       throw new Error('Missing faucet mnemonic');
     }
 
-    const account = mnemonicToAccount(config.l1Mnemonic, { addressIndex: config.mnemonicAccountIndex });
+    const account = mnemonicToAccount(config.l1Mnemonic.getValue(), { addressIndex: config.mnemonicAddressIndex });
     const faucet = new Faucet(config, account);
 
     for (const asset of config.l1Assets) {
@@ -79,12 +65,12 @@ export class Faucet {
   public async sendEth(to: EthAddress): Promise<void> {
     this.checkThrottle(to, 'ETH');
 
-    const hash = await this.walletClient.sendTransaction({
+    const hash = await this.l1Client.sendTransaction({
       account: this.account,
       to: to.toString(),
       value: parseEther(this.config.ethAmount),
     });
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    await this.l1Client.waitForTransactionReceipt({ hash });
 
     this.updateThrottle(to, 'ETH');
     this.log.info(`Sent ETH ${this.config.ethAmount} to ${to} in tx ${hash}`);
@@ -99,7 +85,7 @@ export class Faucet {
     this.checkThrottle(to, assetName);
 
     const hash = await asset.contract.write.mint([to.toString(), asset.amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash });
+    await this.l1Client.waitForTransactionReceipt({ hash });
 
     this.updateThrottle(to, assetName);
 
@@ -110,7 +96,7 @@ export class Faucet {
     const contract = getContract({
       abi: TestERC20Abi,
       address: l1AssetConfig.address.toString(),
-      client: this.walletClient,
+      client: this.l1Client,
     });
 
     const [name, owner] = await Promise.all([contract.read.name(), contract.read.owner()]);

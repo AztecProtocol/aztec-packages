@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include <array>
@@ -332,9 +338,6 @@ struct LookupHashTable {
 /**
  * @brief A basic table from which we can perform lookups (for example, an xor table)
  * @details Also stores the lookup gate data for all lookups performed on this table
- *
- * @details You can find initialization example at
- * ../ultra_plonk_composer.cpp#UltraPlonkComposer::initialize_precomputed_table(..)
  *
  */
 struct BasicTable {

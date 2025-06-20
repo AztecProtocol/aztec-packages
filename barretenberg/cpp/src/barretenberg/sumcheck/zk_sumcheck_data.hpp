@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/constants.hpp"
@@ -52,7 +58,7 @@ template <typename Flavor> struct ZKSumcheckData {
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
                    std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
-                   std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+                   typename Flavor::CommitmentKey commitment_key = typename Flavor::CommitmentKey())
         : constant_term(FF::random_element())
         , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
         , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))
@@ -65,8 +71,8 @@ template <typename Flavor> struct ZKSumcheckData {
         compute_concatenated_libra_polynomial();
 
         // If proving_key is provided, commit to the concatenated and masked libra polynomial
-        if (commitment_key != nullptr) {
-            auto libra_commitment = commitment_key->commit(libra_concatenated_monomial_form);
+        if (commitment_key.initialized()) {
+            auto libra_commitment = commitment_key.commit(libra_concatenated_monomial_form);
             transcript->template send_to_verifier("Libra:concatenation_commitment", libra_commitment);
         }
         // Compute the total sum of the Libra polynomials

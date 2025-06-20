@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
@@ -29,7 +35,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
                                     const std::shared_ptr<RecursiveDeciderVK>& verification_key,
-                                    std::shared_ptr<Transcript> transcript,
+                                    const std::shared_ptr<Transcript>& transcript,
                                     std::string domain_separator = "");
 
     /**
@@ -57,7 +63,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
 
     std::shared_ptr<RecursiveDeciderVK> verification_key;
     Builder* builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::string domain_separator; // used in PG to distinguish between verification_keys in transcript
 };
 

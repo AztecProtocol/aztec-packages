@@ -19,6 +19,8 @@ In this tutorial you will learn how to:
 
 We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr), and explain what is being added as we go.
 
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 ## Requirements
 
 You will need to have `aztec-nargo` installed in order to compile Aztec.nr contracts.
@@ -122,10 +124,6 @@ This happens remotely by the sequencer, which takes inputs from the private exec
 Step 3. Ethereum execution
 
 Aztec transactions can pass messages to Ethereum contracts through the rollup via the outbox. The data can be consumed by Ethereum contracts at a later time, but this is not part of the transaction flow for an Aztec transaction. The technical details of this are beyond the scope of this tutorial, but we will cover them in an upcoming piece.
-
-### Unconstrained functions
-
-Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage.
 
 ## Contract dependencies
 
@@ -352,7 +350,7 @@ Similar to `_finalize_transfer_to_private_unsafe`, this public internal function
 
 ### View function implementations
 
-View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
+View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from utility functions in that the return values are constrained by their definition in the contract.
 
 Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
 
@@ -380,9 +378,9 @@ A getter function for checking the public balance of the provided Aztec account.
 
 #include_code balance_of_public /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
-### Unconstrained function implementations
+### Utility function implementations
 
-Unconstrained functions are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. They are different from view functions in that the values are returned from the user's PXE and are not constrained by the contract's definition--if there is bad data in the user's PXE, they will get bad data back.
+[Utility](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility) functions can be used to get contract information, both private and public, from an application - they are not callable inside a transaction.
 
 #### `balance_of_private`
 
@@ -410,7 +408,7 @@ aztec codegen target -o src/artifacts
 
 ### Token Bridge Contract
 
-The [token bridge tutorial](./token_bridge) is a great follow up to this one.
+The [token bridge tutorial](../js_tutorials/token_bridge) is a great follow up to this one.
 
 It builds on the Token contract described here and goes into more detail about Aztec contract composability and Ethereum (L1) and Aztec (L2) cross-chain messaging.
 

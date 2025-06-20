@@ -9,6 +9,7 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { setup } from './fixtures/utils.js';
 
@@ -19,6 +20,7 @@ describe('e2e_pruned_blocks', () => {
   let teardown: () => Promise<void>;
 
   let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let cheatCodes: CheatCodes;
 
   let wallets: AccountWallet[];
@@ -36,14 +38,17 @@ describe('e2e_pruned_blocks', () => {
 
   // Don't make this value too high since we need to mine this number of empty blocks, which is relatively slow.
   const WORLD_STATE_BLOCK_HISTORY = 2;
+  const EPOCH_LENGTH = 2;
   const WORLD_STATE_CHECK_INTERVAL_MS = 300;
   const ARCHIVER_POLLING_INTERVAL_MS = 300;
 
   beforeAll(async () => {
-    ({ aztecNode, cheatCodes, logger, teardown, wallets } = await setup(3, {
+    ({ aztecNode, aztecNodeAdmin, cheatCodes, logger, teardown, wallets } = await setup(3, {
+      aztecEpochDuration: EPOCH_LENGTH,
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
     [adminWallet, senderWallet] = wallets;
@@ -55,10 +60,11 @@ describe('e2e_pruned_blocks', () => {
 
   afterAll(() => teardown());
 
-  async function mineBlocks(blocks: number): Promise<void> {
-    // There's currently no cheatcode for mining blocks so we just create a couple dummy ones by calling a view function
+  async function waitBlocks(blocks: number): Promise<void> {
+    logger.warn(`Awaiting ${blocks} blocks to be mined`);
     for (let i = 0; i < blocks; i++) {
       await token.methods.private_get_name().send().wait();
+      logger.warn(`Mined ${i + 1}/${blocks} blocks`);
     }
   }
 
@@ -90,12 +96,15 @@ describe('e2e_pruned_blocks', () => {
     ).toBeGreaterThan(0);
 
     // We now mine dummy blocks, mark them as proven and wait for the node to process them, which should result in older
-    // blocks (notably the one with the minted note) being pruned.
-    await mineBlocks(WORLD_STATE_BLOCK_HISTORY);
+    // blocks (notably the one with the minted note) being pruned. Given world state prunes based on the finalized tip,
+    // and we are defining the finalized tip as two epochs behind the proven one, we need to mine two extra epochs.
+    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
+    await waitBlocks(WORLD_STATE_BLOCK_HISTORY + EPOCH_LENGTH * 2 + 1);
     await cheatCodes.rollup.markAsProven();
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
+    logger.warn(`Awaiting 'unable to find leaf' error from node due to pruned history`);
     await retryUntil(
       async () => {
         try {
@@ -113,7 +122,6 @@ describe('e2e_pruned_blocks', () => {
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)
     // and check that everything worked as expected.
-
     await token
       .withWallet(adminWallet)
       .methods.mint_to_private(admin, sender, MINT_AMOUNT / 2n)

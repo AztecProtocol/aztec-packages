@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 
@@ -21,23 +21,23 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
 
   public:
     explicit AvmRecursiveVerifier_(Builder& builder,
                                    const std::shared_ptr<NativeVerificationKey>& native_verification_key);
     explicit AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof,
-                                   const std::vector<std::vector<fr>>& public_inputs_vec_nt,
-                                   AggregationObject agg_obj);
-    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
-                                   const std::vector<std::vector<typename Flavor::FF>>& public_inputs,
-                                   AggregationObject agg_obj);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
+    [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
+        const StdlibProof<Builder>& stdlib_proof_with_pi_flag, // TODO(#14234)[Unconditional PIs validation]: rename
+                                                               // stdlib_proof_with_pi_flag to stdlib_proof
+        const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
     FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);

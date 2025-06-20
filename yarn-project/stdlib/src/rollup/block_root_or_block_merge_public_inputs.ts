@@ -9,12 +9,17 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { GlobalVariables } from '../tx/global_variables.js';
+import { EpochConstantData } from './epoch_constant_data.js';
 
 /**
  * Output of the block root and block merge rollup circuits.
  */
 export class BlockRootOrBlockMergePublicInputs {
   constructor(
+    /**
+     * Constants for the entire epoch.
+     */
+    public constants: EpochConstantData,
     /**
      * Archive tree immediately before this block range.
      */
@@ -23,14 +28,6 @@ export class BlockRootOrBlockMergePublicInputs {
      * Archive tree after adding this block range.
      */
     public newArchive: AppendOnlyTreeSnapshot,
-    /**
-     * Identifier of the previous block before the range.
-     */
-    public previousBlockHash: Fr,
-    /**
-     * Identifier of the last block in the range.
-     */
-    public endBlockHash: Fr,
     /**
      * Global variables for the first block in the range.
      */
@@ -45,25 +42,17 @@ export class BlockRootOrBlockMergePublicInputs {
      */
     public outHash: Fr,
     /**
+     * The hashes of the proposed block headers of the constituent blocks.
+     */
+    public proposedBlockHeaderHashes: Tuple<Fr, typeof AZTEC_MAX_EPOCH_DURATION>,
+    /**
      * The summed `transaction_fee`s and recipients of the constituent blocks.
      */
     public fees: Tuple<FeeRecipient, typeof AZTEC_MAX_EPOCH_DURATION>,
     /**
-     * Root of the verification key tree.
+     * Public inputs required to verify a batch of blobs.
      */
-    public vkTreeRoot: Fr,
-    /**
-     * Root of the protocol contract tree.
-     */
-    public protocolContractTreeRoot: Fr,
-    /**
-     * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
-     */
-    public proverId: Fr,
-    /**
-     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p() for each blob)
-     */
-    public blobPublicInputs: Tuple<BlockBlobPublicInputs, typeof AZTEC_MAX_EPOCH_DURATION>,
+    public blobPublicInputs: BlockBlobPublicInputs,
   ) {}
 
   /**
@@ -74,18 +63,15 @@ export class BlockRootOrBlockMergePublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): BlockRootOrBlockMergePublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new BlockRootOrBlockMergePublicInputs(
+      reader.readObject(EpochConstantData),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readObject(GlobalVariables),
       reader.readObject(GlobalVariables),
       Fr.fromBuffer(reader),
+      reader.readArray(AZTEC_MAX_EPOCH_DURATION, Fr),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      reader.readArray(AZTEC_MAX_EPOCH_DURATION, BlockBlobPublicInputs),
+      reader.readObject(BlockBlobPublicInputs),
     );
   }
 
@@ -95,17 +81,14 @@ export class BlockRootOrBlockMergePublicInputs {
    */
   toBuffer() {
     return serializeToBuffer(
+      this.constants,
       this.previousArchive,
       this.newArchive,
-      this.previousBlockHash,
-      this.endBlockHash,
       this.startGlobalVariables,
       this.endGlobalVariables,
       this.outHash,
+      this.proposedBlockHeaderHashes,
       this.fees,
-      this.vkTreeRoot,
-      this.protocolContractTreeRoot,
-      this.proverId,
       this.blobPublicInputs,
     );
   }
@@ -139,7 +122,10 @@ export class BlockRootOrBlockMergePublicInputs {
 }
 
 export class FeeRecipient {
-  constructor(public recipient: EthAddress, public value: Fr) {}
+  constructor(
+    public recipient: EthAddress,
+    public value: Fr,
+  ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): FeeRecipient {
     const reader = BufferReader.asReader(buffer);

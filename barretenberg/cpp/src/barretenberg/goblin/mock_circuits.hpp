@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -6,6 +12,7 @@
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_store.hpp"
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
@@ -14,7 +21,6 @@
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
 namespace bb {
@@ -53,6 +59,8 @@ class GoblinMockCircuits {
     using RecursiveVerificationKey = RecursiveDeciderVerificationKey::VerificationKey;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
+
+    using PairingPoints = stdlib::recursion::PairingPoints<MegaBuilder>;
     static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
@@ -74,8 +82,8 @@ class GoblinMockCircuits {
         PROFILE_THIS();
 
         if (large) { // Results in circuit size 2^19
-            stdlib::generate_sha256_test_circuit(builder, 11);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 10);
+            stdlib::generate_sha256_test_circuit(builder, 9);
+            stdlib::generate_ecdsa_verification_test_circuit(builder, 8);
             stdlib::generate_merkle_membership_test_circuit(builder, 12);
         } else { // Results in circuit size 2^17
             stdlib::generate_sha256_test_circuit(builder, 8);
@@ -89,34 +97,7 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-    }
-
-    /**
-     * @brief Populate a builder with some arbitrary but nontrivial constraints
-     * @details Although the details of the circuit constructed here are arbitrary, the intent is to mock something a
-     * bit more realistic than a circuit comprised entirely of arithmetic gates. E.g. the circuit should respond
-     * realistically to efforts to parallelize circuit construction.
-     *
-     * @param builder
-     * @param large If true, construct a "large" circuit (2^19), else a medium circuit (2^17)
-     */
-    static void construct_mock_function_circuit(MegaBuilder& builder, bool large = false)
-    {
-        PROFILE_THIS();
-
-        // Determine number of times to execute the below operations that constitute the mock circuit logic. Note that
-        // the circuit size does not scale linearly with number of iterations due to e.g. amortization of lookup costs
-        const size_t NUM_ITERATIONS_LARGE = 12; // results in circuit size 2^19 (502238 gates)
-
-        if (large) {
-            stdlib::generate_sha256_test_circuit(builder, NUM_ITERATIONS_LARGE);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ITERATIONS_LARGE / 2);
-            stdlib::generate_merkle_membership_test_circuit(builder, NUM_ITERATIONS_LARGE);
-        } else { // Results in circuit size 2^17 when accumulated via ClientIvc
-            stdlib::generate_sha256_test_circuit(builder, 5);
-            stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
-            stdlib::generate_merkle_membership_test_circuit(builder, 10);
-        }
+        PairingPoints::add_default_to_public_inputs(builder);
     }
 
     /**
@@ -144,11 +125,17 @@ class GoblinMockCircuits {
      *
      * @param builder
      */
-    static void construct_simple_circuit(MegaBuilder& builder)
+    static void construct_simple_circuit(MegaBuilder& builder, bool last_circuit = false)
     {
         PROFILE_THIS();
+        // The last circuit to be accumulated must contain a no-op
+        if (last_circuit) {
+            builder.queue_ecc_no_op();
+        }
+
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
+        PairingPoints::add_default_to_public_inputs(builder);
     }
 
     /**
@@ -172,33 +159,6 @@ class GoblinMockCircuits {
         stdlib::generate_merkle_membership_test_circuit(builder, NUM_MERKLE_CHECKS);
         stdlib::generate_ecdsa_verification_test_circuit(builder, NUM_ECDSA_VERIFICATIONS);
         stdlib::generate_sha256_test_circuit(builder, NUM_SHA_HASHES);
-    }
-
-    /**
-     * @brief A minimal version of the mock kernel (recursive verifiers only) for faster testing
-     *
-     */
-    static void construct_mock_kernel_small(MegaBuilder& builder,
-                                            const KernelInput& function_accum,
-                                            const KernelInput& prev_kernel_accum)
-    {
-        PROFILE_THIS();
-        using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
-
-        // Execute recursive aggregation of function proof
-        auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
-        auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
-        RecursiveVerifier verifier1{ &builder, verification_key };
-        verifier1.verify_proof(proof, AggregationObject::construct_default(builder));
-
-        // Execute recursive aggregation of previous kernel proof if one exists
-        if (!prev_kernel_accum.proof.empty()) {
-            auto verification_key =
-                std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
-            auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
-            RecursiveVerifier verifier2{ &builder, verification_key };
-            verifier2.verify_proof(proof, AggregationObject::construct_default(builder));
-        }
     }
 };
 } // namespace bb

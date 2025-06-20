@@ -49,8 +49,7 @@ export abstract class BaseContractInteraction {
    */
   protected async proveInternal(options: SendMethodOptions = {}): Promise<TxProvingResult> {
     const txRequest = await this.create(options);
-    const txSimulationResult = await this.wallet.simulateTx(txRequest, !options.skipPublicSimulation, undefined, true);
-    return await this.wallet.proveTx(txRequest, txSimulationResult.privateExecutionResult);
+    return await this.wallet.proveTx(txRequest);
   }
 
   // docs:start:prove
@@ -62,7 +61,12 @@ export abstract class BaseContractInteraction {
   public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
     // docs:end:prove
     const txProvingResult = await this.proveInternal(options);
-    return new ProvenTx(this.wallet, txProvingResult.toTx());
+    return new ProvenTx(
+      this.wallet,
+      txProvingResult.toTx(),
+      txProvingResult.getOffchainMessages(),
+      txProvingResult.stats,
+    );
   }
 
   // docs:start:send
@@ -77,11 +81,11 @@ export abstract class BaseContractInteraction {
    */
   public send(options: SendMethodOptions = {}): SentTx {
     // docs:end:send
-    const promise = (async () => {
+    const sendTx = async () => {
       const txProvingResult = await this.proveInternal(options);
       return this.wallet.sendTx(txProvingResult.toTx());
-    })();
-    return new SentTx(this.wallet, promise);
+    };
+    return new SentTx(this.wallet, sendTx);
   }
 
   // docs:start:estimateGas
@@ -92,14 +96,13 @@ export abstract class BaseContractInteraction {
    * @returns Gas limits.
    */
   public async estimateGas(
-    opts?: Omit<SendMethodOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    opts?: Omit<SendMethodOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     // docs:end:estimateGas
     const txRequest = await this.create({ ...opts, fee: { ...opts?.fee, estimateGas: false } });
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
-      undefined /* msgSender */,
       undefined /* skipTxValidation */,
       true /* skipFeeEnforcement */,
     );
@@ -149,7 +152,6 @@ export abstract class BaseContractInteraction {
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
-        undefined /* msgSender */,
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );

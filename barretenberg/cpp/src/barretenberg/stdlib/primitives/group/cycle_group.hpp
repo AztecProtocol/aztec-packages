@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -47,6 +53,9 @@ template <typename Builder> class cycle_group {
     static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1;
     static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
     inline static constexpr std::string_view OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
+
+    // Since the cycle_group base field is the circuit's native field, it can be stored using two public inputs.
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 2;
 
   private:
   public:
@@ -119,10 +128,26 @@ template <typename Builder> class cycle_group {
          *
          * @param tag
          */
-        void set_origin_tag(const OriginTag& tag)
+        void set_origin_tag(const OriginTag& tag) const
         {
             lo.set_origin_tag(tag);
             hi.set_origin_tag(tag);
+        }
+        /**
+         * @brief Set the free witness flag for the cycle scalar's tags
+         */
+        void set_free_witness_tag()
+        {
+            lo.set_free_witness_tag();
+            hi.set_free_witness_tag();
+        }
+        /**
+         * @brief Unset the free witness flag for the cycle scalar's tags
+         */
+        void unset_free_witness_tag()
+        {
+            lo.unset_free_witness_tag();
+            hi.unset_free_witness_tag();
         }
     };
 
@@ -161,7 +186,7 @@ template <typename Builder> class cycle_group {
      * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
      * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
      *
-     * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
+     * @note straus_lookup_table uses Ultra ROM tables if available. If not, we use simple conditional assignment
      * constraints and restrict the table size to be 1 bit.
      */
     struct straus_lookup_table {
@@ -260,7 +285,7 @@ template <typename Builder> class cycle_group {
      *
      * @param tag
      */
-    void set_origin_tag(OriginTag tag)
+    void set_origin_tag(OriginTag tag) const
     {
         x.set_origin_tag(tag);
         y.set_origin_tag(tag);
@@ -274,6 +299,50 @@ template <typename Builder> class cycle_group {
     OriginTag get_origin_tag() const
     {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
+    /**
+     * @brief Set the free witness flag for the cycle_group's tags
+     */
+    void set_free_witness_tag()
+    {
+        x.set_free_witness_tag();
+        y.set_free_witness_tag();
+        _is_infinity.set_free_witness_tag();
+    }
+
+    /**
+     * @brief Unset the free witness flag for the cycle_group's tags
+     */
+    void unset_free_witness_tag()
+    {
+        x.unset_free_witness_tag();
+        y.unset_free_witness_tag();
+        _is_infinity.unset_free_witness_tag();
+    }
+    /**
+     * @brief Set the witness indices representing the cycle_group to public
+     *
+     * @return uint32_t Index into the public inputs array at which the representation is stored
+     */
+    uint32_t set_public()
+    {
+        uint32_t start_idx = x.set_public();
+        y.set_public();
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a cycle_group from limbs (generally stored in the public inputs)
+     * @details The base field of the cycle_group curve is the same as the circuit's native field so each coordinate is
+     * represented by a single "limb".
+     *
+     * @param limbs The coordinates of the cycle_group element
+     * @return cycle_group
+     */
+    static cycle_group reconstruct_from_public(const std::span<const field_t, 2>& limbs)
+    {
+        return cycle_group(limbs[0], limbs[1], false);
     }
 
     field_t x;

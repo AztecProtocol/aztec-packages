@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -17,75 +18,78 @@ template <typename FF_> class update_checkImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.update_check_sel).is_zero();
+        using C = ColumnAndShifts;
+
+        return (in.get(C::update_check_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
+
         const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
         const auto constants_UPDATED_CLASS_IDS_SLOT = FF(1);
         const auto constants_BLOCK_NUMBER_BIT_SIZE = FF(32);
         const auto constants_UPDATES_SHARED_MUTABLE_VALUES_LEN = FF(3);
         const auto constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE = FF(144);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
-        const auto update_check_HASH_IS_ZERO = (FF(1) - new_term.update_check_hash_not_zero);
+        const auto update_check_HASH_IS_ZERO = (FF(1) - in.get(C::update_check_hash_not_zero));
         const auto update_check_TWO_POW_32 = FF(4294967296UL);
         const auto update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE =
-            ((new_term.update_check_update_block_of_change - FF(1)) - new_term.update_check_block_number);
+            ((in.get(C::update_check_update_block_of_change) - FF(1)) - in.get(C::update_check_block_number));
         const auto update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =
-            (new_term.update_check_block_number - new_term.update_check_update_block_of_change);
+            (in.get(C::update_check_block_number) - in.get(C::update_check_update_block_of_change));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel * (FF(1) - new_term.update_check_sel);
+            auto tmp = in.get(C::update_check_sel) * (FF(1) - in.get(C::update_check_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel *
-                       (constants_UPDATED_CLASS_IDS_SLOT - new_term.update_check_updated_class_ids_slot);
+            auto tmp = in.get(C::update_check_sel) *
+                       (constants_UPDATED_CLASS_IDS_SLOT - in.get(C::update_check_updated_class_ids_slot));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel *
-                       ((new_term.update_check_shared_mutable_slot + constants_UPDATES_SHARED_MUTABLE_VALUES_LEN) -
-                        new_term.update_check_shared_mutable_hash_slot);
+            auto tmp = in.get(C::update_check_sel) *
+                       ((in.get(C::update_check_shared_mutable_slot) + constants_UPDATES_SHARED_MUTABLE_VALUES_LEN) -
+                        in.get(C::update_check_shared_mutable_hash_slot));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel * (constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX -
-                                                    new_term.update_check_public_leaf_index_domain_separator);
+            auto tmp = in.get(C::update_check_sel) * (constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX -
+                                                      in.get(C::update_check_public_leaf_index_domain_separator));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel *
-                       (constants_DEPLOYER_CONTRACT_ADDRESS - new_term.update_check_deployer_protocol_contract_address);
+            auto tmp = in.get(C::update_check_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+                                                      in.get(C::update_check_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero * (FF(1) - new_term.update_check_hash_not_zero);
+            auto tmp = in.get(C::update_check_hash_not_zero) * (FF(1) - in.get(C::update_check_hash_not_zero));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // HASH_IS_ZERO_CHECK
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = ((new_term.update_check_update_hash *
-                             (update_check_HASH_IS_ZERO * (FF(1) - new_term.update_check_update_hash_inv) +
-                              new_term.update_check_update_hash_inv) -
+            auto tmp = ((in.get(C::update_check_update_hash) *
+                             (update_check_HASH_IS_ZERO * (FF(1) - in.get(C::update_check_update_hash_inv)) +
+                              in.get(C::update_check_update_hash_inv)) -
                          FF(1)) +
                         update_check_HASH_IS_ZERO);
             tmp *= scaling_factor;
@@ -93,104 +97,106 @@ template <typename FF_> class update_checkImpl {
         }
         { // NEVER_UPDATED_CHECK
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.update_check_hash_not_zero) *
-                       (new_term.update_check_current_class_id - new_term.update_check_original_class_id);
+            auto tmp = (FF(1) - in.get(C::update_check_hash_not_zero)) *
+                       (in.get(C::update_check_current_class_id) - in.get(C::update_check_original_class_id));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero *
+            auto tmp = in.get(C::update_check_hash_not_zero) *
                        ((constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants_BLOCK_NUMBER_BIT_SIZE) -
-                        new_term.update_check_update_hi_metadata_bit_size);
+                        in.get(C::update_check_update_hi_metadata_bit_size));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero *
-                       (constants_BLOCK_NUMBER_BIT_SIZE - new_term.update_check_block_number_bit_size);
+            auto tmp = in.get(C::update_check_hash_not_zero) *
+                       (constants_BLOCK_NUMBER_BIT_SIZE - in.get(C::update_check_block_number_bit_size));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         { // UPDATE_METADATA_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = ((new_term.update_check_update_hi_metadata * update_check_TWO_POW_32 +
-                         new_term.update_check_update_block_of_change) -
-                        new_term.update_check_update_preimage_metadata);
+            auto tmp = ((in.get(C::update_check_update_hi_metadata) * update_check_TWO_POW_32 +
+                         in.get(C::update_check_update_block_of_change)) -
+                        in.get(C::update_check_update_preimage_metadata));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_block_number_is_lt_block_of_change *
-                       (FF(1) - new_term.update_check_block_number_is_lt_block_of_change);
+            auto tmp = in.get(C::update_check_block_number_is_lt_block_of_change) *
+                       (FF(1) - in.get(C::update_check_block_number_is_lt_block_of_change));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = (((update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE - update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) *
-                             new_term.update_check_block_number_is_lt_block_of_change +
+                             in.get(C::update_check_block_number_is_lt_block_of_change) +
                          update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) -
-                        new_term.update_check_block_of_change_subtraction);
+                        in.get(C::update_check_block_of_change_subtraction));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_update_pre_class_id_is_zero *
-                       (FF(1) - new_term.update_check_update_pre_class_id_is_zero);
+            auto tmp = in.get(C::update_check_update_pre_class_id_is_zero) *
+                       (FF(1) - in.get(C::update_check_update_pre_class_id_is_zero));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         { // UPDATE_PRE_CLASS_IS_ZERO
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.update_check_hash_not_zero * ((new_term.update_check_update_preimage_pre_class_id *
-                                                            (new_term.update_check_update_pre_class_id_is_zero *
-                                                                 (FF(1) - new_term.update_check_update_pre_class_inv) +
-                                                             new_term.update_check_update_pre_class_inv) -
-                                                        FF(1)) +
-                                                       new_term.update_check_update_pre_class_id_is_zero);
+            auto tmp = in.get(C::update_check_hash_not_zero) *
+                       ((in.get(C::update_check_update_preimage_pre_class_id) *
+                             (in.get(C::update_check_update_pre_class_id_is_zero) *
+                                  (FF(1) - in.get(C::update_check_update_pre_class_inv)) +
+                              in.get(C::update_check_update_pre_class_inv)) -
+                         FF(1)) +
+                        in.get(C::update_check_update_pre_class_id_is_zero));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_update_post_class_id_is_zero *
-                       (FF(1) - new_term.update_check_update_post_class_id_is_zero);
+            auto tmp = in.get(C::update_check_update_post_class_id_is_zero) *
+                       (FF(1) - in.get(C::update_check_update_post_class_id_is_zero));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         { // UPDATE_POST_CLASS_IS_ZERO
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.update_check_hash_not_zero * ((new_term.update_check_update_preimage_post_class_id *
-                                                            (new_term.update_check_update_post_class_id_is_zero *
-                                                                 (FF(1) - new_term.update_check_update_post_class_inv) +
-                                                             new_term.update_check_update_post_class_inv) -
-                                                        FF(1)) +
-                                                       new_term.update_check_update_post_class_id_is_zero);
+            auto tmp = in.get(C::update_check_hash_not_zero) *
+                       ((in.get(C::update_check_update_preimage_post_class_id) *
+                             (in.get(C::update_check_update_post_class_id_is_zero) *
+                                  (FF(1) - in.get(C::update_check_update_post_class_inv)) +
+                              in.get(C::update_check_update_post_class_inv)) -
+                         FF(1)) +
+                        in.get(C::update_check_update_post_class_id_is_zero));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero * new_term.update_check_block_number_is_lt_block_of_change *
-                       ((new_term.update_check_original_class_id * new_term.update_check_update_pre_class_id_is_zero +
-                         new_term.update_check_update_preimage_pre_class_id) -
-                        new_term.update_check_current_class_id);
+            auto tmp =
+                in.get(C::update_check_hash_not_zero) * in.get(C::update_check_block_number_is_lt_block_of_change) *
+                ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_pre_class_id_is_zero) +
+                  in.get(C::update_check_update_preimage_pre_class_id)) -
+                 in.get(C::update_check_current_class_id));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         { // PAST_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero *
-                       (FF(1) - new_term.update_check_block_number_is_lt_block_of_change) *
-                       ((new_term.update_check_original_class_id * new_term.update_check_update_post_class_id_is_zero +
-                         new_term.update_check_update_preimage_post_class_id) -
-                        new_term.update_check_current_class_id);
+            auto tmp =
+                in.get(C::update_check_hash_not_zero) *
+                (FF(1) - in.get(C::update_check_block_number_is_lt_block_of_change)) *
+                ((in.get(C::update_check_original_class_id) * in.get(C::update_check_update_post_class_id_is_zero) +
+                  in.get(C::update_check_update_preimage_post_class_id)) -
+                 in.get(C::update_check_current_class_id));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }

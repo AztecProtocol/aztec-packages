@@ -16,7 +16,7 @@ export class Jump extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost(0, 0));
 
     context.machineState.pc = this.jumpOffset;
   }
@@ -38,16 +38,23 @@ export class JumpI extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private condOffset: number, private loc: number) {
+  constructor(
+    private indirect: number,
+    private condOffset: number,
+    private loc: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.condOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [condOffset] = addressing.resolve(operands, memory);
     const condition = memory.getAs<IntegralValue>(condOffset);
 
@@ -74,7 +81,7 @@ export class InternalCall extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost(0, 0));
 
     context.machineState.internalCallStack.push({
       callPc: context.machineState.pc,
@@ -99,7 +106,7 @@ export class InternalReturn extends Instruction {
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(this.baseGasCost(0, 0));
 
     const stackEntry = context.machineState.internalCallStack.pop();
     if (stackEntry === undefined) {

@@ -1,15 +1,22 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_translation_data.hpp"
+#include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 
@@ -21,7 +28,7 @@ namespace bb {
 // Default constructor to initialize all common members.
 template <typename Flavor>
 SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+                                                       typename Flavor::CommitmentKey commitment_key)
     : interpolation_domain{}
     , concatenated_polynomial(MASKED_CONCATENATED_WITNESS_LENGTH)
     , concatenated_lagrange_form(SUBGROUP_SIZE)
@@ -35,8 +42,8 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(const std::shared_ptr<typ
 {
     // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
     // polynomials that may exceed the circuit size.
-    if (commitment_key->dyadic_size < MASKED_GRAND_SUM_LENGTH) {
-        commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_GRAND_SUM_LENGTH);
+    if (commitment_key.dyadic_size < MASKED_GRAND_SUM_LENGTH) {
+        commitment_key = typename Flavor::CommitmentKey(MASKED_GRAND_SUM_LENGTH);
     };
     this->commitment_key = commitment_key;
 };
@@ -53,7 +60,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
                                                        const std::vector<FF>& multivariate_challenge,
                                                        const FF claimed_inner_product,
                                                        const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+                                                       const typename Flavor::CommitmentKey& commitment_key)
     : SmallSubgroupIPAProver(transcript, commitment_key)
 {
     this->claimed_inner_product = claimed_inner_product;
@@ -87,7 +94,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
                                                        const FF evaluation_challenge_x,
                                                        const FF batching_challenge_v,
                                                        const std::shared_ptr<typename Flavor::Transcript>& transcript,
-                                                       std::shared_ptr<typename Flavor::CommitmentKey>& commitment_key)
+                                                       const typename Flavor::CommitmentKey& commitment_key)
     : SmallSubgroupIPAProver(transcript, commitment_key)
 
 {
@@ -148,7 +155,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 
     // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
     transcript->template send_to_verifier(label_prefix + "grand_sum_commitment",
-                                          commitment_key->commit(grand_sum_polynomial));
+                                          commitment_key.commit(grand_sum_polynomial));
 
     // Compute C(X)
     compute_grand_sum_identity_polynomial();
@@ -158,7 +165,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
 
     // Send commitment [Q] to the verifier
     transcript->template send_to_verifier(label_prefix + "quotient_commitment",
-                                          commitment_key->commit(grand_sum_identity_quotient));
+                                          commitment_key.commit(grand_sum_identity_quotient));
 }
 
 /**
@@ -441,6 +448,9 @@ template class SmallSubgroupIPAProver<TranslatorFlavor>;
 template class SmallSubgroupIPAProver<MegaZKFlavor>;
 template class SmallSubgroupIPAProver<UltraZKFlavor>;
 template class SmallSubgroupIPAProver<UltraKeccakZKFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+template class SmallSubgroupIPAProver<UltraStarknetZKFlavor>;
+#endif
 
 // Instantiations used in tests
 template class SmallSubgroupIPAProver<BN254Settings>;

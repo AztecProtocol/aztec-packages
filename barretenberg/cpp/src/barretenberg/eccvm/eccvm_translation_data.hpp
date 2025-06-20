@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
@@ -53,14 +59,14 @@ template <typename Transcript> class TranslationData {
      */
     TranslationData(const RefVector<Polynomial>& transcript_polynomials,
                     const std::shared_ptr<Transcript>& transcript,
-                    std::shared_ptr<CommitmentKey>& commitment_key)
+                    CommitmentKey& commitment_key)
         : concatenated_polynomial_lagrange(SUBGROUP_SIZE)
         , masked_concatenated_polynomial(MASKED_CONCATENATED_WITNESS_LENGTH)
     {
         // Reallocate the commitment key if necessary. This is an edge case with SmallSubgroupIPA since it has
         // polynomials that may exceed the circuit size.
-        if (commitment_key->dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
-            commitment_key = std::make_shared<typename Flavor::CommitmentKey>(MASKED_CONCATENATED_WITNESS_LENGTH);
+        if (commitment_key.dyadic_size < MASKED_CONCATENATED_WITNESS_LENGTH) {
+            commitment_key = typename Flavor::CommitmentKey(MASKED_CONCATENATED_WITNESS_LENGTH);
         }
         // Create interpolation domain required for Lagrange interpolation
         interpolation_domain[0] = FF{ 1 };
@@ -73,7 +79,7 @@ template <typename Transcript> class TranslationData {
 
         // Commit to  M(X) + Z_H(X)*R(X), where R is a random polynomial of WITNESS_MASKING_TERM_LENGTH.
         transcript->template send_to_verifier("Translation:concatenated_masking_term_commitment",
-                                              commitment_key->commit(masked_concatenated_polynomial));
+                                              commitment_key.commit(masked_concatenated_polynomial));
     }
     /**
      * @brief   Let \f$ T = NUM_TRANSLATION_EVALUATIONS \f$ and let \f$ m_0, ..., m_{T-1}\f$ be the vectors of last \f$

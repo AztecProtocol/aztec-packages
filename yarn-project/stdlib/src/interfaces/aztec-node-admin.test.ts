@@ -37,6 +37,18 @@ describe('AztecNodeAdminApiSchema', () => {
   it('startSnapshotUpload', async () => {
     await context.client.startSnapshotUpload('foo');
   });
+
+  it('rollbackTo', async () => {
+    await context.client.rollbackTo(123);
+  });
+
+  it('pauseSync', async () => {
+    await context.client.pauseSync();
+  });
+
+  it('resumeSync', async () => {
+    await context.client.resumeSync();
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -49,6 +61,15 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   startSnapshotUpload(_location: string): Promise<void> {
+    return Promise.resolve();
+  }
+  rollbackTo(_targetBlockNumber: number): Promise<void> {
+    return Promise.resolve();
+  }
+  pauseSync(): Promise<void> {
+    return Promise.resolve();
+  }
+  resumeSync(): Promise<void> {
     return Promise.resolve();
   }
 }

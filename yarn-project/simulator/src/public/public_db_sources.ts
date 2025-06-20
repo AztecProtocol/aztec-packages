@@ -1,7 +1,7 @@
+import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import { ContractClassRegisteredEvent } from '@aztec/protocol-contracts/class-registerer';
 import { ContractInstanceDeployedEvent } from '@aztec/protocol-contracts/instance-deployer';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
@@ -14,20 +14,19 @@ import {
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import type {
-  BatchInsertionResult,
-  IndexedTreeId,
-  MerkleTreeLeafType,
-  MerkleTreeWriteOperations,
-  SequentialInsertionResult,
-  TreeInfo,
-} from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
+import {
+  MerkleTreeId,
+  NullifierLeaf,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+  getTreeName,
+} from '@aztec/stdlib/trees';
+import { TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 
-import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
+import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
@@ -90,12 +89,8 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    */
   private async addNonRevertibleContractClasses(tx: Tx) {
     const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : await tx.filterContractClassLogs(tx.data.forRollup!.end.contractClassLogsHashes, /*siloed=*/ true);
-
+      ? tx.getSplitContractClassLogs(false /* revertible */)
+      : tx.getContractClassLogs();
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxNonRevertibleCache, 'non-revertible');
   }
 
@@ -105,13 +100,7 @@ export class PublicContractsDB implements PublicContractsDBInterface {
    * @param tx - The transaction to add revertible contract classes from.
    */
   private async addRevertibleContractClasses(tx: Tx) {
-    const siloedContractClassLogs = tx.data.forPublic
-      ? await tx.filterContractClassLogs(
-          tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes,
-          /*siloed=*/ true,
-        )
-      : [];
-
+    const siloedContractClassLogs = tx.data.forPublic ? tx.getSplitContractClassLogs(true /* revertible */) : [];
     await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxRevertibleCache, 'revertible');
   }
 
@@ -275,172 +264,69 @@ export class PublicContractsDB implements PublicContractsDBInterface {
 }
 
 /**
- * Proxy class that forwards all merkle tree operations to the underlying object.
+ * A high-level class that provides access to the merkle trees.
  *
- * NOTE: It might be possible to prune this to just the methods used in public.
- * Then we'd need to define a new interface, instead of MerkleTreeWriteOperations,
- * to be used by all our classes (that could be PublicStateDBInterface).
+ * This class is just a helper wrapper around a merkle db. Anything that you can do with it
+ * can also be done directly with the merkle db. This class should NOT be exposed or used
+ * outside of `simulator/src/public`.
+ *
+ * NOTE: This class is currently written in such a way that it would generate the
+ * necessary hints if used with a hinting merkle db. This is a bit of a leak of concepts.
+ * Eventually we can have everything depend on a config/factory at the TxSimulator level
+ * to decide whether to use hints or not (same with tracing, etc).
  */
-class ForwardMerkleTree implements MerkleTreeWriteOperations {
-  constructor(private readonly operations: MerkleTreeWriteOperations) {}
-
-  getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo> {
-    return this.operations.getTreeInfo(treeId);
-  }
-
-  getStateReference(): Promise<StateReference> {
-    return this.operations.getStateReference();
-  }
-
-  getInitialHeader(): BlockHeader {
-    return this.operations.getInitialHeader();
-  }
-
-  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
-    return this.operations.getSiblingPath(treeId, index);
-  }
-
-  getPreviousValueIndex<ID extends IndexedTreeId>(
-    treeId: ID,
-    value: bigint,
-  ): Promise<
-    | {
-        index: bigint;
-        alreadyPresent: boolean;
-      }
-    | undefined
-  > {
-    return this.operations.getPreviousValueIndex(treeId, value);
-  }
-
-  getLeafPreimage<ID extends IndexedTreeId>(treeId: ID, index: bigint): Promise<IndexedTreeLeafPreimage | undefined> {
-    return this.operations.getLeafPreimage(treeId, index);
-  }
-
-  findLeafIndices<ID extends MerkleTreeId>(
-    treeId: ID,
-    values: MerkleTreeLeafType<ID>[],
-  ): Promise<(bigint | undefined)[]> {
-    return this.operations.findLeafIndices(treeId, values);
-  }
-
-  findLeafIndicesAfter<ID extends MerkleTreeId>(
-    treeId: ID,
-    values: MerkleTreeLeafType<ID>[],
-    startIndex: bigint,
-  ): Promise<(bigint | undefined)[]> {
-    return this.operations.findLeafIndicesAfter(treeId, values, startIndex);
-  }
-
-  getLeafValue<ID extends MerkleTreeId>(
-    treeId: ID,
-    index: bigint,
-  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
-    return this.operations.getLeafValue(treeId, index);
-  }
-
-  getBlockNumbersForLeafIndices<ID extends MerkleTreeId>(
-    treeId: ID,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    return this.operations.getBlockNumbersForLeafIndices(treeId, leafIndices);
-  }
-
-  createCheckpoint(): Promise<void> {
-    return this.operations.createCheckpoint();
-  }
-
-  commitCheckpoint(): Promise<void> {
-    return this.operations.commitCheckpoint();
-  }
-
-  revertCheckpoint(): Promise<void> {
-    return this.operations.revertCheckpoint();
-  }
-
-  appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
-    return this.operations.appendLeaves(treeId, leaves);
-  }
-
-  updateArchive(header: BlockHeader): Promise<void> {
-    return this.operations.updateArchive(header);
-  }
-
-  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, ID extends IndexedTreeId>(
-    treeId: ID,
-    leaves: Buffer[],
-    subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    return this.operations.batchInsert(treeId, leaves, subtreeHeight);
-  }
-
-  sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
-    treeId: ID,
-    leaves: Buffer[],
-  ): Promise<SequentialInsertionResult<TreeHeight>> {
-    return this.operations.sequentialInsert(treeId, leaves);
-  }
-
-  close(): Promise<void> {
-    return this.operations.close();
-  }
-}
-
-/**
- * A class that provides access to the merkle trees, and other helper methods.
- */
-export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInterface {
+export class PublicTreesDB implements PublicStateDBInterface {
   private logger = createLogger('simulator:public-trees-db');
 
-  constructor(private readonly db: MerkleTreeWriteOperations) {
-    super(db);
-  }
+  constructor(private readonly db: MerkleTreeWriteOperations) {}
 
-  /**
-   * Reads a value from public storage, returning zero if none.
-   * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
-   * @returns The current value in the storage slot.
-   */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const timer = new Timer();
     const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
-    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
     if (!lowLeafResult) {
       throw new Error('Low leaf not found');
     }
 
-    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-    await this.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+    // TODO: We need this for the hints. See class comment for more details.
+    await this.db.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
     // Unconditionally fetching the preimage for the hints. Move it to the hinting layer?
-    const preimage = (await this.getLeafPreimage(
+    const preimage = (await this.db.getLeafPreimage(
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
+    const result = lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
+    this.logger.debug(`Storage read (contract=${contract}, slot=${slot}, value=${result})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'storage-read',
+    } satisfies PublicDBAccessStats);
+
+    return result;
   }
 
-  /**
-   * Records a write to public storage.
-   * @param contract - Owner of the storage.
-   * @param slot - Slot to read in the contract storage.
-   * @param newValue - The new value to store.
-   * @returns The slot of the written leaf in the public data tree.
-   */
   public async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
+    const timer = new Timer();
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
     const publicDataWrite = new PublicDataWrite(leafSlot, newValue);
-    await this.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+    await this.db.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+
+    this.logger.debug(`Storage write (contract=${contract}, slot=${slot}, value=${newValue})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'storage-write',
+    } satisfies PublicDBAccessStats);
   }
 
   public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
-    const leafValue = await this.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
-    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-    await this.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    const leafValue = await this.db.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    // TODO: We need this for the hints. See class comment for more details.
+    await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
 
-    this.logger.debug(`[DB] Fetched L1 to L2 message leaf value`, {
+    this.logger.debug(`Fetched L1 to L2 message leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-l1-to-l2-message-leaf-value',
@@ -450,11 +336,11 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
 
   public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
-    const leafValue = await this.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
-    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-    await this.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    // TODO: We need this for the hints. See class comment for more details.
+    await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
 
-    this.logger.debug(`[DB] Fetched note hash leaf value`, {
+    this.logger.debug(`Fetched note hash leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-note-hash',
@@ -462,23 +348,102 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     return leafValue;
   }
 
-  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+  public async writeNoteHash(noteHash: Fr): Promise<void> {
     const timer = new Timer();
-    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+
+    this.logger.debug(`Wrote note hash (noteHash=${noteHash})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'write-note-hash',
+    } satisfies PublicDBAccessStats);
+  }
+
+  public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
+    const timer = new Timer();
+    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!lowLeafResult) {
       throw new Error('Low leaf not found');
     }
-    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-    await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
-    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-    await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
-    const index = lowLeafResult.alreadyPresent ? lowLeafResult.index : undefined;
+    // TODO: We need this for the hints. See class comment for more details.
+    await this.db.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    // TODO: We need this for the hints. See class comment for more details.
+    await this.db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    const exists = lowLeafResult.alreadyPresent;
 
-    this.logger.debug(`[DB] Fetched nullifier index`, {
+    this.logger.debug(`Checked nullifier exists (nullifier=${nullifier}, exists=${exists})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-nullifier-index',
+      operation: 'check-nullifier-exists',
     } satisfies PublicDBAccessStats);
-    return index;
+    return exists;
+  }
+
+  public async writeNullifier(siloedNullifier: Fr): Promise<void> {
+    const timer = new Timer();
+    await this.db.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
+
+    this.logger.debug(`Wrote nullifier (nullifier=${siloedNullifier})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'write-nullifier',
+    } satisfies PublicDBAccessStats);
+  }
+
+  public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
+    const timer = new Timer();
+
+    switch (treeId) {
+      // Indexed trees.
+      case MerkleTreeId.NULLIFIER_TREE:
+        await this.db.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(NullifierLeaf.empty().toBuffer()),
+          NULLIFIER_SUBTREE_HEIGHT,
+        );
+        break;
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        await this.db.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(PublicDataTreeLeaf.empty().toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
+        break;
+      // Append-only trees.
+      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
+      case MerkleTreeId.NOTE_HASH_TREE:
+        await this.db.appendLeaves(treeId, Array(leavesToInsert).fill(Fr.ZERO));
+        break;
+      default:
+        throw new Error(`Padding not supported for tree ${treeId}`);
+    }
+
+    this.logger.debug(`Padded tree (tree=${getTreeName(treeId)}, leavesToInsert=${leavesToInsert})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'pad-tree',
+    } satisfies PublicDBAccessStats);
+  }
+
+  public async createCheckpoint(): Promise<void> {
+    await this.db.createCheckpoint();
+  }
+
+  public async commitCheckpoint(): Promise<void> {
+    await this.db.commitCheckpoint();
+  }
+
+  public async revertCheckpoint(): Promise<void> {
+    await this.db.revertCheckpoint();
+  }
+
+  public async getTreeSnapshots(): Promise<TreeSnapshots> {
+    const stateReference = await this.db.getStateReference();
+    return new TreeSnapshots(
+      stateReference.l1ToL2MessageTree,
+      stateReference.partial.noteHashTree,
+      stateReference.partial.nullifierTree,
+      stateReference.partial.publicDataTree,
+    );
   }
 }

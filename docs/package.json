@@ -4,18 +4,20 @@
   "private": true,
   "scripts": {
     "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",
-    "dev": "HOST=0.0.0.0 ENV=dev SHOW_PROTOCOL_SPECS=true yarn docs",
-    "dev:local": "ENV=dev SHOW_PROTOCOL_SPECS=true yarn docs",
-    "build": "./scripts/build.sh",
+    "dev": "PROTOCOL_SPECS=true HOST=0.0.0.0 ENV=dev yarn docs",
+    "dev:local": "PROTOCOL_SPECS=true ENV=dev yarn docs",
+    "build": "yarn clean && yarn preprocess && yarn typedoc && yarn preprocess:move && docusaurus build",
+    "build:with-specs": "yarn clean &&PROTOCOL_SPECS=true yarn preprocess && yarn typedoc && yarn preprocess:move && PROTOCOL_SPECS=true docusaurus build",
     "swizzle": "docusaurus swizzle",
     "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js  && node src/preprocess/generate_aztecnr_reference.js",
-    "preprocess:dev": "nodemon --config nodemon.json ./src/preprocess/index.js  && nodemon --config nodemon.json src/preprocess/generate_aztecnr_reference.js ",
-    "typedoc": "docusaurus generate-typedoc",
-    "rewrite": "node ./scripts/rewrite_paths.js",
-    "version::stables": "node ./scripts/setStable.js",
-    "version": "./scripts/cut_version.sh"
+    "preprocess:dev": "nodemon --config nodemon.json ./src/preprocess/index.js  && nodemon --config nodemon.json src/preprocess/generate_aztecnr_reference.js",
+    "preprocess:move": "sh scripts/move_processed.sh",
+    "filter-versions": "node scripts/filterVersions.js",
+    "spellcheck": "yarn cspell",
+    "spellcheck:appendwords": "yarn cspell --words-only --unique | sort --ignore-case >> docs-words.txt",
+    "typedoc": "docusaurus generate-typedoc"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.0",
@@ -28,7 +30,7 @@
     "@docusaurus/theme-mermaid": "3.6.0",
     "@mdx-js/react": "^3.0.1",
     "@slorber/react-ideal-image": "^0.0.12",
-    "axios": "^1.4.0",
+    "axios": "^1.8.2",
     "clsx": "^2.0.0",
     "docusaurus-theme-search-typesense": "0.23.0-0",
     "hast-util-is-element": "1.1.0",
@@ -53,6 +55,7 @@
     "@types/prop-types": "^15",
     "@types/react": "^18.0.0",
     "concurrently": "^8.0.1",
+    "cspell": "^8.19.4",
     "docusaurus-plugin-typedoc": "^0.20.2",
     "dotenv": "^16.3.1",
     "netlify-cli": "^17.23.0",
@@ -60,7 +63,34 @@
     "react-waypoint": "^10.3.0",
     "typedoc": "^0.25.1",
     "typedoc-plugin-markdown": "^3.16.0",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
+  },
+  "cspell": {
+    "import": [
+      "../cspell.json"
+    ],
+    "dictionaryDefinitions": [
+      {
+        "name": "docs-words",
+        "path": "./docs-words.txt",
+        "addWords": true
+      }
+    ],
+    "dictionaries": [
+      "docs-words"
+    ],
+    "files": [
+      "./docs/**/{*.md,*.md?}",
+      "./versioned_docs/**/{*.md,*.md?}",
+      "./internal_notes/**/{*.md,*.md?}",
+      "./src/components/Snippets/*.js"
+    ],
+    "ignorePaths": [
+      "node_modules",
+      "processed-docs",
+      "processed-docs-cache",
+      "/docs-words.txt"
+    ]
   },
   "browserslist": {
     "production": [

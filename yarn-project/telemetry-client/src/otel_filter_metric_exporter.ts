@@ -2,7 +2,11 @@ import type { ExportResult } from '@opentelemetry/core';
 import type { MetricData, PushMetricExporter, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 
 export class OtelFilterMetricExporter implements PushMetricExporter {
-  constructor(private readonly exporter: PushMetricExporter, private readonly excludeMetricPrefixes: string[]) {
+  constructor(
+    private readonly exporter: PushMetricExporter,
+    private metricPrefix: string[],
+    private readonly filter: 'allow' | 'deny' = 'deny',
+  ) {
     if (exporter.selectAggregation) {
       (this as PushMetricExporter).selectAggregation = exporter.selectAggregation.bind(exporter);
     }
@@ -23,9 +27,17 @@ export class OtelFilterMetricExporter implements PushMetricExporter {
   }
 
   private filterMetrics(metrics: MetricData[]): MetricData[] {
-    return metrics.filter(
-      metric => !this.excludeMetricPrefixes.some(prefix => metric.descriptor.name.startsWith(prefix)),
-    );
+    return metrics.filter(metric => {
+      const matched = this.metricPrefix.some(prefix => metric.descriptor.name.startsWith(prefix));
+
+      if (this.filter === 'deny') {
+        return !matched;
+      }
+
+      if (this.filter === 'allow') {
+        return matched;
+      }
+    });
   }
 
   public forceFlush(): Promise<void> {
@@ -34,5 +46,9 @@ export class OtelFilterMetricExporter implements PushMetricExporter {
 
   public shutdown(): Promise<void> {
     return this.exporter.shutdown();
+  }
+
+  public setMetricPrefixes(metrics: string[]) {
+    this.metricPrefix = metrics;
   }
 }

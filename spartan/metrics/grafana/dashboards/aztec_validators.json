@@ -39,7 +39,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -92,7 +92,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -111,7 +111,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -175,7 +175,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -296,7 +296,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -377,7 +377,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "avg by (k8s_pod_name,aztec_address_sender) (aztec_l1_publisher_balance_eth{service_instance_id=~\"$service_instance\"})",
@@ -394,7 +394,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -458,7 +458,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -472,7 +472,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "avg(aztec_archiver_block_height{service_instance_id=~\"$service_instance\", aztec_status=\"\"}) - avg(aztec_archiver_block_height{service_instance_id=~\"$service_instance\", aztec_status=\"proven\"})",
@@ -490,7 +490,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -604,7 +604,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Count of blocks that fall within each bucket",
       "fieldConfig": {
@@ -694,7 +694,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -810,7 +810,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -907,7 +907,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1005,7 +1005,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1086,7 +1086,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "aztec_sequencer_time_to_collect_attestations{k8s_namespace_name=\"$namespace\"}",
@@ -1104,7 +1104,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1212,7 +1212,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1320,7 +1320,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1442,7 +1442,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1554,7 +1554,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1694,7 +1694,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1802,7 +1802,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1898,7 +1898,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2006,7 +2006,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2115,7 +2115,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "",
       "fieldConfig": {
@@ -2195,7 +2195,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "rate(aztec_l1_publisher_blob_inclusion_blocks_sum{service_instance_id=~\"$service_instance\"}[$__rate_interval])/rate(aztec_l1_publisher_blob_inclusion_blocks_count{service_instance_id=~\"$service_instance\"}[$__rate_interval])",
@@ -2226,7 +2226,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2321,7 +2321,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2416,7 +2416,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2511,7 +2511,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2608,14 +2608,28 @@
   "templating": {
     "list": [
       {
+        "includeAll": false,
+        "name": "data_source",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource",
         "current": {
           "selected": false,
-          "text": "master-rc-1",
-          "value": "master-rc-1"
+          "text": "default",
+          "value": "default"
+        }
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "alpha-testnet",
+          "value": "alpha-testnet"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "definition": "label_values(target_info,k8s_namespace_name)",
         "hide": 0,
@@ -2647,7 +2661,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "definition": "label_values(target_info{k8s_namespace_name=\"$namespace\", exported_job=~\".*validator.*\"},exported_instance)",
         "hide": 0,
@@ -2690,6 +2704,6 @@
   "timezone": "",
   "title": "Validator node overview",
   "uid": "aztec-validators",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 /**
  * Special case function for performing secp256k1 ecdsa signature verification group operations
@@ -12,10 +18,6 @@ template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2)
 {
-    if constexpr (!HasPlookup<C>) {
-        C* ctx = pubkey.get_context();
-        return batch_mul({ element::one(ctx), pubkey }, { u1, u2 });
-    }
     /**
      * Compute `out = u1.[1] + u2.[pubkey]
      *
@@ -51,9 +53,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     auto P1 = element::one(pubkey.get_context());
     auto P2 = pubkey;
     const auto P1_table =
-        element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::SECP256K1, false);
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::SECP256K1, false);
     const auto endoP1_table =
-        element::eight_bit_fixed_base_table<>(element::eight_bit_fixed_base_table<>::CurveType::SECP256K1, true);
+        element::eight_bit_fixed_base_table(element::eight_bit_fixed_base_table::CurveType::SECP256K1, true);
     const auto [P2_table, endoP2_table] = create_endo_pair_four_bit_table_plookup(P2);
 
     // Initialize our accumulator
@@ -83,7 +85,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
         accumulator = accumulator.dbl();
 
         // u2_hi_wnaf.wnaf[2 * i] is a field_t element (as are the other wnafs).
-        // See `stdlib/memory/rom_table.hpp` for how indirect array accesses are implemented in UltraPlonk
+        // See `stdlib/memory/rom_table.hpp` for how indirect array accesses are implemented in Ultra
         const auto& add_1 = endoP2_table[u2_hi_wnaf.wnaf[2 * i]];
         const auto& add_2 = P2_table[u2_lo_wnaf.wnaf[2 * i + 1]];
         const auto& add_3 = endoP1_table[u1_hi_wnaf.wnaf[i]];

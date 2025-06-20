@@ -78,7 +78,7 @@ export class PublicInnerCallRequest {
 
   [inspect.custom]() {
     return `PublicInnerCallRequest {
-      item: ${this.item}
+      item: ${this.item.toFields()}
       counter: ${this.counter}
     }`;
   }

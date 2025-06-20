@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { OpcodeLocation } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type ZodFor, schemas } from '../schemas/index.js';
+import { type ZodFor, optional, schemas } from '../schemas/index.js';
 
 /**
  * Address and selector of a function that failed during simulation.
@@ -240,7 +240,7 @@ export class SimulationError extends Error {
           z.object({
             contractAddress: schemas.AztecAddress,
             contractName: z.string().optional(),
-            functionSelector: schemas.FunctionSelector,
+            functionSelector: optional(schemas.FunctionSelector),
             functionName: z.string().optional(),
           }),
         ),

@@ -29,9 +29,12 @@ export class NoteHashExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
     const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [noteHashOffset, leafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, noteHashOffset, leafIndexOffset);
 
@@ -50,16 +53,22 @@ export class EmitNoteHash extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private noteHashOffset: number) {
+  constructor(
+    private indirect: number,
+    private noteHashOffset: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.noteHashOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [noteHashOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, noteHashOffset);
 
@@ -95,10 +104,13 @@ export class NullifierExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [nullifierOffset, addressOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
 
@@ -116,7 +128,10 @@ export class EmitNullifier extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private nullifierOffset: number) {
+  constructor(
+    private indirect: number,
+    private nullifierOffset: number,
+  ) {
     super();
   }
 
@@ -126,10 +141,13 @@ export class EmitNullifier extends Instruction {
     }
 
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.nullifierOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [nullifierOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, nullifierOffset);
 
@@ -172,20 +190,19 @@ export class L1ToL2MessageExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [msgHashOffset, msgLeafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, msgHashOffset, msgLeafIndexOffset);
 
     const msgHash = memory.get(msgHashOffset).toFr();
     const msgLeafIndex = memory.get(msgLeafIndexOffset).toFr();
-    const exists = await context.persistableState.checkL1ToL2MessageExists(
-      context.environment.address,
-      msgHash,
-      msgLeafIndex,
-    );
+    const exists = await context.persistableState.checkL1ToL2MessageExists(msgHash, msgLeafIndex);
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
   }
 }
@@ -197,7 +214,11 @@ export class EmitUnencryptedLog extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private logOffset: number, private logSizeOffset: number) {
+  constructor(
+    private indirect: number,
+    private logOffset: number,
+    private logSizeOffset: number,
+  ) {
     super();
   }
 
@@ -207,9 +228,13 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.logOffset, this.logSizeOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [logOffset, logSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
     const logSize = memory.get(logSizeOffset).toNumber();
@@ -217,7 +242,7 @@ export class EmitUnencryptedLog extends Instruction {
 
     const contractAddress = context.environment.address;
 
-    context.machineState.consumeGas(this.gasCost(logSize));
+    context.machineState.consumeGas(this.dynamicGasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writePublicLog(contractAddress, log);
   }
@@ -229,7 +254,11 @@ export class SendL2ToL1Message extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private recipientOffset: number, private contentOffset: number) {
+  constructor(
+    private indirect: number,
+    private recipientOffset: number,
+    private contentOffset: number,
+  ) {
     super();
   }
 
@@ -239,10 +268,13 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.recipientOffset, this.contentOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 

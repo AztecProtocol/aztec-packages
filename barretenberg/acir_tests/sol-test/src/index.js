@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 440;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 491;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -58,7 +58,7 @@ const [test, verifier] = await Promise.all([
 
 // If testing honk is set, then we compile the honk test suite
 const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
-const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+const hasZK = getEnvVarCanBeUndefined("DISABLE_ZK");
 
 export const compilationInput = {
   language: "Solidity",
@@ -250,7 +250,6 @@ try {
     // for plonk, the extraPublicInputs are all of the public inputs
     publicInputs = extraPublicInputs;
   }
-
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 

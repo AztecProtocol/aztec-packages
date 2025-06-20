@@ -30,6 +30,8 @@ impl Empty for RootParityInput {
 
 impl Verifiable for RootParityInput {
     fn verify(self) {
+        self.verification_key.check_hash();
+
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
             self.verification_key.key,
@@ -43,7 +45,6 @@ impl Verifiable for RootParityInput {
 
 impl RootParityInput {
     pub fn validate_in_vk_tree(self) {
-        self.verification_key.check_hash();
         assert_check_membership(
             self.verification_key.hash,
             BASE_PARITY_INDEX as Field,

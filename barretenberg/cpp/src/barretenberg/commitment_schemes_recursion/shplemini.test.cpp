@@ -9,6 +9,7 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -43,16 +44,18 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using ClaimBatch = ClaimBatcher::Batch;
     using MockClaimGen = MockClaimGenerator<NativeCurve>;
 
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
         using diff_t = std::vector<NativeFr>::difference_type;
 
         size_t N = 1 << log_circuit_size;
+        const auto padding_indicator_array =
+            stdlib::compute_padding_indicator_array<Curve, CONST_PROOF_SIZE_LOG_N>(log_circuit_size);
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
         constexpr size_t NUM_RIGHT_SHIFTED_BY_K = 1;
 
-        auto commitment_key = std::make_shared<CommitmentKey>(16384);
+        CommitmentKey commitment_key(16384);
 
         std::vector<NativeFr> u_challenge;
         u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
@@ -73,9 +76,11 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             ShpleminiProver::prove(N, mock_claims.polynomial_batcher, u_challenge, commitment_key, prover_transcript);
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
-        StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, prover_transcript->proof_data);
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
-        stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
+        StdlibProof<Builder> stdlib_proof =
+            bb::convert_native_proof_to_stdlib(&builder, prover_transcript->export_proof());
+        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
+        stdlib_verifier_transcript->load_proof(stdlib_proof);
+        [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check
         const auto commitments_to_witnesses = [&builder](const auto& commitments) {
@@ -122,7 +127,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             .k_shift_magnitude = MockClaimGen::k_magnitude
         };
 
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                   claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),
@@ -130,8 +135,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
-        auto vk = std::make_shared<VerifierCommitmentKey<NativeCurve>>();
-        EXPECT_EQ(vk->pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
+        VerifierCommitmentKey<NativeCurve> vk;
+        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
 
         // Return finalised number of gates;
         return builder.num_gates;

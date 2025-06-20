@@ -1,4 +1,6 @@
+import type { L1BlockId } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
+import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -11,10 +13,9 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { InboxLeaf } from '@aztec/stdlib/messaging';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
-import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
 
 /**
@@ -23,10 +24,8 @@ import type { PublishedL2Block } from './structs/published.js';
 export type ArchiverL1SynchPoint = {
   /** Number of the last L1 block that added a new L2 block metadata.  */
   blocksSynchedTo?: bigint;
-  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
-  messagesSynchedTo?: bigint;
-  /** Number of the last L1 block that added a new proven block. */
-  provenLogsSynchedTo?: bigint;
+  /** Last L1 block checked for L1 to L2 messages. */
+  messagesSynchedTo?: L1BlockId;
 };
 
 /**
@@ -34,12 +33,17 @@ export type ArchiverL1SynchPoint = {
  * (blocks, encrypted logs, aztec contract data extended contract data).
  */
 export interface ArchiverDataStore {
+  /** Opens a new transaction to the underlying store and runs all operations within it. */
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T>;
+
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
+   * @param opts - Options for the operation.
+   * @param opts.force - If true, the blocks will be added even if they have gaps.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: PublishedL2Block[]): Promise<boolean>;
+  addBlocks(blocks: PublishedL2Block[], opts?: { force?: boolean }): Promise<boolean>;
 
   /**
    * Unwinds blocks from the database
@@ -51,12 +55,18 @@ export interface ArchiverDataStore {
   unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
-   * Gets up to `limit` amount of L2 blocks starting from `from`.
+   * Returns the block for the given number, or undefined if not exists.
+   * @param number - The block number to return.
+   */
+  getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
+  getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]>;
 
   /**
    * Gets up to `limit` amount of L2 block headers starting from `from`.
@@ -90,17 +100,17 @@ export interface ArchiverDataStore {
 
   /**
    * Append L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
+   * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean>;
+  addL1ToL2Messages(messages: InboxMessage[]): Promise<void>;
 
   /**
    * Gets L1 to L2 message (to be) included in a given block.
    * @param blockNumber - L2 block number to get messages for.
    * @returns The L1 to L2 messages/leaves of the messages subtree (throws if not found).
    */
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]>;
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]>;
 
   /**
    * Gets the L1 to L2 message index in the L1 to L2 message tree.
@@ -126,10 +136,11 @@ export interface ArchiverDataStore {
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
+   * @param logsPerTag - The number of logs to return per tag. Defaults to everything
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]>;
+  getLogsByTags(tags: Fr[], logsPerTag?: number): Promise<TxScopedL2Log[][]>;
 
   /**
    * Gets public logs based on the provided filter.
@@ -170,10 +181,9 @@ export interface ArchiverDataStore {
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
 
   /**
-   * Stores the l1 block number that messages have been synched until
-   * @param l1BlockNumber  - The l1 block number
+   * Stores the l1 block that messages have been synched until
    */
-  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+  setMessageSynchedL1Block(l1Block: L1BlockId): Promise<void>;
 
   /**
    * Gets the synch point of the archiver
@@ -234,20 +244,30 @@ export interface ArchiverDataStore {
   /** Returns the list of all class ids known by the archiver. */
   getContractClassIds(): Promise<Fr[]>;
 
-  // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
-  //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
-  //        the node api cleanup process.
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  /** Register a public function signature, so it can be looked up by selector. */
+  registerContractFunctionSignatures(signatures: string[]): Promise<void>;
+
+  /** Looks up a public function name given a selector. */
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
-  estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+  /** Estimates the size of the store in bytes. */
+  estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }>;
 
   /** Backups the archiver db to the target folder. Returns the path to the db file. */
   backupTo(path: string): Promise<string>;
 
   /** Closes the underlying data store. */
   close(): Promise<void>;
+
+  /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number): Promise<void>;
+
+  /** Returns an async iterator to all L1 to L2 messages on the range. */
+  iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;
+
+  /** Removes all L1 to L2 messages starting from the given index (inclusive). */
+  removeL1ToL2Messages(startIndex: bigint): Promise<void>;
+
+  /** Returns the last L1 to L2 message stored. */
+  getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
 }

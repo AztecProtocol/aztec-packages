@@ -1,6 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, getPublicClient } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
 import type { LogFn } from '@aztec/foundation/log';
@@ -18,7 +20,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
-import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -33,6 +35,12 @@ export async function startProverNode(
     process.exit(1);
   }
 
+  // Check if running on ARM and fast-fail if so.
+  if (process.arch.startsWith('arm')) {
+    userLog(`Prover node is not supported on ARM architecture (detected: ${process.arch}). Exiting.`);
+    process.exit(1);
+  }
+
   let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
@@ -43,28 +51,45 @@ export async function startProverNode(
     process.exit(1);
   }
 
-  if (!proverConfig.publisherPrivateKey || proverConfig.publisherPrivateKey === NULL_KEY) {
+  if (proverConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     if (!options.l1Mnemonic) {
       userLog(`--l1-mnemonic is required to start a Prover Node without --node.publisherPrivateKey`);
       process.exit(1);
     }
     const hdAccount = mnemonicToAccount(options.l1Mnemonic);
     const privKey = hdAccount.getHdKey().privateKey;
-    proverConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    proverConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
 
   if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
   }
 
+  const followsCanonicalRollup = typeof proverConfig.rollupVersion !== 'number';
   const { addresses, config } = await getL1Config(
     proverConfig.l1Contracts.registryAddress,
     proverConfig.l1RpcUrls,
     proverConfig.l1ChainId,
     proverConfig.rollupVersion,
   );
+  process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
+
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
+  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+    throw new Error(
+      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
+    );
+  }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
@@ -89,22 +114,11 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
-  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
-  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
-  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
-
-  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
-  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
-
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
-  const p2p = proverNode.getP2P();
-  if (p2p) {
-    services.p2p = [proverNode.getP2P(), P2PApiSchema];
+  if (proverNode.getP2P()) {
+    services.p2p = [proverNode.getP2P()!, P2PApiSchema];
   }
 
   if (!proverConfig.proverBrokerUrl) {
@@ -113,6 +127,17 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  proverNode.start();
+  await proverNode.start();
+
+  if (proverConfig.autoUpdate !== 'disabled' && proverConfig.autoUpdateUrl) {
+    await setupUpdateMonitor(
+      proverConfig.autoUpdate,
+      new URL(proverConfig.autoUpdateUrl),
+      followsCanonicalRollup,
+      getPublicClient(proverConfig),
+      proverConfig.l1Contracts.registryAddress,
+      signalHandlers,
+    );
+  }
   return { config: proverConfig };
 }

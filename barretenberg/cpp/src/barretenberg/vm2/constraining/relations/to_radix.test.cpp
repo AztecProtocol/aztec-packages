@@ -1,7 +1,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -9,9 +8,6 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -20,19 +16,15 @@ namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::TestTraceContainer;
+using tracegen::ToRadixTraceBuilder;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using to_radix = bb::avm2::to_radix<FF>;
 using ToRadixSimulator = simulation::ToRadix;
+
 using simulation::EventEmitter;
 using simulation::ToRadixEvent;
-using tracegen::LookupIntoIndexedByClk;
-using tracegen::LookupIntoPDecomposition;
-using lookup_limb_range = bb::avm2::lookup_to_radix_limb_range_relation<FF>;
-using lookup_limb_less_than_radix_range = bb::avm2::lookup_to_radix_limb_less_than_radix_range_relation<FF>;
-using lookup_fetch_safe_limbs = bb::avm2::lookup_to_radix_fetch_safe_limbs_relation<FF>;
-using lookup_fetch_p_limb = bb::avm2::lookup_to_radix_fetch_p_limb_relation<FF>;
-using lookup_limb_p_diff_range = bb::avm2::lookup_to_radix_limb_p_diff_range_relation<FF>;
 
 TEST(ToRadixConstrainingTest, EmptyRow)
 {
@@ -53,7 +45,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsBasicTest)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
     check_relation<to_radix>(trace);
@@ -73,7 +65,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsPMinusOne)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 254);
     check_relation<to_radix>(trace);
@@ -93,7 +85,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsShortest)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 1);
     check_relation<to_radix>(trace);
@@ -113,7 +105,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsPadded)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 500);
     check_relation<to_radix>(trace);
@@ -137,7 +129,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixBasic)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 32);
     check_relation<to_radix>(trace);
@@ -161,7 +153,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixPMinusOne)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 32);
     check_relation<to_radix>(trace);
@@ -182,7 +174,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixOneByte)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 1);
     check_relation<to_radix>(trace);
@@ -207,7 +199,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixPadded)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 64);
     check_relation<to_radix>(trace);
@@ -225,7 +217,7 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder to_radix_builder;
+    ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
     precomputed_builder.process_misc(trace, 257);
@@ -233,11 +225,12 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
 
-    LookupIntoIndexedByClk<lookup_limb_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_limb_less_than_radix_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_fetch_safe_limbs::Settings>().process(trace);
-    LookupIntoPDecomposition<lookup_fetch_p_limb::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
+    check_interaction<ToRadixTraceBuilder,
+                      lookup_to_radix_limb_range_settings,
+                      lookup_to_radix_limb_less_than_radix_range_settings,
+                      lookup_to_radix_fetch_safe_limbs_settings,
+                      lookup_to_radix_fetch_p_limb_settings,
+                      lookup_to_radix_limb_p_diff_range_settings>(trace);
 
     check_relation<to_radix>(trace);
 }
@@ -254,7 +247,7 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder to_radix_builder;
+    ToRadixTraceBuilder to_radix_builder;
     to_radix_builder.process(to_radix_event_emitter.dump_events(), trace);
     tracegen::PrecomputedTraceBuilder precomputed_builder;
 
@@ -263,11 +256,12 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     precomputed_builder.process_to_radix_safe_limbs(trace);
     precomputed_builder.process_to_radix_p_decompositions(trace);
 
-    LookupIntoIndexedByClk<lookup_limb_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_limb_less_than_radix_range::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_fetch_safe_limbs::Settings>().process(trace);
-    LookupIntoPDecomposition<lookup_fetch_p_limb::Settings>().process(trace);
-    LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
+    check_interaction<ToRadixTraceBuilder,
+                      lookup_to_radix_limb_range_settings,
+                      lookup_to_radix_limb_less_than_radix_range_settings,
+                      lookup_to_radix_fetch_safe_limbs_settings,
+                      lookup_to_radix_fetch_p_limb_settings,
+                      lookup_to_radix_limb_p_diff_range_settings>(trace);
 
     check_relation<to_radix>(trace);
 }
@@ -286,7 +280,7 @@ TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
     ToRadixEvent event = { .value = FF::zero(), .radix = 2, .limbs = modulus_le_bits };
     std::vector<ToRadixEvent> events = { event };
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(events, trace);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<to_radix>(trace, to_radix::SR_OVERFLOW_CHECK), "OVERFLOW_CHECK");
@@ -304,7 +298,7 @@ TEST(ToRadixConstrainingTest, NegativeConsistency)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::ToRadixTraceBuilder builder;
+    ToRadixTraceBuilder builder;
     builder.process(to_radix_event_emitter.dump_events(), trace);
 
     // Disable the selector in the middle

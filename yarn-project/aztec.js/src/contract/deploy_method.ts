@@ -2,6 +2,7 @@ import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import type { Fr } from '@aztec/foundation/fields';
 import { type ContractArtifact, type FunctionAbi, type FunctionArtifact, getInitializer } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
@@ -11,7 +12,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
@@ -62,8 +63,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     private args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
   ) {
-    super(wallet);
+    super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
   }
 
@@ -78,9 +81,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public async create(options: DeployOptions = {}): Promise<TxExecutionRequest> {
     const requestWithoutFee = await this.request(options);
-    const { fee: userFee, nonce, cancellable } = options;
-    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { nonce, cancellable });
-    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { nonce, cancellable });
+    const { fee: userFee, txNonce, cancellable } = options;
+    const fee = await this.getFeeOptions(requestWithoutFee, userFee, { txNonce, cancellable });
+    return this.wallet.createTxExecutionRequest(requestWithoutFee, fee, { txNonce, cancellable });
   }
 
   // REFACTOR: Having a `request` method with different semantics than the ones in the other
@@ -122,10 +125,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns An object containing the function return value and profile result.
    */
   public async profile(
-    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates' },
+    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates', skipProofGeneration: true },
   ): Promise<TxProfileResult> {
     const txRequest = await this.create(options);
-    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
+    return await this.wallet.profileTx(txRequest, options.profileMode, options.skipProofGeneration, options?.from);
   }
 
   /**
@@ -211,9 +214,9 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
   public override send(options: DeployOptions = {}): DeploySentTx<TContract> {
-    const txHashPromise = super.send(options).getTxHash();
+    const sendTx = () => super.send(options).getTxHash();
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
-    return new DeploySentTx(this.wallet, txHashPromise, this.postDeployCtor, () => this.getInstance(options));
+    return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
   }
 
   /**
@@ -242,8 +245,12 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    */
   public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
     const txProvingResult = await this.proveInternal(options);
-    return new DeployProvenTx(this.wallet, txProvingResult.toTx(), this.postDeployCtor, () =>
-      this.getInstance(options),
+    return new DeployProvenTx(
+      this.wallet,
+      txProvingResult,
+      this.postDeployCtor,
+      () => this.getInstance(options),
+      txProvingResult.stats,
     );
   }
 
@@ -252,7 +259,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @param options - Options.
    */
   public override estimateGas(
-    options?: Omit<DeployOptions, 'estimateGas' | 'skipPublicSimulation'>,
+    options?: Omit<DeployOptions, 'estimateGas'>,
   ): Promise<Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>> {
     return super.estimateGas(options);
   }
@@ -265,5 +272,31 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   /** Returns the partial address for this deployment. */
   public get partialAddress() {
     return this.instance && computePartialAddress(this.instance);
+  }
+
+  /**
+   * Augments this DeployMethod with additional metadata, such as authWitnesses and capsules.
+   * @param options - An object containing the metadata to add to the interaction
+   * @returns A new DeployMethod with the added metadata, but calling the same original function in the same manner
+   */
+  public with({
+    authWitnesses = [],
+    capsules = [],
+  }: {
+    /** The authWitnesses to add to the deployment */
+    authWitnesses?: AuthWitness[];
+    /** The capsules to add to the deployment */
+    capsules?: Capsule[];
+  }): DeployMethod {
+    return new DeployMethod(
+      this.publicKeys,
+      this.wallet,
+      this.artifact,
+      this.postDeployCtor,
+      this.args,
+      this.constructorArtifact?.name,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+    );
   }
 }

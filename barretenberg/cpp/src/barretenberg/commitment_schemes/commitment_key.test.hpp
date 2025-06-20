@@ -1,10 +1,17 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "claim.hpp"
 
 #include <gtest/gtest.h>
@@ -14,57 +21,52 @@ namespace bb {
 constexpr size_t COMMITMENT_TEST_NUM_BN254_POINTS = 4096;
 constexpr size_t COMMITMENT_TEST_NUM_GRUMPKIN_POINTS = 1 << CONST_ECCVM_LOG_N;
 
-template <class CK> inline std::shared_ptr<CK> create_commitment_key(const size_t num_points = 0);
+template <class CK> CK create_commitment_key(const size_t num_points = 0);
 
 template <>
-inline std::shared_ptr<CommitmentKey<curve::BN254>> create_commitment_key<CommitmentKey<curve::BN254>>(
-    const size_t num_points)
+inline CommitmentKey<curve::BN254> create_commitment_key<CommitmentKey<curve::BN254>>(const size_t num_points)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
-        return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
+        return CommitmentKey<curve::BN254>(num_points);
     };
-    return std::make_shared<CommitmentKey<curve::BN254>>(COMMITMENT_TEST_NUM_BN254_POINTS);
+    return CommitmentKey<curve::BN254>(COMMITMENT_TEST_NUM_BN254_POINTS);
 }
 // For IPA
 template <>
-inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> create_commitment_key<CommitmentKey<curve::Grumpkin>>(
-    const size_t num_points)
+inline CommitmentKey<curve::Grumpkin> create_commitment_key<CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
     if (num_points != 0) {
-        return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
+        return CommitmentKey<curve::Grumpkin>(num_points);
     }
-    return std::make_shared<CommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS);
+    return CommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS);
 }
 
-template <typename CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points)
+template <typename CK> inline CK create_commitment_key(size_t num_points)
 // requires std::default_initializable<CK>
 {
-    return std::make_shared<CK>(num_points);
+    return CK(num_points);
 }
 
-template <class VK> inline std::shared_ptr<VK> create_verifier_commitment_key();
+template <class VK> inline VK create_verifier_commitment_key();
 
 template <>
-inline std::shared_ptr<VerifierCommitmentKey<curve::BN254>> create_verifier_commitment_key<
-    VerifierCommitmentKey<curve::BN254>>()
+inline VerifierCommitmentKey<curve::BN254> create_verifier_commitment_key<VerifierCommitmentKey<curve::BN254>>()
 {
-    return std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    return VerifierCommitmentKey<curve::BN254>();
 }
 // For IPA
 template <>
-inline std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> create_verifier_commitment_key<
-    VerifierCommitmentKey<curve::Grumpkin>>()
+inline VerifierCommitmentKey<curve::Grumpkin> create_verifier_commitment_key<VerifierCommitmentKey<curve::Grumpkin>>()
 {
-    auto crs_factory = std::make_shared<srs::factories::FileCrsFactory<curve::Grumpkin>>(
-        bb::srs::get_grumpkin_crs_path(), COMMITMENT_TEST_NUM_GRUMPKIN_POINTS);
-    return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS, crs_factory);
+    srs::init_file_crs_factory(bb::srs::bb_crs_path());
+    return VerifierCommitmentKey<curve::Grumpkin>(COMMITMENT_TEST_NUM_GRUMPKIN_POINTS, srs::get_grumpkin_crs_factory());
 }
-template <typename VK> inline std::shared_ptr<VK> create_verifier_commitment_key()
+template <typename VK> VK create_verifier_commitment_key()
 // requires std::default_initializable<VK>
 {
-    return std::make_shared<VK>();
+    return VK();
 }
 template <typename Curve> class CommitmentTest : public ::testing::Test {
     using CK = CommitmentKey<Curve>;
@@ -79,10 +81,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         : engine{ &numeric::get_randomness() }
     {}
 
-    std::shared_ptr<CK> ck() { return commitment_key; }
-    std::shared_ptr<VK> vk() { return verification_key; }
+    const CK& ck() { return commitment_key; }
+    VK& vk() { return verification_key; }
 
-    Commitment commit(const Polynomial& polynomial) { return commitment_key->commit(polynomial); }
+    Commitment commit(const Polynomial& polynomial) { return commitment_key.commit(polynomial); }
 
     Fr random_element() { return Fr::random_element(engine); }
 
@@ -104,7 +106,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     void verify_opening_claim(const OpeningClaim<Curve>& claim,
                               const Polynomial& witness,
-                              const std::shared_ptr<CommitmentKey<Curve>>& ck = nullptr)
+                              CommitmentKey<Curve> ck = CommitmentKey<Curve>())
     {
         auto& commitment = claim.commitment;
         auto& [x, y] = claim.opening_pair;
@@ -112,10 +114,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         EXPECT_EQ(y, y_expected) << "OpeningClaim: evaluations mismatch";
         Commitment commitment_expected;
 
-        if (!ck) {
+        if (!ck.srs) {
             commitment_expected = commit(witness);
         } else {
-            commitment_expected = ck->commit(witness);
+            commitment_expected = ck.commit(witness);
         }
 
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
@@ -167,10 +169,10 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     static void SetUpTestSuite()
     {
         // Avoid reallocating static objects if called in subclasses of FooTest.
-        if (commitment_key == nullptr) {
+        if (!commitment_key.initialized()) {
             commitment_key = create_commitment_key<CK>();
         }
-        if (verification_key == nullptr) {
+        if (!verification_key.initialized()) {
             verification_key = create_verifier_commitment_key<VK>();
         }
     }
@@ -180,14 +182,12 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
     // Can be omitted if not needed.
     static void TearDownTestSuite() {}
 
-    static typename std::shared_ptr<CK> commitment_key;
-    static typename std::shared_ptr<VK> verification_key;
+    static CK commitment_key;
+    static VK verification_key;
 };
 
-template <typename Curve>
-typename std::shared_ptr<CommitmentKey<Curve>> CommitmentTest<Curve>::commitment_key = nullptr;
-template <typename Curve>
-typename std::shared_ptr<VerifierCommitmentKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
+template <typename Curve> CommitmentKey<Curve> CommitmentTest<Curve>::commitment_key;
+template <typename Curve> VerifierCommitmentKey<Curve> CommitmentTest<Curve>::verification_key;
 
 using CommitmentSchemeParams = ::testing::Types<curve::BN254>;
 using IpaCommitmentSchemeParams = ::testing::Types<curve::Grumpkin>;

@@ -21,20 +21,25 @@ unconstrained fn test_note_type_id() {
 #[test]
 unconstrained fn test_storage_slot_allocation() {
     // This tests that sufficient storage slots are assigned to each state variable so that they do not interfere with
-    // one another. The space a state variable needs is determined by the N value in its implementation of the Storage
-    // trait. Most state variables bind N to the packed length of the type they hold.
+    // one another. State variable that use private state should always occupy just one slot (since it's just an
+    // identifier), and variables that use public storage typically have it determined by some function of the
+    // packed length of the value they hold. This is specified through the `Storage` trait.
     //
     // This is the storage declaration:
     //
     // #[storage]
     // struct Storage<Context> {
-    //     example_constant: PrivateImmutable<TestNote, Context>,
-    //     example_struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
-    //     example_set: PrivateSet<AddressNote, Context>,
-    //     example_struct: PrivateImmutable<ExampleStruct, Context>,
-    //     example_struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
-    //     example_struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
-    //     another_example_struct: PrivateImmutable<ExampleStruct, Context>,
+    //   note_in_private_immutable: PrivateImmutable<TestNote, Context>,
+    //   struct_in_private_immutable: PrivateImmutable<ExampleStruct, Context>,
+    //   note_in_private_mutable: PrivateMutable<TestNote, Context>,
+    //   struct_in_private_mutable: PrivateMutable<ExampleStruct, Context>,
+    //   note_in_private_set: PrivateSet<AddressNote, Context>,
+    //   struct_in_private_set: PrivateSet<ExampleStruct, Context>,
+    //   note_in_public_immutable: PublicImmutable<TestNote, Context>,
+    //   struct_in_public_immutable: PublicImmutable<ExampleStruct, Context>,
+    //   struct_in_map: Map<AztecAddress, PrivateImmutable<ExampleStruct, Context>, Context>,
+    //   struct_in_shared_mutable: SharedMutable<ExampleStruct, SHARED_MUTABLE_INITIAL_DELAY, Context>,
+    //   dummy_variable: PrivateImmutable<TestNote, Context>,
     // }
 
     // We can't directly see how many slots are allocated to each variable, but we can look at the slot increments for
@@ -43,50 +48,63 @@ unconstrained fn test_storage_slot_allocation() {
 
     // The first slot is always 1.
     let mut expected_slot = 1;
-    assert_eq(Test::storage_layout().example_constant.slot, expected_slot);
-    // Even though example_constant holds AddressNote, which packs to a length larger than 1, notes always reserve a
-    // single slot.
+
+    assert_eq(Test::storage_layout().note_in_private_immutable.slot, expected_slot);
+    // PrivateImmutable uses private storage, and so always uses a single slot, regardless of the packed length of
+    // whatever it stores, and regardless of whether it has the #[note] attribute.
     expected_slot += 1;
 
-    assert_eq(Test::storage_layout().example_struct_in_shared_mutable.slot, expected_slot);
-    expected_slot += get_shared_mutable_num_slots();
-
-    assert_eq(Test::storage_layout().example_set.slot, expected_slot);
-    // example_set also held a note, so it should have only allocated a single slot.
+    assert_eq(Test::storage_layout().struct_in_private_immutable.slot, expected_slot);
+    // PrivateImmutable uses private storage, and so always uses a single slot, regardless of the packed length of
+    // whatever it stores, and regardless of whether it has the #[note] attribute.
     expected_slot += 1;
 
-    assert_eq(Test::storage_layout().example_struct.slot, expected_slot);
-    // example_struct allocates 5 slots because it is not a note and it's packed length is 5.
-    expected_slot += 5;
+    assert_eq(Test::storage_layout().note_in_private_mutable.slot, expected_slot);
+    // PrivateMutable uses private storage, and so always uses a single slot, regardless of the packed length of
+    // whatever it stores, and regardless of whether it has the #[note] attribute.
+    expected_slot += 1;
 
-    assert_eq(Test::storage_layout().example_struct_in_public_immutable.slot, expected_slot);
-    // example_struct_in_public_immutable should allocate 6 slots because ExampleStruct occupies 5 slots
+    assert_eq(Test::storage_layout().struct_in_private_mutable.slot, expected_slot);
+    // PrivateMutable uses private storage, and so always uses a single slot, regardless of the packed length of
+    // whatever it stores, and regardless of whether it has the #[note] attribute.
+    expected_slot += 1;
+
+    assert_eq(Test::storage_layout().note_in_private_set.slot, expected_slot);
+    // PrivateSet uses private storage, and so always uses a single slot, regardless of the packed length of whatever it
+    // stores, and regardless of whether it has the #[note] attribute.
+    expected_slot += 1;
+
+    assert_eq(Test::storage_layout().struct_in_private_set.slot, expected_slot);
+    // PrivateSet uses private storage, and so always uses a single slot, regardless of the packed length of whatever it
+    // stores, and regardless of whether it has the #[note] attribute.
+    expected_slot += 1;
+
+    assert_eq(Test::storage_layout().note_in_public_immutable.slot, expected_slot);
+    // note_in_public_immutable should allocate two slots because TestNote packs to a single slot: it needs an extra
+    // slot for the hash.
+    expected_slot += 2;
+
+    assert_eq(Test::storage_layout().struct_in_public_immutable.slot, expected_slot);
+    // struct_in_public_immutable should allocate 6 slots because ExampleStruct packs into 5 slots: it needs an extra
+    // slot for the hash.
     expected_slot += 6;
 
-    assert_eq(Test::storage_layout().example_struct_in_map.slot, expected_slot);
-}
+    assert_eq(Test::storage_layout().struct_in_map.slot, expected_slot);
+    // Maps always allocate a single slot.
+    expected_slot += 1;
 
-fn get_shared_mutable_num_slots() -> Field {
-    // ExampleStruct packs to 5 slots.
-    let example_struct_packed_len = 5;
+    assert_eq(Test::storage_layout().struct_in_shared_mutable.slot, expected_slot);
+    // struct_in_shared_mutable should allocate 12 slots because ExampleStruct occupies 5 slots. SharedMutable stores
+    // the value two times (10 slots), and it also stores the time values (one slot) and the hash (another slot).
+    expected_slot += 12;
 
-    // ScheduledDelayChange and block_of_change of ScheduledValueChange are stored in a single slot.
-    let sdc_and_block_of_change_of_svc_packed_len = 1;
-
-    // There are 2 example structs stored in the packed representation of ScheduledValueChange<ExampleStruct>.
-    let value_change_and_delay_change_packed_len =
-        example_struct_packed_len * 2 + sdc_and_block_of_change_of_svc_packed_len;
-
-    // Wrapping the values in WithHash adds 1 slot.
-    let with_hash_additional_slots = 1;
-
-    value_change_and_delay_change_packed_len + with_hash_additional_slots
+    // dummy_variable exists so that we can test how many slots the last variable was allocated.
+    assert_eq(Test::storage_layout().dummy_variable.slot, expected_slot);
 }
 
 global CONTRACT_DEPLOYED_AT: u32 = 3;
 
-// In env.deploy_self("Test").with_private_initializer(initializer); it first deploys the contract, then advances a block, then calls the initializer.
-global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT + 1;
+global CONTRACT_INITIALIZED_AT: u32 = CONTRACT_DEPLOYED_AT;
 
 pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -102,10 +120,8 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 
     // Deploy contract and initialize
     let initializer = Test::interface().initialize();
-    let test_contract = env.deploy_self("Test").with_private_initializer(initializer);
+    let test_contract = env.deploy_self("Test").with_private_initializer(owner, initializer);
     let contract_address = test_contract.to_address();
-
-    env.advance_block_by(1);
 
     (&mut env, contract_address, owner)
 }
@@ -116,7 +132,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
 // In these tests we deploy a contract and can prove whether it has been deployed / initialized at specific blocks.
 #[test]
 unconstrained fn contract_historical_proofs_happy_path() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context_at_block_before_deployment = env.private_at(CONTRACT_DEPLOYED_AT - 1);
     let context_at_block_of_deployment = env.private_at(CONTRACT_DEPLOYED_AT);
@@ -143,7 +159,7 @@ unconstrained fn contract_historical_proofs_happy_path() {
 // of the deployment nullifier in state.
 #[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT - 1);
 
@@ -152,9 +168,9 @@ unconstrained fn proving_contract_deployment_fails() {
 
 // In this test, we fail to prove contract initialization at the block before it was deployed. This checks for inclusion
 // of the initialization nullifier in state.
-#[test(should_fail_with = "Nullifier membership witness not found at block 3.")]
+#[test(should_fail_with = "Nullifier membership witness not found at block 2.")]
 unconstrained fn proving_contract_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT - 1);
 
@@ -164,7 +180,7 @@ unconstrained fn proving_contract_initialization_fails() {
 // In this test, we fail to prove contract non-deployment at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_deployment_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_DEPLOYED_AT);
 
@@ -174,7 +190,7 @@ unconstrained fn proving_contract_non_deployment_fails() {
 // In this test, we fail to prove contract non-initialization at the block of its deployment.
 #[test(should_fail_with = "Proving nullifier non-inclusion failed")]
 unconstrained fn proving_contract_non_initialization_fails() {
-    let (env, contract_address) = setup();
+    let (env, contract_address, _owner) = setup();
 
     let context = env.private_at(CONTRACT_INITIALIZED_AT);
 

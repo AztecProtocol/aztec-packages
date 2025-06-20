@@ -98,11 +98,11 @@ jobs:
       TF_STATE_BUCKET: aztec-terraform
       GKE_CLUSTER_CONTEXT: "gke_testnet-440309_us-west1-a_${{ inputs.cluster }}"
       GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME: ${{ inputs.grafana_dashboard_password_secret_name }}
-      SLACK_WEBHOOK_URL_SECRET_NAME: ${{ inputs.slack_webhook_url_name }}
+      SLACK_WEBHOOK_URL_SECRET_NAME: ${{ inputs.slack_webhook_url_secret_name }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
 

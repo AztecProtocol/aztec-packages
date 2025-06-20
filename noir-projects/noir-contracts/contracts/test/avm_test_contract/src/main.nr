@@ -12,7 +12,7 @@ pub contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size, success_copy};
+    use dep::aztec::context::public_context::{call, returndata_size, success_copy};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -257,12 +257,12 @@ pub contract AvmTest {
         // since it will all be consumed on exceptional halt.
         let l2_gas_left = context.l2_gas_left();
         let da_gas_left = context.da_gas_left();
-        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
         let selector = FunctionSelector::from_signature("divide_by_zero()");
 
         // Call without capturing a return value since call no longer returns success
         call(
-            gas_allocation,
+            l2_gas_left - 200_000,
+            da_gas_left - 200_000,
             context.this_address(),
             &[selector.to_field()],
         );
@@ -393,7 +393,7 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_block_number() -> Field {
+    fn get_block_number() -> u32 {
         context.block_number()
     }
 
@@ -403,22 +403,22 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn get_fee_per_l2_gas() -> Field {
+    fn get_fee_per_l2_gas() -> u128 {
         context.fee_per_l2_gas()
     }
 
     #[public]
-    fn get_fee_per_da_gas() -> Field {
+    fn get_fee_per_da_gas() -> u128 {
         context.fee_per_da_gas()
     }
 
     #[public]
-    fn get_l2_gas_left() -> Field {
+    fn get_l2_gas_left() -> u32 {
         context.l2_gas_left()
     }
 
     #[public]
-    fn get_da_gas_left() -> Field {
+    fn get_da_gas_left() -> u32 {
         context.da_gas_left()
     }
 
@@ -540,8 +540,7 @@ pub contract AvmTest {
     #[public]
     fn nested_call_to_nothing_recovers() {
         let garbageAddress = AztecAddress::from_field(42);
-        let gas = [1, 1];
-        call(gas, garbageAddress, &[]);
+        call(1, 1, garbageAddress, &[]);
         let success = success_copy();
         assert(
             !success,
@@ -553,8 +552,8 @@ pub contract AvmTest {
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
-        l2_gas: Field,
-        da_gas: Field,
+        l2_gas: u32,
+        da_gas: u32,
     ) -> pub Field {
         AvmTest::at(context.this_address())
             .add_args_return(arg_a, arg_b)
@@ -607,6 +606,17 @@ pub contract AvmTest {
     #[public]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
+
+    // function with large array as calldata (for benchmarking call interface macros)
+    #[public]
+    fn fn_w_large_calldata(arr: [Field; 300]) -> pub Field {
+        // do nothing and return...
+        5
+    }
+    #[public]
+    fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
+        AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
     }
 
     /**

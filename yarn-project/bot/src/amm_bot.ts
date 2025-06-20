@@ -1,4 +1,5 @@
-import { AztecAddress, Fr, SentTx, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, SentTx, TxReceipt, type Wallet } from '@aztec/aztec.js';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
@@ -7,7 +8,8 @@ import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
 
-const TRANSFER_AMOUNT = 1_000;
+const TRANSFER_BASE_AMOUNT = 1_000;
+const TRANSFER_VARIANCE = 200;
 
 type Balances = { token0: bigint; token1: bigint };
 
@@ -35,27 +37,37 @@ export class AmmBot extends BaseBot {
     const { feePaymentMethod } = this.config;
     const { wallet, amm, token0, token1 } = this;
 
-    this.log.verbose(`Preparing tx with ${feePaymentMethod} fee to swap tokens`, logCtx);
+    const balances = this.getBalances();
+    this.log.info(`Preparing tx with ${feePaymentMethod} fee to swap tokens. Balances: ${jsonStringify(balances)}`, {
+      ...logCtx,
+      balances,
+    });
 
-    const ammBalances = await this.getAmmBalances();
-    const amountIn = TRANSFER_AMOUNT;
-    const nonce = Fr.random();
+    // 1000 ± 200
+    const amountIn = Math.floor(TRANSFER_BASE_AMOUNT + (Math.random() - 0.5) * TRANSFER_VARIANCE);
+    const authwitNonce = Fr.random();
+
+    const [tokenIn, tokenOut] = Math.random() < 0.5 ? [token0, token1] : [token1, token0];
 
     const swapAuthwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: token0.methods.transfer_to_public(wallet.getAddress(), amm.address, amountIn, nonce),
+      action: tokenIn.methods.transfer_to_public(wallet.getAddress(), amm.address, amountIn, authwitNonce),
     });
 
     const amountOutMin = await amm.methods
-      .get_amount_out_for_exact_in(ammBalances.token0, ammBalances.token1, amountIn)
+      .get_amount_out_for_exact_in(
+        await tokenIn.methods.balance_of_public(amm.address).simulate(),
+        await tokenOut.methods.balance_of_public(amm.address).simulate(),
+        amountIn,
+      )
       .simulate();
 
     const swapExactTokensInteraction = amm.methods.swap_exact_tokens_for_tokens(
-      token0.address,
-      token1.address,
+      tokenIn.address,
+      tokenOut.address,
       amountIn,
       amountOutMin,
-      nonce,
+      authwitNonce,
     );
 
     const opts = this.getSendMethodOpts(swapAuthwit);
@@ -63,7 +75,14 @@ export class AmmBot extends BaseBot {
     this.log.verbose(`Proving transaction`, logCtx);
     const tx = await swapExactTokensInteraction.prove(opts);
 
+    this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
+
     return tx.send();
+  }
+
+  protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
+    const balances = await this.getBalances();
+    this.log.info(`Balances after swap in tx ${receipt.txHash}: ${jsonStringify(balances)}`, { ...logCtx, balances });
   }
 
   public getAmmBalances(): Promise<Balances> {

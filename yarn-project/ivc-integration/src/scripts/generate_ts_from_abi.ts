@@ -14,7 +14,10 @@ const circuits = [
   'mock_private_kernel_inner',
   'mock_private_kernel_reset',
   'mock_private_kernel_tail',
-  'mock_public_base',
+  'mock_rollup_base_public',
+  'mock_rollup_base_private',
+  'mock_rollup_merge',
+  'mock_rollup_root',
 ];
 
 const main = async () => {

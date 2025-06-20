@@ -7,11 +7,13 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type AvmProvingRequest,
+  AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   NestedProcessReturnValues,
@@ -22,10 +24,11 @@ import {
 
 import { strict as assert } from 'assert';
 
-import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmSimulator } from '../avm/index.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { getPublicFunctionDebugName } from '../debug_fn_name.js';
+import { HintingMerkleWriteOperations, HintingPublicContractsDB } from '../hinting_db_sources.js';
+import { type PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { NullifierCollisionError } from '../state_manager/nullifiers.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -52,11 +55,12 @@ export class PublicTxSimulator {
   protected log: Logger;
 
   constructor(
-    private treesDB: PublicTreesDB,
-    protected contractsDB: PublicContractsDB,
+    private merkleTree: MerkleTreeWriteOperations,
+    private contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
+    private clientInitiatedSimulation: boolean = false,
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
   }
@@ -71,9 +75,15 @@ export class PublicTxSimulator {
       const txHash = await this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      // Create hinting DBs.
+      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+      const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
+      const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
+      const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
+
       const context = await PublicTxContext.create(
-        this.treesDB,
-        this.contractsDB,
+        hintingTreesDB,
+        hintingContractsDB,
         tx,
         this.globalVariables,
         this.doMerkleOperations,
@@ -107,13 +117,10 @@ export class PublicTxSimulator {
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();
-      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
+      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, hints);
 
       const revertCode = context.getFinalRevertCode();
 
-      if (!revertCode.isOK()) {
-        await tx.filterRevertedLogs();
-      }
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
@@ -221,7 +228,7 @@ export class PublicTxSimulator {
     const returnValues: NestedProcessReturnValues[] = [];
     let reverted = false;
     let revertReason: SimulationError | undefined;
-    for (let i = callRequests.length - 1; i >= 0; i--) {
+    for (let i = 0; i < callRequests.length; i++) {
       if (reverted) {
         break;
       }
@@ -264,10 +271,8 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    stateManager.traceEnqueuedCall(callRequest.request);
-
     const result = await this.simulateEnqueuedCallInternal(
-      context.state.getActiveStateManager(),
+      stateManager,
       callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),
@@ -324,6 +329,7 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
+      this.clientInitiatedSimulation,
     );
     const avmCallResult = await simulator.execute();
     return avmCallResult.finalize();
@@ -335,7 +341,11 @@ export class PublicTxSimulator {
   protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+        n => !n.isEmpty(),
+      )) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -348,6 +358,12 @@ export class PublicTxSimulator {
         await stateManager.writeUniqueNoteHash(noteHash);
       }
     }
+    for (const l2ToL1Message of context.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
+      }
+    }
+
     // add new contracts to the contracts db so that their functions may be found and called
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
     // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
@@ -364,7 +380,9 @@ export class PublicTxSimulator {
     await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Instead of throwing, revert the app_logic phase
@@ -385,6 +403,11 @@ export class PublicTxSimulator {
       if (!noteHash.isEmpty()) {
         // Revertible note hashes from private are not hashed with nonce, since private can't know their final position, only we can.
         await stateManager.writeSiloedNoteHash(noteHash);
+      }
+    }
+    for (const l2ToL1Message of context.revertibleAccumulatedDataFromPrivate.l2ToL1Msgs) {
+      if (!l2ToL1Message.isEmpty()) {
+        stateManager.writeScopedL2ToL1Message(l2ToL1Message);
       }
     }
     // add new contracts to the contracts db so that their functions may be found and called

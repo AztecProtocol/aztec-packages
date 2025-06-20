@@ -2,9 +2,10 @@ import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
 import { closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable } from 'stream';
-import createDebug from 'debug';
 import { homedir } from 'os';
 import { finished } from 'stream/promises';
+import { createDebugLogger } from '../../log/index.js';
+import { join } from 'path';
 
 /**
  * Generic CRS finder utility class.
@@ -13,13 +14,13 @@ export class Crs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
   ) {}
 
   static async new(
     numPoints: number,
-    crsPath = homedir() + '/.bb-crs',
-    logger: (msg: string) => void = createDebug('bb.js:crs'),
+    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
+    logger: (msg: string) => void = createDebugLogger('crs'),
   ) {
     const crs = new Crs(numPoints, crsPath, logger);
     await crs.init();
@@ -82,13 +83,13 @@ export class GrumpkinCrs {
   constructor(
     public readonly numPoints: number,
     public readonly path: string,
-    private readonly logger: (msg: string) => void = createDebug('bb.js:crs'),
+    private readonly logger: (msg: string) => void = createDebugLogger('crs'),
   ) {}
 
   static async new(
     numPoints: number,
-    crsPath = homedir() + '/.bb-crs',
-    logger: (msg: string) => void = createDebug('bb.js:crs'),
+    crsPath = process.env.CRS_PATH ?? join(homedir(), '.bb-crs'),
+    logger: (msg: string) => void = createDebugLogger('crs'),
   ) {
     const crs = new GrumpkinCrs(numPoints, crsPath, logger);
     await crs.init();
@@ -98,7 +99,7 @@ export class GrumpkinCrs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g1FileSize = await stat(this.path + '/grumpkin_g1.dat')
+    const g1FileSize = await stat(this.path + '/grumpkin_g1.flat.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
@@ -111,7 +112,7 @@ export class GrumpkinCrs {
     const crs = new NetGrumpkinCrs(this.numPoints);
     const stream = await crs.streamG1Data();
 
-    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1.dat')));
+    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1.flat.dat')));
     writeFileSync(this.path + '/grumpkin_size', String(crs.numPoints));
   }
 
@@ -120,6 +121,6 @@ export class GrumpkinCrs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    return readFileSync(this.path + '/grumpkin_g1.dat');
+    return readFileSync(this.path + '/grumpkin_g1.flat.dat');
   }
 }

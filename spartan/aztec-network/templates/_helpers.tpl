@@ -133,8 +133,12 @@ Service Address Setup Container
       value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
+    - name: EXTERNAL_FULL_NODE_HOST
+      value: "{{ .Values.fullNode.externalHost }}"
     - name: BOOT_NODE_PORT
       value: "{{ .Values.bootNode.service.nodePort }}"
+    - name: FULL_NODE_PORT
+      value: "{{ .Values.fullNode.service.nodePort }}"
     - name: EXTERNAL_PROVER_NODE_HOST
       value: "{{ .Values.proverNode.externalHost }}"
     - name: PROVER_NODE_PORT
@@ -222,7 +226,7 @@ nodeSelector:
 {{- end -}}
 
 {{- define "aztec-network.waitForEthereum" -}}
-if [ -n "${EXTERNAL_ETHEREUM_HOSTS}" ]; then
+if [ -n "${EXTERNAL_ETHEREUM_HOSTS:-}" ]; then
   export ETHEREUM_HOSTS="${EXTERNAL_ETHEREUM_HOSTS}"
 fi
 echo "Awaiting any ethereum node from: ${ETHEREUM_HOSTS}"
@@ -337,8 +341,12 @@ Combined P2P, and Service Address Setup Container
       value: "{{ .Values.ethereum.beacon.service.port }}"
     - name: EXTERNAL_BOOT_NODE_HOST
       value: "{{ .Values.bootNode.externalHost }}"
+    - name: EXTERNAL_FULL_NODE_HOST
+      value: "{{ .Values.fullNode.externalHost }}"
     - name: BOOT_NODE_PORT
       value: "{{ .Values.bootNode.service.nodePort }}"
+    - name: FULL_NODE_PORT
+      value: "{{ .Values.fullNode.service.nodePort }}"
     - name: EXTERNAL_PROVER_NODE_HOST
       value: "{{ .Values.proverNode.externalHost }}"
     - name: PROVER_NODE_PORT
@@ -379,3 +387,4 @@ Combined P2P, and Service Address Setup Container
     - name: config
       mountPath: /shared/config
 {{- end -}}
+

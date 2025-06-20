@@ -109,6 +109,7 @@ describe('e2e_fees private_payment', () => {
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
+    const { sequencerBlockRewards } = await t.getBlockRewards();
 
     const tx = localTx.send();
     await tx.wait({ timeout: 300, interval: 10 });
@@ -121,7 +122,7 @@ describe('e2e_fees private_payment', () => {
     // epoch and thereby pays out fees at the same time (when proven).
     const expectedProverFee = await t.getProverFee(receipt.blockNumber!);
     await expect(t.getCoinbaseSequencerRewards()).resolves.toEqual(
-      sequencerRewardsBefore + receipt.transactionFee! - expectedProverFee,
+      sequencerRewardsBefore + sequencerBlockRewards + receipt.transactionFee! - expectedProverFee,
     );
     const feeAmount = receipt.transactionFee!;
 
@@ -306,8 +307,6 @@ describe('e2e_fees private_payment', () => {
       bananaCoin.methods
         .mint_to_private(from, aliceAddress, 10)
         .send({
-          // we need to skip public simulation otherwise the PXE refuses to accept the TX
-          skipPublicSimulation: true,
           fee: {
             gasSettings,
             paymentMethod: new PrivateFeePaymentMethod(bankruptFPC.address, aliceWallet),
@@ -321,7 +320,7 @@ describe('e2e_fees private_payment', () => {
   it('insufficient funded amount is correctly handled', async () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(
-      bananaCoin.methods.private_get_name().prove({
+      bananaCoin.methods.private_get_name().simulate({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateFeePaymentMethod(

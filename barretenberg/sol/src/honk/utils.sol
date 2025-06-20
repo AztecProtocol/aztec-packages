@@ -1,7 +1,16 @@
 pragma solidity >=0.8.21;
 
 import {Honk} from "./HonkTypes.sol";
+import {Transcript} from "./Transcript.sol";
 import {Fr, FrLib} from "./Fr.sol";
+import {
+    Honk,
+    NUMBER_OF_ALPHAS,
+    NUMBER_OF_ENTITIES,
+    BATCHED_RELATION_PARTIAL_LENGTH,
+    CONST_PROOF_SIZE_LOG_N,
+    PAIRING_POINTS_SIZE
+} from "./HonkTypes.sol";
 
 uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
 
@@ -109,4 +118,29 @@ function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns 
 
     (bool success, bytes memory result) = address(0x08).staticcall(input);
     decodedResult = success && abi.decode(result, (bool));
+}
+
+function print_transcript(Transcript memory t) pure {
+    // Print alphas
+    for (uint256 i = 0; i < NUMBER_OF_ALPHAS; i++) {
+        logFr("alpha", i, t.alphas[i]);
+    }
+
+    // Print gate challenges
+    for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        logFr("gateChallenge", i, t.gateChallenges[i]);
+    }
+
+    // Print sumcheck challenges
+    for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        logFr("sumCheckUChallenge", i, t.sumCheckUChallenges[i]);
+    }
+
+    // Print Gemini parameters
+    logFr("rho", t.rho);
+    logFr("geminiR", t.geminiR);
+
+    // Print Shplonk parameters
+    logFr("shplonkNu", t.shplonkNu);
+    logFr("shplonkZ", t.shplonkZ);
 }

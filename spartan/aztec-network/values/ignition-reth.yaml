@@ -4,9 +4,6 @@ telemetry:
 aztec:
   realProofs: true
 
-network:
-  setupL2Contracts: false
-
 bot:
   enabled: false
 

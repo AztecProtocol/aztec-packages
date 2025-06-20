@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "eccvm_prover.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -5,8 +11,8 @@
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -26,17 +32,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // Construct the proving key; populates all polynomials except for witness polys
     key = std::make_shared<ProvingKey>(builder);
 
-    key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
-}
-
-/**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
- */
-void ECCVMProver::execute_preamble_round()
-{
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    transcript->send_to_verifier("circuit_size", circuit_size);
+    key->commitment_key = CommitmentKey(key->circuit_size);
 }
 
 /**
@@ -186,7 +182,6 @@ ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
-    execute_preamble_round();
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();
@@ -324,6 +319,6 @@ void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
     // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
     // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key->commit_with_type(polynomial, commit_type, active_ranges));
+    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
 }
 } // namespace bb

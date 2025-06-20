@@ -50,10 +50,11 @@ void fold_k(State& state) noexcept
     static constexpr size_t k{ 1 };
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Flavor, k + 1>;
     using Builder = typename Flavor::CircuitBuilder;
 
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
@@ -63,12 +64,17 @@ void fold_k(State& state) noexcept
         return std::make_shared<DeciderProvingKey>(builder);
     };
     std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
+    std::vector<std::shared_ptr<DeciderVerificationKey>> decider_vks;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
-        decider_pks.emplace_back(construct_key());
+        std::shared_ptr<DeciderProvingKey> decider_pk = construct_key();
+        auto honk_vk = std::make_shared<Flavor::VerificationKey>(decider_pk->proving_key);
+        std::shared_ptr<DeciderVerificationKey> decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
+        decider_pks.emplace_back(decider_pk);
+        decider_vks.emplace_back(decider_vk);
     }
 
-    ProtogalaxyProver folding_prover(decider_pks);
+    ProtogalaxyProver folding_prover(decider_pks, decider_vks);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);

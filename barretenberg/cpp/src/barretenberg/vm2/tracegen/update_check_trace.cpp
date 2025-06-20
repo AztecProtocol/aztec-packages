@@ -1,6 +1,10 @@
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include <memory>
+
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -64,5 +68,15 @@ void UpdateCheckTraceBuilder::process(
         row++;
     }
 }
+
+const InteractionDefinition UpdateCheckTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_update_check_update_hash_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_shared_mutable_slot_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_update_hash_public_data_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_update_check_update_hi_metadata_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_update_check_update_lo_metadata_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_update_check_block_of_change_cmp_range_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

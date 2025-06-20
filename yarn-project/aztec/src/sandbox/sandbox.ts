@@ -5,16 +5,19 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes } from '@aztec/aztec.js/testing';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { setupSponsoredFPC } from '@aztec/cli/cli-utils';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {
   NULL_KEY,
   createEthereumChain,
   deployL1Contracts,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   waitForPublicClient,
 } from '@aztec/ethereum';
+import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
@@ -53,7 +56,6 @@ export async function deployContractsToL1(
     assumeProvenThroughBlockNumber?: number;
     salt?: number;
     genesisArchiveRoot?: Fr;
-    genesisBlockHash?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
 ) {
@@ -75,13 +77,17 @@ export async function deployContractsToL1(
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-      genesisBlockHash: opts.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
+      aztecTargetCommitteeSize: 0, // no committee in sandbox
+      realVerifier: false,
     },
   );
 
+  await deployMulticall3(l1Contracts.l1Client, logger);
+
   aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
   return aztecNodeConfig.l1Contracts;
 }
@@ -114,13 +120,13 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
-  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  if (!aztecNodeConfig.publisherPrivateKey.getValue() || aztecNodeConfig.publisherPrivateKey.getValue() === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    aztecNodeConfig.publisherPrivateKey = new SecretValue(`0x${Buffer.from(privKey!).toString('hex')}` as const);
   }
-  if (!aztecNodeConfig.validatorPrivateKey || aztecNodeConfig.validatorPrivateKey === NULL_KEY) {
+  if (!aztecNodeConfig.validatorPrivateKeys.getValue().length) {
     const privKey = hdAccount.getHdKey().privateKey;
-    aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+    aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${Buffer.from(privKey!).toString('hex')}`]);
   }
 
   const initialAccounts = await (async () => {
@@ -140,16 +146,14 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const fundedAddresses = initialAccounts.length
     ? [...initialAccounts.map(a => a.address), bananaFPC, sponsoredFPC]
     : [];
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData, fundingNeeded } = await getGenesisValues(
-    fundedAddresses,
-  );
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(fundedAddresses);
 
   let watcher: AnvilTestWatcher | undefined = undefined;
+  const dateProvider = new TestDateProvider();
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
       assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
       genesisArchiveRoot,
-      genesisBlockHash,
       salt: config.l1Salt ? parseInt(config.l1Salt) : undefined,
       feeJuicePortalInitialBalance: fundingNeeded,
     });
@@ -164,7 +168,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
       transport: fallback([httpViemTransport(l1RpcUrl)]) as any,
     });
 
-    watcher = new AnvilTestWatcher(new EthCheatCodes([l1RpcUrl]), l1ContractAddresses.rollupAddress, publicClient);
+    watcher = new AnvilTestWatcher(
+      new EthCheatCodes([l1RpcUrl]),
+      l1ContractAddresses.rollupAddress,
+      publicClient,
+      dateProvider,
+    );
     watcher.setIsSandbox(true);
     await watcher.start();
   }
@@ -172,7 +181,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
   // Create a local blob sink client inside the sandbox, no http connectivity
   const blobSinkClient = createBlobSinkClient();
-  const node = await createAztecNode(aztecNodeConfig, { telemetry, blobSinkClient }, { prefilledPublicData });
+  const node = await createAztecNode(
+    aztecNodeConfig,
+    { telemetry, blobSinkClient, dateProvider },
+    { prefilledPublicData },
+  );
   const pxeServiceConfig = { proverEnabled: aztecNodeConfig.realProofs };
   const pxe = await createAztecPXE(node, pxeServiceConfig);
 
@@ -205,7 +218,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
  */
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
-  deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
+  deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface; dateProvider?: DateProvider } = {},
   options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.

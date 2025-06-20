@@ -3,6 +3,8 @@ pragma solidity >=0.8.27;
 
 import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
+import {Fakerollup} from "../governance/governance-proposer/mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
@@ -13,60 +15,88 @@ contract ConstructorTest is StakingAssetHandlerBase {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
     new StakingAssetHandler(
-      address(this), address(0), address(0), address(0), 0, 0, 0, new address[](0)
+      address(this),
+      address(0),
+      registry,
+      address(0),
+      0,
+      0,
+      zkPassportVerifier,
+      new address[](0),
+      CORRECT_SCOPE,
+      CORRECT_SUBSCOPE,
+      false
     );
   }
 
   function test_WhenDepositsPerMintIsNot0(
     address _owner,
     address _stakingAsset,
-    address _staking,
     address _withdrawer,
-    uint256 _depositAmount,
     uint256 _mintInterval,
     uint256 _depositsPerMint,
-    address[] memory _canAddValidator
+    uint256 _unhingedCount,
+    string memory _scope,
+    string memory _subscope,
+    bool _skipBindCheck
   ) external {
     vm.assume(_owner != address(0));
-    _depositsPerMint = bound(_depositsPerMint, 1, 1000);
+
+    _unhingedCount = bound(_unhingedCount, 1, 100);
+
+    address[] memory unhinged = new address[](_unhingedCount);
+    for (uint256 i = 0; i < _unhingedCount; i++) {
+      unhinged[i] = address(uint160(uint256(keccak256(abi.encodePacked(i + 1)))));
+    }
+
+    Fakerollup fakeRollup = new Fakerollup();
+    registry.addRollup(IRollup(address(fakeRollup)));
+
+    _depositsPerMint = bound(_depositsPerMint, 1, 100);
+    _depositsPerMint = 2;
     // it sets the owner
     // it sets the staking asset
-    // it sets the staking contract and emits a {RollupUpdated} event
+    // it sets the registry and emits a {RegistryUpdated} event
     // it sets the withdrawer and emits a {WithdrawerUpdated} event
-    // it sets the deposit amount and emits a {DepositAmountUpdated} event
     // it sets the mint interval and emits a {MintIntervalUpdated} event
     // it sets the deposits per mint and emits a {DepositsPerMintUpdated} event
-    // it adds the array of addresses to the can add validator array and emits a {AddValidatorPermissionGranted} event for each address
+    // it adds the array of unhinged address and emits a {UnhingedAdded} event for each address
     vm.expectEmit(true, true, true, true);
-    emit IStakingAssetHandler.RollupUpdated(_staking);
     emit IStakingAssetHandler.WithdrawerUpdated(_withdrawer);
-    emit IStakingAssetHandler.DepositAmountUpdated(_depositAmount);
+    vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.IntervalUpdated(_mintInterval);
+    vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.DepositsPerMintUpdated(_depositsPerMint);
-    for (uint256 i = 0; i < _canAddValidator.length; i++) {
-      emit IStakingAssetHandler.AddValidatorPermissionGranted(_canAddValidator[i]);
+    for (uint256 i = 0; i < unhinged.length; i++) {
+      vm.expectEmit(true, true, true, true);
+      emit IStakingAssetHandler.UnhingedAdded(unhinged[i]);
     }
-    emit IStakingAssetHandler.AddValidatorPermissionGranted(_owner);
+    vm.expectEmit(true, true, true, true);
+    emit IStakingAssetHandler.UnhingedAdded(_owner);
+
     vm.prank(_owner);
     stakingAssetHandler = new StakingAssetHandler(
       _owner,
       _stakingAsset,
-      _staking,
+      registry,
       _withdrawer,
-      _depositAmount,
       _mintInterval,
       _depositsPerMint,
-      _canAddValidator
+      zkPassportVerifier,
+      unhinged,
+      _scope,
+      _subscope,
+      _skipBindCheck
     );
     assertEq(stakingAssetHandler.owner(), _owner);
     assertEq(address(stakingAssetHandler.STAKING_ASSET()), _stakingAsset);
-    assertEq(address(stakingAssetHandler.rollup()), _staking);
+    assertEq(address(stakingAssetHandler.getRollup()), address(registry.getCanonicalRollup()));
+    assertEq(address(stakingAssetHandler.getRollup()), address(fakeRollup));
     assertEq(stakingAssetHandler.withdrawer(), _withdrawer);
-    assertEq(stakingAssetHandler.depositAmount(), _depositAmount);
     assertEq(stakingAssetHandler.mintInterval(), _mintInterval);
     assertEq(stakingAssetHandler.depositsPerMint(), _depositsPerMint);
-    for (uint256 i = 0; i < _canAddValidator.length; i++) {
-      assertEq(stakingAssetHandler.canAddValidator(_canAddValidator[i]), true);
+    for (uint256 i = 0; i < unhinged.length; i++) {
+      assertTrue(stakingAssetHandler.isUnhinged(unhinged[i]));
     }
   }
 }

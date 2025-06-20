@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 
@@ -52,7 +58,7 @@ namespace bb {
  *
  * Then the last subrelation is simply checking the integer equation in this native form
  *
- * All of these subrelations are multiplied by lagrange_odd_in_minicircuit, which is a polynomial with 1 at each odd
+ * All of these subrelations are multiplied by lagrange_even_in_minicircuit, which is a polynomial with 1 at each even
  * index less than the size of the mini-circuit (16 times smaller than the final circuit and the only part over
  * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
  * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
@@ -82,7 +88,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     static uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
     static uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
-    static std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+    static const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
         FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
         FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
@@ -145,23 +151,23 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     const auto& quotient_high_binary_limbs_shift = View(in.quotient_high_binary_limbs_shift);
     const auto& relation_wide_limbs = View(in.relation_wide_limbs);
     const auto& relation_wide_limbs_shift = View(in.relation_wide_limbs_shift);
-    const auto& lagrange_odd_in_minicircuit = View(in.lagrange_odd_in_minicircuit);
+    const auto& lagrange_even_in_minicircuit = View(in.lagrange_even_in_minicircuit);
 
     // Contribution (1) Computing the mod 2²⁷² relation over lower 136 bits
     // clang-format off
         // the index-0 limb
-        auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0 
-                   + op 
-                   + p_x_low_limbs     * v_0_0 
-                   + p_y_low_limbs     * v_1_0 
-                   + z_low_limbs       * v_2_0 
+        auto tmp = accumulators_binary_limbs_0_shift * evaluation_input_x_0
+                   + op
+                   + p_x_low_limbs     * v_0_0
+                   + p_y_low_limbs     * v_1_0
+                   + z_low_limbs       * v_2_0
                    + z_low_limbs_shift * v_3_0
-                   + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0] 
+                   + quotient_low_binary_limbs * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_0;
-        
+
         // the index-1 limb
-        tmp += (accumulators_binary_limbs_1_shift   * evaluation_input_x_0 
-                   + accumulators_binary_limbs_0_shift * evaluation_input_x_1 
+        tmp += (accumulators_binary_limbs_1_shift   * evaluation_input_x_0
+                   + accumulators_binary_limbs_0_shift * evaluation_input_x_1
                    + p_x_low_limbs       * v_0_1
                    + p_x_low_limbs_shift * v_0_0
                    + p_y_low_limbs       * v_1_1
@@ -170,14 +176,14 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + z_high_limbs        * v_2_0
                    + z_low_limbs_shift   * v_3_1
                    + z_high_limbs_shift  * v_3_0
-                   + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1] 
-                   + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0] 
+                   + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
+                   + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0]
                    - accumulators_binary_limbs_1)
                 * shift ;
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
-    tmp *= lagrange_odd_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit;
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
@@ -201,7 +207,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
               + z_low_limbs_shift   * v_3_2
               + quotient_high_binary_limbs      * NEGATIVE_MODULUS_LIMBS[0]
               + quotient_low_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[1]
-              + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2] 
+              + quotient_low_binary_limbs       * NEGATIVE_MODULUS_LIMBS[2]
               - accumulators_binary_limbs_2;
 
         // the index-2 limb
@@ -224,13 +230,13 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                    + quotient_high_binary_limbs_shift * NEGATIVE_MODULUS_LIMBS[0]
                    + quotient_high_binary_limbs       * NEGATIVE_MODULUS_LIMBS[1]
                    + quotient_low_binary_limbs_shift  * NEGATIVE_MODULUS_LIMBS[2]
-                   + quotient_low_binary_limbs        * NEGATIVE_MODULUS_LIMBS[3] 
+                   + quotient_low_binary_limbs        * NEGATIVE_MODULUS_LIMBS[3]
                    - accumulators_binary_limbs_3)
                 * shift;
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
-    tmp *= lagrange_odd_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit;
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
@@ -263,16 +269,16 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // Contribution (3). Evaluating integer relation over native field
     // clang-format off
         // the native limb index is 4
-        tmp = reconstructed_previous_accumulator * evaluation_input_x_4 
-                     + op 
+        tmp = reconstructed_previous_accumulator * evaluation_input_x_4
+                     + op
                      + reconstructed_p_x * v_0_4
                      + reconstructed_p_y * v_1_4
                      + reconstructed_z1  * v_2_4
                      + reconstructed_z2  * v_3_4
-                     + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4] 
+                     + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
-    tmp *= lagrange_odd_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit;
     tmp *= scaling_factor;
     std::get<2>(accumulators) += tmp;
 };

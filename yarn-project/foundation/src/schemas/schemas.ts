@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { Buffer32 } from '../buffer/buffer32.js';
+import { SecretValue } from '../config/secret_value.js';
 import { EthAddress } from '../eth-address/index.js';
 import { Fq, Fr } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
@@ -58,6 +59,9 @@ export const schemas = {
 
   /** Hex string with an optional 0x prefix which gets removed as part of the parsing. */
   HexString: hexSchema,
+
+  /** A secret config value */
+  SecretValue: SecretValue.schema,
 };
 
 // These are needed to avoid errors such as: "The inferred type of 'YourClassSchema' cannot be named without a reference to..."

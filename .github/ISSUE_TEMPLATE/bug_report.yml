@@ -1,0 +1,60 @@
+name: Bug Report
+description: File a bug report
+title: "[BUG] "
+labels: ["T-bug", "from-community"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide the following information to help us understand and fix the issue.
+  - type: textarea
+    id: what-trying
+    attributes:
+      label: What are you trying to do?
+      description: Please provide a clear and concise description of what you were trying to accomplish when you encountered the issue
+      placeholder: Describe what you were trying to do...
+    validations:
+      required: true
+  - type: textarea
+    id: code-reference
+    attributes:
+      label: Code Reference
+      description: Please provide a code snippet that demonstrates the issue. Make sure this can be copied and run to reproduce the problem, or link to an external repo
+      placeholder: |
+        ```typescript
+        // Your code here
+        ```
+    validations:
+      required: true
+  - type: input
+    id: aztec-version
+    attributes:
+      label: Aztec Version
+      description: Please provide the version you're using
+      placeholder: e.g. 0.85.0-alpha-testnet.2
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      description: Your operating system
+      placeholder: e.g. MacOS, Linux, WSL
+  - type: input
+    id: browser
+    attributes:
+      label: Browser (if relevant)
+      description: What browser did you encounter the error in
+      placeholder: e.g. Chrome, Safari
+  - type: input
+    id: node-version
+    attributes:
+      label: Node Version
+      description: Your Node.js version
+      placeholder: e.g. 22.15.0
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here
+      placeholder: Any additional information that might help...

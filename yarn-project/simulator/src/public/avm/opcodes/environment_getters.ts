@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, Uint64 } from '../avm_memory_types.js';
+import { Field, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -33,13 +33,13 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.VERSION:
       return new Field(ctx.environment.globals.version);
     case EnvironmentVariable.BLOCKNUMBER:
-      return new Field(ctx.environment.globals.blockNumber);
+      return new Uint32(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:
-      return new Uint64(ctx.environment.globals.timestamp.toBigInt());
+      return new Uint64(ctx.environment.globals.timestamp);
     case EnvironmentVariable.FEEPERL2GAS:
-      return new Field(ctx.environment.globals.gasFees.feePerL2Gas);
+      return new Uint128(ctx.environment.globals.gasFees.feePerL2Gas);
     case EnvironmentVariable.FEEPERDAGAS:
-      return new Field(ctx.environment.globals.gasFees.feePerDaGas);
+      return new Uint128(ctx.environment.globals.gasFees.feePerDaGas);
     case EnvironmentVariable.ISSTATICCALL:
       return new Field(ctx.environment.isStaticCall ? 1 : 0);
     case EnvironmentVariable.L2GASLEFT:
@@ -61,20 +61,27 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private varEnum: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
-    context.machineState.consumeGas(this.gasCost());
+    const addressing = Addressing.fromWire(this.indirect);
+
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     if (!(this.varEnum in EnvironmentVariable)) {
       throw new InstructionExecutionError(`Invalid GETENVVAR var enum ${this.varEnum}`);
     }
 
     const operands = [this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
     memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));

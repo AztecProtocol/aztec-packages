@@ -4,7 +4,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type Koa from 'koa';
 
-import type { ChainConfig } from '../config/config.js';
+import type { ChainConfig } from '../config/chain-config.js';
 
 // REFACTOR: This file is not a circuit-type, but at the moment we don't have any other
 // package common to all components that we can use for this shared code.

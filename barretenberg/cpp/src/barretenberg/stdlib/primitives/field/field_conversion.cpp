@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 
 namespace bb::stdlib::field_conversion {
@@ -44,8 +50,5 @@ template fq<UltraCircuitBuilder> convert_to_grumpkin_fr<UltraCircuitBuilder>(Ult
                                                                              const fr<UltraCircuitBuilder>& f);
 template fq<MegaCircuitBuilder> convert_to_grumpkin_fr<MegaCircuitBuilder>(MegaCircuitBuilder& builder,
                                                                            const fr<MegaCircuitBuilder>& f);
-
-template fq<CircuitSimulatorBN254> convert_to_grumpkin_fr<CircuitSimulatorBN254>(CircuitSimulatorBN254& builder,
-                                                                                 const fr<CircuitSimulatorBN254>& f);
 
 } // namespace bb::stdlib::field_conversion

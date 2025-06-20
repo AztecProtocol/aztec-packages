@@ -1,11 +1,14 @@
+import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
 import { AztecClientBackend } from '@aztec/bb.js';
+import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-
 /* eslint-disable camelcase */
-import createDebug from 'debug';
 import { ungzip } from 'pako';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MOCK_MAX_COMMITMENTS_PER_TX,
   MockAppCreatorCircuit,
@@ -19,8 +22,8 @@ import {
   MockPrivateKernelResetCircuit,
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
+  generate3FunctionTestingIVCStack,
   getVkAsFields,
-  proveThenVerifyAztecClient,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -28,9 +31,10 @@ import {
   witnessGenMockPrivateKernelTailCircuit,
   witnessGenReaderAppMockCircuit,
 } from './index.js';
+import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
+import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
 
-const logger = createDebug('ivc-integration:test:wasm');
-createDebug.enable('*');
+const logger = createLogger('ivc-integration:test:wasm');
 
 jest.setTimeout(120_000);
 
@@ -41,42 +45,31 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
-    const tx = {
-      number_of_calls: '0x1',
-    };
-    // Witness gen app and kernels
-    const appWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    logger('generated app mock circuit witness');
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
+    const [bytecodes, witnessStack, , vks] = await generate3FunctionTestingIVCStack();
 
-    const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
-      app_inputs: appWitnessGenResult.publicInputs,
-      tx,
-      app_vk: getVkAsFields(MockAppCreatorVk),
-    });
-    logger('generated mock private kernel init witness');
-
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
-    });
-    logger('generated mock private kernel tail witness');
-
-    // Create client IVC proof
-    const bytecodes = [
-      MockAppCreatorCircuit.bytecode,
-      MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+    // We use the bb binary for verification / writing out the VK
+    const bbBinaryPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../barretenberg/cpp/build/bin',
+      'bb',
+    );
+    const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
+    const tasks = [
+      proveClientIVCNative(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger),
+      proveClientIVCWasm(bytecodes, witnessStack),
     ];
+    const [_, wasmProof] = await Promise.all(tasks);
 
-    logger('built bytecode array');
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
-    logger('built witness stack');
-
-    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger(`generated then verified proof. result: ${verifyResult}`);
-
-    expect(verifyResult).toEqual(true);
+    // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
+    await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
+    const verifyWasmResultInNative = await verifyClientIvcProof(
+      bbBinaryPath,
+      clientIVCWorkingDirectory.concat('/proof'),
+      clientIVCWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
+    expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
   });
 
   it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
@@ -88,12 +81,15 @@ describe('Client IVC Integration', () => {
     ];
 
     // Initialize AztecClientBackend with the given bytecodes
-    const backend = new AztecClientBackend(bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)));
+    const backend = new AztecClientBackend(
+      bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
+      { threads: 1, logger: logger.info },
+    );
 
     // Compute the numbers of gates in each circuit
     const gateNumbers = await backend.gates();
     await backend.destroy();
-    logger('Gate numbers for each circuit:', gateNumbers);
+    logger.info('Gate numbers for each circuit:', gateNumbers);
     // STARTER: add a test here instantiate an AztecClientBackend with the above bytecodes, call gates, and check they're correct (maybe just
     // eyeball against logs to start... better is to make another test that actually pins the sizes since the mock protocol circuits are
     // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
@@ -160,7 +156,7 @@ describe('Client IVC Integration', () => {
     ];
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger(`generated then verified proof. result: ${verifyResult}`);
+    logger.info(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);
   });

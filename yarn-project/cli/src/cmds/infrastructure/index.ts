@@ -51,7 +51,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         who,
         mnemonic: options.mnemonic,
         rpcUrl: options.rpcUrl,
-        l1RpcUrls: options.l1RpcUrls.split(','),
+        l1RpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         blockNumber: options.blockNumber,
         log,

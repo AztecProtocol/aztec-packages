@@ -7,5 +7,8 @@ members = [
   "crates/mock-private-kernel-inner",
   "crates/mock-private-kernel-reset",
   "crates/mock-private-kernel-tail",
-  "crates/mock-public-base",
+  "crates/mock-rollup-base-private",
+  "crates/mock-rollup-base-public",
+  "crates/mock-rollup-merge",
+  "crates/mock-rollup-root",
 ]

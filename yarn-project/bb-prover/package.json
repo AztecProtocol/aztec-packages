@@ -4,9 +4,9 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./wasm/bundle": "./dest/wasm/bundle.js",
-    "./wasm/lazy": "./dest/wasm/lazy.js",
-    "./prover": "./dest/prover/index.js",
+    "./client/wasm/bundle": "./dest/prover/client/wasm/bundle.js",
+    "./client/wasm/lazy": "./dest/prover/client/wasm/lazy.js",
+    "./client/native": "./dest/prover/client/native/bb_native_private_kernel_prover.js",
     "./verifier": "./dest/verifier/index.js",
     "./test": "./dest/test/index.js",
     "./config": "./dest/config.js"
@@ -28,9 +28,7 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "generate": "scripts/generate_civc_vks.sh",
+    "generate": "scripts/copy_ivc_hiding_circuit_vks.sh",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -65,6 +63,10 @@
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
     ]
   },
   "dependencies": {
@@ -78,7 +80,6 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "@msgpack/msgpack": "^3.0.0-beta2",
     "commander": "^12.1.0",
     "pako": "^2.1.0",
     "source-map-support": "^0.5.21",
@@ -88,16 +89,16 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
-    "@jest/globals": "^29.5.0",
-    "@types/jest": "^29.5.0",
-    "@types/memdown": "^3.0.0",
-    "@types/node": "^18.7.23",
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
     "@types/source-map-support": "^0.5.10",
-    "jest": "^29.5.0",
-    "jest-mock-extended": "^3.0.3",
+    "jest": "^30.0.0",
+    "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
+    "typescript": "^5.3.3",
     "viem": "2.23.7"
   },
   "files": [
@@ -107,6 +108,6 @@
   ],
   "types": "./dest/index.d.ts",
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   }
 }

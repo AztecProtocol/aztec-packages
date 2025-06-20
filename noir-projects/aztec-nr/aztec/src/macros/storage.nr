@@ -1,19 +1,34 @@
-use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
+use poseidon::poseidon2::Poseidon2Hasher;
+use std::{collections::umap::UHashMap, hash::BuildHasherDefault};
 
 use super::utils::AsStrQuote;
 use super::utils::get_storage_size;
-use super::utils::is_note;
 
 /// Stores a map from a module to the name of the struct that describes its storage layout.
 /// This is then used when generating a `storage_layout()` getter on the contract struct.
 pub comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> =
     UHashMap::default();
 
-/// Marks a struct as the one describing the storage layout of a contract. Only a single struct in the entire contract
-/// should have this macro (or `storage_no_init`) applied to it.
+/// Marks a struct as the one describing the storage layout of a contract.
+///
 /// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
 /// all functions as an instance of the struct this macro was applied to.
+///
+/// Only a single struct in the entire contract should have this macro (or `storage_no_init`) applied to it, and the
+/// struct has to be called 'Storage'.
 pub comptime fn storage(s: TypeDefinition) -> Quoted {
+    let struct_name = s.name();
+    if struct_name != quote { Storage } {
+        panic(
+            f"The #[storage] macro can only be applied to a struct with name 'Storage', got '{struct_name}' instead.",
+        )
+    }
+
+    assert(
+        !s.has_named_attribute("storage_no_init"),
+        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+    );
+
     // This macro performs three things:
     //  - it marks the contract as having storage, so that `macros::utils::module_has_storage` will return true and
     //    functions will have the storage variable injected and initialized via the `init` function.
@@ -30,9 +45,9 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     //let context_generic = s.add_generic("Context");
     for field in s.fields_as_written() {
         // FIXME: This doesn't handle field types with generics
-        let (name, typ) = field;
+        let (name, typ, _) = field;
         let (storage_field_constructor, storage_size) =
-            generate_storage_field_constructor(typ, quote { $slot }, false);
+            generate_storage_field_constructor(typ, quote { $slot });
         storage_vars_constructors =
             storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
         // We have `Storable` in a separate `.nr` file instead of defining it in the last quote of this function
@@ -93,20 +108,35 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
 /// Same as `storage`, except the user is in charge of providing an implementation of the `init` constructor function
 /// with signature `fn init<Context>(context: Context) -> Self`, which allows for manual control of storage slot
 /// allocation. Similarly, no `StorageLayout` struct will be created.
-/// Only a single struct in the entire contract should have this macro (or `storage`) applied to it.
-pub comptime fn storage_no_init(_s: TypeDefinition) {
+///
+/// The contract's storage is accessed via the `storage` variable, which will will automatically be made available in
+/// all functions as an instance of the struct this macro was applied to.
+///
+/// Only a single struct in the entire contract can have this macro (or storage_no_init) applied to it, and the struct
+/// has to be called 'Storage'.
+pub comptime fn storage_no_init(s: TypeDefinition) {
     // All `storage` does is provide the `init` implementation, so we don't need to do anything here. Applying this
     // macro however will cause for `macros::utils::module_has_storage` to return true, resulting in the injection of
     // the `storage` variable.
+
+    // We do need to make sure that the type is called Storage, since we'll do `Storage::init` later on.
+
+    if s.name() != quote { Storage } {
+        let name = s.name();
+        panic(
+            f"The #[storage_no_init] macro can only be applied to a struct with name 'Storage', got '{name}' instead.",
+        )
+    }
+
+    assert(
+        !s.has_named_attribute("storage"),
+        f"Only one of #[storage] and #[storage_no_init] can be applied to the Storage struct.",
+    );
 }
 
 /// Returns the expression required to initialize a state variable with a given slot, along with its serialization size,
 /// i.e. how many contiguous storage slots the variable requires.
-comptime fn generate_storage_field_constructor(
-    typ: Type,
-    slot: Quoted,
-    parent_is_map: bool,
-) -> (Quoted, u32) {
+comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted) -> (Quoted, u32) {
     assert(
         typ.as_data_type().is_some(),
         "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>",
@@ -114,32 +144,18 @@ comptime fn generate_storage_field_constructor(
     let (container_struct, generics) = typ.as_data_type().unwrap();
     let struct_name = container_struct.name();
 
-    if is_storage_map(typ) {
+    let constructor = if is_storage_map(typ) {
         // Map state variables recursively initialize their contents - this includes nested maps.
         let (value_constructor, _) =
-            generate_storage_field_constructor(generics[1], quote { slot }, true);
-        (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
+            generate_storage_field_constructor(generics[1], quote { slot });
+
+        quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }
     } else {
-        let storage_size = if parent_is_map {
-            // Variables inside a map do not require contiguous slots since the map slot derivation is assumed to result
-            // in slots very far away from one another.
-            1
-        } else {
-            let (_, container_struct_generics) = typ.as_data_type().unwrap();
-            let stored_struct = container_struct_generics[0];
-
-            if is_note(stored_struct) {
-                // Private notes always occupy a single slot, since the slot is only used as a state variable
-                // identifier.
-                1
-            } else {
-                get_storage_size(typ)
-            }
-        };
-
         // We assume below that all state variables implement `fn new<Context>(context: Context, slot: Field) -> Self`.
-        (quote { $struct_name::new(context, $slot)}, storage_size)
-    }
+        quote { $struct_name::new(context, $slot)}
+    };
+
+    (constructor, get_storage_size(typ))
 }
 
 /// Returns true if `typ` is `state_vars::map::Map`.

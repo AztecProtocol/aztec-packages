@@ -1,6 +1,6 @@
 {{- if .Values.proverAgent.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-agent
   labels:
@@ -44,14 +44,6 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
             defaultMode: 0755
-        - name: crs
-          {{- if .Values.network.gke }}
-          persistentVolumeClaim:
-            claimName: {{ include "aztec-network.fullname" . }}-shared-crs-ro-pvc
-            readOnly: true
-          {{- else }}
-          emptyDir: {}
-          {{- end }}
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
@@ -77,8 +69,6 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-            - name: crs
-              mountPath: /root/.bb-crs
           command:
             - "/bin/bash"
             - "-c"
@@ -126,85 +116,4 @@ spec:
           resources:
             {{- toYaml .Values.proverAgent.resources | nindent 12 }}
 ---
-{{- if .Values.network.gke }}
-# In GKE download the CRS file once and share a readonly volume between the agents
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-shared-crs-pvc
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-6"
-spec:
-  accessModes: ["ReadWriteOnce"] 
-  storageClassName: standard-rwo
-  resources:
-    requests:
-      storage: 3Gi  # Adjust based on file size plus overhead
----
-# Next, create a pre-install hook job to populate the data
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-preload-crs
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-5"
-    "helm.sh/hook-delete-policy": hook-succeeded
-spec:
-  backoffLimit: 3
-  template:
-    metadata:
-      labels:
-        {{- include "aztec-network.labels" . | nindent 8 }}
-    spec:
-      volumes:
-        - name: crs
-          persistentVolumeClaim:
-            claimName: {{ include "aztec-network.fullname" . }}-shared-crs-pvc
-      containers:
-        - name: data-downloader
-          {{- include "aztec-network.image" . | nindent 10 }}
-          command:
-            - /bin/bash
-            - -c
-            - |
-              if [ "$PROVER_REAL_PROOFS" = "true" ]; then
-                node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js preload-crs
-              else
-                echo "Skipping CRS preloading because proving is disabled"
-              fi
-          env:
-            - name: PROVER_REAL_PROOFS
-              value: "{{ .Values.aztec.realProofs }}"
-          volumeMounts:
-            - name: crs
-              mountPath: /root/.bb-crs
-      restartPolicy: Never
----
-# Copy the CRS files to a readonly volume
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: {{ include "aztec-network.fullname" . }}-shared-crs-ro-pvc
-  labels:
-    {{- include "aztec-network.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
-    "helm.sh/hook-weight": "-4"
-spec:
-  accessModes: ["ReadOnlyMany"]
-  dataSource:
-    kind: PersistentVolumeClaim
-    name: {{ include "aztec-network.fullname" . }}-shared-crs-pvc
-  storageClassName: standard-rwo
-  resources:
-    requests:
-      storage: 3Gi
----
-{{- end }}
 {{- end }}

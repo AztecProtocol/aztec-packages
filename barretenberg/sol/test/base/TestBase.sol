@@ -9,12 +9,12 @@ contract TestBase is Test {
     using Strings for uint256;
 
     function readProofData(string memory path) internal view returns (bytes memory) {
-        // format [4 byte length][data]
+        // format [data]
         // Reads the raw bytes
         bytes memory rawBytes = vm.readFileBinary(path);
 
         // Extract the [data], contains inputs and proof
-        bytes memory proofData = new bytes(rawBytes.length - 4); //
+        bytes memory proofData = new bytes(rawBytes.length); //
         assembly {
             let length := shr(224, mload(add(rawBytes, 0x20)))
 

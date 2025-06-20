@@ -113,7 +113,10 @@ export class BlockProofError extends Error {
   static #name = 'BlockProofError';
   override name = BlockProofError.#name;
 
-  constructor(message: string, public readonly txHashes: TxHash[]) {
+  constructor(
+    message: string,
+    public readonly txHashes: TxHash[],
+  ) {
     super(message);
   }
 

@@ -14,17 +14,17 @@ aztec:
   bootstrapENRs: "enr:-LO4QLbJddVpePYjaiCftOBY-L7O6Mfj_43TAn5Q1Y-5qQ_OWmSFc7bTKWHzw5xmdVIqXUiizum_kIRniXdPnWHHcwEEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEI8nh9YlzZWNwMjU2azGhA-_dX6aFcXP1DLk91negbXL2a0mNYGXH4hrMvb2i92I0g3VkcIKd0A,enr:-LO4QN4WF8kFyV3sQVX0C_y_03Eepxk5Wac70l9QJcIDRYwKS6aRst1YcfbTDdvovXdRfKf-WSXNVWViGLhDA-dUz2MEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEIicTHolzZWNwMjU2azGhAsz7aFFYRnP5xjTux5UW-HyEQcW_EJrZMT1CNm79N4g-g3VkcIKd0A,enr:-LO4QFrGfkRaCk_iFTeUjR5ESwo45Eov9hx_T1-BLdoT-iHzFgCiHMT4V1KBtdFp8D0ajLSe5HcNYrhalmdJXgv6NTUEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMTgwNmEwMjgtMWE1MzBmM2KCaWSCdjSCaXCEIlICt4lzZWNwMjU2azGhAlC6nKB3iDtRFqWKWqxf_t-P9hc-SZ6VFBJV4y3bTZBQg3VkcIKd0A"
   contracts:
     registryAddress: "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"
-    rollupAddress: "0xa61168f9f7ea2cd150b696f0e4c5f41ee83f0e08"
-    slashFactoryAddress: "0xef057a24cb08c15321c7875f18e904e5131436aa"
+    rollupAddress: "0x8d1cc702453fa889f137dbd5734cdb7ee96b6ba0"
+    slashFactoryAddress: "0x3c9ccf55a8ac3c2eeedf2ee2aa1722188fd676be"
     feeAssetHandlerContractAddress: "0x80d848dc9f52df56789e2d62ce66f19555ff1019"
 
 network:
   public: true
-  setupL2Contracts: false
   p2pBootstrapNodesAsFullPeers: false
 
 blobSink:
   enabled: true
+  archiveApiUrl: "https://api.sepolia.blobscan.com"
   dataStoreConfig:
     dataDir: "/data"
     storageSize: "128Gi"
@@ -45,6 +45,8 @@ bootNode:
   externalHost: "http://localhost:8080"
 
 fullNode:
+  fixedStaticIpName: "alpha-testnet-full-node-ip"
+  staticIpUrl: full-node.alpha-testnet.aztec.network
   enabled: true
   replicas: 1
   maxOldSpaceSize: "8192"
@@ -59,6 +61,7 @@ proverNode:
   l1FixedPriorityFeePerGas: 3
   l1GasLimitBufferPercentage: 15
   l1GasPriceMax: 1000
+  failedEpochStore: "gs://aztec-testnet/failed-epochs/"
   maxOldSpaceSize: "8192"
   storageSize: "512Gi"
   resources:
@@ -82,6 +85,9 @@ validator:
     requests:
       cpu: "3"
       memory: "10Gi"
+
+proverBroker:
+  storageSize: "10Gi"
 
 proverAgent:
   replicas: 32

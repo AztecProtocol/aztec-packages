@@ -1,24 +1,24 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
 
-static constexpr size_t MAX_NUM_KERNELS = 17;
+static constexpr size_t MAX_NUM_KERNELS = 15;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
@@ -30,7 +30,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
@@ -47,70 +47,17 @@ class ClientIVCTests : public ::testing::Test {
             }
         }
     }
-};
 
-/**
- * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
- *
- */
-TEST_F(ClientIVCTests, MsgpackProofFromFile)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    const auto proof = ivc.prove();
-
-    // Serialize/deserialize the proof to/from a file as proof-of-concept
-    const std::string filename = "proof.msgpack";
-    proof.to_file_msgpack(filename);
-    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
-
-    EXPECT_TRUE(ivc.verify(proof_deserialized));
-};
-
-/**
- * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
- * random buffer of bytes fails gracefully with a type error
- */
-TEST_F(ClientIVCTests, RandomProofBytes)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    const auto proof = ivc.prove();
-
-    // Serialize/deserialize proof to msgpack buffer, check that it verifies
-    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
-    EXPECT_TRUE(ivc.verify(proof_deserialized));
-
-    // Overwrite the buffer with random bytes for testing failure case
+    static std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> generate_ivc_proof(size_t num_circuits)
     {
-        std::vector<uint8_t> random_bytes(buffer.size());
-        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
-    }
-
-    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
+        return { ivc.prove(), ivc.get_vk() };
+    };
 };
 
 /**
@@ -357,7 +304,62 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 };
 
 /**
- * @brief Perform accumulation with a structured trace and precomputed verification keys
+ * @brief Produce 2 valid CIVC proofs. Ensure that replacing a proof component with a component from a different proof
+ * leads to a verification failure.
+ *
+ */
+TEST_F(ClientIVCTests, WrongProofComponentFailure)
+{
+    // Produce two valid proofs
+    auto [civc_proof_1, civc_vk_1] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_1, civc_vk_1));
+    }
+
+    auto [civc_proof_2, civc_vk_2] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_vk_2));
+    }
+
+    {
+        // Replace Merge proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace hiding circuit proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.mega_proof = civc_proof_2.mega_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace ECCVM proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace Translator proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.translator_proof = civc_proof_2.goblin_proof.translator_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+};
+
+/**
+ * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
  *
  */
 TEST_F(ClientIVCTests, VKIndependenceTest)
@@ -378,9 +380,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.mega->pcs_verification_key = nullptr;
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
-        ivc_vk.translator->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -399,18 +399,67 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 };
 
 /**
+ * @brief Ensure that the CIVC VK is independent of whether any of the circuits being accumulated overflows the
+ * structured trace
+ * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the accumulator
+ * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is identical
+ * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
+ * functioning properly.
+ */
+TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
+{
+    // Run IVC for two sets of circuits: a nomical case where all circuits fit within the structured trace and an
+    // "overflow" case where all (but importantly at least one) circuit overflows the structured trace.
+    const size_t NUM_CIRCUITS = 4;
+    const size_t log2_num_gates_nominal = 5;   // number of gates in baseline mocked circuits
+    const size_t log2_num_gates_overflow = 18; // number of gates in the "overflow" mocked circuit
+
+    TraceStructure trace_structure = SMALL_TEST_STRUCTURE;
+
+    // Check that we will indeed overflow the trace structure
+    EXPECT_TRUE(1 << log2_num_gates_overflow > trace_structure.size()); // 1 << 18 > 1 << 16
+
+    auto generate_vk = [&](size_t num_circuits, size_t log2_num_gates) {
+        ClientIVC ivc{ { trace_structure } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_gates);
+            ivc.accumulate(circuit);
+        }
+        ivc.prove();
+        auto ivc_vk = ivc.get_vk();
+
+        // PCS verification keys will not match so set to null before comparing
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
+
+        return ivc_vk;
+    };
+
+    auto civc_vk_nominal = generate_vk(NUM_CIRCUITS, log2_num_gates_nominal);
+    auto civc_vk_overflow = generate_vk(NUM_CIRCUITS, log2_num_gates_overflow);
+
+    // Check the equality of the Mega components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.mega.get(), *civc_vk_overflow.mega.get());
+
+    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.eccvm.get(), *civc_vk_overflow.eccvm.get());
+
+    // Check the equality of the Translator components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_nominal.translator.get(), *civc_vk_overflow.translator.get());
+};
+
+/**
  * @brief Run a test using functions shared with the ClientIVC benchmark.
  * @details We do have this in addition to the above tests anyway so we can believe that the benchmark is running on
  * real data EXCEPT the verification keys, whose correctness is not needed to assess the performance of the folding
  * prover. Before this test was added, we spend more than 50% of the benchmarking time running an entire IVC prover
  * protocol just to precompute valid verification keys.
  */
-TEST(ClientIVCBenchValidation, Full6)
+HEAVY_TEST(ClientIVCBenchValidation, Full6)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
@@ -421,15 +470,14 @@ TEST(ClientIVCBenchValidation, Full6)
 }
 
 /**
- * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
-TEST(ClientIVCBenchValidation, Full6MockedVKs)
+HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-        ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+        ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
         PrivateFunctionExecutionMockCircuitProducer circuit_producer;
         auto mocked_vkeys = mock_verification_keys(total_num_circuits);
@@ -440,12 +488,11 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
@@ -455,12 +502,11 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     EXPECT_TRUE(verified);
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
     PrivateFunctionExecutionMockCircuitProducer circuit_producer;
     auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
@@ -496,58 +542,136 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 };
 
 /**
- * @brief Test dynamic structured trace overflow block mechanism
- * @details Tests the case where the required overflow capacity is not known until runtime. Accumulates two circuits,
- * the second of which overflows the trace but not enough to change the dyadic circuit size and thus there is no need
- * for a virtual size increase of the first key.
+ * @brief Test the structured trace overflow mechanism in a variety of different scenarios
  *
  */
-TEST_F(ClientIVCTests, DynamicOverflow)
+TEST_F(ClientIVCTests, DynamicTraceOverflow)
 {
-    // Define trace settings with zero overflow capacity
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, /*overflow_capacity=*/0 } };
+    struct TestCase {
+        std::string name;
+        std::vector<size_t> log2_num_arith_gates;
+    };
+
+    // Define some test cases that overflow the structured trace in different ways at different points in the
+    // accumulation. We distinguish between a simple overflow that exceeds one or more structured trace capacities but
+    // does not bump the dyadic circuit size and an overflow that does increase the dyadic circuit size.
+    std::vector<TestCase> test_cases = {
+        { "Case 1", { 18, 14 } },         /* first circuit overflows with dyadic size increase */
+        { "Case 2", { 14, 16 } },         /* simple overlow (no dyadic size increase)*/
+        { "Case 3", { 14, 18 } },         /* overflow with dyadic size increase*/
+        { "Case 4", { 14, 18, 14, 16 } }, /* dyadic size overflow then simple overflow */
+        { "Case 5", { 14, 16, 14, 18 } }, /* simple overflow then dyadic size overflow */
+    };
+
+    for (const auto& test : test_cases) {
+        SCOPED_TRACE(test.name); // improves test output readability
+
+        uint32_t overflow_capacity = 0;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
+        ClientIVCMockCircuitProducer circuit_producer;
+
+        const size_t NUM_CIRCUITS = test.log2_num_arith_gates.size();
+
+        // Accumulate
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, test.log2_num_arith_gates[idx]);
+            ivc.accumulate(circuit);
+        }
+
+        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
+        EXPECT_TRUE(ivc.prove_and_verify());
+    }
+}
+
+/**
+ * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
+ *
+ */
+TEST_F(ClientIVCTests, MsgpackProofFromFile)
+{
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    const size_t NUM_CIRCUITS = 2;
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
 
-    // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    const std::vector<size_t> log2_num_arith_gates = { 14, 16 };
-    // Accumulate
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
-        ivc.accumulate(circuit);
-    }
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
 
-    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-    EXPECT_TRUE(ivc.prove_and_verify());
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize the proof to/from a file as proof-of-concept
+    const std::string filename = "proof.msgpack";
+    proof.to_file_msgpack(filename);
+    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
+
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
 };
 
 /**
- * @brief Test dynamic trace overflow where the dyadic circuit size also increases
- * @details Accumulates two circuits, the second of which overflows the trace structure and leads to an increased dyadic
- * circuit size. This requires the virtual size of the polynomials in the first key to be increased accordingly which
- * should be handled automatically in PG/ClientIvc.
+ * @brief Test methods for serializing and deserializing a proof to/from a "heap" buffer in msgpack format
  *
  */
-TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
+TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
 {
-    uint32_t overflow_capacity = 0;
-    // uint32_t overflow_capacity = 1 << 1;
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
+    ClientIVC ivc;
 
     ClientIVCMockCircuitProducer circuit_producer;
 
-    const size_t NUM_CIRCUITS = 2;
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
 
-    // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    const std::vector<size_t> log2_num_arith_gates = { 14, 18 };
-    // Accumulate
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
-        ivc.accumulate(circuit);
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to/from a heap buffer, check that it verifies
+    uint8_t* buffer = proof.to_msgpack_heap_buffer();
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+    uint8_t const* uint8_ptr = uint8_buffer.data();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+    aligned_free(buffer);
+};
+
+/**
+ * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
+ * random buffer of bytes fails gracefully with a type error
+ */
+TEST_F(ClientIVCTests, RandomProofBytes)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to msgpack buffer, check that it verifies
+    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+
+    // Overwrite the buffer with random bytes for testing failure case
+    {
+        std::vector<uint8_t> random_bytes(buffer.size());
+        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
     }
 
-    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-    EXPECT_TRUE(ivc.prove_and_verify());
+    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
 };

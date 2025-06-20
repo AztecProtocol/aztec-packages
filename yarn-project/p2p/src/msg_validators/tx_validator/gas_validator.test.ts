@@ -1,13 +1,19 @@
+import { FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
-import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE, TX_ERROR_INSUFFICIENT_FEE_PER_GAS, type Tx } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
+  TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
+  TX_ERROR_INSUFFICIENT_GAS_LIMIT,
+  type Tx,
+} from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -98,13 +104,37 @@ describe('GasTxValidator', () => {
     await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
+  it('rejects txs if the DA gas limit is not above the minimum amount', async () => {
+    tx.data.constants.txContext.gasSettings = GasSettings.default({
+      gasLimits: new Gas(1, FIXED_L2_GAS),
+      maxFeesPerGas: gasFees.clone(),
+    });
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
+  });
+
+  it('rejects txs if the L2 gas limit is not above the minimum amount', async () => {
+    tx.data.constants.txContext.gasSettings = GasSettings.default({
+      gasLimits: new Gas(FIXED_DA_GAS, 1),
+      maxFeesPerGas: gasFees.clone(),
+    });
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
+  });
+
+  it('rejects txs if the DA and L2 gas limits are not above the minimum amount', async () => {
+    tx.data.constants.txContext.gasSettings = GasSettings.default({
+      gasLimits: new Gas(1, 1),
+      maxFeesPerGas: gasFees.clone(),
+    });
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_GAS_LIMIT);
+  });
+
   it('skips txs with not enough fee per da gas', async () => {
-    gasFees.feePerDaGas = gasFees.feePerDaGas.add(new Fr(1));
+    gasFees.feePerDaGas = gasFees.feePerDaGas + 1n;
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 
   it('skips txs with not enough fee per l2 gas', async () => {
-    gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
+    gasFees.feePerL2Gas = gasFees.feePerL2Gas + 1n;
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 });

@@ -37,7 +37,7 @@ function build_sol {
     if ! cache_download $artifact; then
 
         rm -rf broadcast cache out
-        forge install --no-commit
+        forge install
         # Ensure libraries are at the correct version
         git submodule update --init --recursive ./lib
 
@@ -54,7 +54,7 @@ function build_cpp {
     local artifact=barretenberg-sol-cpp-$hash.tar.zst
     if ! cache_download $artifact; then
         cd ../cpp
-        cmake --build --preset default --parallel --target solidity_key_gen solidity_proof_gen honk_solidity_proof_gen honk_solidity_key_gen
+        cmake --build --preset default --parallel --target honk_solidity_proof_gen honk_solidity_key_gen
         cd ../sol
 
         ## Note: this will contain the whole bb artifacts -- ask charlie
@@ -64,11 +64,7 @@ function build_cpp {
 
 function generate_vks {
     # Only run on a cache miss
-    keys=(
-        ./scripts/init.sh
-        ./scripts/init_honk.sh
-    )
-    parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${keys[@]}
+    ./scripts/init_honk.sh
 }
 
 function build_code {
@@ -84,11 +80,7 @@ export -f build_code build_cpp generate_vks build_sol download_old_crs
 ## TODO: caching
 function build {
     echo_header "barretenberg/sol building"
-    builds=(
-        download_old_crs
-        build_code
-    )
-    parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
+    build_code
 
     echo "Targets built, you are good to go!"
 }

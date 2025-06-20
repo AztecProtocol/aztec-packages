@@ -1,19 +1,16 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
-/**
- * @file translator_builder.hpp
- * @author @Rumata888
- * @brief Circuit Logic generation for Goblin Plonk translator (checks equivalence of Queues/Transcripts for ECCVM and
- * Recursive Circuits)
- *
- * @copyright Copyright (c) 2023
- *
- */
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 /**
@@ -70,10 +67,11 @@ namespace bb {
  *
  */
 class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
-    // We don't need templating for Goblin
+
+    // The scalar field of BN254
     using Fr = bb::fr;
+    // The base (coordinate) field of BN254
     using Fq = bb::fq;
-    using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
   public:
     static constexpr size_t NUM_WIRES = 81;
@@ -218,10 +216,11 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // highest to a more restrictive range (0 <= a < 2¹⁴ && 0 <= 4*a < 2¹⁴ ) ~ ( 0 <= a < 2¹² )
     static constexpr size_t NUM_MICRO_LIMBS = 6;
 
-    // How many limbs we split the 254-bit value in
+    // Number of limbs used to decompose a 254-bit value for modular arithmetic. This will represent an Fq value as 4 Fr
+    // limbs to be representable inside a circuit defined overF r.
     static constexpr size_t NUM_BINARY_LIMBS = 4;
 
-    // How many limbs we use for computation of result modulo 2²⁷²
+    // Number of limbs used for computation of a result modulo 2²⁷²
     static constexpr size_t NUM_RELATION_WIDE_LIMBS = 2;
 
     // Range constraint of relation limbs
@@ -238,6 +237,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     // Maximum size of 2 higher limbs concatenated
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
+
+    // Index at which the evaluation result is stored in the circuit
+    static constexpr size_t RESULT_ROW = 2;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
@@ -269,6 +271,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
         -Fr(Fq::modulus)
     };
+
     /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
@@ -279,20 +282,14 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      */
     struct AccumulationInput {
         // Members necessary for the gate creation
-        Fr op_code; // Operator
-        Fr P_x_lo;
-        Fr P_x_hi;
+        UltraOp ultra_op;
         std::array<Fr, NUM_BINARY_LIMBS> P_x_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_x_microlimbs;
-        Fr P_y_lo;
-        Fr P_y_hi;
         std::array<Fr, NUM_BINARY_LIMBS> P_y_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> P_y_microlimbs;
 
-        Fr z_1;
         std::array<Fr, NUM_Z_LIMBS> z_1_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_1_microlimbs;
-        Fr z_2;
         std::array<Fr, NUM_Z_LIMBS> z_2_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_Z_LIMBS> z_2_microlimbs;
 
@@ -303,20 +300,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, NUM_BINARY_LIMBS> quotient_microlimbs;
         std::array<Fr, NUM_RELATION_WIDE_LIMBS> relation_wide_limbs;
         std::array<std::array<Fr, NUM_MICRO_LIMBS>, 2> relation_wide_microlimbs;
-
-        // Additional
-        std::array<Fr, NUM_BINARY_LIMBS> x_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_squared_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
-    };
-    struct RelationInputs {
-        std::array<Fr, NUM_BINARY_LIMBS> x_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_limbs;
-        std::array<Fr, NUM_BINARY_LIMBS> v_squared_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_cubed_limbs = { 0 };
-        std::array<Fr, NUM_BINARY_LIMBS> v_quarted_limbs = { 0 };
     };
 
     static constexpr std::string_view NAME_STRING = "TranslatorCircuitBuilder";
@@ -341,14 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_)
-    {
-        add_variable(Fr::zero());
-        for (auto& wire : wires) {
-            wire.emplace_back(0);
-        }
-        num_gates++;
-    };
+        , evaluation_input_x(evaluation_input_x_){};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -364,7 +340,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
         PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
-        feed_ecc_op_queue_into_circuit(op_queue);
+        feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;
@@ -380,44 +356,33 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     ~TranslatorCircuitBuilder() override = default;
 
     /**
-     * @brief Create limb representations of x and powers of v that are needed to compute the witness or check
-     * circuit correctness
+     * @brief A small function to transform a native element Fq into its bigfield representation in Fr scalars
      *
-     * @param evaluation_input_x The point at which the polynomials are being evaluated
-     * @param batching_challenge_v The batching challenge
-     * @return RelationInputs
+     * @details We transform Fq into an integer and then split it into 68-bit limbs, then convert them to Fr.
+     *
      */
-    static RelationInputs compute_relation_inputs_limbs(Fq batching_challenge_v, Fq evaluation_input_x)
+    static std::array<Fr, NUM_BINARY_LIMBS> split_fq_into_limbs(const Fq& base)
     {
-        /**
-         * @brief A small function to transform a native element Fq into its bigfield representation  in Fr scalars
-         *
-         */
-        auto base_element_to_limbs = [](Fq& original) {
-            uint256_t original_uint = original;
-            return std::array<Fr, NUM_BINARY_LIMBS>({
-                Fr(original_uint.slice(0, NUM_LIMB_BITS)),
-                Fr(original_uint.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)),
-                Fr(original_uint.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS)),
-                Fr(original_uint.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS)),
-            });
-        };
-        Fq& v = batching_challenge_v;
-        Fq& x = evaluation_input_x;
-        Fq v_squared;
-        Fq v_cubed;
-        Fq v_quarted;
-        v_squared = v * v;
-        v_cubed = v_squared * v;
-        v_quarted = v_cubed * v;
-        RelationInputs result;
-        result.x_limbs = base_element_to_limbs(x);
-        result.v_limbs = base_element_to_limbs(v);
-        result.v_squared_limbs = base_element_to_limbs(v_squared);
-        result.v_cubed_limbs = base_element_to_limbs(v_cubed);
-        result.v_quarted_limbs = base_element_to_limbs(v_quarted);
-        return result;
+        uint256_t base_uint = base;
+        return std::array<Fr, NUM_BINARY_LIMBS>({
+            Fr(base_uint.slice(0, NUM_LIMB_BITS)),
+            Fr(base_uint.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)),
+            Fr(base_uint.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS)),
+            Fr(base_uint.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS)),
+        });
     }
+
+    static void assert_well_formed_ultra_op(const UltraOp& ultra_op);
+
+    /**
+     * @brief Ensures the accumulation input is well-formed and can be used to create a gate.
+     * @details There are two main types of checks: that members of the AccumulationInput are within the appropriate
+     * ranges and that the members containing `*limbs` have been constructed appropriately from the original values,
+     * also present in the input.
+     *
+     * @param acc_step
+     */
+    static void assert_well_formed_accumulation_input(const AccumulationInput& acc_step);
 
     /**
      * @brief Create a single accumulation gate
@@ -427,53 +392,29 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
      *
      * @param acc_step
      */
-    void create_accumulation_gate(AccumulationInput acc_step);
+    void create_accumulation_gate(const AccumulationInput& acc_step);
+
+    void populate_wires_from_ultra_op(const UltraOp& ultra_op);
+
+    void insert_pair_into_wire(WireIds wire_index, Fr first, Fr second)
+    {
+        auto& current_wire = wires[wire_index];
+        current_wire.push_back(add_variable(first));
+        current_wire.push_back(add_variable(second));
+    }
 
     /**
-     * @brief Get the result of accumulation
-     *
-     * @return bb::fq
-     */
-    bb::fq get_computation_result()
-    {
-        const size_t RESULT_ROW = 1;
-        ASSERT(num_gates > RESULT_ROW);
-        return (uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][RESULT_ROW])) +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][RESULT_ROW])) * SHIFT_1 +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_2][RESULT_ROW])) * SHIFT_2 +
-                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][RESULT_ROW])) * SHIFT_3);
-    }
-    /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
-     * commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
+     * representing commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue
      */
     void feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue);
 
-    /**
-     * @brief Check the witness satisifies the circuit
-     *
-     * @details Goes through each gate and checks the correctness of accumulation
-     *
-     * @return true
-     * @return false
-     */
-    bool check_circuit();
-    static AccumulationInput generate_witness_values(const Fr op_code,
-                                                     const Fr p_x_lo,
-                                                     const Fr p_x_hi,
-                                                     const Fr p_y_lo,
-                                                     const Fr p_y_hi,
-                                                     const Fr z1,
-                                                     const Fr z2,
-                                                     const Fq previous_accumulator,
-                                                     const Fq batching_challenge_v,
-                                                     const Fq evaluation_input_x);
-    static AccumulationInput compute_witness_values_for_one_ecc_op(const ECCVMOperation& ecc_op,
-                                                                   const Fq previous_accumulator,
-                                                                   const Fq batching_challenge_v,
-                                                                   const Fq evaluation_input_x);
+    static AccumulationInput generate_witness_values(const UltraOp& ultra_op,
+                                                     const Fq& previous_accumulator,
+                                                     const Fq& batching_challenge_v,
+                                                     const Fq& evaluation_input_x);
 };
 
 } // namespace bb

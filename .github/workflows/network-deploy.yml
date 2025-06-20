@@ -15,11 +15,6 @@ on:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
         type: string
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -54,6 +49,16 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic
+        required: false
+        type: string
+        default: sepolia-accounts-mnemonic
     secrets:
       GCP_SA_KEY:
         required: true
@@ -69,11 +74,6 @@ on:
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
-      resources_file:
-        description: The resources file to use, e.g. gcloud.yaml
-        required: false
-        type: string
-        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -85,10 +85,6 @@ on:
         description: The salt to use for this deployment. Defaults to random
         required: false
         default: ""
-      respect_tf_lock:
-        description: Whether to respect the Terraform lock
-        required: false
-        default: "true"
       run_terraform_destroy:
         description: Whether to run terraform destroy before deploying
         required: false
@@ -99,9 +95,33 @@ on:
         required: false
         type: string
         default: "false"
+      skip_funding:
+        description: "Whether to skip funding the sepolia accounts (default: false)"
+        required: false
+        type: boolean
+        default: false
+      sepolia_accounts_mnemonic_secret_name:
+        description: The name of the secret which holds the sepolia accounts mnemonic (if not provided, will use '{namespace}-accounts-mnemonic').
+        required: false
+        type: string
 
 jobs:
+  fund_sepolia_accounts:
+    if: ${{ inputs.sepolia_deployment == 'true' && !inputs.skip_funding }}
+    uses: ./.github/workflows/fund-sepolia-accounts.yml
+    with:
+      values_file: ${{ inputs.values_file }}
+      sepolia_accounts_mnemonic_secret_name: ${{ inputs.sepolia_accounts_mnemonic_secret_name || format('{0}-accounts-mnemonic', inputs.namespace) }}
+      ref: ${{ inputs.ref || github.ref || 'master' }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      SEPOLIA_FUNDING_PRIVATE_KEY: ${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
+      GCP_SEPOLIA_URL: ${{ secrets.GCP_SEPOLIA_URL }}
+      GCP_SEPOLIA_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
+
   network_deployment:
+    needs: fund_sepolia_accounts
+    if: always() && (needs.fund_sepolia_accounts.result == 'success' || needs.fund_sepolia_accounts.result == 'skipped')
     # This job will run on Ubuntu
     runs-on: ubuntu-latest
     concurrency:
@@ -112,8 +132,9 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
+      METRICS_NAMESPACE: "metrics"
       VALUES_FILE: ${{ inputs.values_file }}
-      RESOURCES_FILE: ${{ inputs.resources_file }}
+      RESOURCES_FILE: gcloud.yaml
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
@@ -124,12 +145,20 @@ jobs:
       GCP_API_KEY_HEADER: "X-goog-api-key"
       EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+      RESPECT_TF_LOCK: ${{ inputs.respect_tf_lock || 'true' }}
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
+
+      - name: Check values
+        run: |
+          echo "inputs.ref: ${{ inputs.ref }}"
+          echo "github.ref: ${{ github.ref }}"
+          ls -la .github/workflows/
+          ls -la .github/workflows/fund-sepolia-accounts.yml
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -174,21 +203,6 @@ jobs:
 
           $REPO/spartan/scripts/generate_devnet_config.sh ${{ env.VALUES_FILE }}
 
-      - name: Generate sepolia accounts
-        id: generate-sepolia-accounts
-        if: ${{ inputs.sepolia_deployment == 'true' }}
-        run: |
-          REPO=$(git rev-parse --show-toplevel)
-          export FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          export ETHEREUM_HOST="https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }}"
-          echo "Preparing sepolia accounts..."
-          MNEMONIC_FILE=$(mktemp)
-          $REPO/spartan/scripts/prepare_sepolia_accounts.sh ${{ env.VALUES_FILE }} 30 "$MNEMONIC_FILE"
-          mnemonic=$(cat "$MNEMONIC_FILE")
-          rm "$MNEMONIC_FILE"
-          echo "::add-mask::$mnemonic"
-          echo "mnemonic=$mnemonic" >> "$GITHUB_OUTPUT"
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
@@ -208,7 +222,16 @@ jobs:
         continue-on-error: true
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
+            else
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
+            fi
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -221,7 +244,7 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -230,14 +253,25 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
+
+          kubectl delete ns ${{env.NAMESPACE}}
 
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
         run: |
           if ${{ inputs.sepolia_deployment == 'true' }}; then
-            export L1_DEPLOYMENT_MNEMONIC="${{ steps.generate-sepolia-accounts.outputs.mnemonic }}"
+            if ${{ inputs.skip_funding }}; then
+              L1_DEPLOYMENT_MNEMONIC="test test test test test test test test test test test junk"
+            else
+              if [ -z "${{ inputs.sepolia_accounts_mnemonic_secret_name }}" ]; then
+                SECRET_NAME="${{ env.NAMESPACE }}-accounts-mnemonic"
+              else
+                SECRET_NAME="${{ inputs.sepolia_accounts_mnemonic_secret_name }}"
+              fi
+              L1_DEPLOYMENT_MNEMONIC=$(gcloud secrets versions access latest --secret=$SECRET_NAME)
+            fi
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
@@ -251,9 +285,10 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -263,11 +298,12 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan
+        run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan

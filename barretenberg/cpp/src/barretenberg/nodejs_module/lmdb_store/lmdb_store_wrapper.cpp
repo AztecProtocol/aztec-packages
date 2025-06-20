@@ -63,6 +63,8 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
 
     _msg_processor.register_handler(LMDBStoreMessageType::START_CURSOR, this, &LMDBStoreWrapper::start_cursor);
     _msg_processor.register_handler(LMDBStoreMessageType::ADVANCE_CURSOR, this, &LMDBStoreWrapper::advance_cursor);
+    _msg_processor.register_handler(
+        LMDBStoreMessageType::ADVANCE_CURSOR_COUNT, this, &LMDBStoreWrapper::advance_cursor_count);
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
 
     _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
@@ -237,6 +239,19 @@ AdvanceCursorResponse LMDBStoreWrapper::advance_cursor(const AdvanceCursorReques
     return { entries, done };
 }
 
+AdvanceCursorCountResponse LMDBStoreWrapper::advance_cursor_count(const AdvanceCursorCountRequest& req)
+{
+    CursorData data;
+
+    {
+        std::lock_guard<std::mutex> lock(_cursor_mutex);
+        data = _cursors.at(req.cursor);
+    }
+
+    auto [done, count] = _advance_cursor_count(*data.cursor, data.reverse, req.endKey);
+    return { count, done };
+}
+
 BatchResponse LMDBStoreWrapper::batch(const BatchRequest& req)
 {
     verify_store();
@@ -260,8 +275,8 @@ StatsResponse LMDBStoreWrapper::get_stats()
 {
     verify_store();
     std::vector<lmdblib::DBStats> stats;
-    auto map_size = _store->get_stats(stats);
-    return { stats, map_size };
+    auto [map_size, physical_file_size] = _store->get_stats(stats);
+    return { stats, map_size, physical_file_size };
 }
 
 BoolResponse LMDBStoreWrapper::close()
@@ -296,4 +311,13 @@ std::pair<bool, bb::lmdblib::KeyDupValuesVector> LMDBStoreWrapper::_advance_curs
     lmdblib::KeyDupValuesVector entries;
     bool done = reverse ? cursor.read_prev(page_size, entries) : cursor.read_next(page_size, entries);
     return std::make_pair(done, entries);
+}
+
+std::pair<bool, uint64_t> LMDBStoreWrapper::_advance_cursor_count(const lmdblib::LMDBCursor& cursor,
+                                                                  bool reverse,
+                                                                  const lmdblib::Key& end_key)
+{
+    uint64_t count = 0;
+    bool done = reverse ? cursor.count_until_prev(end_key, count) : cursor.count_until_next(end_key, count);
+    return std::make_pair(done, count);
 }

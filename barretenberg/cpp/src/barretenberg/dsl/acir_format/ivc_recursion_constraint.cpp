@@ -1,12 +1,18 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -77,6 +83,7 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ClientIVC::VerifierInputs entry =
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
+    ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc->initialized = true;
 }
 
@@ -99,7 +106,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     size_t dyadic_size = blocks.get_structured_dyadic_size();
     size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
     // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
-    size_t num_public_inputs = bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+    size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
     if (is_kernel) {
         num_public_inputs += bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE;
     }
@@ -122,9 +129,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
-    std::vector<FF> merge_proof = create_dummy_merge_proof();
-
-    return ClientIVC::VerifierInputs{ proof, merge_proof, verification_key, verification_type };
+    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
 }
 
 /**
@@ -139,9 +144,31 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs
     std::vector<FF> proof;
 
     // Populate mock public inputs
-    for (size_t i = 0; i < num_public_inputs; ++i) {
-        proof.emplace_back(0);
+    // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
+    std::array<fr, stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE>
+        dummy_pairing_points_values = stdlib::recursion::PairingPoints<MegaCircuitBuilder>::construct_dummy();
+    size_t public_input_count = 0;
+    for (size_t i = 0; i < stdlib::recursion::PairingPoints<MegaCircuitBuilder>::PUBLIC_INPUTS_SIZE; i++) {
+        proof.emplace_back(dummy_pairing_points_values[i]);
+        public_input_count++;
     }
+
+    if (public_input_count < num_public_inputs) {
+        // Databus commitments if necessary
+        for (size_t i = 0; i < NUM_DATABUS_COMMITMENTS; ++i) {
+            // We represent commitments in the public inputs as biggroup elements.
+            using BigGroup = stdlib::element_default::element<MegaCircuitBuilder,
+                                                              stdlib::bigfield<MegaCircuitBuilder, bb::Bn254FqParams>,
+                                                              stdlib::field_t<MegaCircuitBuilder>,
+                                                              curve::BN254::Group>;
+            auto pub_input_comm_vals = BigGroup::construct_dummy();
+            for (const fr& comm_fr : pub_input_comm_vals) {
+                proof.emplace_back(comm_fr);
+                public_input_count++;
+            }
+        }
+    }
+    BB_ASSERT_EQ(public_input_count, num_public_inputs, "Mock oink proof has the wrong number of public inputs.");
 
     // Populate mock witness polynomial commitments
     auto mock_commitment = curve::BN254::AffineElement::one();
@@ -193,7 +220,7 @@ std::shared_ptr<ClientIVC::MegaVerificationKey> create_mock_honk_vk(const size_t
     honk_verification_key->circuit_size = dyadic_size;
     honk_verification_key->num_public_inputs = num_public_inputs;
     honk_verification_key->pub_inputs_offset = pub_inputs_offset; // must be set correctly
-    honk_verification_key->contains_pairing_point_accumulator = true;
+    honk_verification_key->pairing_inputs_public_input_key.start_idx = 0;
 
     for (auto& commitment : honk_verification_key->get_all()) {
         commitment = curve::BN254::AffineElement::one(); // arbitrary mock commitment
@@ -226,9 +253,9 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
 /**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
- * @return ClientIVC::MergeProof
+ * @return Goblin::MergeProof
  */
-ClientIVC::MergeProof create_dummy_merge_proof()
+Goblin::MergeProof create_dummy_merge_proof()
 {
     using FF = ClientIVC::FF;
 
@@ -261,7 +288,7 @@ ClientIVC::MergeProof create_dummy_merge_proof()
         proof.emplace_back(val);
     }
 
-    ASSERT(proof.size() == MERGE_PROOF_SIZE);
+    BB_ASSERT_EQ(proof.size(), MERGE_PROOF_SIZE);
 
     return proof;
 }
@@ -281,11 +308,11 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
-    ASSERT(mock_vk_fields.size() == key_witness_indices.size());
+    BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
 
     // Add the fields to the witness and set the key witness indices accordingly
     for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
-        witness_idx = builder.add_variable(value);
+        builder.set_variable(witness_idx, value);
     }
 }
 

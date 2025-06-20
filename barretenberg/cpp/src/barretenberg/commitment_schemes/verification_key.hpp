@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 /**
@@ -33,10 +39,23 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
-    VerifierCommitmentKey() { srs = srs::get_crs_factory<Curve>()->get_verifier_crs(); };
+    VerifierCommitmentKey() = default;
+
+    void initialize()
+    {
+        if (!srs) {
+            srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
+        }
+    };
     bool operator==(const VerifierCommitmentKey&) const = default;
 
-    Commitment get_g1_identity() { return srs->get_g1_identity(); }
+    bool initialized() const { return srs != nullptr; }
+
+    Commitment get_g1_identity()
+    {
+        initialize();
+        return srs->get_g1_identity();
+    }
 
     /**
      * @brief verifies a pairing equation over 2 points using the verifier SRS
@@ -47,6 +66,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
      */
     bool pairing_check(const GroupElement& p0, const GroupElement& p1)
     {
+        initialize();
         Commitment pairing_points[2]{ p0, p1 };
         // The final pairing check of step 12.
         Curve::TargetField result =
@@ -56,7 +76,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     }
 
   private:
-    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
+    std::shared_ptr<bb::srs::factories::Crs<Curve>> srs;
 };
 
 /**
@@ -79,23 +99,29 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
      */
     VerifierCommitmentKey(size_t num_points, const std::shared_ptr<bb::srs::factories::CrsFactory<Curve>>& crs_factory)
         : pippenger_runtime_state(num_points)
-        , srs(crs_factory->get_verifier_crs(num_points))
+        , srs(crs_factory->get_crs(num_points))
     {}
 
     VerifierCommitmentKey(size_t num_points)
         : pippenger_runtime_state(num_points)
     {
-        srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
+        srs = srs::get_crs_factory<Curve>()->get_crs(num_points);
     }
 
-    Commitment get_g1_identity() { return srs->get_g1_identity(); }
+    VerifierCommitmentKey() = default;
 
-    std::span<const Commitment> get_monomial_points() { return srs->get_monomial_points(); }
+    bool operator==(const VerifierCommitmentKey&) const = default;
 
-    bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
+    bool initialized() const { return pippenger_runtime_state.initialized(); }
+
+    Commitment get_g1_identity() const { return srs->get_g1_identity(); }
+
+    std::span<const Commitment> get_monomial_points() const { return srs->get_monomial_points(); }
+
+    bb::scalar_multiplication::PippengerReference<Curve> pippenger_runtime_state;
 
   private:
-    std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> srs;
+    std::shared_ptr<bb::srs::factories::Crs<Curve>> srs;
 };
 
 } // namespace bb

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
@@ -138,7 +144,7 @@ template <typename Curve_> class IPA {
     *7. Send the final \f$\vec{a}_{0} = (a_0)\f$ to the verifier
     */
     template <typename Transcript>
-    static void compute_opening_proof_internal(const std::shared_ptr<CK>& ck,
+    static void compute_opening_proof_internal(const CK& ck,
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
@@ -172,7 +178,7 @@ template <typename Curve_> class IPA {
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
         auto a_vec = polynomial.full();
-        std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck.srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 
         if (poly_length * 2 > srs_elements.size()) {
@@ -233,13 +239,13 @@ template <typename Curve_> class IPA {
             // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {0, {&a_vec.at(0), /*size*/ round_size}}, {&G_vec_local[round_size], /*size*/ round_size}, ck.pippenger_runtime_state.get());
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {0, {&a_vec.at(round_size), /*size*/ round_size}}, {&G_vec_local[0], /*size*/ round_size}, ck.pippenger_runtime_state.get());
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -322,7 +328,7 @@ template <typename Curve_> class IPA {
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    static bool reduce_verify_internal_native(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify_internal_native(const VK& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -382,7 +388,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state);
+            {0, {&msm_scalars[0], /*size*/ pippenger_size}}, {&msm_elements[0], /*size*/ pippenger_size}, vk.pippenger_runtime_state.get());
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -399,7 +405,7 @@ template <typename Curve_> class IPA {
         // Construct vector s
         Polynomial<Fr> s_poly(construct_poly_from_u_challenges_inv(log_poly_length, std::span(round_challenges_inv).subspan(0, log_poly_length)));
 
-        std::span<const Commitment> srs_elements = vk->get_monomial_points();
+        std::span<const Commitment> srs_elements = vk.get_monomial_points();
         if (poly_length * 2 > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
         }
@@ -418,9 +424,9 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
+           s_poly, {&G_vec_local[0], /*size*/ poly_length}, vk.pippenger_runtime_state.get());
         Commitment G_zero_sent = transcript->template receive_from_prover<Commitment>("IPA:G_0");
-        ASSERT(G_zero == G_zero_sent && "G_0 should be equal to G_0 sent in transcript.");
+        BB_ASSERT_EQ(G_zero, G_zero_sent, "G_0 should be equal to G_0 sent in transcript.");
 
         // Step 9.
         // Receive a₀ from the prover
@@ -551,7 +557,7 @@ template <typename Curve_> class IPA {
      * @remark Detailed documentation can be found in \link IPA::compute_opening_proof_internal
      * compute_opening_proof_internal \endlink.
      */
-    static void compute_opening_proof(const std::shared_ptr<CK>& ck,
+    static void compute_opening_proof(const CK& ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<NativeTranscript>& transcript)
     {
@@ -569,7 +575,7 @@ template <typename Curve_> class IPA {
      *
      *@remark The verification procedure documentation is in \link IPA::verify_internal verify_internal \endlink
      */
-    static bool reduce_verify(const std::shared_ptr<VK>& vk,
+    static bool reduce_verify(const VK& vk,
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
         requires(!Curve::is_stdlib_type)
@@ -610,7 +616,7 @@ template <typename Curve_> class IPA {
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1018): simulator should use the native verify
      * function with parallelisation
      */
-    static bool full_verify_recursive(const std::shared_ptr<VK>& vk,
+    static bool full_verify_recursive(const VK& vk,
                                                     const OpeningClaim<Curve>& opening_claim,
                                                       auto& transcript)
         requires Curve::is_stdlib_type
@@ -709,9 +715,9 @@ template <typename Curve_> class IPA {
         // Compute G₀
         // Unlike the native verification function, the verifier commitment key only containts the SRS so we can apply
         // batch_mul directly on it.
-        const std::vector<Commitment> srs_elements = vk->get_monomial_points();
+        const std::vector<Commitment> srs_elements = vk.get_monomial_points();
         Commitment G_zero = Commitment::batch_mul(srs_elements, s_vec);
-        ASSERT(G_zero.get_value() == transcript_G_zero.get_value() && "G_zero doesn't match received G_zero failed.");
+        BB_ASSERT_EQ(G_zero.get_value(), transcript_G_zero.get_value(), "G_zero doesn't match received G_zero.");
 
         // Step 6.
         // Receive a₀ from the prover
@@ -769,7 +775,7 @@ template <typename Curve_> class IPA {
      * @return bool
      */
     static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                                 const std::shared_ptr<VK>& vk,
+                                                                 const VK& vk,
                                                                  auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
@@ -904,7 +910,7 @@ template <typename Curve_> class IPA {
      * @param claim_2
      * @return std::pair<OpeningClaim<Curve>, HonkProof>
      */
-    static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const std::shared_ptr<CommitmentKey<curve::Grumpkin>>& ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
+    static std::pair<OpeningClaim<Curve>, HonkProof> accumulate(const CommitmentKey<curve::Grumpkin>& ck, auto& transcript_1, OpeningClaim<Curve> claim_1, auto& transcript_2, OpeningClaim<Curve> claim_2)
     requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
@@ -945,13 +951,13 @@ template <typename Curve_> class IPA {
                                                      bb::fq(output_claim.opening_pair.evaluation.get_value()) };
         Polynomial<fq> challenge_poly = create_challenge_poly(uint32_t(pair_1.log_poly_length.get_value()), native_u_challenges_inv_1, uint32_t(pair_2.log_poly_length.get_value()), native_u_challenges_inv_2, fq(alpha.get_value()));
 
-        ASSERT(challenge_poly.evaluate(opening_pair.challenge) == opening_pair.evaluation && "Opening claim does not hold for challenge polynomial.");
+        BB_ASSERT_EQ(challenge_poly.evaluate(opening_pair.challenge), opening_pair.evaluation, "Opening claim does not hold for challenge polynomial.");
 
         IPA<NativeCurve>::compute_opening_proof(ck, { challenge_poly, opening_pair }, prover_transcript);
-        ASSERT(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())) == fq(output_claim.opening_pair.evaluation.get_value()));
+        BB_ASSERT_EQ(challenge_poly.evaluate(fq(output_claim.opening_pair.challenge.get_value())), fq(output_claim.opening_pair.evaluation.get_value()), "Opening claim does not hold for challenge polynomial.");
 
         output_claim.opening_pair.evaluation.self_reduce();
-        return {output_claim, prover_transcript->proof_data};
+        return {output_claim, prover_transcript->export_proof()};
     }
 
     static std::pair<OpeningClaim<Curve>, HonkProof> create_fake_ipa_claim_and_proof(UltraCircuitBuilder& builder)
@@ -960,7 +966,7 @@ template <typename Curve_> class IPA {
         using Builder = typename Curve::Builder;
         using Curve = stdlib::grumpkin<Builder>;
         auto ipa_transcript = std::make_shared<NativeTranscript>();
-        auto ipa_commitment_key = std::make_shared<CommitmentKey<NativeCurve>>(1 << CONST_ECCVM_LOG_N);
+        CommitmentKey<NativeCurve> ipa_commitment_key(1 << CONST_ECCVM_LOG_N);
         size_t n = 4;
         auto poly = Polynomial<fq>(n);
         for (size_t i = 0; i < n; i++) {
@@ -968,7 +974,7 @@ template <typename Curve_> class IPA {
         }
         fq x = fq::random_element();
         fq eval = poly.evaluate(x);
-        auto commitment = ipa_commitment_key->commit(poly);
+        auto commitment = ipa_commitment_key.commit(poly);
         const OpeningPair<NativeCurve> opening_pair = { x, eval };
         IPA<NativeCurve>::compute_opening_proof(ipa_commitment_key, { poly, opening_pair }, ipa_transcript);
 

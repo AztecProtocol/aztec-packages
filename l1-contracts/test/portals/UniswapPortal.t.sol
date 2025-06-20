@@ -21,10 +21,9 @@ import {TokenPortal} from "./TokenPortal.sol";
 import {UniswapPortal} from "./UniswapPortal.sol";
 
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract UniswapPortalTest is Test {
   using stdStorage for StdStorage;
@@ -57,20 +56,11 @@ contract UniswapPortalTest is Test {
     uint256 forkId = vm.createFork(vm.rpcUrl("mainnet_fork"));
     vm.selectFork(forkId);
 
-    TestERC20 testERC20 = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    registry = new Registry(address(this), testERC20);
-    RewardDistributor rewardDistributor =
-      RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup(
-      testERC20,
-      rewardDistributor,
-      testERC20,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
-    registry.addRollup(IRollup(address(rollup)));
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
@@ -194,7 +184,7 @@ contract UniswapPortalTest is Test {
     (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
 
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot);
 
     return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }

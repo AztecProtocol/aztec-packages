@@ -7,12 +7,12 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import { initPersistableStateManager } from '../avm/fixtures/index.js';
+import { initPersistableStateManager } from '../avm/fixtures/initializers.js';
 import {
+  mockCheckNullifierExists,
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockGetNullifierIndex,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
   mockNoteHashExists,
@@ -80,18 +80,19 @@ describe('state_manager', () => {
       await persistableState.writeNoteHash(address, utxo);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, utxo);
-      const nonce = await computeNoteHashNonce(firstNullifier, 1);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 1);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
 
     it('checkNullifierExists works for missing nullifiers', async () => {
+      mockCheckNullifierExists(treesDB, false, leafIndex);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(false);
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
-      mockGetNullifierIndex(treesDB, leafIndex, utxo);
+      mockCheckNullifierExists(treesDB, true, leafIndex);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
     });
@@ -104,13 +105,13 @@ describe('state_manager', () => {
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
-      const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
       expect(exists).toEqual(false);
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
       mockL1ToL2MessageExists(treesDB, leafIndex, utxo);
-      const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
       expect(exists).toEqual(true);
     });
 
@@ -128,14 +129,14 @@ describe('state_manager', () => {
       const siloedNullifier = await siloNullifier(ProtocolContractAddress.ContractInstanceDeployer, address.toField());
 
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
-      mockGetNullifierIndex(treesDB, leafIndex, utxo);
+      mockCheckNullifierExists(treesDB, true, leafIndex);
 
       await persistableState.getContractInstance(address);
 
       expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
       expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*blockNumber=*/ expect.any(Number));
-      expect(treesDB.getNullifierIndex).toHaveBeenCalledTimes(1);
-      expect(treesDB.getNullifierIndex).toHaveBeenCalledWith(siloedNullifier);
+      expect(treesDB.checkNullifierExists).toHaveBeenCalledTimes(1);
+      expect(treesDB.checkNullifierExists).toHaveBeenCalledWith(siloedNullifier);
     });
     it('Can get undefined contract instance', async () => {
       await persistableState.getContractInstance(address);
@@ -150,7 +151,7 @@ describe('state_manager', () => {
       const contractClass = await makeContractClassPublic();
       contractClass.packedBytecode = bytecode;
 
-      mockGetNullifierIndex(treesDB, leafIndex);
+      mockCheckNullifierExists(treesDB, true, leafIndex);
       mockGetContractInstance(contractsDB, contractInstance.withAddress(address));
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, bytecodeCommitment);

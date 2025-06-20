@@ -1,6 +1,14 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "./eccvm_builder_types.hpp"
+#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
+#include "barretenberg/op_queue/ecc_ops_table.hpp"
 
 namespace bb {
 
@@ -10,7 +18,7 @@ class ECCVMTranscriptBuilder {
     using FF = grumpkin::fr;
     using Element = typename CycleGroup::element;
     using AffineElement = typename CycleGroup::affine_element;
-    using VMOperation = typename bb::eccvm::VMOperation<CycleGroup>;
+    using VMOperation = typename bb::VMOperation<CycleGroup>;
     using Accumulator = typename std::vector<Element>;
 
     struct TranscriptRow {
@@ -66,7 +74,8 @@ class ECCVMTranscriptBuilder {
      */
     static AffineElement offset_generator()
     {
-        static constexpr auto offset_generator_base = CycleGroup::derive_generators("ECCVM_OFFSET_GENERATOR", 1)[0];
+        static constexpr auto offset_generator_base =
+            get_precomputed_generators<CycleGroup, "ECCVM_OFFSET_GENERATOR", 1>()[0];
         static const AffineElement result =
             AffineElement(Element(offset_generator_base) * grumpkin::fq(uint256_t(1) << 124));
         return result;
@@ -81,23 +90,6 @@ class ECCVMTranscriptBuilder {
         Element accumulator = CycleGroup::affine_point_at_infinity;
         Element msm_accumulator = offset_generator();
         bool is_accumulator_empty = true;
-    };
-    struct Opcode {
-        bool add;
-        bool mul;
-        bool eq;
-        bool reset;
-        [[nodiscard]] uint32_t value() const
-        {
-            auto res = static_cast<uint32_t>(add);
-            res += res;
-            res += static_cast<uint32_t>(mul);
-            res += res;
-            res += static_cast<uint32_t>(eq);
-            res += res;
-            res += static_cast<uint32_t>(reset);
-            return res;
-        }
     };
 
     /**
@@ -157,8 +149,8 @@ class ECCVMTranscriptBuilder {
             const VMOperation& entry = vm_operations[i];
             updated_state = state;
 
-            const bool is_mul = entry.mul;
-            const bool is_add = entry.add;
+            const bool is_mul = entry.op_code.mul;
+            const bool is_add = entry.op_code.add;
             const bool z1_zero = is_mul ? entry.z1 == 0 : true;
             const bool z2_zero = is_mul ? entry.z2 == 0 : true;
 
@@ -172,7 +164,7 @@ class ECCVMTranscriptBuilder {
             }
             updated_state.pc = state.pc - num_muls;
 
-            if (entry.reset) {
+            if (entry.op_code.reset) {
                 updated_state.is_accumulator_empty = true;
                 updated_state.accumulator = CycleGroup::point_at_infinity;
                 updated_state.msm_accumulator = offset_generator();
@@ -183,7 +175,7 @@ class ECCVMTranscriptBuilder {
             // msm transition = current row is doing a lookup to validate output = msm output
             // i.e. next row is not part of MSM and current row is part of MSM
             //   or next row is irrelevant and current row is a straight MUL
-            const bool next_not_msm = last_row || !vm_operations[i + 1].mul;
+            const bool next_not_msm = last_row || !vm_operations[i + 1].op_code.mul;
 
             // we reset the count in updated state if we are not accumulating and not doing an msm
             const bool msm_transition = is_mul && next_not_msm && (state.count + num_muls > 0);
@@ -239,7 +231,7 @@ class ECCVMTranscriptBuilder {
             const bool msm_transition = row.msm_transition;
 
             const VMOperation& entry = vm_operations[i];
-            const bool is_add = entry.add;
+            const bool is_add = entry.op_code.add;
 
             if (msm_transition || is_add) {
                 // compute the differences between point coordinates
@@ -323,22 +315,27 @@ class ECCVMTranscriptBuilder {
         const bool base_point_infinity = entry.base_point.is_point_at_infinity();
 
         row.accumulator_empty = state.is_accumulator_empty;
-        row.q_add = entry.add;
-        row.q_mul = entry.mul;
-        row.q_eq = entry.eq;
-        row.q_reset_accumulator = entry.reset;
+        row.q_add = entry.op_code.add;
+        row.q_mul = entry.op_code.mul;
+        row.q_eq = entry.op_code.eq;
+        row.q_reset_accumulator = entry.op_code.reset;
         row.msm_transition = msm_transition;
         row.pc = state.pc;
         row.msm_count = state.count;
-        row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && entry.mul && next_not_msm;
-        row.base_x = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.x : 0;
-        row.base_y = ((entry.add || entry.mul || entry.eq) && !base_point_infinity) ? entry.base_point.y : 0;
-        row.base_infinity = (entry.add || entry.mul || entry.eq) ? (base_point_infinity ? 1 : 0) : 0;
-        row.z1 = entry.mul ? entry.z1 : 0;
-        row.z2 = entry.mul ? entry.z2 : 0;
+        row.msm_count_zero_at_transition = ((state.count + num_muls) == 0) && entry.op_code.mul && next_not_msm;
+        row.base_x = ((entry.op_code.add || entry.op_code.mul || entry.op_code.eq) && !base_point_infinity)
+                         ? entry.base_point.x
+                         : 0;
+        row.base_y = ((entry.op_code.add || entry.op_code.mul || entry.op_code.eq) && !base_point_infinity)
+                         ? entry.base_point.y
+                         : 0;
+        row.base_infinity =
+            (entry.op_code.add || entry.op_code.mul || entry.op_code.eq) ? (base_point_infinity ? 1 : 0) : 0;
+        row.z1 = entry.op_code.mul ? entry.z1 : 0;
+        row.z2 = entry.op_code.mul ? entry.z2 : 0;
         row.z1_zero = entry.z1 == 0;
         row.z2_zero = entry.z2 == 0;
-        row.opcode = Opcode{ .add = entry.add, .mul = entry.mul, .eq = entry.eq, .reset = entry.reset }.value();
+        row.opcode = entry.op_code.value();
     }
 
     /**
@@ -539,7 +536,7 @@ class ECCVMTranscriptBuilder {
                                                          FF& add_lambda_numerator,
                                                          FF& add_lambda_denominator)
     {
-        const Element vm_point = entry.add ? Element(entry.base_point) : intermediate_accumulator;
+        const Element vm_point = entry.op_code.add ? Element(entry.base_point) : intermediate_accumulator;
 
         const bool vm_infinity = vm_point.is_point_at_infinity();
         const bool accumulator_infinity = accumulator.is_point_at_infinity();

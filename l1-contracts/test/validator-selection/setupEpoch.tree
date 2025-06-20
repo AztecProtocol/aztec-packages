@@ -1,0 +1,13 @@
+SetupEpochTest
+├── when the rollup does not have the target committee size
+│   ├── it should not allow setting up any epoch
+│   └── it should have the always seed set to max
+└── when the rollup has the target committee size
+    ├── when the sample seed has been set
+    │   ├── it should not change the sample seed
+    │   ├── it should be calculate the same committee when looking into the past
+    │   ├── it should not change the commitee even when validators are added or removed
+    │   └── it should not change the next seed
+    └── when it has been a long time since the last sample seed was set
+        └── it should use the most recent sample seed
+

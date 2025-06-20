@@ -1,6 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/aztec.js';
+import { type Operator, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -19,6 +19,7 @@ export async function deployL1Contracts(
   acceleratedTestDeployments: boolean,
   json: boolean,
   initialValidators: EthAddress[],
+  realVerifier: boolean,
   log: LogFn,
   debugLogger: Logger,
 ) {
@@ -27,7 +28,12 @@ export async function deployL1Contracts(
   const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-  const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
+
+  const initialValidatorOperators = initialValidators.map(a => ({
+    attester: a,
+    withdrawer: a,
+  })) as Operator[];
 
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
@@ -36,12 +42,12 @@ export async function deployL1Contracts(
     mnemonic,
     mnemonicIndex,
     salt,
-    initialValidators,
+    initialValidatorOperators,
     genesisArchiveRoot,
-    genesisBlockHash,
     fundingNeeded,
     acceleratedTestDeployments,
     config,
+    realVerifier,
     debugLogger,
   );
 
@@ -56,6 +62,7 @@ export async function deployL1Contracts(
   } else {
     log(`Rollup Address: ${l1ContractAddresses.rollupAddress.toString()}`);
     log(`Registry Address: ${l1ContractAddresses.registryAddress.toString()}`);
+    log(`GSE Address: ${l1ContractAddresses.gseAddress?.toString()}`);
     log(`L1 -> L2 Inbox Address: ${l1ContractAddresses.inboxAddress.toString()}`);
     log(`L2 -> L1 Outbox Address: ${l1ContractAddresses.outboxAddress.toString()}`);
     log(`Fee Juice Address: ${l1ContractAddresses.feeJuiceAddress.toString()}`);
@@ -70,7 +77,6 @@ export async function deployL1Contracts(
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
-    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }

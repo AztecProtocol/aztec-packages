@@ -1,3 +1,4 @@
+import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -5,7 +6,7 @@ import {
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
+import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -26,6 +27,10 @@ export class BlockRootRollupData {
      */
     public l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
+     * Hint for checking the hash of previous_block_header is the last leaf of the previous archive.
+     */
+    public previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+    /**
      * Hint for inserting the new block hash to the last archive.
      */
     public newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
@@ -34,7 +39,15 @@ export class BlockRootRollupData {
      */
     public previousBlockHeader: BlockHeader,
     /**
-     * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+     * The current blob accumulation state across the epoch.
+     */
+    public startBlobAccumulator: BlobAccumulatorPublicInputs,
+    /**
+     * Finalized challenges z and gamma for performing blob batching. Shared value across the epoch.
+     */
+    public finalBlobChallenges: FinalBlobBatchingChallenges,
+    /**
+     * Identifier of the prover.
      */
     public proverId: Fr,
   ) {}
@@ -73,8 +86,11 @@ export class BlockRootRollupData {
     return [
       fields.l1ToL2Roots,
       fields.l1ToL2MessageSubtreeSiblingPath,
+      fields.previousArchiveSiblingPath,
       fields.newArchiveSiblingPath,
       fields.previousBlockHeader,
+      fields.startBlobAccumulator,
+      fields.finalBlobChallenges,
       fields.proverId,
     ] as const;
   }
@@ -90,7 +106,10 @@ export class BlockRootRollupData {
       RootParityInput.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
       reader.readArray(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, Fr),
       reader.readArray(ARCHIVE_HEIGHT, Fr),
+      reader.readArray(ARCHIVE_HEIGHT, Fr),
       BlockHeader.fromBuffer(reader),
+      reader.readObject(BlobAccumulatorPublicInputs),
+      reader.readObject(FinalBlobBatchingChallenges),
       Fr.fromBuffer(reader),
     );
   }
@@ -125,9 +144,8 @@ export class BlockRootRollupBlobData {
     public blobFields: Fr[],
     /**
      * KZG commitments representing the blob (precomputed in ts, injected to use inside circuit).
-     * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
      */
-    public blobCommitments: Tuple<Tuple<Fr, 2>, typeof BLOBS_PER_BLOCK>,
+    public blobCommitments: Tuple<BLS12Point, typeof BLOBS_PER_BLOCK>,
     /**
      * The hash of eth blob hashes for this block
      * See yarn-project/foundation/src/blob/index.ts or body.ts for calculation
@@ -180,7 +198,7 @@ export class BlockRootRollupBlobData {
       // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
       // reader.readArray(FIELDS_PER_BLOB, Fr),
       Array.from({ length: FIELDS_PER_BLOB * BLOBS_PER_BLOCK }, () => Fr.fromBuffer(reader)),
-      reader.readArray(BLOBS_PER_BLOCK, { fromBuffer: () => reader.readArray(2, Fr) }),
+      reader.readArray(BLOBS_PER_BLOCK, BLS12Point),
       Fr.fromBuffer(reader),
     );
   }

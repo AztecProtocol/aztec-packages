@@ -32,7 +32,7 @@ describe('Port Change', () => {
     // Use 5 node configuration for this test
     const configPath = path.join(__dirname, '../../testbench/configurations', 'normal-degree-5-nodes.json');
     logger.info(`Loading config from ${configPath}`);
-    const config = await import(configPath, { assert: { type: 'json' } });
+    const config = await import(configPath, { with: { type: 'json' } });
     testConfig = {
       ...testChainConfig,
       ...config.default,

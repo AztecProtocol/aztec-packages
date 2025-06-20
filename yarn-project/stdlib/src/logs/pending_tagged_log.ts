@@ -1,34 +1,29 @@
-import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { TxHash } from '../tx/tx_hash.js';
+import { MessageContext } from './message_context.js';
 
 /**
- * Represents a pending tagged log as it is stored in the pending tagged log array to which the syncNotes oracle
+ * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
  * inserts found private logs. A TS version of `pending_tagged_log.nr`.
  */
 export class PendingTaggedLog {
+  private context: MessageContext;
+
   constructor(
     public log: Fr[],
-    public txHash: TxHash,
-    public uniqueNoteHashesInTx: Fr[],
-    public firstNullifierInTx: Fr,
-    public recipient: AztecAddress,
-    public logIndexInTx: number,
-    public txIndexInBlock: number,
-  ) {}
+    txHash: TxHash,
+    uniqueNoteHashesInTx: Fr[],
+    firstNullifierInTx: Fr,
+    recipient: AztecAddress,
+  ) {
+    this.context = new MessageContext(txHash, uniqueNoteHashesInTx, firstNullifierInTx, recipient);
+  }
 
   toFields(): Fr[] {
-    return [
-      ...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS),
-      this.txHash.hash,
-      ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
-      this.firstNullifierInTx,
-      this.recipient.toField(),
-      new Fr(this.logIndexInTx),
-      new Fr(this.txIndexInBlock),
-    ];
+    return [...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS), ...this.context.toFields()];
   }
 }
 

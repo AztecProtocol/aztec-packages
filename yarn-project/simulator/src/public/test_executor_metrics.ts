@@ -11,14 +11,14 @@ export interface PublicEnqueuedCallMetrics {
   fnName: string;
   durationMs: number;
   manaUsed: number;
-  totalInstructions: number;
+  totalInstructionsExecuted: number;
   reverted: boolean;
 }
 
 export interface PublicTxMetrics {
   totalDurationMs: number;
   manaUsed: number;
-  totalInstructions: number;
+  totalInstructionsExecuted: number;
   txHashMs: number | undefined;
   nonRevertiblePrivateInsertionsUs: number | undefined;
   revertiblePrivateInsertionsUs: number | undefined;
@@ -59,7 +59,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     this.txMetrics.set(txLabel, {
       totalDurationMs: 0,
       manaUsed: 0,
-      totalInstructions: 0,
+      totalInstructionsExecuted: 0,
       txHashMs: undefined,
       nonRevertiblePrivateInsertionsUs: undefined,
       revertiblePrivateInsertionsUs: undefined,
@@ -81,26 +81,36 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
     // add manaUsed across all enqueued calls
     txMetrics.manaUsed = sum(txMetrics.enqueuedCalls.map(call => call.manaUsed));
-    // add totalInstructions across all enqueued calls
-    txMetrics.totalInstructions = sum(txMetrics.enqueuedCalls.map(call => call.totalInstructions));
+    // add totalInstructionsExecuted across all enqueued calls
+    txMetrics.totalInstructionsExecuted = sum(txMetrics.enqueuedCalls.map(call => call.totalInstructionsExecuted));
     txMetrics.revertedCode = revertedCode;
 
     this.currentTxLabel = undefined;
   }
 
-  recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number) {
-    this.#recordEnqueuedCallSimulation(fnName, durationMs, manaUsed, totalInstructions, false);
+  recordEnqueuedCallSimulation(
+    fnName: string,
+    durationMs: number,
+    manaUsed: number,
+    totalInstructionsExecuted: number,
+  ) {
+    this.#recordEnqueuedCallSimulation(fnName, durationMs, manaUsed, totalInstructionsExecuted, false);
   }
 
-  recordEnqueuedCallSimulationFailure(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number) {
-    this.#recordEnqueuedCallSimulation(fnName, durationMs, manaUsed, totalInstructions, true);
+  recordEnqueuedCallSimulationFailure(
+    fnName: string,
+    durationMs: number,
+    manaUsed: number,
+    totalInstructionsExecuted: number,
+  ) {
+    this.#recordEnqueuedCallSimulation(fnName, durationMs, manaUsed, totalInstructionsExecuted, true);
   }
 
   #recordEnqueuedCallSimulation(
     fnName: string,
     durationMs: number,
     manaUsed: number,
-    totalInstructions: number,
+    totalInstructionsExecuted: number,
     reverted: boolean,
   ) {
     assert(this.currentTxLabel, 'Cannot record enqueued call simulation when no tx is live');
@@ -109,7 +119,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
       fnName,
       durationMs,
       manaUsed,
-      totalInstructions,
+      totalInstructionsExecuted: totalInstructionsExecuted,
       reverted,
     });
   }
@@ -168,7 +178,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         filter === PublicTxMetricsFilter.TOTALS ||
         filter === PublicTxMetricsFilter.ALL
       ) {
-        pretty += `${INDENT0}Total instructions executed: ${fmtNum(txMetrics.totalInstructions)}\n`;
+        pretty += `${INDENT0}Total instructions executed: ${fmtNum(txMetrics.totalInstructionsExecuted)}\n`;
       }
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
         pretty += `${INDENT0}Tx hash computation: ${fmtNum(txMetrics.txHashMs!, 'ms')}\n`;
@@ -203,7 +213,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
       }
 
       if (filter === PublicTxMetricsFilter.INSTRUCTIONS || filter === PublicTxMetricsFilter.ALL) {
-        pretty += `${INDENT2}Instructions executed: ${fmtNum(enqueuedCall.totalInstructions)}\n`;
+        pretty += `${INDENT2}Instructions executed: ${fmtNum(enqueuedCall.totalInstructionsExecuted)}\n`;
       }
       if (enqueuedCall.reverted) {
         pretty += `${INDENT2}Reverted!\n`;
@@ -214,6 +224,43 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
   toJSON(indent = 2) {
     return JSON.stringify(Object.fromEntries(this.txMetrics.entries()), null, indent);
+  }
+
+  toGithubActionBenchmarkJSON(indent = 2) {
+    const data = [];
+    for (const [txLabel, txMetrics] of this.txMetrics.entries()) {
+      data.push({
+        name: `${txLabel}/totalInstructionsExecuted`,
+        value: txMetrics.totalInstructionsExecuted,
+        unit: '#instructions',
+      });
+      data.push({
+        name: `${txLabel}/totalDurationMs`,
+        value: txMetrics.totalDurationMs,
+        unit: 'ms',
+      });
+      data.push({
+        name: `${txLabel}/manaUsed`,
+        value: txMetrics.manaUsed,
+        unit: 'mana',
+      });
+      data.push({
+        name: `${txLabel}/txHashMs`,
+        value: txMetrics.txHashMs,
+        unit: 'ms',
+      });
+      data.push({
+        name: `${txLabel}/nonRevertiblePrivateInsertionsUs`,
+        value: txMetrics.nonRevertiblePrivateInsertionsUs,
+        unit: 'us',
+      });
+      data.push({
+        name: `${txLabel}/revertiblePrivateInsertionsUs`,
+        value: txMetrics.revertiblePrivateInsertionsUs,
+        unit: 'us',
+      });
+    }
+    return JSON.stringify(data, null, indent);
   }
 }
 

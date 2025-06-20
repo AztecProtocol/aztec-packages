@@ -16,7 +16,7 @@
       {
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "enable": false,
         "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}[5m])) > 1",
@@ -50,7 +50,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -103,7 +103,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -122,7 +122,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Count of services running in the selected namespace",
       "fieldConfig": {
@@ -177,7 +177,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "count by (exported_job) (target_info{k8s_namespace_name=~\"$namespace\", service_name=\"\"})",
@@ -194,7 +194,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -274,7 +274,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -288,7 +288,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"\"}) - max(aztec_archiver_block_height{k8s_namespace_name=\"$namespace\", aztec_status=\"proven\"})",
@@ -301,7 +301,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "max(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}) or vector(0)",
@@ -319,7 +319,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "",
       "fieldConfig": {
@@ -418,7 +418,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "This panel calculates how much ETH has been consumed in the given time range",
       "fieldConfig": {
@@ -472,7 +472,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -494,7 +494,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "How much eth is used. Accumulated by service type",
       "fieldConfig": {
@@ -551,32 +551,7 @@
           },
           "unit": "Ξ"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "prover-node"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 11,
@@ -601,7 +576,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -623,7 +598,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -704,7 +679,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "avg by (k8s_pod_name,aztec_address_sender) (aztec_l1_publisher_balance_eth{k8s_namespace_name=\"$namespace\"})",
@@ -734,7 +709,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Tracks how much CPU the main process is using (this does not account for bb/acvm)",
       "fieldConfig": {
@@ -816,7 +791,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -837,7 +812,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Tracks how much memory the main process is using (this does not account for bb/acvm)",
       "fieldConfig": {
@@ -919,7 +894,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -940,7 +915,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -985,7 +960,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1017,10 +993,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
+          "expr": "avg by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
           "interval": "",
           "legendFormat": "__auto",
           "range": true,
@@ -1029,7 +1005,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "editorMode": "code",
           "expr": "sum (avg by (aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_used_size{service_namespace=\"$namespace\"}))",
@@ -1057,7 +1033,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1109,7 +1085,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1130,7 +1106,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1178,7 +1154,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -1199,7 +1175,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1248,7 +1224,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -1269,7 +1245,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1325,7 +1301,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "builder",
@@ -1346,7 +1322,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1424,7 +1400,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "avg(rate(aztec_archiver_tx_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval]))",
@@ -1455,7 +1431,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1533,7 +1509,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "editorMode": "code",
               "expr": "sum by (aztec_merkle_tree_name) (avg by (aztec_merkle_tree_name, aztec_world_state_db_type) (aztec_world_state_db_used_size{service_namespace=\"$namespace\"}))",
@@ -1550,7 +1526,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "description": "How big trees are relative to each other. \nNOTE: The L1 to L2 message tree has empty leaves added to it for every block!",
           "fieldConfig": {
@@ -1606,7 +1582,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1629,7 +1605,7 @@
           "datasource": {
             "default": true,
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "description": "Tracks tree nodes, indexes, metadata. It's normal for tree sizes to fluctuate even if there are no reorgs (trees garbage collect old data)",
           "fieldConfig": {
@@ -1709,7 +1685,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "spartan-metrics-prometheus"
+                "uid": "${data_source}"
               },
               "disableTextWrap": false,
               "editorMode": "code",
@@ -1747,7 +1723,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1793,7 +1769,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1827,7 +1804,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "builder",
@@ -1848,7 +1825,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "description": "Components synch at different rates, can restart for upgrades (resetting their graph), see multiple reorgs, etc",
       "fieldConfig": {
@@ -1894,7 +1871,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1926,7 +1904,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -1947,7 +1925,7 @@
       "datasource": {
         "default": true,
         "type": "prometheus",
-        "uid": "spartan-metrics-prometheus"
+        "uid": "${data_source}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1992,7 +1970,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2029,7 +2008,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "spartan-metrics-prometheus"
+            "uid": "${data_source}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2054,14 +2033,28 @@
   "templating": {
     "list": [
       {
+        "includeAll": false,
+        "name": "data_source",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource",
         "current": {
           "selected": false,
-          "text": "ignition-testnet",
-          "value": "ignition-testnet"
+          "text": "default",
+          "value": "default"
+        }
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "alpha-testnet",
+          "value": "alpha-testnet"
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "spartan-metrics-prometheus"
+          "uid": "${data_source}"
         },
         "definition": "label_values(target_info,k8s_namespace_name)",
         "description": "",
@@ -2092,6 +2085,6 @@
   "timezone": "browser",
   "title": "Network overview",
   "uid": "aztec-network",
-  "version": 29,
+  "version": 33,
   "weekStart": ""
 }

@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
 #include "barretenberg/stdlib/primitives/packed_byte_array/packed_byte_array.hpp"
@@ -12,7 +18,7 @@ template <typename Builder> class bit_array;
  *
  * Creates constraints that evaluate the Keccak256 hash algorithm.
  *
- * UltraPlonk only due to heavy lookup table use.
+ * Ultra only due to heavy lookup table use.
  *
  * Current cost 17,329 constraints for a 1-block hash
  * using small(ish) lookup tables (total size < 2^64)

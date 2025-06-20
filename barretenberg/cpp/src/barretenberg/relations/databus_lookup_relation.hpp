@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include <array>
 #include <tuple>
@@ -46,30 +52,38 @@ namespace bb {
 template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t LENGTH = 5;          // 1 + polynomial degree of this relation
     static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
 
     static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 5;  // deg + 1 of log-deriv lookup subrelation
+    static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH =
+        3; // deg + 1 of the relation checking that read_tag_m is a boolean value
+    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
-    // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work
-    static constexpr std::array<size_t, NUM_BUS_COLUMNS * 2> SUBRELATION_PARTIAL_LENGTHS{
-        INVERSE_SUBREL_LENGTH, // inverse polynomial correctness subrelation (bus_idx 0)
-        LOOKUP_SUBREL_LENGTH,  // log-derivative lookup argument subrelation (bus_idx 0)
-        INVERSE_SUBREL_LENGTH, // inverse polynomial correctness subrelation (bus_idx 1)
-        LOOKUP_SUBREL_LENGTH,  // log-derivative lookup argument subrelation (bus_idx 1)
-        INVERSE_SUBREL_LENGTH, // inverse polynomial correctness subrelation (bus_idx 2)
-        LOOKUP_SUBREL_LENGTH   // log-derivative lookup argument subrelation (bus_idx 2)
+    // Note: Inverse correctness subrelations are actually {SUBRELTYPE}_LENGTH-1; taking advantage would require
+    // additional work
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
+        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 0)
+        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 0)
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 0)
+        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 1)
+        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 1)
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 1)
+        INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 2)
+        LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 2)
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 2)
     };
 
-    static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true; // to be satisfied independently at each row
-    static constexpr bool LOOKUP_SUBREL_LIN_INDEPENDENT = false; // to be satisfied as a sum across all rows
+    static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true;         // to be satisfied independently at each row
+    static constexpr bool LOOKUP_SUBREL_LIN_INDEPENDENT = false;         // to be satisfied as a sum across all rows
+    static constexpr bool READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT = true; // to be satisfied independently at each row
 
     // The lookup subrelations are "linearly dependent" in the sense that they establish the value of a sum across the
     // entire execution trace rather than a per-row identity.
-    static constexpr std::array<bool, NUM_BUS_COLUMNS* 2> SUBRELATION_LINEARLY_INDEPENDENT = {
-        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT,
-        LOOKUP_SUBREL_LIN_INDEPENDENT,  INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX* NUM_BUS_COLUMNS> SUBRELATION_LINEARLY_INDEPENDENT = {
+        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
+        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT,
+        INVERSE_SUBREL_LIN_INDEPENDENT, LOOKUP_SUBREL_LIN_INDEPENDENT, READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT
     };
 
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
@@ -143,7 +157,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto read_tag_m =
             CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
         const Accumulator read_tag(read_tag_m);
-        return is_read_gate + read_tag - (is_read_gate * read_tag);
+        return is_read_gate + read_tag - (is_read_gate * read_tag); // Degree 3 (5)
     }
 
     /**
@@ -284,7 +298,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         PROFILE_THIS_NAME("DatabusRead::accumulate");
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
-
+        using ShortAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
         const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
         Accumulator inverses(inverses_m);
         const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
@@ -294,8 +308,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
 
         // Determine which pair of subrelations to update based on which bus column is being read
-        constexpr size_t subrel_idx_1 = 2 * bus_idx;
-        constexpr size_t subrel_idx_2 = 2 * bus_idx + 1;
+        constexpr size_t subrel_idx_1 = NUM_SUB_RELATION_PER_IDX * bus_idx;
+        constexpr size_t subrel_idx_2 = NUM_SUB_RELATION_PER_IDX * bus_idx + 1;
+        // the subrelation index for checking the read_tag is boolean
+        constexpr size_t subrel_idx_3 = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
         // is 0 if !inverse_exists. Degree 3 (5)
@@ -304,15 +320,21 @@ template <typename FF_> class DatabusLookupRelationImpl {
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis.
         Accumulator tmp = read_selector * write_term;
+
         tmp -= Accumulator(read_counts_m) * read_term;
         tmp *= inverses;
         std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (5)
+
+        const auto read_tag_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in));
+        const auto read_tag = ShortAccumulator(read_tag_m);
+        // // this is done by row so we have to multiply by the scaling factor
+        std::get<subrel_idx_3>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
     }
 
     /**
      * @brief Accumulate the log derivative databus lookup argument subrelation contributions for each databus column
-     * @details Each databus column requires two subrelations
-     *
+     * @details Each databus column requires three subrelations. the last relation is to make sure that the read_tag is
+     * a boolean value. check the logderiv_lookup_relation.hpp for more details.
      * @param accumulator transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Accumulator edges.
      * @param params contains beta, gamma, and public_input_delta, ....

@@ -26,8 +26,7 @@ impl SingleTxBlockRootRollupInputs {
         BlockRootRollupInputsValidator::new(
             self.previous_rollup_data,
             ALLOWED_PREVIOUS_CIRCUITS,
-            self.data.l1_to_l2_roots,
-            self.data.previous_block_header,
+            self.data,
         )
             .validate();
 
@@ -72,7 +71,7 @@ mod tests {
     #[test]
     unconstrained fn single_tx_block_root_rollup_output_propagated_from_base() {
         let builder = TestBuilder::new();
-        builder.inputs.mock_evaluate_blobs();
+        builder.inputs.mock_evaluate_blobs_and_batch();
 
         let output = builder.execute();
 
@@ -88,5 +87,26 @@ mod tests {
             value: base_rollup.accumulated_fees,
         };
         assert_array_eq(output.fees, [expected_fee]);
+    }
+
+    #[test(should_fail_with = "the start state of the block's first tx does not match the state in previous header")]
+    unconstrained fn random_block_header_for_first_tx_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
+            1;
+
+        let _ = builder.execute();
+    }
+
+    #[test(should_fail_with = "hash of the previous block header is not the last leaf in the archive tree")]
+    unconstrained fn random_previous_block_header_fails() {
+        let mut builder = TestBuilder::new();
+
+        builder.inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start.note_hash_tree.root +=
+            1;
+        builder.inputs.previous_block_header.state.partial.note_hash_tree.root += 1;
+
+        let _ = builder.execute();
     }
 }

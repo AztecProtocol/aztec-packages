@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
@@ -69,6 +75,8 @@ template <typename Builder> class bool_t {
 
     void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }
     OriginTag get_origin_tag() const { return tag; }
+    void set_free_witness_tag() { tag.set_free_witness(); }
+    void unset_free_witness_tag() { tag.unset_free_witness(); }
     mutable Builder* context = nullptr;
     mutable bool witness_bool = false;
     mutable bool witness_inverted = false;

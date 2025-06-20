@@ -1,7 +1,9 @@
+// docs:start:imports
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { createLogger, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { deployToken } from '../fixtures/token_utils';
+// docs:end:imports
 
 const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
@@ -17,7 +19,8 @@ describe('token', () => {
     [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 
     const initialBalance = 69;
-    token = await deployToken(owner, initialBalance, createLogger('e2e:sample_dapp'));
+    token = await TokenContract.deploy(owner, owner.getAddress(), 'TokenName', 'TokenSymbol', 18).send().deployed();
+    await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
   }, 120_000);
   // docs:end:setup
 

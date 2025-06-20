@@ -17,6 +17,8 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
+This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+
 We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
@@ -120,12 +122,11 @@ These functions are useful for getting contract information in another contract 
 
 Internal functions are functions that can only be called by the contract itself. These can be used when the contract needs to call one of it's public functions from one of it's private functions.
 
-- [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) - a public function that is called when preparing a private balance increase. This function handles the needed public state updates.
 - [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalizes a transfer from public to private state
 
-### Unconstrained functions
+### Utility functions
 
-Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage. They are distinguished from functions with the `#[view]` annotation in that unconstrained functions cannot be called by other contracts.
+The contract contains a single [utility function](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility):
 
 - [`get_private_nfts`](#get_private_nfts) - Returns an array of token IDs owned by the passed `AztecAddress` in private and a flag indicating whether a page limit was reached.
 
@@ -259,8 +260,6 @@ This function calls `_prepare_private_balance_increase` which is marked as `#[co
 
 :::
 
-It also calls [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) to store the partial note in "transient storage" (more below)
-
 #include_code prepare_private_balance_increase /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
 
 #### `cancel_authwit`
@@ -285,14 +284,6 @@ Transfers and NFT from private storage to public storage. The private call enque
 
 Internal functions are functions that can only be called by this contract. The following 3 functions are public functions that are called from the [private execution context](#execution-contexts). Marking these as `internal` ensures that only the desired private functions in this contract are able to call them. Private functions defer execution to public functions because private functions cannot update public state directly.
 
-#### `_store_payload_in_transient_storage_unsafe`
-
-It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
-
-This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subseqeuent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
-
-#include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr rust
-
 #### `_finalize_transfer_to_private_unsafe`
 
 This function is labeled as unsafe because the sender is not enforced in this function, but it is safe because the sender is enforced in the execution of the private function that calls this function.
@@ -307,9 +298,7 @@ Updates the public owner of the `token_id` to the `to` address.
 
 ### View function implementations
 
-View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
-
-Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
+NFT implements the following `view` functions:
 
 #### `get_admin`
 
@@ -343,9 +332,9 @@ Returns the name of the NFT contract in the private context.
 
 Returns the symbol of the NFT contract in the private context.
 
-### Unconstrained function implementations
+### Utility function implementations
 
-Unconstrained functions are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. They are different from view functions in that the values are returned from the user's PXE and are not constrained by the contract's definition--if there is bad data in the user's PXE, they will get bad data back.
+The NFT implements the following [utility](../../../../aztec/concepts/call_types.md#utility) function:
 
 #### `get_private_nfts`
 

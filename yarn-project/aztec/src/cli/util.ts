@@ -1,9 +1,12 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import type { AccountManager, Fr } from '@aztec/aztec.js';
+import type { AccountManager, EthAddress, Fr } from '@aztec/aztec.js';
+import type { ViemClient } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
-import type { LogFn } from '@aztec/foundation/log';
+import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { PXEService } from '@aztec/pxe/server';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
+import { UpdateChecker } from '@aztec/stdlib/update-checker';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
@@ -11,19 +14,12 @@ import type { Command } from 'commander';
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  const shutdown = async () => {
-    logFn('Shutting down...');
-    if (cb) {
-      await Promise.all(cb);
-    }
-    process.exit(0);
-  };
   process.removeAllListeners('SIGINT');
   process.removeAllListeners('SIGTERM');
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGINT', shutdown);
+  process.once('SIGINT', () => shutdown(logFn, cb));
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGTERM', shutdown);
+  process.once('SIGTERM', () => shutdown(logFn, cb));
 };
 
 /**
@@ -245,4 +241,69 @@ export async function preloadCrsDataForServerSideProving(
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
     await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
   }
+}
+
+export async function setupUpdateMonitor(
+  autoUpdateMode: SharedNodeConfig['autoUpdate'],
+  updatesLocation: URL,
+  followsCanonicalRollup: boolean,
+  publicClient: ViemClient,
+  registryContractAddress: EthAddress,
+  signalHandlers: Array<() => Promise<void>>,
+  updateNodeConfig?: (config: object) => Promise<void>,
+) {
+  const logger = createLogger('update-check');
+  const checker = await UpdateChecker.new({
+    baseURL: updatesLocation,
+    publicClient,
+    registryContractAddress,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
+    // if node follows canonical rollup then this is equivalent to a config update
+    if (!followsCanonicalRollup) {
+      return;
+    }
+
+    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
+      logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
+      await shutdown(logger.info, signalHandlers);
+    } else if (autoUpdateMode === 'notify') {
+      logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
+    if (autoUpdateMode === 'config-and-version') {
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
+      await shutdown(logger.info, signalHandlers);
+    } else if (autoUpdateMode === 'notify') {
+      logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  checker.on('updateNodeConfig', async config => {
+    if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
+      logger.warn(`Config change detected. Updating node`, config);
+      try {
+        await updateNodeConfig(config);
+      } catch (err) {
+        logger.warn('Failed to update config', { err });
+      }
+    }
+    // don't notify on these config changes
+  });
+
+  checker.start();
+}
+
+export async function shutdown(logFn: LogFn, cb?: Array<() => Promise<void>>) {
+  logFn('Shutting down...');
+  if (cb) {
+    await Promise.all(cb);
+  }
+  process.exit(0);
 }

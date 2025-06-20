@@ -28,6 +28,13 @@ The most straightforward way to pay for a transaction is via the sponsored fee p
 
 The most straightforward way to pay for a transaction is via the sponsored fee payment method, bootstrapping some transactions by skipping the need to bridge fee juice to the account. This method uses a type of fee paying contract configured to pay for a number of transactions without requiring payment, but also requires that there is a sponsor to pay for the transactions.
 
+import { General } from '@site/src/components/Snippets/general_snippets';
+
+:::tip Use a block explorer
+<General.ViewTransactions />
+
+:::
+
 ## Bridging Fee Juice
 
 ### Sandbox
@@ -40,7 +47,7 @@ See here to [Bridge Fee Juice](../../../developers/reference/environment_referen
 
 :::
 
-One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/contract_tutorials/token_bridge#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
+One way of bridging of tokens is described fully [here](../../../developers/tutorials/codealong/js_tutorials/token_bridge.md#deposit-to-aztec). Below summarises specifically bridging fee juice on the sandbox.
 
 First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
 
@@ -86,7 +93,7 @@ import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 
 **The equivalent to specify fees via CLI...**
 
-import { CLI_Fees } from '/components/snippets';
+import { CLI_Fees } from '@site/src/components/Snippets/general_snippets';
 
 <CLI_Fees />
 
@@ -125,23 +132,31 @@ import {
 } from "@aztec/aztec.js";
 ```
 
-The FPC contract must be registered in a users PXE before it can be used.
+A FPC contract must be registered in a users PXE before it can be used. This will automatically happen if you deploy a FPC to your sandbox, but must be added manually if you are using a standalone PXE.
 
 ```ts
 import { FPCContract } from "@aztec/noir-contracts.js/FPC";
+import { getContractInstanceFromDeployParams } from "@aztec/aztec.js";
 
 // ... (set up the wallet and PXE)
 
+// get the deployed FPC contract instance
+const fpcContractInstance = getContractInstanceFromDeployParams(
+  FPCContract.artifact,
+  fpcDeployParams // the params used to deploy the FPC
+);
 // register the already deployed FPC contract in users PXE
-const fpcContract = FPCContract.at(fpcAddress, userWallet);
-await pxe.registerContract(fpcContract);
+await pxe.registerContract({
+  instance: fpcContractInstance,
+  artifact: FPCContract.artifact,
+});
 ```
 
 The fee payment method is created and used as follows, with similar syntax for private or public fee payments:
 
 #include_code fpc yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts javascript
 
-In this example, thanks to the FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
+In this example, thanks to this FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
 More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
 
@@ -154,6 +169,8 @@ The sandbox comes with a sponsored fee paying contract deployed, so this can be 
 To use sponsored FPCs in other environments, they will need to be deployed and funded with fee juice.
 Using a SponsoredFPC payment method is as simple as importing it, registering it and passing it the PXE:
 
+#### Sandbox with PXE
+
 ```ts
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 ```
@@ -162,7 +179,9 @@ import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
 ```
 
-Register the SponsoredFPC in the PXE:
+#### Standalone PXE (e.g. Testnet)
+
+Register the default SponsoredFPC in the PXE:
 
 ```ts
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
@@ -170,12 +189,18 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 // ... (set up the wallet and PXE)
 
 // register the already deployed SponsoredFPC contract in users PXE
-const fpcContract = SponsoredFPCContract.at(sponsoredFpcAddress, userWallet);
-await pxe.registerContract(fpcContract);
+const sponseredFPC = await getSponsoredFPCInstance();
+await pxe.registerContract({
+  instance: sponsoredFPC,
+  artifact: SponsoredFPCContract.artifact,
+});
+const paymentMethod = new SponsoredFeePaymentMethod(sponseredFPC.address);
 ```
 
-Then a transaction can specify this as the `paymentMethod` in the fee object.
-You can see an example of how to get a deployed instance of the sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
+You can see an example implementation for `getSponsoredFPCInstance()` [here](https://github.com/AztecProtocol/aztec-packages/blob/360a5f628b4edaf1ea9b328d9e9231f60fdc81a0/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L5).
+
+Once this is set up, a transaction can specify this as the `paymentMethod` in the fee object.
+You can see an example of how to get a deployed instance of a sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
 For example, a contract can be deployed with an fpc as follows:
 
 ```ts
@@ -201,7 +226,7 @@ The `paymentMethod` is an object for the type of payment. Each of the implementa
 
 #include_code gas_settings_vars yarn-project/stdlib/src/gas/gas_settings.ts javascript
 
-import { Gas_Settings_Components, Gas_Settings } from '/components/snippets';
+import { Gas_Settings_Components, Gas_Settings } from '@site/src/components/Snippets/general_snippets';
 
 <Gas_Settings />
 

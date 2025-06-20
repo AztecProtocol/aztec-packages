@@ -2,42 +2,47 @@
 pragma solidity >=0.8.27;
 
 import {UserLibBase} from "./base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {UserLib} from "@aztec/governance/libraries/UserLib.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {User, UserLib} from "@aztec/governance/libraries/UserLib.sol";
+import {Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 contract AddTest is UserLibBase {
-  using UserLib for DataStructures.User;
+  using UserLib for User;
+  using Checkpoints for Checkpoints.Trace224;
+  using TimeLib for Timestamp;
+  using SafeCast for uint256;
 
   function test_WhenAmountEq0() external {
     // it return instantly with no changes
 
-    assertEq(user.numCheckPoints, 0);
+    assertEq(user.checkpoints.length(), 0);
 
     vm.record();
     user.add(0);
     (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(this));
 
-    assertEq(user.numCheckPoints, 0);
-    assertEq(reads.length, 0);
+    assertEq(user.checkpoints.length(), 0);
+    assertEq(reads.length, 1);
     assertEq(writes.length, 0);
   }
 
-  function test_GivenUserHaveNoCheckpoints(uint256 _amount, uint256 _time)
+  function test_GivenUserHaveNoCheckpoints(uint256 _amount, uint32 _time)
     external
     whenAmountGt0(_amount)
   {
     // it adds checkpoint with amount
     // it increases num checkpoints
 
-    assertEq(user.numCheckPoints, 0);
+    assertEq(user.checkpoints.length(), 0);
 
     vm.warp(_time);
     user.add(amount);
 
-    assertEq(user.numCheckPoints, 1);
-    assertEq(user.checkpoints[0].time, Timestamp.wrap(_time));
-    assertEq(user.checkpoints[0].power, amount);
+    assertEq(user.checkpoints.length(), 1);
+    Checkpoints.Checkpoint224 memory last = user.checkpoints.at(0);
+    assertEq(last._key, _time);
+    assertEq(last._value, amount.toUint224());
   }
 
   function test_WhenLastCheckpointIsNow(
@@ -48,17 +53,17 @@ contract AddTest is UserLibBase {
   ) external whenAmountGt0(_amount) givenUserHaveCheckpoints(_insert, _timeBetween, _amounts) {
     // it increases power by amount
 
-    assertEq(user.numCheckPoints, insertions, "num checkpoints");
+    assertEq(user.checkpoints.length(), insertions, "num checkpoints");
     // Cache in memory
-    DataStructures.CheckPoint memory last = user.checkpoints[user.numCheckPoints - 1];
+    Checkpoints.Checkpoint224 memory last = user.checkpoints.at(uint32(insertions - 1));
 
     user.add(amount);
 
-    assertEq(user.numCheckPoints, insertions, "num checkpoints");
-    DataStructures.CheckPoint memory last2 = user.checkpoints[user.numCheckPoints - 1];
+    assertEq(user.checkpoints.length(), insertions, "num checkpoints");
+    Checkpoints.Checkpoint224 memory last2 = user.checkpoints.at(uint32(insertions - 1));
 
-    assertEq(last2.time, last.time, "time");
-    assertEq(last2.power, last.power + amount, "power");
+    assertEq(last2._key, last._key, "key");
+    assertEq(last2._value, last._value + amount.toUint224(), "power");
   }
 
   function test_WhenLastCheckpointInPast(
@@ -71,19 +76,19 @@ contract AddTest is UserLibBase {
     // it adds a checkpoint with power eq to last.power + amount
     // it increases num checkpoints
 
-    uint256 time = bound(_time, 1, type(uint32).max);
+    uint256 time = bound(_time, 1, type(uint16).max);
 
-    assertEq(user.numCheckPoints, insertions);
+    assertEq(user.checkpoints.length(), insertions);
     // Cache in memory
-    DataStructures.CheckPoint memory last = user.checkpoints[user.numCheckPoints - 1];
+    Checkpoints.Checkpoint224 memory last = user.checkpoints.at(uint32(insertions - 1));
 
     vm.warp(block.timestamp + time);
     user.add(amount);
 
-    assertEq(user.numCheckPoints, insertions + 1);
-    DataStructures.CheckPoint memory last2 = user.checkpoints[user.numCheckPoints - 1];
+    assertEq(user.checkpoints.length(), insertions + 1);
+    Checkpoints.Checkpoint224 memory last2 = user.checkpoints.at(uint32(insertions));
 
-    assertEq(last2.time, last.time + Timestamp.wrap(time));
-    assertEq(last2.power, last.power + amount);
+    assertEq(last2._key, last._key + time.toUint32());
+    assertEq(last2._value, last._value + amount);
   }
 }

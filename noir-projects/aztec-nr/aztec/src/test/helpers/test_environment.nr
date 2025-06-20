@@ -1,22 +1,51 @@
-use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+use dep::protocol_types::{
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    constants::PUBLIC_DISPATCH_SELECTOR,
+    traits::{Deserialize, FromField, Packable, ToField},
+};
 
-use crate::context::{call_interfaces::CallInterface, PrivateContext, PublicContext, UtilityContext};
+use crate::context::{
+    call_interfaces::{
+        CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+    },
+    PrivateCallInterface,
+    PrivateContext,
+    PrivateVoidCallInterface,
+    PublicCallInterface,
+    PublicContext,
+    PublicVoidCallInterface,
+    ReturnsHash,
+    UtilityCallInterface,
+    UtilityContext,
+};
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
 use crate::note::note_interface::{NoteHash, NoteType};
 use crate::oracle::{
     execution::{get_block_number, get_contract_address},
+    execution_cache,
     notes::notify_created_note,
 };
-use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
-use protocol_types::traits::{FromField, Packable, ToField};
+use super::cheatcodes::public_call_new_flow;
 
 pub struct TestEnvironment {}
+
+pub struct CallResult<T> {
+    pub return_value: T,
+    pub tx_hash: Field,
+}
 
 impl TestEnvironment {
     pub unconstrained fn new() -> Self {
         cheatcodes::reset();
+        Self {}
+    }
+
+    pub unconstrained fn _new() -> Self {
+        cheatcodes::reset();
+        cheatcodes::disable_oracles();
         Self {}
     }
 
@@ -40,7 +69,7 @@ impl TestEnvironment {
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
     /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
     /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
-    /// we call top-level unconstrained functions, we must set this contract address to the contract being called.
+    /// we call utility functions, we must set this contract address to the contract being called.
     /// The contract address can be manipulated to do the above at any particular address, and not simply the one provided at
     /// the instantiation of the test.
     /// Returns the currently set contract address.
@@ -50,7 +79,8 @@ impl TestEnvironment {
 
     /// Modifies the currently set contract address. As per above, it sets the "msg_sender" address on our subsequent calls.
     /// This is useful when we have multiple "accounts" that need to interact with an arbitrary contract. This also allows
-    /// us to change the "contract" we emit side effects from, and is required when we want to run a top-level unconstrained function on another contract.
+    /// us to change the "contract" we emit side effects from, and is required when we want to run a utility function
+    /// on another contract.
     pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
@@ -113,13 +143,14 @@ impl TestEnvironment {
     pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
-        cheatcodes::advance_blocks_by(1);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
         let mut context = self.private_at(get_block_number());
         let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
+
+        cheatcodes::advance_blocks_by(1);
 
         address
     }
@@ -180,6 +211,171 @@ impl TestEnvironment {
             cheatcodes::get_side_effects_counter() as Field,
             call_interface.get_is_static(),
         );
+    }
+
+    pub unconstrained fn call_private<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PrivateCallInterface<M, T, N>,
+    ) -> CallResult<T>
+    where
+        T: Deserialize<N>,
+    {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+
+        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args,
+            args_hash,
+            call_interface.get_is_static(),
+        );
+
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn call_private_void<let M: u32, T, let N: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PrivateVoidCallInterface<M, T, N>,
+    ) -> CallResult<()> {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let (_end_side_effect_counter, returns_hash, tx_hash) = cheatcodes::private_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args,
+            args_hash,
+            call_interface.get_is_static(),
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+
+        CallResult { return_value: (), tx_hash }
+    }
+
+    pub unconstrained fn simulate_utility<T, let N: u32, let M: u32>(
+        _self: Self,
+        call_interface: UtilityCallInterface<M, T, N>,
+    ) -> T
+    where
+        T: Deserialize<N>,
+    {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args_hash,
+        );
+
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        returns
+    }
+
+    pub unconstrained fn simulate_void_utility<T, let N: u32, let M: u32>(
+        _self: Self,
+        call_interface: UtilityCallInterface<M, T, N>,
+    ) {
+        let args = call_interface.get_args();
+        let args_hash = hash_args(args);
+        execution_cache::store(args, args_hash);
+
+        let returns_hash = crate::oracle::simulate_utility_function::simulate_utility_function(
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            args_hash,
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+    }
+
+    pub unconstrained fn call_public<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicCallInterface<M, T, N>,
+    ) -> CallResult<T>
+    where
+        T: Deserialize<N>,
+    {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        // This shouldn't be using ReturnsHash, but I don't think CalldataHash is right either in this context
+        let returns: T = ReturnsHash::new(returns_hash).get_preimage();
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn call_public_void<T, let N: u32, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicVoidCallInterface<M, T, N>,
+    ) -> CallResult<()> {
+        let (returns_hash, tx_hash) = public_call_new_flow(
+            from,
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+
+        ReturnsHash::new(returns_hash).assert_empty();
+
+        CallResult { return_value: (), tx_hash }
+    }
+
+    pub unconstrained fn call_private_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPrivateCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
+    }
+
+    pub unconstrained fn simulate_utility_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        call_interface: X,
+    ) -> T
+    where
+        X: TXEUtilityCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let returns = call_interface.call_with_txe();
+
+        returns
+    }
+
+    pub unconstrained fn call_public_test<T, let N: u32, let M: u32, X>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: X,
+    ) -> CallResult<T>
+    where
+        X: TXEPublicCallInterface<T, N>,
+        X: CallInterface<M>,
+    {
+        let (returns, tx_hash) = call_interface.call_with_txe(from);
+
+        CallResult { return_value: returns, tx_hash }
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note

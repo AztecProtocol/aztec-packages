@@ -14,7 +14,10 @@ export type GasDimensions = (typeof GasDimensions)[number];
 
 /** Gas amounts in each dimension. */
 export class Gas {
-  constructor(public readonly daGas: UInt32, public readonly l2Gas: UInt32) {}
+  constructor(
+    public readonly daGas: UInt32,
+    public readonly l2Gas: UInt32,
+  ) {}
 
   static get schema() {
     return z
@@ -85,7 +88,7 @@ export class Gas {
 
   computeFee(gasFees: GasFees) {
     return GasDimensions.reduce(
-      (acc, dimension) => acc.add(gasFees.get(dimension).mul(new Fr(this.get(dimension)))),
+      (acc, dimension) => acc.add(new Fr(gasFees.get(dimension)).mul(new Fr(this.get(dimension)))),
       Fr.ZERO,
     );
   }

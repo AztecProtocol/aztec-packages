@@ -11,8 +11,8 @@ import { computePublicDataTreeLeafSlot, siloNullifier } from '@aztec/stdlib/hash
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
-import { createContractClassAndInstance } from './index.js';
-import type { SimpleContractDataSource } from './simple_contract_data_source.js';
+import type { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { createContractClassAndInstance } from './utils.js';
 
 /**
  * An abstract test class that enables tests of real apps in the AVM without requiring e2e tests.
@@ -44,7 +44,7 @@ export abstract class BaseAvmSimulationTester {
     const leafSlot = await computePublicDataTreeLeafSlot(address, slot);
     // get existing preimage
     const publicDataWrite = new PublicDataWrite(leafSlot, value);
-    await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()], 0);
+    await this.merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
   }
 
   /**
@@ -98,6 +98,11 @@ export abstract class BaseAvmSimulationTester {
       AztecAddress.fromNumber(DEPLOYER_CONTRACT_ADDRESS),
       contractAddress.toField(),
     );
-    await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()], 0);
+    await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);
+  }
+
+  async insertNullifier(contractThatEmitted: AztecAddress, nullifier: Fr) {
+    const siloedNullifier = await siloNullifier(contractThatEmitted, nullifier);
+    await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
   }
 }

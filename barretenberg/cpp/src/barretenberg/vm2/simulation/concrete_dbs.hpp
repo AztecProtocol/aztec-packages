@@ -1,10 +1,12 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/address_derivation.hpp"
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
 namespace bb::avm2::simulation {
@@ -39,13 +41,17 @@ class ContractDB final : public ContractDBInterface {
 // Generates events.
 class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
-    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db, PublicDataTreeCheckInterface& public_data_tree_check)
+    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db,
+             PublicDataTreeCheckInterface& public_data_tree_check,
+             NullifierTreeCheckInterface& nullifier_tree_check)
         : raw_merkle_db(raw_merkle_db)
         , public_data_tree_check(public_data_tree_check)
+        , nullifier_tree_check(nullifier_tree_check)
     {}
 
     // Unconstrained.
     const TreeSnapshots& get_tree_roots() const override;
+    TreeStates get_tree_state() const override;
     void create_checkpoint() override;
     void commit_checkpoint() override;
     void revert_checkpoint() override;
@@ -54,6 +60,14 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).
     // Probably better like this though.
     FF storage_read(const FF& leaf_slot) const override;
+    void storage_write(const FF& leaf_slot, const FF& value) override;
+
+    bool nullifier_exists(const FF& nullifier) const override;
+    // Throws if the nullifier already exists
+    void nullifier_write(const FF& nullifier) override;
+
+    bool note_hash_exists(const FF& note_hash) const override;
+    void note_hash_write(const FF& note_hash) override;
 
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
@@ -62,6 +76,15 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...
     PublicDataTreeCheckInterface& public_data_tree_check;
+    NullifierTreeCheckInterface& nullifier_tree_check;
+
+    // Counters only in the HighLevel interface.
+    uint32_t nullifier_counter = 0;
+    uint32_t note_hash_counter = 0;
+    uint32_t l2_to_l1_msg_counter = 0;
+    // Set for semantics.
+    using Slot = FF;
+    std::unordered_set<Slot> storage_set;
 };
 
 } // namespace bb::avm2::simulation

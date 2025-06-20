@@ -1,0 +1,9 @@
+[package]
+name = "no_constructor_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+value_note = { path = "../../../../aztec-nr/value-note" }

@@ -1,8 +1,0 @@
-SetDepositAmountTest
-├── when caller is not owner
-│   └── it reverts
-├── when caller is owner
-│   ├── it sets the deposit amount
-│   └── it emits a {DepositAmountUpdated} event
-└── when validator is added after setting the deposit amount
-    └── it deposits the new amount

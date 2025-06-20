@@ -1,5 +1,6 @@
 use crate::macros::utils::{
-    add_to_field_slice, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_view,
+    add_to_field_array, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
+    size_in_fields,
 };
 use std::meta::{type_of, unquote};
 
@@ -13,7 +14,7 @@ comptime global FROM_FIELD: TypedExpr = {
         .as_typed_expr()
 };
 
-comptime global SERIALIZED_ARGS_SLICE_NAME: Quoted = quote { serialized_args };
+comptime global SERIALIZED_ARGS_NAME: Quoted = quote { serialized_args };
 
 pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let is_static_call = is_fn_view(f);
@@ -33,7 +34,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
                 create_private_stub(f)
             }
         }
-    } else {
+    } else if is_fn_public(f) {
         if is_static_call {
             if is_void {
                 create_public_static_void_stub(f)
@@ -47,6 +48,12 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
                 create_public_stub(f)
             }
         }
+    } else {
+        if is_void {
+            create_utility_void_stub(f)
+        } else {
+            create_utility_stub(f)
+        }
     }
 }
 
@@ -58,21 +65,32 @@ comptime fn create_stub_base(
     let fn_parameters = f.parameters();
     let fn_parameters_list =
         fn_parameters.map(|(name, typ): (Quoted, Type)| quote { $name: $typ }).join(quote {,});
+    let params_num_fields =
+        fn_parameters.fold(0, |acc, (_, typ)| acc + crate::macros::utils::size_in_fields(typ));
 
+    let serialized_args_index_name = quote { serialized_args_index };
     // Example of what the fold(...) below will generate for `target_address` and `fee_juice_limit_per_tx` function
     // parameters:
     // ```
-    // let mut serialized_args =  &[];
-    // serialized_args = serialized_args.append(aztec::protocol_types::traits::Serialize::serialize(target_address));
-    // serialized_args = serialized_args.push_back(fee_juice_limit_per_tx as Field);
+    // let mut serialized_args = [0;2];
+    // let mut serialized_args_index = 0;
+    // let target_address_serialized = aztec::protocol_types::traits::Serialize::serialize(target_address)
+    // for i in 0..target_address_serialized.len() {
+    //    serialized_args[serialized_args_index] = target_address_serialized[i];
+    //    serialized_args_index += 1;
+    // }
+    // serialized_args[serialized_args_index] = fee_juice_limit_per_tx as Field
+    // serialized_args_index += 1;
     // ```
-    let serialized_args_slice_construction = fn_parameters.fold(
+    let serialized_args_array_construction = fn_parameters.fold(
         quote {
-            let mut $SERIALIZED_ARGS_SLICE_NAME = &[];
+            let mut $SERIALIZED_ARGS_NAME = [0; $params_num_fields];
+            let mut $serialized_args_index_name: u32 = 0;
         },
         |args, param: (Quoted, Type)| {
             let (name, typ) = param;
-            let arg_to_append = add_to_field_slice(SERIALIZED_ARGS_SLICE_NAME, name, typ);
+            let arg_to_append =
+                add_to_field_array(SERIALIZED_ARGS_NAME, serialized_args_index_name, name, typ);
             quote {
                 $args
                 $arg_to_append
@@ -85,25 +103,26 @@ comptime fn create_stub_base(
     let fn_selector: Field = compute_fn_selector(f);
 
     (
-        fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len,
+        fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len,
         fn_selector,
     )
 }
 
 comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
+    let size = size_in_fields(fn_return_type);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateCallInterface<$fn_name_len, $fn_return_type> {
-            $serialized_args_slice_construction
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateCallInterface<$fn_name_len, $fn_return_type, $size> {
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -114,16 +133,17 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
+    let size = size_in_fields(fn_return_type);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticCallInterface<$fn_name_len, $fn_return_type, $size> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateStaticCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -134,14 +154,14 @@ comptime fn create_private_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateVoidCallInterface<$fn_name_len, (), 0> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateVoidCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -153,7 +173,7 @@ comptime fn create_private_static_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface<$fn_name_len, (), 0> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateStaticVoidCallInterface::new(
@@ -170,16 +190,17 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
+    let size = size_in_fields(fn_return_type);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, $fn_return_type, $size> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -190,16 +211,17 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
+    let size = size_in_fields(fn_return_type);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, $fn_return_type> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, $fn_return_type, $size> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicStaticCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }
@@ -210,14 +232,14 @@ comptime fn create_public_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicVoidCallInterface<$fn_name_len, (), 0> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicVoidCallInterface::new(
                 self.target_contract,
                 selector,
                 $fn_name_str,
-                $SERIALIZED_ARGS_SLICE_NAME,
+                $SERIALIZED_ARGS_NAME,
                 false
             )
         }
@@ -229,7 +251,7 @@ comptime fn create_public_static_void_stub(f: FunctionDefinition) -> Quoted {
         create_stub_base(f);
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface<$fn_name_len> {
+        pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface<$fn_name_len, (), 0> {
             $serialized_args_slice_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicStaticVoidCallInterface::new(
@@ -237,6 +259,50 @@ comptime fn create_public_static_void_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 serialized_args
+            )
+        }
+    }
+}
+
+comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+    let size = size_in_fields(fn_return_type);
+
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
+    quote {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type, $size> {
+            $serialized_args_slice_construction
+            let selector = $FROM_FIELD($fn_selector);
+            dep::aztec::context::call_interfaces::UtilityCallInterface::new(
+                self.target_contract,
+                selector,
+                $fn_name_str,
+                $SERIALIZED_ARGS_NAME,
+            )
+        }
+    }
+}
+
+comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
+    quote {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityVoidCallInterface<$fn_name_len, (), 0> {
+            $serialized_args_slice_construction
+            let selector = $FROM_FIELD($fn_selector);
+            dep::aztec::context::call_interfaces::UtilityVoidCallInterface::new(
+                self.target_contract,
+                selector,
+                $fn_name_str,
+                $SERIALIZED_ARGS_NAME,
             )
         }
     }

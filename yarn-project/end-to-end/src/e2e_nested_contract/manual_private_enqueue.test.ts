@@ -1,6 +1,6 @@
 import { type AztecAddress, Fr } from '@aztec/aztec.js';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
-import { ParentContract } from '@aztec/noir-contracts.js/Parent';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import { NestedContractTest } from './nested_contract_test.js';
 
@@ -42,7 +42,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
           await (childContract.methods as any).pub_inc_value_internal.selector(),
           42n,
         )
-        .prove(),
+        .simulate(),
     ).rejects.toThrow(/Assertion failed: Function pub_inc_value_internal can only be called internally/);
   });
 

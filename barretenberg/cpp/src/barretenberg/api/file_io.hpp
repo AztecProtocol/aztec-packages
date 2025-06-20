@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 #include <cstdint>
+#include <cstring>
 #include <fcntl.h>
 #include <fstream>
 #include <ios>
@@ -9,6 +11,7 @@
 #include <unistd.h>
 #include <vector>
 
+namespace bb {
 inline size_t get_file_size(std::string const& filename)
 {
     // Open the file in binary mode and move to the end.
@@ -30,7 +33,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Unable to open file: " + filename);
+        THROW std::runtime_error("Unable to open file: " + filename);
     }
 
     // Unseekable, pipe or process substitution. We'll iterate over the stream and reallocate.
@@ -57,16 +60,16 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
         // Writing to a pipe or file descriptor
         int fd = open(filename.c_str(), O_WRONLY);
         if (fd == -1) {
-            throw std::runtime_error("Failed to open file descriptor: " + filename);
+            THROW std::runtime_error("Failed to open file descriptor: " + filename);
         }
 
         size_t total_written = 0;
         size_t data_size = data.size();
         while (total_written < data_size) {
-            ssize_t written = write(fd, data.data() + total_written, data_size - total_written);
+            ssize_t written = ::write(fd, data.data() + total_written, data_size - total_written);
             if (written == -1) {
                 close(fd);
-                throw std::runtime_error("Failed to write to file descriptor: " + filename);
+                THROW std::runtime_error("Failed to write to file descriptor: " + filename);
             }
             total_written += static_cast<size_t>(written);
         }
@@ -74,9 +77,11 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
     } else {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
-            throw std::runtime_error("Failed to open data file for writing: " + filename);
+            THROW std::runtime_error("Failed to open data file for writing: " + filename + " (" + strerror(errno) +
+                                     ")");
         }
-        file.write((char*)data.data(), (std::streamsize)data.size());
+        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
         file.close();
     }
 }
+} // namespace bb

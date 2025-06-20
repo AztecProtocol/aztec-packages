@@ -15,21 +15,20 @@ if [ ! -f "$g1" ] || [ $(stat -c%s "$g1") -lt $crs_size_bytes ]; then
   echo "Downloading crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
   mkdir -p $crs_path
   curl -s -H "Range: bytes=0-$((crs_size_bytes-1))" -o $g1 \
-    https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g1.dat
+    https://crs.aztec.network/g1.dat
   chmod a-w $crs_path/bn254_g1.dat
 fi
 if [ ! -f "$g2" ]; then
-  curl -s https://aztec-ignition.s3.amazonaws.com/MAIN%20IGNITION/flat/g2.dat -o $g2
+  curl -s https://crs.aztec.network/g2.dat -o $g2
 fi
 
 # TODO: This grumpkin CRS in S3 still has the 28 byte header on it. Remove.
 # And if we ever need more than transcript00.dat, concatenate to single file like we did with bn254 above.
-crs_size=$((2**18+1))
+crs_size=$((2**18))
 crs_size_bytes=$((crs_size*64))
-gg1=$crs_path/grumpkin_g1.dat
+gg1=$crs_path/grumpkin_g1.flat.dat
 if [ ! -f "$gg1" ] || [ $(stat -c%s "$gg1") -lt $crs_size_bytes ]; then
   echo "Downloading grumpkin crs of size: ${crs_size} ($((crs_size_bytes/(1024*1024)))MB)"
-  curl -s -H "Range: bytes=28-$((28 + crs_size_bytes-1))" -o $gg1 \
-    https://aztec-ignition.s3-eu-west-2.amazonaws.com/TEST%20GRUMPKIN/monomial/transcript00.dat
-  echo $crs_size > $crs_path/grumpkin_size
+  curl -s -H "Range: bytes=0-$((crs_size_bytes-1))" -o $gg1 \
+    https://crs.aztec.network/grumpkin_g1.dat
 fi

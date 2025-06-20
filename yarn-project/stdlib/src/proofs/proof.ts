@@ -1,4 +1,4 @@
-import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
+import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -59,46 +59,36 @@ export class Proof {
     return bufferToHex(this.toBuffer());
   }
 
+  /**
+   * Returns the proof without the public inputs, but includes the pairing point object as part of the proof.
+   * @returns Proof in bytes form, including the pairing point object at the start.
+   */
   public withoutPublicInputs(): Buffer {
     if (this.isEmpty()) {
       return this.buffer;
     }
     // We are indexing to this particular size because we are assuming the proof buffer looks like:
     // [binary public inputs, binary proof]
-    const proofStart = Fr.SIZE_IN_BYTES * this.numPublicInputs;
+    // Here, we are assuming the pairing point object is the last 16 fields of the public inputs.
+    assert(this.numPublicInputs >= PAIRING_POINTS_SIZE, 'Proof does not contain an aggregation object');
+    const proofStart = Fr.SIZE_IN_BYTES * (this.numPublicInputs - PAIRING_POINTS_SIZE);
     assert(this.buffer.length >= proofStart, 'Proof buffer is not appropriately sized to call withoutPublicInputs()');
     return this.buffer.subarray(proofStart);
   }
 
   // This function assumes that the proof will contain an aggregation object and look something like:
   // [binary public inputs, aggregation object, rest of proof]
-  // We are extracting the binary public inputs and reading them as Frs, and also extracting the aggregation object.
+  // We are extracting the binary public inputs and reading them as Frs.
   public extractPublicInputs(): Fr[] {
     if (this.isEmpty()) {
       // return array of this.numPublicInputs 0s
       return new Array(this.numPublicInputs).fill(Fr.zero());
     }
-    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
-    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    assert(this.numPublicInputs >= PAIRING_POINTS_SIZE, 'Proof does not contain an aggregation object');
+    const numInnerPublicInputs = this.numPublicInputs - PAIRING_POINTS_SIZE;
     const reader = BufferReader.asReader(this.buffer.subarray(0, Fr.SIZE_IN_BYTES * numInnerPublicInputs));
-    let publicInputs = reader.readArray(numInnerPublicInputs, Fr);
-    // concatenate Fr[] with aggregation object
-    publicInputs = publicInputs.concat(this.extractAggregationObject());
+    const publicInputs = reader.readArray(numInnerPublicInputs, Fr);
     return publicInputs;
-  }
-
-  public extractAggregationObject(): Fr[] {
-    if (this.isEmpty()) {
-      // return array of 16 0s
-      return new Array(16).fill(Fr.zero());
-    }
-    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
-    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
-    // The aggregation object is currently stored after the initial inner public inputs.
-    const reader = BufferReader.asReader(
-      this.buffer.subarray(Fr.SIZE_IN_BYTES * numInnerPublicInputs, Fr.SIZE_IN_BYTES * this.numPublicInputs),
-    );
-    return reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
   }
 
   /**

@@ -6,8 +6,8 @@ pub contract StaticChild {
     use dep::aztec::prelude::{AztecAddress, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, view}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
         note::note_getter_options::NoteGetterOptions,
         utils::comparison::Comparator,
     };
@@ -27,7 +27,7 @@ pub contract StaticChild {
         let return_value = base_value
             + context.chain_id()
             + context.version()
-            + context.block_number()
+            + context.block_number() as Field
             + context.timestamp() as Field;
 
         return_value

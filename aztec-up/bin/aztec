@@ -5,7 +5,11 @@ NETWORK=${NETWORK:-}
 VERSION=${VERSION:-${NETWORK:-"latest"}}
 
 # Take copy of command-line arguments, so we can mutate to parse.
-args=("$@")
+if [ $# -eq 0 ]; then
+  args=("--help")
+else
+  args=("$@")
+fi
 while [ "$#" -gt 0 ]; do
   case $1 in
     -p | --port)
@@ -13,9 +17,21 @@ while [ "$#" -gt 0 ]; do
       AZTEC_PORT="$2"
       shift 2
       ;;
+    --p2p.p2pPort)
+      P2P_PORT="$2"
+      shift 2
+      ;;
+    --p2p.p2pBroadcastPort)
+      P2P_BROADCAST_PORT="$2"
+      shift 2
+      ;;
     -a | --anvil-port)
       # Override default port exposed on container.
       ANVIL_PORT="$2"
+      shift 2
+      ;;
+    --admin-port)
+      ADMIN_PORT="$2"
       shift 2
       ;;
     --pxe.network)
@@ -26,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --help)
+      NO_PORT_FORWARDING=1
+      shift 1
+      ;;
     *)
       shift
       ;;
@@ -35,7 +55,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec:$VERSION cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm --entrypoint /bin/bash aztecprotocol/aztec:$VERSION -c "cat /usr/src/yarn-project/foundation/src/config/env_var.ts" |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -44,12 +64,16 @@ case ${1:-} in
     shift
     # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
     # Or just make this a first class command on aztec cli?
+
+    # Properly escape all arguments
+    args_str=$(printf '%q ' "$@")
+
     # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
     exec $(dirname $0)/.aztec-run "" bash -c "
       node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
       while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
       export NARGO_FOREIGN_CALL_TIMEOUT=300000
-      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $@
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --pedantic-solving --oracle-resolver http://127.0.0.1:8081 $args_str
     "
     ;;
   start)
@@ -85,17 +109,40 @@ case ${1:-} in
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --version
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
-      "
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+      " bash "$@"
     else
-      # Export p2p port forwarding only if set in env vars
-      if [ -n "${P2P_PORT:-}" ]; then
+
+      export P2P_PORT="${P2P_PORT:-40400}"
+      # If the p2p broadcast port if provided, then map it to the p2p port on the container.
+      if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
+        export P2P_BROADCAST_PORT
+        P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_PORT"
+        P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
+      else
         P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
         P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
       fi
+
+      if [ -n "${ADMIN_PORT:-}" ]; then
+        export ADMIN_PORT
+        ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $ADMIN_MAPPING"
+      fi
+
+      # unset PORTS_TO_EXPOSE if we're just running --help
+      if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
+        export PORTS_TO_EXPOSE=""
+      fi
+
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"

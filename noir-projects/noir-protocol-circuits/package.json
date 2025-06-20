@@ -5,5 +5,8 @@
   "dependencies": {
     "@iarna/toml": "^2.2.5"
   },
+  "scripts": {
+    "generate_variants": "node ./scripts/generate_variants.js"
+  },
   "packageManager": "yarn@4.5.2"
 }

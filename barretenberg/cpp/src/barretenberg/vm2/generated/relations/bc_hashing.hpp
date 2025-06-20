@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -16,74 +17,78 @@ template <typename FF_> class bc_hashingImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.bc_hashing_sel).is_zero();
+        using C = ColumnAndShifts;
+
+        return (in.get(C::bc_hashing_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto bc_hashing_LATCH_CONDITION = new_term.bc_hashing_latch + new_term.precomputed_first_row;
+        using C = ColumnAndShifts;
+
+        const auto bc_hashing_LATCH_CONDITION = in.get(C::bc_hashing_latch) + in.get(C::precomputed_first_row);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_sel * (FF(1) - new_term.bc_hashing_sel);
+            auto tmp = in.get(C::bc_hashing_sel) * (FF(1) - in.get(C::bc_hashing_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.precomputed_first_row) * (FF(1) - new_term.bc_hashing_sel) *
-                       new_term.bc_hashing_sel_shift;
+            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::bc_hashing_sel)) *
+                       in.get(C::bc_hashing_sel_shift);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_latch * (FF(1) - new_term.bc_hashing_latch);
+            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_latch));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         { // SEL_TOGGLED_AT_LATCH
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_latch * (FF(1) - new_term.bc_hashing_sel);
+            auto tmp = in.get(C::bc_hashing_latch) * (FF(1) - in.get(C::bc_hashing_sel));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_start * (FF(1) - new_term.bc_hashing_start);
+            auto tmp = in.get(C::bc_hashing_start) * (FF(1) - in.get(C::bc_hashing_start));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_sel_shift * (new_term.bc_hashing_start_shift - bc_hashing_LATCH_CONDITION);
+            auto tmp =
+                in.get(C::bc_hashing_sel_shift) * (in.get(C::bc_hashing_start_shift) - bc_hashing_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // PC_INCREMENTS
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.bc_hashing_sel *
-                       (new_term.bc_hashing_pc_index_shift -
-                        (FF(1) - bc_hashing_LATCH_CONDITION) * (FF(31) + new_term.bc_hashing_pc_index));
+            auto tmp = in.get(C::bc_hashing_sel) *
+                       (in.get(C::bc_hashing_pc_index_shift) -
+                        (FF(1) - bc_hashing_LATCH_CONDITION) * (FF(31) + in.get(C::bc_hashing_pc_index)));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // ID_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (new_term.bc_hashing_bytecode_id_shift - new_term.bc_hashing_bytecode_id);
+                       (in.get(C::bc_hashing_bytecode_id_shift) - in.get(C::bc_hashing_bytecode_id));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         { // CHAIN_OUTPUT_TO_INCR
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = (FF(1) - bc_hashing_LATCH_CONDITION) *
-                       (new_term.bc_hashing_incremental_hash_shift - new_term.bc_hashing_output_hash);
+                       (in.get(C::bc_hashing_incremental_hash_shift) - in.get(C::bc_hashing_output_hash));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }

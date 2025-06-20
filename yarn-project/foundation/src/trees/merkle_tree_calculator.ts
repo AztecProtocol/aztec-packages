@@ -7,18 +7,23 @@ import { MerkleTree } from './merkle_tree.js';
  * Merkle tree calculator.
  */
 export class MerkleTreeCalculator {
-  private constructor(private height: number, private zeroHashes: Buffer[], private hasher: AsyncHasher['hash']) {
+  private constructor(
+    private height: number,
+    private zeroHashes: Buffer[],
+    private hasher: AsyncHasher['hash'],
+  ) {
     this.hasher = hasher;
   }
 
   static async create(
     height: number,
-    zeroLeaf = Buffer.alloc(32),
-    hasher = async (left: Buffer, right: Buffer) => (await pedersenHash([left, right])).toBuffer(),
+    zeroLeaf: Buffer = Buffer.alloc(32),
+    hasher = async (left: Buffer, right: Buffer) =>
+      (await pedersenHash([left, right])).toBuffer() as Buffer<ArrayBuffer>,
   ) {
     const zeroHashes = [zeroLeaf];
     for (let i = 0; i < height; i++) {
-      zeroHashes.push(await hasher(zeroHashes[i], zeroHashes[i]));
+      zeroHashes.push((await hasher(zeroHashes[i], zeroHashes[i])) as Buffer<ArrayBuffer>);
     }
     return new MerkleTreeCalculator(height, zeroHashes, hasher);
   }

@@ -1,8 +1,7 @@
 use crate::{
-    abis::{gas_fees::GasFees, log_hash::ScopedLogHash, private_log::PrivateLog},
+    abis::gas_fees::GasFees,
     constants::{FIXED_DA_GAS, FIXED_L2_GAS, GAS_LENGTH},
     traits::{Deserialize, Empty, Serialize},
-    utils::arrays::padded_array_length,
 };
 use std::ops::{Add, Sub};
 
@@ -21,7 +20,8 @@ impl Gas {
     }
 
     pub fn compute_fee(self, fees: GasFees) -> Field {
-        (self.da_gas as Field) * fees.fee_per_da_gas + (self.l2_gas as Field) * fees.fee_per_l2_gas
+        (self.da_gas as Field) * (fees.fee_per_da_gas as Field)
+            + (self.l2_gas as Field) * (fees.fee_per_l2_gas as Field)
     }
 
     pub fn is_empty(self) -> bool {
@@ -67,36 +67,6 @@ impl Empty for Gas {
     fn empty() -> Self {
         Gas::new(0, 0)
     }
-}
-
-/// Gas measuring for logs
-// These exist to count the number of fields which will be broadcast per log.
-// Note: public logs are not measured in the kernels, so do not exist here.
-fn emitted_private_log_length(log: PrivateLog) -> u32 {
-    let length = padded_array_length(log.fields);
-    // plus one for prefix
-    if length == 0 {
-        0
-    } else {
-        length + 1
-    }
-}
-
-fn emitted_contract_class_log_length(log: ScopedLogHash) -> u32 {
-    // plus one for prefix, one for address
-    if log.log_hash.length == 0 {
-        0
-    } else {
-        log.log_hash.length + 2
-    }
-}
-
-pub fn get_emitted_private_logs_len<let N: u32>(logs: [PrivateLog; N]) -> u32 {
-    logs.map(|l| emitted_private_log_length(l)).fold(0, |acc, len| acc + len)
-}
-
-pub fn get_emitted_contract_class_logs_len<let N: u32>(logs: [ScopedLogHash; N]) -> u32 {
-    logs.map(|l| emitted_contract_class_log_length(l)).fold(0, |acc, len| acc + len)
 }
 
 #[test]

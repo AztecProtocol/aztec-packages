@@ -171,7 +171,7 @@ template <class... S> class zip_view {
         : args(std::forward<S>(args)...)
     {
         // min size matches max size
-        ASSERT(size() == max_size_impl(arg_indexes{}));
+        BB_ASSERT_EQ(size(), max_size_impl(arg_indexes{}));
     }
     zip_view(ZipAllowDifferentSizes /*unused*/, S... args)
         : args(std::forward<S>(args)...)

@@ -6,13 +6,17 @@ export type ClientFlowConfig = {
   recursions?: number[];
 };
 
-type ClientFlows = 'deployments' | 'transfers' | 'bridging' | 'amm';
+type ClientFlows = 'accountDeployments' | 'deployments' | 'transfers' | 'bridging' | 'amm';
 
 export type ClientFlowsConfig = {
   [key in ClientFlows]: ClientFlowConfig;
 };
 
 export const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
+  accountDeployments: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc'],
+  },
   deployments: {
     accounts: ['ecdsar1', 'schnorr'],
     feePaymentMethods: ['sponsored_fpc'],
@@ -26,13 +30,17 @@ export const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
     feePaymentMethods: ['sponsored_fpc'],
   },
   transfers: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['sponsored_fpc', 'fee_juice'],
-    recursions: [1],
+    accounts: ['ecdsar1'],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
+    recursions: [0, 1],
   },
 };
 
 export const FULL_FLOWS_CONFIG: ClientFlowsConfig = {
+  accountDeployments: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['bridged_fee_juice', 'sponsored_fpc'],
+  },
   deployments: {
     accounts: ['ecdsar1', 'schnorr'],
     feePaymentMethods: ['bridged_fee_juice', 'sponsored_fpc'],

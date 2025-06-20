@@ -24,7 +24,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private l2TipsStore: L2TipsKVStore,
-    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
+    config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
   ) {
     this.log =
@@ -34,9 +34,12 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2BlockBatchSize'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
-      startingBlock: config.l2StartingBlock,
+      batchSize: config.l2BlockBatchSize,
+      // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
+      // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
+      skipFinalized: true,
     });
   }
 
@@ -102,7 +105,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
 
     try {
       currentHeader = await this.syncDataProvider.getBlockHeader();
-    } catch (e) {
+    } catch {
       this.log.debug('Header is not set, requesting from the node');
     }
     if (!currentHeader) {

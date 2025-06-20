@@ -18,8 +18,7 @@ enum {
     LOG_DERIVATIVE_INVERSE,
     GRAND_PRODUCT_COMPUTATION,
     GENERATE_ALPHAS,
-    RELATION_CHECK,
-    ZEROMORPH
+    RELATION_CHECK
 };
 
 /**
@@ -30,7 +29,7 @@ enum {
  * @param prover - The Goblin ultrahonk prover.
  * @param index - The pass to measure.
  **/
-BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
+BB_PROFILE void test_round_inner(State& state, MegaProver& prover, size_t index) noexcept
 {
     auto time_if_index = [&](size_t target_index, auto&& func) -> void {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
@@ -46,7 +45,9 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
             BB_REPORT_OP_COUNT_BENCH_CANCEL();
         }
     };
-    OinkProver<MegaFlavor> oink_prover(prover.proving_key, prover.transcript);
+    // why is this mega if the name of file is ultra
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
+    OinkProver<MegaFlavor> oink_prover(prover.proving_key, verification_key, prover.transcript);
     time_if_index(PREAMBLE, [&] { oink_prover.execute_preamble_round(); });
     time_if_index(WIRE_COMMITMENTS, [&] { oink_prover.execute_wire_commitments_round(); });
     time_if_index(SORTED_LIST_ACCUMULATOR, [&] { oink_prover.execute_sorted_list_accumulator_round(); });
@@ -58,12 +59,11 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
 
     DeciderProver_<MegaFlavor> decider_prover(prover.proving_key, prover.transcript);
     time_if_index(RELATION_CHECK, [&] { decider_prover.execute_relation_check_rounds(); });
-    time_if_index(ZEROMORPH, [&] { decider_prover.execute_pcs_rounds(); });
 }
 BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
     auto prover = bb::mock_circuits::get_prover<MegaProver>(
@@ -91,6 +91,5 @@ ROUND_BENCHMARK(LOG_DERIVATIVE_INVERSE)->Iterations(1);
 ROUND_BENCHMARK(GRAND_PRODUCT_COMPUTATION)->Iterations(1);
 ROUND_BENCHMARK(GENERATE_ALPHAS)->Iterations(1);
 ROUND_BENCHMARK(RELATION_CHECK);
-ROUND_BENCHMARK(ZEROMORPH);
 
 BENCHMARK_MAIN();

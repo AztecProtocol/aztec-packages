@@ -6,8 +6,14 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/metrics/ | OpenTelemetry Metrics} for naming conventions.
  */
 
+export const BLOB_SINK_STORE_REQUESTS = 'aztec.blob_sink.store_request_count';
+export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.retrieve_request_count';
 export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
 export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
+
+export const BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT = 'aztec.blob_sink.archive.block_request_count';
+export const BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT = 'aztec.blob_sink.archive.blob_request_count';
+export const BLOB_SINK_ARCHIVE_BLOB_COUNT = 'aztec.blob_sink.archive.blob_count';
 
 /** How long it takes to simulate a circuit */
 export const CIRCUIT_SIMULATION_DURATION = 'aztec.circuit.simulation.duration';
@@ -30,6 +36,7 @@ export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 export const DB_NUM_ITEMS = 'aztec.db.num_items';
 export const DB_MAP_SIZE = 'aztec.db.map_size';
+export const DB_PHYSICAL_FILE_SIZE = 'aztec.db.physical_file_size';
 export const DB_USED_SIZE = 'aztec.db.used_size';
 
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
@@ -54,8 +61,16 @@ export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
 export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
 export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
-export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
+export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
+export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
+export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
+export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
+
+export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.collected_count';
+export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.required_count';
+export const SEQUENCER_COLLECT_ATTESTATIONS_DURATION = 'aztec.sequencer.attestations.collect_duration';
+export const SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE = 'aztec.sequencer.attestations.collect_allowance';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -85,6 +100,9 @@ export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';
 export const P2P_REQ_RESP_FAILED_OUTBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_outbound_requests';
 export const P2P_REQ_RESP_FAILED_INBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_inbound_requests';
+
+export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_validation_duration';
+export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';
 
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
@@ -132,12 +150,15 @@ export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.durat
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
+export const PROVER_NODE_REWARDS_TOTAL = 'aztec.prover_node.rewards_total';
+export const PROVER_NODE_REWARDS_PER_EPOCH = 'aztec.prover_node.rewards_per_epoch';
 
 export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
 export const WORLD_STATE_DB_MAP_SIZE = 'aztec.world_state.db_map_size';
+export const WORLD_STATE_DB_PHYSICAL_SIZE = 'aztec.world_state.db_physical_size';
 export const WORLD_STATE_TREE_SIZE = 'aztec.world_state.tree_size';
 export const WORLD_STATE_UNFINALISED_HEIGHT = 'aztec.world_state.unfinalised_height';
 export const WORLD_STATE_FINALISED_HEIGHT = 'aztec.world_state.finalised_height';
@@ -151,6 +172,8 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
+export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
+export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
 export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';
@@ -162,3 +185,13 @@ export const NODEJS_EVENT_LOOP_DELAY_P99 = 'nodejs.eventloop.delay.p99';
 
 export const NODEJS_EVENT_LOOP_UTILIZATION = 'nodejs.eventloop.utilization';
 export const NODEJS_EVENT_LOOP_TIME = 'nodejs.eventloop.time';
+
+export const NODEJS_MEMORY_HEAP_USAGE = 'nodejs.memory.v8_heap.usage';
+export const NODEJS_MEMORY_HEAP_TOTAL = 'nodejs.memory.v8_heap.total';
+export const NODEJS_MEMORY_NATIVE_USAGE = 'nodejs.memory.native.usage';
+export const NODEJS_MEMORY_BUFFER_USAGE = 'nodejs.memory.array_buffer.usage';
+
+export const TX_COLLECTOR_TXS_FROM_PROPOSALS_COUNT = 'aztec.tx_collector.txs_from_proposal_count';
+export const TX_COLLECTOR_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_mempool_count';
+export const TX_COLLECTOR_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
+export const TX_COLLECTOR_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';

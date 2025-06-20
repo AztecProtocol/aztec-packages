@@ -13,7 +13,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
+import { P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
 import { Tx, TxStatus } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -26,6 +26,8 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { PeerManager } from '../services/peer-manager/peer_manager.js';
+import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 import type { PubSubLibp2p } from '../util.js';
@@ -34,7 +36,8 @@ import type { PubSubLibp2p } from '../util.js';
 function mockTxPool(): TxPool {
   // Mock all methods
   return {
-    addTxs: () => Promise.resolve(),
+    isEmpty: () => Promise.resolve(false),
+    addTxs: () => Promise.resolve(1),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
     markAsMined: () => Promise.resolve(),
@@ -43,13 +46,19 @@ function mockTxPool(): TxPool {
     getAllTxs: () => Promise.resolve([]),
     getAllTxHashes: () => Promise.resolve([]),
     getPendingTxHashes: () => Promise.resolve([]),
+    getPendingTxCount: () => Promise.resolve(0),
     getMinedTxHashes: () => Promise.resolve([]),
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
+    getTxsByHash: () => Promise.resolve([]),
+    hasTxs: () => Promise.resolve([]),
+    updateConfig: () => {},
+    markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
 
 function mockAttestationPool(): AttestationPool {
   return {
+    isEmpty: () => Promise.resolve(false),
     addAttestations: () => Promise.resolve(),
     deleteAttestations: () => Promise.resolve(),
     deleteAttestationsOlderThan: () => Promise.resolve(),
@@ -66,7 +75,7 @@ function mockEpochCache(): EpochCacheInterface {
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: 0n, slot: 0n, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerInCurrentOrNextSlot: () =>
+    getProposerAttesterAddressInCurrentOrNextSlot: () =>
       Promise.resolve({
         currentProposer: EthAddress.ZERO,
         nextProposer: EthAddress.ZERO,
@@ -75,6 +84,21 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     isInCommittee: () => Promise.resolve(false),
   };
+}
+
+function mockWorldStateSynchronizer(): WorldStateSynchronizer {
+  return {
+    status: () =>
+      Promise.resolve({
+        syncSummary: {
+          latestBlockNumber: 0,
+          latestBlockHash: '',
+          finalisedBlockNumber: 0,
+          treesAreSynched: false,
+          oldestHistoricBlockNumber: 0,
+        },
+      }),
+  } as WorldStateSynchronizer;
 }
 
 class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
@@ -86,6 +110,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     config: P2PConfig,
     node: PubSubLibp2p,
     peerDiscoveryService: PeerDiscoveryService,
+    reqresp: ReqResp,
+    peerManager: PeerManager,
     mempools: MemPools<T>,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
@@ -100,6 +126,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       config,
       node,
       peerDiscoveryService,
+      reqresp,
+      peerManager,
       mempools,
       archiver,
       epochCache,
@@ -119,9 +147,10 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     this.disableTxValidation = disable;
   }
 
-  protected override async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+  protected override async handleGossipedTx(payload: Buffer, msgId: string, source: PeerId) {
     if (this.disableTxValidation) {
-      const tx = Tx.fromBuffer(Buffer.from(msg.data));
+      const p2pMessage = P2PMessage.fromMessageData(payload);
+      const tx = Tx.fromBuffer(p2pMessage.payload);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Accept);
 
       const txHash = await tx.getTxHash();
@@ -129,7 +158,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
       await this.mempools.txPool.addTxs([tx]);
     } else {
-      await super.handleGossipedTx(msg, msgId, source);
+      await super.handleGossipedTx(payload, msgId, source);
     }
   }
 
@@ -146,13 +175,12 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
-
   try {
     if (type === 'START') {
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
-      const worldState = {} as WorldStateSynchronizer;
+      const worldState = mockWorldStateSynchronizer();
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
@@ -174,11 +202,10 @@ process.on('message', async msg => {
         proofVerifier,
         worldState,
         epochCache,
+        'test-p2p-bench-worker',
         telemetry,
         deps,
       );
-
-      const _client = client as any;
 
       // Create test service with validation disabled
       const testService = new TestLibP2PService(
@@ -187,6 +214,8 @@ process.on('message', async msg => {
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
         (client as any).p2pService.mempools,
+        (client as any).p2pService.reqresp,
+        (client as any).p2pService.peerManager,
         (client as any).p2pService.archiver,
         epochCache,
         proofVerifier,

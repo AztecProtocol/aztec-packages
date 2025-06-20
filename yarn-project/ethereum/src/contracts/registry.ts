@@ -1,26 +1,25 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import {
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
-import type { L1Clients, ViemPublicClient } from '../types.js';
-import { GovernanceContract } from './governance.js';
+import type { ViemClient } from '../types.js';
+import { ReadOnlyGovernanceContract } from './governance.js';
 import { RollupContract } from './rollup.js';
 
 export class RegistryContract {
   public address: EthAddress;
-  private readonly registry: GetContractReturnType<typeof RegistryAbi, PublicClient<HttpTransport, Chain>>;
 
-  constructor(public readonly client: L1Clients['publicClient'], address: Hex | EthAddress) {
+  private readonly log = createLogger('ethereum:contracts:registry');
+  private readonly registry: GetContractReturnType<typeof RegistryAbi, ViemClient>;
+
+  constructor(
+    public readonly client: ViemClient,
+    address: Hex | EthAddress,
+  ) {
     if (address instanceof EthAddress) {
       address = address.toString();
     }
@@ -44,7 +43,15 @@ export class RegistryContract {
 
     try {
       return EthAddress.fromString(await this.registry.read.getRollup([version]));
-    } catch (e) {
+    } catch {
+      this.log.warn(`Failed fetching rollup address for version ${version}. Retrying as index.`);
+    }
+
+    try {
+      const actualVersion = await this.registry.read.getVersion([version]);
+      const rollupAddress = await this.registry.read.getRollup([actualVersion]);
+      return EthAddress.fromString(rollupAddress);
+    } catch {
       throw new Error('Rollup address is undefined');
     }
   }
@@ -61,7 +68,7 @@ export class RegistryContract {
     Pick<L1ContractAddresses, 'governanceProposerAddress' | 'governanceAddress'>
   > {
     const governanceAddress = await this.registry.read.getGovernance();
-    const governance = new GovernanceContract(governanceAddress, this.client, undefined);
+    const governance = new ReadOnlyGovernanceContract(governanceAddress, this.client);
     const governanceProposerAddress = await governance.getGovernanceProposerAddress();
     return {
       governanceAddress: governance.address,
@@ -70,7 +77,7 @@ export class RegistryContract {
   }
 
   public static async collectAddresses(
-    client: ViemPublicClient,
+    client: ViemClient,
     registryAddress: Hex | EthAddress,
     rollupVersion: number | bigint | 'canonical',
   ): Promise<L1ContractAddresses> {

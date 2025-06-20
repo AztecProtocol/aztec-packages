@@ -22,6 +22,22 @@ class ContractDBInterface {
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
 };
 
+// Aliases.
+using MerkleTreeId = ::bb::world_state::MerkleTreeId;
+using SiblingPath = ::bb::crypto::merkle_tree::fr_sibling_path;
+using index_t = ::bb::crypto::merkle_tree::index_t;
+using PublicDataLeafValue = ::bb::crypto::merkle_tree::PublicDataLeafValue;
+using NullifierLeafValue = ::bb::crypto::merkle_tree::NullifierLeafValue;
+template <typename LeafValueType> using IndexedLeaf = ::bb::crypto::merkle_tree::IndexedLeaf<LeafValueType>;
+template <typename LeafValueType>
+using SequentialInsertionResult = ::bb::world_state::SequentialInsertionResult<LeafValueType>;
+
+// The sibling path and root after the insertion.
+struct AppendLeafResult {
+    FF root;
+    SiblingPath path;
+};
+
 // Low level access to a merkle db. In general these will not be constrained.
 class LowLevelMerkleDBInterface {
   public:
@@ -29,23 +45,22 @@ class LowLevelMerkleDBInterface {
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
 
-    virtual crypto::merkle_tree::fr_sibling_path get_sibling_path(world_state::MerkleTreeId tree_id,
-                                                                  crypto::merkle_tree::index_t leaf_index) const = 0;
-    virtual crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
-                                                                                const FF& value) const = 0;
+    virtual SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const = 0;
+    virtual GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const = 0;
     // Returns the value if it exists, 0 otherwise.
-    virtual FF get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const = 0;
+    virtual FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const = 0;
     // We don't template the preimage methods because templated methods cannot be virtual.
-    virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>
-    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const = 0;
-    virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
-        crypto::merkle_tree::index_t leaf_index) const = 0;
+    virtual IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const = 0;
+    virtual IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const = 0;
 
-    virtual world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
-    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) = 0;
-    virtual world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
-    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) = 0;
-    virtual void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
+    virtual SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
+        const PublicDataLeafValue& leaf_value) = 0;
+    virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
+        const NullifierLeafValue& leaf_value) = 0;
+
+    virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
+
+    virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
@@ -58,7 +73,14 @@ class HighLevelMerkleDBInterface {
     virtual ~HighLevelMerkleDBInterface() = default;
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
+    virtual TreeStates get_tree_state() const = 0;
+
     virtual FF storage_read(const FF& key) const = 0;
+    virtual void storage_write(const FF& leaf_slot, const FF& value) = 0;
+    virtual bool nullifier_exists(const FF& nullifier) const = 0;
+    virtual void nullifier_write(const FF& nullifier) = 0;
+    virtual bool note_hash_exists(const FF& note_hash) const = 0;
+    virtual void note_hash_write(const FF& note_hash) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;

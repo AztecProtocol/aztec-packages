@@ -11,8 +11,8 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
-#include "barretenberg/vm2/common/macros.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/constraining/entities.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -20,19 +20,6 @@
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
-
-// clang-format off
-// These getters are used to speedup logderivative inverses.
-// See https://github.com/AztecProtocol/aztec-packages/pull/11605/ for a full explanation.
-#define DEFAULT_GETTERS(ENTITY) \
-    inline auto& _##ENTITY() { return ENTITY; } \
-    inline auto& _##ENTITY() const { return ENTITY; }
-#define ROW_PROXY_GETTERS(ENTITY) \
-    inline auto& _##ENTITY() { return pp.ENTITY[row_idx]; } \
-    inline auto& _##ENTITY() const { return pp.ENTITY[row_idx]; }
-#define DEFINE_GETTERS(GETTER_MACRO, ENTITIES) \
-    FOR_EACH(GETTER_MACRO, ENTITIES)
-// clang-format on
 
 namespace bb::avm2 {
 
@@ -57,6 +44,10 @@ class AvmFlavor {
 
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
+
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = true;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_WITNESS_ENTITIES = AvmFlavorVariables::NUM_WITNESS_ENTITIES;
@@ -90,6 +81,8 @@ class AvmFlavor {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
 
+    static_assert(MAX_PARTIAL_RELATION_LENGTH < 8, "MAX_PARTIAL_RELATION_LENGTH must be less than 8");
+
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
@@ -105,40 +98,59 @@ class AvmFlavor {
     static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
-    // to see its value and then update `AVM_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
 
-    template <typename DataType> class PrecomputedEntities {
+    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED >= COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                  "\n The constant AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED is now too short\n"
+                  "as is smaller than the real AVM v2 proof. Increase the padded constant \n"
+                  "in constants.nr accordingly.");
+
+    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
+    // static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+    //               "\nUnexpected AVM V2 proof length. This might be due to some changes in the\n"
+    //               "AVM circuit layout. In this case, modify AVM_V2_PROOF_LENGTH_IN_FIELDS \n"
+    //               "in constants.nr accordingly.");
+
+    // VK is composed of
+    // - circuit size encoded as a fr field element
+    // - num of inputs encoded as a fr field element
+    // - NUM_PRECOMPUTED_ENTITIES commitments
+    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
+    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES *
+    // NUM_FRS_COM,
+    //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
+    //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
+    //               "in constants.nr accordingly.");
+
+    template <typename DataType_> class PrecomputedEntities {
       public:
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_PRECOMPUTED_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_PRECOMPUTED_ENTITIES)
+        using DataType = DataType_;
+        DEFINE_FLAVOR_MEMBERS(DataType_, AVM2_PRECOMPUTED_ENTITIES)
     };
 
   private:
     template <typename DataType> class WireEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_WIRE_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_WIRE_ENTITIES)
     };
 
     template <typename DataType> class DerivedWitnessEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_DERIVED_WITNESS_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_DERIVED_WITNESS_ENTITIES)
     };
 
     template <typename DataType> class ShiftedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType, AVM2_SHIFTED_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_SHIFTED_ENTITIES)
     };
 
     template <typename DataType, typename PrecomputedAndWitnessEntitiesSuperset>
-    static auto get_to_be_shifted([[maybe_unused]] PrecomputedAndWitnessEntitiesSuperset& entities)
+    static auto get_to_be_shifted(PrecomputedAndWitnessEntitiesSuperset& entities)
     {
-        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM2_TO_BE_SHIFTED(entities) };
+        return RefArray<DataType, NUM_SHIFTED_ENTITIES>{ AVM2_TO_BE_SHIFTED_E(entities.) };
     }
 
   public:
@@ -146,17 +158,19 @@ class AvmFlavor {
     class WitnessEntities : public WireEntities<DataType>, public DerivedWitnessEntities<DataType> {
       public:
         DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedWitnessEntities<DataType>)
+
         auto get_wires() { return WireEntities<DataType>::get_all(); }
         static const auto& get_wires_labels() { return WireEntities<DataType>::get_labels(); }
         auto get_derived() { return DerivedWitnessEntities<DataType>::get_all(); }
         static const auto& get_derived_labels() { return DerivedWitnessEntities<DataType>::get_labels(); }
     };
 
-    template <typename DataType>
-    class AllEntities : public PrecomputedEntities<DataType>,
-                        public WitnessEntities<DataType>,
-                        public ShiftedEntities<DataType> {
+    template <typename DataType_>
+    class AllEntities : public PrecomputedEntities<DataType_>,
+                        public WitnessEntities<DataType_>,
+                        public ShiftedEntities<DataType_> {
       public:
+        using DataType = DataType_;
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted()
@@ -174,6 +188,10 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<DataType>(*this); }
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); }
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
+
+        // We need both const and non-const versions.
+        DataType& get(ColumnAndShifts c) { return get_entity_by_column(*this, c); }
+        const DataType& get(ColumnAndShifts c) const { return get_entity_by_column(*this, c); }
     };
 
     class ProvingKey : public PrecomputedEntities<Polynomial>, public WitnessEntities<Polynomial> {
@@ -188,7 +206,7 @@ class AvmFlavor {
         size_t log_circuit_size;
         size_t num_public_inputs;
         bb::EvaluationDomain<FF> evaluation_domain;
-        std::shared_ptr<CommitmentKey> commitment_key;
+        CommitmentKey commitment_key;
 
         // Offset off the public inputs from the start of the execution trace
         size_t pub_inputs_offset = 0;
@@ -203,51 +221,36 @@ class AvmFlavor {
         auto get_to_be_shifted() { return AvmFlavor::get_to_be_shifted<Polynomial>(*this); }
     };
 
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
-        using FF = VerificationKey_::FF;
         static constexpr size_t NUM_PRECOMPUTED_COMMITMENTS = NUM_PRECOMPUTED_ENTITIES;
 
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : VerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
+            : NativeVerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         std::array<Commitment, NUM_PRECOMPUTED_COMMITMENTS> const& precomputed_cmts)
-            : VerificationKey_(circuit_size, num_public_inputs)
+            : NativeVerificationKey_(circuit_size, num_public_inputs)
         {
             for (auto [vk_cmt, cmt] : zip_view(this->get_all(), precomputed_cmts)) {
                 vk_cmt = cmt;
             }
-            pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
 
         std::vector<FF> to_field_elements() const;
     };
 
-    class AllValues : public AllEntities<FF> {
-      public:
-        using Base = AllEntities<FF>;
-        using Base::Base;
-    };
-
-    // Only used by VM1 check_circuit. Remove.
-    class AllConstRefValues {
-      public:
-        using BaseDataType = const FF;
-        using DataType = BaseDataType&;
-        DEFINE_FLAVOR_MEMBERS(DataType, AVM2_ALL_ENTITIES)
-        DEFINE_GETTERS(DEFAULT_GETTERS, AVM2_ALL_ENTITIES)
-    };
+    // Used by sumcheck.
+    using AllValues = AllEntities<FF>;
 
     template <typename Polynomials> class PolynomialEntitiesAtFixedRow {
       public:
@@ -255,7 +258,9 @@ class AvmFlavor {
             : row_idx(row_idx)
             , pp(pp)
         {}
-        DEFINE_GETTERS(ROW_PROXY_GETTERS, AVM2_ALL_ENTITIES)
+
+        // Only const-access is allowed here. That's all that the logderivative library requires.
+        const auto& get(ColumnAndShifts c) const { return pp.get(c)[row_idx]; }
 
       private:
         const size_t row_idx;
@@ -277,15 +282,9 @@ class AvmFlavor {
 
         ProverPolynomials(ProvingKey& proving_key);
 
-        size_t get_polynomial_size() const { return execution_input.size(); }
-        // This is only used in VM1 check_circuit. Remove.
-        AllConstRefValues get_standard_row(size_t row_idx) const
-        {
-            return [row_idx](auto&... entities) -> AllConstRefValues {
-                return { entities[row_idx]... };
-            }(AVM2_ALL_ENTITIES);
-        }
-        auto get_row(size_t row_idx) const { return PolynomialEntitiesAtFixedRow<ProverPolynomials>(row_idx, *this); }
+        // Only const-access is allowed here. That's all that the logderivative library requires.
+        // https://github.com/AztecProtocol/aztec-packages/blob/e50d8e0/barretenberg/cpp/src/barretenberg/honk/proof_system/logderivative_library.hpp#L44.
+        PolynomialEntitiesAtFixedRow<ProverPolynomials> get_row(size_t row_idx) const { return { row_idx, *this }; }
     };
 
     class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
@@ -352,10 +351,6 @@ class AvmFlavor {
         Commitment kzg_w_comm;
 
         Transcript() = default;
-
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
-        {}
 
         void deserialize_full_transcript();
         void serialize_full_transcript();

@@ -2,6 +2,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -15,7 +16,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
@@ -42,13 +43,24 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
-        manifest_expected.add_entry(round, "public_input_size", frs_per_uint32);
-        manifest_expected.add_entry(round, "pub_inputs_offset", frs_per_uint32);
+        manifest_expected.add_entry(round, "vkey_circuit_size", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_num_public_inputs", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_pub_inputs_offset", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_pairing_points_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_app_return_data_commitment_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_kernel_return_data_commitment_start_idx", frs_per_Fr);
+        manifest_expected.add_entry(round, "vkey_is_kernel", frs_per_Fr);
+        for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; i++) {
+            manifest_expected.add_entry(round, "vkey_commitment", frs_per_G);
+        }
+        manifest_expected.add_challenge(round, "vkey_hash");
+        round++;
         manifest_expected.add_entry(round, "public_input_0", frs_per_Fr);
+        for (size_t i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            manifest_expected.add_entry(round, "public_input_" + std::to_string(1 + i), frs_per_Fr);
+        }
         manifest_expected.add_entry(round, "W_L", frs_per_G);
         manifest_expected.add_entry(round, "W_R", frs_per_G);
         manifest_expected.add_entry(round, "W_O", frs_per_G);
@@ -173,6 +185,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         uint32_t d_idx = builder.add_variable(d);
 
         builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, FF(1), FF(1), FF(1), FF(-1), FF(0) });
+        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
     }
 };
 TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);
@@ -192,7 +205,8 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 
     // Automatically generate a transcript manifest by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -204,7 +218,9 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
         if (prover_manifest[round] != manifest_expected[round]) {
             info("Prover manifest discrepency in round ", round);
+            info("Prover manifest:");
             prover_manifest[round].print();
+            info("Expected manifest:");
             manifest_expected[round].print();
             ASSERT(false);
         }
@@ -230,12 +246,12 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+    Prover prover(proving_key, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -292,32 +308,40 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
-    // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    typename Flavor::CircuitBuilder builder;
-    this->generate_test_circuit(builder);
+    if constexpr (IsAnyOf<Flavor, MegaZKFlavor, MegaFlavor>) {
+        // For compatibility with Goblin, MegaZKFlavor is using NativeTranscript which does not support
+        // serialize/deserialize full transcript methods.
+        GTEST_SKIP() << "Skipping StructureTest for MegaZKFlavor";
+    } else {
+        // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
+        typename Flavor::CircuitBuilder builder;
+        this->generate_test_circuit(builder);
 
-    // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    Prover prover(proving_key);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Verifier verifier(verification_key);
-    EXPECT_TRUE(verifier.verify_proof(proof));
+        // Automatically generate a transcript manifest by constructing a proof
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        Prover prover(proving_key);
+        auto proof = prover.construct_proof();
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Verifier verifier(verification_key);
+        EXPECT_TRUE(verifier.verify_proof(proof));
 
-    // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-    prover.transcript->serialize_full_transcript();
-    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+        // try deserializing and serializing with no changes and check proof is still valid
+        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
+        prover.transcript->serialize_full_transcript();
+        verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // clear verifier transcript
+        EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
-    Commitment one_group_val = Commitment::one();
-    FF rand_val = FF::random_element();
-    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    EXPECT_TRUE(verifier.verify_proof(
-        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+        Commitment one_group_val = Commitment::one();
+        FF rand_val = FF::random_element();
+        prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
+        verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // clear verifier transcript
+        EXPECT_TRUE(verifier.verify_proof(
+            prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
-    prover.transcript->serialize_full_transcript();
-    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+        prover.transcript->serialize_full_transcript();
+        EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-    EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
+        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
+        EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
+    }
 }

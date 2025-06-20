@@ -6,8 +6,8 @@ pub contract Child {
     use dep::aztec::prelude::{AztecAddress, Map, PrivateSet, PublicMutable};
 
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{internal, private, public}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
         note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         utils::comparison::Comparator,
     };
@@ -40,7 +40,7 @@ pub contract Child {
         let return_value = base_value
             + context.chain_id()
             + context.version()
-            + context.block_number()
+            + context.block_number() as Field
             + context.timestamp() as Field;
 
         return_value

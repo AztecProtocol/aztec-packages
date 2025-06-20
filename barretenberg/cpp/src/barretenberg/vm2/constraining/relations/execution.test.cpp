@@ -6,7 +6,10 @@
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_context.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -17,17 +20,23 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using execution = bb::avm2::execution<FF>;
 
-TEST(ExecutionConstrainingTest, Basic)
+TEST(ExecutionConstrainingTest, EmptyRow)
 {
-    // clang-format off
-    TestTraceContainer trace({
-         {{ C::execution_sel, 1 }, {C::execution_clk, 0}, { C::execution_pc, 0 }},
-         {{ C::execution_sel, 1 }, {C::execution_clk, 1}, { C::execution_pc, 20 }, { C::execution_last, 1 }}
-    });
-    // clang-format on
-
-    check_relation<execution>(trace);
+    check_relation<execution>(testing::empty_trace());
 }
+
+// DO NOT SUBMIT: add full flow tests
+// TEST(ExecutionConstrainingTest, Basic)
+// {
+//     // clang-format off
+//     TestTraceContainer trace({
+//          {{ C::execution_sel, 1 }, { C::execution_pc, 0 }},
+//          {{ C::execution_sel, 1 }, { C::execution_pc, 20 }, { C::execution_last, 1 }}
+//     });
+//     // clang-format on
+
+//     check_relation<execution>(trace);
+// }
 
 TEST(ExecutionConstrainingTest, Continuity)
 {

@@ -1,9 +1,10 @@
+import type { Bufferable } from '@aztec/foundation/serialize';
+
 import { strict as assert } from 'assert';
 
 import type { AvmContext } from '../avm_context.js';
-import { type Gas, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
+import { type Gas, computeAddressingCost, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import type { BufferCursor } from '../serialization/buffer_cursor.js';
-import type { Serializable } from '../serialization/bytecode_serialization.js';
 import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
 
 type InstructionConstructor = {
@@ -44,19 +45,19 @@ export abstract class Instruction {
   }
 
   // Default deserialization which uses Class.opcode and Class.wireFormat.
-  public static deserialize(
+  public static fromBuffer(
     this: InstructionConstructor & { wireFormat: OperandType[]; as: any },
     buf: BufferCursor | Buffer,
   ): Instruction {
-    return this.as(this.wireFormat).deserialize(buf);
+    return this.as(this.wireFormat).fromBuffer(buf);
   }
 
   // Default serialization which uses Class.opcode and Class.wireFormat.
-  public serialize(): Buffer {
+  public toBuffer(): Buffer {
     const klass = this.constructor as any;
     assert(klass.opcode !== undefined && klass.opcode !== null);
     assert(klass.wireFormat !== undefined && klass.wireFormat !== null);
-    return this.as(klass.opcode, klass.wireFormat).serialize();
+    return this.as(klass.opcode, klass.wireFormat).toBuffer();
   }
 
   /**
@@ -65,8 +66,8 @@ export abstract class Instruction {
    * @param wireFormat The wire format of the instruction.
    * @returns The new instruction instance.
    */
-  public as(opcode: Opcode, wireFormat: OperandType[]): Instruction & Serializable {
-    return Object.defineProperty(this, 'serialize', {
+  public as(opcode: Opcode, wireFormat: OperandType[]): Instruction & Bufferable {
+    return Object.defineProperty(this, 'toBuffer', {
       value: (): Buffer => {
         return serializeAs(wireFormat, opcode, this);
       },
@@ -82,7 +83,7 @@ export abstract class Instruction {
    */
   public static as(this: InstructionConstructor, wireFormat: OperandType[]) {
     return Object.assign(this, {
-      deserialize: (buf: BufferCursor | Buffer): Instruction => {
+      fromBuffer: (buf: BufferCursor | Buffer): Instruction => {
         const res = deserialize(buf, wireFormat);
         const args = res.slice(1); // Remove opcode.
         return new this(...args);
@@ -91,13 +92,20 @@ export abstract class Instruction {
   }
 
   /**
-   * Computes gas cost for the instruction based on its base cost and memory operations.
-   * @returns Gas cost.
+   * Returns the base gas cost for the instruction.
+   * @returns The base gas cost.
    */
-  protected gasCost(dynMultiplier: number = 0): Gas {
-    const baseGasCost = getBaseGasCost(this.opcode);
-    const dynGasCost = mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
-    return sumGas(baseGasCost, dynGasCost);
+  protected baseGasCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
+    return sumGas(getBaseGasCost(this.opcode), computeAddressingCost(indirectOperandsCount, relativeOperandsCount));
+  }
+
+  /**
+   * Computes the dynamic gas cost for the instruction
+   * @param dynMultiplier - The multiplier for the dynamic gas cost.
+   * @returns The dynamic gas cost.
+   */
+  protected dynamicGasCost(dynMultiplier: number = 0): Gas {
+    return mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
   }
 
   /**

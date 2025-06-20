@@ -164,13 +164,9 @@ Public functions in other contracts can be called both regularly and statically,
 This is the same function that was called by privately enqueuing a call to it! Public functions can be called either directly in a public context, or asynchronously by enqueuing in a private context.
 :::
 
-### Top-level Unconstrained
+### Utility
 
-Contract functions with the `unconstrained` Noir keyword are a special type of function still under development, and their semantics will likely change in the near future. They are used to perform state queries from an off-chain client (from both private and public state!), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls.
-
-Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Top-level unconstrained functions exist because they let developers utilize the rest of the contract code directly by being part of the same Noir contract, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
-
-A reasonable mental model for them is that of a Solidity `view` function that can never be called in any transaction, and is only ever invoked via `eth_call`. Note that in these the caller assumes that the node is acting honestly by executing the true contract bytecode with correct blockchain state, the same way the Aztec version assumes the oracles are returning legitimate data.
+Contract functions marked with `#[utility]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
 
 ### aztec.js
 
@@ -178,7 +174,7 @@ There are three different ways to execute an Aztec contract function using the `
 
 #### `simulate`
 
-This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [top-level unconstrained functions](#top-level-unconstrained).
+This is used to get a result out of an execution, either private or public. It creates no transaction and spends no gas. The mental model is fairly close to that of [`eth_call`](#eth_call), in that it can be used to call any type of function, simulate its execution and get a result out of it. `simulate` is also the only way to run [utility functions](#utility).
 
 #include_code public_getter /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
@@ -193,8 +189,6 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
-
-Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users should be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
 
 #### `send`
 

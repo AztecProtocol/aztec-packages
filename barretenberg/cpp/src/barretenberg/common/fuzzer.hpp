@@ -600,7 +600,8 @@ class ArithmeticFuzzHelper {
     {
         typename T::ExecutionState state;
         Composer composer = Composer();
-        bool circuit_should_fail = false;
+        // This is a global variable, so that the execution handling class could alter it and signal to the input tester
+        circuit_should_fail = false;
         size_t total_instruction_weight = 0;
         (void)total_instruction_weight;
         for (auto& instruction : instructions) {
@@ -687,11 +688,7 @@ constexpr void RunWithBuilder(const uint8_t* Data, const size_t Size, FastRandom
 template <template <typename> class Fuzzer, uint64_t Composers>
 constexpr void RunWithBuilders(const uint8_t* Data, const size_t Size, FastRandom& VarianceRNG)
 {
-    if (Composers & 1) {
-        RunWithBuilder<Fuzzer, bb::StandardCircuitBuilder>(Data, Size, VarianceRNG);
-    } else if (Composers & 2) {
-        RunWithBuilder<Fuzzer, bb::UltraCircuitBuilder>(Data, Size, VarianceRNG);
-    }
+    RunWithBuilder<Fuzzer, bb::UltraCircuitBuilder>(Data, Size, VarianceRNG);
 }
 
 // NOLINTEND(cppcoreguidelines-macro-usage, google-runtime-int)

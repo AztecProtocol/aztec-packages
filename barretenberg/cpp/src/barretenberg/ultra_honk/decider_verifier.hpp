@@ -1,8 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
@@ -11,10 +18,24 @@ template <typename Flavor> class DeciderVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using DeciderProof = std::vector<FF>;
+
+    struct Output {
+        bool sumcheck_verified;
+        bool libra_evals_verified;
+        PairingPoints pairing_points;
+
+        bool check()
+        {
+            bool pairing_check_verified = pairing_points.check();
+            vinfo("sumcheck_verified: ", sumcheck_verified);
+            vinfo("libra_evals_verified: ", libra_evals_verified);
+            vinfo("pairing_check_verified: ", pairing_check_verified);
+            return sumcheck_verified && libra_evals_verified && pairing_check_verified;
+        }
+    };
 
   public:
     explicit DeciderVerifier_();
@@ -25,15 +46,12 @@ template <typename Flavor> class DeciderVerifier_ {
      *
      */
     explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
-                              const std::shared_ptr<Transcript>& transcript);
+                              const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key);
-
-    bool verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
-    bool verify();                          // used when transcript that has been initialized with a proof
+    Output verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
+    Output verify();                          // used with a transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<DeciderVerificationKey> accumulator;
-    std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
 };
 

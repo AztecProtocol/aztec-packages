@@ -3,15 +3,21 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <ranges>
 #include <stdexcept>
 #include <vector>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_hashing.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -162,8 +168,7 @@ void BytecodeTraceBuilder::process_retrieval(
     for (const auto& event : events) {
         trace.set(
             row,
-            { {
-                { C::bc_retrieval_sel, 1 },
+            { { { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
                 // TODO: handle errors.
@@ -189,9 +194,12 @@ void BytecodeTraceBuilder::process_retrieval(
                 // State.
                 { C::bc_retrieval_block_number, event.current_block_number },
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
+                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
                 { C::bc_retrieval_siloed_address, event.siloed_address },
-            } });
+                { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }
 }
@@ -344,14 +352,13 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
                       { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
                       { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-                      { C::instr_fetching_sel_op_dc_17, op_dc_selectors.at(17) },
 
                       // Parsing errors
                       { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_parsing_err, event.error.has_value() ? 1 : 0 },
+                      { C::instr_fetching_sel_parsing_err, event.error.has_value() ? 1 : 0 },
 
                       // selector for lookups
                       { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
@@ -367,5 +374,30 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         row++;
     }
 }
+
+const InteractionDefinition BytecodeTraceBuilder::interactions =
+    InteractionDefinition()
+        // Bytecode Hashing
+        .add<lookup_bc_hashing_get_packed_field_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_hashing_iv_is_len_settings, InteractionType::LookupSequential>()
+        // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+        // .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
+        // Bytecode Retrieval
+        // .add<lookup_bc_retrieval_bytecode_hash_is_correct_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_address_derivation_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_update_check_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings, InteractionType::LookupSequential>()
+        .add<lookup_bc_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
+        // Bytecode Decomposition
+        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_bc_decomposition_abs_diff_is_u16_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Instruction Fetching
+        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
+        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

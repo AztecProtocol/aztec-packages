@@ -2,12 +2,14 @@
 node_modules/
 dest/
 noir-contracts.js/**/*.json
+noir-contracts.js/src
+noir-test-contracts.js/**/*.json
+noir-test-contracts.js/src
 noir-protocol-circuits-types/src/target/*
 *.md
 end-to-end/src/fixtures/dumps/*.json
 end-to-end/src/web/main.js
 l1-artifacts/src
-noir-contracts.js/src
 ivc-integration/src/types/index.ts
 protocol-contracts/src/protocol_contract_data.ts
 noir-protocol-circuits-types/src/types/index.ts

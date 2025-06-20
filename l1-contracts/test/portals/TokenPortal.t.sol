@@ -10,6 +10,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 
 // Interfaces
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
@@ -23,6 +24,7 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
 
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -35,7 +37,7 @@ contract TokenPortalTest is Test {
 
   Registry internal registry;
   RewardDistributor internal rewardDistributor;
-  IInbox internal inbox;
+  Inbox internal inbox;
   IOutbox internal outbox;
 
   Rollup internal rollup;
@@ -60,21 +62,15 @@ contract TokenPortalTest is Test {
   uint256 internal l2BlockNumber = 69;
 
   function setUp() public {
-    testERC20 = new TestERC20("test", "TEST", address(this));
-    registry = new Registry(address(this), testERC20);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-    rollup = new Rollup(
-      testERC20,
-      rewardDistributor,
-      testERC20,
-      address(this),
-      TestConstants.getGenesisState(),
-      TestConstants.getRollupConfigInput()
-    );
-    inbox = rollup.getInbox();
-    outbox = rollup.getOutbox();
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    registry.addRollup(IRollup(address(rollup)));
+    rollup = builder.getConfig().rollup;
+    registry = builder.getConfig().registry;
+    testERC20 = builder.getConfig().testERC20;
+
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = rollup.getOutbox();
 
     tokenPortal = new TokenPortal();
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
@@ -131,11 +127,12 @@ contract TokenPortalTest is Test {
       _createExpectedMintPrivateL1ToL2Message(expectedIndex);
 
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
-
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
     // event we will get
 
     // Perform op
@@ -158,11 +155,13 @@ contract TokenPortalTest is Test {
     DataStructures.L1ToL2Msg memory expectedMessage =
       _createExpectedMintPublicL1ToL2Message(expectedIndex);
     bytes32 expectedLeaf = expectedMessage.sha256ToField();
+    bytes16 expectedHash =
+      bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, expectedLeaf)));
 
     // Check the event was emitted
     vm.expectEmit(true, true, true, true);
     // event we expect
-    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf);
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, expectedIndex, expectedLeaf, expectedHash);
 
     // Perform op
     (bytes32 leaf, uint256 index) =
@@ -219,7 +218,7 @@ contract TokenPortalTest is Test {
     bytes32 treeRoot = tree.computeRoot();
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }

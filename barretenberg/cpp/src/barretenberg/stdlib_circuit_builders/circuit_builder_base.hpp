@@ -1,11 +1,17 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/execution_trace/gate_data.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
-#include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
 #include <unordered_map>
@@ -16,21 +22,29 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename FF_> class CircuitBuilderBase {
   public:
     using FF = FF_;
-    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
+    using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::Fq>, curve::BN254, curve::Grumpkin>;
 
+  private:
+    // A container for all of the witness values used by the circuit
+    std::vector<FF> variables;
+
+  public:
     size_t num_gates = 0;
     // true if we have dummy witnesses (in the write_vk case)
     bool has_dummy_witnesses = false;
 
     std::vector<uint32_t> public_inputs;
-    std::vector<FF> variables;
     std::unordered_map<uint32_t, std::string> variable_names;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
     // index of  previous variable in equivalence class (=FIRST if you're in a cycle alone)
     std::vector<uint32_t> prev_var_index;
-    // indices of corresponding real variables
+    // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
+    // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
+    // for example, two witnesses with differing witness indices to have the same "real variable index" and thus the
+    // same witness value. If the witness is not involved in any copy constraints, then real_variable_index[index] ==
+    // index, i.e. it is the identity map.
     std::vector<uint32_t> real_variable_index;
     std::vector<uint32_t> real_variable_tags;
     uint32_t current_tag = DUMMY_TAG;
@@ -39,13 +53,15 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> tau;
 
-    // Public input indices which contain recursive proof information
+    // (PLONK ONLY) Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
 
-    // Public input indices which contain the output IPA opening claim
-    IPAClaimPubInputIndices ipa_claim_public_input_indices;
-    bool contains_ipa_claim = false;
+    // Index of the pairing inputs in the public inputs
+    PublicComponentKey pairing_inputs_public_input_key;
+
+    // Index of the IPA opening claim in the public inputs
+    PublicComponentKey ipa_claim_public_input_key;
 
     // We know from the CLI arguments during proving whether a circuit should use a prover which produces
     // proofs that are friendly to verify in a circuit themselves. A verifier does not need a full circuit
@@ -83,6 +99,8 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void create_poly_gate(const poly_triple_<FF>& in) = 0;
     virtual size_t get_num_constant_gates() const = 0;
 
+    const std::vector<FF>& get_variables() const { return variables; }
+
     /**
      * Get the index of the first variable in class.
      *
@@ -100,15 +118,32 @@ template <typename FF_> class CircuitBuilderBase {
     void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
 
     /**
-     * Get the value of the variable v_{index}.
+     * @brief Get the value of the variable v_{index}.
      *
      * @param index The index of the variable.
      * @return The value of the variable.
      * */
     inline FF get_variable(const uint32_t index) const
     {
-        ASSERT(variables.size() > index);
+        ASSERT(variables.size() > real_variable_index[index]);
         return variables[real_variable_index[index]];
+    }
+
+    /**
+     * @brief Set the value of the variable pointed to by a witness index.
+     * @details The witness value pointed to by a witness index is determined by the mapping of the input witness index
+     * to the corresponding "real variable index" which may agree with the input index or it may point to a different
+     * location within the variables array due to copy contraints that have been imposed, e.g. by assert_equal.
+     * @note This has the same effect on the resulting circuit as assert_equal(add_variable(value), index) but has the
+     * benefit of not adding an additional variable to the circuit unnecessarily.
+     *
+     * @param index
+     * @param value
+     */
+    inline void set_variable(const uint32_t index, const FF& value)
+    {
+        ASSERT(variables.size() > real_variable_index[index]);
+        variables[real_variable_index[index]] = value;
     }
 
     /**
@@ -183,11 +218,12 @@ template <typename FF_> class CircuitBuilderBase {
     virtual uint32_t add_public_variable(const FF& in);
 
     /**
-     * Make a witness variable public.
+     * @brief Make a witness variable public.
      *
      * @param witness_index The index of the witness.
-     * */
-    virtual void set_public_input(uint32_t witness_index);
+     * @return uint32_t The index of the witness in the public inputs vector.
+     */
+    virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
     // TODO(#216)(Adrian): This method should belong in the ComposerHelper, where the number of reserved gates can be
@@ -205,18 +241,6 @@ template <typename FF_> class CircuitBuilderBase {
     // uint32::MAX number of variables
     void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
     bool is_valid_variable(uint32_t variable_index) { return variable_index < variables.size(); };
-
-    /**
-     * @brief PLONK only: Add information about which witnesses contain the recursive proof computation information
-     *
-     * @param circuit_constructor Object with the circuit
-     * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
-     * specific
-     */
-    void add_pairing_point_accumulator_for_plonk(
-        const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
-
-    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;
@@ -255,6 +279,10 @@ template <typename FF> struct CircuitSchemaInternal {
     std::vector<std::vector<std::vector<FF>>> lookup_tables;
     std::vector<uint32_t> real_variable_tags;
     std::unordered_map<uint32_t, uint64_t> range_tags;
+    std::vector<std::vector<std::vector<uint32_t>>> rom_records;
+    std::vector<std::vector<std::array<uint32_t, 2>>> rom_states;
+    std::vector<std::vector<std::vector<uint32_t>>> ram_records;
+    std::vector<std::vector<uint32_t>> ram_states;
     bool circuit_finalized;
     MSGPACK_FIELDS(modulus,
                    public_inps,
@@ -265,7 +293,12 @@ template <typename FF> struct CircuitSchemaInternal {
                    real_variable_index,
                    lookup_tables,
                    real_variable_tags,
-                   range_tags);
+                   range_tags,
+                   rom_records,
+                   rom_states,
+                   ram_records,
+                   ram_states,
+                   circuit_finalized);
 };
 } // namespace bb
 

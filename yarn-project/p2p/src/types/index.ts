@@ -35,3 +35,4 @@ export enum GossipSubEvent {
  * Aztec network specific types
  */
 export const AZTEC_ENR_KEY = 'aztec';
+export const AZTEC_ENR_CLIENT_VERSION_KEY = 'ver';

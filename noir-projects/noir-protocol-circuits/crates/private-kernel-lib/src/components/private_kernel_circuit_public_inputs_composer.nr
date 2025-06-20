@@ -17,7 +17,7 @@ use dep::types::{
     shared_mutable::{compute_shared_mutable_block_horizon, SharedMutableValues},
     traits::{Empty, Hash, is_empty, Packable},
     transaction::tx_request::TxRequest,
-    utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc},
+    utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc},
 };
 
 pub fn create_protocol_nullifier(tx_request: TxRequest) -> ScopedNullifier {
@@ -140,7 +140,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         );
         self.public_inputs.end.public_call_requests = transform_vec(
             self.public_inputs.end.public_call_requests,
-            sort_by_counter_desc,
+            sort_by_counter_asc,
         );
     }
 
@@ -195,12 +195,11 @@ impl PrivateKernelCircuitPublicInputsComposer {
                 self.public_inputs.validation_requests.max_block_number,
                 MaxBlockNumber::new(compute_shared_mutable_block_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number
-                         as u32,
-                    )),
-                );
-            }
+                    private_call.public_inputs.historical_header.global_variables.block_number,
+                )),
+            );
         }
+    }
 
     fn propagate_note_hash_read_requests(
         &mut self,

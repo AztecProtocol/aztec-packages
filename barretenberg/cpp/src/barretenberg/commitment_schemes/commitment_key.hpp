@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 /**
@@ -7,17 +13,14 @@
  * simplify the codebase.
  */
 
-#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
-#include "barretenberg/ecc/scalar_multiplication/sorted_msm.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 #include <cstddef>
@@ -52,12 +55,11 @@ template <class Curve> class CommitmentKey {
     }
 
   public:
-    scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
-    std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
-    std::shared_ptr<srs::factories::ProverCrs<Curve>> srs;
+    scalar_multiplication::PippengerReference<Curve> pippenger_runtime_state;
+    std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
-    CommitmentKey() = delete;
+    CommitmentKey() = default;
 
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS
@@ -68,17 +70,16 @@ template <class Curve> class CommitmentKey {
      */
     CommitmentKey(const size_t num_points)
         : pippenger_runtime_state(get_num_needed_srs_points(num_points))
-        , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
+        , srs(srs::get_crs_factory<Curve>()->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
-    // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
-    CommitmentKey(const size_t num_points, std::shared_ptr<srs::factories::ProverCrs<Curve>> prover_crs)
-        : pippenger_runtime_state(num_points)
-        , srs(prover_crs)
-        , dyadic_size(get_num_needed_srs_points(num_points))
-    {}
+    /**
+     * @brief Checks the commitment key is properly initialized.
+     *
+     * @return bool
+     */
+    bool initialized() const { return pippenger_runtime_state.initialized(); }
 
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
@@ -86,12 +87,13 @@ template <class Curve> class CommitmentKey {
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(PolynomialSpan<const Fr> polynomial)
+    Commitment commit(PolynomialSpan<const Fr> polynomial) const
     {
         PROFILE_THIS_NAME("commit");
+        ASSERT(initialized());
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         size_t dyadic_poly_size = numeric::round_up_power_2(polynomial.size());
-        ASSERT(dyadic_poly_size <= dyadic_size && "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(dyadic_poly_size, dyadic_size, "Polynomial size exceeds commitment key size.");
         // Because pippenger prefers a power-of-2 size, we must choose a starting index for the points so that we don't
         // exceed the dyadic_circuit_size. The actual start index of the points will be the smallest it can be so that
         // the window of points is a power of 2 and still contains the scalars. The best we can do is pick a start index
@@ -104,7 +106,7 @@ template <class Curve> class CommitmentKey {
         // index.
         size_t relative_start_index = polynomial.start_index - actual_start_index;
         const size_t consumed_srs = actual_start_index + dyadic_poly_size;
-        auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
+        auto srs = srs::get_crs_factory<Curve>()->get_crs(consumed_srs);
         // We only need the
         if (consumed_srs > srs->get_monomial_size()) {
             throw_or_abort(format("Attempting to commit to a polynomial that needs ",
@@ -118,10 +120,8 @@ template <class Curve> class CommitmentKey {
         // with our polynomial span.
 
         std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
-        DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
-        DEBUG_LOG(point);
+            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state.get());
         return point;
     };
 
@@ -139,7 +139,9 @@ template <class Curve> class CommitmentKey {
     {
         PROFILE_THIS_NAME("commit_sparse");
         const size_t poly_size = polynomial.size();
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        BB_ASSERT_LTE(polynomial.end_index(),
+                      srs->get_monomial_size(),
+                      "Attempting to commit to a polynomial that needs more points than the SRS size.");
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
@@ -164,7 +166,7 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
-                    ASSERT(idx * 2 + 1 < point_table.size());
+                    BB_ASSERT_LT(idx * 2 + 1, point_table.size());
                     const G1& point = point_table[idx * 2];
                     const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
@@ -190,7 +192,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state.get());
     }
 
     /**
@@ -212,8 +214,8 @@ template <class Curve> class CommitmentKey {
                                  size_t final_active_wire_idx = 0)
     {
         PROFILE_THIS_NAME("commit_structured");
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
-        ASSERT(polynomial.end_index() <= dyadic_size && "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
+        BB_ASSERT_LTE(polynomial.end_index(), dyadic_size, "Polynomial size exceeds commitment key size.");
 
         // Percentage of nonzero coefficients beyond which we resort to the conventional commit method
         constexpr size_t NONZERO_THRESHOLD = 75;
@@ -253,7 +255,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call pippenger
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state.get());
     }
 
     /**
@@ -273,7 +275,7 @@ template <class Curve> class CommitmentKey {
                                                          size_t final_active_wire_idx = 0)
     {
         PROFILE_THIS_NAME("commit_structured_with_nonzero_complement");
-        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
+        BB_ASSERT_LTE(polynomial.end_index(), srs->get_monomial_size(), "Polynomial size exceeds commitment key size.");
 
         using BatchedAddition = BatchedAffineAddition<Curve>;
 

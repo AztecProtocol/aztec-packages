@@ -1213,7 +1213,7 @@ template <typename FF> void Graph_<FF>::print_connected_components()
 {
     auto connected_components = find_connected_components();
     for (size_t i = 0; i < connected_components.size(); i++) {
-        info("printing the ", i + 1, " connected component:");
+        info("printing the ", i + 1, " connected component with size ", connected_components[i].size(), ":");
         for (const auto& it : connected_components[i]) {
             info(it, " ");
         }
@@ -1233,19 +1233,31 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
 }
 
 /**
- * @brief this method prints a number of edges for each variable
+ * @brief this method prints all information about the gate where variable was found
  * @tparam FF
  * @param ultra_builder
+ * @param real_idx
  */
 
-template <typename FF> void Graph_<FF>::print_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_builder)
+template <typename FF>
+void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx)
 {
     const auto& block_data = ultra_builder.blocks.get();
     for (const auto& [key, gates] : variable_gates) {
-        if (variables_in_one_gate.contains(key.first)) {
+        if (key.first == real_idx) {
             ASSERT(gates.size() == 1);
             size_t gate_index = gates[0];
             UltraBlock block = block_data[key.second];
+            info("gate index == ", gate_index);
+            info("---- printing variables in this gate");
+            info("w_l == ",
+                 block.w_l()[gate_index],
+                 " w_r == ",
+                 block.w_r()[gate_index],
+                 " w_o == ",
+                 block.w_o()[gate_index],
+                 " w_4 == ",
+                 block.w_4()[gate_index]);
             info("---- printing gate selectors where variable with index ", key.first, " was found ----");
             info("q_m == ", block.q_m()[gate_index]);
             info("q_c == ", block.q_c()[gate_index]);

@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -31,17 +30,12 @@ contract Inbox is IInbox {
   uint256 internal immutable SIZE;
   bytes32 internal immutable EMPTY_ROOT; // The root of an empty frontier tree
 
-  // Number of a tree which is currently being filled
-  uint256 public inProgress = Constants.INITIAL_L2_BLOCK_NUM + 1;
-
   // Practically immutable value as we only set it in the constructor.
   FrontierLib.Forest internal forest;
 
   mapping(uint256 blockNumber => FrontierLib.Tree tree) public trees;
 
-  // This value is not used much by the contract, but it is useful for synching the node faster
-  // as it can more easily figure out if it can just skip looking for events for a time period.
-  uint256 public totalMessagesInserted = 0;
+  InboxState internal state;
 
   constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height) {
     ROLLUP = _rollup;
@@ -50,8 +44,14 @@ contract Inbox is IInbox {
     HEIGHT = _height;
     SIZE = 2 ** _height;
 
+    state = InboxState({
+      rollingHash: 0,
+      totalMessagesInserted: 0,
+      inProgress: uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1
+    });
+
     forest.initialize(_height);
-    EMPTY_ROOT = trees[inProgress].root(forest, HEIGHT, SIZE);
+    EMPTY_ROOT = trees[uint64(Constants.INITIAL_L2_BLOCK_NUM) + 1].root(forest, HEIGHT, SIZE);
 
     FEE_ASSET_PORTAL =
       address(new FeeJuicePortal(IRollup(_rollup), _feeAsset, IInbox(this), VERSION));
@@ -86,6 +86,13 @@ contract Inbox is IInbox {
       Errors.Inbox__SecretHashTooLarge(_secretHash)
     );
 
+    // Is this the best way to read a packed struct into local variables in a single SLOAD
+    // without having to use assembly and manual unpacking?
+    InboxState memory _state = state;
+    bytes16 rollingHash = _state.rollingHash;
+    uint64 totalMessagesInserted = _state.totalMessagesInserted;
+    uint64 inProgress = _state.inProgress;
+
     FrontierLib.Tree storage currentTree = trees[inProgress];
 
     if (currentTree.isFull(SIZE)) {
@@ -114,8 +121,15 @@ contract Inbox is IInbox {
 
     bytes32 leaf = message.sha256ToField();
     currentTree.insertLeaf(leaf);
-    totalMessagesInserted++;
-    emit MessageSent(inProgress, index, leaf);
+
+    bytes16 updatedRollingHash = bytes16(keccak256(abi.encodePacked(rollingHash, leaf)));
+    state = InboxState({
+      rollingHash: bytes16(updatedRollingHash),
+      totalMessagesInserted: totalMessagesInserted + 1,
+      inProgress: inProgress
+    });
+
+    emit MessageSent(inProgress, index, leaf, updatedRollingHash);
 
     return (leaf, index);
   }
@@ -133,6 +147,8 @@ contract Inbox is IInbox {
    */
   function consume(uint256 _toConsume) external override(IInbox) returns (bytes32) {
     require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+
+    uint64 inProgress = state.inProgress;
     require(_toConsume < inProgress, Errors.Inbox__MustBuildBeforeConsume());
 
     bytes32 root = EMPTY_ROOT;
@@ -142,7 +158,7 @@ contract Inbox is IInbox {
 
     // If we are "catching up" we skip the tree creation as it is already there
     if (_toConsume + 1 == inProgress) {
-      inProgress += 1;
+      state.inProgress = inProgress + 1;
     }
 
     return root;
@@ -154,5 +170,17 @@ contract Inbox is IInbox {
 
   function getRoot(uint256 _blockNumber) external view override(IInbox) returns (bytes32) {
     return trees[_blockNumber].root(forest, HEIGHT, SIZE);
+  }
+
+  function getState() external view override(IInbox) returns (InboxState memory) {
+    return state;
+  }
+
+  function getTotalMessagesInserted() external view override(IInbox) returns (uint64) {
+    return state.totalMessagesInserted;
+  }
+
+  function getInProgress() external view override(IInbox) returns (uint64) {
+    return state.inProgress;
   }
 }

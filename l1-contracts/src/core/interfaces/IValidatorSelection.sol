@@ -2,45 +2,34 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-
-/**
- * @notice  The data structure for an epoch
- * @param committee - The attesters for the epoch
- * @param sampleSeed - The seed used to sample the attesters of the epoch
- * @param nextSeed - The seed used to influence the NEXT epoch
- */
-struct EpochData {
-  address[] committee;
-  uint256 sampleSeed;
-  uint256 nextSeed;
-}
+import {IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
-  mapping(Epoch => EpochData) epochs;
-  // The last stored randao value, same value as `seed` in the last inserted epoch
-  uint256 lastSeed;
+  mapping(Epoch => bytes32 committeeCommitment) committeeCommitments;
+  // Checkpointed map of epoch -> sample seed
+  Checkpoints.Trace224 seeds;
   uint256 targetCommitteeSize;
 }
 
 interface IValidatorSelectionCore {
   function setupEpoch() external;
+  function setupSeedSnapshotForNextEpoch() external;
 }
 
-interface IValidatorSelection is IValidatorSelectionCore {
-  // Likely changing to optimize in Pleistarchus
-  function getCurrentProposer() external returns (address);
+interface IValidatorSelection is IValidatorSelectionCore, IEmperor {
   function getProposerAt(Timestamp _ts) external returns (address);
 
   // Non view as uses transient storage
   function getCurrentEpochCommittee() external returns (address[] memory);
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getCommitteeCommitmentAt(Timestamp _ts) external returns (bytes32, uint256);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
-  function getCurrentSlot() external view returns (Slot);
 
   // Consider removing below this point
   function getTimestampForSlot(Slot _slotNumber) external view returns (Timestamp);

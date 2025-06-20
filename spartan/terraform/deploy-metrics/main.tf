@@ -23,7 +23,7 @@ provider "google" {
 
 resource "google_compute_address" "grafana_ip" {
   provider     = google
-  name         = "grafana-ip"
+  name         = "grafana-ip-${var.RELEASE_NAME}"
   address_type = "EXTERNAL"
   region       = var.region
 
@@ -34,7 +34,7 @@ resource "google_compute_address" "grafana_ip" {
 
 resource "google_compute_address" "otel_collector_ip" {
   provider     = google
-  name         = "otel-ip"
+  name         = "otel-ip-${var.RELEASE_NAME}"
   address_type = "EXTERNAL"
   region       = var.region
 

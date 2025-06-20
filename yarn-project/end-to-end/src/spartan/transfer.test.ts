@@ -89,9 +89,12 @@ describe('token transfer test', () => {
     for (let i = 1n; i <= ROUNDS; i++) {
       const interactions = await Promise.all([
         ...testWallets.wallets.map(async w =>
-          (
-            await TokenContract.at(testWallets.tokenAddress, w)
-          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
+          (await TokenContract.at(testWallets.tokenAddress, w)).methods.transfer_in_public(
+            w.getAddress(),
+            recipient,
+            transferAmount,
+            0,
+          ),
         ),
       ]);
 

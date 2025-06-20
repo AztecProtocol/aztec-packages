@@ -6,11 +6,11 @@ use dep::types::abis::{
     side_effect::{Ordered, scoped::Scoped},
 };
 
-pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let NUM_TRANSIENT_DATA_INDEX_HINTS: u32>(
+pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32>(
     note_hashes: [ScopedNoteHash; M],
     nullifiers: [ScopedNullifier; N],
     logs: [Scoped<PrivateLogData>; P],
-    transient_data_index_hints: [TransientDataIndexHint; NUM_TRANSIENT_DATA_INDEX_HINTS],
+    transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_SQUASHING_HINTS_LEN],
 ) -> ([ScopedNoteHash; M], [ScopedNullifier; N], [Scoped<PrivateLogData>; P]) {
     let mut transient_nullifier_indexes_for_note_hashes = [N; M];
     let mut transient_note_hash_indexes_for_nullifiers = [M; N];

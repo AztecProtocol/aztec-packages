@@ -1,9 +1,15 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
+#include "barretenberg/honk/types/circuit_type.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
 namespace bb::field_conversion {
@@ -46,18 +52,18 @@ grumpkin::fr convert_grumpkin_fr_from_bn254_frs(std::span<const bb::fr> fr_vec);
 template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
 {
     if constexpr (IsAnyOf<T, bool>) {
-        ASSERT(fr_vec.size() == 1);
-        return bool(fr_vec[0]);
+        BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
+        return static_cast<bool>(fr_vec[0]);
     } else if constexpr (IsAnyOf<T, uint32_t, uint64_t, bb::fr>) {
-        ASSERT(fr_vec.size() == 1);
+        BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(1));
         return static_cast<T>(fr_vec[0]);
     } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
-        ASSERT(fr_vec.size() == 2);
+        BB_ASSERT_EQ(fr_vec.size(), static_cast<size_t>(2));
         return convert_grumpkin_fr_from_bn254_frs(fr_vec);
     } else if constexpr (IsAnyOf<T, curve::BN254::AffineElement, curve::Grumpkin::AffineElement>) {
         using BaseField = typename T::Fq;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<BaseField>();
-        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
+        BB_ASSERT_EQ(fr_vec.size(), 2 * BASE_FIELD_SCALAR_SIZE);
         T val;
         val.x = convert_from_bn254_frs<BaseField>(fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         val.y = convert_from_bn254_frs<BaseField>(fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
@@ -70,7 +76,7 @@ template <typename T> T convert_from_bn254_frs(std::span<const bb::fr> fr_vec)
         // Array or Univariate
         T val;
         constexpr size_t FieldScalarSize = calc_num_bn254_frs<typename T::value_type>();
-        ASSERT(fr_vec.size() == FieldScalarSize * std::tuple_size<T>::value);
+        BB_ASSERT_EQ(fr_vec.size(), FieldScalarSize * std::tuple_size<T>::value);
         size_t i = 0;
         for (auto& x : val) {
             x = convert_from_bn254_frs<typename T::value_type>(fr_vec.subspan(FieldScalarSize * i, FieldScalarSize));

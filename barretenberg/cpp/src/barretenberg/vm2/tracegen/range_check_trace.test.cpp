@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -12,10 +13,6 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using testing::ElementsAre;
-using testing::Field;
-
-using R = TestTraceContainer::Row;
-using FF = R::FF;
 
 TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
 {
@@ -40,14 +37,14 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte16Bit)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(Field(&R::range_check_sel, 1),
-                          Field(&R::range_check_value, value_u256),
-                          Field(&R::range_check_rng_chk_bits, FF(num_bits)),
-                          Field(&R::range_check_is_lte_u16, 1),
-                          Field(&R::range_check_u16_r7, dynamic_slice_register),
-                          Field(&R::range_check_dyn_rng_chk_bits, dynamic_bits),
-                          Field(&R::range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
-                          Field(&R::range_check_dyn_diff, dynamic_diff))));
+                    AllOf(ROW_FIELD_EQ(range_check_sel, 1),
+                          ROW_FIELD_EQ(range_check_value, value_u256),
+                          ROW_FIELD_EQ(range_check_rng_chk_bits, FF(num_bits)),
+                          ROW_FIELD_EQ(range_check_is_lte_u16, 1),
+                          ROW_FIELD_EQ(range_check_u16_r7, dynamic_slice_register),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_bits, dynamic_bits),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
+                          ROW_FIELD_EQ(range_check_dyn_diff, dynamic_diff))));
 }
 
 TEST(RangeCheckTraceGenTest, RangeCheckLte48Bit)
@@ -75,19 +72,19 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte48Bit)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(Field(&R::range_check_sel, 1),
-                          Field(&R::range_check_value, value_u256),
-                          Field(&R::range_check_rng_chk_bits, num_bits),
-                          Field(&R::range_check_is_lte_u48, 1),
-                          Field(&R::range_check_u16_r0, u16_r0),
-                          Field(&R::range_check_u16_r1, u16_r1),
-                          Field(&R::range_check_u16_r7, dynamic_slice_register),
-                          Field(&R::range_check_dyn_rng_chk_bits, dynamic_bits),
-                          Field(&R::range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
-                          Field(&R::range_check_dyn_diff, dynamic_diff),
+                    AllOf(ROW_FIELD_EQ(range_check_sel, 1),
+                          ROW_FIELD_EQ(range_check_value, value_u256),
+                          ROW_FIELD_EQ(range_check_rng_chk_bits, num_bits),
+                          ROW_FIELD_EQ(range_check_is_lte_u48, 1),
+                          ROW_FIELD_EQ(range_check_u16_r0, u16_r0),
+                          ROW_FIELD_EQ(range_check_u16_r1, u16_r1),
+                          ROW_FIELD_EQ(range_check_u16_r7, dynamic_slice_register),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_bits, dynamic_bits),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
+                          ROW_FIELD_EQ(range_check_dyn_diff, dynamic_diff),
 
-                          Field(&R::range_check_sel_r0_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r1_16_bit_rng_lookup, 1))));
+                          ROW_FIELD_EQ(range_check_sel_r0_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r1_16_bit_rng_lookup, 1))));
 }
 
 TEST(RangeCheckTraceGenTest, RangeCheckLte128Bit)
@@ -120,29 +117,29 @@ TEST(RangeCheckTraceGenTest, RangeCheckLte128Bit)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(Field(&R::range_check_sel, 1),
-                          Field(&R::range_check_value, value_u256),
-                          Field(&R::range_check_rng_chk_bits, num_bits),
-                          Field(&R::range_check_is_lte_u128, 1),
-                          Field(&R::range_check_u16_r0, u16_r0),
-                          Field(&R::range_check_u16_r1, u16_r1),
-                          Field(&R::range_check_u16_r2, u16_r2),
-                          Field(&R::range_check_u16_r3, u16_r3),
-                          Field(&R::range_check_u16_r4, u16_r4),
-                          Field(&R::range_check_u16_r5, u16_r5),
-                          Field(&R::range_check_u16_r6, u16_r6),
-                          Field(&R::range_check_u16_r7, dynamic_slice_register),
-                          Field(&R::range_check_dyn_rng_chk_bits, dynamic_bits),
-                          Field(&R::range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
-                          Field(&R::range_check_dyn_diff, dynamic_diff),
+                    AllOf(ROW_FIELD_EQ(range_check_sel, 1),
+                          ROW_FIELD_EQ(range_check_value, value_u256),
+                          ROW_FIELD_EQ(range_check_rng_chk_bits, num_bits),
+                          ROW_FIELD_EQ(range_check_is_lte_u128, 1),
+                          ROW_FIELD_EQ(range_check_u16_r0, u16_r0),
+                          ROW_FIELD_EQ(range_check_u16_r1, u16_r1),
+                          ROW_FIELD_EQ(range_check_u16_r2, u16_r2),
+                          ROW_FIELD_EQ(range_check_u16_r3, u16_r3),
+                          ROW_FIELD_EQ(range_check_u16_r4, u16_r4),
+                          ROW_FIELD_EQ(range_check_u16_r5, u16_r5),
+                          ROW_FIELD_EQ(range_check_u16_r6, u16_r6),
+                          ROW_FIELD_EQ(range_check_u16_r7, dynamic_slice_register),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_bits, dynamic_bits),
+                          ROW_FIELD_EQ(range_check_dyn_rng_chk_pow_2, dynamic_bits_pow_2),
+                          ROW_FIELD_EQ(range_check_dyn_diff, dynamic_diff),
 
-                          Field(&R::range_check_sel_r0_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r1_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r2_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r3_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r4_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r5_16_bit_rng_lookup, 1),
-                          Field(&R::range_check_sel_r6_16_bit_rng_lookup, 1))));
+                          ROW_FIELD_EQ(range_check_sel_r0_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r1_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r2_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r3_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r4_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r5_16_bit_rng_lookup, 1),
+                          ROW_FIELD_EQ(range_check_sel_r6_16_bit_rng_lookup, 1))));
 }
 } // namespace
 } // namespace bb::avm2::tracegen

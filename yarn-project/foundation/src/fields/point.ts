@@ -188,7 +188,7 @@ export class Point {
    */
   toBuffer() {
     if (this.isInfinite) {
-      throw new Error('Cannot serialize infinite point without isInfinite flag');
+      throw new Error('Cannot serialize infinite point with isInfinite flag');
     }
     const buf = serializeToBuffer([this.x, this.y]);
     if (buf.length !== Point.SIZE_IN_BYTES) {
@@ -246,9 +246,7 @@ export class Point {
 
   // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
   toWrappedNoirStruct() {
-    /* eslint-disable camelcase */
     return { inner: this.toNoirStruct() };
-    /* eslint-enable camelcase */
   }
 
   /**

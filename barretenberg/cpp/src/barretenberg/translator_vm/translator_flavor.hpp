@@ -1,3 +1,9 @@
+// === AUDIT STATUS ===
+// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
+// =====================
+
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
@@ -17,6 +23,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
 
@@ -40,36 +47,57 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
 
-    // The log of the full Translator circuit size. It determines MINI_CIRCUIT_SIZE and, in the current design,
-    // is the only Translator-related constant that can be modified.
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = 18;
-
     // None of this parameters can be changed
+    // Number of wires representing the op queue whose commitments are going to be checked against those from the
+    // final round of merge
+    static constexpr size_t NUM_OP_QUEUE_WIRES = 4;
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
-    // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
-    // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
-    // It is also the only parameter that can be changed without updating relations or structures in the flavor
-    static constexpr size_t MINI_CIRCUIT_SIZE = (1UL << CONST_TRANSLATOR_LOG_N) / INTERLEAVING_GROUP_SIZE;
+
+    // The fixed  log size of Translator circuit determining the size most polynomials (except the ones
+    // involved in the interleaving subprotocol). It should be determined by the size of the EccOpQueue.
+    static constexpr size_t LOG_MINI_CIRCUIT_SIZE = 14;
+
+    // Log of size of interleaved_* and ordered_* polynomials
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = LOG_MINI_CIRCUIT_SIZE + numeric::get_msb(INTERLEAVING_GROUP_SIZE);
+
+    static constexpr size_t MINI_CIRCUIT_SIZE = 1UL << LOG_MINI_CIRCUIT_SIZE;
 
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;
 
+    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
+    static constexpr size_t SORT_STEP = 3;
+
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
-    static constexpr size_t SORT_STEP = 3;
+    // The result of evaluating the polynomials in the nonnative form in translator circuit, stored as limbs and
+    // referred to as accumulated_result. This is reconstructed in it's base field form and sent to the verifier
+    // responsible for checking it against the evaluations received from ECCVM.
+    static constexpr size_t RESULT_ROW = CircuitBuilder::RESULT_ROW;
 
     // The bitness of the range constraint
     static constexpr size_t MICRO_LIMB_BITS = CircuitBuilder::MICRO_LIMB_BITS;
 
+    // The number of "steps" inserted in ordered range constraint polynomials to ensure that the
+    // DeltaRangeConstraintRelation can always be satisfied if the polynomial is within the appropriate range.
+    static constexpr size_t SORTED_STEPS_COUNT = (1 << MICRO_LIMB_BITS) / SORT_STEP + 1;
+    static_assert(SORTED_STEPS_COUNT * (NUM_INTERLEAVED_WIRES + 1) < MINI_CIRCUIT_SIZE * INTERLEAVING_GROUP_SIZE,
+                  "Translator circuit is too small for defined number of steps "
+                  "(TranslatorDeltaRangeConstraintRelation). ");
+
     // The limbs of the modulus we are emulating in the goblin translator. 4 binary 68-bit limbs and the prime one
-    static constexpr auto NEGATIVE_MODULUS_LIMBS = CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    static constexpr const std::array<FF, 5>& negative_modulus_limbs()
+    {
+        return CircuitBuilder::NEGATIVE_MODULUS_LIMBS;
+    }
 
     // Number of bits in a binary limb
     // This is not a configurable value. Relations are sepcifically designed for it to be 68
@@ -82,10 +110,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 186;
+    static constexpr size_t NUM_ALL_ENTITIES = 187;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 10;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -132,6 +160,8 @@ class TranslatorFlavor {
     // length = 3.
     // The degree has to be further increased because the relation is multiplied by the Row Disabling Polynomial
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
+                  "LIBRA_UNIVARIATES_LENGTH must be equal to Translator::BATCHED_RELATION_PARTIAL_LENGTH");
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // define the containers for storing the contributions from each relation in Sumcheck
@@ -152,12 +182,13 @@ class TranslatorFlavor {
                               lagrange_last,                             // column 2
                               // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
                               // can be replaced by shifts
-                              lagrange_odd_in_minicircuit,            // column 3
-                              lagrange_even_in_minicircuit,           // column 4
-                              lagrange_second,                        // column 5
-                              lagrange_second_to_last_in_minicircuit, // column 6
-                              lagrange_masking,                       // column 7
-                              lagrange_real_last);                    // column 8
+                              lagrange_odd_in_minicircuit,  // column 3
+                              lagrange_even_in_minicircuit, // column 4
+                              lagrange_result_row,          // column 5
+                              lagrange_last_in_minicircuit, // column 6
+                              lagrange_masking,             // column 7
+                              lagrange_mini_masking,        // column 8
+                              lagrange_real_last);          // column 9
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -593,62 +624,49 @@ class TranslatorFlavor {
      */
     class ProverPolynomials : public AllEntities<Polynomial> {
       public:
-        // Define all operations as default, except copy construction/assignment
-        ProverPolynomials() = default;
-
         /**
          * @brief ProverPolynomials constructor
-         * @details Attempts to initialize polynomials efficiently by using the actual size of the mini circuit rather
-         * than the fixed dydaic size.
-         *
-         * @param actual_mini_circuit_size Actual number of rows in the Translator circuit.
+         * @details Initialises wire polynomials efficiently to be only minicircuit size..
          */
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
-        ProverPolynomials(size_t actual_mini_circuit_size)
+        ProverPolynomials()
         {
-            const size_t mini_circuit_size = MINI_CIRCUIT_SIZE;
-            const size_t circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
 
+            const size_t circuit_size = 1 << CONST_TRANSLATOR_LOG_N;
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
-                                                       /*virtual_size*/ circuit_size,
+                                                       /*largest possible index*/ circuit_size,
                                                        1 };
             }
 
+            for (auto& interleaved : get_interleaved()) {
+                interleaved = Polynomial{ /*size*/ circuit_size, circuit_size };
+            }
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
 
-            // Initialize to be shifted wires based on actual size of the mini circuit
-            for (auto& poly : get_wires_to_be_shifted()) {
-                poly = Polynomial{ /*size*/ actual_mini_circuit_size - 1,
-                                   /*virtual_size*/ circuit_size,
-                                   /*start_index*/ 1 };
-            }
-
-            // Initialize interleaved polys based on actual mini circuit size times number of polys to be interleaved
-            const size_t actual_circuit_size = actual_mini_circuit_size * INTERLEAVING_GROUP_SIZE;
-            for (auto& poly : get_interleaved()) {
-                poly = Polynomial{ actual_circuit_size, circuit_size };
+            // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
+            // circuit
+            for (auto& poly : get_to_be_shifted()) {
+                if (poly.is_empty()) {
+                    poly = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE - 1,
+                                       /*virtual_size*/ circuit_size,
+                                       /*start_index*/ 1 };
+                }
             }
 
             // Initialize some one-off polys with special structure
             lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
-            lagrange_second = Polynomial{ /*size*/ 2, /*virtual_size*/ circuit_size };
-            lagrange_even_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
-            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
+            lagrange_result_row = Polynomial{ /*size*/ 3, /*virtual_size*/ circuit_size };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ MINI_CIRCUIT_SIZE, /*virtual_size*/ circuit_size };
 
-            // WORKTODO: why does limiting this to actual_mini_circuit_size not work?
-            op = Polynomial{ circuit_size }; // Polynomial{ actual_mini_circuit_size, circuit_size };
-
-            // Catch-all for the rest of the polynomials
-            // WORKTODO: determine what exactly falls in here and be more specific (just the remaining precomputed?)
             for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) { // Only set those polys which were not already set above
+                if (poly.is_empty()) {
+                    // Not set above
                     poly = Polynomial{ circuit_size };
                 }
             }
-            // Set all shifted polynomials based on their unshifted counterpart
             set_shifted();
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -686,23 +704,12 @@ class TranslatorFlavor {
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
 
-        ProvingKey() = default;
-        // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
-        ProvingKey(const size_t dyadic_circuit_size, const size_t actual_mini_circuit_size)
-            : Base(dyadic_circuit_size, 0)
-            , polynomials(actual_mini_circuit_size)
-        {}
-
-        ProvingKey(const size_t dyadic_circuit_size,
-                   std::shared_ptr<CommitmentKey> commitment_key,
-                   const size_t actual_mini_circuit_size)
-            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
-            , polynomials(actual_mini_circuit_size)
+        ProvingKey(CommitmentKey commitment_key = CommitmentKey())
+            : Base(1UL << CONST_TRANSLATOR_LOG_N, 0, std::move(commitment_key))
         {}
     };
 
@@ -714,26 +721,63 @@ class TranslatorFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public NativeVerificationKey_<PrecomputedEntities<Commitment>> {
       public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
+        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        VerificationKey()
+            : NativeVerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+
+            // Populate the commitments of the precomputed polynomials
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->polynomials.get_precomputed(), this->get_all())) {
-                commitment = proving_key->commitment_key->commit(polynomial);
+                commitment = proving_key->commitment_key.commit(polynomial);
             }
         }
 
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<fr> to_field_elements() const override
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<fr>& buffer) {
+                std::vector<fr> input_fields = convert_to_bn254_frs<T>(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<fr> elements;
+
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+
+            for (const Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
@@ -743,9 +787,10 @@ class TranslatorFlavor {
                        lagrange_last,
                        lagrange_odd_in_minicircuit,
                        lagrange_even_in_minicircuit,
-                       lagrange_second,
-                       lagrange_second_to_last_in_minicircuit,
+                       lagrange_result_row,
+                       lagrange_last_in_minicircuit,
                        lagrange_masking,
+                       lagrange_mini_masking,
                        lagrange_real_last);
     };
 
@@ -883,10 +928,11 @@ class TranslatorFlavor {
             this->lagrange_last = "__LAGRANGE_LAST";
             this->lagrange_odd_in_minicircuit = "__LAGRANGE_ODD_IN_MINICIRCUIT";
             this->lagrange_even_in_minicircuit = "__LAGRANGE_EVEN_IN_MINICIRCUIT";
-            this->lagrange_second = "__LAGRANGE_SECOND";
-            this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
+            this->lagrange_result_row = "__LAGRANGE_RESULT_ROW";
+            this->lagrange_last_in_minicircuit = "__LAGRANGE_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
             this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_mini_masking = "__LAGRANGE_MINI_MASKING";
             this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
@@ -900,11 +946,12 @@ class TranslatorFlavor {
             this->lagrange_last = verification_key->lagrange_last;
             this->lagrange_odd_in_minicircuit = verification_key->lagrange_odd_in_minicircuit;
             this->lagrange_even_in_minicircuit = verification_key->lagrange_even_in_minicircuit;
-            this->lagrange_second = verification_key->lagrange_second;
-            this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
+            this->lagrange_result_row = verification_key->lagrange_result_row;
+            this->lagrange_last_in_minicircuit = verification_key->lagrange_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
             this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_mini_masking = verification_key->lagrange_mini_masking;
             this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     }; // namespace bb

@@ -1,8 +1,11 @@
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 
 namespace bb::avm2::tracegen {
@@ -88,5 +91,10 @@ void MerkleCheckTraceBuilder::process(
         assert(write_node == new_root);
     }
 }
+
+const InteractionDefinition MerkleCheckTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

@@ -1,6 +1,6 @@
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 
-import type { VerificationKeyAsFields } from '../vks/verification_key.js';
+import type { VerificationKeyData } from '../vks/verification_key.js';
 import type { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 import type { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
 
@@ -14,7 +14,7 @@ export interface PrivateKernelSimulateOutput<
   /** The public inputs required for the proof generation process. */
   publicInputs: PublicInputsType;
   outputWitness: WitnessMap;
-  verificationKey: VerificationKeyAsFields;
+  verificationKey: VerificationKeyData;
   bytecode: Buffer;
 }
 
@@ -22,5 +22,5 @@ export interface PrivateKernelSimulateOutput<
  * Represents the output of the circuit simulation process for init and inner private kernel circuit.
  */
 export type AppCircuitSimulateOutput = {
-  verificationKey: VerificationKeyAsFields;
+  verificationKey: VerificationKeyData;
 };
