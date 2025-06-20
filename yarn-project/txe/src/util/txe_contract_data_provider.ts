@@ -3,6 +3,11 @@ import { ContractDataProvider } from '@aztec/pxe/server';
 
 export type ContractArtifactWithHash = ContractArtifact & { artifactHash: Fr };
 
+/*
+ * A contract data provider that stores contract artifacts with their hashes. Since
+ * TXE typically deploys the same contract again and again for multiple tests, caching
+ * the *very* expensive artifact hash computation improves testing speed significantly.
+ */
 export class TXEContractDataProvider extends ContractDataProvider {
   #artifactHashes: Map<string, Buffer> = new Map();
 

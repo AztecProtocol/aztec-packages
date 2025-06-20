@@ -39,6 +39,10 @@ import type { ContractArtifactWithHash } from './util/txe_contract_data_provider
 
 const TXESessions = new Map<number, TXEService>();
 
+/*
+ * TXE typically has to load the same contract artifacts over and over again for multiple tests,
+ * so we cache them here to avoid both loading them from disk repeatedly and computing their artifact hashes
+ */
 const TXEArtifactsCache = new Map<
   string,
   { artifact: ContractArtifactWithHash; instance: ContractInstanceWithAddress }
@@ -139,6 +143,8 @@ class TXEDispatcher {
       const artifactWithoutHash = loadContractArtifact(artifactJSON);
       artifact = {
         ...artifactWithoutHash,
+        // Artifact hash is *very* expensive to compute, so we do it here once
+        // and the TXE contract data provider can cache it
         artifactHash: await computeArtifactHash(artifactWithoutHash),
       };
       this.logger.debug(
@@ -176,6 +182,8 @@ class TXEDispatcher {
       const args = [keys.publicKeys.masterIncomingViewingPublicKey.x, keys.publicKeys.masterIncomingViewingPublicKey.y];
       artifact = {
         ...SchnorrAccountContractArtifact,
+        // Artifact hash is *very* expensive to compute, so we do it here once
+        // and the TXE contract data provider can cache it
         artifactHash: await computeArtifactHash(SchnorrAccountContractArtifact),
       };
       instance = await getContractInstanceFromDeployParams(artifact, {
