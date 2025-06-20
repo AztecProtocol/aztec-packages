@@ -65,7 +65,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.AddedToQueue(address(1), 1);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidatorToQueue(address(1), realProof);
+    stakingAssetHandler.addValidator(address(1), realProof);
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, address(1), WITHDRAWER);
