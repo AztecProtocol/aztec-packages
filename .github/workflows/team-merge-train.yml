@@ -1,0 +1,227 @@
+name: Team Merge Train
+
+on:
+  schedule:
+    # Daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Team branch to operate on'
+        required: false
+        default: 'feat/bb-changes'
+  
+  pull_request:
+    types: [labeled]
+    branches: [next]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  BASE_BRANCH: next
+
+concurrency:
+  group: team-merge-train-${{ github.event.inputs.branch || 'feat/bb-changes' }}
+  cancel-in-progress: false
+
+jobs:
+  check-trigger:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+      branch: ${{ steps.check.outputs.branch }}
+    steps:
+      - name: Check trigger
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "branch=feat/bb-changes" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.label.name }}" == "ready-for-merge" ]]; then
+            # Check if this is one of our team branches
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+            if [[ "$BRANCH" == "feat/bb-changes" ]]; then
+              echo "should_run=true" >> $GITHUB_OUTPUT
+              echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+            else
+              echo "should_run=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+  manage-team-branch:
+    needs: check-trigger
+    if: needs.check-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TEAM_BRANCH: ${{ needs.check-trigger.outputs.branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "aztec-bot"
+          git config --global user.email "bot@aztecprotocol.com"
+
+      - name: Ensure branch exists
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Check if branch exists on remote
+          if ! git ls-remote --heads origin "$TEAM_BRANCH" | grep -q "$TEAM_BRANCH"; then
+            echo "Creating team branch $TEAM_BRANCH from $BASE_BRANCH"
+            git checkout -b "$TEAM_BRANCH" "origin/$BASE_BRANCH"
+            git push -u origin "$TEAM_BRANCH"
+          fi
+
+      - name: Check for existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --head "$TEAM_BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number' || echo "")
+          if [[ -n "$PR_NUMBER" ]]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create PR if needed
+        if: steps.check-pr.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          COMPONENT_NAME="Team"
+          if [[ "$TEAM_BRANCH" == "feat/bb-changes" ]]; then
+            COMPONENT_NAME="Barretenberg"
+          fi
+          
+          gh pr create \
+            --base "$BASE_BRANCH" \
+            --head "$TEAM_BRANCH" \
+            --title "${COMPONENT_NAME} Team Changes" \
+            --body "## ${COMPONENT_NAME} Team Changes
+
+This PR is automatically managed by the team merge train workflow.
+
+The PR will be automatically merged when:
+- All checks pass
+- The 'ready-for-merge' label is applied
+
+---
+🤖 Maintained by aztec-bot"
+
+      - name: Update PR from base
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Fetch latest changes
+          git fetch origin "$BASE_BRANCH" "$TEAM_BRANCH"
+          
+          # Checkout team branch
+          git checkout "$TEAM_BRANCH"
+          
+          # Merge base branch
+          echo "Merging $BASE_BRANCH into $TEAM_BRANCH"
+          if git merge "origin/$BASE_BRANCH" --no-edit; then
+            git push origin "$TEAM_BRANCH"
+            echo "Successfully updated $TEAM_BRANCH with latest from $BASE_BRANCH"
+          else
+            echo "::error::Merge conflict detected. Manual intervention required."
+            git merge --abort
+            exit 1
+          fi
+
+      - name: Enable auto-merge if labeled
+        if: github.event.label.name == 'ready-for-merge' || github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --head "$TEAM_BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number')
+          if [[ -n "$PR_NUMBER" ]]; then
+            echo "Enabling auto-merge for PR #$PR_NUMBER"
+            gh pr merge "$PR_NUMBER" --auto --squash
+          fi
+
+      - name: Monitor merge queue status
+        if: github.event.label.name == 'ready-for-merge' || github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --head "$TEAM_BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number')
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "No PR found, possibly already merged"
+            exit 0
+          fi
+          
+          # Wait up to 2 hours for merge queue to process (check every 2 minutes)
+          for i in {1..60}; do
+            sleep 120
+            PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable,mergeStateStatus --jq '.state + ":" + .mergeable + ":" + .mergeStateStatus')
+            echo "Check $i/60 - PR state: $PR_STATE"
+            
+            if [[ "$PR_STATE" == "MERGED:"*":"* ]]; then
+              echo "PR successfully merged!"
+              break
+            elif [[ "$PR_STATE" == *":CONFLICTING:"* ]]; then
+              echo "::error::PR has conflicts and cannot be merged"
+              exit 1
+            elif [[ "$PR_STATE" == *":"*":BLOCKED" ]]; then
+              echo "::warning::PR is blocked from merging"
+            fi
+          done
+
+      - name: Recreate branch after merge
+        if: github.event.label.name == 'ready-for-merge' || github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Check if PR was merged
+          PR_STATE=$(gh pr list --head "$TEAM_BRANCH" --state merged --json number --jq '.[0].number' || echo "")
+          
+          if [[ -n "$PR_STATE" ]]; then
+            echo "PR was merged, recreating branch..."
+            
+            # Delete and recreate branch
+            git fetch origin "$BASE_BRANCH"
+            git checkout "$BASE_BRANCH"
+            git branch -D "$TEAM_BRANCH" || true
+            git checkout -b "$TEAM_BRANCH" "origin/$BASE_BRANCH"
+            git push -f origin "$TEAM_BRANCH"
+            
+            # Create new PR
+            COMPONENT_NAME="Team"
+            if [[ "$TEAM_BRANCH" == "feat/bb-changes" ]]; then
+              COMPONENT_NAME="Barretenberg"
+            fi
+            
+            gh pr create \
+              --base "$BASE_BRANCH" \
+              --head "$TEAM_BRANCH" \
+              --title "${COMPONENT_NAME} Team Changes" \
+              --body "## ${COMPONENT_NAME} Team Changes
+
+This PR is automatically managed by the team merge train workflow.
+
+The PR will be automatically merged when:
+- All checks pass
+- The 'ready-for-merge' label is applied
+
+### History
+Previous PR: #${PR_STATE} (merged $(date -u +'%Y-%m-%d %H:%M UTC'))
+
+---
+🤖 Maintained by aztec-bot"
+          fi
