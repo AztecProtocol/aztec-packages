@@ -11,7 +11,8 @@ import {
     NUMBER_OF_ALPHAS,
     NUMBER_UNSHIFTED,
     ZK_BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N
+    CONST_PROOF_SIZE_LOG_N,
+    PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 
 import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
@@ -25,19 +26,19 @@ import {ZKTranscript, ZKTranscriptLib} from "./ZKTranscript.sol";
 
 import {RelationsLib} from "./Relations.sol";
 
-import {CommitmentSchemeLib as PCS} from "./CommitmentScheme.sol";
+import {CommitmentSchemeLib} from "./CommitmentScheme.sol";
 
 abstract contract BaseZKHonkVerifier is IVerifier {
     using FrLib for Fr;
 
-    uint256 immutable N;
-    uint256 immutable logN;
-    uint256 immutable numPublicInputs;
+    uint256 immutable $N;
+    uint256 immutable $LOG_N;
+    uint256 immutable $NUM_PUBLIC_INPUTS;
 
     constructor(uint256 _N, uint256 _logN, uint256 _numPublicInputs) {
-        N = _N;
-        logN = _logN;
-        numPublicInputs = _numPublicInputs;
+        $N = _N;
+        $LOG_N = _logN;
+        $NUM_PUBLIC_INPUTS = _numPublicInputs;
     }
 
     // Errors
@@ -50,7 +51,6 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 507;
-    uint256 constant PAIRING_POINTS_SIZE = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -75,7 +75,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         ZKTranscript memory t =
-            ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/ 1);
+            ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, $NUM_PUBLIC_INPUTS, /*pubInputsOffset=*/ 1);
 
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
@@ -99,11 +99,11 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr numerator = Fr.wrap(1);
         Fr denominator = Fr.wrap(1);
 
-        Fr numeratorAcc = gamma + (beta * FrLib.from(N + offset));
+        Fr numeratorAcc = gamma + (beta * FrLib.from($N + offset));
         Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
 
         {
-            for (uint256 i = 0; i < numPublicInputs - PAIRING_POINTS_SIZE; i++) {
+            for (uint256 i = 0; i < $NUM_PUBLIC_INPUTS - PAIRING_POINTS_SIZE; i++) {
                 Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
 
                 numerator = numerator * (numeratorAcc + pubInput);
@@ -133,7 +133,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         Fr powPartialEvaluation = Fr.wrap(1);
 
         // We perform sumcheck reductions over log n rounds ( the multivariate degree )
-        for (uint256 round; round < logN; ++round) {
+        for (uint256 round; round < $LOG_N; ++round) {
             Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
             Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
             if (totalSum != roundTargetSum) revert SumcheckFailed();
@@ -152,7 +152,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         );
 
         Fr evaluation = Fr.wrap(1);
-        for (uint256 i = 2; i < logN; i++) {
+        for (uint256 i = 2; i < $LOG_N; i++) {
             evaluation = evaluation * tp.sumCheckUChallenges[i];
         }
 
@@ -190,7 +190,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
 
-        // Calculate domain size N of inverses -- TODO: montgomery's trick
+        // Calculate domain size $N of inverses -- TODO: montgomery's trick
         Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             denominatorInverses[i] = FrLib.invert(BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * (roundChallenge - Fr.wrap(i)));
@@ -213,10 +213,10 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         view
         returns (bool verified)
     {
-        PCS.ShpleminiIntermediates memory mem; // stack
+        CommitmentSchemeLib.ShpleminiIntermediates memory mem; // stack
 
         // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
-        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = PCS.computeSquares(tp.geminiR);
+        Fr[CONST_PROOF_SIZE_LOG_N] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR);
         // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + LIBRA_COMMITMENTS + 3] memory commitments;
@@ -344,13 +344,13 @@ abstract contract BaseZKHonkVerifier is IVerifier {
          */
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
-        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., logN - 1
-        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = PCS.computeFoldPosEvaluations(
+        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., $LOG_N - 1
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
             tp.sumCheckUChallenges,
             mem.batchedEvaluation,
             proof.geminiAEvaluations,
             powers_of_evaluation_challenge,
-            logN
+            $LOG_N
         );
 
         mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
@@ -363,7 +363,7 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
         // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-            bool dummy_round = i >= (logN - 1);
+            bool dummy_round = i >= ($LOG_N - 1);
 
             if (!dummy_round) {
                 // Update inverted denominators
