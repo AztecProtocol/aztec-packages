@@ -533,8 +533,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return this.contractDataSource.getContractClass(id);
   }
 
-  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataSource.getContract(address);
+  public getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    return this.contractDataSource.getContract(address, blockNumber);
   }
 
   /**
