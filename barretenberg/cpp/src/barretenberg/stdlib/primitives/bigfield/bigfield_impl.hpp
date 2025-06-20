@@ -1587,8 +1587,56 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     // We just use the conditional_assign method to do this as it costs the same number of gates as computing
     // p * (0 - *this) + (1 - p) * (*this)
     //
-    bigfield<Builder, T> negative_this = zero() - *this;
-    bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
+    bigfield negative_this = zero() - *this;
+    bigfield result = bigfield::conditional_assign(predicate, negative_this, *this);
+    return result;
+}
+
+/**
+ * @brief Create an element which is equal to either this or other based on the predicate
+ *
+ * @tparam Builder
+ * @tparam T
+ * @param other The other bigfield element
+ * @param predicate Predicate controlling the result (0 for this, 1 for the other)
+ * @return Resulting element
+ */
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& other,
+                                                              const bool_t<Builder>& predicate) const
+{
+    if (is_constant() && other.is_constant() && predicate.is_constant()) {
+        if (predicate.get_value()) {
+            return other;
+        }
+        return *this;
+    }
+    Builder* ctx = context ? context : (other.context ? other.context : predicate.context);
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14657): use field_t::conditional_assign method
+    field_t binary_limb_0 = static_cast<field_t<Builder>>(predicate).madd(
+        other.binary_basis_limbs[0].element - binary_basis_limbs[0].element, binary_basis_limbs[0].element);
+    field_t binary_limb_1 = static_cast<field_t<Builder>>(predicate).madd(
+        other.binary_basis_limbs[1].element - binary_basis_limbs[1].element, binary_basis_limbs[1].element);
+    field_t binary_limb_2 = static_cast<field_t<Builder>>(predicate).madd(
+        other.binary_basis_limbs[2].element - binary_basis_limbs[2].element, binary_basis_limbs[2].element);
+    field_t binary_limb_3 = static_cast<field_t<Builder>>(predicate).madd(
+        other.binary_basis_limbs[3].element - binary_basis_limbs[3].element, binary_basis_limbs[3].element);
+    field_t prime_limb =
+        static_cast<field_t<Builder>>(predicate).madd(other.prime_basis_limb - prime_basis_limb, prime_basis_limb);
+
+    bigfield result(ctx);
+    // the maximum of the maximal values of elements is large enough
+    result.binary_basis_limbs[0] =
+        Limb(binary_limb_0, std::max(binary_basis_limbs[0].maximum_value, other.binary_basis_limbs[0].maximum_value));
+    result.binary_basis_limbs[1] =
+        Limb(binary_limb_1, std::max(binary_basis_limbs[1].maximum_value, other.binary_basis_limbs[1].maximum_value));
+    result.binary_basis_limbs[2] =
+        Limb(binary_limb_2, std::max(binary_basis_limbs[2].maximum_value, other.binary_basis_limbs[2].maximum_value));
+    result.binary_basis_limbs[3] =
+        Limb(binary_limb_3, std::max(binary_basis_limbs[3].maximum_value, other.binary_basis_limbs[3].maximum_value));
+    result.prime_basis_limb = prime_limb;
+    result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag(), predicate.tag));
     return result;
 }
 
