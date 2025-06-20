@@ -1,7 +1,6 @@
 #include "mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 
 namespace {
@@ -18,16 +17,14 @@ class MemGrumpkinCrs : public Crs<Grumpkin> {
     MemGrumpkinCrs& operator=(MemGrumpkinCrs&&) = delete;
 
     MemGrumpkinCrs(std::vector<Grumpkin::AffineElement> const& points)
-        : monomials_(bb::scalar_multiplication::point_table_size(points.size()))
+        : monomials_(points.size())
     {
         std::copy(points.begin(), points.end(), monomials_.begin());
-        scalar_multiplication::generate_pippenger_point_table<Grumpkin>(
-            monomials_.data(), monomials_.data(), points.size());
     }
 
     ~MemGrumpkinCrs() override = default;
     std::span<Grumpkin::AffineElement> get_monomial_points() override { return monomials_; }
-    size_t get_monomial_size() const override { return monomials_.size() / 2; }
+    size_t get_monomial_size() const override { return monomials_.size(); }
     Grumpkin::AffineElement get_g1_identity() const override { return monomials_[0]; };
 
   private:

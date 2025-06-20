@@ -26,9 +26,9 @@ template <typename Curve> class RecursiveVeriferCommitmentKeyTest : public testi
         auto recursive_monomial_points = recursive_vk.get_monomial_points();
 
         // The recursive verifier commitment key only stores the SRS so we verify against the even indices of the native
-        // key (the odd containt elements produced after applying the pippenger point table).
-        for (size_t i = 0; i < num_points * 2; i += 2) {
-            EXPECT_EQ(native_monomial_points[i], recursive_monomial_points[i >> 1].get_value());
+        // key
+        for (size_t i = 0; i < num_points; i += 1) {
+            EXPECT_EQ(native_monomial_points[i], recursive_monomial_points[i].get_value());
         }
     }
 };

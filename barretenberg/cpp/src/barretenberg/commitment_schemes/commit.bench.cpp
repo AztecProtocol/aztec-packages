@@ -138,7 +138,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
     }
 
     for (auto _ : state) {
-        key.commit_sparse(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -170,7 +170,7 @@ template <typename Curve> void bench_commit_sparse_random_preprocessed(::benchma
     auto polynomial = sparse_random_poly<Fr>(num_points, num_nonzero);
 
     for (auto _ : state) {
-        key.commit_sparse(polynomial);
+        key.commit(polynomial);
     }
 }
 
@@ -283,8 +283,7 @@ template <typename Curve> void bench_pippenger_without_endomorphism_basis_points
             num_points, [&](size_t i) { G_vec_local[i] = srs_elements[i * 2]; }, thread_heuristics::FF_COPY_COST * 2);
 
         // IPA MSM
-        bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            s_poly, { &G_vec_local[0], /*size*/ num_points }, pcs_verification_key->pippenger_runtime_state.get());
+        bb::scalar_multiplication::pippenger_unsafe<Curve>(s_poly, { &G_vec_local[0], num_points });
     }
 }
 

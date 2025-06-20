@@ -3,7 +3,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
-#include "barretenberg/ecc/scalar_multiplication/point_table.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 
 namespace {
@@ -24,14 +23,12 @@ class MemBn254Crs : public Crs<curve::BN254> {
         : g2_x(g2_point)
         , precomputed_g2_lines(
               static_cast<pairing::miller_lines*>(aligned_alloc(64, sizeof(bb::pairing::miller_lines) * 2)))
-        , monomials_(bb::scalar_multiplication::point_table_size(points.size()))
+        , monomials_(points.size())
     {
         if (points.empty() || !points[0].on_curve()) {
             throw_or_abort("invalid g1_identity passed to MemBn254CrsFactory");
         }
         std::copy(points.begin(), points.end(), monomials_.begin());
-        scalar_multiplication::generate_pippenger_point_table<Curve>(
-            monomials_.data(), monomials_.data(), points.size());
         bb::pairing::precompute_miller_lines(bb::g2::one, precomputed_g2_lines[0]);
         bb::pairing::precompute_miller_lines(g2_x, precomputed_g2_lines[1]);
     }
@@ -40,7 +37,7 @@ class MemBn254Crs : public Crs<curve::BN254> {
 
     std::span<Curve::AffineElement> get_monomial_points() override { return monomials_; }
 
-    size_t get_monomial_size() const override { return monomials_.size() / 2; }
+    size_t get_monomial_size() const override { return monomials_.size(); }
 
     g2::affine_element get_g2x() const override { return g2_x; }
 
