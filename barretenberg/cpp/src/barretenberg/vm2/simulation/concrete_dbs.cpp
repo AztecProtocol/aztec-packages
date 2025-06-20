@@ -196,7 +196,7 @@ void MerkleDB::commit_checkpoint()
 void MerkleDB::revert_checkpoint()
 {
     raw_merkle_db.revert_checkpoint();
-    note_hash_tree_check.restore_checkpoint();
+    note_hash_tree_check.revert_checkpoint();
 }
 
 } // namespace bb::avm2::simulation

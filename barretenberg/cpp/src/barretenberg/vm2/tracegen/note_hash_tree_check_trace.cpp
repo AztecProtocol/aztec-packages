@@ -36,7 +36,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                 assert(!checkpoint_stack.empty());
                 checkpoint_stack.pop_back();
                 break;
-            case simulation::CheckPointEventType::RESTORE_CHECKPOINT:
+            case simulation::CheckPointEventType::REVERT_CHECKPOINT:
                 assert(!checkpoint_stack.empty());
                 reverted_in[checkpoint_stack.back()] = i;
                 checkpoint_stack.pop_back();
@@ -57,7 +57,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                 !waiting_for_revert.has_value()) {
                 waiting_for_revert = reverted_in[i];
                 discard = true;
-            } else if (check_point_event == simulation::CheckPointEventType::RESTORE_CHECKPOINT &&
+            } else if (check_point_event == simulation::CheckPointEventType::REVERT_CHECKPOINT &&
                        waiting_for_revert.has_value() && waiting_for_revert.value() == i) {
                 waiting_for_revert = std::nullopt;
                 discard = false;

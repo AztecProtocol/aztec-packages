@@ -33,7 +33,7 @@ class NoteHashTreeCheckInterface {
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
-    virtual void restore_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 };
 
 class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
@@ -70,7 +70,7 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
 
     void create_checkpoint() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
     void commit_checkpoint() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
-    void restore_checkpoint() override { events.emit(CheckPointEventType::RESTORE_CHECKPOINT); }
+    void revert_checkpoint() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;

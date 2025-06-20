@@ -34,13 +34,13 @@ TEST(NoteHashTreeCheckTracegenTest, DiscardNestedReverts)
                                         NoteHashAppendData{
                                             .note_hash_counter = 1,
                                         } },
-        CheckPointEventType::RESTORE_CHECKPOINT,
+        CheckPointEventType::REVERT_CHECKPOINT,
         NoteHashTreeReadWriteEvent{ .note_hash = 1002,
                                     .append_data =
                                         NoteHashAppendData{
                                             .note_hash_counter = 1,
                                         } },
-        CheckPointEventType::RESTORE_CHECKPOINT,
+        CheckPointEventType::REVERT_CHECKPOINT,
         NoteHashTreeReadWriteEvent{ .note_hash = 1003,
                                     .append_data =
                                         NoteHashAppendData{
@@ -88,7 +88,7 @@ TEST(NoteHashTreeCheckTracegenTest, DiscardSequentialReverts)
                                         NoteHashAppendData{
                                             .note_hash_counter = 1,
                                         } },
-        CheckPointEventType::RESTORE_CHECKPOINT,
+        CheckPointEventType::REVERT_CHECKPOINT,
         NoteHashTreeReadWriteEvent{ .note_hash = 1002,
                                     .append_data =
                                         NoteHashAppendData{
@@ -100,7 +100,7 @@ TEST(NoteHashTreeCheckTracegenTest, DiscardSequentialReverts)
                                         NoteHashAppendData{
                                             .note_hash_counter = 2,
                                         } },
-        CheckPointEventType::RESTORE_CHECKPOINT,
+        CheckPointEventType::REVERT_CHECKPOINT,
         NoteHashTreeReadWriteEvent{ .note_hash = 1004,
                                     .append_data =
                                         NoteHashAppendData{
