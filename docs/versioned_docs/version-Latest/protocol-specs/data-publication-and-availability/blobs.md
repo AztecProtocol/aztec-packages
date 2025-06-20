@@ -40,7 +40,7 @@ So to prove that we are publishing the correct tx effects, we just do this sum i
 
 Thankfully, there is a more efficient way, already implemented in the [`blob`](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-protocol-circuits/crates/blob) crate in aztec-packages.
 
-Our goal is to efficiently show that our tx effects accumulated in the rollup circuits are the same $d_i$ s in the blob committed to by $C$ on L1. To do this, we can provide an *opening proof* for $C$. In the circuit, we evaluate the polynomial at a challenge value $z$ and return the result: $p(z) = y$. We then construct a [KZG proof](https://dankradfeist.de/ethereum/2020/06/16/kate-polynomial-commitments.html#kate-proofs) in typescript of this opening (which is actually a commitment to the the quotient polynomial $q(x)$), and verify it on L1 using the [point evaluation precompile](https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile) added as part of EIP-4844. It has inputs:
+Our goal is to efficiently show that our tx effects accumulated in the rollup circuits are the same $d_i$ s in the blob committed to by $C$ on L1. To do this, we can provide an *opening proof* for $C$. In the circuit, we evaluate the polynomial at a challenge value $z$ and return the result: $p(z) = y$. We then construct a [KZG proof](https://dankradfeist.de/ethereum/2020/06/16/kate-polynomial-commitments.html#kate-proofs) in typescript of this opening (which is actually a commitment to the quotient polynomial $q(x)$), and verify it on L1 using the [point evaluation precompile](https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile) added as part of EIP-4844. It has inputs:
 
 - `versioned_hash`: The `blobhash` for this $C$
 - `z`: The challenge value

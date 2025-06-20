@@ -75,7 +75,7 @@ The `L1FeeJuicePortalManager` will not be able to mint assets for you on testnet
 cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
 ```
 
-Then bridge it to L2, using the the `L1FeeJuicePortalManager` as described above.
+Then bridge it to L2, using the `L1FeeJuicePortalManager` as described above.
 
 ## Examples
 

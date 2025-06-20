@@ -51,7 +51,7 @@ One way of bridging of tokens is described fully [here](../../../developers/tuto
 
 First get the node info and create a public client pointing to the sandbox's anvil L1 node (from foundry):
 
-```javascript title="get_node_info_pub_client" showLineNumbers 
+```javascript title="get_node_info_pub_client" showLineNumbers
 const info = await pxe.getNodeInfo();
 const publicClient = getPublicClient({
   l1RpcUrls: ['http://localhost:8545'],
@@ -69,7 +69,7 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js";
 
 Create a new fee juice portal manager and bridge fee juice publicly to Aztec:
 
-```javascript title="bridge_fee_juice" showLineNumbers 
+```javascript title="bridge_fee_juice" showLineNumbers
 const portal = await L1FeeJuicePortalManager.new(pxe, l1Client, log);
 const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 ```
@@ -88,7 +88,7 @@ The `L1FeeJuicePortalManager` will not be able to mint assets for you on testnet
 cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
 ```
 
-Then bridge it to L2, using the the `L1FeeJuicePortalManager` as described above.
+Then bridge it to L2, using the `L1FeeJuicePortalManager` as described above.
 
 ## Examples
 
@@ -102,7 +102,7 @@ Note: this example is a public token transfer call, but can equally be a private
 import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
 ```
 
-```javascript title="pay_fee_juice_send" showLineNumbers 
+```javascript title="pay_fee_juice_send" showLineNumbers
 const paymentMethod = new FeeJuicePaymentMethod(aliceAddress);
 const { transactionFee } = await bananaCoin.methods
   .transfer_in_public(aliceAddress, bobAddress, 1n, 0n)
@@ -126,7 +126,7 @@ Here we will use the `claim` object previously from the bridging section, and th
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js";
 ```
 
-```javascript title="claim_and_deploy" showLineNumbers 
+```javascript title="claim_and_deploy" showLineNumbers
 const wallet = await account.getWallet();
 const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claim);
 const sentTx = account.deploy({ fee: { paymentMethod } });
@@ -145,7 +145,7 @@ Claiming bridged fee juice and using it to pay for transaction fees results in f
 
 Calling a function, in this case checking the balance of the fee juice contract:
 
-```javascript title="claim_and_pay" showLineNumbers 
+```javascript title="claim_and_pay" showLineNumbers
 const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobWallet, claim);
 const receipt = await feeJuiceContract
   .withWallet(bobWallet)
@@ -191,7 +191,7 @@ await pxe.registerContract({
 
 The fee payment method is created and used as follows, with similar syntax for private or public fee payments:
 
-```javascript title="fpc" showLineNumbers 
+```javascript title="fpc" showLineNumbers
 const tx = await bananaCoin.methods
   .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
   .send({
@@ -263,7 +263,7 @@ You can find the corresponding CLI command info [here](../../reference/environme
 
 Functions pertaining to sending a transaction, such as `deploy` and `send`, each include a `fee` variable defined with the following (optional) parameters:
 
-```javascript title="user_fee_options" showLineNumbers 
+```javascript title="user_fee_options" showLineNumbers
 /** Fee options as set by a user. */
 export type UserFeeOptions = {
   /** The fee payment method to use */
@@ -285,7 +285,7 @@ export type UserFeeOptions = {
 
 The `paymentMethod` is an object for the type of payment. Each of the implementations can be found [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.87.8/yarn-project/aztec.js/src/fee). For example:
 
-```javascript title="fee_juice_method" showLineNumbers 
+```javascript title="fee_juice_method" showLineNumbers
 /**
  * Pay fee directly in the Fee Juice.
  */
@@ -296,7 +296,7 @@ export class FeeJuicePaymentMethod implements FeePaymentMethod {
 
 ### Gas Settings
 
-```javascript title="gas_settings_vars" showLineNumbers 
+```javascript title="gas_settings_vars" showLineNumbers
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(
