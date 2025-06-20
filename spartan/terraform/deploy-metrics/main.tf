@@ -68,6 +68,14 @@ provider "helm" {
   }
 }
 
+data "google_secret_manager_secret_version" "grafana_password" {
+  secret = var.GRAFANA_PASSWORD_SECRET_NAME
+}
+
+data "google_secret_manager_secret_version" "slack_webhook" {
+  secret = var.SLACK_WEBHOOK_SECRET_NAME
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider          = helm.gke-cluster
@@ -96,12 +104,12 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "grafana.adminPassword"
-    value = var.GRAFANA_DASHBOARD_PASSWORD
+    value = data.google_secret_manager_secret_version.grafana_password.secret_data
   }
 
   set {
     name  = "grafana.env.SLACK_WEBHOOK_URL"
-    value = var.SLACK_WEBHOOK_URL
+    value = data.google_secret_manager_secret_version.slack_webhook.secret_data
   }
 
   set {
