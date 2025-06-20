@@ -16,9 +16,10 @@
 
 namespace bb::avm2::tracegen {
 
-template <typename LookupSettings_> class BaseLookupTraceBuilder : public InteractionBuilderInterface {
+// A lookup builder that uses a function `find_in_dst` to find the destination row for a given source tuple.
+template <typename LookupSettings_> class IndexedLookupTraceBuilder : public InteractionBuilderInterface {
   public:
-    ~BaseLookupTraceBuilder() override = default;
+    ~IndexedLookupTraceBuilder() override = default;
 
     void process(TraceContainer& trace) override
     {
@@ -55,9 +56,8 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
 // It calculates the counts by trying to find the tuple in the destination columns.
 // It creates an index of the destination columns on init, and uses it to find the tuple efficiently.
 // This class should work for any lookup that is not precomputed.
-// However, consider using a more specialized and faster class.
 template <typename LookupSettings_>
-class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettings_> {
+class LookupIntoDynamicTableGeneric : public IndexedLookupTraceBuilder<LookupSettings_> {
   public:
     virtual ~LookupIntoDynamicTableGeneric() = default;
 
