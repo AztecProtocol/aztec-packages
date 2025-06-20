@@ -8,6 +8,7 @@
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -89,9 +90,9 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         Note: we use additional challenges to reduce the amount of elliptic curve work performed by the ECCVM
 
         For an accumulator commitment [P'] and an instance commitment [P] , we compute folded commitment [P''] where
-        [P''] = L0(gamma).[P'] + L1(gamma).[P]
+        [P''] = L0(combiner_challenge).[P'] + L1(combiner_challenge).[P]
         For the size-2 case this becomes:
-        P'' = (1 - gamma).[P'] + gamma.[P] = gamma.[P - P'] + [P']
+        P'' = (1 - combiner_challenge).[P'] + combiner_challenge.[P] = combiner_challenge.[P - P'] + [P']
 
         This requires a large number of size-1 scalar muls (about 53)
         The ECCVM can perform a size-k MSM in 32 + roundup((k/4)) rows, if each scalar multiplier is <128 bits
@@ -103,7 +104,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         [B] = \sum c_i.[P'_i]
         [C] = \sum c_i.[P''_i]
         and validate
-        (1 - gamma).[A] + gamma.[B] == [C]
+        (1 - combiner_challenge).[A] + combiner_challenge.[B] == [C]
 
 
         This reduces the relation to 3 large MSMs where each commitment requires 3 size-128bit scalar multiplications
@@ -114,6 +115,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
        cost in the translator circuit Each ECCVM opcode produces 5 rows in the translator circuit, which is approx.
        equivalent to 9 ECCVM rows. Something to pay attention to
     */
+
+    // New transcript for challenge generation
+    Transcript batch_mul_transcript = transcript->branch_transcript();
+
     std::vector<Commitment> accumulator_commitments;
     std::vector<Commitment> instance_commitments;
     for (const auto& precomputed : keys_to_fold.get_precomputed_commitments()) {
@@ -139,14 +144,16 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
         const auto output = lhs * lhs_scalar + rhs * rhs_scalar;
         output_commitments.emplace_back(Commitment::from_witness(builder, output));
         // Add the output commitment to the transcript to ensure the they can't be spoofed
-        transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), output_commitments[i]);
+        batch_mul_transcript.add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i),
+                                                output_commitments[i]);
     }
 
     std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
     for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
         args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
     }
-    std::array<FF, Flavor::NUM_FOLDED_ENTITIES> folding_challenges = transcript->template get_challenges<FF>(args);
+    std::array<FF, Flavor::NUM_FOLDED_ENTITIES> folding_challenges =
+        batch_mul_transcript.template get_challenges<FF>(args);
     std::vector<FF> scalars(folding_challenges.begin(), folding_challenges.end());
 
     Commitment accumulator_sum = Commitment::batch_mul(accumulator_commitments,
