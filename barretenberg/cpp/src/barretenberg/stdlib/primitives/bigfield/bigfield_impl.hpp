@@ -1773,10 +1773,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
 template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check() const
 {
-
-    if (is_constant()) { // this seems not a reduction check, but actually computing the reduction
-                         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14658) THIS IS UGLY WHY CAN'T WE
-                         // JUST DO (*THIS) = REDUCED?
+    if (is_constant()) {
         uint256_t reduced_value = (get_value() % modulus_u512).lo;
         bigfield reduced(context, uint256_t(reduced_value));
         // Save tags
@@ -1785,11 +1782,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
                                                binary_basis_limbs[2].element.get_origin_tag(),
                                                binary_basis_limbs[3].element.get_origin_tag(),
                                                prime_basis_limb.get_origin_tag() });
+
+        // Directly assign to mutable members (avoiding assignment operator)
         binary_basis_limbs[0] = reduced.binary_basis_limbs[0];
         binary_basis_limbs[1] = reduced.binary_basis_limbs[1];
         binary_basis_limbs[2] = reduced.binary_basis_limbs[2];
         binary_basis_limbs[3] = reduced.binary_basis_limbs[3];
         prime_basis_limb = reduced.prime_basis_limb;
+
         // Preserve origin tags (useful in simulator)
         binary_basis_limbs[0].element.set_origin_tag(origin_tags[0]);
         binary_basis_limbs[1].element.set_origin_tag(origin_tags[1]);
