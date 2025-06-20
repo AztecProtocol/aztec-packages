@@ -20,19 +20,14 @@ AddValidatorTest
     └── given balance GE depositAmount
         ├── given passport proof is not valid
         │   └── it reverts
-        ├── given passport proof is valid
-        │   ├── when user is new
-        │   │   ├── it exits the attester if needed
-        │   │   ├── it deposits into the rollup
-        │   │   └── it emits a {ValidatorAdded} event
-        │   ├── when passport proof has been used
-        │   │   └── it reverts
-        │   ├── when passport proof is in devMode
-        │   │   └── it reverts
-        │   └── when passport proof is in the past
-        │       └── it reverts
-        └── given the deposit call fails
-                ├── it deposits into the rollup
-                ├── it does not revert if the deposit call fails
-                ├── it emits a {ValidatorAdded} event for the first attester
-                └── it emits a {ValidatorAdded} event for the third attester
+        └── given passport proof is valid
+            ├── when user is new
+            │   ├── it exits the attester if needed
+            │   ├── it deposits into the rollup
+            │   └── it emits a {ValidatorAdded} event
+            ├── when passport proof has been used
+            │   └── it reverts
+            ├── when passport proof is in devMode
+            │   └── it reverts
+            └── when passport proof is in the past
+                └── it reverts

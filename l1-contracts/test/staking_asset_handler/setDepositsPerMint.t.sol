@@ -65,8 +65,6 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
-    address rollup = stakingAssetHandler.getRollup();
-
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
       emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
@@ -77,27 +75,17 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       mockZKPassportVerifier.incrementUniqueIdentifier();
     }
 
-    for (uint256 i = 0; i < _depositsPerMint; i++) {
-      vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
-    }
-
-    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
-
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
 
-    // Added to the queue successfully
-    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.ValidatorAdded(address(staking), address(0xbeefdeef), WITHDRAWER);
-    vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef), realProof);
-
     // it reverts when adding one more validator
+    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
     vm.expectRevert(
       abi.encodeWithSelector(
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
       )
     );
+    vm.prank(caller);
+    stakingAssetHandler.addValidator(address(0xbeefdeef), realProof);
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

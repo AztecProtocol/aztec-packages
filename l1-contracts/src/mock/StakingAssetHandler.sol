@@ -312,10 +312,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
-    try _rollup.deposit(_attester, withdrawer, true) {
-      emit ValidatorAdded(address(_rollup), _attester, withdrawer);
-    } catch {
-      // Allow the deposit call to fail silently e.g. when the attester has already been added
-    }
+    _rollup.deposit(_attester, withdrawer, true);
+    emit ValidatorAdded(address(_rollup), _attester, withdrawer);
   }
 }
