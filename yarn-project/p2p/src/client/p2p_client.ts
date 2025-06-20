@@ -30,7 +30,11 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
-import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
+import {
+  ReqRespSubProtocol,
+  type ReqRespSubProtocolHandler,
+  type ReqRespSubProtocolValidators,
+} from '../services/reqresp/interface.js';
 import type { P2PBlockReceivedCallback, P2PService } from '../services/service.js';
 import { TxCollector } from '../services/tx_collector.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
@@ -274,6 +278,14 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
     this.blockStream!.start();
     return this.syncPromise;
+  }
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void> {
+    return this.p2pService.addReqRespSubProtocol(subProtocol, handler, validator);
   }
 
   private initBlockStream(startingBlock?: number) {

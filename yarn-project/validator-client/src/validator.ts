@@ -7,8 +7,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { P2P, PeerId } from '@aztec/p2p';
-import { TxCollector } from '@aztec/p2p';
+import type { AuthResponse, P2P, PeerId } from '@aztec/p2p';
+import { ReqRespSubProtocol, TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import {
   Offense,
@@ -168,6 +168,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       dateProvider,
       telemetry,
     );
+
+    // TODO(PhilWindle): This seems like it could/should be done inside start()
     validator.registerBlockProposalHandler();
     return validator;
   }
@@ -202,6 +204,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.info(`Started validator with addresses: ${myAddresses.map(a => a.toString()).join(', ')}`);
     }
     this.epochCacheUpdateLoop.start();
+    await this.p2pClient.addReqRespSubProtocol(ReqRespSubProtocol.AUTH, this.handleAuthRequest.bind(this));
     return Promise.resolve();
   }
 
@@ -494,6 +497,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const attestations = await this.validationService.attestToProposal(proposal, attestors);
     await this.p2pClient.addAttestations(attestations);
     return attestations;
+  }
+
+  private handleAuthRequest(_peer: PeerId, _msg: Buffer): Promise<Buffer> {
+    throw new Error(`ValidatorClient does not support auth requests`);
   }
 }
 

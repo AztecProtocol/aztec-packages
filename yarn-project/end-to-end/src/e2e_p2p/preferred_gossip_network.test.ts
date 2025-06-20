@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { retryUntil, sleep } from '@aztec/aztec.js';
 import type { P2PClient } from '@aztec/p2p';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -27,7 +27,7 @@ const BOOT_NODE_UDP_PORT = 4500;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 180 * 10);
 
 const qosAlerts: AlertConfig[] = [
   {
@@ -50,12 +50,11 @@ describe('e2e_p2p_preferred_network', () => {
       async () => {
         const p2pClient = (node as any).p2pClient as P2PClient;
         const peers = await p2pClient.getPeers();
-        console.log(`Node has ${peers.length} peers\n\n\n\n\n`);
+        console.log(`Node has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
         return peers.length >= numRequiredPeers;
       },
       'Wait for peers',
       timeout,
-      1_000,
     );
   };
 
@@ -70,17 +69,16 @@ describe('e2e_p2p_preferred_network', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
+        p2pDisableStatusHandshake: false,
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes.concat(validators).concat(preferredNodes));
+    await t.stopNodes([t.ctx.aztecNode].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
@@ -102,15 +100,43 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.ctx.aztecNodeConfig.validatorReexecute = true;
 
+    const nonValidatorConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      disableValidator: true,
+    };
+
+    const validatorConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      disableValidator: false,
+    };
+
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     let indexOffset = 0;
+
+    t.logger.info('Creating validators');
+
+    validators = await createNodes(
+      validatorConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_VALIDATORS,
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+      indexOffset,
+    );
+
+    indexOffset += NUM_VALIDATORS;
+
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      nonValidatorConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
@@ -127,7 +153,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating preferred nodes');
 
     preferredNodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      nonValidatorConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
@@ -139,28 +165,16 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    indexOffset += NUM_PREFERRED_NODES;
-
-    t.logger.info('Creating validators');
-
-    validators = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
-      DATA_DIR,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-      shouldCollectMetrics(),
-      indexOffset,
-    );
-
-    const allNodes = [...nodes, ...preferredNodes, ...validators];
+    const allNodes = [...nodes, ...preferredNodes, ...validators, t.ctx.aztecNode];
     for (const node of allNodes) {
-      const peerResult = await waitForNodeToAcquirePeers(node, allNodes.length - 1, 60_000);
+      const peerResult = await waitForNodeToAcquirePeers(node, allNodes.length - 1, 60);
       expect(peerResult).toBeTruthy();
     }
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -192,7 +206,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.flatMap(node =>
+    const validatorAddresses = validators.flatMap(node =>
       ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
     );
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });

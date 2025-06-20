@@ -77,10 +77,10 @@ export class P2PNetworkTest {
     testName: string,
     public bootstrapNodeEnr: string,
     public bootNodePort: number,
-    public numberOfNodes: number,
     public numberOfValidators: number,
-    public numberOfPreferredNodes: number,
     initialValidatorConfig: AztecNodeConfig,
+    public numberOfNodes = 0,
+    public numberOfPreferredNodes = 0,
     // If set enable metrics collection
     private metricsPort?: number,
     startProverNode?: boolean,
@@ -91,10 +91,7 @@ export class P2PNetworkTest {
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
-    this.attesterPrivateKeys = generatePrivateKeys(
-      ATTESTER_PRIVATE_KEYS_START_INDEX,
-      numberOfNodes + numberOfValidators + numberOfPreferredNodes,
-    );
+    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfValidators);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.snapshotManager = createSnapshotManager(
@@ -107,7 +104,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
           initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: numberOfNodes,
+        aztecTargetCommitteeSize: numberOfValidators,
         salt: 420,
         metricsPort: metricsPort,
         numberOfInitialFundedAccounts: 2,
@@ -120,7 +117,7 @@ export class P2PNetworkTest {
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
         aztecProofSubmissionEpochs:
           initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
-        aztecTargetCommitteeSize: numberOfNodes,
+        aztecTargetCommitteeSize: numberOfValidators,
         initialValidators: [],
         zkPassportArgs: {
           mockZkPassportVerifier,
@@ -164,10 +161,10 @@ export class P2PNetworkTest {
       testName,
       bootstrapNodeEnr,
       port,
-      numberOfNodes,
       numberOfValidators,
-      numberOfPreferredNodes,
       initialValidatorConfig,
+      numberOfNodes,
+      numberOfPreferredNodes,
       metricsPort,
       startProverNode,
       mockZkPassportVerifier,
@@ -198,7 +195,7 @@ export class P2PNetworkTest {
   getValidators() {
     const validators: Operator[] = [];
 
-    for (let i = 0; i < this.numberOfNodes; i++) {
+    for (let i = 0; i < this.numberOfValidators; i++) {
       const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
 
       validators.push({
@@ -222,7 +219,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        this.logger.verbose(`Adding ${this.numberOfNodes} validators`);
+        this.logger.info(`Adding ${this.numberOfValidators} validators`);
 
         const stakingAsset = getContract({
           address: deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),

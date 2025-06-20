@@ -7,6 +7,11 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
+import type {
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolValidators,
+} from '../services/reqresp/interface.js';
 import type { P2PBlockReceivedCallback } from '../services/service.js';
 
 /**
@@ -188,4 +193,10 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
 
   /** Clears the db. */
   clear(): Promise<void>;
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void>;
 };

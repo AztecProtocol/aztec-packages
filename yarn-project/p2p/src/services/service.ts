@@ -6,7 +6,13 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
-import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
+import type {
+  ReqRespSubProtocol,
+  ReqRespSubProtocolHandler,
+  ReqRespSubProtocolValidators,
+  SubProtocolMap,
+} from './reqresp/interface.js';
+import type { AuthRequest, AuthResponse } from './reqresp/protocols/auth.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -17,6 +23,8 @@ export type P2PBlockReceivedCallback = (
   block: BlockProposal,
   sender: PeerId,
 ) => Promise<BlockAttestation[] | undefined>;
+
+export type AuthReceivedCallback = (peerId: PeerId, authRequest: AuthRequest) => Promise<AuthResponse | undefined>;
 
 /**
  * The interface for a P2P service implementation.
@@ -76,6 +84,12 @@ export interface P2PService {
   getPeers(includePending?: boolean): PeerInfo[];
 
   validate(txs: Tx[]): Promise<void>;
+
+  addReqRespSubProtocol(
+    subProtocol: ReqRespSubProtocol,
+    handler: ReqRespSubProtocolHandler,
+    validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
+  ): Promise<void>;
 }
 
 /**

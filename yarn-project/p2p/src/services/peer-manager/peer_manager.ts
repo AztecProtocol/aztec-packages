@@ -50,6 +50,7 @@ export class PeerManager implements PeerManagerInterface {
   private trustedPeersInitialized: boolean = false;
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
+  private authenticatedPeers: Set<string> = new Set();
 
   private metrics: PeerManagerMetrics;
   private handlers: {
@@ -304,6 +305,9 @@ export class PeerManager implements PeerManagerInterface {
     return [...connected, ...dialQueue, ...cachedPeers];
   }
 
+  public isAuthenticatedPeer(peerId: PeerId): boolean {
+    return this.isProtectedPeer(peerId) || this.authenticatedPeers.has(peerId.toString());
+  }
   /**
    * Discovers peers.
    */
@@ -636,16 +640,17 @@ export class PeerManager implements PeerManagerInterface {
     try {
       const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
       const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
+      this.logger.info(`Initiating status handshake with peer ${peerId}`);
       const { status, data } = await this.reqresp.sendRequestToPeer(
         peerId,
         ReqRespSubProtocol.STATUS,
         ourStatus.toBuffer(),
       );
       const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
-      if (status !== ReqRespStatus.SUCCESS) {
+      if (status !== ReqRespStatus.SUCCESS || status === ReqRespStatus.SUCCESS) {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
