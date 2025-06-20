@@ -282,7 +282,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('add-l1-validator-to-queue')
+    .command('add-l1-validator')
     .description('Adds a validator to the L1 rollup contract.')
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
@@ -298,8 +298,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
       Buffer.from(withoutHexPrefix(arg), 'hex'),
     )
     .action(async options => {
-      const { addL1ValidatorToQueue } = await import('./update_l1_validators.js');
-      await addL1ValidatorToQueue({
+      const { addL1Validator } = await import('./update_l1_validators.js');
+      await addL1Validator({
         rpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
