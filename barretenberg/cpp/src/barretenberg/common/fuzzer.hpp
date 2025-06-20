@@ -22,6 +22,7 @@
         DIVIDE_WITH_CONSTRAINTS, SLICE, ASSERT_ZERO, ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID,            \
         COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO, SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND,    \
         OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN
+//CONSTANT, WITNESS, CONSTANT_WITNESS, BATCH_MUL                                  
 
 struct HavocSettings {
     size_t GEN_LLVM_POST_MUTATION_PROB; // Controls frequency of additional mutation after structural ones
