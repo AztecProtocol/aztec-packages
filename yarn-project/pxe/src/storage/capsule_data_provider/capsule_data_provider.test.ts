@@ -241,38 +241,38 @@ describe('capsule data provider', () => {
       });
     });
 
-    describe('resetCapsuleArray', () => {
-      it('resets an empty array', async () => {
+    describe('setCapsuleArray', () => {
+      it('sets an empty array', async () => {
         const baseSlot = new Fr(3);
         const newArray = range(4).map(x => [new Fr(x)]);
 
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
 
         const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
-      it('resets an existing shorter array', async () => {
+      it('sets an existing shorter array', async () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(4, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
 
         const newArray = range(10, 10).map(x => [new Fr(x)]);
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
 
         const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
       });
 
-      it('resets an existing longer array', async () => {
+      it('sets an existing longer array', async () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
 
         const newArray = range(4, 10).map(x => [new Fr(x)]);
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, newArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, newArray);
 
         const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual(newArray);
@@ -289,9 +289,9 @@ describe('capsule data provider', () => {
         const baseSlot = new Fr(3);
 
         const originalArray = range(10, 0).map(x => [new Fr(x)]);
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, originalArray);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, originalArray);
 
-        await capsuleDataProvider.resetCapsuleArray(contract, baseSlot, []);
+        await capsuleDataProvider.setCapsuleArray(contract, baseSlot, []);
 
         const retrievedArray = await capsuleDataProvider.readCapsuleArray(contract, baseSlot);
         expect(retrievedArray).toEqual([]);
@@ -333,7 +333,7 @@ describe('capsule data provider', () => {
     it(
       'create large array by resetting',
       async () => {
-        await capsuleDataProvider.resetCapsuleArray(
+        await capsuleDataProvider.setCapsuleArray(
           contract,
           new Fr(0),
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
@@ -395,7 +395,7 @@ describe('capsule data provider', () => {
           times(NUMBER_OF_ITEMS, () => range(ARRAY_LENGTH).map(x => new Fr(x))),
         );
 
-        await capsuleDataProvider.resetCapsuleArray(contract, new Fr(0), []);
+        await capsuleDataProvider.setCapsuleArray(contract, new Fr(0), []);
       },
       TEST_TIMEOUT_MS,
     );

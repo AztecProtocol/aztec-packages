@@ -83,7 +83,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
     });
 
     debug_log_format(
-        "Discovered a total of {0} notes",
+        "Found valid nonces for a total of {0} notes",
         [discovered_notes.len() as Field],
     );
 
