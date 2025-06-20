@@ -220,7 +220,7 @@ export interface AztecNode
   getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
-   * Fetches the current block number.
+   * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;

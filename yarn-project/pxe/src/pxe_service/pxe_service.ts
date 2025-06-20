@@ -1035,7 +1035,7 @@ export class PXEService implements PXE {
   public async getNodeInfo(): Promise<NodeInfo> {
     // This assumes we're connected to a single node, so we cache the info to avoid repeated calls.
     // Load balancers and a myriad other configurations can break this assumption, so review this!
-    // Temporary mesure to avoid hammering full nodes with requests on testnet.
+    // Temporary measure to avoid hammering full nodes with requests on testnet.
     if (!this.#nodeInfo) {
       const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
         await Promise.all([
