@@ -10,6 +10,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
+#include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {

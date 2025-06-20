@@ -144,7 +144,7 @@ sel_instruction_fetching_success {
     sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
     sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
-    subtrace_operation_id, sel_alu, sel_bitwise, sel_poseidon2_perm,
+    subtrace_operation_id, sel_execution, sel_alu, sel_bitwise, sel_poseidon2_perm,
     sel_to_radix, sel_ecc_add, sel_keccakf1600,
     mem_op[0], mem_op[1], mem_op[2], mem_op[3], mem_op[4], mem_op[5], mem_op[6],
     rw[0], rw[1], rw[2], rw[3], rw[4], rw[5], rw[6]
@@ -167,6 +167,7 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[6],
     // subtraces
     precomputed.subtrace_operation_id,
+    precomputed.sel_dispatch_execution,
     precomputed.sel_dispatch_alu,
     precomputed.sel_dispatch_bitwise,
     precomputed.sel_dispatch_poseidon_perm,

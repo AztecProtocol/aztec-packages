@@ -519,7 +519,7 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
         .addressing_event = {
             .instruction = instr,
             .resolution_info = {
-                { 
+                {
                   .resolved_operand = MemoryValue::from<uint32_t>(10) },
             },
         },
@@ -543,6 +543,35 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                           ROW_FIELD_EQ(execution_internal_call_id, 1),
                           ROW_FIELD_EQ(execution_internal_call_return_id, 0),
                           ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
+TEST(ExecutionTraceGenTest, Jump)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMP_32)
+                           .operand<uint32_t>(120) // Immediate operand
+                           .build();
+
+    simulation::ExecutionEvent ex_event_jump = {
+        .wire_instruction = instr,
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                  .resolved_operand = MemoryValue::from<uint32_t>(120),
+                              } } },
+    };
+
+    builder.process({ ex_event_jump }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jump
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jump, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 120))));
 }
 
 } // namespace
