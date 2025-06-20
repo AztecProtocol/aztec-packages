@@ -20,6 +20,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 {
     using C = Column;
 
+    // Maps the index of the checkpoint to the index it was reverted in.
     std::unordered_map<size_t, size_t> reverted_in;
 
     std::vector<size_t> checkpoint_stack;
