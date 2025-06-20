@@ -1,6 +1,40 @@
 include "memory.pil";
 include "constants_gen.pil";
 
+/**
+ * Two usages exist for this gadget (read and write). Explanations below.
+ *
+ * Usage for reading a slice (permutation and not lookup):
+ * sel { state_in_00, state_in_01, ... state_in_44,
+ *       clk, src_addr, space_id, tag_error }
+ * is
+ * keccak_memory.start_read { keccak_memory.val00, keccak_memory.val01, ... keccak_memory.val44,
+ *                            keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, keccak_memory.tag_error };
+ *
+ * Inputs: state_in_00, state_in_01, ... state_in_44, clk, src_addr, space_id
+ * Output: tag_error
+ *
+ * Usage for writing a slice (permutation and not lookup):
+ * sel_slice_write { state_out_00, state_out_01, ... state_out_44,
+ *                   clk, dst_addr, space_id, round }
+ * is
+ * keccak_memory.start_write { keccak_memory.val00, keccak_memory.val01, ... keccak_memory.val44,
+ *                             keccak_memory.clk, keccak_memory.addr, keccak_memory.space_id, 24 };
+ *
+ * Inputs: state_out_00, state_out_01, ... state_out_44, clk, dst_addr, space_id, round
+ * No output. Write can never fail. The state_out values are assumed fit in U64.
+ * Parameter: round is fixed to 24.
+ *
+ * - state_in_00, state_in_01, ... state_in_44 are the 25 U64 keccak state values of the read slice.
+ * - state_out_00, state_out_01, ... state_out_44 are the 25 U64 keccak state values of the write slice.
+ * - dst_addr and src_addr are the first memory offset of the pertaining slice.
+ * - space_id serves to propagate the right memory space up to the memory trace.
+ * - clk is required for the unicity in the permutation and to propagate to the memory trace
+ *   to unambiguously order the memory operations.
+ * - tag_error is set to 1 if any tag error is detected.
+ * - Passing the tuple element `round` serves to constrain it to be equal to 24 (see keccakf1600.pil).
+ */
+
 namespace keccak_memory;
 
 // This gadget is only dedicated to read and write memory slices corresponding

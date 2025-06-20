@@ -4,6 +4,45 @@ include "range_check.pil";
 include "precomputed.pil";
 include "keccak_memory.pil";
 
+/**
+ * This gadget implements the keccakf1600 permutation. It is memory-aware and uses the keccak_memory
+ * gadget to read the slice input and write the slice output from/into memory.
+ * This gadget essentially gets as input as source address src_addr and destination address dst_addr.
+ * Both addresses are resolved and represent the first memory offset of the slice.
+ * The input/read memory slice and the output/write memory slice are of length 25 (like keccakf1600 state)
+ * and expect to exclusively contain elements of type U64.
+ * The core of this gadget consists in the keccakf1600 permutation which is implemented as a sequence
+ * of 24 rounds and each round is computed over a single row. Other columns/logic consist in error handling,
+ * and interactions with the keccak_memory gadget.
+ *
+ * The logical flow is as follows:
+ * - The selector `start` triggers the gadget.
+ * - The gadget checks that both slices are not out-of-bounds. Otherwise, it sets the error flag.
+ * - If no error is detected, the gadget triggers the gadget keccak_memory to read the slice input.
+ * - We get back from keccak_memory the permutation input values or a tag_error flag. If the latter,
+ *   we set the error flag.
+ * - If no error is detected, the gadget triggers the keccakf1600 permutation.
+ * - The permutation output values are written to the slice output.
+ *
+ * The happy path (no error) will generate 24 rows in this trace and 50 in keccak_memory (2 full slices).
+ * A slice out-of-bound error will generate 1 row in this trace and 0 in keccak_memory (slices inactive).
+ * A tag_error flag will generate 1 row in this trace and a number of rows in keccak_memory
+ * which corresponds to the relative slice offset with the first invalid tag (write slice is inactive).
+ *
+ * Usage (a permutation and not a lookup):
+ * sel_keccakf1600 { clk, dst_addr, src_addr, space_id, error }
+ * is
+ * keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+ *
+ * Inputs: clk, dst_addr, src_addr, space_id
+ * Output: error
+ *
+ * - dst_addr and src_addr are the first memory offset of the pertaining slice.
+ * - space_id serves to propagate the right memory space up to the memory trace.
+ * - clk is required for the unicity in the permutation and to propagate to the memory trace
+ *   to unambiguously order the memory operations.
+ * - error is set to 1 if any error is detected.
+ */
 namespace keccakf1600;
 
 // Reference document: https://keccak.team/files/Keccak-reference-3.0.pdf
@@ -65,6 +104,9 @@ sel * (1 - last) * (round' - round - 1) = 0;
 // Selector for the last round of a keccak permutation
 // If no error is detected in row where `start == 1`, we have last == 1 <==> round == AVM_KECCAKF1600_NUM_ROUNDS (24)
 // Otherwise, `last` is unconstrained but witness generator will toggle it on the initial row.
+// This is achieved through #[SEL_SLICE_WRITE] and #[WRITE_TO_SLICE]. If there is no error,
+// the former guarantees that the write slice is active whenever `last == 1`. The latter guarantees
+// that `round` is equal to 24 (by fixing a constant 24 in the destination permutation tuple).
 pol commit last;
 last * (1 - last) = 0;
 
