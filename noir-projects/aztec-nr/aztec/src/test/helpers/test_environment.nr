@@ -125,6 +125,7 @@ impl TestEnvironment {
 
     /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
     /// block advanced, and we are able to fetch historical data from warped over blocks.
+    // TODO(benesjan): Fix naming inconsistency between advance_block_by and advance_blockS_by.
     pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }

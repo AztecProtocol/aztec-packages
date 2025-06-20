@@ -12,8 +12,8 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
 Max block number property of transactions was changed to be seconds based instead of blocks based.
-This resulted in the name being changed from `max_block_number` to `include_by_timestamp`.
-Change of this property resulted in a large change of `SharedMutable` state variable from `Aztec.nr` - now it's seconds based instead of number-of-blocks based.
+This resulted in the transaction property name being changed from `max_block_number` to `include_by_timestamp`.
+`SharedMutable` state variable from `Aztec.nr` was greatly affected by this - now it's seconds based instead of number-of-blocks based.
 If you use `SharedMutable` in your contract you will have to update the `INITIAL_DELAY` numeric generic to represent seconds and rework how you use it to reflect this change.
 Note that timestamp is represented as `u64` while the block number is represented as `u32`.
 
