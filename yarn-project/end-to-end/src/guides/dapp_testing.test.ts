@@ -80,7 +80,7 @@ describe('guides/dapp/testing', () => {
 
       it('checks private storage', async () => {
         // docs:start:private-storage
-        await token.methods.sync_notes().simulate();
+        await token.methods.sync_private_state().simulate();
         const notes = await pxe.getNotes({
           recipient: owner.getAddress(),
           contractAddress: token.address,
@@ -115,7 +115,7 @@ describe('guides/dapp/testing', () => {
           limit: 1, // 1 log expected
         };
         const logs = (await pxe.getPublicLogs(filter)).logs;
-        expect(logs[0].log.log[0]).toEqual(value);
+        expect(logs[0].log.getEmittedFields()).toEqual([value]);
         // docs:end:public-logs
       });
 

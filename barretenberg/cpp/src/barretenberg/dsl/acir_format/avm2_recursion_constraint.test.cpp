@@ -1,8 +1,9 @@
+#include "barretenberg/srs/global_crs.hpp"
 #ifndef DISABLE_AZTEC_VM
 
-#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
+#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
@@ -43,11 +44,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = OuterFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static InnerCircuitData create_inner_circuit_data()
     {

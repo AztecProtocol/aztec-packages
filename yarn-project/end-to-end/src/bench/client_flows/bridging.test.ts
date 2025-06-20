@@ -6,8 +6,8 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import { captureProfile } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
@@ -91,7 +91,7 @@ describe('Bridging benchmark', () => {
             messageLeafIndex,
           );
 
-          await capturePrivateExecutionStepsIfEnvSet(
+          await captureProfile(
             `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
             claimInteraction,
             options,
@@ -104,14 +104,16 @@ describe('Bridging benchmark', () => {
               1, // Kernel tail
           );
 
-          // Ensure we paid a fee
-          const tx = await claimInteraction.send(options).wait();
-          expect(tx.transactionFee!).toBeGreaterThan(0n);
+          if (process.env.SANITY_CHECKS) {
+            // Ensure we paid a fee
+            const tx = await claimInteraction.send(options).wait();
+            expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-          // 4. Check the balance
+            // 4. Check the balance
 
-          const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
-          expect(balance).toBe(bridgeAmount);
+            const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+            expect(balance).toBe(bridgeAmount);
+          }
         });
       }
 

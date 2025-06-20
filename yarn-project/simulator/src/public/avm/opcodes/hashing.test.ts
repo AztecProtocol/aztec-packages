@@ -47,7 +47,7 @@ describe('Hashing Opcodes', () => {
     });
 
     it('Should hash correctly - indirect', async () => {
-      const indirect = new Addressing([AddressingMode.INDIRECT, AddressingMode.INDIRECT]).toWire();
+      const indirect = Addressing.fromModes([AddressingMode.INDIRECT, AddressingMode.INDIRECT]).toWire();
       const inputState = [new Field(1n), new Field(2n), new Field(3n), new Field(4n)];
       const inputStateOffset = 0;
       const inputStateOffsetReal = 10;
@@ -190,7 +190,7 @@ describe('Hashing Opcodes', () => {
       const stateArray = Uint32Array.from(state.map(byte => byte.toNumber()));
       const inputs = randomMemoryUint32s(16);
       const inputsArray = Uint32Array.from(inputs.map(byte => byte.toNumber()));
-      const indirect = new Addressing([
+      const indirect = Addressing.fromModes([
         /*dstOffset=*/ AddressingMode.INDIRECT,
         /*stateOffset*/ AddressingMode.INDIRECT,
         /*inputsOffset*/ AddressingMode.INDIRECT,

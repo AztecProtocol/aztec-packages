@@ -62,11 +62,8 @@ mod tests {
     };
     use dep::types::{
         abis::{
-            gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
-            kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-            note_hash::ScopedNoteHash,
-            nullifier::ScopedNullifier,
-            private_log::PrivateLogData,
+            gas::Gas, kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
+            note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
             side_effect::scoped::Scoped,
         },
         address::{AztecAddress, EthAddress},
@@ -244,7 +241,7 @@ mod tests {
             .previous_kernel
             .private_logs
             .storage()
-            .map(|n: Scoped<PrivateLogData>| n.inner.log);
+            .map(|l: Scoped<PrivateLogData>| l.expose_to_public());
 
         let public_inputs = builder.execute();
 
@@ -390,32 +387,35 @@ mod tests {
     #[test]
     unconstrained fn tx_consumed_gas_from_logs() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
-        builder.previous_kernel.append_siloed_private_logs_for_note(2, 11);
+
+        builder.previous_kernel.append_siloed_private_logs_for_note_with_lengths([7], 11);
         builder.previous_kernel.add_contract_class_log_hash(420, 12);
+
         builder.previous_kernel.end_setup();
-        builder.previous_kernel.append_siloed_private_logs_for_note(1, 33);
+
+        builder.previous_kernel.append_siloed_private_logs_for_note_with_lengths([8, 5], 33);
 
         let public_inputs = builder.execute();
 
-        let total_num_private_log_fields = get_emitted_private_logs_len(builder
-            .previous_kernel
-            .private_logs
-            .storage()
-            .map(|l| l.inner.log));
-        let total_num_contract_class_log_fields = get_emitted_contract_class_logs_len(builder
-            .previous_kernel
-            .contract_class_logs_hashes
-            .storage());
-
+        let num_nullifiers = 1; // A nullifier is added by default.
         let num_private_logs = 3;
-        let num_da_fields =
-            1 /* nullifier */ + total_num_private_log_fields + total_num_contract_class_log_fields;
+        let num_private_log_fields = 7 + 8 + 5;
+        let num_cc_logs = 1;
+        let num_contract_class_log_fields = 12;
+
+        let num_da_fields = num_nullifiers
+            + num_private_log_fields
+            + num_private_logs // One extra field per private log for its length.
+            + num_contract_class_log_fields
+            + num_cc_logs * 2; // Two extra fields per contract class log: length and contract address.
         let num_da_bytes = (num_da_fields * DA_BYTES_PER_FIELD);
         let da_gas = num_da_bytes * DA_GAS_PER_BYTE;
+
         let l2_gas = FIXED_AVM_STARTUP_L2_GAS
-            + 1 * L2_GAS_PER_NULLIFIER
+            + num_nullifiers * L2_GAS_PER_NULLIFIER
             + num_private_logs * L2_GAS_PER_PRIVATE_LOG
-            + 1 * L2_GAS_PER_CONTRACT_CLASS_LOG;
+            + num_cc_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+
         assert_eq(public_inputs.gas_used, Gas::tx_overhead() + Gas::new(da_gas, l2_gas));
     }
 

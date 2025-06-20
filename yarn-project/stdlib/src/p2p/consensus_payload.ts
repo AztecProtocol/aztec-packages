@@ -105,4 +105,8 @@ export class ConsensusPayload implements Signable {
     this.size = this.toBuffer().length;
     return this.size;
   }
+
+  toString() {
+    return `header: ${this.header.toString()}, archive: ${this.archive.toString()}, stateReference: ${this.stateReference.l1ToL2MessageTree.root.toString()}, txHashes: ${this.txHashes.join(', ')}`;
+  }
 }

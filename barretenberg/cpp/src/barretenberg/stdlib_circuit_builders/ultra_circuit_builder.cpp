@@ -8,12 +8,12 @@
  * @file ultra_circuit_builder.cpp
  * @author Luke (ledwards2225) and Kesha (Rumata888)
  * @brief This file contains the implementation of field-agnostic UltraCircuitBuilder class that defines the logic
- * of ultra-style circuits and is intended for the use in UltraHonk and UltraPlonk systems
+ * of ultra-style circuits and is intended for the use in UltraHonk
  *
  */
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/plonk/proof_system/constants.hpp"
+
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
@@ -26,7 +26,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
-     * Note that the total number of rows in an UltraPlonk program can be divided as following:
+     * Note that the total number of rows in an Ultra program can be divided as following:
      *  1. arithmetic gates:  n_computation (includes all computation gates)
      *  2. rom/memory gates:  n_rom
      *  3. range list gates:  n_range
@@ -470,8 +470,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_balanced_add_gate(const add_qu
     // If we allow this overflow 'flag' to range from 0 to 3, instead of 0 to 1,
     // we can get away with chaining a few addition operations together with basic add gates,
     // before having to use this gate.
-    // (N.B. a larger value would be better, the value '3' is for TurboPlonk backwards compatibility.
-    // In TurboPlonk this method uses a custom gate,
+    // (N.B. a larger value would be better, the value '3' is for Turbo backwards compatibility.
+    // In Turbo this method uses a custom gate,
     // where we were limited to a 2-bit range check by the degree of the custom gate identity.
     create_new_range_constraint(in.d, 3);
 }
@@ -2934,7 +2934,6 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
     for (auto var : this->variables) {
         cir.variables.push_back(var);
     }
-    // TODO(alex): manage non native gates
 
     FF curve_b;
     if constexpr (FF::modulus == bb::fq::modulus) {
@@ -2996,6 +2995,37 @@ template <typename ExecutionTrace> msgpack::sbuffer UltraCircuitBuilder_<Executi
 
     for (const auto& list : range_lists) {
         cir.range_tags[list.second.range_tag] = list.first;
+    }
+
+    for (auto& rom_table : this->rom_arrays) {
+        std::sort(rom_table.records.begin(), rom_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(rom_table.records.size());
+        for (const auto& rom_entry : rom_table.records) {
+            table.push_back({
+                this->real_variable_index[rom_entry.index_witness],
+                this->real_variable_index[rom_entry.value_column1_witness],
+                this->real_variable_index[rom_entry.value_column2_witness],
+            });
+        }
+        cir.rom_records.push_back(table);
+        cir.rom_states.push_back(rom_table.state);
+    }
+
+    for (auto& ram_table : this->ram_arrays) {
+        std::sort(ram_table.records.begin(), ram_table.records.end());
+
+        std::vector<std::vector<uint32_t>> table;
+        table.reserve(ram_table.records.size());
+        for (const auto& ram_entry : ram_table.records) {
+            table.push_back({ this->real_variable_index[ram_entry.index_witness],
+                              this->real_variable_index[ram_entry.value_witness],
+                              this->real_variable_index[ram_entry.timestamp_witness],
+                              ram_entry.access_type });
+        }
+        cir.ram_records.push_back(table);
+        cir.ram_states.push_back(ram_table.state);
     }
 
     cir.circuit_finalized = this->circuit_finalized;

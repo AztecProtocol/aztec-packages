@@ -13,6 +13,7 @@
 #include <tuple>
 
 #include "../circuit_builders/circuit_builders.hpp"
+#include "bigfield.hpp"
 
 #include "../bit_array/bit_array.hpp"
 #include "../field/field.hpp"
@@ -988,7 +989,7 @@ bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const s
 /**
  * Compute a * a = c mod p
  *
- * Slightly cheaper than operator* for StandardPlonk
+ * Slightly cheaper than operator* for Standard
  **/
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::sqr() const
 {
@@ -1568,7 +1569,7 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     if (fix_remainder_to_zero) {
         remainder = zero();
         // remainder needs to be defined as wire value and not selector values to satisfy
-        // UltraPlonk's bigfield custom gates
+        // Ultra's bigfield custom gates
         remainder.convert_constant_to_fixed_witness(ctx);
     } else {
         remainder = create_from_u512_as_witness(ctx, remainder_value);
@@ -2725,8 +2726,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // will need to apply to validate our product
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
-    // TurboPlonk range checks only work for even bit ranges, so make sure these values are even
-    // TODO: This neccessary anymore? TurboPlonk range checks now work with odd bit ranges...
+    // Turbo range checks only work for even bit ranges, so make sure these values are even
+    // TODO: This neccessary anymore? Turbo range checks now work with odd bit ranges...
     if ((max_lo_bits & 1ULL) == 1ULL) {
         ++max_lo_bits;
     }

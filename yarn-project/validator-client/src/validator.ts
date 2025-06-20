@@ -7,11 +7,11 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, type Timer } from '@aztec/foundation/timer';
-import type { P2P } from '@aztec/p2p';
+import { type P2P, type PeerId, TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
-import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
-import type { ProposedBlockHeader, StateReference, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
+import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, WithTracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ValidatorClientConfig } from './config.js';
@@ -59,10 +59,11 @@ export interface Validator {
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined>;
-  attestToProposal(proposal: BlockProposal): void;
+  attestToProposal(proposal: BlockProposal, sender: PeerId): Promise<BlockAttestation | undefined>;
 
-  broadcastBlockProposal(proposal: BlockProposal): void;
+  broadcastBlockProposal(proposal: BlockProposal): Promise<void>;
   collectAttestations(proposal: BlockProposal, required: number, deadline: Date): Promise<BlockAttestation[]>;
 }
 
@@ -84,6 +85,7 @@ export class ValidatorClient extends WithTracer implements Validator {
   private epochCacheUpdateLoop: RunningPromise;
 
   private blockProposalValidator: BlockProposalValidator;
+  private txCollector: TxCollector;
 
   constructor(
     private keyStore: ValidatorKeyStore,
@@ -102,6 +104,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.validationService = new ValidationService(keyStore);
 
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
+
+    this.txCollector = new TxCollector(p2pClient, this.log);
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.myAddress = this.keyStore.getAddress();
@@ -179,8 +183,8 @@ export class ValidatorClient extends WithTracer implements Validator {
   }
 
   public registerBlockProposalHandler() {
-    const handler = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
-      return this.attestToProposal(block);
+    const handler = (block: BlockProposal, proposalSender: any): Promise<BlockAttestation | undefined> => {
+      return this.attestToProposal(block, proposalSender);
     };
     this.p2pClient.registerBlockProposalHandler(handler);
   }
@@ -194,7 +198,7 @@ export class ValidatorClient extends WithTracer implements Validator {
     this.blockBuilder = blockBuilder;
   }
 
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
+  async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
     const blockNumber = proposal.blockNumber.toNumber();
     const proposalInfo = {
@@ -206,13 +210,8 @@ export class ValidatorClient extends WithTracer implements Validator {
     };
     this.log.verbose(`Received request to attest for slot ${slotNumber}`);
 
-    // Check that I am in the committee
-    if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
-      this.log.verbose(`Not in the committee, skipping attestation`);
-      return undefined;
-    }
-
     // Check that the proposal is from the current proposer, or the next proposer.
+    // Q: Should this be moved to the block proposal validator, so we disregard proposals from anyone?
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.verbose(`Proposal is not valid, skipping attestation`);
@@ -243,34 +242,42 @@ export class ValidatorClient extends WithTracer implements Validator {
       }
     }
 
-    // Check that all of the transactions in the proposal are available in the tx pool before attesting
-    this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
-    try {
-      const txs = await this.ensureTransactionsAreAvailable(proposal);
+    // Collect txs from the proposal
+    const { missing, txs } = await this.txCollector.collectForBlockProposal(proposal, proposalSender);
 
+    // Check that I am in the committee before attesting
+    if (!(await this.epochCache.isInCommittee(this.keyStore.getAddress()))) {
+      this.log.verbose(`Not in the committee, skipping attestation`);
+      return undefined;
+    }
+
+    // Check that all of the transactions in the proposal are available in the tx pool before attesting
+    if (missing && missing.length > 0) {
+      this.log.error(
+        `Missing ${missing.length}/${proposal.payload.txHashes.length} txs to attest to proposal`,
+        undefined,
+        { proposalInfo, missing },
+      );
+      this.metrics.incFailedAttestations('TransactionsNotAvailableError');
+      return undefined;
+    }
+
+    // Try re-executing the transactions in the proposal
+    try {
+      this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
         await this.reExecuteTransactions(proposal, txs);
       }
     } catch (error: any) {
       this.metrics.incFailedAttestations(error instanceof Error ? error.name : 'unknown');
-
-      // If the transactions are not available, then we should not attempt to attest
-      if (error instanceof TransactionsNotAvailableError) {
-        this.log.error(`Transactions not available, skipping attestation`, error, proposalInfo);
-      } else {
-        // This branch most commonly be hit if the transactions are available, but the re-execution fails
-        // Catch all error handler
-        this.log.error(`Failed to attest to proposal`, error, proposalInfo);
-      }
+      this.log.error(`Failed to attest to proposal`, error, proposalInfo);
       return undefined;
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
     this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
     this.metrics.incAttestations();
-
-    // If the above function does not throw an error, then we can attest to the proposal
     return this.doAttestToProposal(proposal);
   }
 
@@ -319,111 +326,13 @@ export class ValidatorClient extends WithTracer implements Validator {
     }
   }
 
-  /**
-   * Ensure that all of the transactions in the proposal are available in the tx pool before attesting
-   *
-   * 1. Check if the local tx pool contains all of the transactions in the proposal
-   * 2. If any transactions are not in the local tx pool, request them from the network
-   * 3. If we cannot retrieve them from the network, throw an error
-   * @param proposal - The proposal to attest to
-   */
-  async ensureTransactionsAreAvailable(proposal: BlockProposal): Promise<Tx[]> {
-    if (proposal.payload.txHashes.length === 0) {
-      this.log.verbose(`Received block proposal with no transactions, skipping transaction availability check`);
-      return [];
-    }
-    // Is this a new style proposal?
-    if (proposal.txs && proposal.txs.length > 0 && proposal.txs.length === proposal.payload.txHashes.length) {
-      // Yes, any txs that we already have we should use
-      this.log.info(`Using new style proposal with ${proposal.txs.length} transactions`);
-
-      // Request from the pool based on the signed hashes in the payload
-      const hashesFromPayload = proposal.payload.txHashes;
-      const txsToUse = await this.p2pClient.getTxsByHashFromPool(hashesFromPayload);
-
-      const missingTxs = txsToUse.filter(tx => tx === undefined).length;
-      if (missingTxs > 0) {
-        this.log.verbose(
-          `Missing ${missingTxs}/${hashesFromPayload.length} transactions in the tx pool, will attempt to take from the proposal`,
-        );
-      }
-
-      let usedFromProposal = 0;
-
-      // Fill any holes with txs in the proposal, provided their hash matches the hash in the payload
-      for (let i = 0; i < txsToUse.length; i++) {
-        if (txsToUse[i] === undefined) {
-          // We don't have the transaction, take from the proposal, provided the hash is the same
-          const hashOfTxInProposal = await proposal.txs[i].getTxHash();
-          if (hashOfTxInProposal.equals(hashesFromPayload[i])) {
-            // Hash is equal, we can use the tx from the proposal
-            txsToUse[i] = proposal.txs[i];
-            usedFromProposal++;
-          } else {
-            this.log.warn(
-              `Unable to take tx: ${hashOfTxInProposal.toString()} from the proposal, it does not match payload hash: ${hashesFromPayload[
-                i
-              ].toString()}`,
-            );
-          }
-        }
-      }
-
-      // See if we still have any holes, if there are then we were not successful and will try the old method
-      if (txsToUse.some(tx => tx === undefined)) {
-        this.log.warn(`Failed to use transactions from proposal. Falling back to old proposal logic`);
-      } else {
-        this.log.info(
-          `Successfully used ${usedFromProposal}/${hashesFromPayload.length} transactions from the proposal`,
-        );
-
-        await this.p2pClient.validate(txsToUse as Tx[]);
-        return txsToUse as Tx[];
-      }
-    }
-
-    this.log.info(`Using old style proposal with ${proposal.payload.txHashes.length} transactions`);
-
-    // Old style proposal, we will perform a request by hash from pool
-    // This will request from network any txs that are missing
-    const txHashes: TxHash[] = proposal.payload.txHashes;
-
-    // This part is just for logging that we are requesting from the network
-    const availability = await this.p2pClient.hasTxsInPool(txHashes);
-    const notAvailable = availability.filter(availability => availability === false);
-    if (notAvailable.length) {
-      this.log.verbose(
-        `Missing ${notAvailable.length} transactions in the tx pool, will need to request from the network`,
-      );
-    }
-
-    // This will request from the network any txs that are missing
-    const retrievedTxs = await this.p2pClient.getTxsByHash(txHashes);
-    const missingTxs = retrievedTxs
-      .map((tx, index) => {
-        // Return the hash of any that we did not get
-        if (tx === undefined) {
-          return txHashes[index];
-        } else {
-          return undefined;
-        }
-      })
-      .filter(hash => hash !== undefined);
-    if (missingTxs.length > 0) {
-      throw new TransactionsNotAvailableError(missingTxs as TxHash[]);
-    }
-
-    await this.p2pClient.validate(retrievedTxs as Tx[]);
-
-    return retrievedTxs as Tx[];
-  }
-
   async createBlockProposal(
     blockNumber: Fr,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    options: BlockProposalOptions,
   ): Promise<BlockProposal | undefined> {
     if (this.previousProposal?.slotNumber.equals(header.slotNumber)) {
       this.log.verbose(`Already made a proposal for the same slot, skipping proposal`);
@@ -436,13 +345,14 @@ export class ValidatorClient extends WithTracer implements Validator {
       archive,
       stateReference,
       txs,
+      options,
     );
     this.previousProposal = newProposal;
     return newProposal;
   }
 
-  broadcastBlockProposal(proposal: BlockProposal): void {
-    this.p2pClient.broadcastProposal(proposal);
+  async broadcastBlockProposal(proposal: BlockProposal): Promise<void> {
+    await this.p2pClient.broadcastProposal(proposal);
   }
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
@@ -499,7 +409,7 @@ export class ValidatorClient extends WithTracer implements Validator {
 function validatePrivateKey(privateKey: string): Buffer32 {
   try {
     return Buffer32.fromString(privateKey);
-  } catch (error) {
+  } catch {
     throw new InvalidValidatorPrivateKeyError();
   }
 }

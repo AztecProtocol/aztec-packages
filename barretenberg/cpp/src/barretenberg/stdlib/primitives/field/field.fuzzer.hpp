@@ -1025,7 +1025,7 @@ template <typename Builder> class FieldBase {
                  * TEST(stdlib_field, test_construct_via_bool_t)
                  * {
                  *     bb::StandardCircuitBuilder builder =
-                 * bb::bb::StandardCircuitBuilder(); field_t a(witness_t(&builder,
+                 * bb::StandardCircuitBuilder(); field_t a(witness_t(&builder,
                  * fr(uint256_t{0xf396b678452ebf15, 0x82ae10893982638b, 0xdf185a29c65fbf80, 0x1d18b2de99e48308})));
                  * field_t b = a - a; field_t c(static_cast<bool_t>(b)); std::cout << c.get_value() << std::endl;
                  * }
@@ -1968,43 +1968,6 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
     fuzzer_havoc_settings.value_mutation_distribution = value_mutation_distribution;
     return 0;
 }
-#endif
-#ifndef DISABLE_CUSTOM_MUTATORS
-/**
- * @brief Custom mutator. Since we know the structure, this is more efficient than basic
- *
- */
-extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
-{
-    using FuzzerClass = FieldBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
-    if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
-        size_occupied = LLVMFuzzerMutate(Data, size_occupied, MaxSize);
-    }
-    return size_occupied;
-}
-
-/**
- * @brief Custom crossover that parses the buffers as instructions and then splices them
- *
- */
-extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
-                                            size_t Size1,
-                                            const uint8_t* Data2,
-                                            size_t Size2,
-                                            uint8_t* Out,
-                                            size_t MaxOutSize,
-                                            unsigned int Seed)
-{
-    using FuzzerClass = FieldBase<bb::StandardCircuitBuilder>;
-    auto fast_random = FastRandom(Seed);
-    auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
-    auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);
-    auto vecC = ArithmeticFuzzHelper<FuzzerClass>::crossoverInstructionVector(vecA, vecB, fast_random);
-    return ArithmeticFuzzHelper<FuzzerClass>::writeInstructionsToBuffer(vecC, Out, MaxOutSize);
-}
-
 #endif
 
 /**

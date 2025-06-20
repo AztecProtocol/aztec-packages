@@ -21,7 +21,6 @@ import {
   type PrivateToPublicAccumulatedData,
   PublicCallRequest,
   countAccumulatedItems,
-  mergeAccumulatedData,
 } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
@@ -40,7 +39,7 @@ import { inspect } from 'util';
 
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
-import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
+import { SideEffectTrace } from '../side_effect_trace.js';
 import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
@@ -89,16 +88,7 @@ export class PublicTxContext {
   ) {
     const nonRevertibleAccumulatedDataFromPrivate = tx.data.forPublic!.nonRevertibleAccumulatedData;
 
-    const previousAccumulatedDataArrayLengths = new SideEffectArrayLengths(
-      /*publicDataWrites*/ 0,
-      /*protocolPublicDataWrites*/ 0,
-      /*noteHashes*/ 0,
-      /*nullifiers=*/ 0,
-      countAccumulatedItems(nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs),
-      /*publicLogs*/ 0,
-    );
-
-    const trace = new SideEffectTrace(/*startSideEffectCounter=*/ 0, previousAccumulatedDataArrayLengths);
+    const trace = new SideEffectTrace();
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
@@ -153,7 +143,7 @@ export class PublicTxContext {
    * NOTE: this does not "halt" the entire transaction execution.
    */
   revert(phase: TxExecutionPhase, revertReason: SimulationError | undefined = undefined, culprit = '') {
-    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason}`);
+    this.log.warn(`${TxExecutionPhase[phase]} phase reverted! ${culprit} failed with reason: ${revertReason?.message}`);
 
     if (revertReason && !this.revertReason) {
       // don't override revertReason
@@ -315,15 +305,6 @@ export class PublicTxContext {
       publicLogs: avmPublicLogs,
     } = this.trace.getSideEffects();
 
-    // We concatenate messages.
-    const msgsFromPrivate = this.revertCode.isOK()
-      ? mergeAccumulatedData(
-          this.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs,
-          this.revertibleAccumulatedDataFromPrivate.l2ToL1Msgs,
-        )
-      : this.nonRevertibleAccumulatedDataFromPrivate.l2ToL1Msgs;
-    const finalL2ToL1Msgs = mergeAccumulatedData(msgsFromPrivate, avmL2ToL1Msgs);
-
     // Private generates PrivateLogs, and public execution generates PublicLogs.
     // Since these are two different categories, they should not be merged.
     const finalPublicLogs = avmPublicLogs;
@@ -354,7 +335,7 @@ export class PublicTxContext {
         Fr.zero(),
         MAX_NULLIFIERS_PER_TX,
       ),
-      /*l2ToL1Msgs=*/ padArrayEnd(finalL2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
+      /*l2ToL1Msgs=*/ padArrayEnd(avmL2ToL1Msgs, ScopedL2ToL1Message.empty(), MAX_L2_TO_L1_MSGS_PER_TX),
       /*publicLogs=*/ padArrayEnd(finalPublicLogs, PublicLog.empty(), MAX_PUBLIC_LOGS_PER_TX),
       /*publicDataWrites=*/ padArrayEnd(
         finalPublicDataWrites,

@@ -253,7 +253,6 @@ std::array<safe_uint_t<Builder>, 3> safe_uint_t<Builder>::slice(const uint8_t ms
     return result;
 }
 
-template class safe_uint_t<bb::StandardCircuitBuilder>;
 template class safe_uint_t<bb::UltraCircuitBuilder>;
 template class safe_uint_t<bb::MegaCircuitBuilder>;
 

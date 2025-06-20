@@ -157,7 +157,7 @@ export class AnvilTestWatcher {
 
         this.logger.info(`Slot ${currentSlot} was missed, jumped to next slot`);
       }
-    } catch (err) {
+    } catch {
       this.logger.error('mineIfSlotFilled failed');
     }
   }

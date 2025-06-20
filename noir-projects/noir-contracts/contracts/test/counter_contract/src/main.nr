@@ -137,37 +137,32 @@ pub contract Counter {
         let owner = env.create_account(1);
         let sender = env.create_account(2);
         let initial_value: Field = 5;
-        env.impersonate(owner);
+
         // Deploy contract and initialize
         let initializer = Counter::interface().initialize(initial_value as u64, owner);
-        let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
-        let contract_address = counter_contract.to_address();
+        let contract_address =
+            env.deploy_self("Counter").with_private_initializer(owner, initializer).to_address();
+
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
-        env.impersonate(contract_address);
-        sync_notes();
-        let counter_slot = Counter::storage_layout().counters.slot;
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let mut options = NoteViewerOptions::new();
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-        let initial_note_value = notes.get(0).value;
+        let initial_counter =
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
         assert(
-            initial_note_value == initial_value,
-            f"Expected {initial_value} but got {initial_note_value}",
+            initial_counter == initial_value,
+            f"Expected {initial_value} but got {initial_counter}",
         );
         // docs:end:txe_test_read_notes
+
         // Increment the counter
-        env.impersonate(owner);
-        Counter::at(contract_address).increment(owner, sender).call(&mut env.private());
-        // get_counter is an unconstrained function, so we call it directly (we're in the same module)
-        env.impersonate(contract_address);
-        sync_notes();
-        let current_value_for_owner = get_counter(owner);
+        let _ =
+            env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
+
+        let incremented_counter =
+            env.simulate_utility(Counter::at(contract_address)._experimental_get_counter(owner));
         let expected_current_value = initial_value + 1;
         assert(
-            expected_current_value == current_value_for_owner,
-            f"Expected {expected_current_value} but got {current_value_for_owner}",
+            expected_current_value == incremented_counter,
+            f"Expected {expected_current_value} but got {incremented_counter}",
         );
     }
     // docs:end:txe_test_increment
@@ -179,7 +174,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.impersonate(contract_address);
-        sync_notes();
+        sync_private_state();
         let counter_slot = Counter::storage_layout().counters.slot;
         let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
@@ -201,7 +196,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 7);
@@ -217,7 +212,7 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(notes.len() == 4);
@@ -232,94 +227,10 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-        sync_notes();
+        sync_private_state();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
             view_notes(owner_storage_slot, options);
         assert(get_counter(owner) == 6);
         assert(notes.len() == 4);
-    }
-
-    #[test]
-    unconstrained fn new_calling_flow_increment_self_and_other() {
-        let mut env = TestEnvironment::new();
-        let owner = env.create_account(1);
-        let sender = env.create_account(2);
-        let third = env.create_account(3);
-
-        env.impersonate(owner);
-
-        let initial_value: Field = 2;
-        let initializer = Counter::interface().initialize(initial_value as u64, owner);
-        let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
-        let contract_address = counter_contract.to_address();
-
-        let initializer2 = Counter::interface().initialize(initial_value as u64, third);
-        let counter_contract2 = env.deploy_self("Counter").with_private_initializer(initializer2);
-        let contract_address2 = counter_contract2.to_address();
-
-        let _ = env.call_private_void(
-            owner,
-            Counter::at(contract_address).increment_self_and_other(contract_address2, owner, sender),
-        );
-
-        env.impersonate(contract_address);
-
-        sync_notes();
-        let mut options = NoteViewerOptions::new();
-        let counter_slot = Counter::storage_layout().counters.slot;
-
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-
-        let current_value_for_owner = get_counter(owner);
-
-        assert_eq(notes.len(), 2);
-        assert_eq(current_value_for_owner, 3);
-
-        env.impersonate(contract_address2);
-
-        sync_notes();
-        let counter_slot = Counter::storage_layout().counters.slot;
-
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-
-        let current_value_for_owner = get_counter(owner);
-
-        assert_eq(notes.len(), 1);
-        assert_eq(current_value_for_owner, 1);
-    }
-
-    #[test]
-    unconstrained fn new_calling_flow_increment_with_new_call_flow() {
-        let mut env = TestEnvironment::new();
-        let owner = env.create_account(1);
-        let sender = env.create_account(2);
-        env.impersonate(owner);
-
-        let initial_value: Field = 2;
-        let initializer = Counter::interface().initialize(initial_value as u64, owner);
-        let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
-        let contract_address = counter_contract.to_address();
-
-        let _ =
-            env.call_private_void(owner, Counter::at(contract_address).increment(owner, sender));
-
-        env.impersonate(contract_address);
-
-        sync_notes();
-        let mut options = NoteViewerOptions::new();
-        let counter_slot = Counter::storage_layout().counters.slot;
-
-        let owner_storage_slot = derive_storage_slot_in_map(counter_slot, owner);
-        let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> =
-            view_notes(owner_storage_slot, options);
-
-        let current_value_for_owner = get_counter(owner);
-
-        assert_eq(notes.len(), 2);
-        assert_eq(current_value_for_owner, 3);
     }
 }

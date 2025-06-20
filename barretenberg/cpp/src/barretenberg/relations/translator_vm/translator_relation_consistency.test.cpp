@@ -1031,14 +1031,14 @@ TEST_F(TranslatorRelationConsistency, ZeroConstraintsRelation)
 TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
 {
     const auto run_test = [](bool random_inputs) {
-        constexpr size_t NUM_LIMB_BITS = 68;
-        constexpr FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
-        constexpr FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
-        constexpr FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
-        constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
-        constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
-        constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
-        constexpr std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+        const size_t NUM_LIMB_BITS = 68;
+        const FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+        const FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+        const FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+        const uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
+        const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+        const uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+        const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
             FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
             FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
             FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),

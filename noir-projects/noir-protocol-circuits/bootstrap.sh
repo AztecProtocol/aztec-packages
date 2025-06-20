@@ -3,58 +3,36 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-project_name=$(basename "$PWD")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
-
 export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
-test_flag=$project_name-tests-$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name"))
-key_dir=./target/keys
+export key_dir=./target/keys
 mkdir -p $key_dir
 
+# Allows reusing this script when running from mock-protocol-circuits dir.
+project_name=$(basename "$PWD")
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
+export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
-ivc_patterns=(
-  "private_kernel_init"
-  "private_kernel_inner"
-  "private_kernel_reset.*"
-  "private_kernel_tail.*"
-  "app_creator"
-  "app_reader"
-)
-
-rollup_honk_patterns=(
-  "empty_nested.*"
-  "private_kernel_empty.*"
-  "rollup_base.*"
-  "rollup_block.*"
-  "rollup_merge"
-)
-
-ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
-rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
-# Rollup needs a verifier, and has a keccak precompile for efficiency.
-# Use patterns for consistency, even though this just applies to the root.
-keccak_honk_regex=rollup_root
-verifier_generate_regex=rollup_root
+readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
+readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
+# Convert to regex string here and export for use in exported functions.
+export ivc_regex=$(IFS="|"; echo "${ivc_patterns[*]}")
+export rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 
 function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
-
-# Export vars needed inside compile.
-export key_dir ci3 ivc_regex project_name rollup_honk_regex keccak_honk_regex verifier_generate_regex circuits_hash
 
 function compile {
   set -euo pipefail
@@ -95,7 +73,7 @@ function compile {
     local proto="ultra_rollup_honk"
     # --honk_recursion 2 injects a fake ipa claim
     local write_vk_cmd="write_vk --scheme ultra_honk --ipa_accumulation --honk_recursion 2"
-  elif echo "$name" | grep -qE "${keccak_honk_regex}"; then
+  elif echo "$name" | grep -qE "rollup_root"; then
     local proto="ultra_keccak_honk"
     # the root rollup does not need to inject a fake ipa claim
     # and does not need to inject a default agg obj, so no -h flag
@@ -126,7 +104,7 @@ function compile {
     # echo_stderr $vkf_cmd
     jq -n --arg vk "$vk_bytes" --argjson vkf "$vk_fields" '{keyAsBytes: $vk, keyAsFields: $vkf}' > $key_path
     echo_stderr "Key output at: $key_path (${SECONDS}s)"
-    if echo "$name" | grep -qE "${verifier_generate_regex}"; then
+    if echo "$name" | grep -qE "rollup_root"; then
       local verifier_path="$key_dir/${name}_verifier.sol"
       SECONDS=0
       # Generate solidity verifier for this contract.
@@ -158,7 +136,7 @@ function build {
   rm -rf target
   mkdir -p $key_dir
 
-  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
+  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
 
   grep -oP '(?<=crates/)[^"]+' Nargo.toml | \
     while read -r dir; do
@@ -201,59 +179,29 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
-function bench {
-  # We assume that the caller has bb installed and all of the protocol circuit artifacts are in `./target`
+function format {
+  [ -f "package.json" ] && denoise "yarn && yarn generate_variants"
+  $NARGO fmt
+}
 
-  rm -rf bench-out && mkdir -p bench-out
-   # We don't have a good global content hash for the protocol circuits so we use the git commit.
-  local hash=$(git rev-list -n 1 ${AZTEC_CACHE_COMMIT:-HEAD})
-  if cache_download noir-protocol-circuits-bench-results-$hash.tar.gz; then
-    return
-  fi
-
-  local MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../client_ivc_circuits.json")
-  local ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "../rollup_honk_circuits.json")
-
-  outdir=$(mktemp -d)
-  trap "rm -rf $outdir" EXIT
-  for artifact in "./target"/*.json; do
+function bench_cmds {
+  prefix="$circuits_hash noir-projects/noir-protocol-circuits/scripts/run_bench.sh"
+  for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
-
-    (
-      # Determine if the circuit is a mega honk circuit.
-      IS_MEGA_HONK_CIRCUIT="false"
-      for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
-          if echo "$artifact" | grep -qE "$pattern"; then
-              IS_MEGA_HONK_CIRCUIT="true"
-              break
-          fi
-      done
-
-      IS_ROLLUP_HONK_CIRCUIT="false"
-      for pattern in $ROLLUP_HONK_CIRCUIT_PATTERNS; do
-          if echo "$artifact" | grep -qE "$pattern"; then
-              IS_ROLLUP_HONK_CIRCUIT="true"
-              break
-          fi
-      done
-
-      local circuit_name=$(basename -- $artifact .json)
-      if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $BB gates -b "${artifact}" --scheme client_ivc > $outdir/$circuit_name
-        elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
-            $BB gates -b "${artifact}" --scheme ultra_honk --honk_recursion 2 > $outdir/$circuit_name
-        else
-            $BB gates -b "${artifact}" --scheme ultra_honk --honk_recursion 1 > $outdir/$circuit_name
-      fi
-    ) &
+    if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
+      echo "$prefix $artifact client_ivc"
+    elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
+      echo "$prefix $artifact ultra_honk 2"
+    else
+      echo "$prefix $artifact ultra_honk 1"
+    fi
   done
-  wait # wait for parallel processes to finish
+}
 
-  local metrics=$(jq '.functions[0] | .name = (input_filename | split ("/")[-1])' $outdir/*)
-  echo $metrics | jq -s 'map({ name, unit: "opcodes", value: .acir_opcodes })' > ./bench-out/protocol-circuits-opcodes-bench.json
-  echo $metrics | jq -s 'map({ name, unit: "gates", value: .circuit_size })' > ./bench-out/protocol-circuits-gates-bench.json
+function bench {
+  rm -rf bench-out && mkdir -p bench-out
 
-  cache_upload noir-protocol-circuits-bench-results-$hash.tar.gz ./bench-out/*
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
 }
 
 case "$cmd" in
@@ -277,7 +225,7 @@ case "$cmd" in
     shift
     compile $1
     ;;
-  test|test_cmds)
+  test|test_cmds|bench_cmds|format)
     $cmd
     ;;
   *)

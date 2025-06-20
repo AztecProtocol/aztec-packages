@@ -10,7 +10,7 @@ describe('LocalFileStore', () => {
   afterAll(async () => {
     try {
       await rm(testDir, { recursive: true, force: true });
-    } catch (err) {
+    } catch {
       // Silently ignore
     }
   });

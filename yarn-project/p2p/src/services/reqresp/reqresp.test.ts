@@ -1,3 +1,4 @@
+import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -153,7 +154,7 @@ describe('ReqResp', () => {
   });
 
   describe('Tx req protocol', () => {
-    it('Can request a Tx from TxHash', async () => {
+    it('can request a Tx from TxHash', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -179,7 +180,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(tx);
     });
 
-    it('Handle returning empty buffers', async () => {
+    it('handles returning empty buffers', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -202,7 +203,7 @@ describe('ReqResp', () => {
       expect(res).toEqual(undefined);
     });
 
-    it('Does not crash if tx hash returns undefined', async () => {
+    it('does not crash if tx hash returns undefined', async () => {
       const tx = await mockTx();
       const txHash = await tx.getTxHash();
 
@@ -362,6 +363,69 @@ describe('ReqResp', () => {
       // Expect no response to be sent - we categorize as unknown
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
+
+    it('should not close stream when handling a goodbye message received from peer', async () => {
+      nodes = await createNodes(peerScoring, 2);
+      const sendingNode = nodes[0];
+      const receivingNode = nodes[1];
+
+      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
+      // Req Goodbye Handler is defined in the reqresp.ts file
+      protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
+
+      // Track stream.close() calls
+      let streamCloseCallCount = 0;
+      let capturedStream: any = null;
+
+      // Spy on streamHandler to intercept the stream
+      const originalStreamHandler = (receivingNode.req as any).streamHandler.bind(receivingNode.req);
+      //eslint-disable-next-line require-await
+      (receivingNode.req as any).streamHandler = async function (protocol: ReqRespSubProtocol, data: any) {
+        capturedStream = data.stream;
+        const originalClose = data.stream.close;
+
+        //eslint-disable-next-line require-await
+        data.stream.close = jest.fn(async () => {
+          streamCloseCallCount++;
+          return originalClose.call(data.stream);
+        });
+
+        return originalStreamHandler.call(this, protocol, data);
+      };
+
+      const warnSpy = jest.spyOn((receivingNode.req as any).logger, 'warn');
+
+      await startNodes(nodes, protocolHandlers);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const response = await sendingNode.req.sendRequestToPeer(
+        receivingNode.p2p.peerId,
+        ReqRespSubProtocol.GOODBYE,
+        Buffer.from([GoodByeReason.SHUTDOWN]),
+      );
+
+      // Node 1 Peer manager receives the goodbye from the sending node
+      expect(peerManager.goodbyeReceived).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicKey: sendingNode.p2p.peerId.publicKey,
+        }),
+        GoodByeReason.SHUTDOWN,
+      );
+
+      // Expect no response to be sent - we categorize as unknown
+      expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
+
+      // Make sure when handling Goodbye we don't call stream close
+      // because it has been implicitly closed by the peer manager
+      expect(streamCloseCallCount).toBe(0);
+      expect(capturedStream).not.toBeNull();
+      expect(capturedStream.close).toHaveBeenCalledTimes(0);
+
+      // make sure warn was NOT called
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('Block protocol', () => {
@@ -405,11 +469,11 @@ describe('ReqResp', () => {
       const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
       const expectResponses = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, undefined);
       expect(res).toEqual(expectResponses);
 
       // Expect one request to have been sent to each peer
-      expect(sendRequestToPeerSpy).toHaveBeenCalledTimes(batchSize);
+      expect(sendRequestToPeerSpy.mock.calls.length).toBeGreaterThanOrEqual(batchSize);
       expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           publicKey: nodes[1].p2p.peerId.publicKey,
@@ -426,6 +490,51 @@ describe('ReqResp', () => {
       );
     });
 
+    it('should send a batch request with a pinned peer', async () => {
+      const batchSize = 9;
+      nodes = await createNodes(peerScoring, 4, {
+        // Bump rate limits so the pinned peer can respond
+        [ReqRespSubProtocol.PING]: {
+          peerLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+          globalLimit: { quotaTimeMs: 1000, quotaCount: 50 },
+        },
+      });
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const sendRequestToPeerSpy = jest.spyOn(nodes[0].req, 'sendRequestToPeer');
+
+      const requests = times(batchSize, i => RequestableBuffer.fromBuffer(Buffer.from(`ping${i}`)));
+      const expectResponses = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+
+      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests, nodes[1].p2p.peerId);
+      expect(res).toEqual(expectResponses);
+
+      // we can not guarantee how many requests the pinned peer will get
+      // they might have to answer all of them or some will be answered by other peers
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[1].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+
+      // Expect at least one request to have been sent to each other peer
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[2].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+
+      expect(sendRequestToPeerSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ publicKey: nodes[3].p2p.peerId.publicKey }),
+        ReqRespSubProtocol.PING,
+        expect.any(Buffer),
+      );
+    });
+
     it('should stop after max retry attempts', async () => {
       const batchSize = 12;
       nodes = await createNodes(peerScoring, 3);
@@ -437,14 +546,28 @@ describe('ReqResp', () => {
       await connectToPeers(nodes);
       await sleep(500);
 
-      const requests = Array.from({ length: batchSize }, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
-      // We will fail two of the responses - due to hitting the ping rate limit on the responding nodes
-      const expectResponses = Array.from({ length: batchSize - 2 }, _ =>
-        RequestableBuffer.fromBuffer(Buffer.from(`pong`)),
-      );
+      const requests = times(batchSize, _ => RequestableBuffer.fromBuffer(Buffer.from(`ping`)));
+      // We will fail two or three of the responses - due to hitting the ping rate limit on the responding nodes
 
-      const res = await nodes[0].req.sendBatchRequest(ReqRespSubProtocol.PING, requests);
-      expect(res).toEqual(expectResponses);
+      const res: RequestableBuffer[] = await nodes[0].req.sendBatchRequest(
+        ReqRespSubProtocol.PING,
+        requests,
+        undefined,
+      );
+      expect(res.length).toEqual(requests.length);
+
+      let missing = 0;
+      // manually iterate the array: this is necessary because the array we get back from `sendBatchRequest` might contain holes and iterative methods (`map`, `forEach`) skip holes in the array
+      for (let i = 0; i < res.length; i++) {
+        if (!res[i]) {
+          missing++;
+          continue;
+        }
+
+        expect(res[i]).toEqual(RequestableBuffer.fromBuffer(Buffer.from(`pong`)));
+      }
+
+      expect(missing).toBeLessThanOrEqual(3);
 
       // Check that we did detect hitting a rate limit
       expect(requesterLoggerSpy).toHaveBeenCalledWith(

@@ -11,6 +11,7 @@ import {
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
   readProofAsFields,
+  verifyAvmProofV2,
   verifyProof,
 } from '@aztec/bb-prover';
 import {
@@ -38,13 +39,14 @@ export async function proveClientIVC(
   bbWorkingDirectory: string,
   witnessStack: Uint8Array[],
   bytecodes: string[],
+  vks: string[],
   logger: Logger,
 ): Promise<ClientIvcProof> {
   const stepToStruct = (bytecode: string, index: number) => {
     return {
       bytecode: Buffer.from(bytecode, 'base64'),
       witness: witnessStack[index],
-      vk: Buffer.from([]),
+      vk: Buffer.from(vks[index], 'hex'),
       functionName: `unknown_${index}`,
     };
   };
@@ -235,6 +237,18 @@ export async function proveAvm(
     vk.push(new Fr(0));
   }
 
+  const verificationResult = await verifyAvmProofV2(
+    bbPath,
+    workingDirectory,
+    proofRes.proofPath!,
+    avmCircuitInputs.publicInputs,
+    proofRes.vkPath!,
+    logger,
+  );
+
+  if (verificationResult.status === BB_RESULT.FAILURE) {
+    throw new Error(`AVM V2 proof verification failed: ${verificationResult.reason}`);
+  }
   return {
     proof,
     vk,

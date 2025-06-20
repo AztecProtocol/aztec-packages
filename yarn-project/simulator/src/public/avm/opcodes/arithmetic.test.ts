@@ -60,7 +60,7 @@ describe('Arithmetic Instructions', () => {
       context.machineState.memory.set(32, new Uint32(5)); // indirect
 
       await new Add(
-        /*indirect=*/ new Addressing([
+        /*indirect=*/ Addressing.fromModes([
           /*aOffset*/ AddressingMode.DIRECT,
           /*bOffset*/ AddressingMode.DIRECT,
           /*dstOffset*/ AddressingMode.INDIRECT | AddressingMode.RELATIVE,

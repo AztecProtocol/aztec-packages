@@ -8,10 +8,11 @@ import { ThreeOperandInstruction } from './instruction_impl.js';
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.aOffset, this.bOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [aOffset, bOffset, dstOffset] = addressing.resolve(operands, memory);
     this.checkTags(memory, aOffset, bOffset);
 
@@ -89,16 +90,21 @@ export class Not extends Instruction {
   static readonly wireFormat8 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT8, OperandType.UINT8];
   static readonly wireFormat16 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private srcOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.srcOffset, this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [srcOffset, dstOffset] = addressing.resolve(operands, memory);
     TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));
     const value = memory.getAs<IntegralValue>(srcOffset);

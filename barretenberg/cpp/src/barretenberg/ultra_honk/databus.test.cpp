@@ -4,7 +4,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -19,7 +19,7 @@ using FlavorTypes = ::testing::Types<MegaFlavor, MegaZKFlavor>;
 
 template <typename Flavor> class DataBusTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;

@@ -10,7 +10,10 @@ import { isAddressStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from 
 class ArgumentEncoder {
   private flattened: Fr[] = [];
 
-  constructor(private abi: FunctionAbi, private args: any[]) {}
+  constructor(
+    private abi: FunctionAbi,
+    private args: any[],
+  ) {}
 
   static typeSize(abiType: AbiType): number {
     switch (abiType.kind) {
@@ -124,7 +127,7 @@ class ArgumentEncoder {
         }
         break;
       default:
-        throw new Error(`Unsupported type: ${abiType}`);
+        throw new Error(`Unsupported type: ${abiType.kind}`);
     }
   }
 

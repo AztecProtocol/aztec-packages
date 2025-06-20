@@ -1,9 +1,6 @@
-import {
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-  PUBLIC_LOG_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { PUBLIC_LOG_LENGTH, PUBLIC_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import {
@@ -20,29 +17,61 @@ import { z } from 'zod';
 import { AztecAddress } from '../aztec-address/index.js';
 
 export class PublicLog {
-  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * PUBLIC_LOG_SIZE_IN_FIELDS;
+  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * PUBLIC_LOG_LENGTH;
 
-  constructor(public contractAddress: AztecAddress, public log: Tuple<Fr, typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS>) {}
+  constructor(
+    public contractAddress: AztecAddress,
+    public fields: Tuple<Fr, typeof PUBLIC_LOG_SIZE_IN_FIELDS>,
+    public emittedLength: number,
+  ) {}
+
+  static from(fields: FieldsOf<PublicLog>) {
+    return new PublicLog(...PublicLog.getFields(fields));
+  }
+
+  static getFields(fields: FieldsOf<PublicLog>) {
+    return [fields.contractAddress, fields.fields, fields.emittedLength] as const;
+  }
 
   toFields(): Fr[] {
     return serializeToFields(...PublicLog.getFields(this));
   }
 
-  static getFields(fields: FieldsOf<PublicLog>) {
-    return [fields.contractAddress, fields.log] as const;
-  }
-
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new PublicLog(reader.readObject(AztecAddress), reader.readFieldArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS));
+    return new PublicLog(
+      reader.readObject(AztecAddress),
+      reader.readFieldArray(PUBLIC_LOG_SIZE_IN_FIELDS),
+      reader.readU32(),
+    );
+  }
+
+  getEmittedFields() {
+    return this.fields.slice(0, this.emittedLength);
+  }
+
+  toBlobFields(): Fr[] {
+    return [new Fr(this.emittedLength), this.contractAddress.toField()].concat(this.getEmittedFields());
+  }
+
+  static fromBlobFields(fields: Fr[] | FieldReader) {
+    const reader = FieldReader.asReader(fields);
+    const emittedLength = reader.readU32();
+    const contractAddress = reader.readObject(AztecAddress);
+    const emittedFields = reader.readFieldArray(emittedLength);
+    return new PublicLog(
+      contractAddress,
+      padArrayEnd(emittedFields, Fr.ZERO, PUBLIC_LOG_SIZE_IN_FIELDS),
+      emittedLength,
+    );
   }
 
   isEmpty() {
-    return this.contractAddress.isZero() && this.log.every(f => f.isZero());
+    return this.contractAddress.isZero() && this.fields.every(f => f.isZero()) && this.emittedLength === 0;
   }
 
   static empty() {
-    return new PublicLog(AztecAddress.ZERO, makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr.zero));
+    return new PublicLog(AztecAddress.ZERO, makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, Fr.zero), 0);
   }
 
   toBuffer(): Buffer {
@@ -51,55 +80,50 @@ export class PublicLog {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicLog(reader.readObject(AztecAddress), reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr));
+    return new PublicLog(
+      reader.readObject(AztecAddress),
+      reader.readArray(PUBLIC_LOG_SIZE_IN_FIELDS, Fr),
+      reader.readNumber(),
+    );
   }
 
   static async random() {
-    return new PublicLog(await AztecAddress.random(), makeTuple(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr.random));
-  }
-
-  getEmittedLength() {
-    // This assumes that we cut trailing zeroes from the end of the log. In ts, these will always be added back.
-    // Does not include length prefix.
-    return this.getEmittedFields().length;
-  }
-
-  getEmittedFields() {
-    const fields = this.toFields();
-    const lastNonZeroIndex = fields.findLastIndex(f => !f.isZero());
-    return fields.slice(0, lastNonZeroIndex + 1);
+    return new PublicLog(
+      await AztecAddress.random(),
+      makeTuple(PUBLIC_LOG_SIZE_IN_FIELDS, Fr.random),
+      PUBLIC_LOG_SIZE_IN_FIELDS,
+    );
   }
 
   equals(other: this) {
     return (
       this.contractAddress.equals(other.contractAddress) &&
-      this.log.reduce((acc, field, i) => acc && field.equals(other.log[i]), true)
+      this.fields.every((field, i) => field.equals(other.fields[i])) &&
+      this.emittedLength === other.emittedLength
     );
   }
 
   toHumanReadable(): string {
-    return `PublicLog: (contractAddress: ${this.contractAddress} log: ${this.log})`;
+    return `PublicLog: (contractAddress: ${this.contractAddress} fields: ${this.fields}) emittedLength: ${this.emittedLength}`;
   }
 
   static get schema(): ZodFor<PublicLog> {
-    if (PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1 == PRIVATE_LOG_SIZE_IN_FIELDS) {
-      throw new Error(
-        'Constants got updated and schema for PrivateLog matches that of PublicLog. This needs to be updated now as Zod is no longer able to differentiate the 2 in TxScopedL2Log.',
-      );
-    }
-
     return z
       .object({
         contractAddress: AztecAddress.schema,
-        log: z.array(schemas.Fr),
+        fields: z.array(schemas.Fr).refine(arr => arr.length === PUBLIC_LOG_SIZE_IN_FIELDS),
+        emittedLength: z.number(),
       })
-      .transform(({ contractAddress, log }) => PublicLog.fromFields([contractAddress.toField(), ...log]));
+      .transform(({ contractAddress, fields, emittedLength }) =>
+        PublicLog.fromFields([contractAddress.toField(), ...fields, new Fr(emittedLength)]),
+      );
   }
 
   [inspect.custom](): string {
     return `PublicLog {
       contractAddress: ${inspect(this.contractAddress)},
-      log: [${this.log.map(x => inspect(x)).join(', ')}],
+      fields: [${this.fields.map(x => inspect(x)).join(', ')}],
+      emittedLength: ${this.emittedLength},
     }`;
   }
 }

@@ -3,8 +3,6 @@
 
 #include "barretenberg/crypto/merkle_tree/membership.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk/composer/standard_composer.hpp"
-#include "barretenberg/plonk/composer/ultra_composer.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
@@ -58,18 +56,10 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
 
     Builder builder;
     test_circuit_function(builder, num_iterations);
-    // This is gross but it's going away soon.
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // If Flavor is Ultra, alias UltraComposer, otherwise alias StandardComposer
-        using Composer = std::
-            conditional_t<std::same_as<Flavor, plonk::flavor::Ultra>, plonk::UltraComposer, plonk::StandardComposer>;
-        Composer composer;
-        return composer.create_prover(builder);
-    } else {
-        PROFILE_THIS_NAME("creating prover");
 
-        return Prover(builder);
-    }
+    PROFILE_THIS_NAME("creating prover");
+
+    return Prover(builder);
 };
 
 /**
@@ -88,7 +78,7 @@ void construct_proof_with_specified_num_iterations(
     void (*test_circuit_function)(typename Prover::Flavor::CircuitBuilder&, size_t),
     size_t num_iterations)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     for (auto _ : state) {
         // Construct circuit and prover; don't include this part in measurement

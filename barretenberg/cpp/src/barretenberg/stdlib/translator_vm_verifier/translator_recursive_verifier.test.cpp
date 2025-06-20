@@ -41,7 +41,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
     using Transcript = InnerFlavor::Transcript;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static std::shared_ptr<bb::ECCOpQueue> create_op_queue(const size_t num_ops)
     {
@@ -51,6 +51,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
+        op_queue->no_op_ultra_only();
 
         for (size_t i = 0; i < num_ops; i++) {
             op_queue->add_accumulate(P1);

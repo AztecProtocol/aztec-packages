@@ -1,7 +1,7 @@
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 import { z } from 'zod';
@@ -73,17 +73,11 @@ export class Body {
    * Decodes a block from blob fields.
    */
   static fromBlobFields(fields: Fr[]) {
-    const txEffectsFields: Fr[][] = [];
-    let checkedFields = 0;
-    while (checkedFields !== fields.length) {
-      if (!TxEffect.isFirstField(fields[checkedFields])) {
-        throw new Error('Invalid fields given to Body.fromBlobFields(): First field invalid.');
-      }
-      const len = TxEffect.decodeFirstField(fields[checkedFields]).length;
-      txEffectsFields.push(fields.slice(checkedFields, checkedFields + len));
-      checkedFields += len;
+    const txEffects: TxEffect[] = [];
+    const reader = new FieldReader(fields);
+    while (!reader.isFinished()) {
+      txEffects.push(TxEffect.fromBlobFields(reader));
     }
-    const txEffects = txEffectsFields.filter(effect => effect.length).map(effect => TxEffect.fromBlobFields(effect));
     return new this(txEffects);
   }
 

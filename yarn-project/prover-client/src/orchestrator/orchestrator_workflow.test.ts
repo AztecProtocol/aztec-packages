@@ -128,7 +128,7 @@ describe('prover/orchestrator', () => {
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
         // TODO(AD): we shouldn't be mocking complex objects like tx this way - easy to hit issues (I had to update to add data field)
         const txs = processedTxs.map(
-          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof, data: {} } as Tx),
+          tx => ({ getTxHash: () => Promise.resolve(tx.hash), clientIvcProof: tx.clientIvcProof, data: {} }) as Tx,
         );
         await orchestrator.startTubeCircuits(txs);
 

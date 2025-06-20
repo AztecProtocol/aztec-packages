@@ -13,7 +13,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { P2PClientType } from '@aztec/stdlib/p2p';
+import { P2PClientType, P2PMessage } from '@aztec/stdlib/p2p';
 import { Tx, TxStatus } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -44,11 +44,13 @@ function mockTxPool(): TxPool {
     getAllTxs: () => Promise.resolve([]),
     getAllTxHashes: () => Promise.resolve([]),
     getPendingTxHashes: () => Promise.resolve([]),
+    getPendingTxCount: () => Promise.resolve(0),
     getMinedTxHashes: () => Promise.resolve([]),
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
-    setMaxTxPoolSize: () => Promise.resolve(),
+    updateConfig: () => {},
+    markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
 
@@ -124,9 +126,10 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     this.disableTxValidation = disable;
   }
 
-  protected override async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+  protected override async handleGossipedTx(payload: Buffer, msgId: string, source: PeerId) {
     if (this.disableTxValidation) {
-      const tx = Tx.fromBuffer(Buffer.from(msg.data));
+      const p2pMessage = P2PMessage.fromMessageData(payload);
+      const tx = Tx.fromBuffer(p2pMessage.payload);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Accept);
 
       const txHash = await tx.getTxHash();
@@ -134,7 +137,7 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
       await this.mempools.txPool.addTxs([tx]);
     } else {
-      await super.handleGossipedTx(msg, msgId, source);
+      await super.handleGossipedTx(payload, msgId, source);
     }
   }
 
@@ -179,6 +182,7 @@ process.on('message', async msg => {
         proofVerifier,
         worldState,
         epochCache,
+        'test-p2p-bench-worker',
         telemetry,
         deps,
       );

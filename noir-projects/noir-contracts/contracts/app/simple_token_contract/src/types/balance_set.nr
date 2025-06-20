@@ -67,7 +67,7 @@ impl BalanceSet<&mut PrivateContext> {
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
         let subtracted = self.try_sub(amount, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL);
 
-        // try_sub may have substracted more or less than amount. We must ensure that we subtracted at least as much as
+        // try_sub may have subtracted more or less than amount. We must ensure that we subtracted at least as much as
         // we needed, and then create a new note for the owner for the change (if any).
         assert(subtracted >= amount, "Balance too low");
         self.add(owner, subtracted - amount)

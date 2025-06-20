@@ -12,8 +12,9 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/honk/proving_key_inspector.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -274,8 +275,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             PairingPoints::add_default_to_public_inputs(builder);
         }
     } else {
-        process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-
         HonkRecursionConstraintsOutput<Builder> honk_output =
             process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
@@ -403,91 +402,6 @@ void handle_IPA_accumulation(Builder& builder,
     }
 }
 
-void process_plonk_recursion_constraints(Builder& builder,
-                                         AcirFormat& constraint_system,
-                                         bool has_valid_witness_assignments,
-                                         GateCounter<Builder>& gate_counter)
-{
-
-    // These are set and modified whenever we encounter a recursion opcode
-    //
-    // These should not be set by the caller
-    // TODO(maxim): Check if this is always the case. ie I won't receive a proof that will set the first
-    // TODO(maxim): input_points_accumulator to be non-zero.
-    // TODO(maxim): if not, we can add input_points_accumulator to the proof too for all recursive proofs
-    // TODO(maxim): This might be the case for proof trees where the proofs are created on different machines
-    PairingPointAccumulatorIndices current_input_points_accumulator = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-    PairingPointAccumulatorIndices current_output_points_accumulator = {
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
-
-    // Get the size of proof with no public inputs prepended to it
-    // This is used while processing recursion constraints to determine whether
-    // the proof we are verifying contains a recursive proof itself
-    auto proof_size_no_pub_inputs = recursion_proof_size_without_public_inputs();
-
-    // Add recursion constraints
-    for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size(); ++constraint_idx) {
-        auto constraint = constraint_system.recursion_constraints[constraint_idx];
-
-        // A proof passed into the constraint should be stripped of its public inputs, except in
-        // the case where a proof contains an aggregation object itself. We refer to this as the
-        // `nested_points_accumulator`. The verifier circuit requires that the indices to a
-        // nested proof aggregation state are a circuit constant. The user tells us they how
-        // they want these constants set by keeping the nested aggregation object attached to
-        // the proof as public inputs. As this is the only object that can prepended to the
-        // proof if the proof is above the expected size (with public inputs stripped)
-        PairingPointAccumulatorPubInputIndices nested_points_accumulator = {};
-        // If the proof has public inputs attached to it, we should handle setting the nested
-        // aggregation object
-        if (constraint.proof.size() > proof_size_no_pub_inputs) {
-            // The public inputs attached to a proof should match the aggregation object in size
-            if (constraint.proof.size() - proof_size_no_pub_inputs != bb::PAIRING_POINTS_SIZE) {
-                auto error_string = format("Public inputs are always stripped from proofs "
-                                           "unless we have a recursive proof.\n"
-                                           "Thus, public inputs attached to a proof must match "
-                                           "the recursive aggregation object in size "
-                                           "which is ",
-                                           bb::PAIRING_POINTS_SIZE);
-                throw_or_abort(error_string);
-            }
-            for (size_t i = 0; i < bb::PAIRING_POINTS_SIZE; ++i) {
-                // Set the nested aggregation object indices to the current size of the public
-                // inputs This way we know that the nested aggregation object indices will
-                // always be the last indices of the public inputs
-                nested_points_accumulator[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                // Attach the nested aggregation object to the end of the public inputs to fill
-                // in the slot where the nested aggregation object index will point into
-                constraint.public_inputs.emplace_back(constraint.proof[i]);
-            }
-            // Remove the aggregation object so that they can be handled as normal public inputs
-            // in the way that the recursion constraint expects
-            constraint.proof.erase(constraint.proof.begin(),
-                                   constraint.proof.begin() + static_cast<std::ptrdiff_t>(bb::PAIRING_POINTS_SIZE));
-        }
-
-        current_output_points_accumulator = create_recursion_constraints(builder,
-                                                                         constraint,
-                                                                         current_input_points_accumulator,
-                                                                         nested_points_accumulator,
-                                                                         has_valid_witness_assignments);
-        current_input_points_accumulator = current_output_points_accumulator;
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.recursion_constraints[constraint_idx]);
-    }
-
-    // Now that the circuit has been completely built, we add the output aggregation as public
-    // inputs.
-    if (!constraint_system.recursion_constraints.empty()) {
-
-        // Make sure the verification key records the public input indices of the
-        // final recursion output.
-        builder.add_pairing_point_accumulator_for_plonk(current_output_points_accumulator);
-    }
-}
-
 template <typename Builder>
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
 process_honk_recursion_constraints(Builder& builder,
@@ -540,11 +454,17 @@ process_honk_recursion_constraints(Builder& builder,
 
 void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        AcirFormat& constraints,
-                                       const std::shared_ptr<ClientIVC>& ivc,
+                                       std::shared_ptr<ClientIVC> ivc,
                                        bool has_valid_witness_assignments,
                                        GateCounter<MegaCircuitBuilder>& gate_counter)
 {
     using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
+
+    // If an ivc instance is not provided, we mock one with the state required to construct the recursion constraints
+    // present in the program
+    if (ivc == nullptr) {
+        ivc = create_mock_ivc_from_constraints(constraints.ivc_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+    }
 
     // We expect the length of the internal verification queue to match the number of ivc recursion constraints
     BB_ASSERT_EQ(constraints.ivc_recursion_constraints.size(),

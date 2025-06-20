@@ -25,7 +25,7 @@ export class AvmContractCallResult {
       this.gasLeft,
     )}, totalInstructions: ${this.totalInstructions}`;
     if (this.revertReason) {
-      resultsStr += `, revertReason: ${this.revertReason}`;
+      resultsStr += `, revertReason: ${this.revertReason.message}`;
     }
     return resultsStr;
   }
@@ -60,7 +60,7 @@ export class AvmFinalizedCallResult {
       this.gasLeft,
     )}, totalInstructions: ${this.totalInstructions}`;
     if (this.revertReason) {
-      resultsStr += `, revertReason: ${this.revertReason}`;
+      resultsStr += `, revertReason: ${this.revertReason.message}`;
     }
     return resultsStr;
   }

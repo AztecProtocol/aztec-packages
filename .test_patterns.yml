@@ -55,10 +55,6 @@ tests:
     skip: true
     owners:
       - *tom
-  - regex: "tests::execution_success::test_ram_blowup_regression"
-    error_regex: "assertion `left == right` failed"
-    owners:
-      - *tom
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -88,7 +84,12 @@ tests:
     owners:
       - *tom
 
-  # e2e tests
+  # e2e tests skipped
+  - regex: "src/e2e_sequencer/gov_proposal"
+    skip: true
+    owners:
+      - *lasse
+  # e2e tests flakes
   - regex: "src/e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
@@ -99,6 +100,10 @@ tests:
       - *sean
   - regex: "src/e2e_p2p/reex"
     error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
+    owners:
+      - *sean
+  - regex: "src/e2e_p2p/reqresp"
+    error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
       - *sean
   - regex: "src/e2e_p2p"
@@ -114,8 +119,6 @@ tests:
     owners:
       - *palla
   - regex: "e2e_p2p/validators_sentinel"
-    # Too noisey, skipping.
-    skip: true
     error_regex: "Expected: >= 2"
     owners:
       - *palla
@@ -134,6 +137,10 @@ tests:
       - *lasse
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  - regex: "src/e2e_epochs/epochs_l1_reorgs"
+    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
     owners:
       - *lasse
   - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
@@ -175,9 +182,15 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "CodeError: writable end state is .writing. not .ready."
+    owners:
+      - *sean
+      - *alex
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
+      - *alex
   - regex: "p2p/src/testbench/port_change.test.ts"
     error_regex: "Timeout waiting for worker"
     owners:
@@ -211,17 +224,6 @@ tests:
     owners:
       - *esau
 
-  # boxes
-  - regex: "BOX=vite BROWSER=webkit run_compose_test vite-webkit box boxes"
-    error_regex: "WARN: sequencer Too far into slot for INITIALIZING_PROPOSAL"
-    owners:
-      - *grego
-
-  - regex: "BOX=vanilla BROWSER=webkit run_compose_test vanilla-webkit box boxes"
-    error_regex: "Test timeout of 90000ms exceeded."
-    owners:
-      - *esau
-
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.
@@ -243,6 +245,10 @@ tests:
     error_regex: "Is the docker daemon running"
     owners:
       - *charlie
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "code: 124"
+    owners:
+      - *esau
 
   # Slack testing.
   - regex: "nonsense to match"

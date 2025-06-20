@@ -1,5 +1,5 @@
 use crate::macros::utils::{
-    add_to_field_slice, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_view,
+    add_to_field_slice, AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
 };
 use std::meta::{type_of, unquote};
 
@@ -33,7 +33,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
                 create_private_stub(f)
             }
         }
-    } else {
+    } else if is_fn_public(f) {
         if is_static_call {
             if is_void {
                 create_public_static_void_stub(f)
@@ -46,6 +46,12 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
             } else {
                 create_public_stub(f)
             }
+        }
+    } else {
+        if is_void {
+            create_utility_void_stub(f)
+        } else {
+            create_utility_stub(f)
         }
     }
 }
@@ -237,6 +243,49 @@ comptime fn create_public_static_void_stub(f: FunctionDefinition) -> Quoted {
                 selector,
                 $fn_name_str,
                 serialized_args
+            )
+        }
+    }
+}
+
+comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
+    quote {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
+            $serialized_args_slice_construction
+            let selector = $FROM_FIELD($fn_selector);
+            dep::aztec::context::call_interfaces::UtilityCallInterface::new(
+                self.target_contract,
+                selector,
+                $fn_name_str,
+                $SERIALIZED_ARGS_SLICE_NAME,
+            )
+        }
+    }
+}
+
+comptime fn create_utility_void_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_slice_construction, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+
+    // This is here because utility function call interfaces can only be used within TXe tests.
+    let modified_fn_name = f"_experimental_{fn_name}".quoted_contents();
+
+    quote {
+        pub fn $modified_fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityVoidCallInterface<$fn_name_len> {
+            $serialized_args_slice_construction
+            let selector = $FROM_FIELD($fn_selector);
+            dep::aztec::context::call_interfaces::UtilityVoidCallInterface::new(
+                self.target_contract,
+                selector,
+                $fn_name_str,
+                $SERIALIZED_ARGS_SLICE_NAME,
             )
         }
     }

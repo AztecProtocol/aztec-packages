@@ -4,8 +4,8 @@
 export interface BlobJson {
   blob: string;
   index: string;
-  // eslint-disable-next-line camelcase
+
   kzg_commitment: string;
-  // eslint-disable-next-line camelcase
+
   kzg_proof: string;
 }

@@ -1,4 +1,4 @@
-import type { ENR, P2P, P2PConfig, P2PSyncState } from '@aztec/p2p';
+import type { ENR, P2P, P2PBlockReceivedCallback, P2PConfig, P2PSyncState } from '@aztec/p2p';
 import type { L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockAttestation, BlockProposal } from '@aztec/stdlib/p2p';
@@ -12,6 +12,7 @@ export class DummyP2P implements P2P {
   public clear(): Promise<void> {
     throw new Error('DummyP2P does not implement "clear".');
   }
+
   public getPendingTxs(): Promise<Tx[]> {
     throw new Error('DummyP2P does not implement "getPendingTxs"');
   }
@@ -24,11 +25,11 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getPeers"');
   }
 
-  public broadcastProposal(_proposal: BlockProposal): void {
+  public broadcastProposal(_proposal: BlockProposal): Promise<void> {
     throw new Error('DummyP2P does not implement "broadcastProposal"');
   }
 
-  public registerBlockProposalHandler(_handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
+  public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
     throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
   }
 
@@ -144,7 +145,7 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "hasTxsInPool"');
   }
 
-  public addTxs(_txs: Tx[]): Promise<void> {
+  public addTxsToPool(_txs: Tx[]): Promise<void> {
     throw new Error('DummyP2P does not implement "addTxs"');
   }
 
@@ -158,5 +159,9 @@ export class DummyP2P implements P2P {
 
   public getSyncedLatestSlot(): Promise<bigint> {
     throw new Error('DummyP2P does not implement "getSyncedLatestSlot"');
+  }
+
+  markTxsAsNonEvictable(_: TxHash[]): Promise<void> {
+    throw new Error('DummyP2P does not implement "markTxsAsNonEvictable".');
   }
 }

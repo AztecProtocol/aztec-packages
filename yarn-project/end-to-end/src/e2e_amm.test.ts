@@ -6,7 +6,6 @@ import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
-import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -129,7 +128,6 @@ describe('AMM', () => {
         .withWallet(liquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
         .with({ authWitnesses: [token0Authwit, token1Authwit] });
-      await capturePrivateExecutionStepsIfEnvSet('amm-add-liquidity', addLiquidityInteraction);
       await addLiquidityInteraction.send().wait();
 
       const ammBalancesAfter = await getAmmBalances();
@@ -240,7 +238,6 @@ describe('AMM', () => {
         .withWallet(swapper)
         .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
         .with({ authWitnesses: [swapAuthwit] });
-      await capturePrivateExecutionStepsIfEnvSet('amm-swap-exact-tokens', swapExactTokensInteraction);
       await swapExactTokensInteraction.send().wait();
 
       // We know exactly how many tokens we're supposed to get because we know nobody else interacted with the AMM

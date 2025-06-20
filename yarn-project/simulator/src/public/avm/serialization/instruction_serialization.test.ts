@@ -2,7 +2,13 @@ import { BufferCursor } from './buffer_cursor.js';
 import { OperandType, deserialize, serializeAs } from './instruction_serialization.js';
 
 class InstA {
-  constructor(private a: number, private b: number, private c: number, private d: bigint, private e: bigint) {}
+  constructor(
+    private a: number,
+    private b: number,
+    private c: number,
+    private d: bigint,
+    private e: bigint,
+  ) {}
 
   static readonly opcode: number = 1;
   static readonly wireFormat: OperandType[] = [

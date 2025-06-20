@@ -121,7 +121,7 @@ export function CreateContractDialog({
           contractArtifact,
           postDeployCtor,
           parameters,
-          initializer.name,
+          initializer?.name,
         );
         opts = {
           contractAddressSalt: salt,
@@ -140,6 +140,9 @@ export function CreateContractDialog({
     setIsRegistering(true);
     try {
       const contract = await node.getContract(AztecAddress.fromString(address));
+      if (!contract) {
+        throw new Error('Contract with this address was not found in node');
+      }
       await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
       onClose(contract);
     } catch (e) {

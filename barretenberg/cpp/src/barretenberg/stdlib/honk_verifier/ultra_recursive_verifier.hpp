@@ -7,7 +7,7 @@
 #pragma once
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
@@ -39,8 +39,11 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using Output = UltraRecursiveVerifierOutput<Builder>;
 
     explicit UltraRecursiveVerifier_(Builder* builder,
-                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
-    explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
+                                     const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    explicit UltraRecursiveVerifier_(Builder* builder,
+                                     const std::shared_ptr<VerificationKey>& vkey,
+                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const HonkProof& proof);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(

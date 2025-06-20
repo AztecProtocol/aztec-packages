@@ -11,12 +11,27 @@ contract FinaliseWithdrawTest is StakingBase {
   function test_GivenStatusIsNotExiting() external {
     // it revert
 
-    for (uint256 i = 0; i < 3; i++) {
-      staking.cheat__SetStatus(ATTESTER, Status(i));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
-      staking.finaliseWithdraw(ATTESTER);
-    }
+    stakingAsset.mint(address(this), MINIMUM_STAKE);
+    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+
+    staking.deposit({
+      _attester: ATTESTER,
+      _proposer: PROPOSER,
+      _withdrawer: WITHDRAWER,
+      _amount: MINIMUM_STAKE
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
+
+    vm.prank(SLASHER);
+    staking.slash(ATTESTER, MINIMUM_STAKE);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotExiting.selector, ATTESTER));
+    staking.finaliseWithdraw(ATTESTER);
   }
 
   modifier givenStatusIsExiting() {
@@ -31,9 +46,6 @@ contract FinaliseWithdrawTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: MINIMUM_STAKE
     });
-
-    // Progress into the next epoch
-    staking.cheat__progressEpoch();
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);

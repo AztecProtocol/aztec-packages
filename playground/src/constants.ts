@@ -1,4 +1,3 @@
-export const BLOCK_EXPLORER_TX_URL = 'https://aztecscan.xyz/tx-effects/';
 export const PLAYGROUND_URL = 'https://play.aztec.network/'; // TODO: this should be based on the network
 export const DISCORD_URL = 'https://discord.gg/aztec';
 
@@ -8,7 +7,7 @@ export const PREDEFINED_CONTRACTS = {
   CUSTOM_UPLOAD: 'custom_upload',
 };
 
-export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+export const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
 
 export const TX_TIMEOUT = 180;
 

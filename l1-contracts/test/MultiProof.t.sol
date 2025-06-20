@@ -23,7 +23,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
-
+import {RollupBuilder} from "./builder/RollupBuilder.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -61,35 +61,19 @@ contract MultiProofTest is RollupBase {
    */
   modifier setUpFor(string memory _name) {
     {
-      testERC20 = new TestERC20("test", "TEST", address(this));
-
       DecoderBase.Full memory full = load(_name);
       uint256 slotNumber = full.block.decodedHeader.slotNumber;
       uint256 initialTime = full.block.decodedHeader.timestamp - slotNumber * SLOT_DURATION;
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this), IERC20(address(testERC20)));
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+    RollupBuilder builder = new RollupBuilder(address(this));
+    builder.deploy();
 
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
-
-    rollup = IInstance(
-      address(
-        new Rollup(
-          testERC20,
-          rewardDistributor,
-          testERC20,
-          address(this),
-          TestConstants.getGenesisState(),
-          TestConstants.getRollupConfigInput()
-        )
-      )
-    );
+    rollup = IInstance(address(builder.getConfig().rollup));
+    testERC20 = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-
-    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }

@@ -2,7 +2,7 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {TimeStorage, TimeLib, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeStorage, Timestamp, TimeLib, Epoch, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 
 contract TimeCheater {
@@ -54,6 +54,18 @@ contract TimeCheater {
         )
       )
     );
+
+    TimeLib.initialize(
+      _timeStorage.genesisTime, _timeStorage.slotDuration, _timeStorage.epochDuration
+    );
+  }
+
+  function epochToTimestamp(Epoch _epoch) public view returns (Timestamp) {
+    return TimeLib.toTimestamp(_epoch);
+  }
+
+  function slotToTimestamp(Slot _slot) public view returns (Timestamp) {
+    return TimeLib.toTimestamp(_slot);
   }
 
   function cheat__setEpochNow(uint256 _epoch) public {

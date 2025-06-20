@@ -24,6 +24,8 @@ import { serializeWithMessagePack } from './message_pack.js';
 // At some point it might be worth writing Zod schemas for all dependent types and get rid of that.
 export class AvmCircuitPublicInputs {
   constructor(
+    ///////////////////////////////////
+    // Inputs.
     public globalVariables: GlobalVariables,
     public startTreeSnapshots: TreeSnapshots,
     public startGasUsed: Gas,
@@ -36,6 +38,8 @@ export class AvmCircuitPublicInputs {
     public previousRevertibleAccumulatedDataArrayLengths: PrivateToAvmAccumulatedDataArrayLengths,
     public previousNonRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
     public previousRevertibleAccumulatedData: PrivateToAvmAccumulatedData,
+    ///////////////////////////////////
+    // Outputs.
     public endTreeSnapshots: TreeSnapshots,
     public endGasUsed: Gas,
     public accumulatedData: AvmAccumulatedData,
@@ -180,6 +184,28 @@ export class AvmCircuitPublicInputs {
       reader.readField(),
       reader.readBoolean(),
     );
+  }
+
+  toFields() {
+    return [
+      ...this.globalVariables.toFields(),
+      ...this.startTreeSnapshots.toFields(),
+      ...this.startGasUsed.toFields(),
+      ...this.gasSettings.toFields(),
+      this.feePayer,
+      ...this.publicSetupCallRequests.map(request => request.toFields()),
+      ...this.publicAppLogicCallRequests.map(request => request.toFields()),
+      ...this.publicTeardownCallRequest.toFields(),
+      ...this.previousNonRevertibleAccumulatedDataArrayLengths.toFields(),
+      ...this.previousRevertibleAccumulatedDataArrayLengths.toFields(),
+      ...this.previousNonRevertibleAccumulatedData.toFields(),
+      ...this.previousRevertibleAccumulatedData.toFields(),
+      ...this.endTreeSnapshots.toFields(),
+      ...this.endGasUsed.toFields(),
+      ...this.accumulatedData.toFields(),
+      this.transactionFee,
+      this.reverted,
+    ];
   }
 
   static empty() {

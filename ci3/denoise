@@ -12,11 +12,33 @@ cmd=$1
 
 if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
   set -e
-  bash -c "$cmd"
+  exec bash -c "$cmd"
   exit 0
 fi
 
-dots_per_line=${LINE_WIDTH:-64}
+function cleanup {
+  set +e
+  if [ -n "${publish_pid:-}" ]; then
+    kill $publish_pid &>/dev/null
+    wait $publish_pid
+    publish_pid=
+  fi
+  if [ -n "${job_pid:-}" ]; then
+    kill $job_pid &>/dev/null
+    wait $job_pid
+    job_pid=
+  fi
+  if [ -n "${tail_pid:-}" ]; then
+    kill $tail_pid &>/dev/null
+    wait $tail_pid
+    tail_pid=
+  fi
+}
+trap cleanup SIGINT SIGTERM
+# Remove file on exit, so we can publish even after SIGINT or SIGTERM.
+trap 'cleanup; rm -f $outfile' EXIT
+
+dots_per_line=${DENOISE_WIDTH:-64}
 dot_count=0
 status="in-progress"
 time="in-progress"
@@ -30,7 +52,6 @@ export FORCE_COLOR=${FORCE_COLOR:-1}
 key=$(uuid)
 url=http://ci.aztec-labs.com/$key
 outfile=/tmp/$key
-trap 'rm -f $outfile' EXIT
 touch $outfile
 
 function publish_log {
@@ -65,24 +86,32 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_info="(${yellow}${url}${reset})"
 fi
 
-# Execute the command and process the output, allow for errors.
+# Dot logging.
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
-PARENT_LOG_URL=$url bash -c "$cmd" 2>&1 | redact | while IFS= read -r line; do
-  ((dot_count++))
-  [ $realtime -eq 1 ] && printf "."
-  if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
-    [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
-    printf "\n%4s " "$dot_count"
-  fi
-  printf "%s\n" "$line" >> $outfile
-done;
-# Get the exit status of the command
-status=${PIPESTATUS[0]}
+tail --sleep-interval=0.2 -n +1 -f "$outfile" > >(
+  while IFS= read -r line; do
+    dot_count=$((dot_count+1))
+    [ $realtime -eq 1 ] && printf "."
+    if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+      [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
+      printf "\n%4s " "$dot_count"
+    fi
+  done
+) &
+tail_pid=$!
+
+# Execute the command in background.
+PARENT_LOG_URL=$url bash -c "$cmd" <&0 > $outfile 2>&1 &
+job_pid=$!
+
+# Wait for the job to finish and get its exit status.
+wait $job_pid
+status=$?
 
 time="${SECONDS}s"
-[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
+[ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
 publish_log
 
 # Handle non-zero exit status

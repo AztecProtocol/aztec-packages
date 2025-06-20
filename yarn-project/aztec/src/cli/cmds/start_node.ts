@@ -1,8 +1,8 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
-import { Fr } from '@aztec/aztec.js';
+import { EthAddress, Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, getAddressFromPrivateKey, getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
 import { AztecNodeAdminApiSchema, AztecNodeApiSchema, type PXE } from '@aztec/stdlib/interfaces/client';
@@ -18,7 +18,12 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
-import { extractNamespacedOptions, extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
+import {
+  extractNamespacedOptions,
+  extractRelevantOptions,
+  preloadCrsDataForVerifying,
+  setupUpdateMonitor,
+} from '../util.js';
 
 export async function startNode(
   options: any,
@@ -58,6 +63,9 @@ export async function startNode(
   const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
+  const followsCanonicalRollup =
+    typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
@@ -140,6 +148,7 @@ export async function startNode(
       }
     }
     nodeConfig.publisherPrivateKey = sequencerConfig.publisherPrivateKey;
+    nodeConfig.coinbase ??= EthAddress.fromString(getAddressFromPrivateKey(nodeConfig.publisherPrivateKey));
   }
 
   if (nodeConfig.p2pEnabled) {
@@ -174,6 +183,18 @@ export async function startNode(
   if (options.bot) {
     const { addBot } = await import('./start_bot.js');
     await addBot(options, signalHandlers, services, { pxe, node, telemetry });
+  }
+
+  if (nodeConfig.autoUpdate !== 'disabled' && nodeConfig.autoUpdateUrl) {
+    await setupUpdateMonitor(
+      nodeConfig.autoUpdate,
+      new URL(nodeConfig.autoUpdateUrl),
+      followsCanonicalRollup,
+      getPublicClient(nodeConfig!),
+      nodeConfig.l1Contracts.registryAddress,
+      signalHandlers,
+      async config => node.setConfig((await AztecNodeAdminApiSchema.setConfig.parameters().parseAsync([config]))[0]),
+    );
   }
 
   return { config: nodeConfig };

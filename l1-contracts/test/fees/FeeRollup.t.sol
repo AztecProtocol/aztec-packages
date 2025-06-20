@@ -54,6 +54,8 @@ import {
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
 
 import {MinimalFeeModel} from "./MinimalFeeModel.sol";
+import {RollupBuilder} from "../builder/RollupBuilder.sol";
+
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 100000000;
@@ -99,34 +101,14 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     vm.fee(l1Metadata[0].base_fee);
     vm.blobBaseFee(l1Metadata[0].blob_fee);
 
-    asset = new TestERC20("test", "TEST", address(this));
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
+    builder.deploy();
 
-    Registry registry = new Registry(address(this), asset);
-    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
-
-    rollup = new Rollup(
-      asset,
-      IRewardDistributor(address(rewardDistributor)),
-      asset,
-      address(this),
-      TestConstants.getGenesisState(),
-      RollupConfigInput({
-        aztecSlotDuration: SLOT_DURATION,
-        aztecEpochDuration: EPOCH_DURATION,
-        targetCommitteeSize: 48,
-        aztecProofSubmissionWindow: EPOCH_DURATION * 2 - 1,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE,
-        manaTarget: MANA_TARGET,
-        provingCostPerMana: provingCost
-      })
-    );
-
-    registry.addRollup(IRollup(address(rollup)));
-
-    asset.mint(address(rewardDistributor), 1e6 * rewardDistributor.BLOCK_REWARD());
-    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
+    rollup = builder.getConfig().rollup;
+    rewardDistributor = builder.getConfig().rewardDistributor;
+    asset = builder.getConfig().testERC20;
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");

@@ -10,8 +10,8 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
@@ -56,6 +56,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
             this->pub_inputs_offset = proving_key.pub_inputs_offset;
 
             if (proving_key.commitment_key == nullptr) {
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1420): pass commitment keys by value
                 proving_key.commitment_key = std::make_shared<CommitmentKey>(proving_key.circuit_size);
             }
             for (auto [polynomial, commitment] : zip_view(proving_key.polynomials.get_precomputed(), this->get_all())) {

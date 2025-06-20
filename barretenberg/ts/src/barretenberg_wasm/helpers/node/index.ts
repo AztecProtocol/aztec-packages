@@ -42,3 +42,14 @@ export function killSelf(): never {
   process.kill(process.pid);
   throw new Error();
 }
+
+export function getAvailableThreads(logger: (msg: string) => void): number {
+  try {
+    return os.cpus().length;
+  } catch (e: any) {
+    logger(
+      `Could not detect environment to query number of threads. Falling back to one thread. Error: ${e.message ?? e}`,
+    );
+    return 1;
+  }
+}

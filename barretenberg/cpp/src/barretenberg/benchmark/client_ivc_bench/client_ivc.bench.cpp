@@ -23,8 +23,7 @@ class ClientIVCBench : public benchmark::Fixture {
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     }
 };
 
@@ -44,7 +43,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
         ivc.prove();
     }
 }
-
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  * @details Processes "dense" circuits of size 2^17 in a size 2^20 structured trace

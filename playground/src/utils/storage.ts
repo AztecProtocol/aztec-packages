@@ -116,6 +116,11 @@ export class WalletDB {
   }
 
   async storeContract(address: AztecAddress, artifact: ContractArtifact, log: LogFn = this.#userLog, alias?: string) {
+    const existing = await this.#aliases.getAsync(`artifacts:${address.toString()}`);
+    if (existing) {
+      throw new Error('Contract with this address already exists');
+    }
+
     if (alias) {
       await this.#aliases.set(`contracts:${alias}`, Buffer.from(address.toString()));
       await this.#aliases.set(`artifacts:${alias}`, Buffer.from(stringify(artifact)));

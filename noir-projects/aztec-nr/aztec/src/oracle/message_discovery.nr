@@ -1,17 +1,17 @@
 use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use dep::protocol_types::{
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
+    constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_SIZE_IN_FIELDS},
 };
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
 /// them available for later processing in Noir by storing them in a capsule array.
-pub unconstrained fn sync_notes(pending_tagged_log_array_base_slot: Field) {
-    sync_notes_oracle(pending_tagged_log_array_base_slot);
+pub unconstrained fn fetch_tagged_logs(pending_tagged_log_array_base_slot: Field) {
+    fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot);
 }
 
-#[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle(pending_tagged_log_array_base_slot: Field) {}
+#[oracle(fetchTaggedLogs)]
+unconstrained fn fetch_tagged_logs_oracle(pending_tagged_log_array_base_slot: Field) {}
 
 /// Informs PXE of a note's existence so that it can later be retrieved by the `getNotes` oracle. The note will be
 /// scoped to `contract_address`, meaning other contracts will not be able to access it unless authorized.
@@ -53,7 +53,8 @@ pub unconstrained fn deliver_note(
 // TODO(#11639): this could also be used to fetch private logs, but the `BoundedVec` maximum length is that of a public
 // log.
 pub struct LogWithTxData {
-    pub log_content: BoundedVec<Field, PUBLIC_LOG_DATA_SIZE_IN_FIELDS>,
+    // The log fields length is PUBLIC_LOG_SIZE_IN_FIELDS. + 1 because the contract address is prepended to the content.
+    pub log_content: BoundedVec<Field, PUBLIC_LOG_SIZE_IN_FIELDS + 1>,
     pub tx_hash: Field,
     /// The array of new note hashes created by `tx_hash`
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,

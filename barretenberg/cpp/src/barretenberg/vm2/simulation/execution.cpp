@@ -85,9 +85,27 @@ void Execution::call(ContextInterface& context,
     set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address });
 }
 
-void Execution::ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset)
+void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
-    set_execution_result({ .rd_offset = ret_offset, .rd_size = ret_size_offset, .success = true });
+    auto& memory = context.get_memory();
+    auto get_ret_size = memory.get(ret_size_offset);
+    // TODO(ilyas): check this is a U32
+    auto rd_size = get_ret_size.as<uint32_t>();
+    set_execution_result({ .rd_offset = ret_offset, .rd_size = rd_size, .success = true });
+
+    set_inputs({ get_ret_size });
+    context.halt();
+}
+
+void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
+{
+    auto& memory = context.get_memory();
+    auto get_rev_size = memory.get(rev_size_offset);
+    // TODO(ilyas): check this is a U32
+    auto rd_size = get_rev_size.as<uint32_t>();
+    set_execution_result({ .rd_offset = rev_offset, .rd_size = rd_size, .success = false });
+
+    set_inputs({ get_rev_size });
     context.halt();
 }
 
@@ -164,9 +182,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             info("Error: ", e.what());
             // Bah, we are done (for now).
             // TODO: we eventually want this to just set and handle exceptional halt.
-            return {
-                .success = true,
-            };
+            throw std::runtime_error("Execution loop error: " + std::string(e.what()));
         }
 
         events.emit(std::move(ex_event));
@@ -227,6 +243,7 @@ void Execution::emit_context_snapshot(ContextInterface& context)
 {
     ctx_stack_events.emit({ .id = context.get_context_id(),
                             .parent_id = context.get_parent_id(),
+                            .entered_context_id = execution_components.get_next_context_id(),
                             .next_pc = context.get_next_pc(),
                             .msg_sender = context.get_msg_sender(),
                             .contract_addr = context.get_address(),

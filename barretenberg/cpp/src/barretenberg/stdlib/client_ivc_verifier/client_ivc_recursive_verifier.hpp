@@ -22,17 +22,13 @@ class ClientIVCRecursiveVerifier {
     using Flavor = RecursiveFlavor::NativeFlavor;
     using VerificationKey = Flavor::VerificationKey;
     using IVCVerificationKey = ClientIVC::VerificationKey;
+    using Transcript = GoblinRecursiveVerifier::Transcript;
 
   public:
     using Proof = ClientIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerificationKey = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
-
-    struct VerifierInput {
-        std::shared_ptr<VerificationKey> mega_verification_key;
-        GoblinVerificationKey goblin_input;
-    };
 
     ClientIVCRecursiveVerifier(std::shared_ptr<Builder> builder, IVCVerificationKey& ivc_verification_key)
         : builder(builder)

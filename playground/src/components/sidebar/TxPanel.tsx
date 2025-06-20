@@ -13,6 +13,7 @@ import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/con
 import { TxHash, TxStatus } from '@aztec/aztec.js';
 import { TransactionModal } from '../common/TransactionModal';
 import { useLocalStorage } from '@uidotdev/usehooks';
+import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
 
 const TX_ERRORS = [
   'error',
@@ -348,29 +349,41 @@ export function TxPanel() {
         )}
 
         {transactions.length > 0 &&
-          transactions.map(tx => (
-            <Button
-              css={txData}
-              key={tx.txHash?.toString() ?? ''}
-              onClick={() => {
-                setSelectedTx(tx);
-                setIsTransactionModalOpen(true);
-              }}
-            >
-              <Typography variant="overline">{tx.name}</Typography>
-              <div css={{ display: 'flex' }}>
-                <Typography variant="body2">
-                  {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
-                  &nbsp;-&nbsp;
-                </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                  {tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase()}
-                  &nbsp;
-                  {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
-                </Typography>
+          transactions.map(tx => {
+            const status = tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase();
+
+            return (
+              <div
+                role="button"
+                css={txData}
+                key={tx.txHash?.toString() ?? ''}
+                onClick={() => {
+                  setSelectedTx(tx);
+                  setIsTransactionModalOpen(true);
+                }}
+              >
+                <Typography variant="overline" sx={{ lineHeight: '1.5', marginBottom: '0.5rem' }}>{tx.name}</Typography>
+                <div css={{ display: 'flex', width: '100%' }}>
+                  <Typography variant="caption" sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <div style={{ textAlign: 'justify', width: '110px' }}>
+                        {tx.txHash ? formatFrAsString(tx.txHash.toString(), 6) : '()'}
+                      </div>
+                      <CopyToClipboardButton
+                        data={tx.txHash?.toString() ?? ''}
+                        disabled={!tx.txHash}
+                        sx={{ '& svg': { fontSize: '14px' }, height: '1rem' }}
+                      />
+                    </div>
+                    <Typography variant="caption">{status}</Typography>
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
+                  </Typography>
+                </div>
               </div>
-            </Button>
-          ))}
+            )
+          })}
       </div>
 
       <TransactionModal

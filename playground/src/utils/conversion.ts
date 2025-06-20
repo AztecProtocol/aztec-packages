@@ -1,5 +1,5 @@
-export const formatFrAsString = (addressAsString: string) => {
-  return `${addressAsString.slice(0, 6)}...${addressAsString.slice(-4)}`;
+export const formatFrAsString = (addressAsString: string, sliceLength: number = 4) => {
+  return `${addressAsString.slice(0, sliceLength + 2)}...${addressAsString.slice(-sliceLength)}`;
 };
 
 export const parseAliasedBuffersAsString = (aliasedBuffers: { key: string; value: string }[]) => {

@@ -6,7 +6,8 @@ import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
+import path from 'path';
 
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
@@ -25,6 +26,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   afterAll(() => {
     if (process.env.BENCH_OUTPUT) {
+      mkdirSync(path.dirname(process.env.BENCH_OUTPUT), { recursive: true });
       writeFileSync(process.env.BENCH_OUTPUT, metrics.toGithubActionBenchmarkJSON());
     } else if (process.env.BENCH_OUTPUT_MD) {
       writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());

@@ -8,8 +8,8 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
@@ -38,7 +38,7 @@ class ECCVMProver {
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                         const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
     BB_PROFILE void execute_wire_commitments_round();

@@ -17,6 +17,7 @@ namespace bb::avm2::simulation {
 struct ExecutionEvent {
     // For sorting in tracegen.
     uint32_t order;
+    bool error = false;
 
     BytecodeId bytecode_id;
     Instruction wire_instruction;

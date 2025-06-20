@@ -1,8 +1,9 @@
 import type { ProofData } from "@aztec/bb.js";
-import createDebug from "debug";
+import { pino } from "pino";
 
-createDebug.enable("*");
-const debug = createDebug("browser-test-app");
+const logger = pino({
+  name: "browser-test-app",
+});
 
 async function prove(
   bytecode: string,
@@ -11,13 +12,13 @@ async function prove(
 ): Promise<{ proofData: ProofData; verificationKey: Uint8Array }> {
   const { UltraHonkBackend } = await import("@aztec/bb.js");
 
-  debug("starting test...");
+  logger.debug("starting test...");
   const backend = new UltraHonkBackend(bytecode, { threads });
   const proofData = await backend.generateProof(witness);
 
-  debug(`getting the verification key...`);
+  logger.debug(`getting the verification key...`);
   const verificationKey = await backend.getVerificationKey();
-  debug(`destroying the backend...`);
+  logger.debug(`destroying the backend...`);
   await backend.destroy();
   return { proofData, verificationKey };
 }
@@ -25,17 +26,17 @@ async function prove(
 async function verify(proofData: ProofData, verificationKey: Uint8Array) {
   const { BarretenbergVerifier } = await import("@aztec/bb.js");
 
-  debug(`verifying...`);
+  logger.debug(`verifying...`);
   const verifier = new BarretenbergVerifier();
   const verified = await verifier.verifyUltraHonkProof(
     proofData,
     verificationKey
   );
-  debug(`verified: ${verified}`);
+  logger.debug(`verified: ${verified}`);
 
   await verifier.destroy();
 
-  debug("test complete.");
+  logger.debug("test complete.");
   return verified;
 }
 

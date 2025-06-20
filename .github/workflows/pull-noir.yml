@@ -23,6 +23,9 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
       # Determine if there is already a PR to overwrite, and the current plus latest tags.
       - name: Check for existing PR
         run: |

@@ -7,8 +7,8 @@
 #pragma once
 #include <utility>
 
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
@@ -39,6 +39,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
+    ecc_op_tuple queue_ecc_no_op();
 
     // Metadata for propagating databus return data commitments via the public input mechanism
     DatabusPropagationData databus_propagation_data;

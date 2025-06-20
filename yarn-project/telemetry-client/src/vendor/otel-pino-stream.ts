@@ -23,9 +23,6 @@ import { Writable } from 'stream';
 import { registerOtelLoggerProvider } from '../otel_logger_provider.js';
 import { getOtelResource } from '../otel_resource.js';
 
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable camelcase */
-
 // This block is a copy (modulo code style and TypeScript types) of the Pino
 // code that defines log level value and names. This file is part of
 // *instrumenting* Pino, so we want to avoid a dependency on the library.

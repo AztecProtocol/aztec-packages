@@ -15,9 +15,9 @@ import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
-// Setup snapshots will create a node with index 0, so all of our loops here
-// need to start from 1 to avoid running validators with the same key
-export const PROPOSER_PRIVATE_KEYS_START_INDEX = 1;
+// Setup snapshots will create a node with index 0, and run extra bootstrap with
+// index 1, so all of our loops here need to start from 2 to avoid running validators with the same key
+export const PROPOSER_PRIVATE_KEYS_START_INDEX = 2;
 export const ATTESTER_PRIVATE_KEYS_START_INDEX = 1001;
 
 export interface NodeContext {

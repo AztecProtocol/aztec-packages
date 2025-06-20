@@ -16,8 +16,9 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ ! -v NOIR_HASH ]; then
+if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  [ -n "$NOIR_HASH" ]
 fi
 
 function encourage_dev_container {
@@ -92,7 +93,7 @@ function check_toolchains {
     fi
   done
   # Check Node.js version.
-  local node_min_version="18.19.0"
+  local node_min_version="22.15.0"
   local node_installed_version=$(node --version | cut -d 'v' -f 2)
   if [[ "$(printf '%s\n' "$node_min_version" "$node_installed_version" | sort -V | head -n1)" != "$node_min_version" ]]; then
     encourage_dev_container
@@ -149,7 +150,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -194,6 +195,7 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   tests=$(test_cmds $@)
+
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
@@ -211,31 +213,59 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  # These projects are dependant on each other and must be built linearly
-  dependent_projects=(
+  # These projects are dependent on each other and must be built linearly.
+  serial_projects=(
     noir
     barretenberg
     avm-transpiler
     noir-projects
-    # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
   )
-  # These projects rely on the output of the dependant projects and can be built in parallel
-  non_dependent_projects=(
-    boxes
-    playground
-    docs
-    release-image
-    spartan
-    aztec-up
+  # These projects can be built in parallel.
+  parallel_cmds=(
+    boxes/bootstrap.sh
+    playground/bootstrap.sh
+    docs/bootstrap.sh
+    release-image/bootstrap.sh
+    spartan/bootstrap.sh
+    aztec-up/bootstrap.sh
   )
 
-  for project in "${dependent_projects[@]}"; do
+  for project in "${serial_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}/bootstrap.sh ${1:-}'" ::: ${non_dependent_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+}
+
+function bench_cmds {
+  if [ "$#" -eq 0 ]; then
+    # Ordered with longest running first, to ensure they get scheduled earliest.
+    set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
+  fi
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+}
+
+function build_bench {
+  # TODO bench for arm64.
+  if [ $(arch) == arm64 ]; then
+    return
+  fi
+  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
+    barretenberg/cpp \
+    yarn-project/end-to-end
+}
+export -f build_bench
+
+function bench_merge {
+  find . -path "*/bench-out/*.bench.json" -type f -print0 | \
+  xargs -0 -I{} bash -c '
+    dir=$1; \
+    dir=${dir#./}; \
+    dir=${dir%/bench-out*}; \
+    jq --arg prefix "$dir/" '\''map(.name |= "\($prefix)\(.)")'\'' "$1"
+  ' _ {} | jq -s add > bench-out/bench.json
 }
 
 function bench {
@@ -243,12 +273,14 @@ function bench {
   if [ $(arch) == arm64 ]; then
     return
   fi
-  denoise "barretenberg/bootstrap.sh bench"
-  denoise "noir-projects/noir-protocol-circuits/bootstrap.sh bench"
-  denoise "yarn-project/simulator/bootstrap.sh bench"
-  denoise "l1-contracts/bootstrap.sh bench"
-  denoise "yarn-project/end-to-end/bootstrap.sh bench"
-  # denoise "yarn-project/p2p/bootstrap.sh bench"
+  echo_header "bench all"
+  build_bench
+  find . -type d -iname bench-out | xargs rm -rf
+  bench_cmds | STRICT_SCHEDULING=1 parallelise
+  rm -rf bench-out
+  mkdir -p bench-out
+  bench_merge
+  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
 }
 
 function release_github {
@@ -281,7 +313,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   playground => publish if dist tag is latest. TODO Link build in github release.
+  #   playground => publish if dist tag is latest.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -349,34 +381,46 @@ case "$cmd" in
   ;;
   ""|"fast"|"full")
     install_hooks
-    build $cmd
-  ;;
-  "ci")
     build
-    if ! semver check $REF_NAME; then
-      test
-      bench
-      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
-    else
-      release
-      if [ "$CI_NIGHTLY" -eq 1 ]; then
-        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
-        test
-      else
-        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
-      fi
-    fi
-
-    if [ "$REF_NAME" = "master" ]; then
-      docs/bootstrap.sh release-docs
-    fi
+  ;;
+  "ci-fast")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=0
+    build
+    test
     ;;
-  test|test_cmds|bench|release|release_dryrun)
+  "ci-full")
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=1
+    build
+    test
+    bench
+    ;;
+  "ci-nightly")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_NIGHTLY=1
+    build
+    test
+    release
+    docs/bootstrap.sh release-docs
+    ;;
+  "ci-release")
+    export CI=1
+    export USE_TEST_CACHE=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    build
+    release
+    ;;
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"
     ;;
   *)
     echo "Unknown command: $cmd"
-    echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
     exit 1
   ;;
 esac

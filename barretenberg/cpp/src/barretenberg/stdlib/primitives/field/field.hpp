@@ -13,6 +13,17 @@
 
 namespace bb::stdlib {
 
+// Recursive helper to determine first non-null ptr to avoid sequential ternary choices.
+template <typename T> T* first_non_null(T* ptr)
+{
+    return ptr;
+}
+
+template <typename T, typename... Ts> T* first_non_null(T* first, Ts*... rest)
+{
+    return first ? first : first_non_null(rest...);
+}
+
 template <typename Builder> class bool_t;
 template <typename Builder> class field_t {
   public:
@@ -184,13 +195,6 @@ template <typename Builder> class field_t {
 
     field_t invert() const { return (field_t(1) / field_t(*this)).normalize(); }
 
-    static field_t coset_generator(const size_t generator_idx)
-    {
-        return field_t(bb::fr::coset_generator(generator_idx));
-    }
-
-    static field_t external_coset_generator() { return field_t(bb::fr::external_coset_generator()); }
-
     field_t operator-() const
     {
         field_t result(*this);
@@ -290,7 +294,7 @@ template <typename Builder> class field_t {
     uint32_t set_public() const { return context->set_public_input(normalize().witness_index); }
 
     /**
-     * Create a witness form a constant. This way the value of the witness is fixed and public (public, because the
+     * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
      * value becomes hard-coded as an element of the q_c selector vector).
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
@@ -328,14 +332,13 @@ template <typename Builder> class field_t {
      * @brief  Get the index of a normalized version of this element
      *
      * @details Most of the time when using field elements in other parts of stdlib we want to use this API instead of
-     * get_witness index. The reason is it will prevent some soundess vulnerabilities
+     * get_witness index. The reason is it will prevent some soundness vulnerabilities
      *
      * @return uint32_t
      */
     uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
 
     std::vector<bool_t<Builder>> decompose_into_bits(
-        size_t num_bits = 256,
         std::function<witness_t<Builder>(Builder* ctx, uint64_t, uint256_t)> get_bit =
             [](Builder* ctx, uint64_t j, const uint256_t& val) {
                 return witness_t<Builder>(ctx, val.get_bit(j));
@@ -343,11 +346,11 @@ template <typename Builder> class field_t {
 
     /**
      * @brief Return (a < b) as bool circuit type.
-     *        This method *assumes* that both a and b are < 2^{input_bits} - 1
+     *        This method *assumes* that both a and b are < 2^{num_bits} - 1
      *        i.e. it is not checked here, we assume this has been done previously
      *
      * @tparam Builder
-     * @tparam input_bits
+     * @tparam num_bits
      * @param a
      * @param b
      * @return bool_t<Builder>
@@ -361,11 +364,12 @@ template <typename Builder> class field_t {
             return uint256_t(a.get_value()) < uint256_t(b.get_value());
         }
 
-        // a < b
-        // both a and b are < K where K = 2^{input_bits} - 1
-        // if a < b, this implies b - a - 1 < K
-        // if a >= b, this implies b - a + K - 1 < K
-        // i.e. (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
+        // Let q = (a < b)
+        // Assume both a and b are < K where K = 2^{num_bits} - 1
+        // if q == 1, then  0 < b - a - 1 < K
+        // if q == 0, then  0 < b - a + K - 1 < K
+        // i.e. for any bool value of q:
+        // (b - a - 1) * q + (b - a + K - 1) * (1 - q) = r < K
         // q.(b - a - b + a) + b - a + K - 1 - (K - 1).q - q = r
         // b - a + (K - 1) - (K).q = r
         uint256_t range_constant = (uint256_t(1) << num_bits);

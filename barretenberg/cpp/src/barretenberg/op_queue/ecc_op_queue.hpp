@@ -193,14 +193,15 @@ class ECCOpQueue {
     }
 
     /**
-     * @brief Write no op (i.e. empty row)
+     * @brief Writes a no op (i.e. two zero rows) to the ultra ops table but adds no eccvm operations.
      *
+     * @details We want to be able to add zero rows (and, eventually, random rows
+     * https://github.com/AztecProtocol/barretenberg/issues/1360) to the ultra ops table without affecting the
+     * operations in the ECCVM.
      */
-    UltraOp no_op()
+    UltraOp no_op_ultra_only()
     {
         EccOpCode op_code{};
-        // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, accumulator);

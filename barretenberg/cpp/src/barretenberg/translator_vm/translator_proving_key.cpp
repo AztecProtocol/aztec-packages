@@ -86,11 +86,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr size_t sort_step = Flavor::SORT_STEP;
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    const size_t full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
     const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
         masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
+    const size_t real_circuit_size = dyadic_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // The value we have to end polynomials with, 2¹⁴ - 1
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;

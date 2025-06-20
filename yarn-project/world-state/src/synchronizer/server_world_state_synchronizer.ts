@@ -53,6 +53,10 @@ export class ServerWorldStateSynchronizer
   private syncPromise = promiseWithResolvers<void>();
   protected blockStream: L2BlockStream | undefined;
 
+  // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalised chain
+  // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
+  private provenBlockNumber: bigint | undefined;
+
   constructor(
     private readonly merkleTreeDb: MerkleTreeAdminDatabase,
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
@@ -248,7 +252,7 @@ export class ServerWorldStateSynchronizer
     return {
       latest: latestBlockId,
       finalized: { number: Number(status.finalisedBlockNumber), hash: '' },
-      proven: { number: Number(status.finalisedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalised as proven for now
+      proven: { number: Number(this.provenBlockNumber ?? status.finalisedBlockNumber), hash: '' }, // TODO(palla/reorg): Using finalised as proven for now
     };
   }
 
@@ -345,6 +349,7 @@ export class ServerWorldStateSynchronizer
   }
 
   private handleChainProven(blockNumber: number) {
+    this.provenBlockNumber = BigInt(blockNumber);
     this.log.debug(`Proven chain is now at block ${blockNumber}`);
     return Promise.resolve();
   }
@@ -353,6 +358,7 @@ export class ServerWorldStateSynchronizer
     this.log.warn(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(BigInt(blockNumber));
     this.latestBlockHashQuery = undefined;
+    this.provenBlockNumber = undefined;
     this.instrumentation.updateWorldStateMetrics(status);
   }
 

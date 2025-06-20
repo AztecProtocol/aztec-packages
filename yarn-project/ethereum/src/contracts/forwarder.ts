@@ -19,7 +19,11 @@ import { RollupContract } from './rollup.js';
 export class ForwarderContract {
   private readonly forwarder: GetContractReturnType<typeof ForwarderAbi, ViemClient>;
 
-  constructor(public readonly client: ExtendedViemWalletClient, address: Hex, public readonly rollupAddress: Hex) {
+  constructor(
+    public readonly client: ExtendedViemWalletClient,
+    address: Hex,
+    public readonly rollupAddress: Hex,
+  ) {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
   }
 

@@ -146,8 +146,8 @@ export function withDelayer<T extends ViemClient>(
             'l1BlockNumber' in waitUntil
               ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
               : 'l1Timestamp' in waitUntil
-              ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
-              : undefined;
+                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
+                : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {
             argsLen: args.length,

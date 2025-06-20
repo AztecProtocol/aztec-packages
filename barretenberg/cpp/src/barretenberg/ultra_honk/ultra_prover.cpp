@@ -41,9 +41,9 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder& circuit)
+UltraProver_<Flavor>::UltraProver_(Builder& circuit, const std::shared_ptr<Transcript>& transcript)
     : proving_key(std::make_shared<DeciderProvingKey>(circuit))
-    , transcript(std::make_shared<Transcript>())
+    , transcript(transcript)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
@@ -56,15 +56,18 @@ UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
 
 template <IsUltraOrMegaHonk Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
-    proof = transcript->proof_data;
     // Add the IPA proof
     if constexpr (HasIPAAccumulator<Flavor>) {
+        proof = transcript->proof_data;
         // The extra calculation is for the IPA proof length.
         BB_ASSERT_EQ(proving_key->proving_key.ipa_proof.size(), static_cast<size_t>(IPA_PROOF_LENGTH));
         proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
+    } else {
+        proof = transcript->export_proof();
     }
     return proof;
 }
+
 template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
     std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);

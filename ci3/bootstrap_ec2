@@ -2,7 +2,7 @@
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 
-cmd=${1:-"./bootstrap.sh ci"}
+cmd=$1
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 
@@ -29,11 +29,7 @@ cores=${CPUS:-$cores}
 function on_exit {
   set +e
   if [ -n "${iid:-}" ]; then
-    if [ "$NO_TERMINATE" -eq 0 ]; then
-      aws_terminate_instance $iid $sir
-    else
-      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
-    fi
+    aws_terminate_instance $iid $sir
     iid=""
   fi
 }
@@ -46,10 +42,13 @@ if [[ "$(git fetch origin --negotiate-only --negotiation-tip=$current_commit)" !
   exit 1
 fi
 
-if [ "$REF_NAME" == "master" ]; then
-  # Allow parallelism on master by having the instance name be the commit.
-  instance_name="$current_commit"_$arch
+# Our instance_name acts as a uniqueness key for the instance.
+# Instances are terminated if they exist with the same name.
+if [[ "$REF_NAME" =~ ^gh-readonly-queue/.*(pr-[0-9]+) ]]; then
+  # In merge queue, use the pr number as the instance name.
+  instance_name="${BASH_REMATCH[1]}_$arch"
 else
+  # In local or pr's, use the branch name as the instance name.
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 
@@ -64,15 +63,17 @@ fi
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 echo_header "request build instance"
-# Terminate any existing instance with the same name.
+# Terminate any existing instances with the same name.
 existing_instance=$(aws ec2 describe-instances \
   --region us-east-2 \
-  --filters "Name=tag:Name,Values=$instance_name" \
+  --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
   --output text)
 if [ -n "$existing_instance" ]; then
-  echo "Terminating existing instance: $existing_instance"
-  aws ec2 --region us-east-2 terminate-instances --instance-ids $existing_instance > /dev/null 2>&1
+  for i in $existing_instance; do
+    echo "Terminating existing instance: $i"
+    aws ec2 --region us-east-2 terminate-instances --instance-ids $i > /dev/null 2>&1
+  done
 fi
 
 # Request new instance.
@@ -97,9 +98,6 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   fi
 fi
 
-# If we're asking to not terminate the instance automatically, we also don't want to remove the container.
-[ "$NO_TERMINATE" -eq 0 ] && docker_args+=" --rm"
-
 # Interactive if stdin is connected to terminal.
 [ -t 0 ] && docker_args+=" -i"
 
@@ -114,6 +112,7 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
+  # We're probably running in CI. Handle aws evictions and add timestamps to the logs.
   run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
@@ -138,13 +137,13 @@ container_script=$(cat <<EOF
   source ci3/source_refname
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
-  export PARENT_LOG_URL=http://ci.aztec-labs.com/\$ci_log_id
+  export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
   function run {
-    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL USE_TEST_CACHE=\$USE_TEST_CACHE CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION TARGET_BRANCH=\$TARGET_BRANCH"
     if semver check "\$REF_NAME"; then
       echo "Performing a release because \$REF_NAME is a semver."
     fi
@@ -155,7 +154,6 @@ container_script=$(cat <<EOF
     local code=\${PIPESTATUS[0]}
     set +x
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    sudo cat /tmp/netfile* | cache_log 'netfile'
     sudo cat /tmp/cpufile | cache_log 'cpufile'
     sudo cat /tmp/memfile | cache_log 'memfile'
     return \$code
@@ -202,65 +200,11 @@ function run {
     echo Done in \$SECONDS seconds.
 
     # Capture net status.
-    echo Installing and starting sysdig...
-    sudo apt-get update &>/dev/null
-    sudo apt-get install -y sysdig net-tools &>/dev/null
-    sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
-    netfile_pid=\$!
-
-    # Tail the sysdig log and watch for "Address already in use" errors.
-    tail -F /tmp/netfile | while read -r line; do
-        if echo \"\$line\" | grep -q EADDRINUSE; then
-            timestamp=\$(echo \"\$line\" | awk '{print \$1}')
-            cid=\$(echo \"\$line\" | grep -oP '(?<=\(cid: )[^\)]+')
-            filename=\"/tmp/netfile-\${timestamp//[:.]/}\"
-
-            echo \"Begin netstat dump for container \$cid at \$timestamp\" > \$filename
-            if [[ \"\$cid\" = \"host\" ]] || [[ -z \"\$cid\" ]]; then
-                # If sysdig reports no container id or the host, run netstat.
-                sudo netstat -tulnp | grep LISTEN >> \$filename;
-
-            else
-                # Otherwise, we get the container pid and use nsenter to inspect it with netstat
-                # We use nsenter to run netstat in the container namespace, without having to install it there
-                pid=\$(docker inspect -f '{{.State.Pid}}' \$cid)
-
-                if [[ -z \"\$pid\" ]]; then
-                    # But we sometimes run docker-in-docker. So the host docker does not know anything about this
-                    # container id, and we need to ask a docker container for it. But the container returns the pid
-                    # from its own process namespace, so we need to manually tell nsenter the namespace to use.
-
-                    echo \"Container \$cid not found at \$(date). Trying nested container.\" >> \$filename;
-                    host_container_id=\$(docker ps | grep aztecprotocol/devbox:3.0 | awk '{print \$1}')
-                    if [[ -z \"\$host_container_id\" ]]; then
-                      echo \"Host container not found. Giving up.\" >> \$filename;
-                      docker ps --no-trunc >> \$filename;
-                      continue;
-                    fi
-
-                    # Get the host container pid and the inner container pid.
-                    host_container_pid=\$(docker inspect -f '{{.State.Pid}}' \$host_container_id)
-                    inner_container_pid=\$(docker exec \$host_container_id docker inspect -f {{.State.Pid}} \$cid)
-                    if [[ -z \"\$host_container_pid\" ]] || [[ -z \"\$inner_container_pid\" ]]; then
-                      echo \"Host or inner container pid not found. Giving up.\" >> \$filename;
-                      continue;
-                    fi
-
-                    # Now run netstat with nsenter using the nested process ids
-                    # This would be easier if I knew a way of mapping the nested pid to the host process namespace, but I didn't manage to do it.
-                    ns_path=/proc/\$host_container_pid/root/proc/\$inner_container_pid/ns;
-                    echo \"Netstat output for container \$cid in container \$host_container_id retrieved from \$ns_path\" >> \$filename;
-                    sudo nsenter --pid=\$ns_path/pid --net=\$ns_path/net netstat -tulnp >> \$filename;
-
-                else
-                  # We found the container pid, just nsenter to it and run netstat.
-                  sudo nsenter -t \$pid -n netstat -tulnp >> \$filename;
-                fi
-            fi
-            echo \"End netstat dump for container \$cid at \$timestamp\" >> \$filename
-        fi
-    done &
-    netstat_pid=\$!
+    # echo Installing and starting sysdig...
+    # sudo apt-get update &>/dev/null
+    # sudo apt-get install -y sysdig net-tools &>/dev/null
+    # sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
+    # netfile_pid=\$!
 
     # Capture cpu load.
     mpstat 2 &> /tmp/cpufile &
@@ -270,36 +214,35 @@ function run {
     vmstat -w -S M 2 &> /tmp/memfile &
     memfile_pid=\$!
 
-    # Kill monitoring processes on exit
-    trap 'sudo kill \$netstat_pid \$netfile_pid \$cpufile_pid \$memfile_pid' EXIT
+    # Kill monitoring processes on exit.
+    trap 'sudo kill \$cpufile_pid \$memfile_pid' EXIT
 
     echo Starting devbox...
-    docker run --privileged ${docker_args:-} \
+    docker run --privileged --rm ${docker_args:-} \
       --name aztec_build \
       --hostname $instance_name \
       -v bootstrap_ci_local_docker:/var/lib/docker \
       -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
       -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
-      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
+      -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
       -v /tmp:/tmp \
       -v /dev/kmsg:/dev/kmsg \
+      -e CI=1 \
       -e RUN_ID=${RUN_ID:-} \
       -e JOB_ID=${JOB_ID:-} \
+      -e REF_NAME=${REF_NAME:-} \
+      -e TARGET_BRANCH=${TARGET_BRANCH:-} \
+      -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
       -e NO_CACHE=${NO_CACHE:-} \
-      -e USE_TEST_CACHE=${USE_TEST_CACHE:-1} \
       -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
       -e SSH_CONNECTION=' ' \
       -e LOCAL_USER_ID=\$(id -u) \
       -e LOCAL_GROUP_ID=\$(id -g) \
-      -e CI=$CI \
-      -e CI_FULL=$CI_FULL \
-      -e CI_NIGHTLY=${CI_NIGHTLY:-0} \
       -e EXTERNAL_ETHEREUM_HOSTS=${EXTERNAL_ETHEREUM_HOSTS:-} \
       -e EXTERNAL_ETHEREUM_CONSENSUS_HOST=${EXTERNAL_ETHEREUM_CONSENSUS_HOST:-} \
       -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY:-} \
       -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
       -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
-      -e DRY_RUN=${DRY_RUN:-0} \
       -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
       -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
       -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
@@ -309,7 +252,6 @@ function run {
       -e NETLIFY_AUTH_TOKEN=${NETLIFY_AUTH_TOKEN:-} \
       -e NPM_TOKEN=${NPM_TOKEN:-} \
       -e SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-} \
-      -e REF_NAME=${REF_NAME:-} \
       -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
       --pids-limit=32768 \
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")

@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -82,6 +82,10 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
+    if (public_inputs.size() != AVM_NUM_PUBLIC_INPUT_COLUMNS) {
+        throw_or_abort("AvmRecursiveVerifier::verify_proof: public inputs size mismatch");
+    }
+
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     RelationParams relation_parameters;
@@ -129,11 +133,18 @@ AvmRecursiveVerifier_<Flavor>::PairingPoints AvmRecursiveVerifier_<Flavor>::veri
     std::vector<FF> mle_challenge(output.challenge.begin(),
                                   output.challenge.begin() + static_cast<int>(log_circuit_size));
 
-    // Simplified public input with a single column
-    // TODO: Extend to multiple columns once public inputs are finalized
-    FF execution_input_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
-    execution_input_evaluation.assert_equal(output.claimed_evaluations.execution_input,
-                                            "execution_input_evaluation failed");
+    std::array<FF, AVM_NUM_PUBLIC_INPUT_COLUMNS> claimed_evaluations = {
+        output.claimed_evaluations.public_inputs_cols_0_,
+        output.claimed_evaluations.public_inputs_cols_1_,
+        output.claimed_evaluations.public_inputs_cols_2_,
+        output.claimed_evaluations.public_inputs_cols_3_,
+    };
+
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        FF public_input_evaluation = evaluate_public_input_column(public_inputs[i], mle_challenge);
+        vinfo("public_input_evaluation failed, public inputs col ", i);
+        public_input_evaluation.assert_equal(claimed_evaluations[i], "public_input_evaluation failed");
+    }
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{

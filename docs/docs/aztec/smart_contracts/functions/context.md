@@ -4,6 +4,8 @@ sidebar_position: 1
 tags: [functions, context]
 ---
 
+import Image from '@theme/IdealImage';
+
 ## What is the context
 
 The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of its side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity.
@@ -55,7 +57,7 @@ The call context contains information about the current call being made:
 
 > The graphic below illustrates how the message sender changes throughout the kernel circuit iterations.
 
-<img src="@site/static/img/context/sender_context_change.png" />
+<Image img={require("@site/static/img/context/sender_context_change.png")} />
 
 2. Storage contract address
 

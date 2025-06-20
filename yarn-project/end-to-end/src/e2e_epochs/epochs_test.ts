@@ -1,8 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, MerkleTreeId, getTimestampRangeForEpoch, retryUntil, sleep } from '@aztec/aztec.js';
 import type { ViemClient } from '@aztec/ethereum';
+import { createExtendedL1Client } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
+import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp, withDelayer } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { withLogNameSuffix } from '@aztec/foundation/log';
 import { ProverNode, ProverNodePublisher } from '@aztec/prover-node';
@@ -14,6 +15,7 @@ import { type L1RollupConstants, getProofSubmissionDeadlineTimestamp } from '@az
 
 import { join } from 'path';
 import type { Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   type EndToEndContext,
@@ -22,11 +24,6 @@ import {
   getPrivateKeyFromIndex,
   setup,
 } from '../fixtures/utils.js';
-
-// This can be lowered to as much as 2s in non-CI
-export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
-export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
-export const L2_SLOT_DURATION_IN_S = L2_SLOT_DURATION_IN_L1_SLOTS * L1_BLOCK_TIME_IN_S;
 
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
@@ -42,6 +39,8 @@ export type EpochsTestOpts = Partial<
     | 'l1PublishRetryIntervalMS'
     | 'txPropagationMaxQueryAttempts'
     | 'proverNodeConfig'
+    | 'ethereumSlotDuration'
+    | 'aztecSlotDuration'
   >
 >;
 
@@ -65,17 +64,33 @@ export class EpochsTestContext {
 
   public epochDuration!: number;
 
+  public L1_BLOCK_TIME_IN_S!: number;
+  public L2_SLOT_DURATION_IN_S!: number;
+
   public static async setup(opts: EpochsTestOpts = {}) {
     const test = new EpochsTestContext();
     await test.setup(opts);
     return test;
   }
 
+  public static getSlotDurations(opts: EpochsTestOpts = {}) {
+    const envEthereumSlotDuration = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
+    const ethereumSlotDuration = opts.ethereumSlotDuration ?? envEthereumSlotDuration;
+    const aztecSlotDuration = opts.aztecSlotDuration ?? ethereumSlotDuration * 2;
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const aztecProofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
+    return { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow };
+  }
+
   public async setup(opts: EpochsTestOpts = {}) {
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionWindow } =
+      EpochsTestContext.getSlotDurations(opts);
+
+    this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
+    this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
+
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
-    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
-    const proofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
     const context = await setup(0, {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
@@ -83,9 +98,9 @@ export class EpochsTestContext {
       skipProtocolContracts: true,
       salt: 1,
       aztecEpochDuration,
-      aztecSlotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
-      ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecProofSubmissionWindow: proofSubmissionWindow,
+      aztecSlotDuration,
+      ethereumSlotDuration,
+      aztecProofSubmissionWindow,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
@@ -127,11 +142,11 @@ export class EpochsTestContext {
     this.epochDuration = aztecEpochDuration;
     this.constants = {
       epochDuration: aztecEpochDuration,
-      slotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
+      slotDuration: aztecSlotDuration,
       l1StartBlock: await this.rollup.getL1StartBlock(),
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
-      ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      proofSubmissionWindow,
+      ethereumSlotDuration,
+      proofSubmissionWindow: aztecProofSubmissionWindow,
     };
 
     this.logger.info(
@@ -185,7 +200,7 @@ export class EpochsTestContext {
   public async waitUntilEpochStarts(epoch: number) {
     const [start] = getTimestampRangeForEpoch(BigInt(epoch), this.constants);
     this.logger.info(`Waiting until L1 timestamp ${start} is reached as the start of epoch ${epoch}`);
-    await waitUntilL1Timestamp(this.l1Client, start - BigInt(L1_BLOCK_TIME_IN_S));
+    await waitUntilL1Timestamp(this.l1Client, start - BigInt(this.L1_BLOCK_TIME_IN_S));
     return start;
   }
 
@@ -231,6 +246,19 @@ export class EpochsTestContext {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }
     }
+  }
+  /** Creates an L1 client using a fresh account with funds from anvil, with a tx delayer already set up. */
+  public async createL1Client() {
+    const { client, delayer } = withDelayer(
+      createExtendedL1Client(
+        [...this.l1Client.chain.rpcUrls.default.http],
+        privateKeyToAccount(this.getNextPrivateKey()),
+        this.l1Client.chain,
+      ),
+      { ethereumSlotDuration: this.L1_BLOCK_TIME_IN_S },
+    );
+    expect(await client.getBalance({ address: client.account.address })).toBeGreaterThan(0n);
+    return { client, delayer };
   }
 
   /** Verifies whether the given block number is found on the aztec node. */

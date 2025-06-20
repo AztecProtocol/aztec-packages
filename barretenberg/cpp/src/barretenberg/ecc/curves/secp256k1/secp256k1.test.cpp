@@ -73,7 +73,7 @@ TEST(secp256k1, TestToMontgomeryForm)
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
         constexpr uint512_t R = uint512_t(0, 1);
 #else
-        constexpr uint512_t R = (uint512_t(1) << (29 * 9)) % uint512_t(test_fq_mod);
+        const uint512_t R = (uint512_t(1) << (29 * 9)) % uint512_t(test_fq_mod);
 #endif
         uint512_t aR = uint512_t(a_raw) * R;
         uint256_t expected = (aR % uint512_t(test_fq_mod)).lo;

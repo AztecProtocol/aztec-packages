@@ -20,7 +20,7 @@ std::vector<std::shared_ptr<NativeTranscript>> prover_transcripts(MAX_POLYNOMIAL
 std::vector<OpeningClaim<Curve>> opening_claims(MAX_POLYNOMIAL_DEGREE_LOG2 - MIN_POLYNOMIAL_DEGREE_LOG2 + 1);
 static void DoSetup(const benchmark::State&)
 {
-    srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    srs::init_file_crs_factory(srs::bb_crs_path());
     ck = std::make_shared<CommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2);
     vk = std::make_shared<VerifierCommitmentKey<Curve>>(1 << MAX_POLYNOMIAL_DEGREE_LOG2,
                                                         srs::get_grumpkin_crs_factory());

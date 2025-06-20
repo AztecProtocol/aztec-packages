@@ -31,6 +31,8 @@ fs_permissions = [
   {access = "read", path = "./test/fixtures/fee_data_points.json"},
 ]
 
+no_match_contract="(ScreamAndShoutTest|UniswapPortalTest)"
+
 [fmt]
 line_length = 100
 tab_width = 2

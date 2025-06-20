@@ -40,7 +40,7 @@ describe('e2e_fees gas_estimation', () => {
       ...gasSettings,
       maxFeesPerGas: gasFees,
     });
-  });
+  }, 10000);
 
   afterAll(async () => {
     await t.teardown();
@@ -88,32 +88,40 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
-    const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
   it('estimates gas with public payment method', async () => {
-    const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
+    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
+
+    const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
     const estimatedGas = await makeTransferRequest().estimateGas({
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });
     logGasEstimate(estimatedGas);
 
-    const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
-
-    // Actual teardown gas used is less than the limits.
+    // Checks that estimated teardown gas limits are less than the default ones.
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeLessThan(gasSettings.teardownGasLimits.l2Gas);
     expect(estimatedGas.teardownGasLimits.daGas).toBeLessThan(gasSettings.teardownGasLimits.daGas);
 
-    // Estimation should yield that teardown has reduced cost, but is not zero
+    // Estimation should reduce tx fee because all of teardown gas limit gets consumed!
     expect(withEstimate.transactionFee!).toBeLessThan(withoutEstimate.transactionFee!);
     expect(withEstimate.transactionFee!).toBeGreaterThan(withoutEstimate.transactionFee! - teardownFixedFee);
 
     // Check that estimated gas for teardown are not zero since we're doing work there
     expect(estimatedGas.teardownGasLimits.l2Gas).toBeGreaterThan(0);
 
-    const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
@@ -139,7 +147,12 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedGas.teardownGasLimits.l2Gas).toEqual(0);
     expect(estimatedGas.teardownGasLimits.daGas).toEqual(0);
 
-    const estimatedFee = estimatedGas.gasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
+    // Check that estimated fee and fee of the tx with estimate are the same. We need to use the gas fees (gas price)
+    // from the block in which the tx with estimate landed.
+    const block = await t.pxe.getBlock(withEstimate.blockNumber!);
+    const gasFeesForBlockInWhichTxWithEstimateLanded = block!.header.globalVariables.gasFees;
+
+    const estimatedFee = estimatedGas.gasLimits.computeFee(gasFeesForBlockInWhichTxWithEstimateLanded).toBigInt();
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 });

@@ -85,13 +85,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-        }
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Create inner circuit and call check_circuit on it
@@ -268,6 +262,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      *
      */
     static void test_recursive_verification_fails()
+        requires(!IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
     {
         for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
             // Create an arbitrary inner circuit
@@ -298,6 +293,52 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 // We expect the circuit check to fail due to the bad proof.
                 EXPECT_FALSE(CircuitChecker::check(outer_circuit));
             } else {
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+                NativeVerifierCommitmentKey pcs_vkey{};
+                bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),
+                                                     output.points_accumulator.P1.get_value());
+                EXPECT_FALSE(result);
+            }
+        }
+    }
+    /**
+     * @brief Tamper with a MegaZK proof in two ways. First, we modify the first non-zero value in the proof, which has
+     * to lead to a CircuitChecker failure. Then we also modify the last commitment ("KZG:W") in the proof, in this
+     * case, CircuitChecker succeeds, but the pairing check must fail.
+     *
+     */
+    static void test_recursive_verification_fails()
+        requires(IsAnyOf<InnerFlavor, MegaZKFlavor, MegaFlavor>)
+
+    {
+        for (size_t idx = 0; idx < 2; idx++) {
+            // Create an arbitrary inner circuit
+            auto inner_circuit = create_inner_circuit();
+
+            // Generate a proof over the inner circuit
+            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            InnerProver inner_prover(proving_key);
+            auto inner_proof = inner_prover.construct_proof();
+
+            // Tamper with the proof to be verified
+            tamper_with_proof<InnerProver, InnerFlavor>(inner_proof, /*end_of_proof*/ static_cast<bool>(idx));
+
+            // Generate the corresponding inner verification key
+            auto inner_verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
+
+            // Create a recursive verification circuit for the proof of the inner circuit
+            OuterBuilder outer_circuit;
+            RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
+            VerifierOutput output = verifier.verify_proof(inner_proof);
+
+            if (idx == 0) {
+                // We expect the circuit check to fail due to the bad proof.
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            } else {
+                // Wrong  witnesses lead to the pairing check failure in non-ZK case but don't break any
+                // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
+                // failure.
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
                 NativeVerifierCommitmentKey pcs_vkey{};
                 bool result = pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(),

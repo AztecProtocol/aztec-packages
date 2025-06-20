@@ -122,7 +122,11 @@ export class PrivateToAvmAccumulatedData {
 }
 
 export class PrivateToAvmAccumulatedDataArrayLengths {
-  constructor(public noteHashes: UInt32, public nullifiers: UInt32, public l2ToL1Msgs: UInt32) {}
+  constructor(
+    public noteHashes: UInt32,
+    public nullifiers: UInt32,
+    public l2ToL1Msgs: UInt32,
+  ) {}
 
   static get schema() {
     return z
@@ -148,6 +152,10 @@ export class PrivateToAvmAccumulatedDataArrayLengths {
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new this(reader.readU32(), reader.readU32(), reader.readU32());
+  }
+
+  toFields() {
+    return [this.noteHashes, this.nullifiers, this.l2ToL1Msgs];
   }
 
   static from(fields: FieldsOf<PrivateToAvmAccumulatedDataArrayLengths>) {

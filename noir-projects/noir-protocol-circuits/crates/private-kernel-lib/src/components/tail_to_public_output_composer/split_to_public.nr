@@ -58,9 +58,9 @@ pub unconstrained fn split_to_public(
         if i < private_logs.len() {
             let private_log = private_logs.get_unchecked(i);
             if private_log.inner.counter < min_revertible_side_effect_counter {
-                non_revertible_builder.private_logs.push(private_log.inner.log);
+                non_revertible_builder.private_logs.push(private_log.expose_to_public());
             } else {
-                revertible_builder.private_logs.push(private_log.inner.log);
+                revertible_builder.private_logs.push(private_log.expose_to_public());
             }
         }
     }

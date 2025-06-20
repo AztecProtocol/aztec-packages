@@ -1,3 +1,5 @@
+import type { PromiseWithResolvers } from '@aztec/foundation/promise';
+
 import { z } from 'zod';
 
 import type { SnapshotDataKeys } from '../snapshots/types.js';
@@ -52,7 +54,7 @@ export interface ForkMerkleTreeOperations {
 /** Defines the interface for a world state synchronizer. */
 export interface WorldStateSynchronizer extends ForkMerkleTreeOperations {
   /** Starts the synchronizer. */
-  start(): void;
+  start(): Promise<void | PromiseWithResolvers<void>>;
 
   /** Returns the current status of the synchronizer. */
   status(): Promise<WorldStateSynchronizerStatus>;

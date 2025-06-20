@@ -46,7 +46,6 @@ export class SequencerClient {
    * @param l2BlockSource - Provides information about the previously published blocks.
    * @param l1ToL2MessageSource - Provides access to L1 to L2 messages.
    * @param prover - An instance of a block prover
-   * @param simulationProvider - An instance of a simulation provider
    * @returns A new running instance.
    */
   public static async new(
@@ -157,7 +156,7 @@ export class SequencerClient {
     // make it with a propagation time into slot equal to 4s. However, we prefer being conservative.
     // See https://www.blocknative.com/blog/anatomy-of-a-slot#7 for more info.
     const maxL1TxInclusionTimeIntoSlot =
-      config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId) ? ethereumSlotDuration : 0;
+      (config.maxL1TxInclusionTimeIntoSlot ?? isAnvilTestChain(config.l1ChainId)) ? ethereumSlotDuration : 0;
 
     const l1Constants = {
       l1GenesisTime,

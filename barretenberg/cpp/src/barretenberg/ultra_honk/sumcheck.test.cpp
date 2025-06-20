@@ -1,13 +1,13 @@
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -21,7 +21,7 @@ using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**

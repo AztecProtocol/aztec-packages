@@ -1,4 +1,6 @@
+import type { L1BlockId } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
+import type { CustomRange } from '@aztec/kv-store';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -11,10 +13,9 @@ import type {
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { InboxLeaf } from '@aztec/stdlib/messaging';
 import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
-import type { DataRetrieval } from './structs/data_retrieval.js';
+import type { InboxMessage } from './structs/inbox_message.js';
 import type { PublishedL2Block } from './structs/published.js';
 
 /**
@@ -23,10 +24,8 @@ import type { PublishedL2Block } from './structs/published.js';
 export type ArchiverL1SynchPoint = {
   /** Number of the last L1 block that added a new L2 block metadata.  */
   blocksSynchedTo?: bigint;
-  /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
-  messagesSynchedTo?: bigint;
-  /** Number of the last L1 block that added a new proven block. */
-  provenLogsSynchedTo?: bigint;
+  /** Last L1 block checked for L1 to L2 messages. */
+  messagesSynchedTo?: L1BlockId;
 };
 
 /**
@@ -34,6 +33,9 @@ export type ArchiverL1SynchPoint = {
  * (blocks, encrypted logs, aztec contract data extended contract data).
  */
 export interface ArchiverDataStore {
+  /** Opens a new transaction to the underlying store and runs all operations within it. */
+  transactionAsync<T>(callback: () => Promise<T>): Promise<T>;
+
   /**
    * Append new blocks to the store's list.
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
@@ -98,10 +100,10 @@ export interface ArchiverDataStore {
 
   /**
    * Append L1 to L2 messages to the store.
-   * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
+   * @param messages - The L1 to L2 messages to be added to the store.
    * @returns True if the operation is successful.
    */
-  addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean>;
+  addL1ToL2Messages(messages: InboxMessage[]): Promise<void>;
 
   /**
    * Gets L1 to L2 message (to be) included in a given block.
@@ -178,10 +180,9 @@ export interface ArchiverDataStore {
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
 
   /**
-   * Stores the l1 block number that messages have been synched until
-   * @param l1BlockNumber  - The l1 block number
+   * Stores the l1 block that messages have been synched until
    */
-  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+  setMessageSynchedL1Block(l1Block: L1BlockId): Promise<void>;
 
   /**
    * Gets the synch point of the archiver
@@ -248,9 +249,7 @@ export interface ArchiverDataStore {
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
+  /** Estimates the size of the store in bytes. */
   estimateSize(): Promise<{ mappingSize: number; physicalFileSize: number; actualSize: number; numItems: number }>;
 
   /** Backups the archiver db to the target folder. Returns the path to the db file. */
@@ -260,8 +259,14 @@ export interface ArchiverDataStore {
   close(): Promise<void>;
 
   /** Deletes all L1 to L2 messages up until (excluding) the target L2 block number. */
-  rollbackL1ToL2MessagesToL2Block(
-    targetBlockNumber: number | bigint,
-    currentBlockNumber: number | bigint,
-  ): Promise<void>;
+  rollbackL1ToL2MessagesToL2Block(targetBlockNumber: number | bigint): Promise<void>;
+
+  /** Returns an async iterator to all L1 to L2 messages on the range. */
+  iterateL1ToL2Messages(range?: CustomRange<bigint>): AsyncIterableIterator<InboxMessage>;
+
+  /** Removes all L1 to L2 messages starting from the given index (inclusive). */
+  removeL1ToL2Messages(startIndex: bigint): Promise<void>;
+
+  /** Returns the last L1 to L2 message stored. */
+  getLastL1ToL2Message(): Promise<InboxMessage | undefined>;
 }

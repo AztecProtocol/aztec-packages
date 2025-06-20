@@ -54,7 +54,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // We fist store the operands as is, and then we'll update them if they are relative.
         event.after_relative = instruction.operands;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
-            if ((instruction.indirect >> (i + spec.num_addresses)) & 1) {
+            if ((instruction.indirect >> (i * 2 + 1)) & 1) {
                 if (!memory.is_valid_address(base_address)) {
                     throw AddressingException(AddressingEventError::BASE_ADDRESS_INVALID_ADDRESS, i);
                 }
@@ -84,7 +84,7 @@ std::vector<Operand> Addressing::resolve(const Instruction& instruction, MemoryI
         // We first store the after_relative values as is, and then we'll update them if they are indirect.
         event.resolved_operands = event.after_relative;
         for (size_t i = 0; i < spec.num_addresses; ++i) {
-            if ((instruction.indirect >> i) & 1) {
+            if ((instruction.indirect >> (i * 2)) & 1) {
                 event.resolved_operands[i] = memory.get(event.after_relative[i].as<MemoryAddress>());
                 if (!memory.is_valid_address(event.resolved_operands[i])) {
                     throw AddressingException(AddressingEventError::INDIRECT_INVALID_ADDRESS, i);

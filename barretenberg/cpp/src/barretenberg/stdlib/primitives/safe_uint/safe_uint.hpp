@@ -21,11 +21,11 @@ namespace bb::stdlib {
 
 template <typename Builder> class safe_uint_t {
   private:
-    typedef field_t<Builder> field_ct;
-    typedef bool_t<Builder> bool_ct;
+    using field_ct = field_t<Builder>;
+    using bool_ct = bool_t<Builder>;
     // this constructor is private since we only want the operators to be able to define a positive int without a range
     // check.
-    safe_uint_t(field_ct const& value, uint256_t current_max, size_t safety)
+    safe_uint_t(field_ct const& value, const uint256_t& current_max, size_t safety)
         : value(value)
         , current_max(current_max)
     {
@@ -41,8 +41,6 @@ template <typename Builder> class safe_uint_t {
     static constexpr size_t MAX_BIT_NUM = bb::fr::modulus.get_msb();
     static constexpr uint256_t MAX_VALUE = bb::fr::modulus - 1;
     static constexpr size_t IS_UNSAFE = 143; // weird constant to make it hard to use accidentally
-    // Make sure our uint256 values don't wrap  - add_two function sums three of these
-    static_assert((uint512_t)MAX_VALUE * 3 < (uint512_t)1 << 256);
     field_ct value;
     uint256_t current_max;
 

@@ -7,7 +7,7 @@ import { MembershipWitness } from '@aztec/foundation/trees';
 import type { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicDataHint } from '../avm/public_data_hint.js';
-import { ContractClassLog } from '../logs/contract_class_log.js';
+import { ContractClassLogFields } from '../logs/index.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { ConstantRollupData } from './constant_rollup_data.js';
 import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
@@ -39,7 +39,7 @@ export class PrivateBaseRollupHints {
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
-    public contractClassLogsPreimages: Tuple<ContractClassLog, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogsPreimages: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -86,7 +86,7 @@ export class PrivateBaseRollupHints {
       reader.readObject(PrivateBaseStateDiffHints),
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
       reader.readObject(ConstantRollupData),
     );
   }
@@ -102,7 +102,7 @@ export class PrivateBaseRollupHints {
       PrivateBaseStateDiffHints.empty(),
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
       ConstantRollupData.empty(),
     );
   }
@@ -121,7 +121,7 @@ export class PublicBaseRollupHints {
     /**
      * Preimages to the kernel's contractClassLogsHashes.
      */
-    public contractClassLogsPreimages: Tuple<ContractClassLog, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogsPreimages: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Data which is not modified by the base rollup circuit.
      */
@@ -162,7 +162,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       reader.readObject(SpongeBlob),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
       reader.readObject(ConstantRollupData),
     );
   }
@@ -175,7 +175,7 @@ export class PublicBaseRollupHints {
     return new PublicBaseRollupHints(
       SpongeBlob.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.empty),
+      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
       ConstantRollupData.empty(),
     );
   }

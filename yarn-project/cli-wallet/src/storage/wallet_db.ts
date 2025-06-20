@@ -163,7 +163,7 @@ export class WalletDB {
   tryRetrieveAlias(arg: string) {
     try {
       return this.retrieveAliasFromCache(arg);
-    } catch (e) {
+    } catch {
       return arg;
     }
   }

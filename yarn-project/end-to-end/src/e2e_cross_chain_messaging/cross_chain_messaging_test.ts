@@ -11,10 +11,16 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { type ExtendedViemWalletClient, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type ExtendedViemWalletClient,
+  createExtendedL1Client,
+  deployL1Contract,
+} from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
@@ -38,6 +44,7 @@ export class CrossChainMessagingTest {
   aztecNode!: AztecNode;
   pxe!: PXE;
   aztecNodeConfig!: AztecNodeConfig;
+  aztecNodeAdmin!: AztecNodeAdmin;
 
   l1Client!: ExtendedViemWalletClient | undefined;
 
@@ -51,7 +58,9 @@ export class CrossChainMessagingTest {
 
   inbox!: any; // GetContractReturnType<typeof InboxAbi> | undefined;
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
-  cheatcodes!: CheatCodes;
+  cheatCodes!: CheatCodes;
+
+  deployL1ContractsValues!: DeployL1ContractsReturnType;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
@@ -59,15 +68,17 @@ export class CrossChainMessagingTest {
   }
 
   async assumeProven() {
-    await this.cheatcodes.rollup.markAsProven();
+    await this.cheatCodes.rollup.markAsProven();
   }
 
   async setup() {
-    const { aztecNode, pxe, aztecNodeConfig } = await this.snapshotManager.setup();
+    const { aztecNode, pxe, aztecNodeConfig, deployL1ContractsValues } = await this.snapshotManager.setup();
     this.aztecNode = aztecNode;
     this.pxe = pxe;
     this.aztecNodeConfig = aztecNodeConfig;
-    this.cheatcodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
+    this.cheatCodes = await CheatCodes.create(this.aztecNodeConfig.l1RpcUrls, this.pxe);
+    this.deployL1ContractsValues = deployL1ContractsValues;
+    this.aztecNodeAdmin = aztecNode;
   }
 
   snapshot = <T>(

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"

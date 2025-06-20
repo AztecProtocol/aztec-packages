@@ -61,12 +61,18 @@ export class GetEnvVar extends Instruction {
     OperandType.UINT8, // variable enum (immediate)
   ];
 
-  constructor(private indirect: number, private dstOffset: number, private varEnum: number) {
+  constructor(
+    private indirect: number,
+    private dstOffset: number,
+    private varEnum: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     if (!(this.varEnum in EnvironmentVariable)) {
@@ -74,7 +80,6 @@ export class GetEnvVar extends Instruction {
     }
 
     const operands = [this.dstOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [dstOffset] = addressing.resolve(operands, memory);
 
     memory.set(dstOffset, getValue(this.varEnum as EnvironmentVariable, context));

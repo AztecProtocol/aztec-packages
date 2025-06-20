@@ -16,7 +16,7 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn new_with_protocol_contract() -> Self {
         let mut builder = PrivateCallDataValidatorBuilder::new();
-        let _ = builder.private_call.use_protocol_contract();
+        let _ = builder.private_call.use_protocol_contract(1);
         builder
     }
 }

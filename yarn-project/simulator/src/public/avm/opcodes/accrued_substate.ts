@@ -29,9 +29,10 @@ export class NoteHashExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
     const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [noteHashOffset, leafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, noteHashOffset, leafIndexOffset);
 
@@ -50,16 +51,20 @@ export class EmitNoteHash extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private noteHashOffset: number) {
+  constructor(
+    private indirect: number,
+    private noteHashOffset: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.noteHashOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [noteHashOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, noteHashOffset);
 
@@ -95,10 +100,11 @@ export class NullifierExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [nullifierOffset, addressOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
 
@@ -116,7 +122,10 @@ export class EmitNullifier extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16];
 
-  constructor(private indirect: number, private nullifierOffset: number) {
+  constructor(
+    private indirect: number,
+    private nullifierOffset: number,
+  ) {
     super();
   }
 
@@ -126,10 +135,11 @@ export class EmitNullifier extends Instruction {
     }
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.nullifierOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [nullifierOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, nullifierOffset);
 
@@ -172,10 +182,11 @@ export class L1ToL2MessageExists extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [msgHashOffset, msgLeafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, msgHashOffset, msgLeafIndexOffset);
 
@@ -193,7 +204,11 @@ export class EmitUnencryptedLog extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private logOffset: number, private logSizeOffset: number) {
+  constructor(
+    private indirect: number,
+    private logOffset: number,
+    private logSizeOffset: number,
+  ) {
     super();
   }
 
@@ -203,9 +218,9 @@ export class EmitUnencryptedLog extends Instruction {
     }
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
 
     const operands = [this.logOffset, this.logSizeOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [logOffset, logSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
     const logSize = memory.get(logSizeOffset).toNumber();
@@ -225,7 +240,11 @@ export class SendL2ToL1Message extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
   static readonly wireFormat = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
 
-  constructor(private indirect: number, private recipientOffset: number, private contentOffset: number) {
+  constructor(
+    private indirect: number,
+    private recipientOffset: number,
+    private contentOffset: number,
+  ) {
     super();
   }
 
@@ -235,10 +254,11 @@ export class SendL2ToL1Message extends Instruction {
     }
 
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [this.recipientOffset, this.contentOffset];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, recipientOffset, contentOffset);
 

@@ -342,7 +342,7 @@ pub contract Test {
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = array_concat(event.serialize(), [0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
-            context.emit_private_log(leaky_log);
+            context.emit_private_log(leaky_log, 5);
         }
     }
 

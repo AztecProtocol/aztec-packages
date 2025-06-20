@@ -1,10 +1,10 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -24,7 +24,7 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
     using VerificationKey = typename Flavor::VerificationKey;
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 #ifdef STARKNET_GARAGA_FLAVORS

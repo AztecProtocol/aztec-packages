@@ -7,9 +7,9 @@
 #pragma once
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 
 namespace bb {
@@ -239,7 +239,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
     // Index at which the evaluation result is stored in the circuit
-    static constexpr const size_t RESULT_ROW = 2;
+    static constexpr size_t RESULT_ROW = 2;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
@@ -324,18 +324,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     TranslatorCircuitBuilder(Fq batching_challenge_v_, Fq evaluation_input_x_)
         : CircuitBuilderBase(DEFAULT_TRANSLATOR_VM_LENGTH)
         , batching_challenge_v(batching_challenge_v_)
-        , evaluation_input_x(evaluation_input_x_)
-    {
-        add_variable(Fr::zero());
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1360): The builder should not add data to
-        // wires populated from the op queue. Adding two zeroes at the beginning of these  wires (and subsequently
-        // random data) should be done as part of the op queue logic.
-        for (auto& wire : wires) {
-            wire.emplace_back(0);
-            wire.emplace_back(0);
-        }
-        num_gates += 2;
-    };
+        , evaluation_input_x(evaluation_input_x_){};
 
     /**
      * @brief Construct a new Translator Circuit Builder object and feed op_queue inside
@@ -351,7 +340,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
         : TranslatorCircuitBuilder(batching_challenge_v_, evaluation_input_x_)
     {
         PROFILE_THIS_NAME("TranslatorCircuitBuilder::constructor");
-        feed_ecc_op_queue_into_circuit(op_queue);
+        feed_ecc_op_queue_into_circuit(std::move(op_queue));
     }
 
     TranslatorCircuitBuilder() = default;

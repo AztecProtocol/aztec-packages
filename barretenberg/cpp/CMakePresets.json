@@ -214,6 +214,26 @@
       }
     },
     {
+      "name": "clang16-no-avm",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16",
+      "binaryDir": "build-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      }
+    },
+    {
+      "name": "clang16-dbg-no-avm",
+      "displayName": "Optimized debug build with Clang-16",
+      "description": "Build with globally installed Clang-16 in optimized debug mode",
+      "inherits": "clang16-dbg",
+      "binaryDir": "build-debug-no-avm",
+      "cacheVariables": {
+        "DISABLE_AZTEC_VM": "ON"
+      }
+    },
+    {
       "name": "clang16-dbg-fast-circuit-check-traces",
       "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
       "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
@@ -241,6 +261,18 @@
       "inherits": "clang16",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
+      "name": "asan-fast",
+      "displayName": "Debugging build with address sanitizer on Clang-16 in optimized debug mode",
+      "description": "Build with address sanitizer on clang16 in optimized debug mode",
+      "inherits": "clang16-dbg-fast",
+      "binaryDir": "build-asan-fast",
+      "cacheVariables": {
+        "ENABLE_ASAN": "ON",
+        "DISABLE_AZTEC_VM": "ON",
+        "DISABLE_ASM": "ON"
       }
     },
     {
@@ -572,6 +604,16 @@
       "configurePreset": "clang16-dbg"
     },
     {
+      "name": "clang16-no-avm",
+      "inherits": "default",
+      "configurePreset": "clang16-no-avm"
+    },
+    {
+      "name": "clang16-dbg-no-avm",
+      "inherits": "default",
+      "configurePreset": "clang16-dbg-no-avm"
+    },
+    {
       "name": "tracy-memory",
       "inherits": "default",
       "configurePreset": "tracy-memory"
@@ -625,6 +667,11 @@
       "name": "clang16-assert",
       "inherits": "default",
       "configurePreset": "clang16-assert"
+    },
+    {
+      "name": "asan-fast",
+      "inherits": "default",
+      "configurePreset": "asan-fast"
     },
     {
       "name": "asan",
@@ -723,7 +770,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",

@@ -7,7 +7,10 @@ export class SentinelStore {
 
   private readonly map: AztecAsyncMap<`0x${string}`, Buffer>;
 
-  constructor(private store: AztecAsyncKVStore, private config: { historyLength: number }) {
+  constructor(
+    private store: AztecAsyncKVStore,
+    private config: { historyLength: number },
+  ) {
     this.map = store.openMap('sentinel-validator-status');
   }
 

@@ -3,7 +3,7 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -17,11 +17,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
   public:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
@@ -265,7 +261,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
         ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        honk_proof = HonkProof(proof.begin(), proof.end() + honk_proof_with_pub_inputs_length);
+        honk_proof = HonkProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
     } else {
         honk_proof = proof;
     }
@@ -333,16 +329,22 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
-    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have changed nothing so proof is still valid
 
     Commitment one_group_val = Commitment::one();
     FF rand_val = FF::random_element();
-    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
-    EXPECT_TRUE(verifier.verify_proof(
-        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+    prover.transcript->z_perm_comm = one_group_val * rand_val;             // choose random object to modify
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_TRUE(verifier.verify_proof(proof)); // we have not serialized it back to the proof so it should still be fine
 
     prover.transcript->serialize_full_transcript();
-    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+    verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
+    proof = (HasIPAAccumulator<Flavor>) ? prover.export_proof() : prover.transcript->proof_data;
+    EXPECT_FALSE(verifier.verify_proof(proof)); // the proof is now wrong after serializing it
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);

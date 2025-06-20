@@ -1,7 +1,8 @@
 use crate::{
     abis::{
         accumulated_data::private_to_public_accumulated_data::PrivateToPublicAccumulatedData,
-        log_hash::ScopedLogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
+        log_hash::LogHash, private_log::PrivateLog, public_call_request::PublicCallRequest,
+        side_effect::scoped::Scoped,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -17,7 +18,7 @@ pub struct PrivateToPublicAccumulatedDataBuilder {
     pub nullifiers: BoundedVec<Field, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
     pub private_logs: BoundedVec<PrivateLog, MAX_PRIVATE_LOGS_PER_TX>,
-    pub contract_class_logs_hashes: BoundedVec<ScopedLogHash, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub contract_class_logs_hashes: BoundedVec<Scoped<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     pub public_call_requests: BoundedVec<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX>,
 }
 

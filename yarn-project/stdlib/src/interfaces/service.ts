@@ -1,5 +1,4 @@
 import type { Logger } from '@aztec/foundation/log';
-import type { Maybe } from '@aztec/foundation/types';
 
 /** Represents a local service that can be started and stopped. */
 export interface Service {
@@ -17,7 +16,7 @@ export interface Service {
 }
 
 /** Tries to call stop on a given object and awaits it. Logs any errors and does not rethrow. */
-export async function tryStop(service: Maybe<Service>, logger?: Logger): Promise<void> {
+export async function tryStop(service?: Partial<Service>, logger?: Logger): Promise<void> {
   try {
     return typeof service === 'object' && service && 'stop' in service && typeof service.stop === 'function'
       ? await service.stop()
@@ -27,7 +26,7 @@ export async function tryStop(service: Maybe<Service>, logger?: Logger): Promise
   }
 }
 
-export function tryRestart(service: Maybe<Service>, logger?: Logger) {
+export function tryRestart(service?: Partial<Service>, logger?: Logger) {
   try {
     return typeof service === 'object' && service && 'restart' in service && typeof service.restart === 'function'
       ? service.restart()

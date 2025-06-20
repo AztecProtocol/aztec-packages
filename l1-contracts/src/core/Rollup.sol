@@ -117,24 +117,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
-  }
-
-  /**
-   * @notice  Get the validator set for a given epoch
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @param _epoch The epoch number to get the validator set for
-   *
-   * @return The validator set for the given epoch
-   */
-  function getEpochCommittee(Epoch _epoch)
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
+    return getEpochCommittee(getCurrentEpoch());
   }
 
   /**
@@ -149,7 +132,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IValidatorSelection)
     returns (address[] memory)
   {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+    return getEpochCommittee(getEpochAt(_ts));
   }
 
   /**
@@ -599,6 +582,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
     return EpochProofLib.BURN_ADDRESS;
+  }
+
+  /**
+   * @notice  Get the validator set for a given epoch
+   *
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @param _epoch The epoch number to get the validator set for
+   *
+   * @return The validator set for the given epoch
+   */
+  function getEpochCommittee(Epoch _epoch)
+    public
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
   }
 
   /**

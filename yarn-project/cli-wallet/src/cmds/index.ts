@@ -39,6 +39,7 @@ import {
   createContractAddressOption,
   createDebugExecutionStepsDirOption,
   createTypeOption,
+  createVerboseOption,
   integerArgParser,
   parseGasFees,
   parsePaymentMethod,
@@ -99,12 +100,14 @@ export function injectCommands(
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .addOption(createVerboseOption());
 
   addOptions(createAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { createAccount } = await import('./create_account.js');
     const options = command.optsWithGlobals();
-    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json } = options;
+    const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json, verbose } =
+      options;
     let { publicKey } = options;
     if ((type as AccountType) === 'ecdsasecp256r1ssh' && !publicKey) {
       const identities = await getIdentities();
@@ -132,6 +135,7 @@ export function injectCommands(
       wait,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
+      verbose,
       debugLogger,
       log,
     );
@@ -154,12 +158,13 @@ export function injectCommands(
       '--register-class',
       'Register the contract class (useful for when the contract class has not been deployed yet).',
     )
-    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions');
+    .option('--public-deploy', 'Publicly deploy this account contract (only useful if it contains public functions')
+    .addOption(createVerboseOption());
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass, publicDeploy } = options;
+    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass, publicDeploy, verbose } = options;
 
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
@@ -171,6 +176,7 @@ export function injectCommands(
       publicDeploy,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
+      verbose,
       debugLogger,
       log,
     );
@@ -205,7 +211,8 @@ export function injectCommands(
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
     .option('--no-class-registration', "Don't register this contract class")
-    .option('--no-public-deployment', "Don't emit this contract's public bytecode");
+    .option('--no-public-deployment', "Don't emit this contract's public bytecode")
+    .addOption(createVerboseOption());
 
   addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPathPromise, _options, command) => {
     const { deploy } = await import('./deploy.js');
@@ -224,6 +231,7 @@ export function injectCommands(
       rpcUrl,
       from: parsedFromAddress,
       alias,
+      verbose,
     } = options;
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -246,6 +254,7 @@ export function injectCommands(
       universal,
       wait,
       await FeeOpts.fromCli(options, client, log, db),
+      verbose,
       debugLogger,
       log,
       logJson(log),
@@ -278,7 +287,8 @@ export function injectCommands(
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
-    .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
+    .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.')
+    .addOption(createVerboseOption());
 
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
     const { send } = await import('./send.js');
@@ -294,6 +304,7 @@ export function injectCommands(
       alias,
       cancel,
       authWitness: authWitnessArray,
+      verbose,
     } = options;
     const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -313,6 +324,7 @@ export function injectCommands(
       cancel,
       await FeeOpts.fromCli(options, client, log, db),
       authWitnesses,
+      verbose,
       log,
     );
     if (db && sentTx) {
@@ -321,7 +333,7 @@ export function injectCommands(
     }
   });
 
-  program
+  const simulateCommand = program
     .command('simulate')
     .description('Simulates the execution of a function on an Aztec contract.')
     .argument('<functionName>', 'Name of function to simulate')
@@ -334,26 +346,39 @@ export function injectCommands(
     )
     .addOption(createAuthwitnessOption('Authorization witness to use for the simulation', !db, db))
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .action(async (functionName, _options, command) => {
-      const { simulate } = await import('./simulate.js');
-      const options = command.optsWithGlobals();
-      const {
-        args,
-        contractArtifact: artifactPathPromise,
-        contractAddress,
-        from: parsedFromAddress,
-        rpcUrl,
-        secretKey,
-        authWitness,
-      } = options;
+    .addOption(createVerboseOption());
 
-      const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
-      const wallet = await account.getWallet();
-      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
-      const authWitnesses = cleanupAuthWitnesses(authWitness);
-      await simulate(wallet, functionName, args, artifactPath, contractAddress, authWitnesses, log);
-    });
+  addOptions(simulateCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
+    const { simulate } = await import('./simulate.js');
+    const options = command.optsWithGlobals();
+    const {
+      args,
+      contractArtifact: artifactPathPromise,
+      contractAddress,
+      from: parsedFromAddress,
+      rpcUrl,
+      secretKey,
+      verbose,
+      authWitness,
+    } = options;
+
+    const client = (await pxeWrapper?.getPXE()) ?? (await createCompatibleClient(rpcUrl, debugLogger));
+    const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
+    const wallet = await account.getWallet();
+    const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    await simulate(
+      wallet,
+      functionName,
+      args,
+      artifactPath,
+      contractAddress,
+      await FeeOpts.fromCli(options, client, log, db),
+      authWitnesses,
+      verbose,
+      log,
+    );
+  });
 
   const profileCommand = program
     .command('profile')

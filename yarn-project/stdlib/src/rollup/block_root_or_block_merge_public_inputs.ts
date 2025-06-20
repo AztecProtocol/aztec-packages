@@ -133,7 +133,10 @@ export class BlockRootOrBlockMergePublicInputs {
 }
 
 export class FeeRecipient {
-  constructor(public recipient: EthAddress, public value: Fr) {}
+  constructor(
+    public recipient: EthAddress,
+    public value: Fr,
+  ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): FeeRecipient {
     const reader = BufferReader.asReader(buffer);

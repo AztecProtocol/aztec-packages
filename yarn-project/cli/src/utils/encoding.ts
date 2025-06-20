@@ -35,7 +35,7 @@ function encodeArg(arg: string, abiType: AbiType, name: string): any {
     let res: bigint;
     try {
       res = BigInt(arg);
-    } catch (err) {
+    } catch {
       throw new Error(
         `Invalid value passed for ${name}. Could not parse ${arg} as a${kind === 'integer' ? 'n' : ''} ${kind}.`,
       );

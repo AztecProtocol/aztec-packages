@@ -12,7 +12,7 @@ pub unconstrained fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddres
     let initializer_call_interface = Auth::interface().constructor(admin);
 
     let auth_contract =
-        env.deploy_self("Auth").with_public_void_initializer(initializer_call_interface);
+        env.deploy_self("Auth").with_public_void_initializer(admin, initializer_call_interface);
     let auth_contract_address = auth_contract.to_address();
 
     (&mut env, auth_contract_address, admin, to_authorize, other)

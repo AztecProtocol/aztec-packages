@@ -8,7 +8,7 @@
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_usage_tracker.hpp"
+#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"

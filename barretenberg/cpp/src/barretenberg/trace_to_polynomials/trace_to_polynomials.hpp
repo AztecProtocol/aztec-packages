@@ -6,7 +6,7 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
+#include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
 namespace bb {
@@ -100,7 +100,7 @@ template <class Flavor> class TraceToPolynomials {
     static void add_memory_records_to_proving_key(TraceData& trace_data,
                                                   Builder& builder,
                                                   typename Flavor::ProvingKey& proving_key)
-        requires IsUltraPlonkOrHonk<Flavor>;
+        requires IsUltraOrMegaHonk<Flavor>;
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data

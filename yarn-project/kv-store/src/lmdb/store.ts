@@ -32,7 +32,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   #multiMapData: Database<unknown, Key>;
   #log = createLogger('kv-store:lmdb');
 
-  constructor(rootDb: RootDatabase, public readonly isEphemeral: boolean, private path: string) {
+  constructor(
+    rootDb: RootDatabase,
+    public readonly isEphemeral: boolean,
+    private path: string,
+  ) {
     this.#rootDb = rootDb;
 
     // big bucket to store all the data

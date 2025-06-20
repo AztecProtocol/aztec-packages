@@ -15,22 +15,30 @@ type ContractInstanceUpdateKey = [string, number] | [string, number, number];
  */
 export class ContractInstanceStore {
   #contractInstances: AztecAsyncMap<string, Buffer>;
+  #contractInstanceDeployedAt: AztecAsyncMap<string, number>;
   #contractInstanceUpdates: AztecAsyncMap<ContractInstanceUpdateKey, Buffer>;
 
-  constructor(db: AztecAsyncKVStore) {
+  constructor(private db: AztecAsyncKVStore) {
     this.#contractInstances = db.openMap('archiver_contract_instances');
+    this.#contractInstanceDeployedAt = db.openMap('archiver_contract_instances_deployment_block_number');
     this.#contractInstanceUpdates = db.openMap('archiver_contract_instance_updates');
   }
 
-  addContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
-    return this.#contractInstances.set(
-      contractInstance.address.toString(),
-      new SerializableContractInstance(contractInstance).toBuffer(),
-    );
+  addContractInstance(contractInstance: ContractInstanceWithAddress, blockNumber: number): Promise<void> {
+    return this.db.transactionAsync(async () => {
+      await this.#contractInstances.set(
+        contractInstance.address.toString(),
+        new SerializableContractInstance(contractInstance).toBuffer(),
+      );
+      await this.#contractInstanceDeployedAt.set(contractInstance.address.toString(), blockNumber);
+    });
   }
 
   deleteContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
-    return this.#contractInstances.delete(contractInstance.address.toString());
+    return this.db.transactionAsync(async () => {
+      await this.#contractInstances.delete(contractInstance.address.toString());
+      await this.#contractInstanceDeployedAt.delete(contractInstance.address.toString());
+    });
   }
 
   getUpdateKey(contractAddress: AztecAddress, blockNumber: number, logIndex?: number): ContractInstanceUpdateKey {
@@ -71,6 +79,7 @@ export class ContractInstanceStore {
     const queryResult = await this.#contractInstanceUpdates
       .valuesAsync({
         reverse: true,
+        start: this.getUpdateKey(address, 0), // Make sure we only look at updates for this contract
         end: this.getUpdateKey(address, blockNumber + 1), // No update can match this key since it doesn't have a log index. We want the highest key <= blockNumber
         limit: 1,
       })
@@ -103,5 +112,9 @@ export class ContractInstanceStore {
       instance.originalContractClassId,
     );
     return instance;
+  }
+
+  getContractInstanceDeploymentBlockNumber(address: AztecAddress): Promise<number | undefined> {
+    return this.#contractInstanceDeployedAt.getAsync(address.toString());
   }
 }

@@ -5,6 +5,7 @@ import { truncate } from '@aztec/foundation/string';
 import { ProvingError } from '@aztec/stdlib/errors';
 import type {
   GetProvingJobResponse,
+  ProverAgentStatus,
   ProvingJobConsumer,
   ProvingJobId,
   ProvingJobInputs,
@@ -69,6 +70,19 @@ export class ProvingAgent implements Traceable {
   public async stop(): Promise<void> {
     this.currentJobController?.abort();
     await this.runningPromise.stop();
+  }
+
+  public getStatus(): ProverAgentStatus {
+    if (this.currentJobController) {
+      return {
+        status: 'proving',
+        jobId: this.currentJobController.getJobId(),
+        proofType: this.currentJobController.getProofType(),
+        startedAtISO: new Date(this.currentJobController.getStartedAt()).toISOString(),
+      };
+    }
+
+    return this.runningPromise.isRunning() ? { status: 'running' } : { status: 'stopped' };
   }
 
   @trackSpan('ProvingAgent.safeWork')
@@ -138,7 +152,7 @@ export class ProvingAgent implements Traceable {
     let inputs: ProvingJobInputs;
     try {
       inputs = await this.proofStore.getProofInput(job.inputsUri);
-    } catch (err) {
+    } catch {
       const maybeJob = await this.broker.reportProvingJobError(job.id, 'Failed to load proof inputs', true, {
         allowList: this.proofAllowList,
       });

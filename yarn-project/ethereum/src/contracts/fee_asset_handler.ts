@@ -8,7 +8,10 @@ import type { L1TxUtils } from '../l1_tx_utils.js';
 export class FeeAssetHandlerContract {
   public address: EthAddress;
 
-  constructor(address: Hex, public readonly txUtils: L1TxUtils) {
+  constructor(
+    address: Hex,
+    public readonly txUtils: L1TxUtils,
+  ) {
     this.address = EthAddress.fromString(address);
   }
 

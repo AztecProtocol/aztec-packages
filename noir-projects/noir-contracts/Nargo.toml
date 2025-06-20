@@ -44,6 +44,7 @@ members = [
     "contracts/test/note_getter_contract",
     "contracts/test/parent_contract",
     "contracts/test/pending_note_hashes_contract",
+    "contracts/test/returning_tuple_contract",
     "contracts/test/spam_contract",
     "contracts/test/state_vars_contract",
     "contracts/test/stateful_test_contract",
@@ -51,6 +52,7 @@ members = [
     "contracts/test/static_parent_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/txe_test_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

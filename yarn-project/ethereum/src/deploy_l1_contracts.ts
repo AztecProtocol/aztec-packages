@@ -18,6 +18,8 @@ import {
   GovernanceProposerBytecode,
   InboxAbi,
   InboxBytecode,
+  MultiAdderAbi,
+  MultiAdderBytecode,
   OutboxAbi,
   OutboxBytecode,
   RegisterNewRollupVersionPayloadAbi,
@@ -192,6 +194,10 @@ export const l1Artifacts = {
   stakingAssetHandler: {
     contractAbi: StakingAssetHandlerAbi,
     contractBytecode: StakingAssetHandlerBytecode as Hex,
+  },
+  multiAdder: {
+    contractAbi: MultiAdderAbi,
+    contractBytecode: MultiAdderBytecode as Hex,
   },
 };
 
@@ -550,7 +556,7 @@ export const deployRollup = async (
     try {
       const retrievedRollupAddress = await registryContract.read.getRollup([version]);
       logger.verbose(`Rollup ${retrievedRollupAddress} already exists in registry`);
-    } catch (e) {
+    } catch {
       const { txHash: addRollupTxHash } = await deployer.sendTransaction({
         to: addresses.registryAddress.toString(),
         data: encodeFunctionData({
@@ -664,6 +670,18 @@ export const cheat_initializeValidatorSet = async (
     }
 
     if (validators.length > 0) {
+      const multiAdder = await deployer.deploy(l1Artifacts.multiAdder, [
+        rollupAddress,
+        deployer.client.account.address,
+      ]);
+
+      const validatorsTuples = validators.map(v => ({
+        attester: v,
+        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
+        withdrawer: v,
+        amount: minimumStake,
+      }));
+
       // Mint tokens, approve them, use cheat code to initialise validator set without setting up the epoch.
       const stakeNeeded = minimumStake * BigInt(validators.length);
       await Promise.all(
@@ -673,30 +691,16 @@ export const cheat_initializeValidatorSet = async (
             data: encodeFunctionData({
               abi: l1Artifacts.stakingAsset.contractAbi,
               functionName: 'mint',
-              args: [extendedClient.account.address, stakeNeeded],
-            }),
-          }),
-          await deployer.sendTransaction({
-            to: stakingAssetAddress,
-            data: encodeFunctionData({
-              abi: l1Artifacts.stakingAsset.contractAbi,
-              functionName: 'approve',
-              args: [rollupAddress, stakeNeeded],
+              args: [multiAdder.toString(), stakeNeeded],
             }),
           }),
         ].map(tx => extendedClient.waitForTransactionReceipt({ hash: tx.txHash })),
       );
 
-      const validatorsTuples = validators.map(v => ({
-        attester: v,
-        proposer: getExpectedAddress(ForwarderAbi, ForwarderBytecode, [v], v).address,
-        withdrawer: v,
-        amount: minimumStake,
-      }));
       const initiateValidatorSetTxHash = await deployer.client.writeContract({
-        address: rollupAddress,
-        abi: l1Artifacts.rollup.contractAbi,
-        functionName: 'cheat__InitialiseValidatorSet',
+        address: multiAdder.toString(),
+        abi: l1Artifacts.multiAdder.contractAbi,
+        functionName: 'addValidators',
         args: [validatorsTuples],
       });
       await extendedClient.waitForTransactionReceipt({ hash: initiateValidatorSetTxHash });

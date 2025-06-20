@@ -12,7 +12,6 @@ import { deepStrictEqual } from 'assert';
 import omit from 'lodash.omit';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
@@ -43,7 +42,7 @@ import {
   TxReceipt,
   TxSimulationResult,
 } from '../tx/index.js';
-import { TxProfileResult } from '../tx/profiling.js';
+import { TxProfileResult, UtilitySimulationResult } from '../tx/profiling.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
@@ -180,7 +179,7 @@ describe('PXESchema', () => {
   });
 
   it('sendTx', async () => {
-    const result = await context.client.sendTx(await Tx.random());
+    const result = await context.client.sendTx(Tx.random());
     expect(result).toBeInstanceOf(TxHash);
   });
 
@@ -228,7 +227,7 @@ describe('PXESchema', () => {
 
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
-    expect(result).toEqual(10n);
+    expect(result).toEqual({ result: 10n });
   });
 
   it('getPublicLogs', async () => {
@@ -372,10 +371,13 @@ class MockPXE implements PXE {
     const provingTime = skipProofGeneration ? 1 : undefined;
     return Promise.resolve(
       new TxProfileResult([], {
-        perFunction: [{ functionName: 'something', time: 1 }],
-        proving: provingTime,
-        unaccounted: 1,
-        total: 2,
+        nodeRPCCalls: { getBlockNumber: { times: [1] } },
+        timings: {
+          perFunction: [{ functionName: 'something', time: 1 }],
+          proving: provingTime,
+          unaccounted: 1,
+          total: 2,
+        },
       }),
     );
   }
@@ -389,10 +391,10 @@ class MockPXE implements PXE {
   async simulateTx(
     txRequest: TxExecutionRequest,
     _simulatePublic: boolean,
-    msgSender?: AztecAddress | undefined,
-    _skipTxValidation?: boolean | undefined,
-    _enforceFeePayment?: boolean | undefined,
-    scopes?: AztecAddress[] | undefined,
+    msgSender?: AztecAddress,
+    _skipTxValidation?: boolean,
+    _enforceFeePayment?: boolean,
+    scopes?: AztecAddress[],
   ): Promise<TxSimulationResult> {
     expect(txRequest).toBeInstanceOf(TxExecutionRequest);
     if (msgSender) {
@@ -456,14 +458,14 @@ class MockPXE implements PXE {
     _args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
-    from?: AztecAddress | undefined,
-    scopes?: AztecAddress[] | undefined,
-  ): Promise<AbiDecoded> {
+    from?: AztecAddress,
+    scopes?: AztecAddress[],
+  ): Promise<UtilitySimulationResult> {
     expect(to).toEqual(this.address);
     expect(from).toEqual(this.address);
     expect(scopes).toEqual([this.address]);
     expect(authwits).toEqual([]);
-    return Promise.resolve(10n);
+    return Promise.resolve(new UtilitySimulationResult(10n));
   }
   async getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
     expect(filter.contractAddress).toEqual(this.address);

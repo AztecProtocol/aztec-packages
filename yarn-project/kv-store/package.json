@@ -40,7 +40,7 @@
     "@types/jest": "^29.5.0",
     "@types/mocha": "^10.0.10",
     "@types/mocha-each": "^2.0.4",
-    "@types/node": "^18.7.23",
+    "@types/node": "^22.15.17",
     "@types/sinon": "^17.0.3",
     "@web/dev-server-esbuild": "^1.0.3",
     "@web/test-runner": "^0.19.0",
@@ -52,7 +52,7 @@
     "mocha-each": "^2.0.1",
     "sinon": "^19.0.2",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "typescript": "^5.3.3"
   },
   "files": [
     "dest",
@@ -60,7 +60,7 @@
     "!*.test.*"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.10"
   },
   "jest": {
     "extensionsToTreatAsEsm": [

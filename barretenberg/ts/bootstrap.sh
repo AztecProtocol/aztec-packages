@@ -12,7 +12,8 @@ function build {
   if ! cache_download bb.js-$hash.tar.gz; then
     find . -exec touch -d "@0" {} + 2>/dev/null || true
     yarn clean
-    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:wasm build:esm build:cjs build:browser
+    yarn build:wasm
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi
 
@@ -63,7 +64,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "bench")
+  bench|bench_cmds)
     # Empty handling just to make this command valid.
     ;;
   test|test_cmds|release)

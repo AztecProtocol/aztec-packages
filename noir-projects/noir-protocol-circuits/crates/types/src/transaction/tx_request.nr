@@ -13,6 +13,7 @@ pub struct TxRequest {
     pub args_hash: Field,
     pub tx_context: TxContext,
     pub function_data: FunctionData,
+    pub salt: Field,
 }
 
 impl Empty for TxRequest {
@@ -22,6 +23,7 @@ impl Empty for TxRequest {
             args_hash: 0,
             tx_context: TxContext::empty(),
             function_data: FunctionData::empty(),
+            salt: 0,
         }
     }
 }
@@ -32,6 +34,7 @@ impl Eq for TxRequest {
             & (self.args_hash == other.args_hash)
             & (self.tx_context == other.tx_context)
             & (self.function_data == other.function_data)
+            & (self.salt == other.salt)
     }
 }
 
@@ -50,6 +53,7 @@ impl Serialize<TX_REQUEST_LENGTH> for TxRequest {
         fields.extend_from_array(self.function_data.serialize());
         fields.push(self.args_hash);
         fields.extend_from_array(self.tx_context.serialize());
+        fields.push(self.salt);
 
         assert_eq(fields.len(), TX_REQUEST_LENGTH);
 
@@ -66,6 +70,7 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
             args_hash: reader.read(),
             tx_context: reader.read_struct(TxContext::deserialize),
             function_data: reader.read_struct(FunctionData::deserialize),
+            salt: reader.read(),
         };
 
         reader.finish();
@@ -101,17 +106,18 @@ mod tests {
             GasFees::new(3, 3),
         );
         let tx_request = TxRequest {
-            origin: AztecAddress::from_field(1),
-            args_hash: 3,
-            tx_context: TxContext { chain_id: 0, version: 0, gas_settings },
+            origin: AztecAddress::from_field(1122),
+            args_hash: 33,
+            tx_context: TxContext { chain_id: 44, version: 55, gas_settings },
             function_data: FunctionData {
-                selector: FunctionSelector::from_u32(2),
+                selector: FunctionSelector::from_u32(66),
                 is_private: true,
             },
+            salt: 789,
         };
         // Value from tx_request.test.ts "compute hash" test
         let test_data_tx_request_hash =
-            0x2d265ee0e3b9d206873a66527485afa3c6ebbfbaf451811666c9558a9f6e3d46;
+            0x2117491eec1cf18b6deb0520a7dfa44de357998d671f87bfcf080d347d217f02;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

@@ -22,6 +22,8 @@ export enum TopicType {
 export function getTopicTypeForClientType(clientType: P2PClientType) {
   if (clientType === P2PClientType.Full) {
     return Object.values(TopicType);
+  } else if (clientType === P2PClientType.Prover) {
+    return [TopicType.tx, TopicType.block_proposal];
   }
   return [TopicType.tx];
 }

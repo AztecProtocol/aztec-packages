@@ -24,10 +24,19 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
     skipFeeEnforcement: boolean = false,
+    clientInitiatedSimulation: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
+    super(
+      merkleTree,
+      contractsDB,
+      globalVariables,
+      doMerkleOperations,
+      skipFeeEnforcement,
+      clientInitiatedSimulation,
+      metrics,
+    );
     this.tracer = metrics.tracer;
   }
 

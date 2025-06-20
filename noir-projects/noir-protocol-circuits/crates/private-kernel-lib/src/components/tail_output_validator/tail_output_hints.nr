@@ -1,5 +1,9 @@
 use dep::types::{
-    abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs, log_hash::ScopedLogHash},
+    abis::{
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        log_hash::LogHash,
+        side_effect::{Counted, scoped::Scoped},
+    },
     constants::{MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX},
     utils::arrays::{get_order_hints_asc, OrderHint, sort_by_counter_asc},
 };
@@ -8,7 +12,7 @@ pub struct TailOutputHints {
     // L2 to l1 msgs.
     pub sorted_l2_to_l1_msg_hints: [OrderHint; MAX_L2_TO_L1_MSGS_PER_TX],
     // Contract class log hashes.
-    pub sorted_contract_class_log_hashes: [ScopedLogHash; MAX_CONTRACT_CLASS_LOGS_PER_TX],
+    pub sorted_contract_class_log_hashes: [Scoped<Counted<LogHash>>; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     pub sorted_contract_class_log_hash_hints: [OrderHint; MAX_CONTRACT_CLASS_LOGS_PER_TX],
 }
 

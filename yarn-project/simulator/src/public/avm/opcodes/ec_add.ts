@@ -39,6 +39,8 @@ export class EcAdd extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory;
+    const addressing = Addressing.fromWire(this.indirect);
+
     context.machineState.consumeGas(this.gasCost());
 
     const operands = [
@@ -50,7 +52,6 @@ export class EcAdd extends Instruction {
       this.p2IsInfiniteOffset,
       this.dstOffset,
     ];
-    const addressing = Addressing.fromWire(this.indirect, operands.length);
     const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
       addressing.resolve(operands, memory);
 

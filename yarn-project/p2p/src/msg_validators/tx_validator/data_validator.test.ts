@@ -1,9 +1,14 @@
-import { MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import {
+  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
+  MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS,
+} from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ScopedLogHash } from '@aztec/stdlib/kernel';
-import { ContractClassLog } from '@aztec/stdlib/logs';
+import { LogHash, ScopedLogHash } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
   TX_ERROR_CALLDATA_COUNT_MISMATCH,
@@ -34,20 +39,24 @@ const mockTxsWithCCLog = (numTxs: number) =>
       numberOfRevertiblePublicCallRequests: 2,
       hasPublicTeardownCallRequest: true,
     });
-    const contractClassLogs = await Promise.all(
-      Array(MAX_CONTRACT_CLASS_LOGS_PER_TX).fill(0).map(ContractClassLog.random),
+    // The length is at least 1 and at most CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - 1.
+    // -1 so that we can tweak the fields to have an extra field.
+    const emittedLengths = Array.from(
+      { length: MAX_CONTRACT_CLASS_LOGS_PER_TX },
+      () => 1 + randomInt(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - 2),
+    );
+    const logs = Array.from({ length: MAX_CONTRACT_CLASS_LOGS_PER_TX }, (_, i) =>
+      ContractClassLogFields.random(emittedLengths[i]),
     );
     const logHashes = await Promise.all(
-      contractClassLogs.map(async l =>
-        ScopedLogHash.fromFields([
-          await l.hash(),
-          new Fr(i + 3),
-          new Fr(l.getEmittedLength()),
-          (await AztecAddress.random()).toField(),
-        ]),
+      logs.map(async (log, i) =>
+        LogHash.from({
+          value: await log.hash(),
+          length: emittedLengths[i],
+        }).scope(await AztecAddress.random()),
       ),
     );
-    tx.contractClassLogs.push(...contractClassLogs);
+    tx.contractClassLogs.push(...logs);
     logHashes.forEach((hash, i) => (tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[i] = hash));
     return tx;
   });
@@ -214,18 +223,21 @@ describe('TxDataValidator', () => {
   });
 
   it('rejects txs with mismatched contract class logs length', async () => {
-    const goodTxs = await mockTxsWithCCLog(3);
-    const badTxs = await mockTxsWithCCLog(2);
+    const goodTxs = await mockTxsWithCCLog(2);
+    const badTxs = await mockTxsWithCCLog(1);
 
-    badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length += 1;
-    // Note: changing the raw log to be longer/shorter results in an incorrect hash, which throws first.
-    badTxs[1].contractClassLogs[0].fields[badTxs[1].contractClassLogs[0].getEmittedLength()] = Fr.ONE;
-    badTxs[1].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.value =
-      await badTxs[1].contractClassLogs[0].hash();
+    // The trailing fields of the emitted log can be zero.
+    goodTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash.length += 1;
+
+    // Add an extra non-zero field.
+    const log = badTxs[0].contractClassLogs[0];
+    const logHash = badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0].logHash;
+    log.fields[logHash.length] = Fr.ONE;
+    // Update the corresponding hash because changing the raw log results in an incorrect hash, which throws first.
+    logHash.value = await log.hash();
 
     await expectValid(goodTxs);
 
     await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
-    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
   });
 });

@@ -1,12 +1,12 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -70,11 +70,7 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     };
 
   protected:
-    static void SetUpTestSuite()
-    {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -220,7 +216,7 @@ TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
     {
         const auto mask = plookup::fixed_base::table::MAX_TABLE_SIZE - 1;
 
-        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::LHS_GENERATOR_POINT;
+        grumpkin::g1::affine_element base_point = plookup::fixed_base::table::lhs_generator_point();
         std::vector<uint8_t> input_buf;
         write(input_buf, base_point);
         const auto offset_generators =

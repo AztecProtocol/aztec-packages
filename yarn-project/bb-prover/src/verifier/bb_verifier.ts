@@ -32,7 +32,14 @@ export const PRIVATE_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/privat
 export const PUBLIC_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/public-civc-vk');
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
-  private constructor(private config: BBConfig, private logger: Logger) {}
+  private constructor(
+    private config: BBConfig,
+    private logger: Logger,
+  ) {}
+
+  public stop(): Promise<void> {
+    return Promise.resolve();
+  }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });

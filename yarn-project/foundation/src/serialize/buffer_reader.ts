@@ -19,7 +19,10 @@ import type { Tuple } from './types.js';
  */
 export class BufferReader {
   private index: number;
-  constructor(private buffer: Buffer, offset = 0) {
+  constructor(
+    private buffer: Buffer,
+    offset = 0,
+  ) {
     this.index = offset;
   }
 

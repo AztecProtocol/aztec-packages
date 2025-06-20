@@ -51,7 +51,7 @@ function filter<T>(
         yield value;
       }
 
-      for await (const entry of peekable) {
+      for (const entry of peekable) {
         if (await fn(entry, index++)) {
           yield entry;
         }

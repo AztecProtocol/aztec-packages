@@ -71,6 +71,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
     overrides?.calldata ?? [],
+    overrides?.clientInitiatedSimulation ?? true, // default to true for testing even though internal default is false
   );
 }
 

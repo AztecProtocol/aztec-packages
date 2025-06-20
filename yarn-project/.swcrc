@@ -8,7 +8,7 @@
     "transform": {
       "legacyDecorator": true
     },
-    "experimental": { "keepImportAttributes": true, "emitAssertForImportAttributes": true }
+    "experimental": { "keepImportAttributes": true }
   },
   "module": {
     "type": "es6"

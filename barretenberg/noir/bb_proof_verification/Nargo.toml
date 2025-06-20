@@ -1,0 +1,6 @@
+[package]
+name = "bb_proof_verification"
+type = "lib"
+authors = ["Tom French <tom@aztec-labs.com>"]
+
+[dependencies]

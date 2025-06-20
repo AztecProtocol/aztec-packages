@@ -35,7 +35,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
                                     const std::shared_ptr<RecursiveDeciderVK>& verification_key,
-                                    std::shared_ptr<Transcript> transcript,
+                                    const std::shared_ptr<Transcript>& transcript,
                                     std::string domain_separator = "");
 
     /**

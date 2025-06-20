@@ -9,7 +9,10 @@ import { ScheduledValueChange } from './scheduled_value_change.js';
 export const SHARED_MUTABLE_VALUES_LEN = 2 * UPDATES_VALUE_SIZE + 1;
 
 export class SharedMutableValues {
-  constructor(public svc: ScheduledValueChange, public sdc: ScheduledDelayChange) {}
+  constructor(
+    public svc: ScheduledValueChange,
+    public sdc: ScheduledDelayChange,
+  ) {}
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);

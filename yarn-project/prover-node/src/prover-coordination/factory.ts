@@ -9,6 +9,7 @@ import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import type { ProverCoordination, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import { getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, makeTracedFetch } from '@aztec/telemetry-client';
 
@@ -76,6 +77,7 @@ export async function createProverCoordination(
     proofVerifier,
     deps.worldStateSynchronizer,
     deps.epochCache,
+    getPackageVersion() ?? '',
     deps.telemetry,
   );
   await p2pClient.start();

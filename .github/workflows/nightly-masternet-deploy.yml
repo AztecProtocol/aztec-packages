@@ -26,7 +26,7 @@ jobs:
           current_version=$(jq -r '."."' .release-please-manifest.json)
           echo "Current version: $current_version"
           # Format the tag as: <current_version>-nightly.<YYYYMMDD>
-          nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)"
+          nightly_tag="${current_version}-nightly.$(date -u +%Y%m%d)-amd64"
 
           TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag)
           if [[ "$TAGS" != *"not found"* ]]; then

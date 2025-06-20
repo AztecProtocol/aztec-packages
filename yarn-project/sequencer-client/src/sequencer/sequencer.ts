@@ -23,6 +23,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -102,7 +103,7 @@ export class Sequencer {
     this.metrics = new SequencerMetrics(
       telemetry,
       () => this.state,
-      this._coinbase,
+      this.config.coinbase ?? this.publisher.getSenderAddress(),
       this.publisher.getRollupContract(),
       'Sequencer',
     );
@@ -154,6 +155,7 @@ export class Sequencer {
     }
     if (config.coinbase) {
       this._coinbase = config.coinbase;
+      this.metrics.setCoinbase(this._coinbase);
     }
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
@@ -452,8 +454,8 @@ export class Sequencer {
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
-    const publicProcessorDBFork = await this.worldState.fork();
-    const orchestratorDBFork = await this.worldState.fork();
+    const publicProcessorDBFork = await this.worldState.fork(blockNumber - 1);
+    const orchestratorDBFork = await this.worldState.fork(blockNumber - 1);
 
     const previousBlockHeader =
       (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();
@@ -686,12 +688,14 @@ export class Sequencer {
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
+    const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.header.toPropose(),
       block.archive.root,
       block.header.state,
       txs,
+      blockProposalOptions,
     );
     if (!proposal) {
       const msg = `Failed to create block proposal`;
@@ -699,7 +703,7 @@ export class Sequencer {
     }
 
     this.log.debug('Broadcasting block proposal to validators');
-    this.validatorClient.broadcastBlockProposal(proposal);
+    await this.validatorClient.broadcastBlockProposal(proposal);
 
     const attestationTimeAllowed = this.enforceTimeTable
       ? this.timetable.getMaxAllowedTime(SequencerState.PUBLISHING_BLOCK)!

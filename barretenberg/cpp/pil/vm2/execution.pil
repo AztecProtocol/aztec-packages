@@ -24,6 +24,7 @@ include "context_stack.pil";
 include "public_data_check.pil";
 include "update_check.pil";
 include "nullifier_check.pil";
+include "public_inputs.pil";
 
 namespace execution;
 
@@ -65,6 +66,7 @@ pol commit rw1, rw2, rw3, rw4;
 pol commit rw5, rw6, rw7;
 
 pol commit bytecode_id;
+pol commit instr_length; // Need this for shift col on next_pc, will be part of lookup to instr_fetch
 pol commit last;
 
 // Selector constraints

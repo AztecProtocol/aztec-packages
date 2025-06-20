@@ -7,7 +7,7 @@ using namespace bb;
 
 TEST(Flavor, Getters)
 {
-    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
     using Flavor = UltraFlavor;
     using FF = Flavor::FF;
     using ProvingKey = typename Flavor::ProvingKey;

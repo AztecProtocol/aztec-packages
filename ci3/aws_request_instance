@@ -47,15 +47,16 @@ else
   exit 1
 fi
 
+set +e
 IFS=',' read -ra cpu_list <<< "$cpus"
 for cpu in "${cpu_list[@]}"; do
   price=$(jq -n "$bid_per_cpu_hour*$cpu*100000 | round / 100000")
   suffix=${cpu_map[$cpu]}
   for inst in "${instances[@]}"; do
     instance_type="$inst.$suffix"
-    if aws_request_instance_type $name $instance_type $price $ami; then
-      exit 0
-    fi
+    aws_request_instance_type $name $instance_type $price $ami
+    code=$?
+    [[ "$code" -eq 0 || "$code" -eq 143 || "$code" -eq 130 ]] && exit $code
   done
 done
 exit 1

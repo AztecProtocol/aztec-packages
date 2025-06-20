@@ -27,7 +27,10 @@ export class LightweightBlockBuilder implements BlockBuilder {
 
   private readonly logger = createLogger('prover-client:block_builder');
 
-  constructor(private db: MerkleTreeWriteOperations, private telemetry: TelemetryClient = getTelemetryClient()) {}
+  constructor(
+    private db: MerkleTreeWriteOperations,
+    private telemetry: TelemetryClient = getTelemetryClient(),
+  ) {}
 
   async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });

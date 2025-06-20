@@ -1,10 +1,12 @@
 # CI for external Aztec contributors. Like ci3.yml, but more locked down.
+#
+# CAREFUL! We use "exec" a lot to ensure signal propagation to the child process, to allow proper ec2 cleanup.
 name: CI3 (External)
 
 on:
   # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
   merge_group:
-  # For external devs. Workflow file edits won't take effect in the PR.
+  # Run with pull_request_target for external devs. This forces them to use this workflow as-is.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
@@ -30,6 +32,8 @@ jobs:
           # The commit to checkout.  We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
+      # NOTE: in ci3.yml we just rely on draft mode not being mergable. 
+      # Here we are a little more careful than just skipping the worklfow, in case of an edge case allowing merge.
       - name: Fail If Draft
         if: github.event.pull_request.draft
         run: echo "CI is not run on drafts." && exit 1
@@ -59,12 +63,12 @@ jobs:
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
       - name: CI Full Override
-        # TODO consolidate legacy labels to just ci-full.
-        if: |
-          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
-          contains(github.event.pull_request.labels.*.name, 'network-all') ||
-          contains(github.event.pull_request.labels.*.name, 'ci-full')
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_FULL=1" >> $GITHUB_ENV
+
+      - name: Cache Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
+        run: echo "NO_CACHE=1" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -88,4 +92,8 @@ jobs:
           ARCH: amd64
           RUN_ID: ${{ github.run_id }}
         run: |
-          ./ci.sh ec2
+          if [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./ci.sh merge-queue
+          else
+            exec ./ci.sh fast
+          fi

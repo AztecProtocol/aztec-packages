@@ -110,20 +110,12 @@ struct RollupStore {
   RollupConfig config;
 }
 
-struct CheatDepositArgs {
-  address attester;
-  address proposer;
-  address withdrawer;
-  uint256 amount;
-}
-
 interface ITestRollup {
   event ManaTargetUpdated(uint256 indexed manaTarget);
 
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
-  function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
   function updateManaTarget(uint256 _manaTarget) external;
 }
 

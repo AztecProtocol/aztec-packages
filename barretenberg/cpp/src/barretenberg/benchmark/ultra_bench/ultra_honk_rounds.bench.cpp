@@ -61,7 +61,7 @@ BB_PROFILE static void test_round_inner(State& state, MegaProver& prover, size_t
 BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
     auto log2_num_gates = static_cast<size_t>(state.range(0));
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/761) benchmark both sparse and dense circuits
     auto prover = bb::mock_circuits::get_prover<MegaProver>(

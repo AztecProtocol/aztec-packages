@@ -1,4 +1,9 @@
+include "context_stack.pil";
+
 // This is a virtual gadget, which is part of the execution trace.
+// This subtrace is focused on managing the changes to the context.
+// By default (i.e. when not executing a context-changing opcode),
+// the context object is propagated downwards
 namespace execution;
 
     // This the same sel as in execution
@@ -7,11 +12,23 @@ namespace execution;
 
     // Useful to define some opcodes within this pil file
     // Constrained to be boolean by execution instruction spec table
+    pol commit sel_error;
+    sel_error * (1 - sel_error) = 0;
+    pol commit sel_revert;
+    pol commit sel_return;
     pol commit sel_call;
     pol commit sel_static_call;
-    pol CALL = sel_call + sel_static_call; // Guaranteed to be mutually exclusive
-    // CALL & precomputed.first_row are NAND
-    CALL * precomputed.first_row = 0;
+    // Guaranteed to be boolean becuase sel_call & sel_static_call are mutually exclusive
+    pol commit sel_enter_call;
+    // Handle error separately since it takes priority and may occur during an sel_x_call
+    sel_enter_call = (sel_call + sel_static_call) * (1 - sel_error);
+    // CALL & precomputed.first_row are mutually exclusive
+    sel_enter_call * precomputed.first_row = 0;
+
+    // sel_exit_call is used to flag if we are returning or reverting or we error
+    // sel_revert & sel_return are mutually exclusive
+    pol commit sel_exit_call;
+    sel_exit_call = 1 - (1 - sel_revert - sel_return) * (1 - sel_error);
 
     // Context columns
     pol commit context_id;
@@ -27,59 +44,188 @@ namespace execution;
     pol commit parent_calldata_size_addr;
 
     pol commit last_child_returndata_offset_addr;
-    pol commit last_child_returndata_size_addr;
+    pol commit last_child_returndata_size;
     pol commit last_child_success; // Careful with this for now...
 
     // ==== Helper columns ====
     // TODO: These context modifiers also need to factor in when a new enqueued call occurs
-    // REPLACE prefixed precomputed.first_row in relations with actual phase / enqueued call change
-    pol NOT_FIRST = (1 - precomputed.first_row); // Temp
+    pol NOT_LAST_EXEC = sel * sel';
+    pol SWITCH_CTX = sel_enter_call + sel_exit_call; // Mutually Exclusive
+    // We default propagate the context rows if we have more execution steps and we are not exiting or entering a call
+    pol DEFAULT_CTX_ROW = (1 - SWITCH_CTX);
+
+    pol commit has_parent_ctx; // == 1 if parent_id != 0;
+    has_parent_ctx * (1 - has_parent_ctx) = 0;
+    pol commit is_parent_id_inv; // For zero-check of has_parent_ctx
+    parent_id * ((1 - has_parent_ctx) * (1 - is_parent_id_inv) + is_parent_id_inv) - has_parent_ctx = 0;
+
+    // We need a flag to indicate when we are exiting a nested context
+    pol commit nested_exit_call;
+    // If we are exiting and we have a parent ctx
+    nested_exit_call = has_parent_ctx * sel_exit_call;
 
     // next_context_id increments with each invocation of an external call or new enqueued call
     pol commit next_context_id; // Can be replaced by clk
     // The initial next_context_id = 2, in row = 1
-    #[INCR_CONTEXT_ID]
-    NOT_FIRST * sel' * (next_context_id' - (next_context_id + CALL)) = 0;
+    #[INCR_NEXT_CONTEXT_ID]
+    NOT_LAST_EXEC * (next_context_id' - (next_context_id + sel_enter_call)) = 0;
 
-    // CALL = 1 <==> context_id' = next_context_id
-    // CALL = 0 <==> context_id' = context_id
-    #[NEXT_CONTEXT_ID]
-    NOT_FIRST * sel' * ((next_context_id - context_id) * CALL + context_id + precomputed.first_row - context_id') = 0;
+    // nested_exit_call = 1 <==> context_id' = parent_id
+    // sel_enter_call   = 1 <==> context_id' = next_context_id
+    // otherwise        = 0 <==> context_id' = context_id
+    #[CONTEXT_ID_CALL_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (context_id' - context_id) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (context_id' - next_context_id) = 0;
+    NOT_LAST_EXEC * nested_exit_call   * (context_id' - parent_id) = 0;
 
-    // CALL = 1 <==> parent_id' = context_id
-    // CALL = 0 <==> parent_id' = parent_id
-    #[NEXT_PARENT_ID]
-    NOT_FIRST * sel' * ((context_id - parent_id) * (CALL + precomputed.first_row) + parent_id - parent_id') = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_id' = context_id
+    // otherwise        = 0 <==> parent_id' = parent_id
+    #[PARENT_ID_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_id' - parent_id) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_id' - context_id) = 0;
 
-    // CALL = 1 <==> pc' = 0
-    // CALL = 0 <==> pc' = next_pc
-    #[NEXT_PC]
-    NOT_FIRST * sel' * (pc' - ((1 - CALL) * next_pc)) = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> pc' = 0
+    // otherwise        = 0 <==> pc' = next_pc
+    #[PC_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (pc' - next_pc) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
-    // CALL = 1 <==> msg_sender' = contract_address
-    // CALL = 0 <==> msg_sender' = msg_sender 
-    #[NEXT_MSG_SENDER]
-    NOT_FIRST * sel' * ((contract_address - msg_sender) * CALL + msg_sender - msg_sender') = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> msg_sender' = contract_address
+    // otherwise        = 0 <==> msg_sender' = msg_sender
+    #[MSG_SENDER_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (msg_sender' - msg_sender) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (msg_sender' - contract_address) = 0;
 
-    // CALL = 1 <==> contract_address' = reg3 (intermediate register 3 from execution trace)
-    // CALL = 0 <==> contract_address' = contract_address
-    #[NEXT_CONTRACT_ADDR]
-    NOT_FIRST * sel' * ((reg3 - contract_address) * CALL + contract_address - contract_address') = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> contract_address' = reg3 (intermediate register 3 from execution trace)
+    // otherwise        = 0 <==> contract_address' = contract_address
+    #[CONTRACT_ADDR_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (contract_address' - reg3) = 0;
 
-    // CALL = 1 && static_call = 1 <==> is_static' = 1
-    // CALL = 1 && static_call = 0 <==> is_static' = 0
-    // CALL = 0 && static_call = 0 <==> is_static' = is_static
-    #[NEXT_IS_STATIC]
-    NOT_FIRST * sel' * (is_static' - (sel_static_call + (1 - CALL) * is_static)) = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 && static_call = 1 <==> is_static' = 1
+    // sel_enter_call   = 1 && static_call = 0 <==> is_static' = 0
+    // otherwise        = 0 <==> is_static' = is_static
+    #[IS_STATIC_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (is_static' - is_static) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (is_static' - sel_static_call) = 0;
 
-    // CALL = 1 <==> parent_calldata_offset_addr' = rop4 (resolved operand 4 from execution trace)
-    // CALL = 0 <==> parent_calldata_offset_addr' = parent_calldata_offset_addr
-    #[NEXT_CD_OFFSET]
-    NOT_FIRST * sel' * ((rop4 - parent_calldata_offset_addr) * CALL + parent_calldata_offset_addr - parent_calldata_offset_addr') = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_calldata_offset_addr' = rop4 (resolved operand 4 from execution trace)
+    // otherwise        = 0 <==> parent_calldata_offset_addr' = parent_calldata_offset_addr
+    #[CD_OFFSET_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_offset_addr' - parent_calldata_offset_addr) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_offset_addr' - rop4) = 0;
 
-    // CALL = 1 <==> parent_calldata_size_addr' = rop5 (resolved operand 5 from execution trace)
-    // CALL = 0 <==> parent_calldata_size_addr' = parent_calldata_size_addr
-    #[NEXT_CD_SIZE]
-    NOT_FIRST * sel' * ((rop5 - parent_calldata_size_addr) * CALL + parent_calldata_size_addr - parent_calldata_size_addr') = 0;
+    // nested_exit_call = 1 <==> constraints come from lookup
+    // sel_enter_call   = 1 <==> parent_calldata_size_addr' = rop5 (resolved operand 5 from execution trace)
+    // otherwise        = 0 <==> parent_calldata_size_addr' = parent_calldata_size_addr
+    #[CD_SIZE_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (parent_calldata_size_addr' - parent_calldata_size_addr) = 0;
+    NOT_LAST_EXEC * sel_enter_call  * (parent_calldata_size_addr' - rop5) = 0;
 
+    pol NESTED_RET_REV_ONLY = nested_exit_call * (1 - sel_error);
+    // NESTED_RET_REV_ONLY = 1 <==> rop2 (resolved operand 2 from execution trace)
+    // sel_error           = 1 <==> last_child_returndata_size' = 0;
+    // sel_enter_call      = 1 <==> last_child_returndata_offset_addr' = 0;
+    // otherwise           = 0 <==> last_child_returndata_offset_addr' = last_child_returndata_offset_addr
+    #[RD_OFFSET_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_offset_addr' - last_child_returndata_offset_addr) = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY * (last_child_returndata_offset_addr' - rop2) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_offset_addr' = 0;
 
+    // NESTED_RET_REV_ONLY = 1 <==> reg1 (intermediate register 1 from execution trace)
+    // sel_error               = 1 <==> last_child_returndata_size' = 0;
+    // sel_enter_call          = 1 <==> last_child_returndata_size' = 0;
+    // otherwise               = 0 <==> last_child_returndata_size' = last_child_returndata_size
+    #[RD_SIZE_OFFSET_NEXT_ROW]
+    NOT_LAST_EXEC * DEFAULT_CTX_ROW * (last_child_returndata_size' - last_child_returndata_size) = 0;
+    NOT_LAST_EXEC * NESTED_RET_REV_ONLY  * (last_child_returndata_size' - reg1) = 0;
+    NOT_LAST_EXEC * (sel_enter_call + sel_error) * last_child_returndata_size' = 0;
+
+    #[CTX_STACK_CALL]
+    sel_enter_call {
+        next_context_id,
+        context_id,
+        parent_id,
+        next_pc,
+        msg_sender,
+        contract_address,
+        is_static,
+        parent_calldata_offset_addr,
+        parent_calldata_size_addr
+    } in
+    context_stack.sel {
+        context_stack.entered_context_id,
+        context_stack.context_id,
+        context_stack.parent_id,
+        context_stack.next_pc,
+        context_stack.msg_sender,
+        context_stack.contract_address,
+        context_stack.is_static,
+        context_stack.parent_calldata_offset_addr,
+        context_stack.parent_calldata_size_addr
+    };
+
+    // If we are reverting or erroring a nested call, we restore the entire ctx from the stack
+    pol commit rollback_context;
+    rollback_context * (1 - rollback_context) = 0;
+    // Constrained to be boolean based on previous relations
+    rollback_context = nested_exit_call * (1 - sel_return);
+
+    #[CTX_STACK_ROLLBACK]
+    rollback_context {
+        context_id,
+        context_id', // constrained to be parent_id
+        parent_id',
+        pc',
+        msg_sender',
+        contract_address',
+        is_static',
+        parent_calldata_offset_addr',
+        parent_calldata_size_addr'
+        // Tree Snapshots
+        // Counters
+    } in
+    context_stack.sel {
+        context_stack.entered_context_id,
+        context_stack.context_id,
+        context_stack.parent_id,
+        context_stack.next_pc,
+        context_stack.msg_sender,
+        context_stack.contract_address,
+        context_stack.is_static,
+        context_stack.parent_calldata_offset_addr,
+        context_stack.parent_calldata_size_addr
+        // Tree Snapshots
+        // Counters
+    };
+
+    pol commit nested_return;
+    nested_return = nested_exit_call * sel_return;
+    #[CTX_STACK_RETURN]
+    nested_return {
+        context_id', // constrained to be parent_id 
+        parent_id',
+        pc',
+        msg_sender',
+        contract_address',
+        is_static',
+        parent_calldata_offset_addr',
+        parent_calldata_size_addr'
+    } in
+    context_stack.sel {
+        context_stack.context_id,
+        context_stack.parent_id,
+        context_stack.next_pc,
+        context_stack.msg_sender,
+        context_stack.contract_address,
+        context_stack.is_static,
+        context_stack.parent_calldata_offset_addr,
+        context_stack.parent_calldata_size_addr
+    };
+ 

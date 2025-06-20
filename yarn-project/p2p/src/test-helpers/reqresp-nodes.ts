@@ -33,6 +33,7 @@ import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolRateLimits,
   type ReqRespSubProtocolValidators,
   noopValidator,
 } from '../services/reqresp/interface.js';
@@ -120,7 +121,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     bootstrapNodeEnrVersionCheck: false,
     ...chainConfig,
   } as P2PConfig & DataStoreConfig;
-  const discoveryService = new DiscV5Service(peerId, config, telemetry);
+  const discoveryService = new DiscV5Service(peerId, config, 'test-reqresp-node', telemetry);
   const proofVerifier = new AlwaysTrueCircuitVerifier();
 
   // No bootstrap nodes provided as the libp2p service will register them in the constructor
@@ -172,8 +173,12 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = (peerScoring: PeerScoring, numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return timesParallel(numberOfNodes, () => createReqResp(peerScoring));
+export const createNodes = (
+  peerScoring: PeerScoring,
+  numberOfNodes: number,
+  rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
+): Promise<ReqRespNode[]> => {
+  return timesParallel(numberOfNodes, () => createReqResp(peerScoring, rateLimits));
 };
 
 export const startNodes = async (
@@ -192,17 +197,17 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (peerScoring: PeerScoring): Promise<ReqRespNode> => {
+export const createReqResp = async (
+  peerScoring: PeerScoring,
+  rateLimits: Partial<ReqRespSubProtocolRateLimits> = {},
+): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p, peerScoring);
-  return {
-    p2p,
-    req,
-  };
+  const req = new ReqResp(config, p2p, peerScoring, rateLimits);
+  return { p2p, req };
 };
 
 // Given a node list; hand shake all of the nodes with each other
@@ -220,11 +225,17 @@ export const connectToPeers = async (nodes: ReqRespNode[]): Promise<void> => {
 
 // Mock circuit verifier for testing - reimplementation from bb to avoid dependency
 export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier {
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
   verifyProof(_tx: Tx): Promise<boolean> {
     return Promise.resolve(true);
   }
 }
 export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier {
+  stop(): Promise<void> {
+    return Promise.resolve();
+  }
   verifyProof(_tx: Tx): Promise<boolean> {
     return Promise.resolve(false);
   }

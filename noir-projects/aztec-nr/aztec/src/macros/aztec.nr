@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `sync_notes` utility function PXE requires in order to discover notes.
+/// the `sync_private_state` utility function.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
@@ -23,14 +23,14 @@ pub comptime fn aztec(m: Module) -> Quoted {
         generate_contract_library_method_compute_note_hash_and_nullifier();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
-    let sync_notes = generate_sync_notes();
+    let sync_private_state = generate_sync_private_state();
 
     quote {
         $note_exports
         $interface
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
-        $sync_notes
+        $sync_private_state
     }
 }
 
@@ -264,21 +264,18 @@ comptime fn generate_note_exports() -> Quoted {
         .join(quote {})
 }
 
-comptime fn generate_sync_notes() -> Quoted {
-    // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
-    // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
-    // codebase).
-    // let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
-    // quote {
-    //     #[$utility]
-    //     unconstrained fn sync_notes() {
-    //     }
-    // }
+comptime fn generate_sync_private_state() -> Quoted {
+    // We obtain the `utility` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
+    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
+    // to determine whether a function is `private`, `public`, or `utility`.
+    let utility = crate::macros::functions::utility;
 
     // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
     // need to do anything extra.
     quote {
-        #[aztec::macros::functions::utility]
-        unconstrained fn sync_notes() { }
+        #[$utility]
+        unconstrained fn sync_private_state() {
+        }
     }
 }

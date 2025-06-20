@@ -248,13 +248,13 @@ describe('world-state integration', () => {
   describe('finalized chain', () => {
     it('syncs finalized chain tip', async () => {
       await archiver.createBlocks(5);
-      archiver.setProvenBlockNumber(3);
+      archiver.setFinalizedBlockNumber(3);
 
       await synchronizer.start();
       await awaitSync(5, 3);
       await expectSynchedToBlock(5, 3);
 
-      archiver.setProvenBlockNumber(4);
+      archiver.setFinalizedBlockNumber(4);
       await awaitSync(5, 4);
       await expectSynchedToBlock(5, 4);
     });

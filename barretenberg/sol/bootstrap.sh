@@ -2,17 +2,7 @@
 
 rm -rf broadcast cache out
 forge install
-# Ensure libraries are at the correct version
-git submodule update --init --recursive ./lib
 
-echo "Installing barretenberg..."
-git submodule init
-git submodule update
-
-echo "Downloading srs..."
-cd ../cpp/srs_db
-./download_ignition.sh 3
-#./download_ignition_lagrange.sh 12
 cd ../../sol
 
 echo "Building c++ binaries..."

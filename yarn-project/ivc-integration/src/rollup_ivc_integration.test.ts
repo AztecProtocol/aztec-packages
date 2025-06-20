@@ -2,9 +2,10 @@ import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory }
 import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
-import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
@@ -19,7 +20,6 @@ import {
   MockRollupMergeCircuit,
   generate3FunctionTestingIVCStack,
   mapAvmProofToNoir,
-  mapAvmPublicInputsToNoir,
   mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
@@ -53,9 +53,9 @@ describe('Rollup IVC Integration', () => {
 
     // Create a client IVC proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
-    const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
+    const [bytecodes, witnessStack, tailPublicInputs, vks] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
@@ -95,7 +95,6 @@ describe('Rollup IVC Integration', () => {
     );
 
     const avmCircuitInputs = avmSimulationResult.avmProvingRequest.inputs;
-
     ({
       vk: avmVK,
       proof: avmProof,
@@ -148,7 +147,7 @@ describe('Rollup IVC Integration', () => {
       },
       verification_key: mapAvmVerificationKeyToNoir(avmVK),
       proof: mapAvmProofToNoir(avmProof),
-      pub_cols_flattened: mapAvmPublicInputsToNoir(avmPublicInputs),
+      public_inputs: mapAvmCircuitPublicInputsToNoir(avmPublicInputs),
     });
 
     const publicBaseProof = await proveRollupHonk(

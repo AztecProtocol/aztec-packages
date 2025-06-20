@@ -136,6 +136,10 @@ export class SequencerMetrics {
     });
   }
 
+  public setCoinbase(coinbase: EthAddress) {
+    this.coinbase = coinbase;
+  }
+
   public start() {
     this.meter.addBatchObservableCallback(this.observe, [this.rewards]);
   }

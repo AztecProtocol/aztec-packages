@@ -246,24 +246,6 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
     }
 }
 
-template <typename FF_>
-void CircuitBuilderBase<FF_>::add_pairing_point_accumulator_for_plonk(
-    const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
-{
-    if (contains_pairing_point_accumulator) {
-        failure("added pairing point accumulator when one already exists");
-        ASSERT(0);
-    }
-    contains_pairing_point_accumulator = true;
-
-    size_t i = 0;
-    for (const auto& idx : pairing_point_accum_witness_indices) {
-        set_public_input(idx);
-        pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
-        ++i;
-    }
-}
-
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const
 {
     return _failed;

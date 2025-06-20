@@ -38,19 +38,17 @@ import {
 import {
   ExecutionNoteCache,
   HashedValuesCache,
-  type MessageLoadOracleInputs,
+  MessageLoadOracleInputs,
   type NoteData,
   Oracle,
   PrivateExecutionOracle,
   type TypedOracle,
-  WASMSimulator,
+  UtilityExecutionOracle,
   executePrivateFunction,
-  extractCallStack,
   extractPrivateCircuitPublicInputs,
   pickNotes,
-  toACVMWitness,
-  witnessMapToFields,
-} from '@aztec/simulator/client';
+} from '@aztec/pxe/simulator';
+import { WASMSimulator, extractCallStack, toACVMWitness, witnessMapToFields } from '@aztec/simulator/client';
 import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
@@ -66,6 +64,7 @@ import {
   EventSelector,
   type FunctionAbi,
   FunctionSelector,
+  FunctionType,
   type NoteSelector,
   countArgumentsSize,
 } from '@aztec/stdlib/abi';
@@ -79,6 +78,7 @@ import {
   computeNoteHashNonce,
   computePublicDataTreeLeafSlot,
   computeUniqueNoteHash,
+  computeVarArgsHash,
   siloNoteHash,
   siloNullifier,
 } from '@aztec/stdlib/hash';
@@ -161,7 +161,7 @@ export class TXE implements TypedOracle {
 
   private node: AztecNode;
 
-  private simulationProvider = new WASMSimulator();
+  private simulator = new WASMSimulator();
 
   public noteCache: ExecutionNoteCache;
 
@@ -408,9 +408,7 @@ export class TXE implements TypedOracle {
   addPublicLogs(logs: PublicLog[]) {
     logs.forEach(log => {
       try {
-        // The first elt stores lengths => tag is in fields[1]
-        const tag = log.log[1];
-
+        const tag = log.fields[0];
         this.logger.verbose(`Found tagged public log with tag ${tag.toString()} in block ${this.blockNumber}`);
         this.publicLogs.push(log);
       } catch (err) {
@@ -646,7 +644,6 @@ export class TXE implements TypedOracle {
       counter,
     );
     this.sideEffectCounter = counter + 1;
-    return Promise.resolve();
   }
 
   async notifyNullifiedNote(innerNullifier: Fr, noteHash: Fr, counter: number) {
@@ -836,6 +833,61 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
+  async simulateUtilityFunction(targetContractAddress: AztecAddress, functionSelector: FunctionSelector, argsHash: Fr) {
+    const artifact = await this.contractDataProvider.getFunctionArtifact(targetContractAddress, functionSelector);
+    if (!artifact) {
+      throw new Error(`Cannot call ${functionSelector} as there is artifact found at ${targetContractAddress}.`);
+    }
+
+    const call = {
+      name: artifact.name,
+      selector: functionSelector,
+      to: targetContractAddress,
+    };
+
+    const entryPointArtifact = await this.pxeOracleInterface.getFunctionArtifact(call.to, call.selector);
+
+    if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
+      throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
+    }
+
+    const oracle = new UtilityExecutionOracle(call.to, [], [], this.pxeOracleInterface, undefined, undefined);
+
+    try {
+      this.logger.verbose(`Executing utility function ${entryPointArtifact.name}`, {
+        contract: call.to,
+        selector: call.selector,
+      });
+
+      const args = await this.loadFromExecutionCache(argsHash);
+      const initialWitness = toACVMWitness(0, args);
+      const acirExecutionResult = await this.simulator
+        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .catch((err: Error) => {
+          err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
+          throw new ExecutionError(
+            err.message,
+            {
+              contractAddress: call.to,
+              functionSelector: call.selector,
+            },
+            extractCallStack(err, entryPointArtifact.debug),
+            { cause: err },
+          );
+        });
+
+      const returnWitness = witnessMapToFields(acirExecutionResult.returnWitness);
+      this.logger.verbose(`Utility simulation for ${call.to}.${call.selector} completed`);
+
+      const returnHash = await computeVarArgsHash(returnWitness);
+
+      this.storeInExecutionCache(returnWitness, returnHash);
+      return returnHash;
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
+  }
+
   async callPrivateFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
@@ -866,8 +918,8 @@ export class TXE implements TypedOracle {
     const initialWitness = await this.getInitialWitness(artifact, argsHash, sideEffectCounter, isStaticCall);
     const acvmCallback = new Oracle(this);
     const timer = new Timer();
-    const acirExecutionResult = await this.simulationProvider
-      .executeUserCircuit(initialWitness, artifact, acvmCallback)
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, artifact, acvmCallback.toACIRCallback())
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, artifact);
 
@@ -968,6 +1020,8 @@ export class TXE implements TypedOracle {
         contractsDB,
         globalVariables,
         /*doMerkleOperations=*/ false,
+        /*skipFeeEnforcement=*/ false,
+        /*clientInitiatedSimulation=*/ true,
       );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
@@ -1104,7 +1158,7 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+  async fetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
@@ -1340,7 +1394,7 @@ export class TXE implements TypedOracle {
       HashedValuesCache.create(),
       noteCache,
       this.pxeOracleInterface,
-      this.simulationProvider,
+      this.simulator,
       0,
       1,
     );
@@ -1351,7 +1405,7 @@ export class TXE implements TypedOracle {
     let result;
     try {
       const executionResult = await executePrivateFunction(
-        this.simulationProvider,
+        this.simulator,
         context,
         artifact,
         targetContractAddress,
@@ -1429,7 +1483,7 @@ export class TXE implements TypedOracle {
       contractClassLogsHashes.push(
         ...execution.publicInputs.contractClassLogsHashes
           .filter(contractClassLogsHash => !contractClassLogsHash.isEmpty())
-          .map(message => message.scope(contractAddress)),
+          .map(message => message.logHash.scope(contractAddress)),
       );
       publicCallRequests.push(
         ...execution.publicInputs.publicCallRequests

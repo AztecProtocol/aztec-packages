@@ -10,12 +10,13 @@ import type { NoirCallStack } from '@aztec/stdlib/errors';
 
 import { resolveOpcodeLocations, traverseCauseChain } from '../../common/errors.js';
 import type { ACVMWitness } from './acvm_types.js';
-import type { ORACLE_NAMES } from './oracle/index.js';
 
 /**
  * The callback interface for the ACIR.
  */
-export type ACIRCallback = Record<ORACLE_NAMES, (...args: ForeignCallInput[]) => Promise<ForeignCallOutput[]>>;
+export type ACIRCallback = Record<string, (...args: ForeignCallInput[]) => Promise<ForeignCallOutput[]>>;
+
+export type ACIRCallbackStats = { times: number[] };
 
 /**
  * The result of executing an ACIR.
@@ -28,6 +29,7 @@ export interface ACIRExecutionResult {
    */
   partialWitness: ACVMWitness;
   returnWitness: ACVMWitness;
+  oracles?: Record<string, ACIRCallbackStats>;
 }
 
 /**
@@ -51,7 +53,7 @@ export async function acvm(
     (name: string, args: ForeignCallInput[]) => {
       try {
         logger.debug(`Oracle callback ${name}`);
-        const oracleFunction = callback[name as ORACLE_NAMES];
+        const oracleFunction = callback[name];
         if (!oracleFunction) {
           throw new Error(`Oracle callback ${name} not found`);
         }
@@ -104,7 +106,7 @@ export function extractCallStack(
 
   try {
     return resolveOpcodeLocations(callStack, debug.debugSymbols, debug.files, brilligFunctionId);
-  } catch (err) {
+  } catch {
     return callStack;
   }
 }

@@ -9,6 +9,7 @@ import {
   DeployMethod,
   type DeployOptions,
   TxStatus,
+  getContractClassFromArtifact,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -60,8 +61,8 @@ const headerContainer = css({
   flexDirection: 'column',
   flexGrow: 1,
   flexWrap: 'wrap',
-  margin: '0 0.5rem',
-  padding: '0.1rem',
+  // margin: '0 0.5rem',
+  // padding: '0.1rem',
   overflow: 'hidden',
   justifyContent: 'stretch',
   marginBottom: '0.5rem',
@@ -81,7 +82,6 @@ const titleContainer = css({
   alignItems: 'center',
   justifyContent: 'space-between',
   width: '100%',
-  marginBottom: '1rem',
   '@media (max-width: 900px)': {
     gap: '1rem',
     flexWrap: 'wrap',
@@ -125,21 +125,48 @@ const contractName = css({
   },
 });
 
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
+const contractClassIdCss = css({
+  marginBottom: '1rem',
+  marginTop: '0.5rem',
+  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+  padding: '0px 5px',
+  borderRadius: '3px',
+});
+
+const deployedContractCss = css({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  backgroundColor: 'var(--mui-palette-grey-200)',
+  padding: '0px 12px',
+  borderRadius: '6px',
+  '@media (max-width: 900px)': {
+    padding: '0px 10px',
+    width: '100%',
+    marginBottom: '1rem',
+    '& > p': {
+      fontSize: '0.9rem',
+    },
+    '& svg': {
+      width: '1.2rem',
+      height: '1.2rem',
+    },
+  },
+});
+
+const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_private_state', 'public_dispatch'];
 
 export function ContractComponent() {
   const [currentContract, setCurrentContract] = useState<Contract | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
-
   const [filters, setFilters] = useState({
     searchTerm: '',
     private: true,
     public: true,
     utility: true,
   });
-
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
-
   const [openCreateContractDialog, setOpenCreateContractDialog] = useState(false);
 
   const { sendTx } = useTransaction();
@@ -153,6 +180,7 @@ export function ContractComponent() {
     setCurrentContractArtifact,
     setCurrentContractAddress,
   } = useContext(AztecContext);
+
 
   useEffect(() => {
     const loadCurrentContract = async () => {
@@ -206,6 +234,8 @@ export function ContractComponent() {
       if (txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);
       }
+    } else if (contract) {
+      setCurrentContractAddress(contract.address);
     }
   };
 
@@ -254,26 +284,29 @@ export function ContractComponent() {
                 )}
 
                 {currentContractAddress && (
-                  <div
-                    css={contractActions}
-                    style={{ backgroundColor: 'var(--mui-palette-grey-200)', padding: '0px 12px', borderRadius: '6px' }}
-                  >
+                  <div css={deployedContractCss}>
                     <Typography color="text.secondary">
                       {formatFrAsString(currentContractAddress.toString())}
                     </Typography>
-                    <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
-                    <IconButton
-                      onClick={() => {
-                        setCurrentContractAddress(null);
-                        setCurrentContract(null);
-                        setCurrentContractArtifact(null);
-                      }}
-                    >
-                      <ClearIcon />
-                    </IconButton>
+                    <div>
+                      <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
+                      <IconButton
+                        onClick={() => {
+                          setCurrentContractAddress(null);
+                          setCurrentContract(null);
+                          setCurrentContractArtifact(null);
+                        }}
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </div>
                   </div>
                 )}
               </Box>
+
+              <Typography variant="caption" css={contractClassIdCss}>
+                Contract Class ID: {currentContract?.instance?.currentContractClassId.toString()}
+              </Typography>
 
               {!!ContractDescriptions[currentContractArtifact.name] && (
                 <Typography variant="body2" css={{ marginBottom: '2rem' }}>

@@ -272,7 +272,11 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
+pub(crate) comptime fn transform_utility(f: FunctionDefinition) -> Quoted {
+    let fn_abi = create_fn_abi_export(f);
+    let fn_stub = stub_fn(f);
+    stub_registry::register(f.module(), fn_stub);
+
     // Check if function is marked as unconstrained
     if !f.is_unconstrained() {
         let name = f.name();
@@ -319,6 +323,8 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     f.set_body(modified_body);
 
     f.set_return_public(true);
+
+    fn_abi
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {

@@ -22,9 +22,10 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
     skipFeeEnforcement: boolean = false,
+    clientInitiatedSimulation: boolean = false,
     protected readonly metrics: ExecutorMetricsInterface,
   ) {
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
+    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, clientInitiatedSimulation);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -83,7 +84,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
 
     this.log.verbose(
       result.reverted
-        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason}.`
+        ? `Simulation of enqueued public call ${fnName} reverted with reason ${result.revertReason?.message}.`
         : `Simulation of enqueued public call ${fnName} completed successfully.`,
       {
         eventName: 'avm-simulation',

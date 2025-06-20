@@ -1,7 +1,7 @@
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import ContractClassRegistererJson from '../../artifacts/ContractClassRegisterer.json' assert { type: 'json' };
+import ContractClassRegistererJson from '../../artifacts/ContractClassRegisterer.json' with { type: 'json' };
 import { makeProtocolContract } from '../make_protocol_contract.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 

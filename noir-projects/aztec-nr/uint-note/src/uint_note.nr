@@ -7,7 +7,10 @@ use dep::aztec::{
     oracle::random::random,
     protocol_types::{
         address::AztecAddress,
-        constants::{GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER},
+        constants::{
+            GENERATOR_INDEX__NOTE_HASH, GENERATOR_INDEX__NOTE_NULLIFIER,
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        },
         hash::poseidon2_hash_with_separator,
         traits::{Deserialize, Hash, Packable, Serialize, ToField},
         utils::arrays::array_concat,
@@ -105,9 +108,9 @@ impl UintNote {
     /// completed in public. This is a powerful technique for scenarios in which the value cannot be known in private
     /// (e.g. because it depends on some public state, such as a DEX).
     ///
-    /// The returned `PartialUintNote` value must be sent to public execution via a secure channel, since it is not
-    /// possible to verify the integrity of its contents due to it hiding information. The recommended ways to do this
-    /// are to retrieve it from public storage, or to receive it in an internal public function call.
+    /// This function inserts a partial note validity commitment into the nullifier tree to be later on able to verify
+    /// that the partial note and completer are legitimate. See function docs of `compute_validity_commitment` for more
+    /// details.
     ///
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
@@ -120,6 +123,7 @@ impl UintNote {
         context: &mut PrivateContext,
         recipient: AztecAddress,
         sender: AztecAddress,
+        completer: AztecAddress,
     ) -> PartialUintNote {
         // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing,
         // so a malicious sender could use non-random values to make the note less private. But they already know
@@ -145,9 +149,20 @@ impl UintNote {
 
         let encrypted_log =
             note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
-        context.emit_private_log(encrypted_log);
+        // Regardless of the original content size, the log is padded with random bytes up to
+        // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
+        let length = encrypted_log.len();
+        context.emit_private_log(encrypted_log, length);
 
-        PartialUintNote { commitment }
+        let partial_note = PartialUintNote { commitment };
+
+        // Now we compute the validity commitment and push it to the nullifier tree. It can be safely pushed to
+        // the nullifier tree since it uses its own separator, making collisions with actual note nullifiers
+        // practically impossible.
+        let validity_commitment = partial_note.compute_validity_commitment(completer);
+        context.push_nullifier(validity_commitment);
+
+        partial_note
     }
 }
 
@@ -198,20 +213,22 @@ pub struct PartialUintNote {
 }
 
 impl PartialUintNote {
-    pub fn commitment(self) -> Field {
-        self.commitment
-    }
-}
-
-impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
-    pub fn complete(self, value: u128, context: &mut PublicContext) {
+    pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, value: u128) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
         // last field (the value), and note discovery failing.
         // TODO(#11636): remove this
         assert(value != 0, "Cannot complete a PartialUintNote with a value of 0");
+
+        // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
+        // state variable's storage slot, and it is internally consistent).
+        let validity_commitment = self.compute_validity_commitment(completer);
+        assert(
+            context.nullifier_exists(validity_commitment, context.this_address()),
+            "Invalid partial note or completer",
+        );
 
         // We need to do two things:
         //  - emit a public log containing the public fields (the value). The contract will later find it by searching
@@ -221,6 +238,18 @@ impl PartialUintNote {
         //  inserted in public as the public values are provided and the note hash computed.
         context.emit_public_log(self.compute_note_completion_log(value));
         context.push_note_hash(self.compute_complete_note_hash(value));
+    }
+
+    /// Computes a validity commitment for this partial note. The commitment cryptographically binds the note's private
+    /// data with the designated completer address. When the note is later completed in public execution, we can load
+    /// this commitment from the nullifier tree and verify that both the partial note (e.g. that the storage slot
+    /// corresponds to the correct owner, and that we're using the correct state variable) and completer are
+    /// legitimate.
+    pub fn compute_validity_commitment(self, completer: AztecAddress) -> Field {
+        poseidon2_hash_with_separator(
+            [self.commitment, completer.to_field()],
+            GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT,
+        )
     }
 
     fn compute_note_completion_log(self, value: u128) -> [Field; 2] {

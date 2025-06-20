@@ -42,6 +42,10 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --help)
+      NO_PORT_FORWARDING=1
+      shift 1
+      ;;
     *)
       shift
       ;;
@@ -130,6 +134,14 @@ case ${1:-} in
         ADMIN_MAPPING="$ADMIN_PORT:$ADMIN_PORT"
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $ADMIN_MAPPING"
       fi
+
+      # unset PORTS_TO_EXPOSE if we're just running --help
+      if [ ! -z "${NO_PORT_FORWARDING:-}" ]; then
+        export PORTS_TO_EXPOSE=""
+      fi
+
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"

@@ -1,7 +1,4 @@
 > [!WARNING]
-> :warning: This is not an actively developed repository, it is a mirror. See <https://github.com/AztecProtocol/aztec-packages> :warning:
-
-> [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
 # Barretenberg

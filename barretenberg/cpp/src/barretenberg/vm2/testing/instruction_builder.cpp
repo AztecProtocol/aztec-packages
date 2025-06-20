@@ -8,10 +8,10 @@ simulation::Instruction InstructionBuilder::build() const
     uint16_t indirect = 0;
     for (size_t i = 0; i < operands.size(); ++i) {
         if (operands[i].is_relative) {
-            indirect |= static_cast<uint16_t>(1 << (i + operands.size()));
+            indirect |= static_cast<uint16_t>(1 << (i * 2 + 1));
         }
         if (operands[i].is_indirect) {
-            indirect |= static_cast<uint16_t>(1 << i);
+            indirect |= static_cast<uint16_t>(1 << (i * 2));
         }
     }
 

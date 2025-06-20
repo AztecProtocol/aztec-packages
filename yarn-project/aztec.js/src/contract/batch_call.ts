@@ -8,7 +8,10 @@ import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } f
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
-  constructor(wallet: Wallet, protected calls: BaseContractInteraction[]) {
+  constructor(
+    wallet: Wallet,
+    protected calls: BaseContractInteraction[],
+  ) {
     super(wallet);
   }
 
@@ -106,7 +109,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const results: any[] = [];
 
-    utilityResults.forEach(([result, index]) => {
+    utilityResults.forEach(([{ result }, index]) => {
       results[index] = result;
     });
     indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {

@@ -1,6 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -15,11 +16,7 @@ static constexpr size_t MAX_NUM_KERNELS = 15;
 
 class ClientIVCTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite()
-    {
-        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
@@ -48,6 +45,17 @@ class ClientIVCTests : public ::testing::Test {
             }
         }
     }
+
+    static std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> generate_ivc_proof(size_t num_circuits)
+    {
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE } };
+        ClientIVCMockCircuitProducer circuit_producer;
+        for (size_t j = 0; j < num_circuits; ++j) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, /*log2_num_gates=*/5);
+            ivc.accumulate(circuit);
+        }
+        return { ivc.prove(), ivc.get_vk() };
+    };
 };
 
 /**
@@ -294,6 +302,61 @@ TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 };
 
 /**
+ * @brief Produce 2 valid CIVC proofs. Ensure that replacing a proof component with a component from a different proof
+ * leads to a verification failure.
+ *
+ */
+TEST_F(ClientIVCTests, WrongProofComponentFailure)
+{
+    // Produce two valid proofs
+    auto [civc_proof_1, civc_vk_1] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_1, civc_vk_1));
+    }
+
+    auto [civc_proof_2, civc_vk_2] = generate_ivc_proof(/*num_circuits=*/2);
+    {
+        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_vk_2));
+    }
+
+    {
+        // Replace Merge proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace hiding circuit proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.mega_proof = civc_proof_2.mega_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace ECCVM proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+
+    {
+        // Replace Translator proof
+        ClientIVC::Proof tampered_proof = civc_proof_1;
+
+        tampered_proof.goblin_proof.translator_proof = civc_proof_2.goblin_proof.translator_proof;
+
+        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+    }
+};
+
+/**
  * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
  *
  */
@@ -392,8 +455,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
  */
 TEST(ClientIVCBenchValidation, Full6)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     size_t total_num_circuits{ 12 };
@@ -406,13 +468,12 @@ TEST(ClientIVCBenchValidation, Full6)
 }
 
 /**
- * @brief Test that running the benchmark suite with movked verification keys will not error out.
+ * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
 TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
         ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
         size_t total_num_circuits{ 12 };
@@ -427,8 +488,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
 
 TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
@@ -442,8 +502,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 
 TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 {
-    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
@@ -586,11 +645,12 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
     const auto proof = ivc.prove();
 
     // Serialize/deserialize proof to/from a heap buffer, check that it verifies
-    uint8_t const* buffer = proof.to_msgpack_heap_buffer();
+    uint8_t* buffer = proof.to_msgpack_heap_buffer();
     auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
     uint8_t const* uint8_ptr = uint8_buffer.data();
     auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
     EXPECT_TRUE(ivc.verify(proof_deserialized));
+    aligned_free(buffer);
 };
 
 /**

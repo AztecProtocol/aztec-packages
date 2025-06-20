@@ -51,6 +51,7 @@ export async function rerunEpochProvingJob(
     l2BlockSourceForReorgDetection,
     metrics,
     deadline,
+    { skipEpochCheck: true },
   );
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);

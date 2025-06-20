@@ -13,7 +13,7 @@ use crate::{
             PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
         },
     },
-    oracle::{logs::store_private_event_log, message_discovery::sync_notes},
+    oracle::{logs::store_private_event_log, message_discovery::fetch_tagged_logs},
     utils::array,
 };
 
@@ -31,10 +31,10 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    // We will eventually perform log discovery via tagging here, but for now we simply call the `syncNotes` oracle.
+    // We will eventually perform log discovery via tagging here, but for now we simply call the `fetchTaggedLogs` oracle.
     // This makes PXE synchronize tags, download logs and store the pending tagged logs in capsule array which are then
     // retrieved and processed here.
-    sync_notes(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
+    fetch_tagged_logs(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
     // Get the logs from the capsule array and process them one by one
     let logs =

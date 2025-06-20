@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-SRS_PATH="../cpp/srs_db/ignition"
+SRS_PATH="$HOME/.bb-crs"
 OUTPUT_PATH="./src/ultra"
 
 ../cpp/build/bin/solidity_key_gen add2 $OUTPUT_PATH $SRS_PATH

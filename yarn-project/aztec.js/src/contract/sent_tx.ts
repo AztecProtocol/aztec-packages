@@ -28,7 +28,10 @@ export const DefaultWaitOpts: WaitOpts = {
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxeWalletOrNode: Wallet | AztecNode | PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(
+    protected pxeWalletOrNode: Wallet | AztecNode | PXE,
+    protected txHashPromise: Promise<TxHash>,
+  ) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.

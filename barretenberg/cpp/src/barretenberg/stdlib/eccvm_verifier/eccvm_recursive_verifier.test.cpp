@@ -1,9 +1,10 @@
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/stdlib/plonk_recursion/pairing_points.hpp"
+#include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -35,11 +36,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
-    static void SetUpTestSuite()
-    {
-        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-    }
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
      * @brief Adds operations in BN254 to the op_queue and then constructs and ECCVM circuit from the op_queue.
@@ -82,13 +79,16 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     static void test_recursive_verification()
     {
         InnerBuilder builder = generate_circuit(&engine);
-        InnerProver prover(builder);
+        std::shared_ptr<ECCVMFlavor::Transcript> prover_transcript = std::make_shared<ECCVMFlavor::Transcript>();
+        InnerProver prover(builder, prover_transcript);
         ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         info("ECCVM Recursive Verifier");
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
+            std::make_shared<typename RecursiveFlavor::Transcript>();
+        RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
@@ -100,7 +100,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         bool result = CircuitChecker::check(outer_circuit);
         EXPECT_TRUE(result);
 
-        InnerVerifier native_verifier(prover.key);
+        std::shared_ptr<ECCVMFlavor::Transcript> verifier_transcript = std::make_shared<ECCVMFlavor::Transcript>();
+        InnerVerifier native_verifier(verifier_transcript);
         bool native_result = native_verifier.verify_proof(proof);
         EXPECT_TRUE(native_result);
         auto recursive_manifest = verifier.transcript->get_manifest();
@@ -139,12 +140,16 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     {
         InnerBuilder builder = generate_circuit(&engine);
         builder.op_queue->add_erroneous_equality_op_for_testing();
-        InnerProver prover(builder);
+        std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+        InnerProver prover(builder, prover_transcript);
         ECCVMProof proof = prover.construct_proof();
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
+
+        std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
+            std::make_shared<typename RecursiveFlavor::Transcript>();
+        RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         [[maybe_unused]] auto output = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
         info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
@@ -155,24 +160,41 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
     static void test_recursive_verification_failure_tampered_proof()
     {
-        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+        for (size_t idx = 0; idx < 2; idx++) {
             InnerBuilder builder = generate_circuit(&engine);
-            InnerProver prover(builder);
+            std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+            InnerProver prover(builder, prover_transcript);
             ECCVMProof proof = prover.construct_proof();
 
             // Tamper with the proof to be verified
-            TamperType tamper_type = static_cast<TamperType>(idx);
-            tamper_with_proof<InnerProver, InnerFlavor>(prover, proof, tamper_type);
+            tamper_with_proof<InnerProver, InnerFlavor>(proof.pre_ipa_proof, static_cast<bool>(idx));
 
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key);
 
             OuterBuilder outer_circuit;
-            RecursiveVerifier verifier{ &outer_circuit, verification_key };
-            [[maybe_unused]] auto output = verifier.verify_proof(proof);
+            std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
+                std::make_shared<typename RecursiveFlavor::Transcript>();
+            RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+            auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
-            // Check for a failure flag in the recursive verifier circuit
-            EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            if (idx == 0) {
+                // In this case, we changed the first non-zero value in the proof. It leads to a circuit check failure.
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            } else {
+                // Changing the last commitment in the `pre_ipa_proof` would not result in a circuit check failure at
+                // this stage.
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+
+                // However, IPA recursive verifier must fail, as one of the commitments is incorrect.
+                auto native_pcs_vk =
+                    std::make_shared<VerifierCommitmentKey<typename InnerFlavor::Curve>>(1UL << CONST_ECCVM_LOG_N);
+                auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>>>(
+                    &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
+
+                EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(
+                    stdlib_pcs_vkey, opening_claim, ipa_transcript));
+            }
         }
     }
 
@@ -183,7 +205,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         auto get_blocks = [](size_t inner_size) -> std::tuple<typename OuterBuilder::ExecutionTrace,
                                                               std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             auto inner_circuit = generate_circuit(&engine, inner_size);
-            InnerProver inner_prover(inner_circuit);
+            std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
+            InnerProver inner_prover(inner_circuit, prover_transcript);
 
             ECCVMProof inner_proof = inner_prover.construct_proof();
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key);
@@ -191,7 +214,9 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
 
-            RecursiveVerifier verifier{ &outer_circuit, verification_key };
+            std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
+                std::make_shared<typename RecursiveFlavor::Transcript>();
+            RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
 
             auto [opening_claim, ipa_transcript] = verifier.verify_proof(inner_proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);

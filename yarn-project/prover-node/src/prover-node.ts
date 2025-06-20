@@ -7,7 +7,6 @@ import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
-import type { Maybe } from '@aztec/foundation/types';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -70,11 +69,11 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   constructor(
     protected readonly prover: EpochProverManager,
     protected readonly publisher: ProverNodePublisher,
-    protected readonly l2BlockSource: L2BlockSource & Maybe<Service>,
+    protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly contractDataSource: ContractDataSource,
     protected readonly worldState: WorldStateSynchronizer,
-    protected readonly coordination: ProverCoordination,
+    protected readonly coordination: ProverCoordination & Partial<Service>,
     protected readonly epochsMonitor: EpochMonitor,
     config: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -195,7 +194,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    * Starts a proving process and returns immediately.
    */
   public async startProof(epochNumber: number | bigint) {
-    const job = await this.createProvingJob(BigInt(epochNumber));
+    const job = await this.createProvingJob(BigInt(epochNumber), { skipEpochCheck: true });
     void this.runJob(job);
   }
 
@@ -274,7 +273,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   @trackSpan('ProverNode.createProvingJob', epochNumber => ({ [Attributes.EPOCH_NUMBER]: Number(epochNumber) }))
-  private async createProvingJob(epochNumber: bigint) {
+  private async createProvingJob(epochNumber: bigint, opts: { skipEpochCheck?: boolean } = {}) {
     this.checkMaximumPendingJobs();
 
     // Gather all data for this epoch
@@ -298,7 +297,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
     const deadline = new Date(Number(deadlineTs) * 1000);
 
-    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory);
+    const job = this.doCreateEpochProvingJob(epochData, deadline, publicProcessorFactory, opts);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -389,6 +388,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     data: EpochProvingJobData,
     deadline: Date | undefined,
     publicProcessorFactory: PublicProcessorFactory,
+    opts: { skipEpochCheck?: boolean } = {},
   ) {
     const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit } = this.config;
     return new EpochProvingJob(
@@ -400,7 +400,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.l2BlockSource,
       this.jobMetrics,
       deadline,
-      { parallelBlockLimit },
+      { parallelBlockLimit, ...opts },
     );
   }
 

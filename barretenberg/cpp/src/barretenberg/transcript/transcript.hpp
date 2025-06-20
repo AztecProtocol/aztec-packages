@@ -147,7 +147,7 @@ template <typename TranscriptParams> class BaseTranscript {
     static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
-    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover or the verifier
+    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
     size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
     size_t round_number = 0;    // current round for manifest
 
@@ -164,7 +164,7 @@ template <typename TranscriptParams> class BaseTranscript {
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
      * @details This function computes a new challenge for the current round using the previous challenge
-     * and the current round data, if they are exist. It clears the current_round_data if nonempty after
+     * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
@@ -225,8 +225,6 @@ template <typename TranscriptParams> class BaseTranscript {
         }
 
         current_round_data.insert(current_round_data.end(), element_frs.begin(), element_frs.end());
-
-        num_frs_written += element_frs.size();
     }
 
     /**
@@ -406,6 +404,7 @@ template <typename TranscriptParams> class BaseTranscript {
         // convert element to field elements
         auto element_frs = TranscriptParams::convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
+        num_frs_written += element_frs.size();
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {

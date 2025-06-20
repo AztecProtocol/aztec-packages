@@ -1,7 +1,6 @@
 import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract transfer private', () => {
@@ -32,7 +31,6 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     const tokenTransferInteraction = asset
       .withWallet(wallets[0])
       .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 0);
-    await capturePrivateExecutionStepsIfEnvSet('token-transfer', tokenTransferInteraction);
     await tokenTransferInteraction.send().wait();
     tokenSim.transferPrivate(wallets[0].getAddress(), wallets[1].getAddress(), amount);
   });

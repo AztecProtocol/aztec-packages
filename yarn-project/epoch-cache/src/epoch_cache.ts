@@ -128,7 +128,7 @@ export class EpochCache implements EpochCacheInterface {
 
   private getEpochAndSlotAtSlot(slot: bigint): EpochAndSlot {
     const epoch = getEpochAtSlot(slot, this.l1constants);
-    const ts = getTimestampRangeForEpoch(slot, this.l1constants)[0];
+    const ts = getTimestampRangeForEpoch(epoch, this.l1constants)[0];
     return { epoch, ts, slot };
   }
 

@@ -13,5 +13,5 @@ export interface AppendOnlyTree<T extends Bufferable = Buffer>
    * Appends a set of leaf values to the tree.
    * @param leaves - The set of leaves to be appended.
    */
-  appendLeaves(leaves: T[]): Promise<void>;
+  appendLeaves(leaves: T[]): void;
 }

@@ -13,6 +13,8 @@ export enum PeerDiscoveryState {
   STOPPED = 'stopped',
 }
 
+export type P2PBlockReceivedCallback = (block: BlockProposal, sender: PeerId) => Promise<BlockAttestation | undefined>;
+
 /**
  * The interface for a P2P service implementation.
  */
@@ -33,7 +35,7 @@ export interface P2PService {
    * Called to have the given transaction propagated through the P2P network.
    * @param message - The message to be propagated.
    */
-  propagate<T extends Gossipable>(message: T): void;
+  propagate<T extends Gossipable>(message: T): Promise<void>;
 
   /**
    * Request information from peers via the request response protocol.
@@ -57,13 +59,14 @@ export interface P2PService {
   sendBatchRequest<Protocol extends ReqRespSubProtocol>(
     protocol: Protocol,
     requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
+    pinnedPeerId?: PeerId,
     timeoutMs?: number,
     maxPeers?: number,
     maxRetryAttempts?: number,
   ): Promise<(InstanceType<SubProtocolMap[Protocol]['response']> | undefined)[]>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
-  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+  registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
 
   getEnr(): ENR | undefined;
 

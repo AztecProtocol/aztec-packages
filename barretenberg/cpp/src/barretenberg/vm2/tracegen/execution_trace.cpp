@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <ranges>
 #include <stdexcept>
+#include <sys/types.h>
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/zip_view.hpp"
@@ -35,6 +36,9 @@ void ExecutionTraceBuilder::process(
     std::transform(orig_events.begin(), orig_events.end(), ex_events.begin(), [](const auto& event) { return &event; });
     std::ranges::sort(ex_events, [](const auto& lhs, const auto& rhs) { return lhs->order < rhs->order; });
 
+    uint32_t last_seen_parent_id = 0;
+    FF cached_parent_id_inv = 0;
+
     for (const auto& ex_event_ptr : ex_events) {
         const auto& ex_event = *ex_event_ptr;
         const auto& addr_event = ex_event.addressing_event;
@@ -65,14 +69,43 @@ void ExecutionTraceBuilder::process(
         }
         const SubtraceInfo& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(ex_event.opcode);
 
+        // Overly verbose but maximising readibility here
+        bool is_call = ex_event.opcode == ExecutionOpCode::CALL;
+        bool is_static_call = ex_event.opcode == ExecutionOpCode::STATICCALL;
+        bool is_return = ex_event.opcode == ExecutionOpCode::RETURN;
+        bool is_revert = ex_event.opcode == ExecutionOpCode::REVERT;
+        bool is_err = ex_event.error;
+        bool has_parent = ex_event.context_event.parent_id != 0;
+        bool sel_enter_call = (is_call || is_static_call) && !is_err;
+        bool sel_exit_call = is_return || is_revert || is_err;
+        bool nested_exit_call = sel_exit_call && has_parent;
+        // We rollback if we revert or error and we have a parent context.
+        bool rollback_context = (ex_event.opcode == ExecutionOpCode::REVERT || ex_event.error) && has_parent;
+
+        // Cache the parent id inversion since we will repeatedly just be doing the same expensive inversion
+        if (last_seen_parent_id != ex_event.context_event.parent_id) {
+            last_seen_parent_id = ex_event.context_event.parent_id;
+            cached_parent_id_inv = has_parent ? FF(ex_event.context_event.parent_id).invert() : 0;
+        }
+
         trace.set(
             row,
             { {
                 { C::execution_sel, 1 }, // active execution trace
                 { C::execution_ex_opcode, static_cast<size_t>(ex_event.opcode) },
-                { C::execution_sel_call, ex_event.opcode == ExecutionOpCode::CALL ? 1 : 0 },
-                { C::execution_sel_static_call, ex_event.opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
+                { C::execution_sel_call, is_call ? 1 : 0 },
+                { C::execution_sel_static_call, is_static_call ? 1 : 0 },
+                { C::execution_sel_enter_call, sel_enter_call ? 1 : 0 },
+                { C::execution_sel_return, is_return ? 1 : 0 },
+                { C::execution_sel_revert, is_revert ? 1 : 0 },
+                { C::execution_sel_error, ex_event.error ? 1 : 0 },
+                { C::execution_sel_exit_call, sel_exit_call ? 1 : 0 },
                 { C::execution_bytecode_id, ex_event.bytecode_id },
+                // Nested Context Control Flow
+                { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
+                { C::execution_is_parent_id_inv, cached_parent_id_inv },
+                { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
+                { C::execution_rollback_context, rollback_context ? 1 : 0 },
                 // Operands
                 { C::execution_op1, operands.at(0) },
                 { C::execution_op2, operands.at(1) },
@@ -175,7 +208,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
                       { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
                       { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
-                      { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.context_event.last_child_rd_size_addr },
                       { C::execution_last_child_success, ex_event.context_event.last_child_success },
                       { C::execution_next_context_id, ex_event.next_context_id },
                   } });
