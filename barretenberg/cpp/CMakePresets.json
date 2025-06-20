@@ -356,6 +356,9 @@
         "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
