@@ -146,28 +146,6 @@ resource "helm_release" "aztec-gke-cluster" {
     name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[2].static_configs[0].targets[0]"
     value = "${google_compute_address.otel_collector_ip.address}:8889"
   }
-
-  # use k8s service discovery to scrape all the public otel collectors
-  set {
-    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[3].job_name"
-    value = "public-otelcol"
-  }
-
-  set {
-    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[3].kubernetes_sd_config[0].role"
-    value = "pod"
-  }
-
-  set {
-    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[3].kubernetes_sd_config[0].namespaces.own_namespace"
-    value = false
-  }
-
-  set_list {
-    name  = "prometheus.serverFiles.prometheus\\.yml.scrape_configs[3].kubernetes_sd_config[0].namespaces.names"
-    value = ["${var.RELEASE_NAME}-public"]
-  }
-
   # Setting timeout and wait conditions
   timeout       = 600 # 10 minutes in seconds
   wait          = true
@@ -226,6 +204,26 @@ resource "helm_release" "public_otel_collector" {
     name  = "ingress.hosts[0].host"
     value = local.public_otel_ingress_host
   }
+
+  timeout       = 600
+  wait          = true
+  wait_for_jobs = true
+}
+
+resource "helm_release" "public_prometheus" {
+  provider          = helm.gke-cluster
+  name              = "${var.RELEASE_NAME}-public-prometheus"
+  namespace         = "${var.RELEASE_NAME}-public"
+  repository        = "https://prometheus-community.github.io/helm-charts"
+  chart             = "prometheus"
+  version           = "25.27.0"
+  create_namespace  = true
+  upgrade_install   = true
+  dependency_update = true
+  force_update      = true
+  reuse_values      = true
+
+  values = [file("./values/public-prometheus.yaml")]
 
   timeout       = 600
   wait          = true

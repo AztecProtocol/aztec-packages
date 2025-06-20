@@ -12,8 +12,8 @@ resources:
     memory: 12Gi
     cpu: "2"
   limits:
-    memory: 40Gi
-    cpu: "6"
+    memory: 60Gi
+    cpu: "7"
 
 service:
   enabled: true
