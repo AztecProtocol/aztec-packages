@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
@@ -351,7 +351,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Use the sequencer's block building logic to re-execute the transactions
-    const stopTimer = this.metrics.reExecutionTimer();
+    const timer = new Timer();
     const config = this.blockBuilder.getConfig();
     const globalVariables = GlobalVariables.from({
       ...proposal.payload.header,
@@ -364,7 +364,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, l1ToL2Messages, globalVariables, {
       deadline: this.getReexecutionDeadline(proposal, config),
     });
-    stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);
     const numFailedTxs = failedTxs.length;
@@ -389,6 +388,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         block.header.state,
       );
     }
+
+    this.metrics.recordReex(timer.ms(), txs.length, block.header.totalManaUsed.toNumber() / 1e6);
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {

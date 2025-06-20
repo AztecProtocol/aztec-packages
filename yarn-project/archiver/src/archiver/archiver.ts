@@ -15,7 +15,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
-import { elapsed } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -377,6 +377,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     const canPrune = localPendingBlockNumber > provenBlockNumber && rollupCanPrune;
 
     if (canPrune) {
+      const timer = new Timer();
       const pruneFrom = provenBlockNumber + 1;
 
       const header = await this.getBlockHeader(Number(pruneFrom));
@@ -407,7 +408,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
-      this.instrumentation.processPrune();
+      this.instrumentation.processPrune(timer.ms());
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -492,7 +493,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.verbose(
         `Retrieved ${messages.length} new L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`,
       );
+      const timer = new Timer();
       await this.store.addL1ToL2Messages(messages);
+      const perMsg = timer.ms() / messages.length;
+      this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
         this.log.debug(`Downloaded L1 to L2 message`, { ...msg, leaf: msg.leaf.toString() });
         lastMessage = msg;
