@@ -85,7 +85,7 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(caller);
-    stakingAssetHandler.addValidator(address(0xbeefdeef), realProof);
+    stakingAssetHandler.addValidator(address(0xbeefdeef), validMerkleProof, realProof);
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

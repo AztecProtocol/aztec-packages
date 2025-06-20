@@ -1,6 +1,6 @@
 MerkleCheck
 ├── When providing a valid merkle proof
-│   └── it emits {AddedToQueue} event
+│   └── it emits {ValidatorAdded} event
 └── When not providing a valid merkle proof
    └── it reverts
 

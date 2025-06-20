@@ -2,10 +2,7 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-// solhint-disable quotes
-
-import {IStaking, Status} from "@aztec/core/interfaces/IStaking.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -271,16 +268,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
-  }
-
-  function _validateMerkleProof(
-    address _attester,
-    bytes32[] memory _merkleProof
-  ) internal view {
-    if (!skipMerkleCheck) {
-      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
-      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
-    }
   }
 
   /**

@@ -80,7 +80,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, validMerkleProof, realProof);
   }
 
   function test_WhenSufficientTimePassed(address _caller, address _attester)
@@ -241,6 +241,6 @@ contract AddValidatorTest is StakingAssetHandlerBase {
 
     vm.expectRevert("Proof expired or date is invalid");
     vm.prank(_caller);
-    stakingAssetHandler.addValidator(_attester, validMerkleProof, proof);
+    stakingAssetHandler.addValidator(attester, validMerkleProof, proof);
   }
 }
