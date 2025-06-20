@@ -1842,8 +1842,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t upper_limit) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
-    // constants are allowed via ASSERT
-
+    // constants are NOT allowed via ASSERT
     if (is_constant()) {
         ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
         return;
@@ -1861,11 +1860,13 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     const uint256_t upper_limit_value_2 = strict_upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
     const uint256_t upper_limit_value_3 = strict_upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
 
-    bool borrow_0_value = value.slice(0, NUM_LIMB_BITS) > upper_limit_value_0;
-    bool borrow_1_value =
-        (value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2) + uint256_t(borrow_0_value)) > (upper_limit_value_1);
-    bool borrow_2_value =
-        (value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3) + uint256_t(borrow_1_value)) > (upper_limit_value_2);
+    const uint256_t val_0 = value.slice(0, NUM_LIMB_BITS);
+    const uint256_t val_1 = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
+    const uint256_t val_2 = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
+
+    bool borrow_0_value = val_0 > upper_limit_value_0;
+    bool borrow_1_value = (val_1 + uint256_t(borrow_0_value)) > (upper_limit_value_1);
+    bool borrow_2_value = (val_2 + uint256_t(borrow_1_value)) > (upper_limit_value_2);
 
     field_t<Builder> upper_limit_0(context, upper_limit_value_0);
     field_t<Builder> upper_limit_1(context, upper_limit_value_1);
@@ -1874,6 +1875,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     bool_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
     bool_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
     bool_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
+
     // The way we use borrows here ensures that we are checking that upper_limit - binary_basis > 0.
     // We check that the result in each limb is > 0.
     // If the modulus part in this limb is smaller, we simply borrow the value from the higher limb.
