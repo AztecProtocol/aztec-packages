@@ -586,30 +586,8 @@ export class TXE implements TypedOracle {
     return new NullifierMembershipWitness(BigInt(index), preimageData as NullifierLeafPreimage, siblingPath);
   }
 
-  async getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
-    if (blockNumber === 1) {
-      // TODO: Figure out why native merkle trees cannot get snapshot of 0, as it defaults to latest
-      throw new Error('Cannot get the block header of block number 1');
-    }
-
-    const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
-    const stateReference = await snap.getStateReference();
-
-    const previousState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);
-    const archiveInfo = await previousState.getTreeInfo(MerkleTreeId.ARCHIVE);
-
-    const header = new BlockHeader(
-      new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
-      makeContentCommitment(),
-      stateReference,
-      makeGlobalVariables(),
-      Fr.ZERO,
-      Fr.ZERO,
-    );
-
-    header.globalVariables.blockNumber = blockNumber;
-
-    return header;
+  getBlockHeader(blockNumber: number): Promise<BlockHeader | undefined> {
+    return this.stateMachine.archiver.getBlockHeader(blockNumber);
   }
 
   getCompleteAddress(account: AztecAddress) {
