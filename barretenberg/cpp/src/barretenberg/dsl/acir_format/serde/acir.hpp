@@ -2260,7 +2260,7 @@ struct BrilligOpcode {
     struct Const {
         Acir::MemoryAddress destination;
         Acir::BitSize bit_size;
-        std::string value;
+        std::vector<uint8_t> value;
 
         friend bool operator==(const Const&, const Const&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -2287,7 +2287,7 @@ struct BrilligOpcode {
     struct IndirectConst {
         Acir::MemoryAddress destination_pointer;
         Acir::BitSize bit_size;
-        std::string value;
+        std::vector<uint8_t> value;
 
         friend bool operator==(const IndirectConst&, const IndirectConst&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -2874,7 +2874,7 @@ struct Witness {
 struct FunctionInput {
 
     struct Constant {
-        std::string value;
+        std::vector<uint8_t> value;
 
         friend bool operator==(const Constant&, const Constant&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -4052,9 +4052,9 @@ struct BlockType {
 };
 
 struct Expression {
-    std::vector<std::tuple<std::string, Acir::Witness, Acir::Witness>> mul_terms;
-    std::vector<std::tuple<std::string, Acir::Witness>> linear_combinations;
-    std::string q_c;
+    std::vector<std::tuple<std::vector<uint8_t>, Acir::Witness, Acir::Witness>> mul_terms;
+    std::vector<std::tuple<std::vector<uint8_t>, Acir::Witness>> linear_combinations;
+    std::vector<uint8_t> q_c;
 
     friend bool operator==(const Expression&, const Expression&);
     std::vector<uint8_t> bincodeSerialize() const;
