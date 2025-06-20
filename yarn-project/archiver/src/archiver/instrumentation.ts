@@ -86,8 +86,8 @@ export class ArchiverInstrumentation {
       unit: 'Mmana',
     });
 
-    this.txsPerBlock = meter.createHistogram(Metrics.ARCHIVER_MANA_PER_BLOCK, {
-      description: 'The mana consumed by blocks',
+    this.txsPerBlock = meter.createHistogram(Metrics.ARCHIVER_TXS_PER_BLOCK, {
+      description: 'The block tx count',
       valueType: ValueType.INT,
       unit: 'tx',
     });
@@ -103,7 +103,7 @@ export class ArchiverInstrumentation {
       valueType: ValueType.INT,
     });
 
-    this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_SYNC_PER_MESSAGE, {
+    this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION, {
       unit: 'ms',
       description: 'Duration to sync a message',
       valueType: ValueType.INT,
