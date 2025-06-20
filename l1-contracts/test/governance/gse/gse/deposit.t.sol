@@ -21,6 +21,7 @@ contract DepositTest is WithGSE {
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
     vm.assume(_instance != address(0) && _instance != gse.CANONICAL_MAGIC_ADDRESS());
+    vm.assume(gse.isRollupRegistered(_instance) == false);
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);
