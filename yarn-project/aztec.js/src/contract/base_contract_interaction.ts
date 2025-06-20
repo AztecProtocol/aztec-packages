@@ -64,7 +64,7 @@ export abstract class BaseContractInteraction {
     return new ProvenTx(
       this.wallet,
       txProvingResult.toTx(),
-      txProvingResult.getOffchainMessages(),
+      txProvingResult.getOffchainEffects(),
       txProvingResult.stats,
     );
   }

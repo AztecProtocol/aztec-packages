@@ -1314,8 +1314,8 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress) {
-    // Offchain messages are discarded in the TXE tests.
+  emitOffchainEffect(_data: Fr[]) {
+    // Offchain effects are discarded in TXE tests.
     return Promise.resolve();
   }
 

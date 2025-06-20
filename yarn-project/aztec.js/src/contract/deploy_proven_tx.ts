@@ -18,7 +18,7 @@ export class DeployProvenTx<TContract extends Contract = Contract> extends Prove
     private instanceGetter: () => Promise<ContractInstanceWithAddress>,
     stats?: ProvingStats,
   ) {
-    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainMessages(), stats);
+    super(wallet, txProvingResult.toTx(), txProvingResult.getOffchainEffects(), stats);
   }
 
   /**

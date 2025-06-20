@@ -5,9 +5,9 @@ use crate::{
         encryption::{aes128::AES128, log_encryption::LogEncryption},
         logs::utils::prefix_with_tag,
         msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
+        offchain_messages::emit_offchain_message,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
-    oracle::offchain_message::emit_offchain_message,
     utils::{array::subarray::subarray, remove_constraints::remove_constraints},
 };
 use protocol_types::{
@@ -156,7 +156,7 @@ where
 ///
 /// While delivery is not guaranteed, message integrity is still protected via cryptographic commitments in the note
 /// hash tree. For guaranteed delivery, use `encode_and_encrypt_note` with private logs instead. See
-/// `oracle::offchain_message::emit_offchain_message` for more details on delivery guarantees.
+/// `messages::offchain_message::emit_offchain_message` for more details on delivery guarantees.
 pub fn encode_and_encrypt_note_and_emit_as_offchain_message<Note, let N: u32>(
     context: &mut PrivateContext,
     recipient: AztecAddress,

@@ -49,7 +49,7 @@ export type SimulateMethodOptions = Pick<
   skipTxValidation?: boolean;
   /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
   skipFeeEnforcement?: boolean;
-  /** Whether to include metadata such as offchain messages and performance statistics (e.g. timing information of the different circuits and oracles) in
+  /** Whether to include metadata such as offchain effects and performance statistics (e.g. timing information of the different circuits and oracles) in
    * the simulation result, instead of just the return value of the function */
   includeMetadata?: boolean;
 };
