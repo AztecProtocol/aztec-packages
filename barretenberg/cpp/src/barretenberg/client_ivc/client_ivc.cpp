@@ -130,31 +130,11 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     // Recursively verify the corresponding merge proof
     PairingPoints pairing_points = goblin.recursively_verify_merge(circuit, oink_pg_merge_transcript);
 
-    /////////// DEBUGGING
-    {
-        // Verify Merge is valid
-        auto P0 = pairing_points.P0.get_value();
-        auto P1 = pairing_points.P1.get_value();
-        ClientIVC::Flavor::VerifierCommitmentKey pcs_key{};
-        bool pairing_result = pcs_key.pairing_check(P0, P1);
-        info("Merge is valid (inside kernel)? ", pairing_result);
-    }
-
     // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
-
-    /////////// DEBUGGING
-    {
-        // Verify PairingPoints after aggegration
-        auto P0 = pairing_points.P0.get_value();
-        auto P1 = pairing_points.P1.get_value();
-        ClientIVC::Flavor::VerifierCommitmentKey pcs_key{};
-        bool pairing_result = pcs_key.pairing_check(P0, P1);
-        info("PairingPoints valid after aggregation (inside kernel)? ", pairing_result);
-    }
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -227,11 +207,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Shared transcript between Oink/PG and verifier
     std::shared_ptr<Transcript> oink_pg_merge_transcript = std::make_shared<Transcript>();
 
-    ////////////// DEBUGGING
-    auto store_init = initialized;
-    oink_pg_merge_transcript->enable_manifest();
-    //////////////
-
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (proving_key->proving_key.circuit_size > bn254_commitment_key.dyadic_size) {
@@ -289,32 +264,6 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // Construct merge proof for the present circuit
     goblin.prove_merge(oink_pg_merge_transcript);
-
-    ///////// DEBUGGING
-    {
-        // Check accumulator is valid
-        bool accumulator_result = check_accumulator_target_sum_manual(fold_output.accumulator);
-        info("Accumulator is valid? ", accumulator_result);
-
-        // Check merge is valid
-        auto tr = std::make_shared<Transcript>();
-        tr->enable_manifest();
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
-        if (!store_init) {
-            tr->load_proof(verification_queue[0].proof);
-            OinkVerifier oink_verifier{ decider_vk, tr };
-            oink_verifier.verify();
-        } else {
-            FoldingVerifier folding_verifier{ { verifier_accumulator, decider_vk }, tr };
-            auto _ = folding_verifier.verify_folding_proof(fold_output.proof);
-        }
-        MergeVerifier merge_verifier{ tr };
-        auto ecc_op_wires_ref = decider_vk->witness_commitments.get_ecc_op_wires();
-        std::array<Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
-        std::copy(ecc_op_wires_ref.begin(), ecc_op_wires_ref.end(), t_commitments.begin());
-        bool merge_result = merge_verifier.verify_proof(goblin.merge_verification_queue.back());
-        info("Merge is valid? ", merge_result);
-    }
 }
 
 /**

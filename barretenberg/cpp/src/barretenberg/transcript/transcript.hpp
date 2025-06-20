@@ -604,9 +604,6 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     BaseTranscript branch_transcript()
     {
-        /// Increase the round_number of the original transcript (+1000
-        /// Set round_number of branched == round number of original
-        /// Set transcript_index branch == original
         ASSERT(current_round_data.size() == 0, "Trying to branch a transcript with non empty round data");
 
         /*
