@@ -67,7 +67,7 @@ function generate_vks {
 }
 
 function build_code {
-    # These steps are sequencial
+    # These steps are sequential
     build_cpp
     generate_vks
     build_sol
