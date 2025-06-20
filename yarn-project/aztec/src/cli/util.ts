@@ -298,7 +298,7 @@ export async function setupUpdateMonitor(
     // don't notify on these config changes
   });
 
-  checker.on('updatePublicTelemetryConfig', async config => {
+  checker.on('updatePublicTelemetryConfig', config => {
     if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
       logger.warn(`Public telemetry config change detected. Updating telemetry client`, config);
       try {
