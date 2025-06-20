@@ -2,7 +2,6 @@
 pragma solidity >=0.8.27;
 
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
-import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
@@ -56,7 +55,11 @@ interface IStakingAssetHandler {
   error MerkleProofInvalid();
 
   // Add validator methods
-  function addValidator(address _attester, bytes32[] memory merkleProof, ProofVerificationParams memory _params) external;
+  function addValidator(
+    address _attester,
+    bytes32[] memory merkleProof,
+    ProofVerificationParams memory _params
+  ) external;
   function reenterExitedValidator(address _attester) external;
 
   // Admin methods
@@ -155,10 +158,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    *
    * @param _attester - the validator's attester address
    */
-  function addValidator(address _attester, bytes32[] memory _merkleProof, ProofVerificationParams calldata _params)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(
+    address _attester,
+    bytes32[] memory _merkleProof,
+    ProofVerificationParams calldata _params
+  ) external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getDepositAmount();
 
