@@ -259,23 +259,14 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 1),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 0)));
+                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
 
-    // Check values in the rows between the first and up to the last row of the keccakf1600 permutation subtrace.
+    // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
         EXPECT_THAT(rows.at(i),
-                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 1),
-                          ROW_FIELD_EQ(keccakf1600_clk, 1),
-                          ROW_FIELD_EQ(keccakf1600_start, 0),
-                          ROW_FIELD_EQ(keccakf1600_round, i),
+                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 0),
                           ROW_FIELD_EQ(keccakf1600_sel_slice_read, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
-                          ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_dst_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_tag_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_last, i == AVM_KECCAKF1600_NUM_ROUNDS ? 1 : 0)));
+                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0)));
     }
 }
 
@@ -308,20 +299,14 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 0)));
+                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
 
-    // Check values in the rows between the first and up to the last row of the keccakf1600 permutation subtrace.
+    // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
         EXPECT_THAT(rows.at(i),
-                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 1),
-                          ROW_FIELD_EQ(keccakf1600_round, i),
+                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 0),
                           ROW_FIELD_EQ(keccakf1600_sel_slice_read, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
-                          ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_dst_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_tag_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_no_error, 0)));
+                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0)));
     }
 
     // Check that first row of keccak_memory is inactive.
@@ -357,20 +342,14 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
                       ROW_FIELD_EQ(keccakf1600_tag_error, 0),
                       ROW_FIELD_EQ(keccakf1600_error, 1),
                       ROW_FIELD_EQ(keccakf1600_sel_no_error, 0),
-                      ROW_FIELD_EQ(keccakf1600_last, 0)));
+                      ROW_FIELD_EQ(keccakf1600_last, 1))); // We set last at the initial row when there is an error.
 
-    // Check values in the rows between the first and up to the last row of the keccakf1600 permutation subtrace.
+    // Check that all the subsequent rows have inactive selectors.
     for (size_t i = 2; i < AVM_KECCAKF1600_NUM_ROUNDS + 1; i++) {
         EXPECT_THAT(rows.at(i),
-                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 1),
-                          ROW_FIELD_EQ(keccakf1600_round, i),
+                    AllOf(ROW_FIELD_EQ(keccakf1600_sel, 0),
                           ROW_FIELD_EQ(keccakf1600_sel_slice_read, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0),
-                          ROW_FIELD_EQ(keccakf1600_src_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_dst_out_of_range_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_tag_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_error, 0),
-                          ROW_FIELD_EQ(keccakf1600_sel_no_error, 0)));
+                          ROW_FIELD_EQ(keccakf1600_sel_slice_write, 0)));
     }
 
     // Check that first row of keccak_memory is inactive.

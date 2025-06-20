@@ -255,10 +255,8 @@ function processConstantsCpp(
     if (CPP_CONSTANTS.includes(key) || (key.startsWith('AVM_') && key !== 'AVM_VK_INDEX')) {
       if (BigInt(value) <= 2n ** 31n - 1n) {
         code.push(`#define ${key} ${value}`);
-      } else if (BigInt(value) <= 2n ** 32n - 1n) {
-        code.push(`#define ${key} ${value}U`);
       } else {
-        code.push(`#define ${key} "0x${BigInt(value).toString(16)}"`); // stringify large numbers
+        code.push(`#define ${key} 0x${BigInt(value).toString(16)}`); // stringify large numbers
       }
     }
   });

@@ -40,7 +40,7 @@ template <size_t N> std::array<uint64_t, N> array_to_uint64(const std::array<Mem
 {
     std::array<uint64_t, N> output;
     for (size_t i = 0; i < N; i++) {
-        output[i] = input[i].template as<uint64_t>();
+        output.at(i) = input.at(i).template as<uint64_t>();
     }
     return output;
 }
@@ -105,8 +105,8 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
                 const auto addr = src_addr + static_cast<MemoryAddress>((i * 5) + j);
-                const auto mem_val = memory.get(addr);
-                const auto tag = mem_val.get_tag();
+                const MemoryValue& mem_val = memory.get(addr);
+                const MemoryTag tag = mem_val.get_tag();
                 src_mem_values[i][j] = mem_val;
 
                 if (tag != MemoryTag::U64) {
@@ -140,21 +140,22 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
             // Theta xor values left rotated by 1
             std::array<MemoryValue, 5> theta_xor_row_rotl1_values;
             for (size_t i = 0; i < 5; ++i) {
-                theta_xor_row_rotl1_values[i] = unconstrained_rotate_left(theta_xor_values[i][3], 1);
+                theta_xor_row_rotl1_values.at(i) = unconstrained_rotate_left(theta_xor_values[i][3], 1);
             }
 
             // Theta combined xor computation
             std::array<MemoryValue, 5> theta_combined_xor_values;
             for (size_t i = 0; i < 5; ++i) {
-                theta_combined_xor_values[i] =
-                    bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values[(i + 1) % 5]);
+                theta_combined_xor_values.at(i) =
+                    bitwise.xor_op(theta_xor_values[(i + 4) % 5][3], theta_xor_row_rotl1_values.at((i + 1) % 5));
             }
 
             // State theta values
             std::array<std::array<MemoryValue, 5>, 5> state_theta_values;
             for (size_t i = 0; i < 5; ++i) {
                 for (size_t j = 0; j < 5; ++j) {
-                    state_theta_values[i][j] = bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values[i]);
+                    state_theta_values[i][j] =
+                        bitwise.xor_op(state_input_values[i][j], theta_combined_xor_values.at(i));
                 }
             }
 
@@ -205,9 +206,9 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
             // state iota_00 value
             // Recall that round starts with 1
             MemoryValue iota_00_value =
-                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants[round_idx]));
+                bitwise.xor_op(state_chi_values[0][0], MemoryValue::from(keccak_round_constants.at(round_idx)));
 
-            rounds_data[round_idx] = {
+            rounds_data.at(round_idx) = {
                 .state = two_dim_array_to_uint64(state_input_values),
                 .theta_xor = two_dim_array_to_uint64(theta_xor_values),
                 .theta_xor_row_rotl1 = array_to_uint64(theta_xor_row_rotl1_values),
@@ -233,7 +234,6 @@ void KeccakF1600::permutation(MemoryInterface& memory, MemoryAddress dst_addr, M
 
         keccakf1600_event.rounds = rounds_data;
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
-
     } catch (const KeccakF1600Exception& e) {
         perm_events.emit(KeccakF1600Event(keccakf1600_event));
         throw e;

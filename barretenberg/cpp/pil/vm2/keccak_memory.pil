@@ -209,4 +209,8 @@ val44 = (1 - last) * val43';
 #[SLICE_TO_MEM]
 sel {clk, addr, val00, tag, rw, space_id}
 in // TODO: replace with `is` (permutation)
-memory.sel {memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id};
+memory.sel { memory.clk, memory.address, memory.value, memory.tag, memory.rw, memory.space_id };
+
+// Used to constrain the number of rounds in keccakf1600.pil through the slice_write lookup.
+pol commit num_rounds;
+sel * (num_rounds - constants.AVM_KECCAKF1600_NUM_ROUNDS) = 0; // TODO: Remove once we support constants in lookups

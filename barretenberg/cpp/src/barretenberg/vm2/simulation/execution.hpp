@@ -61,9 +61,9 @@ class Execution : public ExecutionInterface {
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
+        , keccakf1600(keccakf1600)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
-        , keccakf1600(keccakf1600)
     {}
 
     ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
@@ -129,6 +129,7 @@ class Execution : public ExecutionInterface {
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
+    KeccakF1600Interface& keccakf1600;
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
@@ -139,8 +140,6 @@ class Execution : public ExecutionInterface {
     std::vector<TaggedValue> inputs;
     TaggedValue output;
     std::unique_ptr<GasTrackerInterface> gas_tracker;
-
-    KeccakF1600Interface& keccakf1600;
 };
 
 } // namespace bb::avm2::simulation

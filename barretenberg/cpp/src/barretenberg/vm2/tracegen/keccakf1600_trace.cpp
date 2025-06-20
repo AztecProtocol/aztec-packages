@@ -381,7 +381,7 @@ constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
 };
 
 // Populate a memory slice read or write operation for the Keccak permutation.
-void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, uint32_t start_row, TraceContainer& trace)
+void process_single_slice(const simulation::KeccakF1600Event& event, bool write, uint32_t& row, TraceContainer& trace)
 {
     std::array<bool, AVM_KECCAKF1600_STATE_SIZE> single_tag_errors;
     single_tag_errors.fill(false);
@@ -394,7 +394,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
 
     // The relevant state and read/write memory values depending on read/write boolean.
     std::array<std::array<FF, 5>, 5> state_ff;
-    if (rw) {
+    if (write) {
         for (size_t i = 0; i < 5; i++) {
             for (size_t j = 0; j < 5; j++) {
                 state_ff[i][j] = event.rounds[AVM_KECCAKF1600_NUM_ROUNDS - 1].state_chi[i][j];
@@ -410,7 +410,7 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
             state_ff[i][j] = mem_val.as_ff();
             tags[k] = mem_val.get_tag();
             if (tags[k] != MemoryTag::U64) {
-                single_tag_errors[k] = true;
+                single_tag_errors.at(k) = true;
                 num_rows = k + 1;
                 break;
             }
@@ -418,12 +418,11 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
     }
 
     std::array<bool, AVM_KECCAKF1600_STATE_SIZE> tag_errors;
-    tag_errors.fill(single_tag_errors[num_rows - 1]);
+    tag_errors.fill(single_tag_errors.at(num_rows - 1));
 
-    MemoryAddress addr = rw ? event.dst_addr : event.src_addr;
+    MemoryAddress addr = write ? event.dst_addr : event.src_addr;
 
     for (size_t i = 0; i < num_rows; i++) {
-        const auto row = start_row + static_cast<uint32_t>(i);
 
         trace.set(
             row,
@@ -434,26 +433,29 @@ void process_single_slice(const simulation::KeccakF1600Event& event, bool rw, ui
                 { C::keccak_memory_ctr_inv, FF(i + 1).invert() },
                 { C::keccak_memory_ctr_min_state_size_inv,
                   i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : (FF(i + 1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert() },
-                { C::keccak_memory_start_read, (i == 0 && !rw) ? 1 : 0 },
-                { C::keccak_memory_start_write, (i == 0 && rw) ? 1 : 0 },
+                { C::keccak_memory_start_read, (i == 0 && !write) ? 1 : 0 },
+                { C::keccak_memory_start_write, (i == 0 && write) ? 1 : 0 },
                 { C::keccak_memory_ctr_end, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
-                { C::keccak_memory_last, (i == AVM_KECCAKF1600_STATE_SIZE - 1) || single_tag_errors[i] ? 1 : 0 },
-                { C::keccak_memory_rw, rw ? 1 : 0 },
+                { C::keccak_memory_last, (i == AVM_KECCAKF1600_STATE_SIZE - 1) || single_tag_errors.at(i) ? 1 : 0 },
+                { C::keccak_memory_rw, write ? 1 : 0 },
                 { C::keccak_memory_addr, addr + i },
                 { C::keccak_memory_space_id, event.space_id },
                 { C::keccak_memory_tag, static_cast<uint8_t>(tags[i]) },
                 { C::keccak_memory_tag_min_u64_inv,
-                  single_tag_errors[i]
+                  single_tag_errors.at(i)
                       ? (FF(static_cast<uint8_t>(tags[i])) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert()
                       : 1 },
-                { C::keccak_memory_single_tag_error, single_tag_errors[i] ? 1 : 0 },
-                { C::keccak_memory_tag_error, tag_errors[i] ? 1 : 0 },
+                { C::keccak_memory_single_tag_error, single_tag_errors.at(i) ? 1 : 0 },
+                { C::keccak_memory_tag_error, tag_errors.at(i) ? 1 : 0 },
+                { C::keccak_memory_num_rounds, AVM_KECCAKF1600_NUM_ROUNDS },
             } });
 
         // We get a "triangle" when shifting values to their columns from val00 bottom-up.
         for (size_t j = i; j < num_rows; j++) {
-            trace.set(MEM_VAL_COLS[j - i], row, state_ff[j / 5][j % 5]);
+            trace.set(MEM_VAL_COLS.at(j - i), row, state_ff[j / 5][j % 5]);
         }
+
+        row++;
     }
 }
 
@@ -469,17 +471,20 @@ void KeccakF1600TraceBuilder::process_permutation(
         const bool out_of_range = event.src_out_of_range || event.dst_out_of_range;
         const bool error = out_of_range || event.tag_error;
 
-        for (size_t round_idx = 0; round_idx < AVM_KECCAKF1600_NUM_ROUNDS; round_idx++) {
+        for (size_t round_idx = 0; round_idx == 0 || (!error && round_idx < AVM_KECCAKF1600_NUM_ROUNDS); round_idx++) {
             const auto& round_data = event.rounds[round_idx];
 
             // Setting the selector, xor operation id, and operation id, round, round cst
-            trace.set(C::keccakf1600_sel, row, 1);
-            trace.set(C::keccakf1600_clk, row, event.execution_clk);
-            trace.set(C::keccakf1600_bitwise_xor_op_id, row, static_cast<uint8_t>(BitwiseOperation::XOR));
-            trace.set(C::keccakf1600_bitwise_and_op_id, row, static_cast<uint8_t>(BitwiseOperation::AND));
-            trace.set(C::keccakf1600_round, row, round_idx + 1); // round is 1-indexed
-            trace.set(C::keccakf1600_round_cst, row, simulation::keccak_round_constants[round_idx]);
-            trace.set(C::keccakf1600_thirty_two, row, AVM_MEMORY_NUM_BITS);
+            trace.set(row,
+                      { {
+                          { C::keccakf1600_sel, 1 },
+                          { C::keccakf1600_clk, event.execution_clk },
+                          { C::keccakf1600_bitwise_xor_op_id, static_cast<uint8_t>(BitwiseOperation::XOR) },
+                          { C::keccakf1600_bitwise_and_op_id, static_cast<uint8_t>(BitwiseOperation::AND) },
+                          { C::keccakf1600_round, round_idx + 1 }, // round is 1-indexed
+                          { C::keccakf1600_round_cst, simulation::keccak_round_constants[round_idx] },
+                          { C::keccakf1600_thirty_two, AVM_MEMORY_NUM_BITS },
+                      } });
 
             // Setting the rotation length constants
             // If the constant is <= 32, we set it in the column.
@@ -489,40 +494,45 @@ void KeccakF1600TraceBuilder::process_permutation(
                 const size_t j = k % 5;
                 const auto rotation_len = simulation::keccak_rotation_len[i][j];
                 const auto value = rotation_len <= 32 ? rotation_len : 64 - rotation_len;
-                trace.set(RHO_ROTATION_LEN_COLS[k - 1], row, value);
+                trace.set(RHO_ROTATION_LEN_COLS.at(k - 1), row, value);
             }
 
             // Selectors start and last.
             // src_address required on first row
             if (round_idx == 0) {
-                trace.set(C::keccakf1600_start, row, 1);
-                trace.set(C::keccakf1600_src_addr, row, event.src_addr);
-                trace.set(C::keccakf1600_src_out_of_range_error, row, event.src_out_of_range ? 1 : 0);
-                trace.set(C::keccakf1600_dst_out_of_range_error, row, event.dst_out_of_range ? 1 : 0);
-                trace.set(C::keccakf1600_src_abs_diff, row, event.src_abs_diff);
-                trace.set(C::keccakf1600_dst_abs_diff, row, event.dst_abs_diff);
-                trace.set(C::keccakf1600_tag_error, row, event.tag_error ? 1 : 0);
-                trace.set(C::keccakf1600_sel_slice_read, row, out_of_range ? 0 : 1);
-                trace.set(C::keccakf1600_error, row, error ? 1 : 0);
+                trace.set(row,
+                          { {
+                              { C::keccakf1600_start, 1 },
+                              { C::keccakf1600_src_addr, event.src_addr },
+                              { C::keccakf1600_src_out_of_range_error, event.src_out_of_range ? 1 : 0 },
+                              { C::keccakf1600_dst_out_of_range_error, event.dst_out_of_range ? 1 : 0 },
+                              { C::keccakf1600_src_abs_diff, event.src_abs_diff },
+                              { C::keccakf1600_dst_abs_diff, event.dst_abs_diff },
+                              { C::keccakf1600_tag_error, event.tag_error ? 1 : 0 },
+                              { C::keccakf1600_sel_slice_read, out_of_range ? 0 : 1 },
+                              { C::keccakf1600_error, error ? 1 : 0 },
+                              { C::keccakf1600_last,
+                                error ? 1 : 0 }, // We set last at the initial row when there is an error.
+                                                 // Note that the loop will stop after the initial round.
+                          } });
 
             } else if (round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1) {
-                trace.set(C::keccakf1600_last, row, 1);
-                trace.set(C::keccakf1600_sel_slice_write, row, error ? 0 : 1);
+                trace.set(row,
+                          { {
+                              { C::keccakf1600_last, 1 },
+                              { C::keccakf1600_sel_slice_write, error ? 0 : 1 },
+                          } });
             };
 
             // dst_address, sel_no_error, space_id are required at every row as we propagate
             // for the slice memory write lookup.
-            trace.set(C::keccakf1600_dst_addr, row, event.dst_addr);
-            trace.set(C::keccakf1600_sel_no_error, row, error ? 0 : 1);
-            trace.set(C::keccakf1600_space_id, row, event.space_id);
-
-            // Helper "inverse" columns for sel and last.
-            trace.set(C::keccakf1600_round_inv, row, FF(round_idx + 1).invert());
-            trace.set(C::keccakf1600_round_min_num_rounds_inv,
-                      row,
-                      round_idx == AVM_KECCAKF1600_NUM_ROUNDS - 1
-                          ? 1
-                          : (FF(round_idx + 1) - FF(AVM_KECCAKF1600_NUM_ROUNDS)).invert());
+            trace.set(row,
+                      { {
+                          { C::keccakf1600_dst_addr, event.dst_addr },
+                          { C::keccakf1600_sel_no_error, error ? 0 : 1 },
+                          { C::keccakf1600_space_id, event.space_id },
+                          { C::keccakf1600_round_inv, FF(round_idx + 1).invert() },
+                      } });
 
             // When no out-of-range value occured but a tag value error, we
             // need to set the initial state values in the first round.
@@ -538,7 +548,6 @@ void KeccakF1600TraceBuilder::process_permutation(
 
             // When there is no error we set state values completely.
             if (!error) {
-
                 // Setting state inputs in their corresponding colums
                 for (size_t i = 0; i < 5; i++) {
                     for (size_t j = 0; j < 5; j++) {
@@ -561,10 +570,13 @@ void KeccakF1600TraceBuilder::process_permutation(
                     const auto theta_xor_row_msb = theta_xor_row_rotl1 & 1;    // lsb of of the rotated value
                     const auto theta_xor_row_low63 = theta_xor_row_rotl1 >> 1; // 63 high bits of the rotated value
 
-                    trace.set(THETA_XOR_ROW_ROTL1_COLS[i], row, theta_xor_row_rotl1);
-                    trace.set(THETA_XOR_ROW_MSB_COLS[i], row, theta_xor_row_msb);
-                    trace.set(THETA_XOR_ROW_LOW63_COLS[i], row, theta_xor_row_low63);
-                    trace.set(THETA_COMBINED_XOR_COLS[i], row, round_data.theta_combined_xor[i]);
+                    trace.set(row,
+                              { {
+                                  { THETA_XOR_ROW_ROTL1_COLS[i], theta_xor_row_rotl1 },
+                                  { THETA_XOR_ROW_MSB_COLS[i], theta_xor_row_msb },
+                                  { THETA_XOR_ROW_LOW63_COLS[i], theta_xor_row_low63 },
+                                  { THETA_COMBINED_XOR_COLS[i], round_data.theta_combined_xor[i] },
+                              } });
                 }
 
                 // Setting state_theta values
@@ -587,17 +599,23 @@ void KeccakF1600TraceBuilder::process_permutation(
                     const auto state_theta_hi = state_theta_val >> low_num_bits;
                     const auto state_theta_low = state_theta_val & ((1ULL << low_num_bits) - 1);
 
-                    trace.set(STATE_THETA_HI_COLS[k - 1], row, state_theta_hi);
-                    trace.set(STATE_THETA_LOW_COLS[k - 1], row, state_theta_low);
-                    trace.set(STATE_RHO_COLS[k - 1], row, round_data.state_rho[i][j]);
+                    trace.set(row,
+                              { {
+                                  { STATE_THETA_HI_COLS[k - 1], state_theta_hi },
+                                  { STATE_THETA_LOW_COLS[k - 1], state_theta_low },
+                                  { STATE_RHO_COLS[k - 1], round_data.state_rho[i][j] },
+                              } });
                 }
 
                 // Setting "pi not", "pi and", and "chi" values
                 for (size_t i = 0; i < 5; i++) {
                     for (size_t j = 0; j < 5; j++) {
-                        trace.set(STATE_PI_NOT_COLS[i][j], row, round_data.state_pi_not[i][j]);
-                        trace.set(STATE_PI_AND_COLS[i][j], row, round_data.state_pi_and[i][j]);
-                        trace.set(STATE_CHI_COLS[i][j], row, round_data.state_chi[i][j]);
+                        trace.set(row,
+                                  { {
+                                      { STATE_PI_NOT_COLS[i][j], round_data.state_pi_not[i][j] },
+                                      { STATE_PI_AND_COLS[i][j], round_data.state_pi_and[i][j] },
+                                      { STATE_CHI_COLS[i][j], round_data.state_chi[i][j] },
+                                  } });
                     }
                 }
 
@@ -612,21 +630,22 @@ void KeccakF1600TraceBuilder::process_permutation(
 void KeccakF1600TraceBuilder::process_memory_slices(
     const simulation::EventEmitterInterface<simulation::KeccakF1600Event>::Container& events, TraceContainer& trace)
 {
-    trace.set(C::keccak_memory_last, 0, 1);
-    trace.set(C::keccak_memory_ctr_end, 0, 1);
+    trace.set(0,
+              { {
+                  { C::keccak_memory_last, 1 },
+                  { C::keccak_memory_ctr_end, 1 },
+              } });
 
     uint32_t row = 1;
     for (const auto& event : events) {
         // Skip the event if there is an out of range error.
         // Namely, in this case the lookups to the memory slice are inactive.
         if (!event.src_out_of_range && !event.dst_out_of_range) {
-            process_single_slice(event, false, row, trace);
-            row += AVM_KECCAKF1600_STATE_SIZE;
+            process_single_slice(event, /* write */ false, row, trace);
 
             // Write to memory slice is only active if there is no tag error.
             if (!event.tag_error) {
-                process_single_slice(event, true, row, trace);
-                row += AVM_KECCAKF1600_STATE_SIZE;
+                process_single_slice(event, /* write */ true, row, trace);
             }
         }
     }
