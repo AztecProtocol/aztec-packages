@@ -172,6 +172,16 @@ void Execution::internal_return(ContextInterface& context)
     }
 }
 
+void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
+{
+    try {
+        keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
+    } catch (const KeccakF1600Exception& e) {
+        // TODO: Possibly handle the error here.
+        throw e;
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -339,6 +349,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::INTERNALRETURN:
         call_with_operands(&Execution::internal_return, context, resolved_operands);
+        break;
+    case ExecutionOpCode::KECCAKF1600:
+        call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

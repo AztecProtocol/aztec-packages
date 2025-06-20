@@ -114,6 +114,7 @@ pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
+pol constant sel_dispatch_keccakf1600;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.
 pol constant sel_op_is_address[7];
@@ -138,3 +139,9 @@ pol constant sel_non_revertible_append_nullifier;
 pol constant sel_revertible_append_note_hash;
 pol constant sel_revertible_append_nullifier;
 pol constant sel_collect_fee;
+
+// Keccak round constants
+// Store the 24 round constants with indices ranging from 1 to 24.
+// Warning: Not a standard 0-based array!
+pol constant sel_keccak;
+pol constant keccak_round_constant;
