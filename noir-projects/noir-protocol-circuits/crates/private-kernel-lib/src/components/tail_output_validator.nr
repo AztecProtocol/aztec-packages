@@ -58,7 +58,8 @@ impl TailOutputValidator {
     }
 
     fn validate_propagated_values(self) {
-        // Q: why can't we just assert the entire `constants` struct to be equal? Which constants are _not_ expected to be equal?
+        // Whilst we could just assert the entire `constants` struct to be equal, we broke it
+        // up to test with the specific error messages.
         assert_eq(
             self.output.constants.historical_header,
             self.previous_kernel.constants.historical_header,
