@@ -1526,8 +1526,6 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     // predicate = 1 ==> X_i - 2 * limb_i
     // ==> (1 - predicate) * limb_i + predicate * (X_i - limb_i)
     //
-    bb::fr two(2);
-
     field_t limb_0 = field_t<Builder>::conditional_assign(
         predicate, -(binary_basis_limbs[0].element) + bb::fr(to_add_limbs[0]), binary_basis_limbs[0].element);
     field_t limb_1 = field_t<Builder>::conditional_assign(
