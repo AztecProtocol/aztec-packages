@@ -6,7 +6,7 @@ timeout='2592000' # 1 month
 mode='fuzzing'
 cpus='8'
 mem="16G"
-jobs_='4'
+jobs_="$cpus"
 workers='0'
 
 
@@ -125,7 +125,6 @@ if [[ $verbosity == '1' ]]; then
         "$image_name"                                           \
         --verbose                                               \
         --fuzzer "$fuzzer"                                      \
-        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
@@ -141,7 +140,6 @@ else
         --entrypoint "./entrypoint.sh"                          \
         "$image_name"                                           \
         --fuzzer "$fuzzer"                                      \
-        --jobs "$cpus"                                          \
         --mode "$mode"                                          \
         --timeout "$timeout"                                    \
         --workers "$workers"                                    \
