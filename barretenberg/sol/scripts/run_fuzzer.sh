@@ -16,4 +16,4 @@ if [ "$FLAVOR" == "honk" ] || [ "$FLAVOR" == "honk_zk" ] ; then
 fi
 
 # @note This needs to be updated to point to the generator
-$BIN $FLAVOR $CIRCUIT $CRS_PATH $INPUTS
+$BIN $FLAVOR $CIRCUIT $SRS_PATH $INPUTS

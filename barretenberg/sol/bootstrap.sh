@@ -22,7 +22,7 @@ function test_cmds {
 
 # TODO: maybe manually run these in parallel
 function test_cmds_internal {
-    echo "cd barretenberg/sol && forge test --match-contract Honk --no-match-contract Base"
+    echo "cd barretenberg/sol && forge test --no-match-contract Base"
 }
 
 function download_old_crs {
@@ -57,8 +57,7 @@ function build_cpp {
         cmake --build --preset default --parallel --target honk_solidity_proof_gen honk_solidity_key_gen
         cd ../sol
 
-        ## Note: this will contain the whole bb artifacts -- ask charlie
-        cache_upload $artifact build/bin
+        cache_upload $artifact ../cpp/build/bin/*solidity*
     fi
 }
 
