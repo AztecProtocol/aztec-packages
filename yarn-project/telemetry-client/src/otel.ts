@@ -51,7 +51,7 @@ export class OpenTelemetryClient implements TelemetryClient {
     private log: Logger,
   ) {}
 
-  setIncludedPublicMetrics(metrics: string[]) {
+  setExportedPublicTelemetry(metrics: string[]): void {
     this.publicMetricExporter?.setMetricPrefixes(metrics);
   }
 
