@@ -1,4 +1,4 @@
-use dep::types::{abis::side_effect::Ordered, traits::Empty};
+use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
 use std::option::Option;
 
 // - If the min_revertible_side_effect_counter was set before any of the call requests (possibly even before "this" function (the function call that this kernel is currently processing)):
@@ -41,15 +41,12 @@ pub unconstrained fn find_index_of_first_fully_revertible_private_call_request<T
 where
     T: Ordered + Empty,
 {
-    let mut index: Option<u32> = Option::none();
-    for i in 0..N {
-        if (private_call_requests[i].counter() >= min_revertible_side_effect_counter) {
-            // The min_revertible_side_effect_counter was set by A some time before this private_call_request (or in the case of i==0, could have been set before A):
-            index = Option::some(i);
-            break;
-        }
-    }
-    index
+    find_index_hint(
+        private_call_requests,
+        |private_call_request| {
+            private_call_request.counter() >= min_revertible_side_effect_counter
+        },
+    )
 }
 
 mod tests {
