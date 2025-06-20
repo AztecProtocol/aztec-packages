@@ -1,6 +1,7 @@
 #include "parallel_for_work_stealing.hpp"
 #include "thread.hpp"
 #include <atomic>
+#include <cmath>
 #include <chrono>
 #include <gtest/gtest.h>
 #include <vector>
