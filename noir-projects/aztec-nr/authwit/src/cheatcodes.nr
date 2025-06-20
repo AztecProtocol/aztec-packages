@@ -1,7 +1,7 @@
 use dep::aztec::{
     context::{call_interfaces::CallInterface, public_context::PublicContext},
     hash::hash_args,
-    oracle::execution::{get_block_number, get_contract_address},
+    oracle::execution::get_contract_address,
     protocol_types::{address::AztecAddress, traits::ToField},
     test::helpers::cheatcodes,
 };
@@ -17,7 +17,7 @@ where
     C: CallInterface<M>,
 {
     let target = call_interface.get_contract_address();
-    let inputs = cheatcodes::get_private_context_inputs(get_block_number());
+    let inputs = cheatcodes::get_private_context_inputs();
     let chain_id = inputs.tx_context.chain_id;
     let version = inputs.tx_context.version;
     let args_hash = hash_args(call_interface.get_args());
@@ -39,7 +39,7 @@ where
     let current_contract = get_contract_address();
     cheatcodes::set_contract_address(on_behalf_of);
     let target = call_interface.get_contract_address();
-    let inputs = cheatcodes::get_private_context_inputs(get_block_number());
+    let inputs = cheatcodes::get_private_context_inputs();
     let chain_id = inputs.tx_context.chain_id;
     let version = inputs.tx_context.version;
     let args_hash = hash_args(call_interface.get_args());
