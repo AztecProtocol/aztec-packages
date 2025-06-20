@@ -341,34 +341,15 @@ export class TXE implements TypedOracle {
   }
 
   async getPrivateContextInputs(
-    blockNumber: number,
-    timestamp: UInt64,
+    blockNumber: number | null,
+    timestamp: UInt64 | null,
     sideEffectsCounter = this.sideEffectCounter,
     isStaticCall = false,
   ) {
-    if (blockNumber > this.blockNumber) {
-      throw new Error(
-        `Tried to request private context inputs for ${blockNumber}, which is greater than our current block number of ${this.blockNumber}`,
-      );
-    } else if (blockNumber === this.blockNumber) {
-      this.logger.debug(
-        `Tried to request private context inputs for ${blockNumber}, equal to current block of ${this.blockNumber}. Clamping to current block - 1.`,
-      );
-      // TODO: Auto-modifying the block number here seems wrong. Would just throw instead.
-      blockNumber = this.blockNumber - 1;
-    }
-
-    if (timestamp > this.timestamp) {
-      throw new Error(
-        `Tried to request private context inputs for timestamp ${timestamp}, which is greater than our current timestamp of ${this.timestamp}`,
-      );
-    } else if (timestamp === this.timestamp) {
-      this.logger.debug(
-        `Tried to request private context inputs for timestamp ${timestamp}, equal to current timestamp of ${this.timestamp}. Clamping to current timestamp - AZTEC_SLOT_DURATION.`,
-      );
-      // TODO: Auto-modifying the timestamp here seems wrong. Would just throw instead.
-      timestamp = this.timestamp - AZTEC_SLOT_DURATION;
-    }
+    // If blockNumber or timestamp is null, use the values corresponding to the latest historical block (number of
+    // the block being built - 1)
+    blockNumber = blockNumber ?? this.blockNumber - 1;
+    timestamp = timestamp ?? this.timestamp - AZTEC_SLOT_DURATION;
 
     const snap = this.nativeWorldStateService.getSnapshot(blockNumber);
     const previousBlockState = this.nativeWorldStateService.getSnapshot(blockNumber - 1);

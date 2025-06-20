@@ -52,11 +52,16 @@ export class TXEService {
 
   // Cheatcodes
 
-  async getPrivateContextInputs(blockNumber: ForeignCallSingle, timestamp: ForeignCallSingle) {
-    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(
-      fromSingle(blockNumber).toNumber(),
-      fromSingle(timestamp).toBigInt(),
-    );
+  async getPrivateContextInputs(
+    blockNumberIsSome: ForeignCallSingle,
+    blockNumberValue: ForeignCallSingle,
+    timestampIsSome: ForeignCallSingle,
+    timestampValue: ForeignCallSingle,
+  ) {
+    const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
+    const timestamp = fromSingle(timestampIsSome).toBool() ? fromSingle(timestampValue).toBigInt() : null;
+
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber, timestamp);
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 

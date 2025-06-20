@@ -162,10 +162,7 @@ impl TestEnvironment {
             self.advance_block_to(historical_block_number + 1);
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs(
-            historical_block_number,
-            self.committed_timestamp(),
-        );
+        let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
 
         PrivateContext::new(inputs, 0)
     }
@@ -179,10 +176,7 @@ impl TestEnvironment {
             self.advance_timestamp_to(historical_timestamp);
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs(
-            self.committed_block_number(),
-            historical_timestamp,
-        );
+        let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
 
         PrivateContext::new(inputs, 0)
     }

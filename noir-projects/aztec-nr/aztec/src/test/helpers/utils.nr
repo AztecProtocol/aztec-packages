@@ -1,8 +1,8 @@
 use crate::{
     context::{call_interfaces::CallInterface, gas::GasOpts, PrivateContext, PublicContext},
     hash::hash_args,
-    oracle::{execution::{get_block_number, get_timestamp}, execution_cache},
-    test::{helpers::cheatcodes, txe_constants::AZTEC_SLOT_DURATION},
+    oracle::execution_cache,
+    test::helpers::cheatcodes,
 };
 use protocol_types::{
     address::AztecAddress,
@@ -39,10 +39,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.secret,
         );
 
-        let inputs = cheatcodes::get_private_context_inputs(
-            get_block_number() - 1,
-            get_timestamp() - AZTEC_SLOT_DURATION,
-        );
+        let inputs = cheatcodes::get_private_context_inputs();
         let mut private_context = PrivateContext::new(inputs, 0);
         let args = call_interface.get_args();
         let args_hash = if args.len() > 0 { hash_args(args) } else { 0 };

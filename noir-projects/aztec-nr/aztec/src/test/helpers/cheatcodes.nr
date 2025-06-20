@@ -1,6 +1,10 @@
-use crate::context::inputs::PrivateContextInputs;
-use crate::test::helpers::utils::TestAccount;
-use dep::protocol_types::{
+use crate::{
+    context::inputs::PrivateContextInputs,
+    oracle::execution::{get_block_number, get_timestamp},
+    test::{helpers::utils::TestAccount, txe_constants::AZTEC_SLOT_DURATION},
+};
+
+use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH,
@@ -34,11 +38,50 @@ pub unconstrained fn advance_timestamp_by(duration: u64) {
     oracle_advance_timestamp_by(duration);
 }
 
-pub unconstrained fn get_private_context_inputs(
+pub unconstrained fn get_private_context_inputs() -> PrivateContextInputs {
+    oracle_get_private_context_inputs(Option::none(), Option::none())
+}
+
+pub unconstrained fn get_private_context_inputs_at_block(
     historical_block_number: u32,
+) -> PrivateContextInputs {
+    let current_block = get_block_number();
+
+    assert(
+        historical_block_number <= current_block,
+        "Cannot request private context inputs for block number greater than current block",
+    );
+
+    // If equal to current block, clamp to current block - 1
+    let block_number = if historical_block_number == current_block {
+        // TODO: Auto-modifying the block number here seems wrong. Would just throw instead.
+        current_block - 1
+    } else {
+        historical_block_number
+    };
+
+    oracle_get_private_context_inputs(Option::some(block_number), Option::none())
+}
+
+pub unconstrained fn get_private_context_inputs_at_timestamp(
     historical_timestamp: u64,
 ) -> PrivateContextInputs {
-    oracle_get_private_context_inputs(historical_block_number, historical_timestamp)
+    let current_timestamp = get_timestamp();
+
+    assert(
+        historical_timestamp <= current_timestamp,
+        "Cannot request private context inputs for timestamp greater than current timestamp",
+    );
+
+    // If equal to current timestamp, clamp to current timestamp - AZTEC_SLOT_DURATION
+    let timestamp = if historical_timestamp == current_timestamp {
+        // TODO: Auto-modifying the timestamp here seems wrong. Would just throw instead.
+        current_timestamp - AZTEC_SLOT_DURATION
+    } else {
+        historical_timestamp
+    };
+
+    oracle_get_private_context_inputs(Option::none(), Option::some(timestamp))
 }
 
 pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(
@@ -171,8 +214,8 @@ unconstrained fn oracle_advance_timestamp_by(duration: u64) {}
 
 #[oracle(getPrivateContextInputs)]
 unconstrained fn oracle_get_private_context_inputs(
-    historical_block_number: u32,
-    historical_timestamp: u64,
+    historical_block_number: Option<u32>,
+    historical_timestamp: Option<u64>,
 ) -> PrivateContextInputs {}
 
 #[oracle(deploy)]
