@@ -86,15 +86,16 @@ export async function executePrivateFunction(
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
+  const offchainMessages = privateExecutionOracle.getOffchainMessages();
   const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
 
-  let timerSubtractionList = nestedExecutions;
+  let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;
 
   // Due to the recursive nature of execution, we have to subtract the time taken by nested calls
   while (timerSubtractionList.length > 0) {
     witgenTime -= timerSubtractionList.reduce((acc, nested) => acc + (nested.profileResult?.timings.witgen ?? 0), 0);
-    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutions ?? []);
+    timerSubtractionList = timerSubtractionList.flatMap(nested => nested.nestedExecutionResults ?? []);
   }
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
@@ -108,6 +109,7 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
+    offchainMessages,
     nestedExecutionResults,
     contractClassLogs,
     {

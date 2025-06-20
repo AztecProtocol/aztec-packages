@@ -79,7 +79,7 @@ pub fn validate_contract_address(
     // Q: How is the private call's vk validated against this updated_contract_class_id?
     // A: below, we assert that the previously-computed contract_class_id == updated_contract_class_id.
     let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
+        private_call_data.public_inputs.historical_header.global_variables.block_number,
     );
 
     let contract_address_field = contract_address.to_field();

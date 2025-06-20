@@ -78,7 +78,7 @@ pub struct PrivateCircuitPublicInputs {
     pub private_call_requests: [PrivateCallRequest; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
     pub public_call_requests: [Counted<PublicCallRequest>; MAX_ENQUEUED_CALLS_PER_CALL],
     pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
+    pub l2_to_l1_msgs: [Counted<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_CALL],
     pub private_logs: [PrivateLogData; MAX_PRIVATE_LOGS_PER_CALL],
     pub contract_class_logs_hashes: [Counted<LogHash>; MAX_CONTRACT_CLASS_LOGS_PER_CALL],
 
@@ -189,8 +189,8 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             ),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
             l2_to_l1_msgs: reader.read_struct_array(
-                L2ToL1Message::deserialize,
-                [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
+                Counted::deserialize,
+                [Counted::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             ),
             private_logs: reader.read_struct_array(
                 PrivateLogData::deserialize,
@@ -232,7 +232,7 @@ impl Empty for PrivateCircuitPublicInputs {
             ],
             public_call_requests: [Counted::empty(); MAX_ENQUEUED_CALLS_PER_CALL],
             public_teardown_call_request: PublicCallRequest::empty(),
-            l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
+            l2_to_l1_msgs: [Counted::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],
             private_logs: [PrivateLogData::empty(); MAX_PRIVATE_LOGS_PER_CALL],
             contract_class_logs_hashes: [Counted::empty(); MAX_CONTRACT_CLASS_LOGS_PER_CALL],
             start_side_effect_counter: 0 as u32,

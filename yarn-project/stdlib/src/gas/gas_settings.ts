@@ -60,11 +60,7 @@ export class GasSettings {
   /** Returns the maximum fee to be paid according to gas limits and max fees set. */
   getFeeLimit() {
     return GasDimensions.reduce(
-      (acc, dimension) =>
-        this.maxFeesPerGas
-          .get(dimension)
-          .mul(new Fr(this.gasLimits.get(dimension)))
-          .add(acc),
+      (acc, dimension) => new Fr(this.maxFeesPerGas.get(dimension)).mul(new Fr(this.gasLimits.get(dimension))).add(acc),
       Fr.ZERO,
     );
   }

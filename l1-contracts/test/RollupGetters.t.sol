@@ -1,44 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
+// solhint-disable comprehensive-interface
+// solhint-disable func-name-mixedcase
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "./base/DecoderBase.sol";
-
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {Math} from "@oz/utils/math/Math.sol";
-
-import {Registry} from "@aztec/governance/Registry.sol";
-import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {IRollupCore, BlockLog} from "@aztec/core/interfaces/IRollup.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
-
-import {
-  IRollup,
-  IRollupCore,
-  BlockLog,
-  SubmitEpochRootProofArgs,
-  EthValue,
-  FeeAssetValue,
-  FeeAssetPerEthE9,
-  PublicInputArgs
-} from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
-import {NaiveMerkle} from "./merkle/Naive.sol";
-import {MerkleTestUtil} from "./merkle/TestUtil.sol";
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {TestConstants} from "./harnesses/TestConstants.sol";
-import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
-import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
-
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
+import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 
 /**
@@ -49,8 +19,9 @@ import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelecti
  * We have to look a bit into the `RollupCore.sol` to make sure that we are not missing anything.
  */
 contract RollupShouldBeGetters is ValidatorSelectionTestBase {
-  function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4) {
-    uint256 expectedSize = _epochToGet < 2 ? 0 : 4;
+  function test_getEpochCommittee(uint16 _epochToGet, bool _setup) external setup(4, 4) {
+    vm.assume(_epochToGet >= 2);
+    uint256 expectedSize = 4;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 
@@ -77,8 +48,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(writes.length, 0, "No writes should be done");
   }
 
-  function test_getEpochCommitteeBig(uint16 _epochToGet, bool _setup) external setup(49) {
-    uint256 expectedSize = _epochToGet < 2 ? 0 : 48;
+  function test_getBigEpochCommittee(uint16 _epochToGet, bool _setup) external setup(49, 48) {
+    vm.assume(_epochToGet >= 2);
+    uint256 expectedSize = 48;
     Epoch e = Epoch.wrap(_epochToGet);
     Timestamp t = timeCheater.epochToTimestamp(e);
 
@@ -105,8 +77,9 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(writes.length, 0, "No writes should be done");
   }
 
-  function test_getProposerAt(uint16 _slot, bool _setup) external setup(4) {
-    Slot s = Slot.wrap(_slot);
+  function test_getProposerAt(uint16 _slot, bool _setup) external setup(4, 4) {
+    timeCheater.cheat__jumpForwardEpochs(2);
+    Slot s = Slot.wrap(timeCheater.currentSlot()) + Slot.wrap(_slot);
     Timestamp t = timeCheater.slotToTimestamp(s);
 
     vm.warp(Timestamp.unwrap(t));
@@ -126,12 +99,12 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(writes.length, 0, "No writes should be done");
   }
 
-  function test_validateHeader() external setup(4) {
+  function test_validateHeader() external setup(4, 4) {
     // Todo this one is a bit annoying here really. We need a lot of header information.
   }
 
-  function test_canProposeAtTime(uint16 _timestamp, bool _setup) external setup(1) {
-    timeCheater.cheat__progressEpoch();
+  function test_canProposeAtTime(uint16 _timestamp, bool _setup) external setup(1, 1) {
+    timeCheater.cheat__jumpForwardEpochs(2);
 
     Timestamp t = Timestamp.wrap(block.timestamp + _timestamp);
 
@@ -152,5 +125,42 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");
+  }
+
+  function test_getRewardConfig() external setup(1, 1) {
+    RewardConfig memory defaultConfig = TestConstants.getRewardConfig();
+
+    RewardConfig memory config = rollup.getRewardConfig();
+
+    assertEq(
+      Bps.unwrap(config.sequencerBps),
+      Bps.unwrap(defaultConfig.sequencerBps),
+      "invalid sequencerBps"
+    );
+    assertEq(config.increment, defaultConfig.increment, "in--valid increment");
+    assertEq(config.maxScore, defaultConfig.maxScore, "invalid maxScore");
+    assertEq(config.a, defaultConfig.a, "invalid a");
+    assertEq(config.k, defaultConfig.k, "invalid k");
+    assertEq(config.minimum, defaultConfig.minimum, "invalid minimum");
+
+    RewardConfig memory updated =
+      RewardConfig({sequencerBps: Bps.wrap(1), increment: 2, maxScore: 3, a: 4, k: 5, minimum: 6});
+
+    address owner = rollup.owner();
+
+    vm.expectEmit(true, true, true, true);
+    emit IRollupCore.RewardConfigUpdated(updated);
+    vm.prank(owner);
+    rollup.setRewardConfig(updated);
+    config = rollup.getRewardConfig();
+
+    assertEq(
+      Bps.unwrap(config.sequencerBps), Bps.unwrap(updated.sequencerBps), "invalid sequencerBps"
+    );
+    assertEq(config.increment, updated.increment, "invalid increment");
+    assertEq(config.maxScore, updated.maxScore, "invalid maxScore");
+    assertEq(config.a, updated.a, "invalid a");
+    assertEq(config.k, updated.k, "invalid k");
+    assertEq(config.minimum, updated.minimum, "invalid minimum");
   }
 }

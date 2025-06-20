@@ -1,7 +1,7 @@
 #include "barretenberg/honk/composer/composer_lib.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 
 #include <array>
 #include <gtest/gtest.h>

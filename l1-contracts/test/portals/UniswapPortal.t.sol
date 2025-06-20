@@ -184,7 +184,7 @@ contract UniswapPortalTest is Test {
     (bytes32[] memory swapSiblingPath,) = tree.computeSiblingPath(1);
 
     vm.prank(address(rollup));
-    outbox.insert(_l2BlockNumber, treeRoot, treeHeight);
+    outbox.insert(_l2BlockNumber, treeRoot);
 
     return (treeRoot, withdrawSiblingPath, swapSiblingPath);
   }

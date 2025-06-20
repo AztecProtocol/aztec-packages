@@ -4,14 +4,16 @@ import type {
   EpochProofPublicInputArgs,
   ViemClient,
   ViemCommitteeAttestation,
+  ViemHeader,
   ViemPublicClient,
+  ViemStateReference,
 } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
@@ -24,6 +26,7 @@ import {
   decodeFunctionData,
   getAbiItem,
   hexToBytes,
+  multicall3Abi,
 } from 'viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
@@ -32,7 +35,7 @@ import type { InboxMessage } from './structs/inbox_message.js';
 import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 
 export type RetrievedL2Block = {
-  l2BlockNumber: bigint;
+  l2BlockNumber: number;
   archiveRoot: Fr;
   stateReference: StateReference;
   header: ProposedBlockHeader;
@@ -58,22 +61,22 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
 
   const archive = new AppendOnlyTreeSnapshot(
     archiveRoot,
-    Number(l2BlockNumber + 1n), // nextAvailableLeafIndex
+    l2BlockNumber + 1, // nextAvailableLeafIndex
   );
 
   const globalVariables = GlobalVariables.from({
     chainId,
     version,
-    blockNumber: new Fr(l2BlockNumber),
+    blockNumber: l2BlockNumber,
     slotNumber: proposedHeader.slotNumber,
-    timestamp: new Fr(proposedHeader.timestamp),
+    timestamp: proposedHeader.timestamp,
     coinbase: proposedHeader.coinbase,
     feeRecipient: proposedHeader.feeRecipient,
     gasFees: proposedHeader.gasFees,
   });
 
   const header = BlockHeader.from({
-    lastArchive: new AppendOnlyTreeSnapshot(proposedHeader.lastArchiveRoot, Number(l2BlockNumber)),
+    lastArchive: new AppendOnlyTreeSnapshot(proposedHeader.lastArchiveRoot, l2BlockNumber),
     contentCommitment: proposedHeader.contentCommitment,
     state: stateReference,
     globalVariables,
@@ -172,9 +175,9 @@ async function processL2BlockProposedLogs(
 ): Promise<RetrievedL2Block[]> {
   const retrievedBlocks: RetrievedL2Block[] = [];
   await asyncPool(10, logs, async log => {
-    const l2BlockNumber = log.args.blockNumber!;
+    const l2BlockNumber = Number(log.args.blockNumber!);
     const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
+    const archiveFromChain = await rollup.read.archiveAt([BigInt(l2BlockNumber)]);
     const blobHashes = log.args.versionedBlobHashes!.map(blobHash => Buffer.from(blobHash.slice(2), 'hex'));
 
     // The value from the event and contract will match only if the block is in the chain.
@@ -219,37 +222,36 @@ export async function getL1BlockTime(publicClient: ViemPublicClient, blockNumber
 }
 
 /**
- * Extracts the first 'propose' method calldata from a forwarder transaction's data.
- * @param forwarderData - The forwarder transaction input data
+ * Extracts the first 'propose' method calldata from a multicall3 transaction's data.
+ * @param multicall3Data - The multicall3 transaction input data
  * @param rollupAddress - The address of the rollup contract
  * @returns The calldata for the first 'propose' method call to the rollup contract
  */
-function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): Hex {
-  // TODO(#11451): custom forwarders
-  const { functionName: forwarderFunctionName, args: forwarderArgs } = decodeFunctionData({
-    abi: ForwarderAbi,
-    data: forwarderData,
+function extractRollupProposeCalldata(multicall3Data: Hex, rollupAddress: Hex): Hex {
+  const { functionName: multicall3FunctionName, args: multicall3Args } = decodeFunctionData({
+    abi: multicall3Abi,
+    data: multicall3Data,
   });
 
-  if (forwarderFunctionName !== 'forward') {
-    throw new Error(`Unexpected forwarder method called ${forwarderFunctionName}`);
+  if (multicall3FunctionName !== 'aggregate3') {
+    throw new Error(`Unexpected multicall3 method called ${multicall3FunctionName}`);
   }
 
-  if (forwarderArgs.length !== 2) {
-    throw new Error(`Unexpected number of arguments for forwarder`);
+  if (multicall3Args.length !== 1) {
+    throw new Error(`Unexpected number of arguments for multicall3`);
   }
 
-  const [to, data] = forwarderArgs;
+  const [calls] = multicall3Args;
 
   // Find all rollup calls
   const rollupAddressLower = rollupAddress.toLowerCase();
 
-  for (let i = 0; i < to.length; i++) {
-    const addr = to[i];
+  for (let i = 0; i < calls.length; i++) {
+    const addr = calls[i].target;
     if (addr.toLowerCase() !== rollupAddressLower) {
       continue;
     }
-    const callData = data[i];
+    const callData = calls[i].callData;
 
     try {
       const { functionName: rollupFunctionName } = decodeFunctionData({
@@ -266,7 +268,7 @@ function extractRollupProposeCalldata(forwarderData: Hex, rollupAddress: Hex): H
     }
   }
 
-  throw new Error(`Rollup address not found in forwarder args`);
+  throw new Error(`Rollup address not found in multicall3 args`);
 }
 
 /**
@@ -283,7 +285,7 @@ async function getBlockFromRollupTx(
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
   blobHashes: Buffer[], // TODO(md): buffer32?
-  l2BlockNumber: bigint,
+  l2BlockNumber: number,
   rollupAddress: Hex,
   logger: Logger,
 ): Promise<Omit<RetrievedL2Block, 'l1' | 'chainId' | 'version'>> {
@@ -301,23 +303,24 @@ async function getBlockFromRollupTx(
 
   const [decodedArgs, attestations, _blobInput] = rollupArgs! as readonly [
     {
-      header: Hex;
       archive: Hex;
-      stateReference: Hex;
-      blockHash: Hex;
+      stateReference: ViemStateReference;
       oracleInput: {
         feeAssetPriceModifier: bigint;
       };
-      txHashes: Hex[];
+      header: ViemHeader;
+      txHashes: readonly Hex[];
     },
     ViemCommitteeAttestation[],
     Hex,
   ];
 
-  const header = ProposedBlockHeader.fromBuffer(Buffer.from(hexToBytes(decodedArgs.header)));
+  // TODO(md): why is the proposed block header different to the actual block header?
+  // This is likely going to be a footgun
+  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
-    throw new NoBlobBodiesFoundError(Number(l2BlockNumber));
+    throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
   let blockFields: Fr[];
@@ -337,7 +340,7 @@ async function getBlockFromRollupTx(
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
-  const stateReference = StateReference.fromBuffer(Buffer.from(hexToBytes(decodedArgs.stateReference)));
+  const stateReference = StateReference.fromViem(decodedArgs.stateReference);
 
   return {
     l2BlockNumber,
@@ -401,7 +404,7 @@ function mapLogsInboxMessage(logs: GetContractEventsReturnType<typeof InboxAbi, 
       leaf: Fr.fromHexString(hash!),
       l1BlockNumber: log.blockNumber,
       l1BlockHash: Buffer32.fromString(log.blockHash),
-      l2BlockNumber: l2BlockNumber!,
+      l2BlockNumber: Number(l2BlockNumber!),
       rollingHash: Buffer16.fromString(rollingHash!),
     };
   });
@@ -413,7 +416,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr; txHash: Hex }[]> {
+): Promise<{ l1BlockNumber: bigint; l2BlockNumber: number; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -424,7 +427,7 @@ export async function retrieveL2ProofVerifiedEvents(
 
   return logs.map(log => ({
     l1BlockNumber: log.blockNumber,
-    l2BlockNumber: log.args.blockNumber,
+    l2BlockNumber: Number(log.args.blockNumber),
     proverId: Fr.fromHexString(log.args.proverId),
     txHash: log.transactionHash,
   }));
@@ -436,9 +439,9 @@ export async function retrieveL2ProofsFromRollup(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }>> {
+): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }>> {
   const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
-  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }[] = [];
+  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: number; txHash: `0x${string}` }[] = [];
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {

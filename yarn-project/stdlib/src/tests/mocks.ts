@@ -41,7 +41,7 @@ import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { makeCombinedConstantData, makeGas, makeHeader, makePublicCallRequest } from './factories.js';
+import { makeGas, makeGlobalVariables, makeHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
 
@@ -67,7 +67,7 @@ export const randomUniqueNote = async ({
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  nonce = Fr.random(),
+  noteNonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
   return new UniqueNote(
     note,
@@ -75,7 +75,7 @@ export const randomUniqueNote = async ({
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
     txHash,
-    nonce,
+    noteNonce,
   );
 };
 
@@ -181,6 +181,7 @@ const emptyPrivateCallExecutionResult = () =>
     [],
     [],
     [],
+    [],
   );
 
 const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);
@@ -190,7 +191,7 @@ export const mockSimulatedTx = async (seed = 1) => {
   const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,
-    makeCombinedConstantData(),
+    makeGlobalVariables(),
     await TxEffect.random(),
     [accumulatePrivateReturnValues(privateExecutionResult)],
     {
@@ -295,7 +296,7 @@ export async function randomPublishedL2Block(
   const block = await L2Block.random(l2BlockNumber);
   const l1 = {
     blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp.toBigInt(),
+    timestamp: block.header.globalVariables.timestamp,
     blockHash: Buffer32.random().toString(),
   };
 

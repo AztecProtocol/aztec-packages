@@ -1,6 +1,10 @@
-use super::validate_tube_data::validate_max_fees_per_gas;
+use crate::base::components::{
+    constants::validate_tx_constant_data, validation_requests::validate_max_block_number,
+};
 use dep::types::{
-    abis::{constant_rollup_data::ConstantRollupData, tube::PrivateTubeData},
+    abis::{block_constant_data::BlockConstantData, tube::PrivateTubeData},
+    constants::ARCHIVE_HEIGHT,
+    merkle_tree::MembershipWitness,
     proof::traits::Verifiable,
 };
 
@@ -8,7 +12,6 @@ pub struct PrivateTubeDataValidator {
     pub data: PrivateTubeData,
 }
 
-// TODO: Move relevant verifications here.
 impl PrivateTubeDataValidator {
     pub fn new(data: PrivateTubeData) -> Self {
         PrivateTubeDataValidator { data }
@@ -22,10 +25,22 @@ impl PrivateTubeDataValidator {
         }
     }
 
-    pub fn validate_with_rollup_data(self, constants: ConstantRollupData) {
-        validate_max_fees_per_gas(
-            self.data.public_inputs.constants.tx_context.gas_settings.max_fees_per_gas,
-            constants.global_variables.gas_fees,
+    pub fn validate_with_block_constant_data(
+        self,
+        constants: BlockConstantData,
+        archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
+    ) {
+        let tube_data = self.data.public_inputs;
+
+        validate_tx_constant_data(
+            tube_data.constants,
+            constants,
+            archive_root_membership_witness,
+        );
+
+        validate_max_block_number(
+            tube_data.rollup_validation_requests,
+            constants.global_variables.block_number,
         );
     }
 }

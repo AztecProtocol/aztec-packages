@@ -1,3 +1,4 @@
+import { BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -107,14 +108,26 @@ export class ProvingOrchestrator implements EpochProver {
     return Promise.resolve();
   }
 
-  public startNewEpoch(epochNumber: number, firstBlockNumber: number, totalNumBlocks: number) {
+  public startNewEpoch(
+    epochNumber: number,
+    firstBlockNumber: number,
+    totalNumBlocks: number,
+    finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
+  ) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
     if (totalNumBlocks <= 0 || !Number.isInteger(totalNumBlocks)) {
       throw new Error(`Invalid number of blocks for epoch (got ${totalNumBlocks})`);
     }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
-    this.provingState = new EpochProvingState(epochNumber, firstBlockNumber, totalNumBlocks, resolve, reject);
+    this.provingState = new EpochProvingState(
+      epochNumber,
+      firstBlockNumber,
+      totalNumBlocks,
+      finalBlobBatchingChallenges,
+      resolve,
+      reject,
+    );
     this.provingPromise = promise;
   }
 
@@ -125,7 +138,7 @@ export class ProvingOrchestrator implements EpochProver {
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
   @trackSpan('ProvingOrchestrator.startNewBlock', globalVariables => ({
-    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber,
   }))
   public async startNewBlock(globalVariables: GlobalVariables, l1ToL2Messages: Fr[], previousBlockHeader: BlockHeader) {
     if (!this.provingState) {
@@ -136,17 +149,19 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Epoch not accepting further blocks`);
     }
 
-    logger.info(
-      `Starting block ${globalVariables.blockNumber.toNumber()} for slot ${globalVariables.slotNumber.toNumber()}`,
-    );
+    logger.info(`Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber.toNumber()}`);
 
     // Fork world state at the end of the immediately previous block
-    const db = await this.dbProvider.fork(globalVariables.blockNumber.toNumber() - 1);
-    this.dbs.set(globalVariables.blockNumber.toNumber(), db);
+    const db = await this.dbProvider.fork(globalVariables.blockNumber - 1);
+    this.dbs.set(globalVariables.blockNumber, db);
 
     // we start the block by enqueueing all of the base parity circuits
-    const { l1ToL2MessageSubtreeSiblingPath, l1ToL2MessageTreeSnapshotAfterInsertion, baseParityInputs } =
-      await this.prepareBaseParityInputs(l1ToL2Messages, db);
+    const {
+      l1ToL2MessageTreeSnapshot,
+      l1ToL2MessageSubtreeSiblingPath,
+      l1ToL2MessageTreeSnapshotAfterInsertion,
+      baseParityInputs,
+    } = await this.prepareBaseParityInputs(l1ToL2Messages, db);
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
@@ -156,6 +171,7 @@ export class ProvingOrchestrator implements EpochProver {
     const blockProvingState = this.provingState!.startNewBlock(
       globalVariables,
       l1ToL2Messages,
+      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
@@ -184,7 +200,7 @@ export class ProvingOrchestrator implements EpochProver {
       logger.warn(`Provided no txs to orchestrator addTxs.`);
       return;
     }
-    const blockNumber = txs[0].constants.globalVariables.blockNumber.toNumber();
+    const blockNumber = txs[0].globalVariables.blockNumber;
     const provingState = this.provingState?.getBlockProvingStateByBlockNumber(blockNumber!);
     if (!provingState) {
       throw new Error(`Block proving state for ${blockNumber} not found`);
@@ -272,6 +288,9 @@ export class ProvingOrchestrator implements EpochProver {
     logger.verbose(`Block ${blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState, expectedHeader);
 
+    logger.debug(`Accumulating blobs for ${blockNumber}`);
+    await this.provingState?.setBlobAccumulators(blockNumber);
+
     // If the proofs were faster than the block building, then we need to try the block root rollup again here
     await this.checkAndEnqueueBlockRootRollup(provingState);
     return provingState.block!;
@@ -319,7 +338,7 @@ export class ProvingOrchestrator implements EpochProver {
     await this.verifyBuiltBlockAgainstSyncedState(l2Block, newArchive);
 
     logger.verbose(`Orchestrator finalised block ${l2Block.number}`);
-    provingState.block = l2Block;
+    provingState.setBlock(l2Block);
   }
 
   // Flagged as protected to disable in certain unit tests
@@ -357,6 +376,15 @@ export class ProvingOrchestrator implements EpochProver {
     if (result.status === 'failure') {
       throw new Error(`Epoch proving failed: ${result.reason}`);
     }
+
+    // TODO(MW): Move this? Requires async and don't want to force root methods to be async
+    // TODO(MW): EpochProvingState uses this.blocks.filter(b => !!b).length as total blocks, use this below:
+    const finalBlock = this.provingState.blocks[this.provingState.totalNumBlocks - 1];
+    if (!finalBlock || !finalBlock.endBlobAccumulator) {
+      throw new Error(`Epoch's final block not ready for finalise`);
+    }
+    const finalBatchedBlob = await finalBlock.endBlobAccumulator.finalize();
+    this.provingState.setFinalBatchedBlob(finalBatchedBlob);
 
     const epochProofResult = this.provingState.getEpochProofResult();
 
@@ -455,6 +483,8 @@ export class ProvingOrchestrator implements EpochProver {
       BaseParityInputs.fromSlice(l1ToL2MessagesPadded, i, getVKTreeRoot()),
     );
 
+    const l1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
+
     const l1ToL2MessageSubtreeSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -465,6 +495,7 @@ export class ProvingOrchestrator implements EpochProver {
     const l1ToL2MessageTreeSnapshotAfterInsertion = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
 
     return {
+      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       baseParityInputs,
@@ -489,7 +520,13 @@ export class ProvingOrchestrator implements EpochProver {
     // We build the base rollup inputs using a mock proof and verification key.
     // These will be overwritten later once we have proven the tube circuit and any public kernels
     const [ms, hints] = await elapsed(
-      insertSideEffectsAndBuildBaseRollupHints(tx, provingState.globalVariables, db, provingState.spongeBlobState),
+      insertSideEffectsAndBuildBaseRollupHints(
+        tx,
+        provingState.globalVariables,
+        provingState.l1ToL2MessageTreeSnapshot,
+        db,
+        provingState.spongeBlobState,
+      ),
     );
 
     this.metrics.recordBaseRollupInputs(ms);
@@ -687,6 +724,19 @@ export class ProvingOrchestrator implements EpochProver {
           provingState.reject(`New archive root mismatch.`);
         }
 
+        const endBlobAccumulatorPublicInputs = BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(
+          provingState.endBlobAccumulator!,
+        );
+        const circuitEndBlobAccumulatorState = result.inputs.blobPublicInputs.endBlobAccumulator;
+        if (!circuitEndBlobAccumulatorState.equals(endBlobAccumulatorPublicInputs)) {
+          logger.error(
+            `Blob accumulator state mismatch.\nCircuit: ${inspect(circuitEndBlobAccumulatorState)}\nComputed: ${inspect(
+              endBlobAccumulatorPublicInputs,
+            )}`,
+          );
+          provingState.reject(`Blob accumulator state mismatch.`);
+        }
+
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
 
@@ -770,7 +820,6 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     const inputs = provingState.getBlockMergeRollupInputs(location);
-
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -825,7 +874,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug(`Preparing root rollup`);
 
-    const inputs = provingState.getRootRollupInputs(this.proverId);
+    const inputs = provingState.getRootRollupInputs();
 
     this.deferredProving(
       provingState,
@@ -859,15 +908,17 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   private async checkAndEnqueueBlockRootRollup(provingState: BlockProvingState) {
+    const blockNumber = provingState.blockNumber;
+    // Accumulate as far as we can, in case blocks came in out of order and we are behind:
+    await this.provingState?.setBlobAccumulators(blockNumber);
     if (!provingState.isReadyForBlockRootRollup()) {
-      logger.debug('Not ready for root rollup');
+      logger.debug('Not ready for block root rollup');
       return;
     }
     if (provingState.blockRootRollupStarted) {
       logger.debug('Block root rollup already started');
       return;
     }
-    const blockNumber = provingState.blockNumber;
 
     // TODO(palla/prover): This closes the fork only on the happy path. If this epoch orchestrator
     // is aborted and never reaches this point, it will leak the fork. We need to add a global cleanup,

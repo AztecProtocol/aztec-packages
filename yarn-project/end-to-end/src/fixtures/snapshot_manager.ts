@@ -21,17 +21,21 @@ import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
   createExtendedL1Client,
+  deployMulticall3,
   getL1ContractsConfigEnvVars,
   l1Artifacts,
 } from '@aztec/ethereum';
 import { EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
 import { asyncMap } from '@aztec/foundation/async-map';
+import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { tryRmDir } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { resolver, reviver } from '@aztec/foundation/serialize';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -44,6 +48,7 @@ import { tmpdir } from 'os';
 import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
@@ -264,24 +269,19 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
+  const logger = getLogger();
   try {
-    getLogger().info('Tearing down subsystems');
-    await context.proverNode?.stop();
-    await context.aztecNode.stop();
+    logger.info('Tearing down subsystems');
+    await tryStop(context.proverNode);
+    await tryStop(context.aztecNode);
     await context.acvmConfig?.cleanup();
     await context.bbConfig?.cleanup();
-    await context.anvil.stop();
-    await context.watcher.stop();
-    await context.blobSink.stop();
-    if (context.directoryToCleanup) {
-      try {
-        await fs.rm(context.directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
-      } catch (err) {
-        getLogger().warn(`Failed to delete tmp directory ${context.directoryToCleanup}: ${err}`);
-      }
-    }
+    await tryStop(context.anvil);
+    await tryStop(context.watcher);
+    await tryStop(context.blobSink);
+    await tryRmDir(context.directoryToCleanup, logger);
   } catch (err) {
-    getLogger().error('Error during teardown', err);
+    logger.error('Error during teardown', err);
   }
 }
 
@@ -310,7 +310,11 @@ async function setupFromFresh(
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
   aztecNodeConfig.enforceTimeTable = !!opts.enforceTimeTable;
+  // Only set the target committee size if it is explicitly set
+  aztecNodeConfig.aztecTargetCommitteeSize = opts.aztecTargetCommitteeSize ?? 0;
   aztecNodeConfig.listenAddress = '127.0.0.1';
+
+  deployL1ContractsArgs.aztecTargetCommitteeSize ??= aztecNodeConfig.aztecTargetCommitteeSize;
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -337,8 +341,8 @@ async function setupFromFresh(
   const validatorPrivKey = getPrivateKeyFromIndex(0);
   const proverNodePrivateKey = getPrivateKeyFromIndex(0);
 
-  aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  aztecNodeConfig.validatorPrivateKeys = [`0x${validatorPrivKey!.toString('hex')}`];
+  aztecNodeConfig.publisherPrivateKey = new SecretValue<`0x${string}`>(`0x${publisherPrivKey!.toString('hex')}`);
+  aztecNodeConfig.validatorPrivateKeys = new SecretValue([`0x${validatorPrivKey!.toString('hex')}`]);
 
   const ethCheatCodes = new EthCheatCodesWithState(aztecNodeConfig.l1RpcUrls);
 
@@ -353,6 +357,9 @@ async function setupFromFresh(
     opts.initialAccountFeeJuice,
   );
 
+  const l1Client = createExtendedL1Client([aztecNodeConfig.l1RpcUrls[0]], hdAccount, foundry);
+  await deployMulticall3(l1Client, logger);
+
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
@@ -362,6 +369,7 @@ async function setupFromFresh(
     initialValidators: opts.initialValidators,
   });
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+  aztecNodeConfig.rollupVersion = deployL1ContractsValues.rollupVersion;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
   if (opts.fundRewardDistributor) {
@@ -587,6 +595,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     deployL1ContractsValues: {
       l1Client,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
+      rollupVersion: aztecNodeConfig.rollupVersion,
     },
     watcher,
     cheatCodes,

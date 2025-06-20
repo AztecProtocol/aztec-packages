@@ -3,22 +3,18 @@ use crate::{
         base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
         tx_effect::TxEffect,
     },
-    base::components::{
-        archive::perform_archive_membership_check, constants::validate_combined_constant_data,
-        gas::clamp_gas_settings_for_avm, PublicTubeDataValidator,
-    },
+    base::components::PublicTubeDataValidator,
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
 use dep::types::{
     abis::{
-        avm_circuit_public_inputs::AvmProofData, combined_constant_data::CombinedConstantData,
-        constant_rollup_data::ConstantRollupData, contract_class_log::ContractClassLog, log::Log,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, avm_circuit_public_inputs::AvmProofData,
+        block_constant_data::BlockConstantData, contract_class_log::ContractClassLog, log::Log,
         sponge_blob::SpongeBlob, tube::PublicTubeData,
     },
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     hash::silo_l2_to_l1_message,
     merkle_tree::MembershipWitness,
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     proof::traits::Verifiable,
     traits::{Empty, Hash},
     utils::arrays::array_merge,
@@ -30,25 +26,22 @@ pub struct PublicBaseRollupInputs {
 
     start_sponge_blob: SpongeBlob,
 
+    last_archive: AppendOnlyTreeSnapshot,
     archive_root_membership_witness: MembershipWitness<ARCHIVE_HEIGHT>,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
-    constants: ConstantRollupData,
 }
 
 impl PublicBaseRollupInputs {
-    fn generate_tx_effect(self, combined_constant_data: CombinedConstantData) -> TxEffect {
+    fn generate_tx_effect(self) -> TxEffect {
         let from_private = self.tube_data.public_inputs;
         let from_public = self.avm_proof_data.public_inputs;
         let reverted = from_public.reverted;
         let revert_code = if reverted { 1 } else { 0 };
-        let siloed_l2_to_l1_msgs = from_public
-            .accumulated_data
-            .l2_to_l1_msgs
-            .map(|message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                message,
-                combined_constant_data.tx_context.version,
-                combined_constant_data.tx_context.chain_id,
-            ));
+        let global_variables = self.avm_proof_data.public_inputs.global_variables;
+
+        let siloed_l2_to_l1_msgs = from_public.accumulated_data.l2_to_l1_msgs.map(|message| {
+            silo_l2_to_l1_message(message, global_variables.version, global_variables.chain_id)
+        });
 
         let private_logs = if reverted {
             from_private.non_revertible_accumulated_data.private_logs
@@ -93,23 +86,28 @@ impl PublicBaseRollupInputs {
         }
     }
 
-    // TODO: We should probably have a general struct/function where we encapsulate validation
-    // of the AVM public inputs against the tube proof.
-    fn validate_avm_gas_limits(self) {
-        assert_eq(
-            clamp_gas_settings_for_avm(
-                self.tube_data.public_inputs.constants.tx_context.gas_settings,
-                self.tube_data.public_inputs.gas_used,
-            ),
-            self.avm_proof_data.public_inputs.gas_settings,
-            "unexpected gas settings used in the AVM",
-        );
+    fn generate_block_constant_data(self) -> BlockConstantData {
+        let tube_data = self.tube_data.public_inputs;
+        let avm_data = self.avm_proof_data.public_inputs;
+
+        BlockConstantData {
+            last_archive: self.last_archive,
+            last_l1_to_l2: avm_data.start_tree_snapshots.l1_to_l2_message_tree,
+            global_variables: avm_data.global_variables,
+            vk_tree_root: tube_data.constants.vk_tree_root,
+            protocol_contract_tree_root: tube_data.constants.protocol_contract_tree_root,
+        }
     }
 
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
+        let constants = self.generate_block_constant_data();
+
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
         tube_data_validator.validate_proof();
-        tube_data_validator.validate_with_rollup_data(self.constants);
+        tube_data_validator.validate_with_block_constant_data(
+            constants,
+            self.archive_root_membership_witness,
+        );
         tube_data_validator.validate_with_avm_data(self.avm_proof_data.public_inputs);
 
         // TODO(#8470)
@@ -118,41 +116,16 @@ impl PublicBaseRollupInputs {
             //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
         }
 
-        let combined_constant_data = CombinedConstantData::combine(
-            self.tube_data.public_inputs.constants,
-            self.avm_proof_data.public_inputs.global_variables,
-        );
-        validate_combined_constant_data(combined_constant_data, self.constants);
-
-        let rollup_validation_requests = self.tube_data.public_inputs.rollup_validation_requests;
-
-        // Verify the max block number
-        // TODO #5345: why is block_number a Field and not u32?
-        if rollup_validation_requests.max_block_number.is_some() {
-            assert(
-                self.constants.global_variables.block_number as u32
-                    <= rollup_validation_requests.max_block_number.unwrap_unchecked(),
-                "kernel max_block_number is smaller than block number",
-            );
-        }
-
-        let tx_effect = self.generate_tx_effect(combined_constant_data);
+        let tx_effect = self.generate_tx_effect();
 
         let out_hash = compute_kernel_out_hash(tx_effect.l2_to_l1_msgs);
 
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
-        // Perform membership checks that the notes provided exist within the historical trees data
-        perform_archive_membership_check(
-            self.constants.last_archive.root,
-            self.archive_root_membership_witness,
-            combined_constant_data.historical_header,
-        );
-
         BaseOrMergeRollupPublicInputs {
             rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
-            constants: self.constants,
+            constants,
             start: self
                 .avm_proof_data
                 .public_inputs
@@ -180,14 +153,13 @@ mod tests {
     use dep::types::{
         abis::{
             append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-            constant_rollup_data::ConstantRollupData,
             nullifier_leaf_preimage::NullifierLeafPreimage, public_data_write::PublicDataWrite,
             side_effect::OrderedValue, sponge_blob::SpongeBlob, tree_snapshots::TreeSnapshots,
         },
         constants::{
-            ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-            CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX,
-            MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+            AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
+            L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
+            MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
             PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
@@ -195,13 +167,7 @@ mod tests {
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
-        merkle_tree::MembershipWitness,
-        messaging::l2_to_l1_message::ScopedL2ToL1Message,
-        tests::{
-            fixture_builder::FixtureBuilder,
-            fixtures::{self, merkle_tree::generate_full_sha_tree},
-            merkle_tree_utils::NonEmptyMerkleTree,
-        },
+        tests::{fixture_builder::FixtureBuilder, fixtures::merkle_tree::generate_full_sha_tree},
         traits::{Empty, Hash, ToField},
         utils::field::field_from_bytes,
     };
@@ -229,27 +195,16 @@ mod tests {
         pre_existing_nullifiers: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
         pre_existing_contracts: [Field; 2],
         pre_existing_public_data: [PublicDataTreeLeafPreimage; PRE_EXISTING_PUBLIC_DATA_LEAVES],
-        pre_existing_blocks: [Field; 2],
         public_data_writes: BoundedVec<(u32, PublicDataTreeLeaf), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
         nullifiers: BoundedVec<NullifierInsertion, MAX_NULLIFIERS_PER_TEST>,
-        constants: ConstantRollupData,
         contract_class_log_fields: BoundedVec<[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS], MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     }
 
     impl PublicBaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = PublicBaseRollupInputsBuilder::empty();
-            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX);
+            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX).use_last_archive();
             inputs.avm_data = FixtureBuilder::new().in_vk_tree(AVM_VK_INDEX);
-
-            inputs.constants.global_variables.chain_id = fixtures::CHAIN_ID;
-            inputs.constants.global_variables.version = fixtures::VERSION;
-            inputs.avm_data.global_variables = inputs.constants.global_variables;
-            inputs.constants.vk_tree_root = inputs.tube_data.vk_tree_root;
-            inputs.constants.protocol_contract_tree_root =
-                inputs.tube_data.protocol_contract_tree_root;
-
-            inputs.pre_existing_blocks[0] = inputs.tube_data.historical_header.hash();
 
             inputs
         }
@@ -314,17 +269,6 @@ mod tests {
                 pre_existing_leaves[i] = self.pre_existing_public_data[i].hash();
             }
 
-            let start_archive = NonEmptyMerkleTree::new(
-                self.pre_existing_blocks,
-                [0; ARCHIVE_HEIGHT],
-                [0; ARCHIVE_HEIGHT - 1],
-                [0; 1],
-            );
-            self.constants.last_archive = AppendOnlyTreeSnapshot {
-                root: start_archive.get_root(),
-                next_available_leaf_index: start_archive.get_next_available_index() as u32,
-            };
-
             for i in 0..self.nullifiers.len() {
                 let nullifier = self.nullifiers.get_unchecked(i);
                 avm_proof_data.public_inputs.accumulated_data.nullifiers[i] = nullifier.value;
@@ -347,11 +291,8 @@ mod tests {
                 tube_data,
                 avm_proof_data,
                 start_sponge_blob,
-                archive_root_membership_witness: MembershipWitness {
-                    leaf_index: 0,
-                    sibling_path: start_archive.get_sibling_path(0),
-                },
-                constants: self.constants,
+                last_archive: self.tube_data.archive_tree,
+                archive_root_membership_witness: self.tube_data.archive_root_membership_witness,
                 contract_class_log_fields: self.contract_class_log_fields.storage(),
             }
         }
@@ -383,10 +324,8 @@ mod tests {
                 pre_existing_public_data: [
                     PublicDataTreeLeafPreimage::empty(); PRE_EXISTING_PUBLIC_DATA_LEAVES
                 ],
-                pre_existing_blocks: [0; 2],
                 public_data_writes: BoundedVec::new(),
                 nullifiers: BoundedVec::new(),
-                constants: ConstantRollupData::empty(),
                 contract_class_log_fields: BoundedVec::new(),
             }
         }
@@ -510,7 +449,7 @@ mod tests {
         offset += 1;
         for i in 0..NUM_MSGS {
             reconstructed_tx_effects[offset + i] = silo_l2_to_l1_message(
-                builder.avm_data.l2_to_l1_msgs.storage()[i],
+                builder.avm_data.l2_to_l1_msgs.get(i).expose_to_public(),
                 builder.avm_data.tx_context.version,
                 builder.avm_data.tx_context.chain_id,
             );
@@ -643,14 +582,11 @@ mod tests {
 
         let out_hash = builder.execute().out_hash;
 
-        let siloed_l2_to_l1_msgs = builder
-            .avm_data
-            .l2_to_l1_msgs
-            .map(|l2_to_l1_message: ScopedL2ToL1Message| silo_l2_to_l1_message(
-                l2_to_l1_message,
-                builder.constants.global_variables.version,
-                builder.constants.global_variables.chain_id,
-            ));
+        let siloed_l2_to_l1_msgs = builder.avm_data.l2_to_l1_msgs.map(|l2_to_l1_message| silo_l2_to_l1_message(
+            l2_to_l1_message.expose_to_public(),
+            builder.avm_data.global_variables.version,
+            builder.avm_data.global_variables.chain_id,
+        ));
 
         // Since we fill the tree completely, we know to expect a full tree as below
         let expected_tree = generate_full_sha_tree(siloed_l2_to_l1_msgs.storage());
@@ -667,37 +603,40 @@ mod tests {
     #[test]
     unconstrained fn constants_dont_change() {
         let inputs = PublicBaseRollupInputsBuilder::new().build_inputs();
-        let outputs = inputs.execute();
+        let tx_constants = inputs.tube_data.public_inputs.constants;
 
-        assert(inputs.constants.eq(outputs.constants));
+        let output_constants = inputs.execute().constants;
+
+        assert_eq(output_constants.vk_tree_root, tx_constants.vk_tree_root);
+        assert_eq(
+            output_constants.protocol_contract_tree_root,
+            tx_constants.protocol_contract_tree_root,
+        );
+        assert_eq(
+            output_constants.global_variables,
+            inputs.avm_proof_data.public_inputs.global_variables,
+        );
     }
 
     #[test(should_fail_with = "kernel chain_id does not match the rollup chain_id")]
     unconstrained fn constants_dont_match_kernels_chain_id() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.chain_id = 3;
+        builder.tube_data.tx_context.chain_id = 3;
+        builder.avm_data.global_variables.chain_id = 4;
         builder.fails();
     }
 
     #[test(should_fail_with = "kernel version does not match the rollup version")]
     unconstrained fn constants_dont_match_kernels_version() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.version += 1;
-        builder.fails();
-    }
-
-    #[test(should_fail_with = "kernel global variables do not match the rollup global variables")]
-    unconstrained fn constants_global_variables_dont_match_kernels() {
-        let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.avm_data.global_variables.block_number = 6;
-        builder.constants.global_variables.block_number = 7;
+        builder.tube_data.tx_context.version = 3;
+        builder.avm_data.global_variables.version = 4;
         builder.fails();
     }
 
     #[test(should_fail_with = "kernel max_block_number is smaller than block number")]
     unconstrained fn constants_dont_satisfy_smaller_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
         builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(5);
         builder.fails();
@@ -706,7 +645,6 @@ mod tests {
     #[test]
     unconstrained fn constants_satisfy_equal_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
         builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(42);
         builder.succeeds();
@@ -715,7 +653,6 @@ mod tests {
     #[test]
     unconstrained fn constants_satisfy_larger_max_block_number() {
         let mut builder = PublicBaseRollupInputsBuilder::new();
-        builder.constants.global_variables.block_number = 42;
         builder.avm_data.global_variables.block_number = 42;
         builder.tube_data.set_max_block_number(4294967295);
         builder.succeeds();
@@ -735,13 +672,13 @@ mod tests {
             note_hash_tree: AppendOnlyTreeSnapshot { root: 1, next_available_leaf_index: 2 },
             nullifier_tree: AppendOnlyTreeSnapshot { root: 3, next_available_leaf_index: 4 },
             public_data_tree: AppendOnlyTreeSnapshot { root: 5, next_available_leaf_index: 6 },
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
         };
         let end_snapshot = TreeSnapshots {
             note_hash_tree: AppendOnlyTreeSnapshot { root: 7, next_available_leaf_index: 8 },
             nullifier_tree: AppendOnlyTreeSnapshot { root: 9, next_available_leaf_index: 10 },
             public_data_tree: AppendOnlyTreeSnapshot { root: 11, next_available_leaf_index: 12 },
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
+            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::empty(),
         };
 
         builder.avm_data.start_snapshots = start_snapshot;
@@ -800,6 +737,46 @@ mod tests {
 
         builder.tube_data.tx_context.gas_settings = gas_settings;
         builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        builder.fails();
+    }
+
+    #[test]
+    unconstrained fn avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(100, 100),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 150 taking 50 as priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
+
+        builder.succeeds();
+    }
+
+    #[test(should_fail_with = "unexpected effective gas fees used in the AVM")]
+    unconstrained fn wrong_avm_effective_gas_fees() {
+        let mut builder = PublicBaseRollupInputsBuilder::new();
+        builder.avm_data.global_variables.gas_fees = GasFees::new(100, 100);
+
+        let gas_settings = GasSettings {
+            gas_limits: Gas::new(1000, MAX_L2_GAS_PER_TX_PUBLIC_PORTION),
+            teardown_gas_limits: Gas::new(1000, 1000),
+            max_fees_per_gas: GasFees::new(150, 150),
+            max_priority_fees_per_gas: GasFees::new(25, 25),
+        };
+        builder.tube_data.tx_context.gas_settings = gas_settings;
+        builder.avm_data.tx_context.gas_settings = gas_settings;
+
+        // Effective should be 125 taking all priority fees.
+        builder.avm_data.effective_gas_fees = GasFees::new(150, 150);
 
         builder.fails();
     }

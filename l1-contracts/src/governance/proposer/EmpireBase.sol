@@ -3,10 +3,9 @@
 // solhint-disable imports-order
 pragma solidity >=0.8.27;
 
-import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
+import {SignatureLib, Signature} from "@aztec/shared/libraries/SignatureLib.sol";
+import {IEmpire, IEmperor} from "@aztec/governance/interfaces/IEmpire.sol";
+import {Slot} from "@aztec/shared/libraries/TimeMath.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
@@ -18,8 +17,7 @@ import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
  *          This also means that the implementation here will need to be "updated" if
  *          the interfaces of the sequencer selection changes, for example going optimistic.
  */
-abstract contract EmpireBase is EIP712, IGovernanceProposer {
-  using SlotLib for Slot;
+abstract contract EmpireBase is EIP712, IEmpire {
   using SignatureLib for Signature;
 
   struct RoundAccounting {
@@ -31,7 +29,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
   // EIP-712 type hash for the Vote struct
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal,uint256 nonce)");
 
   // The quorum size
   uint256 public immutable N;
@@ -39,6 +37,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   uint256 public immutable M;
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
+  mapping(address voter => uint256 nonce) public nonces;
 
   constructor(uint256 _n, uint256 _m) EIP712("EmpireBase", "1") {
     N = _n;
@@ -60,7 +59,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function vote(IPayload _proposal) external override(IGovernanceProposer) returns (bool) {
+  function vote(IPayload _proposal) external override(IEmpire) returns (bool) {
     return _internalVote(_proposal, Signature({v: 0, r: bytes32(0), s: bytes32(0)}));
   }
 
@@ -76,7 +75,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    */
   function voteWithSig(IPayload _proposal, Signature memory _sig)
     external
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (bool)
   {
     return _internalVote(_proposal, _sig);
@@ -89,16 +88,12 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return True if executed successfully, false otherwise
    */
-  function executeProposal(uint256 _roundNumber)
-    external
-    override(IGovernanceProposer)
-    returns (bool)
-  {
+  function executeProposal(uint256 _roundNumber) external override(IEmpire) returns (bool) {
     // Need to ensure that the round is not active.
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);
@@ -136,7 +131,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
   function yeaCount(address _instance, uint256 _round, IPayload _proposal)
     external
     view
-    override(IGovernanceProposer)
+    override(IEmpire)
     returns (uint256)
   {
     return rounds[_instance][_round].yeaCount[_proposal];
@@ -148,7 +143,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    * @return The round number
    */
   function getCurrentRound() external view returns (uint256) {
-    IValidatorSelection selection = IValidatorSelection(getInstance());
+    IEmperor selection = IEmperor(getInstance());
     Slot currentSlot = selection.getCurrentSlot();
     return computeRound(currentSlot);
   }
@@ -160,20 +155,28 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
    *
    * @return The round number
    */
-  function computeRound(Slot _slot) public view override(IGovernanceProposer) returns (uint256) {
-    return _slot.unwrap() / M;
+  function computeRound(Slot _slot) public view override(IEmpire) returns (uint256) {
+    return Slot.unwrap(_slot) / M;
+  }
+
+  function getVoteSignatureDigest(IPayload _proposal, address _proposer)
+    public
+    view
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal, nonces[_proposer])));
   }
 
   // Virtual functions
-  function getInstance() public view virtual override(IGovernanceProposer) returns (address);
-  function getExecutor() public view virtual override(IGovernanceProposer) returns (address);
+  function getInstance() public view virtual override(IEmpire) returns (address);
+  function getExecutor() public view virtual override(IEmpire) returns (address);
   function _execute(IPayload _proposal) internal virtual returns (bool);
 
   function _internalVote(IPayload _proposal, Signature memory _sig) internal returns (bool) {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    IValidatorSelection selection = IValidatorSelection(instance);
+    IEmperor selection = IEmperor(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);
@@ -191,7 +194,8 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
+      bytes32 digest = getVoteSignatureDigest(_proposal, proposer);
+      nonces[proposer]++;
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(
@@ -208,7 +212,7 @@ abstract contract EmpireBase is EIP712, IGovernanceProposer {
       round.leader = _proposal;
     }
 
-    emit VoteCast(_proposal, roundNumber, msg.sender);
+    emit VoteCast(_proposal, roundNumber, proposer);
 
     if (round.yeaCount[_proposal] == N) {
       emit ProposalExecutable(_proposal, roundNumber);

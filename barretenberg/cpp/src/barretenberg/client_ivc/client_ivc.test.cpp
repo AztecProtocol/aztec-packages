@@ -3,6 +3,7 @@
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -29,7 +30,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
@@ -379,7 +380,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -429,7 +430,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };

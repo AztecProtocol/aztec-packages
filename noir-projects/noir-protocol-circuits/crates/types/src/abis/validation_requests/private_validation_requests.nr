@@ -52,11 +52,3 @@ impl Eq for PrivateValidationRequests {
             & (self.split_counter == other.split_counter)
     }
 }
-
-// #[test]
-// fn serialization_of_empty() {
-//     let item = PrivateValidationRequests::empty();
-//     let serialized = item.serialize();
-//     let deserialized = PrivateValidationRequests::deserialize(serialized);
-//     assert(item.eq(deserialized));
-// }

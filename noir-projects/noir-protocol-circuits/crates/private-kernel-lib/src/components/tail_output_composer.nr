@@ -13,7 +13,7 @@ use dep::types::{
         private_log::PrivateLogData,
         side_effect::{counted::Counted, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::Empty,
 };
 pub use meter_gas_used::meter_gas_used;
@@ -50,8 +50,9 @@ impl TailOutputComposer {
         let mut data = PrivateToRollupAccumulatedData::empty();
         data.note_hashes = source.note_hashes.array.map(|n: ScopedNoteHash| n.note_hash.value);
         data.nullifiers = source.nullifiers.array.map(|n: ScopedNullifier| n.nullifier.value);
-        data.l2_to_l1_msgs =
-            source.l2_to_l1_msgs.array.map(|m: ScopedL2ToL1Message| m.expose_to_public());
+        data.l2_to_l1_msgs = source.l2_to_l1_msgs.array.map(|m: Scoped<Counted<L2ToL1Message>>| {
+            m.expose_to_public()
+        });
         data.private_logs =
             source.private_logs.array.map(|l: Scoped<PrivateLogData>| l.expose_to_public());
         data.contract_class_logs_hashes = source

@@ -97,7 +97,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.noPXE [value]',
+      flag: '--sandbox.noPXE',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),

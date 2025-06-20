@@ -13,8 +13,9 @@ export interface TxPool {
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
+   * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
    */
-  addTxs(txs: Tx[]): Promise<void>;
+  addTxs(txs: Tx[]): Promise<number>;
 
   /**
    * Checks if a transaction exists in the pool and returns it.

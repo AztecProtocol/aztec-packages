@@ -1,13 +1,13 @@
 use crate::messages::discovery::private_notes::MAX_NOTE_PACKED_LEN;
 use protocol_types::{address::AztecAddress, traits::Serialize};
 
-/// Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotes` oracle expects for
-/// values of this type to be stored in a `CapsuleArray`.
+/// Intermediate struct used to perform batch note validation by PXE. The `validateEnqueuedNotesAndEvents` oracle
+/// expects for values of this type to be stored in a `CapsuleArray`.
 #[derive(Serialize)]
 pub(crate) struct NoteValidationRequest {
     pub contract_address: AztecAddress,
     pub storage_slot: Field,
-    pub nonce: Field,
+    pub note_nonce: Field,
     pub packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
     pub note_hash: Field,
     pub nullifier: Field,
@@ -24,7 +24,7 @@ mod test {
         let request = NoteValidationRequest {
             contract_address: AztecAddress::from_field(1),
             storage_slot: 2,
-            nonce: 3,
+            note_nonce: 3,
             packed_note: BoundedVec::from_array([4, 5]),
             note_hash: 6,
             nullifier: 7,

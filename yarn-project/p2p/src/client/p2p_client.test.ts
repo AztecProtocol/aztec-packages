@@ -1,11 +1,12 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
-import { Fr } from '@aztec/foundation/fields';
+import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -33,6 +34,7 @@ describe('P2P Client', () => {
     txPool.getMinedTxHashes.mockResolvedValue([]);
     txPool.getAllTxHashes.mockResolvedValue([]);
     txPool.hasTxs.mockResolvedValue([]);
+    txPool.addTxs.mockResolvedValue(1);
 
     p2pService = mock<P2PService>();
     p2pService.sendBatchRequest.mockResolvedValue([]);
@@ -78,14 +80,31 @@ describe('P2P Client', () => {
     expect(client.isReady()).toEqual(false);
   });
 
-  it('adds txs to pool', async () => {
+  it('adds txs to pool and propagates it', async () => {
     await client.start();
     const tx1 = await mockTx();
     const tx2 = await mockTx();
+
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(p2pService.propagate).toHaveBeenCalledTimes(2);
+
+    await client.stop();
+  });
+
+  it('adds txs to pool and dont propagate it if it already existed', async () => {
+    await client.start();
+    const tx1 = await mockTx();
+
+    await client.sendTx(tx1);
+    txPool.addTxs.mockResolvedValueOnce(0);
+    await client.sendTx(tx1);
+
+    expect(txPool.addTxs).toHaveBeenCalledTimes(2);
+    expect(p2pService.propagate).toHaveBeenCalledTimes(1);
+
     await client.stop();
   });
 
@@ -197,6 +216,78 @@ describe('P2P Client', () => {
     );
   });
 
+  it('getPendingTxs respects pagination', async () => {
+    const txs = await timesAsync(20, i => mockTx(i));
+    txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(txs.map(tx => tx.getTxHash())));
+    txPool.getTxByHash.mockImplementation(async hash => {
+      for (const tx of txs) {
+        if (hash.equals(await tx.getTxHash())) {
+          return tx;
+        }
+      }
+    });
+
+    const firstPage = await client.getPendingTxs(2);
+    expect(firstPage).toEqual(txs.slice(0, 2));
+    const secondPage = await client.getPendingTxs(2, await firstPage.at(-1)!.getTxHash());
+    expect(secondPage).toEqual(txs.slice(2, 4));
+    const thirdPage = await client.getPendingTxs(10, await secondPage.at(-1)!.getTxHash());
+    expect(thirdPage).toEqual(txs.slice(4, 14));
+    const lastPage = await client.getPendingTxs(undefined, await thirdPage.at(-1)!.getTxHash());
+    expect(lastPage).toEqual(txs.slice(14));
+
+    await expect(client.getPendingTxs(1, await lastPage.at(-1)!.getTxHash())).resolves.toEqual([]);
+    await expect(client.getPendingTxs()).resolves.toEqual(txs);
+
+    await expect(client.getPendingTxs(0)).rejects.toThrow();
+    await expect(client.getPendingTxs(-1)).rejects.toThrow();
+
+    await expect(client.getPendingTxs(10, TxHash.random())).resolves.toEqual([]);
+  });
+
+  it('getTxs respects pagination', async () => {
+    const allTxs = await timesAsync(50, i => mockTx(i));
+    const minedTxs = allTxs.slice(0, Math.ceil(allTxs.length / 3));
+    const pendingTxs = allTxs.slice(Math.ceil(allTxs.length / 3));
+
+    txPool.getMinedTxHashes.mockResolvedValue(await Promise.all(minedTxs.map(async tx => [await tx.getTxHash(), 42])));
+    txPool.getPendingTxHashes.mockResolvedValue(await Promise.all(pendingTxs.map(tx => tx.getTxHash())));
+
+    txPool.getAllTxs.mockResolvedValue(allTxs);
+    txPool.getAllTxHashes.mockResolvedValue(await Promise.all(allTxs.map(tx => tx.getTxHash())));
+
+    txPool.getTxByHash.mockImplementation(async hash => {
+      for (const tx of allTxs) {
+        if (hash.equals(await tx.getTxHash())) {
+          return tx;
+        }
+      }
+    });
+
+    for (const [txType, txs] of [
+      ['all', allTxs],
+      ['pending', pendingTxs],
+      ['mined', minedTxs],
+    ] as const) {
+      const firstPage = await client.getTxs(txType, 2);
+      expect(firstPage).toEqual(txs.slice(0, 2));
+      const secondPage = await client.getTxs(txType, 2, await firstPage.at(-1)!.getTxHash());
+      expect(secondPage).toEqual(txs.slice(2, 4));
+      const thirdPage = await client.getTxs(txType, 10, await secondPage.at(-1)!.getTxHash());
+      expect(thirdPage).toEqual(txs.slice(4, 14));
+      const lastPage = await client.getTxs(txType, undefined, await thirdPage.at(-1)!.getTxHash());
+      expect(lastPage).toEqual(txs.slice(14));
+
+      await expect(client.getTxs(txType, 1, await lastPage.at(-1)!.getTxHash())).resolves.toEqual([]);
+      await expect(client.getTxs(txType)).resolves.toEqual(txs);
+
+      await expect(client.getTxs(txType, 0)).rejects.toThrow();
+      await expect(client.getTxs(txType, -1)).rejects.toThrow();
+
+      await expect(client.getTxs(txType, 10, TxHash.random())).resolves.toEqual([]);
+    }
+  });
+
   describe('Chain prunes', () => {
     it('deletes transactions mined in pruned blocks', async () => {
       client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
@@ -269,10 +360,10 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
@@ -293,13 +384,13 @@ describe('P2P Client', () => {
       // then prune the chain back to block 90
       // only one tx should be deleted
       const goodButOldTx = await mockTx();
-      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
+      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = 89;
 
       const goodTx = await mockTx();
-      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = 90;
 
       const badTx = await mockTx();
-      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = 95;
 
       txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
       txPool.getMinedTxHashes.mockResolvedValue([

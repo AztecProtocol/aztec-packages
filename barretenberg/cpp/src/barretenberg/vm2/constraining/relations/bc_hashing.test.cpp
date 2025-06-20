@@ -35,7 +35,7 @@ using C = Column;
 using bc_hashing = bb::avm2::bc_hashing<FF>;
 using poseidon2 = bb::avm2::poseidon2_hash<FF>;
 
-using bc_hashing_lookup_relation = bb::avm2::lookup_bc_hashing_poseidon2_hash_relation<FF>;
+// using bc_hashing_lookup_relation = bb::avm2::lookup_bc_hashing_poseidon2_hash_relation<FF>;
 using bc_decomp_lookup_relation = bb::avm2::lookup_bc_hashing_get_packed_field_relation<FF>;
 using length_iv_relation = bb::avm2::lookup_bc_hashing_iv_is_len_relation<FF>;
 
@@ -94,7 +94,8 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
     bytecode_builder.process_hashing(
         { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
 
-    tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
+    // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
+    // tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
 
     check_relation<bc_hashing>(trace);
 }

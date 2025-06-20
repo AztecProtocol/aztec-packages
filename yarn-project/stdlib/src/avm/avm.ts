@@ -5,7 +5,9 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
+import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -13,7 +15,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import { GlobalVariables, TreeSnapshots, type Tx } from '../tx/index.js';
+import { GlobalVariables, PublicCallRequestWithCalldata, TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { clampGasSettingsForAVM } from './gas.js';
 import { serializeWithMessagePack } from './message_pack.js';
@@ -383,34 +385,12 @@ export class AvmRevertCheckpointHint {
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
-export class AvmEnqueuedCallHint {
-  constructor(
-    public readonly msgSender: AztecAddress,
-    public readonly contractAddress: AztecAddress,
-    public readonly calldata: Fr[],
-    public isStaticCall: boolean,
-  ) {}
-
-  static get schema() {
-    return z
-      .object({
-        msgSender: AztecAddress.schema,
-        contractAddress: AztecAddress.schema,
-        calldata: schemas.Fr.array(),
-        isStaticCall: z.boolean(),
-      })
-      .transform(
-        ({ msgSender, contractAddress, calldata, isStaticCall }) =>
-          new AvmEnqueuedCallHint(msgSender, contractAddress, calldata, isStaticCall),
-      );
-  }
-}
-
 export class AvmTxHint {
   constructor(
     public readonly hash: string,
     public readonly globalVariables: GlobalVariables,
     public readonly gasSettings: GasSettings,
+    public readonly effectiveGasFees: GasFees,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -421,12 +401,13 @@ export class AvmTxHint {
       nullifiers: Fr[];
       l2ToL1Messages: ScopedL2ToL1Message[];
     },
-    public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
-    public readonly appLogicEnqueuedCalls: AvmEnqueuedCallHint[],
+    public readonly setupEnqueuedCalls: PublicCallRequestWithCalldata[],
+    public readonly appLogicEnqueuedCalls: PublicCallRequestWithCalldata[],
     // We need this to be null and not undefined because that's what
     // MessagePack expects for an std::optional.
-    public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
+    public readonly teardownEnqueuedCall: PublicCallRequestWithCalldata | null,
     public readonly gasUsedByPrivate: Gas,
+    public readonly feePayer: AztecAddress,
   ) {}
 
   static async fromTx(tx: Tx): Promise<AvmTxHint> {
@@ -434,6 +415,10 @@ export class AvmTxHint {
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
     const gasSettings = clampGasSettingsForAVM(tx.data.constants.txContext.gasSettings, tx.data.gasUsed);
+    const effectiveGasFees = computeEffectiveGasFees(
+      tx.data.constants.historicalHeader.globalVariables.gasFees,
+      gasSettings,
+    );
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = await tx.getTxHash();
@@ -442,6 +427,7 @@ export class AvmTxHint {
       txHash.hash.toString(),
       tx.data.constants.historicalHeader.globalVariables,
       gasSettings,
+      effectiveGasFees,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -452,33 +438,11 @@ export class AvmTxHint {
         nullifiers: tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
         l2ToL1Messages: tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs.filter(x => !x.isEmpty()),
       },
-      setupCallRequests.map(
-        call =>
-          new AvmEnqueuedCallHint(
-            call.request.msgSender,
-            call.request.contractAddress,
-            call.calldata,
-            call.request.isStaticCall,
-          ),
-      ),
-      appLogicCallRequests.map(
-        call =>
-          new AvmEnqueuedCallHint(
-            call.request.msgSender,
-            call.request.contractAddress,
-            call.calldata,
-            call.request.isStaticCall,
-          ),
-      ),
-      teardownCallRequest
-        ? new AvmEnqueuedCallHint(
-            teardownCallRequest.request.msgSender,
-            teardownCallRequest.request.contractAddress,
-            teardownCallRequest.calldata,
-            teardownCallRequest.request.isStaticCall,
-          )
-        : null,
+      setupCallRequests,
+      appLogicCallRequests,
+      teardownCallRequest ?? null,
       tx.data.gasUsed,
+      tx.data.feePayer,
     );
   }
 
@@ -487,12 +451,14 @@ export class AvmTxHint {
       '',
       GlobalVariables.empty(),
       GasSettings.empty(),
+      GasFees.empty(),
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
       [],
       null,
       Gas.empty(),
+      AztecAddress.zero(),
     );
   }
 
@@ -502,6 +468,7 @@ export class AvmTxHint {
         hash: z.string(),
         globalVariables: GlobalVariables.schema,
         gasSettings: GasSettings.schema,
+        effectiveGasFees: GasFees.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -512,33 +479,38 @@ export class AvmTxHint {
           nullifiers: schemas.Fr.array(),
           l2ToL1Messages: ScopedL2ToL1Message.schema.array(),
         }),
-        setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
-        appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
-        teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
+        setupEnqueuedCalls: PublicCallRequestWithCalldata.schema.array(),
+        appLogicEnqueuedCalls: PublicCallRequestWithCalldata.schema.array(),
+        teardownEnqueuedCall: PublicCallRequestWithCalldata.schema.nullable(),
         gasUsedByPrivate: Gas.schema,
+        feePayer: AztecAddress.schema,
       })
       .transform(
         ({
           hash,
           globalVariables,
           gasSettings,
+          effectiveGasFees,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
           appLogicEnqueuedCalls,
           teardownEnqueuedCall,
           gasUsedByPrivate,
+          feePayer,
         }) =>
           new AvmTxHint(
             hash,
             globalVariables,
             gasSettings,
+            effectiveGasFees,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
             appLogicEnqueuedCalls,
             teardownEnqueuedCall,
             gasUsedByPrivate,
+            feePayer,
           ),
       );
   }

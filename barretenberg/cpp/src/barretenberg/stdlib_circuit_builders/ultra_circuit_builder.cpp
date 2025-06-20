@@ -14,6 +14,7 @@
 #include "ultra_circuit_builder.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include <execution>
 #include <unordered_map>
@@ -308,7 +309,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 
 /**
  * @brief Create a big addition gate, where in.a * in.a_scaling + in.b * in.b_scaling + in.c *
- * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then thes sum also
+ * in.c_scaling + in.d * in.d_scaling + in.const_scaling = 0. If include_next_gate_w_4 is enabled, then the sum also
  * adds the value of the 4-th witness at the next index.
  *
  * @param in Structure with variable indexes and wire selector values
@@ -858,7 +859,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
 
     uint256_t val = (uint256_t)(this->get_variable(variable_index));
 
-    // If the value is out of range, set the composer error to the given msg.
+    // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
         this->failure(msg);
     }
@@ -1748,18 +1749,58 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
                         true);
     create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
+    //
+    // a = (a3 || a2 || a1 || a0) = (a3 * 2^b + a2) * 2^b + (a1 * 2^b + a0)
+    // b = (b3 || b2 || b1 || b0) = (b3 * 2^b + b2) * 2^b + (b1 * 2^b + b0)
+    //
+    // Check if lo_0 was computed correctly.
+    // The gate structure for the auxiliary gates is as follows:
+    //
+    // | a1 | b1 | r0 | lo_0 | <-- product gate 1: check lo_0
+    // | a0 | b0 | a3 | b3   |
+    // | a2 | b2 | r3 | hi_0 |
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
+    //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
+    //
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
     ++this->num_gates;
 
+    //
+    // Check if hi_0 was computed correctly.
+    //
+    // | a1 | b1 | r0 | lo_0 |
+    // | a0 | b0 | a3 | b3   | <-- product gate 2: check hi_0
+    // | a2 | b2 | r3 | hi_0 |
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0) - r2
+    //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2) - w'3
+    //
     blocks.aux.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
     ++this->num_gates;
 
+    //
+    // Check if hi_1 was computed correctly.
+    //
+    // | a1 | b1 | r0 | lo_0 |
+    // | a0 | b0 | a3 | b3   |
+    // | a2 | b2 | r3 | hi_0 | <-- product gate 3: check hi_1
+    // | a1 | b1 | r2 | hi_1 |
+    //
+    // Constaint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1)
+    //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2)
+    //
     blocks.aux.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
     ++this->num_gates;
 
+    //
+    // Does nothing, but is used by the previous gate to read the hi_1 limb.
+    //
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_aux_selectors(AUX_SELECTORS::NONE);
     ++this->num_gates;

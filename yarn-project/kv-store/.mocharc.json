@@ -1,7 +1,7 @@
 {
   "require": "ts-node/register",
   "extensions": ["ts"],
-  "spec": ["./src/**/!(indexeddb)/*.test.ts"],
+  "spec": ["./src/**/!(indexeddb|bench)/*.test.ts"],
   "node-option": ["experimental-specifier-resolution=node", "loader=@swc-node/register/esm"],
   "timeout": 30000
 }

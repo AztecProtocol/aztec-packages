@@ -47,7 +47,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
   it('transfer on behalf of other', async () => {
     const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
     const amount = balance0 / 2n;
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
     expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
@@ -55,7 +55,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // docs:start:authwit_computeAuthWitMessageHash
     const action = asset
       .withWallet(wallets[1])
-      .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+      .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
     // docs:end:authwit_computeAuthWitMessageHash
     // docs:start:create_authwit
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
@@ -72,7 +72,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
-      .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce)
+      .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce)
       .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
@@ -95,20 +95,20 @@ describe('e2e_blacklist_token_contract transfer private', () => {
 
       await expect(
         asset.methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, 1).simulate(),
-      ).rejects.toThrow('Assertion failed: invalid nonce');
+      ).rejects.toThrow('Assertion failed: invalid authwit nonce');
     });
 
     it('transfer more than balance on behalf of other', async () => {
       const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const balance1 = await asset.methods.balance_of_private(wallets[1].getAddress()).simulate();
       const amount = balance0 + 1n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
@@ -130,13 +130,13 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     it('transfer on behalf of other without approval', async () => {
       const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balance0 / 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[1])
-        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
       const messageHash = await computeAuthWitMessageHash(
         { caller: wallets[1].getAddress(), action },
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
@@ -150,13 +150,13 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     it('transfer on behalf of other, wrong designated caller', async () => {
       const balance0 = await asset.methods.balance_of_private(wallets[0].getAddress()).simulate();
       const amount = balance0 / 2n;
-      const nonce = Fr.random();
+      const authwitNonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset
         .withWallet(wallets[2])
-        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
+        .methods.transfer(wallets[0].getAddress(), wallets[1].getAddress(), amount, authwitNonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: wallets[2].getAddress(), action },
         { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },

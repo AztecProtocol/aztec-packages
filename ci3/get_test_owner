@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Prints a list of test owners based on matching test name pattern, and optional error regex.
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
+export test_cmd=${1:-}
+log_file=${2:-}
+entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
+
+# Iterate over each matching entry.
+while IFS= read -r entry; do
+  error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
+
+  # If error_regex is present, check the log content.
+  if [ -n "$error_regex" ]; then
+    # Strip color codes from the log file.
+    # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
+    if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$2"); then
+      echo "$entry" | jq -r '.owners[]'
+    fi
+  else
+    echo "$entry" | jq -r '.owners[]'
+  fi
+done <<< "$entries" | sort -u

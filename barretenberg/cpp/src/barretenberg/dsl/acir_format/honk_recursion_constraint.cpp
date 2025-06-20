@@ -7,13 +7,15 @@
 #include "honk_recursion_constraint.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -52,9 +54,25 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     using NativeFlavor = typename Flavor::NativeFlavor;
     // Set vkey->circuit_size correctly based on the proof size
     BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    // a lambda that adds dummy commitments (libra and gemini)
+    auto set_dummy_commitment = [&](size_t& offset) {
+        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
+        auto frs = field_conversion::convert_to_bn254_frs(comm);
+        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
+        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
+        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
+        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
+        offset += 4;
+    };
+
+    auto set_dummy_evaluation = [&](size_t& offset) {
+        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+        offset++;
+    };
+
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
-    uint32_t offset = 0;
+    size_t offset = 0;
     // First key field is circuit size
     builder.set_variable(key_fields[offset++].witness_index, 1 << log_circuit_size);
     // Second key field is number of public inputs
@@ -78,21 +96,14 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
 
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(key_fields[offset].witness_index, frs[0]);
-        builder.set_variable(key_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(key_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(key_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        set_dummy_commitment(offset);
     }
 
     offset = 0; // Reset offset for parsing proof fields
 
     // the inner public inputs
     for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        set_dummy_evaluation(offset);
     }
 
     // Get some values for a valid aggregation object and use them here to avoid divide by 0 or other issues.
@@ -107,61 +118,67 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1392): Don't use random elements here.
     if constexpr (HasIPAAccumulator<Flavor>) {
         for (size_t i = 0; i < bb::IPA_CLAIM_SIZE; i++) {
-            builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-            offset++;
+            set_dummy_evaluation(offset);
         }
     }
 
-    // first 8 witness commitments
+    // first NUM_WITNESS_ENTITIES witness commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        set_dummy_commitment(offset);
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // Libra concatenation commitment
+        set_dummy_commitment(offset);
+        // libra sum
+        set_dummy_evaluation(offset);
     }
 
     // now the univariates, which can just be 0s (8*CONST_PROOF_SIZE_LOG_N Frs, where 8 is the maximum relation
     // degree)
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        set_dummy_evaluation(offset);
     }
 
     // now the sumcheck evaluations, which is just 44 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        set_dummy_evaluation(offset);
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // Libra claimed evaluation
+        set_dummy_evaluation(offset);
+        // Libra grand sum commitment
+
+        set_dummy_commitment(offset);
+        // Libra quotient commitment
+        set_dummy_commitment(offset);
+        // Gemini masking commitment
+        set_dummy_commitment(offset);
+        // Gemini masking evaluation
+        set_dummy_evaluation(offset);
     }
 
     // now the gemini fold commitments which are CONST_PROOF_SIZE_LOG_N - 1
     for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        set_dummy_commitment(offset);
     }
 
     // the gemini fold evaluations which are also CONST_PROOF_SIZE_LOG_N
     for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; i++) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
-        offset++;
+        set_dummy_evaluation(offset);
+    }
+
+    if constexpr (Flavor::HasZK) {
+        // NUM_SMALL_IPA_EVALUATIONS libra evals
+        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
+            set_dummy_evaluation(offset);
+        }
     }
 
     // lastly the shplonk batched quotient commitment and kzg quotient commitment
     for (size_t i = 0; i < 2; i++) {
-        auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
-        builder.set_variable(proof_fields[offset].witness_index, frs[0]);
-        builder.set_variable(proof_fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(proof_fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(proof_fields[offset + 3].witness_index, frs[3]);
-        offset += 4;
+        set_dummy_commitment(offset);
     }
     // IPA Proof
     if constexpr (HasIPAAccumulator<Flavor>) {
@@ -192,6 +209,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
         builder.set_variable(proof_fields[offset + 1].witness_index, a_zero_frs[1]);
         offset += 2;
     }
+
     BB_ASSERT_EQ(offset, proof_size + public_inputs_size);
 }
 } // namespace
@@ -214,7 +232,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == HONK || HasIPAAccumulator<Flavor>);
+    ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     ASSERT((input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK) == HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.
@@ -250,6 +268,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
+
         create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
@@ -277,4 +296,15 @@ template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion
     UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
                                                const RecursionConstraint& input,
                                                bool has_valid_witness_assignments);
+
+template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
+    UltraZKRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                                 const RecursionConstraint& input,
+                                                 bool has_valid_witness_assignments);
+
+template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
+    UltraZKRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                  const RecursionConstraint& input,
+                                                  bool has_valid_witness_assignments);
+
 } // namespace acir_format

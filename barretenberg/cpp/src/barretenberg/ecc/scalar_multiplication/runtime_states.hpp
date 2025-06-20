@@ -9,6 +9,7 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/groups/wnaf.hpp"
+#include <memory>
 
 namespace bb::scalar_multiplication {
 // simple helper functions to retrieve pointers to pre-allocated memory for the scalar multiplication algorithm.
@@ -120,4 +121,49 @@ template <typename Curve> struct pippenger_runtime_state {
     affine_product_runtime_state<Curve> get_affine_product_runtime_state(size_t num_threads, size_t thread_index);
 };
 
+// PippengerReference is a singleton manager for pippenger_runtime_state instances.
+// It provides thread-unsafe caching and automatic reallocation when larger sizes are needed.
+// It ensures at most one singleton exists, but can be deallocated when no PippengerReference instances are live.
+template <typename Curve> class PippengerReference {
+  private:
+    inline static std::weak_ptr<pippenger_runtime_state<Curve>> pippenger_runtime_singleton; // NOLINT
+    std::shared_ptr<pippenger_runtime_state<Curve>> reference;
+
+    // WARNING: Not thread safe! This should be OK as pippenger itself will error out if called from multiple threads
+    static std::shared_ptr<pippenger_runtime_state<Curve>> get_singleton(size_t num_initial_points)
+    {
+        const size_t num_points = num_initial_points * 2;
+        std::shared_ptr<pippenger_runtime_state<Curve>> singleton = pippenger_runtime_singleton.lock();
+        // Were no PippengerReference instances live?
+        if (singleton == nullptr) {
+            singleton = std::make_shared<pippenger_runtime_state<Curve>>(num_initial_points);
+            pippenger_runtime_singleton = singleton;
+        }
+        // Do we need to grow the singleton?
+        if (num_points > singleton->num_points) {
+            // Deallocate existing. We hijack the move constructor to do this.
+            // This is important for peak memory.
+            {
+                BB_UNUSED pippenger_runtime_state<Curve> _unused = std::move(*singleton);
+            }
+            // Create a new one with the correct size.
+            pippenger_runtime_state<Curve> reallocated_state(num_initial_points);
+            // Move the reallocated state into our empty object.
+            *singleton = std::move(reallocated_state);
+        }
+        return singleton;
+    }
+
+  public:
+    PippengerReference() = default;
+
+    PippengerReference(size_t num_initial_points)
+        : reference(get_singleton(num_initial_points))
+    {}
+    pippenger_runtime_state<Curve>& get() const { return *reference; }
+
+    bool operator==(const PippengerReference&) const = default;
+
+    bool initialized() const { return reference != nullptr; }
+};
 } // namespace bb::scalar_multiplication

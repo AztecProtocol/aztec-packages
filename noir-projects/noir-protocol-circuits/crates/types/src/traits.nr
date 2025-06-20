@@ -333,14 +333,14 @@ where
     fn deserialize(fields: [Field; O * M + 1]) -> Self {
         let mut new_bounded_vec: BoundedVec<T, M> = BoundedVec::new();
 
-        let len = fields[0] as u32;
-        let mut index = 1;
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        let len = fields[O * M] as u32;
 
-        for _ in 0..len {
+        for i in 0..len {
             let mut nested_fields = [0; O];
             for j in 0..O {
-                nested_fields[j] = fields[index];
-                index += 1;
+                nested_fields[j] = fields[i * O + j];
             }
 
             let item = T::deserialize(nested_fields);
@@ -348,6 +348,15 @@ where
         }
 
         new_bounded_vec
+    }
+}
+
+// This may cause issues if used as program input, because noir disallows empty arrays for program input.
+// I think this is okay because I don't foresee a unit type being used as input. But leaving this comment as a hint
+// if someone does run into this in the future.
+impl<let N: u32> Deserialize<0> for () {
+    fn deserialize(_fields: [Field; 0]) -> Self {
+        ()
     }
 }
 
@@ -359,20 +368,19 @@ where
     fn serialize(self) -> [Field; O * M + 1] {
         let mut fields = [0; O * M + 1];
 
-        let len = self.len();
-        fields[0] = len as Field;
+        let storage = self.storage();
 
-        let mut index: u32 = 1;
-
-        for i in 0..len {
-            let item = self.get_unchecked(i);
-            let serialized_item = item.serialize();
+        for i in 0..M {
+            let serialized_item = storage[i].serialize();
 
             for j in 0..O {
-                fields[index] = serialized_item[j];
-                index += 1;
+                fields[i * O + j] = serialized_item[j];
             }
         }
+
+        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
+        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
+        fields[O * M] = self.len() as Field;
 
         fields
     }
@@ -425,4 +433,32 @@ pub trait Packable<let N: u32> {
 
     /// Unpacks a compact array of `Field` elements into the original value.
     fn unpack(fields: [Field; N]) -> Self;
+}
+
+#[test]
+unconstrained fn bounded_vec_serialization() {
+    // Test empty BoundedVec
+    let empty_vec: BoundedVec<Field, 3> = BoundedVec::from_array([]);
+    let serialized = empty_vec.serialize();
+    let deserialized = BoundedVec::<Field, 3>::deserialize(serialized);
+    assert_eq(empty_vec, deserialized);
+    assert_eq(deserialized.len(), 0);
+
+    // Test partially filled BoundedVec
+    let partial_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2]]);
+    let serialized = partial_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(partial_vec, deserialized);
+    assert_eq(deserialized.len(), 1);
+    assert_eq(deserialized.get(0), [1, 2]);
+
+    // Test full BoundedVec
+    let full_vec: BoundedVec<[u32; 2], 3> = BoundedVec::from_array([[1, 2], [3, 4], [5, 6]]);
+    let serialized = full_vec.serialize();
+    let deserialized = BoundedVec::<[u32; 2], 3>::deserialize(serialized);
+    assert_eq(full_vec, deserialized);
+    assert_eq(deserialized.len(), 3);
+    assert_eq(deserialized.get(0), [1, 2]);
+    assert_eq(deserialized.get(1), [3, 4]);
+    assert_eq(deserialized.get(2), [5, 6]);
 }

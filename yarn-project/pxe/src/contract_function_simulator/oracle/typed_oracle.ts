@@ -1,18 +1,13 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, Point } from '@aztec/foundation/fields';
-import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type {
-  ContractClassLog,
-  IndexedTaggingSecret,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import type { ContractClassLog, IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -27,7 +22,7 @@ export interface NoteData {
   /** The storage slot of the note. */
   storageSlot: Fr;
   /** The nonce of the note. */
-  nonce: Fr;
+  noteNonce: Fr;
   /** A hash of the note. */
   noteHash: Fr;
   /** The corresponding nullifier of the note. Undefined for pending notes. */
@@ -223,16 +218,20 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('fetchTaggedLogs'));
   }
 
-  validateEnqueuedNotes(_contractAddress: AztecAddress, _noteValidationRequestsArrayBaseSlot: Fr): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotes'));
+  validateEnqueuedNotesAndEvents(
+    _contractAddress: AztecAddress,
+    _noteValidationRequestsArrayBaseSlot: Fr,
+    _eventValidationRequestsArrayBaseSlot: Fr,
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('validateEnqueuedNotesAndEvents'));
   }
 
-  getPublicLogByTag(_tag: Fr, _contractAddress: AztecAddress): Promise<PublicLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPublicLogByTag');
-  }
-
-  getPrivateLogByTag(_siloedTag: Fr): Promise<PrivateLogWithTxData | null> {
-    throw new OracleMethodNotAvailableError('getPrivateLogByTag');
+  bulkRetrieveLogs(
+    _contractAddress: AztecAddress,
+    _logRetrievalRequestsArrayBaseSlot: Fr,
+    _logRetrievalResponsesArrayBaseSlot: Fr,
+  ): Promise<void> {
+    throw new OracleMethodNotAvailableError('bulkRetrieveLogs');
   }
 
   storeCapsule(_contractAddress: AztecAddress, _key: Fr, _capsule: Fr[]): Promise<void> {
@@ -259,15 +258,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
   }
 
-  storePrivateEventLog(
-    _contractAddress: AztecAddress,
-    _recipient: AztecAddress,
-    _eventSelector: EventSelector,
-    _logContent: Fr[],
-    _txHash: TxHash,
-    _logIndexInTx: number,
-    _txIndexInBlock: number,
-  ): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
+  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainMessage'));
   }
 }

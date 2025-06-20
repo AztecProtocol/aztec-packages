@@ -59,7 +59,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const mintAmount = 1_000_000n;
     const transferAmount = 10n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
 
     const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
 
@@ -99,7 +99,7 @@ describe('Public Processor app tests: TokenContract', () => {
             {
               address: token.address,
               fnName: 'transfer_in_public',
-              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+              args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
             },
           ],
         ),

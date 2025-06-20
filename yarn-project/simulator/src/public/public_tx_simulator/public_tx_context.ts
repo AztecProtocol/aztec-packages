@@ -19,7 +19,7 @@ import {
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
-import { computeTransactionFee } from '@aztec/stdlib/fees';
+import { computeEffectiveGasFees, computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import {
   PrivateToAvmAccumulatedData,
@@ -108,7 +108,7 @@ export class PublicTxContext {
       trace,
       doMerkleOperations,
       firstNullifier,
-      globalVariables.blockNumber.toNumber(),
+      globalVariables.blockNumber,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -390,6 +390,7 @@ export class PublicTxContext {
       this.startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.clampedGasSettings,
+      computeEffectiveGasFees(this.globalVariables.gasFees, this.gasSettings),
       this.feePayer,
       /*publicCallRequestArrayLengths=*/ new PublicCallRequestArrayLengths(
         this.setupCallRequests.length,

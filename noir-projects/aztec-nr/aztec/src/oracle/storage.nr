@@ -4,8 +4,8 @@ use dep::protocol_types::{address::AztecAddress, traits::{Packable, ToField}};
 unconstrained fn storage_read_oracle<let N: u32>(
     address: Field,
     storage_slot: Field,
-    block_number: Field,
-    length: Field,
+    block_number: u32,
+    length: u32,
 ) -> [Field; N] {}
 
 pub unconstrained fn raw_storage_read<let N: u32>(
@@ -13,12 +13,7 @@ pub unconstrained fn raw_storage_read<let N: u32>(
     storage_slot: Field,
     block_number: u32,
 ) -> [Field; N] {
-    storage_read_oracle(
-        address.to_field(),
-        storage_slot,
-        block_number as Field,
-        N as Field,
-    )
+    storage_read_oracle(address.to_field(), storage_slot, block_number, N)
 }
 
 pub unconstrained fn storage_read<T, let N: u32>(

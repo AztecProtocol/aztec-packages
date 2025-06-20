@@ -31,6 +31,7 @@ struct PublicInputs {
     TreeSnapshots startTreeSnapshots;
     Gas startGasUsed;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AztecAddress feePayer;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
     std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
@@ -88,6 +89,7 @@ struct PublicInputs {
                    startTreeSnapshots,
                    startGasUsed,
                    gasSettings,
+                   effectiveGasFees,
                    feePayer,
                    publicCallRequestArrayLengths,
                    publicSetupCallRequests,
@@ -276,17 +278,13 @@ struct RevertCheckpointHint {
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
 
-// The reason we need EnqueuedCall hints at all (and cannot just use the public inputs) is
-// because they don't have the actual calldata, just the hash of it.
-struct EnqueuedCallHint {
-    AztecAddress msgSender;
-    AztecAddress contractAddress;
+struct PublicCallRequestWithCalldata {
+    PublicCallRequest request;
     std::vector<FF> calldata;
-    bool isStaticCall;
 
-    bool operator==(const EnqueuedCallHint& other) const = default;
+    bool operator==(const PublicCallRequestWithCalldata& other) const = default;
 
-    MSGPACK_FIELDS(msgSender, contractAddress, calldata, isStaticCall);
+    MSGPACK_FIELDS(request, calldata);
 };
 
 struct AccumulatedData {
@@ -306,23 +304,27 @@ struct Tx {
     std::string hash;
     GlobalVariables globalVariables;
     GasSettings gasSettings;
+    GasFees effectiveGasFees;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
-    std::vector<EnqueuedCallHint> setupEnqueuedCalls;
-    std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
-    std::optional<EnqueuedCallHint> teardownEnqueuedCall;
+    std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
+    std::vector<PublicCallRequestWithCalldata> appLogicEnqueuedCalls;
+    std::optional<PublicCallRequestWithCalldata> teardownEnqueuedCall;
     Gas gasUsedByPrivate;
+    AztecAddress feePayer;
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
                    globalVariables,
                    gasSettings,
+                   effectiveGasFees,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,
                    teardownEnqueuedCall,
-                   gasUsedByPrivate);
+                   gasUsedByPrivate,
+                   feePayer);
 };
 
 struct ExecutionHints {

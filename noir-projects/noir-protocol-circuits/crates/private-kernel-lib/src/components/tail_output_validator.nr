@@ -13,7 +13,7 @@ use dep::types::{
         log_hash::LogHash,
         side_effect::{counted::Counted, OrderedValue, scoped::Scoped},
     },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    messaging::l2_to_l1_message::L2ToL1Message,
     utils::arrays::assert_exposed_sorted_transformed_value_array,
 };
 use tail_output_hints::{generate_tail_output_hints, TailOutputHints};
@@ -125,7 +125,7 @@ impl TailOutputValidator {
         assert_exposed_sorted_transformed_value_array(
             self.previous_kernel_dense_trimmed_arrays.l2_to_l1_msgs.unwrap(),
             self.output.end.l2_to_l1_msgs,
-            |prev: ScopedL2ToL1Message, out: ScopedL2ToL1Message| {
+            |prev: Scoped<Counted<L2ToL1Message>>, out: Scoped<L2ToL1Message>| {
                 assert_eq(out, prev.expose_to_public(), "incorrect transformed value")
             },
             self.hints.sorted_l2_to_l1_msg_hints,

@@ -11,7 +11,7 @@ import type { PublicPersistableStateManager } from '../../state_manager/state_ma
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
 import {
   mockCheckNullifierExists,
   mockL1ToL2MessageExists,
@@ -128,8 +128,8 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(firstNullifier, 0);
-      const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
+      const noteNonce = await computeNoteHashNonce(firstNullifier, 0);
+      const uniqueNoteHash = await computeUniqueNoteHash(noteNonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
   });

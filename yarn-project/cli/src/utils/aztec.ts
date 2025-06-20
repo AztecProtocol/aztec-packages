@@ -56,6 +56,7 @@ export async function deployAztecContracts(
   feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
+  realVerifier: boolean,
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
@@ -81,6 +82,7 @@ export async function deployAztecContracts(
       initialValidators,
       acceleratedTestDeployments,
       feeJuicePortalInitialBalance,
+      realVerifier,
       ...config,
     },
     config,
@@ -99,6 +101,7 @@ export async function deployNewRollupContracts(
   genesisArchiveRoot: Fr,
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
+  realVerifier: boolean,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
@@ -127,6 +130,7 @@ export async function deployNewRollupContracts(
       genesisArchiveRoot,
       initialValidators,
       feeJuicePortalInitialBalance,
+      realVerifier,
       ...config,
     },
     registryAddress,

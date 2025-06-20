@@ -71,7 +71,7 @@ pub struct PrivateContext {
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
     pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: BoundedVec<L2ToL1Message, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
@@ -285,8 +285,8 @@ impl PrivateContext {
     // docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
         // docs:end:context_message_portal
-        let message = L2ToL1Message { recipient, content, counter: self.next_counter() };
-        self.l2_to_l1_msgs.push(message);
+        let message = L2ToL1Message { recipient, content };
+        self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
 
     // docs:start:context_consume_l1_to_l2_message

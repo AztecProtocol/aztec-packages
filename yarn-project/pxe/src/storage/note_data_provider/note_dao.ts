@@ -22,10 +22,10 @@ export class NoteDao implements NoteData {
     /**
      * The storage location of the note. This value is not used for anything in PXE, but we do index by storage slot
      * since contracts typically make queries based on it.
-     * */
+     */
     public storageSlot: Fr,
-    /** The kernel-provided nonce of the note, required to compute the uniqueNoteHash. */
-    public nonce: Fr,
+    /** The nonce that was injected into the note hash preimage in order to guarantee uniqueness. */
+    public noteNonce: Fr,
 
     // Computed values
     /**
@@ -64,7 +64,7 @@ export class NoteDao implements NoteData {
       this.note,
       this.contractAddress,
       this.storageSlot,
-      this.nonce,
+      this.noteNonce,
       this.noteHash,
       this.siloedNullifier,
       this.txHash,
@@ -81,7 +81,7 @@ export class NoteDao implements NoteData {
     const note = Note.fromBuffer(reader);
     const contractAddress = AztecAddress.fromBuffer(reader);
     const storageSlot = Fr.fromBuffer(reader);
-    const nonce = Fr.fromBuffer(reader);
+    const noteNonce = Fr.fromBuffer(reader);
     const noteHash = Fr.fromBuffer(reader);
     const siloedNullifier = Fr.fromBuffer(reader);
     const txHash = reader.readObject(TxHash);
@@ -94,7 +94,7 @@ export class NoteDao implements NoteData {
       note,
       contractAddress,
       storageSlot,
-      nonce,
+      noteNonce,
       noteHash,
       siloedNullifier,
       txHash,
@@ -128,7 +128,7 @@ export class NoteDao implements NoteData {
     note = Note.random(),
     contractAddress = undefined,
     storageSlot = Fr.random(),
-    nonce = Fr.random(),
+    noteNonce = Fr.random(),
     noteHash = Fr.random(),
     siloedNullifier = Fr.random(),
     txHash = TxHash.random(),
@@ -141,7 +141,7 @@ export class NoteDao implements NoteData {
       note,
       contractAddress ?? (await AztecAddress.random()),
       storageSlot,
-      nonce,
+      noteNonce,
       noteHash,
       siloedNullifier,
       txHash,
