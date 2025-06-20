@@ -30,13 +30,9 @@ class NoteHashTreeCheckInterface {
                                                            uint64_t note_hash_counter,
                                                            std::span<const FF> sibling_path,
                                                            const AppendOnlyTreeSnapshot& prev_snapshot) = 0;
-
-    virtual void create_checkpoint() = 0;
-    virtual void commit_checkpoint() = 0;
-    virtual void revert_checkpoint() = 0;
 };
 
-class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
+class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNotifiable {
   public:
     NoteHashTreeCheck(const FF& first_nullifier,
                       Poseidon2Interface& poseidon2,
@@ -68,9 +64,9 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface {
                                                    std::span<const FF> sibling_path,
                                                    const AppendOnlyTreeSnapshot& prev_snapshot) override;
 
-    void create_checkpoint() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
-    void commit_checkpoint() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
-    void revert_checkpoint() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
+    void on_checkpoint_created() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
+    void on_checkpoint_committed() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
+    void on_checkpoint_reverted() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;

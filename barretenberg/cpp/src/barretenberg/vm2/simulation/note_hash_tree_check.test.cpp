@@ -199,6 +199,24 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
+TEST(AvmSimulationNoteHashTree, CheckpointListener)
+{
+    StrictMock<MockPoseidon2> poseidon2;
+    StrictMock<MockMerkleCheck> merkle_check;
+
+    EventEmitter<NoteHashTreeCheckEvent> event_emitter;
+    NoteHashTreeCheck note_hash_tree_check(1, poseidon2, merkle_check, event_emitter);
+
+    note_hash_tree_check.on_checkpoint_created();
+    note_hash_tree_check.on_checkpoint_committed();
+    note_hash_tree_check.on_checkpoint_reverted();
+    EXPECT_THAT(event_emitter.get_events().size(), 3);
+    EXPECT_THAT(event_emitter.dump_events(),
+                ElementsAre(CheckPointEventType::CREATE_CHECKPOINT,
+                            CheckPointEventType::COMMIT_CHECKPOINT,
+                            CheckPointEventType::REVERT_CHECKPOINT));
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation

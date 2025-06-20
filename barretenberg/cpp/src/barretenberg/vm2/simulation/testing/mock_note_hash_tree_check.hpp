@@ -48,10 +48,6 @@ class MockNoteHashTreeCheck : public NoteHashTreeCheckInterface {
                  std::span<const FF> sibling_path,
                  const AppendOnlyTreeSnapshot& prev_snapshot),
                 (override));
-
-    MOCK_METHOD(void, create_checkpoint, (), (override));
-    MOCK_METHOD(void, commit_checkpoint, (), (override));
-    MOCK_METHOD(void, revert_checkpoint, (), (override));
 };
 
 } // namespace bb::avm2::simulation
