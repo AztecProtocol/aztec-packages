@@ -297,6 +297,11 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
       Buffer.from(withoutHexPrefix(arg), 'hex'),
     )
+    .option(
+      '--merkle-proof <string>',
+      'The merkle proof to use for the attestation (comma separated list of 32 byte buffers)',
+      arg => arg.split(','),
+    )
     .action(async options => {
       const { addL1Validator } = await import('./update_l1_validators.js');
       await addL1Validator({
@@ -306,6 +311,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
         stakingAssetHandlerAddress: options.stakingAssetHandler,
+        merkleProof: options.merkleProof,
         proofParams: options.proof,
         log,
         debugLogger,
