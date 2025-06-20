@@ -3,6 +3,8 @@
   "release-type": "simple",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
+  "prerelease": true,
+  "prerelease-type": "staging",
   "group-pull-request-title-pattern": "chore(staging): Release ${version}",
   "pull-request-header": ":robot: I have created a new Aztec Packages release",
   "versioning": "default",
