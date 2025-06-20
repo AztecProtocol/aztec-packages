@@ -71,7 +71,10 @@ export class SimpleContractDataSource implements ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    // Note: blockNumber parameter is currently ignored in this simple implementation
+    // as it only maintains current state without historical tracking
+    // TODO: Implement historical state queries if needed
     return Promise.resolve(this.contractInstances.get(address.toString()));
   }
 
