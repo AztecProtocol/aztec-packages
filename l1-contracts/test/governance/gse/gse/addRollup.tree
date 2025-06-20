@@ -1,0 +1,13 @@
+AddRollupTest
+├── when caller neq owner
+│   └── it reverts
+└── when caller eq owner
+    ├── given rollup eq 0
+    │   └── it reverts
+    └── given rollup neq 0
+        ├── given rollup already registered
+        │   └── it reverts
+        └── given rollup not registered
+            ├── it adds rollup to instances
+            ├── it sets rollup exists to true
+            └── it pushes rollup to canonical with timestamp

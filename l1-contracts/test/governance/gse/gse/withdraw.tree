@@ -1,0 +1,44 @@
+WithdrawTest
+├── when caller is not registered rollup
+│   └── it reverts
+└── when caller is registered rollup
+    ├── given attester not found in caller instance
+    │   ├── given caller is not canonical
+    │   │   └── it reverts
+    │   └── given caller is canonical
+    │       ├── given attester not found in canonical
+    │       │   └── it reverts
+    │       └── given attester found in canonical
+    │           ├── given balance less than amount
+    │           │   └── it reverts
+    │           └── given balance greater or equal to amount
+    │               ├── given balance minus amount less than minimum stake
+    │               │   ├── it removes attester from canonical instance
+    │               │   ├── it deletes attester config
+    │               │   ├── it delegates attester to address zero
+    │               │   ├── it withdraws full balance
+    │               │   ├── it decreases delegation balance by full amount
+    │               │   ├── it initiates withdrawal in governance
+    │               │   └── it returns full balance, true, withdrawal id
+    │               └── given balance minus amount greater or equal to minimum stake
+    │                   ├── it withdraws specified amount
+    │                   ├── it decreases delegation balance by specified amount
+    │                   ├── it initiates withdrawal in governance
+    │                   └── it returns specified amount, false, withdrawal id
+    └── given attester found in caller instance
+        ├── given balance less than amount 2
+        │   └── it reverts
+        └── given balance greater or equal to amount 2
+            ├── given balance minus amount less than minimum stake 2
+            │   ├── it removes attester from caller instance
+            │   ├── it deletes attester config
+            │   ├── it delegates attester to address zero
+            │   ├── it withdraws full balance
+            │   ├── it decreases delegation balance by full amount
+            │   ├── it initiates withdrawal in governance
+            │   └── it returns full balance, true, withdrawal id
+            └── given balance minus amount greater or equal to minimum stake 2
+                ├── it withdraws specified amount
+                ├── it decreases delegation balance by specified amount
+                ├── it initiates withdrawal in governance
+                └── it returns specified amount, false, withdrawal id

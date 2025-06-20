@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Governance} from "@aztec/governance/Governance.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {
   AddressSnapshotLib,
   SnapshottedAddressSet
@@ -38,6 +39,7 @@ interface IGSECore {
   function vote(uint256 _proposalId, uint256 _amount, bool _support) external;
   function voteWithCanonical(uint256 _proposalId, uint256 _amount, bool _support) external;
   function finaliseHelper(uint256 _withdrawalId) external;
+  function proposeWithLock(IPayload _proposal, address _to) external returns (uint256);
 
   function isRegistered(address _instance, address _attester) external view returns (bool);
   function isRollupRegistered(address _instance) external view returns (bool);
@@ -53,10 +55,6 @@ interface IGSE is IGSECore {
     external
     view
     returns (uint256);
-  function getEffectiveVotingPowerAt(address _attester, Timestamp _timestamp)
-    external
-    view
-    returns (uint256);
 
   function getWithdrawer(address _instance, address _attester)
     external
@@ -65,7 +63,6 @@ interface IGSE is IGSECore {
   function balanceOf(address _instance, address _attester) external view returns (uint256);
   function effectiveBalanceOf(address _instance, address _attester) external view returns (uint256);
   function supplyOf(address _instance) external view returns (uint256);
-  function effectiveSupplyOfAt(address _instance, Timestamp _ts) external view returns (uint256);
   function totalSupply() external view returns (uint256);
   function getConfig(address _instance, address _attester)
     external
@@ -90,6 +87,7 @@ interface IGSE is IGSECore {
     view
     returns (address);
   function getPowerUsed(address _delegatee, uint256 _proposalId) external view returns (uint256);
+  function getCanonicalMagicAddress() external view returns (address);
 }
 
 contract GSECore is IGSECore, Ownable {
@@ -290,6 +288,22 @@ contract GSECore is IGSECore, Ownable {
     }
   }
 
+  function proposeWithLock(IPayload _proposal, address _to)
+    external
+    override(IGSECore)
+    returns (uint256)
+  {
+    Governance gov = getGovernance();
+    uint256 amount = gov.getConfiguration().proposeConfig.lockAmount;
+
+    STAKING_ASSET.transferFrom(msg.sender, address(this), amount);
+    STAKING_ASSET.approve(address(gov), amount);
+
+    gov.deposit(address(this), amount);
+
+    return gov.proposeWithLock(_proposal, _to);
+  }
+
   /**
    * @notice  Delegates the voting power of `_attester` at `_instance` to `_delegatee`
    *
@@ -397,7 +411,6 @@ contract GSECore is IGSECore, Ownable {
    * @param _support    - True to support the proposal, false otherwise
    */
   function _vote(address _voter, uint256 _proposalId, uint256 _amount, bool _support) internal {
-    require(_voter != address(0), Errors.GSE__EmptyVoter());
     Timestamp ts = _pendingThrough(_proposalId);
     delegation.usePower(_voter, _proposalId, ts, _amount);
     getGovernance().vote(_proposalId, _amount, _support);
@@ -472,19 +485,6 @@ contract GSE is IGSE, GSECore {
     return balance;
   }
 
-  function effectiveSupplyOfAt(address _instance, Timestamp _ts)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
-    uint256 supply = delegation.getSupplyOf(_instance);
-    if (getCanonicalAt(_ts) == _instance) {
-      supply += delegation.getSupplyOf(CANONICAL_MAGIC_ADDRESS);
-    }
-    return supply;
-  }
-
   function supplyOf(address _instance) external view override(IGSE) returns (uint256) {
     return delegation.getSupplyOf(_instance);
   }
@@ -500,22 +500,6 @@ contract GSE is IGSE, GSECore {
     returns (address)
   {
     return delegation.getDelegatee(_instance, _attester);
-  }
-
-  /**
-   * @notice  The effective power includes the power delegated to the canonical
-   */
-  function getEffectiveVotingPowerAt(address _delegatee, Timestamp _timestamp)
-    external
-    view
-    override(IGSE)
-    returns (uint256)
-  {
-    uint256 power = delegation.getVotingPowerAt(_delegatee, _timestamp);
-    if (getCanonicalAt(_timestamp) == _delegatee) {
-      power += delegation.getVotingPowerAt(CANONICAL_MAGIC_ADDRESS, _timestamp);
-    }
-    return power;
   }
 
   function getVotingPower(address _delegatee) external view override(IGSE) returns (uint256) {
@@ -564,6 +548,10 @@ contract GSE is IGSE, GSECore {
     returns (uint256)
   {
     return delegation.getPowerUsed(_delegatee, _proposalId);
+  }
+
+  function getCanonicalMagicAddress() external pure override(IGSE) returns (address) {
+    return CANONICAL_MAGIC_ADDRESS;
   }
 
   function getVotingPowerAt(address _delegatee, Timestamp _timestamp)
@@ -632,11 +620,11 @@ contract GSE is IGSE, GSECore {
   function _getInstanceStoreWithAttester(address _instance, address _attester)
     internal
     view
-    returns (InstanceStaking storage store, bool attesterExists, address instanceAddress)
+    returns (InstanceStaking storage, bool, address)
   {
-    store = instances[_instance];
-    attesterExists = store.attesters.contains(_attester);
-    instanceAddress = _instance;
+    InstanceStaking storage store = instances[_instance];
+    bool attesterExists = store.attesters.contains(_attester);
+    address instanceAddress = _instance;
 
     if (
       !attesterExists && getCanonical() == _instance

@@ -11,7 +11,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
-import { PrivateLogWithTxData, PublicLogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -29,7 +28,6 @@ import {
   toArray,
   toForeignCallResult,
   toSingle,
-  toSingleOrArray,
 } from '../util/encoding.js';
 import { ExpectedFailureError } from '../util/expected_failure_error.js';
 
@@ -720,44 +718,24 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
-  async getPublicLogByTag(tag: ForeignCallSingle, contractAddress: ForeignCallSingle) {
+  public async bulkRetrieveLogs(
+    contractAddress: ForeignCallSingle,
+    logRetrievalRequestsArrayBaseSlot: ForeignCallSingle,
+    logRetrievalResponsesArrayBaseSlot: ForeignCallSingle,
+  ) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // TODO(AD): this was warning that getPublicLogByTag did not return a promise.
-    const log = await Promise.resolve(
-      this.typedOracle.getPublicLogByTag(fromSingle(tag), AztecAddress.fromField(fromSingle(contractAddress))),
+    await this.typedOracle.bulkRetrieveLogs(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      fromSingle(logRetrievalRequestsArrayBaseSlot),
+      fromSingle(logRetrievalResponsesArrayBaseSlot),
     );
 
-    if (log == null) {
-      return toForeignCallResult([
-        toSingle(Fr.ZERO),
-        ...PublicLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
-      ]);
-    } else {
-      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
-    }
-  }
-
-  async getPrivateLogByTag(siloedTag: ForeignCallSingle) {
-    if (!this.oraclesEnabled) {
-      throw new Error(
-        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
-      );
-    }
-
-    const log = await this.typedOracle.getPrivateLogByTag(fromSingle(siloedTag));
-    if (log == null) {
-      return toForeignCallResult([
-        toSingle(Fr.ZERO),
-        ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toSingleOrArray),
-      ]);
-    } else {
-      return toForeignCallResult([toSingle(Fr.ONE), ...log.toNoirSerialization().map(toSingleOrArray)]);
-    }
+    return toForeignCallResult([]);
   }
 
   async storeCapsule(contractAddress: ForeignCallSingle, slot: ForeignCallSingle, capsule: ForeignCallArray) {
@@ -874,14 +852,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  emitOffchainMessage(_message: ForeignCallArray, _recipient: ForeignCallSingle) {
+  emitOffchainEffect(_data: ForeignCallArray) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // Offchain messages are currently discarded in the TXE tests.
+    // Offchain effects are currently discarded in the TXE tests.
     // TODO: Expose this to the tests.
 
     return toForeignCallResult([]);
