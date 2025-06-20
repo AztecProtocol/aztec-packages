@@ -1,4 +1,4 @@
-import { MAX_INCLUDE_BY_TIMESTAMP_LENGTH } from '@aztec/constants';
+import { INCLUDE_BY_TIMESTAMP_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
@@ -35,9 +35,9 @@ export class IncludeByTimestamp {
 
   toFields(): Fr[] {
     const fields = serializeToFields(...IncludeByTimestamp.getFields(this));
-    if (fields.length !== MAX_INCLUDE_BY_TIMESTAMP_LENGTH) {
+    if (fields.length !== INCLUDE_BY_TIMESTAMP_LENGTH) {
       throw new Error(
-        `Invalid number of fields for IncludeByTimestamp. Expected ${MAX_INCLUDE_BY_TIMESTAMP_LENGTH}, got ${fields.length}`,
+        `Invalid number of fields for IncludeByTimestamp. Expected ${INCLUDE_BY_TIMESTAMP_LENGTH}, got ${fields.length}`,
       );
     }
     return fields;

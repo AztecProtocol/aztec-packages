@@ -5,7 +5,7 @@ mod test;
 
 // This data structure is used by SharedMutable to represent a value that changes from `pre` to `post` at some timestamp
 // called the `timestamp_of_change`. The value can only be made to change by scheduling a change event at some future
-// timestamp after some minimum delay measured in time has elapsed. This means that at any given timestamp we know
+// timestamp after some minimum delay measured in seconds has elapsed. This means that at any given timestamp we know
 // both the current value and the smallest timestamp at which the value might change - this is called the
 // 'timestamp horizon'.
 pub struct ScheduledValueChange<T> {
@@ -21,9 +21,8 @@ impl<T> ScheduledValueChange<T> {
     }
 
     /// Returns the value stored in the data structure at a given timestamp. This function can be called both in public
-    /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current
-    /// transaction will be included) and in private (where `timestamp` is the historical timestamp that is used
-    /// to construct the proof).
+    /// (where `timestamp` is simply the current timestamp, i.e. the timestamp at which the current transaction will be
+    /// included) and in private (where `timestamp` is the historical timestamp that is used to construct the proof).
     /// Reading in private is only safe if the transaction's `include_by_timestamp` property is set to a value lower or
     /// equal to the timestamp horizon (see `get_timestamp_horizon()`).
     pub fn get_current_at(self, timestamp: u64) -> T {
@@ -98,7 +97,7 @@ impl<T> ScheduledValueChange<T> {
             //              -----------------------------------
             //                        minimum delay
             //
-            //   b) It could be fewer than `minimum_delay` time units away from the historical timestamp, in which case
+            //   b) It could be fewer than `minimum_delay` seconds away from the historical timestamp, in which case
             //      the timestamp of change would become the limiting factor for the time horizon, which would equal
             //      the timestamp right before the timestamp of change (since by definition the value changes at the
             //      timestamp of change).
