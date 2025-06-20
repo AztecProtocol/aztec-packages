@@ -151,11 +151,13 @@ locals {
 }
 
 resource "kubernetes_manifest" "public_otel_ingress_certificate" {
+  provider = kubernetes.gke-cluster
   manifest = {
     "apiVersion" = "networking.gke.io/v1"
     "kind"       = "ManagedCertificate"
     "metadata" = {
-      "name" = "${var.RELEASE_NAME}-public-otelcol-ingres-cert"
+      "name"      = "${var.RELEASE_NAME}-public-otelcol-ingres-cert"
+      "namespace" = var.RELEASE_NAME
     }
     "spec" = {
       "domains" = [
