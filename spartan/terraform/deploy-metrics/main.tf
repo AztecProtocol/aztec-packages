@@ -193,12 +193,12 @@ resource "helm_release" "public_otel_collector" {
 
   set {
     # name  = "service.loadBalancerIP"
-    name  = "ingress.annotations.\"kubernetes.io/ingress.global-static-ip-name\""
+    name  = "ingress.annotations.kubernetes\\.io/ingress\\.global-static-ip-name\""
     value = google_compute_address.public_otel_collector_ip.address
   }
 
   set {
-    name  = "ingress.annotations.\"networking.gke.io/managed-certificates\""
+    name  = "ingress.annotations.networking\\.gke\\.io/managed-certificates"
     value = "${var.RELEASE_NAME}-public-otelcol-ingres-cert"
   }
 
