@@ -187,9 +187,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             private_call.public_inputs.include_by_timestamp,
         );
 
-        // If we are proving at genesis, we ignore contract updates.
-        // TODO(benesjan): Is this really fine? How should we handle this? Could this be exploited by proving at
-        // "genesis block" (block with number 0)?
+        // TODO(#15178): The proving_at_genesis flag disables setting the include_by_timestamp for contract updates
+        // when proving at genesis block. This is a hack that needs to get removed.
         let proving_at_genesis =
             private_call.public_inputs.historical_header.global_variables.block_number == 0;
 
