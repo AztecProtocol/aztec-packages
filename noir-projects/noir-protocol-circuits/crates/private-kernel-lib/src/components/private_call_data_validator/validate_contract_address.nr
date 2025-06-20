@@ -16,15 +16,9 @@ use dep::types::{
 };
 
 fn is_protocol_contract(contract_address_field: Field) -> bool {
-    // let contract_address_field = contract_address.to_field();
-    // Reinstate if we change MAX_PROTOCOL_CONTRACTS to a value larger than 154 (which is the number of constraints of `.lt()`:
-    // let is_protocol_contract = contract_address_field.lt(MAX_PROTOCOL_CONTRACTS as Field);
-    let mut acc = 1;
-    for i in 0..MAX_PROTOCOL_CONTRACTS {
-        // If the contract address matches any of the precompile addresses (`i`), then `acc` will be 0.
-        acc *= (contract_address_field - (i as Field));
-    }
-    acc == 0
+    // Valid protocol contract addresses:
+    // 1 <= contract_address_field <= MAX_PROTOCOL_CONTRACTS
+    (contract_address_field != 0) & contract_address_field.lt(1 + MAX_PROTOCOL_CONTRACTS as Field)
 }
 
 /// Validate that the function that was executed (its vk) exists in the contract_address' current class_id.
@@ -89,9 +83,8 @@ pub fn validate_contract_address(
     );
 
     let contract_address_field = contract_address.to_field();
-    // Reinstate if we change MAX_PROTOCOL_CONTRACTS to a value larger than 154 (which is the number of constraints of `.lt()`:
-    // let is_protocol_contract = contract_address_field.lt(MAX_PROTOCOL_CONTRACTS as Field);
-    let is_protocol_contract = is_protocol_contract(contract_address_field); // WHY IS THIS MORE EXPENSIVE THAN THE `.lt()`, I DON'T UNDERSTAND. This fn is 13 gates. A lt is 154 gates.
+
+    let is_protocol_contract = is_protocol_contract(contract_address_field);
     let is_updated_contract = !updated_contract_class_id.is_empty();
 
     let address_derivation_check =
@@ -113,13 +106,17 @@ pub fn validate_contract_address(
     // The protocol contract tree is designed as follows:
     // - The "magic" address is the leaf index.
     // - The computed address (which contains the class_id and stuff) is the leaf's value.
-    //
-    // Why can't we instead hard-code the contract addresses of magic protocol contracts as circuit constants, so that we can just loop and check for those addresses in the list? This would avoid this tree complexity. If we ever want to upgrade to add a new contract address, is there much difference in updating this circuit's vk (and downstream circuits' vks) vs updating the protocol contract tree root somewhere?
 
-    // Why is this function call needed?
-    // A non-protocol computed contract address is checked for non-membership below using protocol_contract_leaf as a low leaf. [Why do we need to check for non-membership? Why can't we just allow a protocol contract to be executed through it's non-magic address form?].
-    // A protocol contract address is checked for membership below where protocol_contract_leaf contains the
-    // computed_address at the index given by contract_address.
+    // Below, a non-protocol contract address is checked for non-membership in the protocol contracts tree
+    // (using protocol_contract_leaf as a low leaf). We do this non-membership check to prevent any protocol contract
+    // function call requests from being executed through their _non-magic_ address form.
+    // This is suggested by Palla and Nico to avoid issues like this:
+    // https://forum.balancer.fi/t/medium-severity-bug-found/3161
+    // They don't think the same bug will apply to us. But having two addresses referring to the same contract might
+    // create some niche bugs that we are not aware of, so we disallow it.
+    //
+    // In the case where a magic protocol contract address _has_ been called, it is checked for membership below,
+    // where protocol_contract_leaf contains the computed_address at the index given by the (magic) `contract_address`.
     conditionally_assert_check_membership(
         computed_address.to_field(),
         is_protocol_contract,
@@ -127,30 +124,4 @@ pub fn validate_contract_address(
         hints.protocol_contract_membership_witness,
         protocol_contract_tree_root,
     );
-
-    // Saves 680 gates vs the commented-out approach above.
-    // I didn't go as far as instating this, although I think we should.
-    // if (is_protocol_contract) {
-    //     is_computed_protocol_contract_address_correct_relative_to_the_magic_protocol_contract_address(
-    //         computed_address.to_field(),
-    //         contract_address_field,
-    //     );
-    // }
 }
-
-// global UNDERLYING_PROTOCOL_CONTRACT_ADDRESSES_BY_MAGIC_ADDRESS: [Field; 7] =
-//     [0x1234, 0x2345, 0x3456, 0x4567, 0x5678, 0x6789, 0x7890];
-
-// fn is_computed_protocol_contract_address_correct_relative_to_the_magic_protocol_contract_address(
-//     computed_address: Field,
-//     magic_contract_address: Field,
-// ) {
-//     // assert(UNDERLYING_PROTOCOL_CONTRACT_ADDRESSES_BY_MAGIC_ADDRESS[magic_contract_address] == computed_address); // casting magic_contract_address to u32 costs an extra 26 gates!
-
-//     // This is cheaper than the commented-out dynamic array access above. If we add more magic contract addresses in future, that might not remain the case.
-//     for i in 0..UNDERLYING_PROTOCOL_CONTRACT_ADDRESSES_BY_MAGIC_ADDRESS.len() {
-//         if (i as Field == magic_contract_address) {
-//             assert(UNDERLYING_PROTOCOL_CONTRACT_ADDRESSES_BY_MAGIC_ADDRESS[i] == computed_address);
-//         }
-//     }
-// }
