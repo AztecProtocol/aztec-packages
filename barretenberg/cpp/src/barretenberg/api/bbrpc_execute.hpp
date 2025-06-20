@@ -2,6 +2,7 @@
 
 #include "barretenberg/api/bbrpc_circuit_registry.hpp"
 #include "barretenberg/api/bbrpc_commands.hpp"
+#include "barretenberg/api/proving_helpers.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include <queue>
 
@@ -9,7 +10,6 @@ namespace bb::bbrpc {
 
 struct BBRpcRequest {
     RequestId request_id;
-    std::shared_ptr<BBRpcCircuitRegistry> circuit_registry;
     std::unique_ptr<ClientIVC> ivc_in_progress;
     std::vector<Command> commands;
 
@@ -26,9 +26,25 @@ const std::string& get_error_message(const CommandResponse& response)
 
 inline CircuitProve::Response execute(BBRpcRequest& request, CircuitProve&& command)
 {
-    (void)request;
-    (void)command;
-    throw std::runtime_error("TODO: Implement CircuitLoad command");
+    // Get circuit from registry
+    auto circuit_entry = request.circuit_registry->get_circuit(command.circuit.id);
+    if (!circuit_entry) {
+        return CircuitProve::Response{ .public_inputs = {},
+                                       .proof = {},
+                                       .error_message = "Circuit not found in registry" };
+    }
+
+    // Use the proving helpers to generate proof
+    auto result =
+        prove_from_bytecode<UltraFlavor>(circuit_entry->bytecode, command.witness, circuit_entry->verification_key);
+
+    if (!result.error_message.empty()) {
+        return CircuitProve::Response{ .public_inputs = {}, .proof = {}, .error_message = result.error_message };
+    }
+
+    return CircuitProve::Response{ .public_inputs = result.value.public_inputs,
+                                   .proof = result.value.proof,
+                                   .error_message = "" };
 }
 
 // ... etc

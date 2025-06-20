@@ -50,19 +50,29 @@ template <typename Flavor>
 std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::string& bytecode_path,
                                                                  const std::string& witness_path)
 {
-    typename Flavor::CircuitBuilder builder = _compute_circuit<Flavor>(bytecode_path, witness_path);
-    auto decider_proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
-    return decider_proving_key;
+    auto bytecode = read_file(bytecode_path);
+    auto witness = witness_path.empty() ? std::vector<uint8_t>{} : read_file(witness_path);
+
+    auto pk_result = compute_proving_key_from_bytecode<Flavor>(bytecode, witness);
+    if (pk_result.is_error()) {
+        throw_or_abort(pk_result.error_message);
+    }
+
+    return pk_result.value;
 }
 
 template <typename Flavor>
 PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::filesystem::path& bytecode_path,
                                                                    const std::filesystem::path& witness_path)
 {
-    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
-    return { PublicInputsVector{},
-             HonkProof{},
-             std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key) };
+    auto bytecode = read_file(bytecode_path);
+
+    auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+    if (vk_result.is_error()) {
+        throw_or_abort(vk_result.error_message);
+    }
+
+    return { PublicInputsVector{}, HonkProof{}, vk_result.value };
 }
 
 template <typename Flavor>
@@ -71,38 +81,33 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
                                                               const std::filesystem::path& witness_path,
                                                               const std::filesystem::path& vk_path)
 {
-    auto proving_key = _compute_proving_key<Flavor>(bytecode_path.string(), witness_path.string());
-    std::shared_ptr<typename Flavor::VerificationKey> vk;
+    auto bytecode = read_file(bytecode_path);
+    auto witness = read_file(witness_path);
+    auto vk_data = compute_vk ? std::vector<uint8_t>{} : read_file(vk_path);
+
     if (compute_vk) {
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
-        vk = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    }
+
+    auto proof_result = prove_from_bytecode<Flavor>(bytecode, witness, vk_data);
+    if (proof_result.is_error()) {
+        throw_or_abort(proof_result.error_message);
+    }
+
+    // Get the verification key for the response
+    std::shared_ptr<typename Flavor::VerificationKey> vk;
+    if (compute_vk) {
+        auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+        if (vk_result.is_error()) {
+            throw_or_abort(vk_result.error_message);
+        }
+        vk = vk_result.value;
     } else {
-        vk = std::make_shared<typename Flavor::VerificationKey>(
-            from_buffer<typename Flavor::VerificationKey>(read_file(vk_path)));
+        using VerificationKey = typename Flavor::VerificationKey;
+        vk = std::make_shared<VerificationKey>(from_buffer<typename VerificationKey::BareData>(vk_data));
     }
 
-    UltraProver_<Flavor> prover{ proving_key, vk };
-
-    HonkProof concat_pi_and_proof = prover.construct_proof();
-    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    // Loose check that the public inputs contain a pairing point accumulator, doesn't catch everything.
-    BB_ASSERT_GTE(prover.proving_key->proving_key.num_public_inputs,
-                  PAIRING_POINTS_SIZE,
-                  "Public inputs should contain a pairing point accumulator.");
-    num_inner_public_inputs -= PAIRING_POINTS_SIZE;
-    if constexpr (HasIPAAccumulator<Flavor>) {
-        BB_ASSERT_GTE(num_inner_public_inputs, IPA_CLAIM_SIZE, "Public inputs should contain an IPA claim.");
-        num_inner_public_inputs -= IPA_CLAIM_SIZE;
-    }
-    // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
-    // the "proof" refers to everything except the inner public inputs.
-    PublicInputsAndProof public_inputs_and_proof{
-        PublicInputsVector(concat_pi_and_proof.begin(),
-                           concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
-        HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
-                  concat_pi_and_proof.end())
-    };
-    return { public_inputs_and_proof.public_inputs, public_inputs_and_proof.proof, vk };
+    return { proof_result.value.public_inputs, proof_result.value.proof, vk };
 }
 
 template <typename Flavor>
@@ -111,41 +116,22 @@ bool _verify(const bool ipa_accumulation,
              const std::filesystem::path& proof_path,
              const std::filesystem::path& vk_path)
 {
-    using VerificationKey = typename Flavor::VerificationKey;
-    using Verifier = UltraVerifier_<Flavor>;
-
-    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    // Read files
+    auto vk_buffer = read_file(vk_path);
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
-    // concatenate public inputs and proof
-    std::vector<fr> complete_proof = public_inputs;
-    complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
-    VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
-    if (ipa_accumulation) {
-        ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
+    // Deserialize VK
+    using VerificationKey = typename Flavor::VerificationKey;
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buffer));
+
+    // Use verify_proof from proving_helpers.hpp
+    auto result = bb::verify_proof<Flavor>(vk, public_inputs, proof, ipa_accumulation);
+    if (result.is_error()) {
+        throw_or_abort(result.error_message);
     }
 
-    Verifier verifier{ vk, ipa_verification_key };
-
-    bool verified;
-    if (ipa_accumulation) {
-        const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
-        // The extra calculation is for the IPA proof length.
-        BB_ASSERT_EQ(complete_proof.size(),
-                     HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs,
-                     "Honk proof has incorrect length while verifying.");
-        const std::ptrdiff_t honk_proof_with_pub_inputs_length =
-            static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = HonkProof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
-        auto tube_honk_proof =
-            HonkProof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(complete_proof, ipa_proof);
-    } else {
-        verified = verifier.verify_proof(complete_proof);
-    }
-
+    bool verified = result.value;
     if (verified) {
         info("Proof verified successfully");
     } else {
@@ -291,21 +277,34 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                                        const std::string& witness_path,
                                        const std::string& output_path)
 {
-    using Prover = UltraProver_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using FF = typename Flavor::FF;
 
-    std::shared_ptr<DeciderProvingKey_<Flavor>> proving_key = _compute_proving_key<Flavor>(bytecode_path, witness_path);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-    Prover prover{ proving_key, verification_key };
-    std::vector<FF> proof = prover.construct_proof();
+    // Use proving_helpers to generate the proof
+    auto bytecode = read_file(bytecode_path);
+    auto witness = read_file(witness_path);
+
+    auto proof_result = prove_from_bytecode<Flavor>(bytecode, witness);
+    if (proof_result.is_error()) {
+        throw_or_abort(proof_result.error_message);
+    }
+
+    // Get the verification key
+    auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+    if (vk_result.is_error()) {
+        throw_or_abort(vk_result.error_message);
+    }
+
+    // Combine public inputs and proof back together for ProofSurgeon
+    std::vector<FF> complete_proof = proof_result.value.public_inputs;
+    complete_proof.insert(complete_proof.end(), proof_result.value.proof.begin(), proof_result.value.proof.end());
 
     bool ipa_accumulation = false;
     if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         ipa_accumulation = true;
     }
-    const std::string toml_content =
-        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, ipa_accumulation);
+    const std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(
+        complete_proof, vk_result.value, ipa_accumulation);
 
     const std::string toml_path = output_path + "/Prover.toml";
     write_file(toml_path, { toml_content.begin(), toml_content.end() });
