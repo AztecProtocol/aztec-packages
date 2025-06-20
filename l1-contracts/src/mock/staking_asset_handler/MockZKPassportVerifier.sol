@@ -5,6 +5,7 @@ pragma solidity >=0.8.27;
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
+// solhint-disable func-param-name-leading-underscore
 
 import {ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 
