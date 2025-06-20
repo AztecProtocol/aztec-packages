@@ -29,7 +29,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
 
   uint256 public constant LIFETIME_IN_ROUNDS = 5;
   // EIP-712 type hash for the Vote struct
-  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal)");
+  bytes32 public constant VOTE_TYPEHASH = keccak256("Vote(address proposal,uint256 nonce)");
 
   // The quorum size
   uint256 public immutable N;
@@ -37,6 +37,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   uint256 public immutable M;
 
   mapping(address instance => mapping(uint256 roundNumber => RoundAccounting)) public rounds;
+  mapping(address voter => uint256 nonce) public nonces;
 
   constructor(uint256 _n, uint256 _m) EIP712("EmpireBase", "1") {
     N = _n;
@@ -158,6 +159,14 @@ abstract contract EmpireBase is EIP712, IEmpire {
     return Slot.unwrap(_slot) / M;
   }
 
+  function getVoteSignatureDigest(IPayload _proposal, address _proposer)
+    public
+    view
+    returns (bytes32)
+  {
+    return _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal, nonces[_proposer])));
+  }
+
   // Virtual functions
   function getInstance() public view virtual override(IEmpire) returns (address);
   function getExecutor() public view virtual override(IEmpire) returns (address);
@@ -185,7 +194,8 @@ abstract contract EmpireBase is EIP712, IEmpire {
         msg.sender == proposer, Errors.GovernanceProposer__OnlyProposerCanVote(msg.sender, proposer)
       );
     } else {
-      bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(VOTE_TYPEHASH, _proposal)));
+      bytes32 digest = getVoteSignatureDigest(_proposal, proposer);
+      nonces[proposer]++;
 
       // _sig.verify will throw if invalid, it is more my sanity that I am doing this for.
       require(
@@ -202,7 +212,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
       round.leader = _proposal;
     }
 
-    emit VoteCast(_proposal, roundNumber, msg.sender);
+    emit VoteCast(_proposal, roundNumber, proposer);
 
     if (round.yeaCount[_proposal] == N) {
       emit ProposalExecutable(_proposal, roundNumber);

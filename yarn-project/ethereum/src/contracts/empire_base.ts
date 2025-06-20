@@ -41,6 +41,7 @@ export function encodeVoteWithSignature(payload: Hex, signature: Signature) {
 export async function signVoteWithSig(
   walletClient: WalletClient,
   proposal: Hex,
+  nonce: bigint,
   verifyingContract: Hex,
   chainId: number,
 ): Promise<Signature> {
@@ -52,11 +53,15 @@ export async function signVoteWithSig(
   };
 
   const types = {
-    Vote: [{ name: 'proposal', type: 'address' }],
+    Vote: [
+      { name: 'proposal', type: 'address' },
+      { name: 'nonce', type: 'uint256' },
+    ],
   };
 
   const message = {
     proposal,
+    nonce,
   };
 
   if (!walletClient.account) {

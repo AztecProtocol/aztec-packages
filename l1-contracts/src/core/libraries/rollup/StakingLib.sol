@@ -113,7 +113,7 @@ library StakingLib {
 
     // If we are the canonical at the time of the proposal we also cast those votes.
     if (store.gse.getCanonicalAt(ts) == address(this)) {
-      address magic = store.gse.CANONICAL_MAGIC_ADDRESS();
+      address magic = store.gse.getCanonicalMagicAddress();
       vp = store.gse.getVotingPowerAt(magic, ts);
       store.gse.voteWithCanonical(_proposalId, vp, true);
     }

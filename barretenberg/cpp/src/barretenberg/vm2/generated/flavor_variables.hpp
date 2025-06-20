@@ -28,6 +28,7 @@
 #include "relations/keccakf1600.hpp"
 #include "relations/memory.hpp"
 #include "relations/merkle_check.hpp"
+#include "relations/note_hash_tree_check.hpp"
 #include "relations/nullifier_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
@@ -59,6 +60,7 @@
 #include "relations/lookups_keccak_memory.hpp"
 #include "relations/lookups_keccakf1600.hpp"
 #include "relations/lookups_merkle_check.hpp"
+#include "relations/lookups_note_hash_tree_check.hpp"
 #include "relations/lookups_nullifier_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_public_data_check.hpp"
@@ -75,10 +77,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 97;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2047;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2085;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 238;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2382;
+    static constexpr size_t NUM_ALL_ENTITIES = 2420;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -110,6 +112,7 @@ struct AvmFlavorVariables {
         avm2::keccakf1600<FF_>,
         avm2::memory<FF_>,
         avm2::merkle_check<FF_>,
+        avm2::note_hash_tree_check<FF_>,
         avm2::nullifier_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
@@ -321,6 +324,12 @@ struct AvmFlavorVariables {
         lookup_keccakf1600_theta_xor_row_4_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
+        lookup_note_hash_tree_check_merkle_check_relation<FF_>,
+        lookup_note_hash_tree_check_nonce_computation_poseidon2_relation<FF_>,
+        lookup_note_hash_tree_check_read_first_nullifier_relation<FF_>,
+        lookup_note_hash_tree_check_silo_poseidon2_relation<FF_>,
+        lookup_note_hash_tree_check_unique_note_hash_poseidon2_relation<FF_>,
+        lookup_note_hash_tree_check_write_note_hash_to_public_inputs_relation<FF_>,
         lookup_nullifier_check_low_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF_>,
         lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF_>,
@@ -359,6 +368,7 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
         lookup_to_radix_limb_range_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
+        lookup_tx_note_hash_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
@@ -368,7 +378,6 @@ struct AvmFlavorVariables {
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
-        lookup_tx_write_tree_insert_value_relation<FF_>,
         lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,

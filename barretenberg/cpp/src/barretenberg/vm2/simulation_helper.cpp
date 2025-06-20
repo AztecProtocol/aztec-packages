@@ -103,6 +103,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
     typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
     typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
 
     uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
 
@@ -115,6 +116,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
+    NoteHashTreeCheck note_hash_tree_check(
+        hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
     Alu alu(alu_emitter);
     Bitwise bitwise(bitwise_emitter);
     Sha256 sha256(execution_id_manager, sha256_compression_emitter);
@@ -125,7 +128,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
-    MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check);
+    MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check, note_hash_tree_check);
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
@@ -193,6 +196,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
         data_copy_emitter.dump_events(),
         calldata_emitter.dump_events(),
         internal_call_stack_emitter.dump_events(),
+        note_hash_tree_check_emitter.dump_events(),
     };
 }
 

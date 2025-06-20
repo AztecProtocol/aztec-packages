@@ -13,10 +13,10 @@ template <typename FF_> class keccak_memoryImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 45> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 4, 3, 5, 3, 4, 3, 3, 3, 3, 4, 3, 3, 3, 5, 3, 3, 3,
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3
-    };
+    static constexpr std::array<size_t, 46> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 4, 3, 5, 3, 4, 3,
+                                                                            3, 3, 3, 4, 3, 3, 3, 5, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -34,6 +34,7 @@ template <typename FF_> class keccak_memoryImpl {
         using C = ColumnAndShifts;
 
         const auto constants_MEM_TAG_U64 = FF(5);
+        const auto constants_AVM_KECCAKF1600_NUM_ROUNDS = FF(24);
         const auto constants_AVM_KECCAKF1600_STATE_SIZE = FF(25);
         const auto keccak_memory_TAG_MIN_U64 = (in.get(C::keccak_memory_tag) - constants_MEM_TAG_U64);
 
@@ -353,6 +354,13 @@ template <typename FF_> class keccak_memoryImpl {
                         (FF(1) - in.get(C::keccak_memory_last)) * in.get(C::keccak_memory_val43_shift));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
+            auto tmp = in.get(C::keccak_memory_sel) *
+                       (in.get(C::keccak_memory_num_rounds) - constants_AVM_KECCAKF1600_NUM_ROUNDS);
+            tmp *= scaling_factor;
+            std::get<45>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

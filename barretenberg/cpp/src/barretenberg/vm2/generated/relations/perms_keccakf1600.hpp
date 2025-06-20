@@ -65,7 +65,7 @@ using perm_keccakf1600_read_to_slice_relation = permutation_relation_base<FF_, p
 struct perm_keccakf1600_write_to_slice_settings_ {
     static constexpr std::string_view NAME = "PERM_KECCAKF1600_WRITE_TO_SLICE";
     static constexpr std::string_view RELATION_NAME = "keccakf1600";
-    static constexpr size_t COLUMNS_PER_SET = 28;
+    static constexpr size_t COLUMNS_PER_SET = 29;
     static constexpr Column SRC_SELECTOR = Column::keccakf1600_sel_slice_write;
     static constexpr Column DST_SELECTOR = Column::keccak_memory_start_write;
     static constexpr Column INVERSES = Column::perm_keccakf1600_write_to_slice_inv;
@@ -83,23 +83,25 @@ struct perm_keccakf1600_write_to_slice_settings_ {
         ColumnAndShifts::keccakf1600_state_chi_40,  ColumnAndShifts::keccakf1600_state_chi_41,
         ColumnAndShifts::keccakf1600_state_chi_42,  ColumnAndShifts::keccakf1600_state_chi_43,
         ColumnAndShifts::keccakf1600_state_chi_44,  ColumnAndShifts::keccakf1600_clk,
-        ColumnAndShifts::keccakf1600_dst_addr,      ColumnAndShifts::keccakf1600_space_id
+        ColumnAndShifts::keccakf1600_dst_addr,      ColumnAndShifts::keccakf1600_space_id,
+        ColumnAndShifts::keccakf1600_round
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::keccak_memory_val00, ColumnAndShifts::keccak_memory_val01,
-        ColumnAndShifts::keccak_memory_val02, ColumnAndShifts::keccak_memory_val03,
-        ColumnAndShifts::keccak_memory_val04, ColumnAndShifts::keccak_memory_val10,
-        ColumnAndShifts::keccak_memory_val11, ColumnAndShifts::keccak_memory_val12,
-        ColumnAndShifts::keccak_memory_val13, ColumnAndShifts::keccak_memory_val14,
-        ColumnAndShifts::keccak_memory_val20, ColumnAndShifts::keccak_memory_val21,
-        ColumnAndShifts::keccak_memory_val22, ColumnAndShifts::keccak_memory_val23,
-        ColumnAndShifts::keccak_memory_val24, ColumnAndShifts::keccak_memory_val30,
-        ColumnAndShifts::keccak_memory_val31, ColumnAndShifts::keccak_memory_val32,
-        ColumnAndShifts::keccak_memory_val33, ColumnAndShifts::keccak_memory_val34,
-        ColumnAndShifts::keccak_memory_val40, ColumnAndShifts::keccak_memory_val41,
-        ColumnAndShifts::keccak_memory_val42, ColumnAndShifts::keccak_memory_val43,
-        ColumnAndShifts::keccak_memory_val44, ColumnAndShifts::keccak_memory_clk,
-        ColumnAndShifts::keccak_memory_addr,  ColumnAndShifts::keccak_memory_space_id
+        ColumnAndShifts::keccak_memory_val00,     ColumnAndShifts::keccak_memory_val01,
+        ColumnAndShifts::keccak_memory_val02,     ColumnAndShifts::keccak_memory_val03,
+        ColumnAndShifts::keccak_memory_val04,     ColumnAndShifts::keccak_memory_val10,
+        ColumnAndShifts::keccak_memory_val11,     ColumnAndShifts::keccak_memory_val12,
+        ColumnAndShifts::keccak_memory_val13,     ColumnAndShifts::keccak_memory_val14,
+        ColumnAndShifts::keccak_memory_val20,     ColumnAndShifts::keccak_memory_val21,
+        ColumnAndShifts::keccak_memory_val22,     ColumnAndShifts::keccak_memory_val23,
+        ColumnAndShifts::keccak_memory_val24,     ColumnAndShifts::keccak_memory_val30,
+        ColumnAndShifts::keccak_memory_val31,     ColumnAndShifts::keccak_memory_val32,
+        ColumnAndShifts::keccak_memory_val33,     ColumnAndShifts::keccak_memory_val34,
+        ColumnAndShifts::keccak_memory_val40,     ColumnAndShifts::keccak_memory_val41,
+        ColumnAndShifts::keccak_memory_val42,     ColumnAndShifts::keccak_memory_val43,
+        ColumnAndShifts::keccak_memory_val44,     ColumnAndShifts::keccak_memory_clk,
+        ColumnAndShifts::keccak_memory_addr,      ColumnAndShifts::keccak_memory_space_id,
+        ColumnAndShifts::keccak_memory_num_rounds
     };
 };
 
