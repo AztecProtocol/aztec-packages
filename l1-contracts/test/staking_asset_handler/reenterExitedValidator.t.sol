@@ -59,5 +59,4 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     vm.prank(_caller);
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
   }
-
 }
