@@ -15,7 +15,7 @@ import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_publi
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
-import { createTxForPublicCalls } from './utils.js';
+import { type TestPrivateInsertions, createTxForPublicCalls } from './utils.js';
 
 const TIMESTAMP = 99833n;
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
@@ -79,7 +79,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    firstNullifier = new Fr(420000 + this.txCount++),
+    privateInsertions: TestPrivateInsertions = { nonRevertible: { nullifiers: [new Fr(420000 + this.txCount++)] } },
   ): Promise<Tx> {
     const setupCallRequests = await asyncMap(setupCalls, call =>
       this.#createPubicCallRequestForCall(call, call.sender ?? sender),
@@ -92,7 +92,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       : undefined;
 
     return createTxForPublicCalls(
-      firstNullifier,
+      privateInsertions,
       setupCallRequests,
       appCallRequests,
       teardownCallRequest,
@@ -109,10 +109,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
-    firstNullifier = new Fr(420000 + this.txCount++),
+    privateInsertions?: TestPrivateInsertions,
     txLabel: string = 'unlabeledTx',
   ): Promise<PublicTxResult> {
-    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
+    const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions);
 
     await this.setFeePayerBalance(feePayer);
 
@@ -143,9 +143,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     appCalls?: TestEnqueuedCall[],
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
-    firstNullifier?: Fr,
+    privateInsertions?: TestPrivateInsertions,
   ): Promise<PublicTxResult> {
-    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier, txLabel);
+    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
   }
 
   public prettyPrintMetrics() {
