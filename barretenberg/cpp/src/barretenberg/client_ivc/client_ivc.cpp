@@ -8,11 +8,8 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
-#include "barretenberg/protogalaxy/folding_test_utils.hpp" /// DEBUGGING
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp" /// DEBUGGING
 #include "barretenberg/ultra_honk/oink_prover.hpp"
-#include "barretenberg/ultra_honk/oink_verifier.hpp" /// DEBUGGING
 
 namespace bb {
 
