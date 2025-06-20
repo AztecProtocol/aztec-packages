@@ -33,6 +33,9 @@ affinity:
 replicaCount: 1
 
 node:
+  env:
+    OTEL_SERVICE_NAME: "node"
+
   resources:
     requests:
       cpu: "3"

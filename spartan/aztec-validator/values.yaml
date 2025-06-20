@@ -30,6 +30,9 @@ validator:
     preStartScript: |
       source /scripts/get-private-key.sh
 
+    env:
+      OTEL_SERVICE_NAME: "validator"
+
     startCmd:
       - --node
       - --archiver

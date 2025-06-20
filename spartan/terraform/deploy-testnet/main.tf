@@ -48,20 +48,12 @@ data "terraform_remote_state" "metrics" {
   }
 }
 
-data "google_secret_manager_secret" "mnemonic" {
-  secret_id = "${var.RELEASE_PREFIX}-mnemonic"
-}
-
 data "google_secret_manager_secret_version" "mnemonic_latest" {
-  secret = data.google_secret_manager_secret.mnemonic.secret_id
-}
-
-data "google_secret_manager_secret" "blockchain_node_api_key" {
-  secret_id = "alpha-testnet-geth-api-key"
+  secret = "${var.RELEASE_PREFIX}-mnemonic"
 }
 
 data "google_secret_manager_secret_version" "blockchain_node_api_key_latest" {
-  secret = data.google_secret_manager_secret.blockchain_node_api_key.secret_id
+  secret = "${var.RELEASE_PREFIX}-geth-api-key"
 }
 
 import {
