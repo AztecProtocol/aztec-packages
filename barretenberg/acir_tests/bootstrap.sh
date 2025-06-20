@@ -112,7 +112,7 @@ function build {
 
   npm_install_deps
 
-  parallel --line-buffer --tag --halt now,fail=1 'cd {} && yarn build' ::: browser-test-app bbjs-test
+  parallel --line-buffer --tag --halt now,fail=1 'cd {} && denoise "yarn build"' ::: browser-test-app bbjs-test
 }
 
 function test {
