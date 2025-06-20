@@ -258,7 +258,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
   }
 
-  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
-    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainMessage'));
+  emitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('emitOffchainEffect'));
   }
 }

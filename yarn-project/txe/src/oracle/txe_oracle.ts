@@ -25,7 +25,6 @@ import type { ProtocolContract } from '@aztec/protocol-contracts';
 import {
   AddressDataProvider,
   CapsuleDataProvider,
-  ContractDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
   PrivateEventDataProvider,
@@ -133,6 +132,7 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 
 import { TXEStateMachine } from '../state_machine/index.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
+import { TXEContractDataProvider } from '../util/txe_contract_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
 
 export class TXE implements TypedOracle {
@@ -169,7 +169,7 @@ export class TXE implements TypedOracle {
   private constructor(
     private logger: Logger,
     private keyStore: KeyStore,
-    private contractDataProvider: ContractDataProvider,
+    private contractDataProvider: TXEContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
     private syncDataProvider: SyncDataProvider,
@@ -214,7 +214,7 @@ export class TXE implements TypedOracle {
 
     const addressDataProvider = new AddressDataProvider(store);
     const privateEventDataProvider = new PrivateEventDataProvider(store);
-    const contractDataProvider = new ContractDataProvider(store);
+    const contractDataProvider = new TXEContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
@@ -1023,7 +1023,11 @@ export class TXE implements TypedOracle {
       // private execution used Gas(1, 1) so it can compute a tx fee.
       const gasUsedByPrivate = isTeardown ? new Gas(1, 1) : Gas.empty();
       const tx = createTxForPublicCalls(
-        firstNullifier,
+        {
+          nonRevertible: {
+            nullifiers: [firstNullifier],
+          },
+        },
         /*setupExecutionRequests=*/ [],
         /*appExecutionRequests=*/ isTeardown ? [] : [executionRequest],
         /*teardownExecutionRequests=*/ isTeardown ? executionRequest : undefined,
@@ -1314,8 +1318,8 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  emitOffchainMessage(_message: Fr[], _recipient: AztecAddress) {
-    // Offchain messages are discarded in the TXE tests.
+  emitOffchainEffect(_data: Fr[]) {
+    // Offchain effects are discarded in TXE tests.
     return Promise.resolve();
   }
 
