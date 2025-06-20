@@ -22,18 +22,18 @@ struct lookup_note_hash_tree_check_silo_poseidon2_settings_ {
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_silo_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_silo_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::note_hash_tree_check_sel,
         ColumnAndShifts::note_hash_tree_check_siloing_separator,
         ColumnAndShifts::note_hash_tree_check_address,
         ColumnAndShifts::note_hash_tree_check_note_hash,
-        ColumnAndShifts::note_hash_tree_check_siloed_note_hash,
-        ColumnAndShifts::note_hash_tree_check_sel
+        ColumnAndShifts::note_hash_tree_check_siloed_note_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output,
-        ColumnAndShifts::poseidon2_hash_start
+        ColumnAndShifts::poseidon2_hash_output
     };
 };
 
@@ -79,18 +79,18 @@ struct lookup_note_hash_tree_check_nonce_computation_poseidon2_settings_ {
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_nonce_computation_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_nonce_computation_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::note_hash_tree_check_sel,
         ColumnAndShifts::note_hash_tree_check_nonce_separator,
         ColumnAndShifts::note_hash_tree_check_first_nullifier,
         ColumnAndShifts::note_hash_tree_check_note_hash_index,
-        ColumnAndShifts::note_hash_tree_check_nonce,
-        ColumnAndShifts::note_hash_tree_check_sel
+        ColumnAndShifts::note_hash_tree_check_nonce
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output,
-        ColumnAndShifts::poseidon2_hash_start
+        ColumnAndShifts::poseidon2_hash_output
     };
 };
 
@@ -111,18 +111,18 @@ struct lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings_ {
     static constexpr Column COUNTS = Column::lookup_note_hash_tree_check_unique_note_hash_poseidon2_counts;
     static constexpr Column INVERSES = Column::lookup_note_hash_tree_check_unique_note_hash_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::note_hash_tree_check_sel,
         ColumnAndShifts::note_hash_tree_check_unique_note_hash_separator,
         ColumnAndShifts::note_hash_tree_check_nonce,
         ColumnAndShifts::note_hash_tree_check_siloed_note_hash,
-        ColumnAndShifts::note_hash_tree_check_unique_note_hash,
-        ColumnAndShifts::note_hash_tree_check_sel
+        ColumnAndShifts::note_hash_tree_check_unique_note_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
         ColumnAndShifts::poseidon2_hash_input_0,
         ColumnAndShifts::poseidon2_hash_input_1,
         ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output,
-        ColumnAndShifts::poseidon2_hash_start
+        ColumnAndShifts::poseidon2_hash_output
     };
 };
 

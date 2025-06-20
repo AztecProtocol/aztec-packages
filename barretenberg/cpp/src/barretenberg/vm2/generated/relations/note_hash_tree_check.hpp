@@ -13,8 +13,8 @@ template <typename FF_> class note_hash_tree_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 20> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 4, 3,
-                                                                            3, 4, 3, 3, 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4, 3, 3,
+                                                                            4, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -67,117 +67,111 @@ template <typename FF_> class note_hash_tree_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_discard) * (FF(1) - in.get(C::note_hash_tree_check_discard));
+            auto tmp = in.get(C::note_hash_tree_check_write) * (FF(1) - in.get(C::note_hash_tree_check_sel));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DISABLE_SILOING_ON_READ
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_write) * (FF(1) - in.get(C::note_hash_tree_check_sel));
+            auto tmp = note_hash_tree_check_READ * in.get(C::note_hash_tree_check_should_silo);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // DISABLE_SILOING_ON_READ
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = note_hash_tree_check_READ * in.get(C::note_hash_tree_check_should_silo);
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
         {
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::note_hash_tree_check_should_silo) * (FF(1) - in.get(C::note_hash_tree_check_should_unique));
             tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // PASSTHROUGH_SILOING
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = in.get(C::note_hash_tree_check_sel) * (FF(1) - in.get(C::note_hash_tree_check_should_silo)) *
                        (in.get(C::note_hash_tree_check_note_hash) - in.get(C::note_hash_tree_check_siloed_note_hash));
             tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
+            std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = in.get(C::note_hash_tree_check_sel) * (constants_GENERATOR_INDEX__SILOED_NOTE_HASH -
                                                               in.get(C::note_hash_tree_check_siloing_separator));
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         { // DISABLE_UNIQUENESS_ON_READ
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = note_hash_tree_check_READ * in.get(C::note_hash_tree_check_should_unique);
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         { // PASSTHROUGH_UNIQUENESS
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::note_hash_tree_check_sel) * (FF(1) - in.get(C::note_hash_tree_check_should_unique)) *
                 (in.get(C::note_hash_tree_check_siloed_note_hash) - in.get(C::note_hash_tree_check_unique_note_hash));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = in.get(C::note_hash_tree_check_sel) *
+                       (constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX -
+                        in.get(C::note_hash_tree_check_first_nullifier_pi_index));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::note_hash_tree_check_sel) *
-                       (constants_AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX -
-                        in.get(C::note_hash_tree_check_first_nullifier_pi_index));
+                       (constants_GENERATOR_INDEX__NOTE_HASH_NONCE - in.get(C::note_hash_tree_check_nonce_separator));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_sel) *
-                       (constants_GENERATOR_INDEX__NOTE_HASH_NONCE - in.get(C::note_hash_tree_check_nonce_separator));
+            auto tmp =
+                in.get(C::note_hash_tree_check_sel) * (constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH -
+                                                       in.get(C::note_hash_tree_check_unique_note_hash_separator));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp =
-                in.get(C::note_hash_tree_check_sel) * (constants_GENERATOR_INDEX__UNIQUE_NOTE_HASH -
-                                                       in.get(C::note_hash_tree_check_unique_note_hash_separator));
+                (in.get(C::note_hash_tree_check_prev_leaf_value) -
+                 (FF(1) - in.get(C::note_hash_tree_check_write)) * in.get(C::note_hash_tree_check_unique_note_hash));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp =
-                (in.get(C::note_hash_tree_check_prev_leaf_value) -
-                 (FF(1) - in.get(C::note_hash_tree_check_write)) * in.get(C::note_hash_tree_check_unique_note_hash));
+            auto tmp = in.get(C::note_hash_tree_check_write) * (in.get(C::note_hash_tree_check_unique_note_hash) -
+                                                                in.get(C::note_hash_tree_check_next_leaf_value));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_write) * (in.get(C::note_hash_tree_check_unique_note_hash) -
-                                                                in.get(C::note_hash_tree_check_next_leaf_value));
+            auto tmp = in.get(C::note_hash_tree_check_sel) *
+                       (constants_NOTE_HASH_TREE_HEIGHT - in.get(C::note_hash_tree_check_note_hash_tree_height));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = in.get(C::note_hash_tree_check_sel) *
-                       (constants_NOTE_HASH_TREE_HEIGHT - in.get(C::note_hash_tree_check_note_hash_tree_height));
+            auto tmp = (in.get(C::note_hash_tree_check_write) * (FF(1) - in.get(C::note_hash_tree_check_discard)) -
+                        in.get(C::note_hash_tree_check_should_write_to_public_inputs));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::note_hash_tree_check_write) * (FF(1) - in.get(C::note_hash_tree_check_discard)) -
-                        in.get(C::note_hash_tree_check_should_write_to_public_inputs));
-            tmp *= scaling_factor;
-            std::get<18>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp = in.get(C::note_hash_tree_check_should_write_to_public_inputs) *
                        ((constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX +
                          in.get(C::note_hash_tree_check_note_hash_index)) -
                         in.get(C::note_hash_tree_check_public_inputs_index));
             tmp *= scaling_factor;
-            std::get<19>(evals) += typename Accumulator::View(tmp);
+            std::get<18>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -189,23 +183,23 @@ template <typename FF> class note_hash_tree_check : public Relation<note_hash_tr
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 6:
+        case 5:
             return "DISABLE_SILOING_ON_READ";
-        case 8:
+        case 7:
             return "PASSTHROUGH_SILOING";
-        case 10:
+        case 9:
             return "DISABLE_UNIQUENESS_ON_READ";
-        case 11:
+        case 10:
             return "PASSTHROUGH_UNIQUENESS";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_DISABLE_SILOING_ON_READ = 6;
-    static constexpr size_t SR_PASSTHROUGH_SILOING = 8;
-    static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 10;
-    static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 11;
+    static constexpr size_t SR_DISABLE_SILOING_ON_READ = 5;
+    static constexpr size_t SR_PASSTHROUGH_SILOING = 7;
+    static constexpr size_t SR_DISABLE_UNIQUENESS_ON_READ = 9;
+    static constexpr size_t SR_PASSTHROUGH_UNIQUENESS = 10;
 };
 
 } // namespace bb::avm2

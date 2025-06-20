@@ -54,8 +54,8 @@ namespace note_hash_tree_check;
 
     pol commit note_hash_index;
 
+    // Caller should constrain this to be boolean
     pol commit discard;
-    discard * (1 - discard) = 0;
 
     pol commit next_root;
 
@@ -80,8 +80,8 @@ namespace note_hash_tree_check;
     sel * (constants.GENERATOR_INDEX__SILOED_NOTE_HASH - siloing_separator) = 0;
 
     #[SILO_POSEIDON2]
-    should_silo { siloing_separator, address, note_hash, siloed_note_hash, sel }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.start };
+    should_silo { sel, siloing_separator, address, note_hash, siloed_note_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
 
     // ====== UNIQUE ======
@@ -116,16 +116,16 @@ namespace note_hash_tree_check;
     sel * (constants.GENERATOR_INDEX__NOTE_HASH_NONCE - nonce_separator) = 0;
 
     #[NONCE_COMPUTATION_POSEIDON2]
-    should_unique { nonce_separator, first_nullifier, note_hash_index, nonce, sel }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.start };
+    should_unique { sel, nonce_separator, first_nullifier, note_hash_index, nonce }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit unique_note_hash_separator;
     sel * (constants.GENERATOR_INDEX__UNIQUE_NOTE_HASH - unique_note_hash_separator) = 0;
 
     #[UNIQUE_NOTE_HASH_POSEIDON2]
-    should_unique { unique_note_hash_separator, nonce, siloed_note_hash, unique_note_hash, sel }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.start };
+    should_unique { sel, unique_note_hash_separator, nonce, siloed_note_hash, unique_note_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // ====== TREE CHECK ======
     pol commit prev_leaf_value;
