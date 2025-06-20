@@ -3,6 +3,8 @@ import { type Meter, type Span, type SpanContext, type Tracer, createNoopMeter }
 import type { TelemetryClient } from './telemetry.js';
 
 export class NoopTelemetryClient implements TelemetryClient {
+  setExportedPublicTelemetry(_prefixes: string[]): void {}
+
   getMeter(): Meter {
     return createNoopMeter();
   }

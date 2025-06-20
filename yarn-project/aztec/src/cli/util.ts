@@ -7,6 +7,7 @@ import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { PXEService } from '@aztec/pxe/server';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
 import { UpdateChecker } from '@aztec/stdlib/update-checker';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
@@ -290,6 +291,21 @@ export async function setupUpdateMonitor(
       logger.warn(`Config change detected. Updating node`, config);
       try {
         await updateNodeConfig(config);
+      } catch (err) {
+        logger.warn('Failed to update config', { err });
+      }
+    }
+    // don't notify on these config changes
+  });
+
+  checker.on('updatePublicTelemetryConfig', config => {
+    if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
+      logger.warn(`Public telemetry config change detected. Updating telemetry client`, config);
+      try {
+        const publicIncludeMetrics: unknown = (config as any).publicIncludeMetrics;
+        if (Array.isArray(publicIncludeMetrics) && publicIncludeMetrics.every(m => typeof m === 'string')) {
+          getTelemetryClient().setExportedPublicTelemetry(publicIncludeMetrics);
+        }
       } catch (err) {
         logger.warn('Failed to update config', { err });
       }
