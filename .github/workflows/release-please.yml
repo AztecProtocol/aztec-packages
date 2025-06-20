@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - staging
       - next
 
 permissions:

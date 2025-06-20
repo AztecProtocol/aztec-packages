@@ -183,7 +183,7 @@ function track_test {
 
 # Show PASSED and early out on success.
 function pass {
-  local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
+  local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   echo -e "$line"
 
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
