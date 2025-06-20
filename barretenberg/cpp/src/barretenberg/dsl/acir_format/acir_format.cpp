@@ -636,6 +636,39 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
     return builder;
 };
 
+// Explicit instantiation for MegaCircuitBuilder with the second overload
+template <>
+MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
+                                  bool recursive,
+                                  const size_t size_hint,
+                                  const WitnessVector& witness,
+                                  uint32_t honk_recursion,
+                                  std::shared_ptr<ECCOpQueue> op_queue,
+                                  bool collect_gates_per_opcode)
+{
+    PROFILE_THIS();
+    using Builder = MegaCircuitBuilder;
+
+    // MegaCircuitBuilder requires an op_queue, if not provided create one
+    if (!op_queue) {
+        op_queue = std::make_shared<ECCOpQueue>();
+    }
+
+    // Use the constructor that takes op_queue, witness, public_inputs, and varnum
+    Builder builder{ op_queue, witness, constraint_system.public_inputs, constraint_system.varnum };
+
+    AcirProgram program{ constraint_system, witness };
+    const ProgramMetadata metadata{ .recursive = recursive,
+                                    .honk_recursion = honk_recursion,
+                                    .collect_gates_per_opcode = collect_gates_per_opcode,
+                                    .size_hint = size_hint };
+    build_constraints(builder, program, metadata);
+
+    vinfo("created circuit");
+
+    return builder;
+};
+
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
 
 } // namespace acir_format

@@ -42,7 +42,7 @@ template <msgpack_concepts::HasMsgPack T> struct pack<T> {
                 static_assert(msgpack_concepts::MsgpackConstructible<T, decltype(value_args)...>,
                               "T requires a constructor that can take the fields listed in MSGPACK_FIELDS (T will be "
                               "in template parameters in the compiler stack trace)"
-                              "Check the MSGPACK_FIELDS macro usage in T for incompleteness or wrong order."
+                              "Check the MSGPACK_FIELDS macro usage in T for incompleteness or wrong order. "
                               "Alternatively, a matching member initializer constructor might not be available for T "
                               "and should be defined.");
             };

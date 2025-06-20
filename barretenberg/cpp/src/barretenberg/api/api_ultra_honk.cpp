@@ -3,6 +3,7 @@
 #include "barretenberg/api/acir_format_getters.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/gate_count.hpp"
+#include "barretenberg/api/proving_helpers.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -53,7 +54,7 @@ std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::stri
     auto bytecode = read_file(bytecode_path);
     auto witness = witness_path.empty() ? std::vector<uint8_t>{} : read_file(witness_path);
 
-    auto pk_result = compute_proving_key_from_bytecode<Flavor>(bytecode, witness);
+    auto pk_result = compute_proving_key_from_bytecode<Flavor>(std::move(bytecode), std::move(witness));
     if (pk_result.is_error()) {
         throw_or_abort(pk_result.error_message);
     }
@@ -62,12 +63,12 @@ std::shared_ptr<DeciderProvingKey_<Flavor>> _compute_proving_key(const std::stri
 }
 
 template <typename Flavor>
-PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(const std::filesystem::path& bytecode_path,
-                                                                   const std::filesystem::path& witness_path)
+PubInputsProofAndKey<typename Flavor::VerificationKey> _compute_vk(
+    const std::filesystem::path& bytecode_path, [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     auto bytecode = read_file(bytecode_path);
 
-    auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+    auto vk_result = compute_vk_from_bytecode<Flavor>(std::move(bytecode));
     if (vk_result.is_error()) {
         throw_or_abort(vk_result.error_message);
     }
@@ -89,7 +90,7 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
         info("WARNING: computing verification key while proving. Pass in a precomputed vk for better performance.");
     }
 
-    auto proof_result = prove_from_bytecode<Flavor>(bytecode, witness, vk_data);
+    auto proof_result = prove_from_bytecode<Flavor>(std::move(bytecode), std::move(witness), std::move(vk_data));
     if (proof_result.is_error()) {
         throw_or_abort(proof_result.error_message);
     }
@@ -97,14 +98,15 @@ PubInputsProofAndKey<typename Flavor::VerificationKey> _prove(const bool compute
     // Get the verification key for the response
     std::shared_ptr<typename Flavor::VerificationKey> vk;
     if (compute_vk) {
-        auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+        auto bytecode_copy = read_file(bytecode_path);
+        auto vk_result = compute_vk_from_bytecode<Flavor>(std::move(bytecode_copy));
         if (vk_result.is_error()) {
             throw_or_abort(vk_result.error_message);
         }
         vk = vk_result.value;
     } else {
         using VerificationKey = typename Flavor::VerificationKey;
-        vk = std::make_shared<VerificationKey>(from_buffer<typename VerificationKey::BareData>(vk_data));
+        vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_data));
     }
 
     return { proof_result.value.public_inputs, proof_result.value.proof, vk };
@@ -126,7 +128,7 @@ bool _verify(const bool ipa_accumulation,
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buffer));
 
     // Use verify_proof from proving_helpers.hpp
-    auto result = bb::verify_proof<Flavor>(vk, public_inputs, proof, ipa_accumulation);
+    auto result = verify_proof<Flavor>(vk, public_inputs, proof, ipa_accumulation);
     if (result.is_error()) {
         throw_or_abort(result.error_message);
     }
@@ -277,20 +279,20 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
                                        const std::string& witness_path,
                                        const std::string& output_path)
 {
-    using VerificationKey = typename Flavor::VerificationKey;
     using FF = typename Flavor::FF;
 
     // Use proving_helpers to generate the proof
     auto bytecode = read_file(bytecode_path);
     auto witness = read_file(witness_path);
 
-    auto proof_result = prove_from_bytecode<Flavor>(bytecode, witness);
+    auto proof_result = prove_from_bytecode<Flavor>(std::move(bytecode), std::move(witness));
     if (proof_result.is_error()) {
         throw_or_abort(proof_result.error_message);
     }
 
     // Get the verification key
-    auto vk_result = compute_vk_from_bytecode<Flavor>(bytecode);
+    auto bytecode_copy = read_file(bytecode_path);
+    auto vk_result = compute_vk_from_bytecode<Flavor>(std::move(bytecode_copy));
     if (vk_result.is_error()) {
         throw_or_abort(vk_result.error_message);
     }

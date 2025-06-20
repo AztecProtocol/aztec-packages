@@ -26,17 +26,20 @@ namespace bb {
 /**
  * @brief Result structure for proving operations
  */
-template <typename T> struct ProveResult {
+template <typename T> struct Result {
     T value;
     std::string error_message;
 
-    ProveResult(T&& val)
+    Result(T&& val)
         : value(std::move(val))
     {}
-    ProveResult(const char* error)
+    Result(const T& val)
+        : value(val)
+    {}
+    Result(const char* error)
         : error_message(error)
     {}
-    ProveResult(std::string&& error)
+    Result(std::string&& error)
         : error_message(std::move(error))
     {}
 
@@ -86,18 +89,18 @@ template <typename Flavor> constexpr uint32_t get_honk_recursion()
  * @brief Create a circuit from bytecode and witness buffers
  */
 template <typename Flavor>
-ProveResult<typename Flavor::CircuitBuilder> create_circuit_from_buffers(const std::vector<uint8_t>& bytecode,
-                                                                         const std::vector<uint8_t>& witness = {})
+Result<typename Flavor::CircuitBuilder> create_circuit_from_buffers(std::vector<uint8_t>&& bytecode,
+                                                                    std::vector<uint8_t>&& witness = {})
 {
     using Builder = typename Flavor::CircuitBuilder;
 
     // Parse bytecode
     acir_format::AcirProgram program;
-    program.constraints = acir_format::circuit_buf_to_acir_format(bytecode);
+    program.constraints = acir_format::circuit_buf_to_acir_format(std::move(bytecode));
 
     // Parse witness if provided
     if (!witness.empty()) {
-        program.witness = acir_format::witness_buf_to_witness_data(witness);
+        program.witness = acir_format::witness_buf_to_witness_data(std::move(witness));
     }
 
     // Create circuit
@@ -111,10 +114,10 @@ ProveResult<typename Flavor::CircuitBuilder> create_circuit_from_buffers(const s
  * @brief Create a proving key from in-memory circuit data
  */
 template <typename Flavor>
-ProveResult<std::shared_ptr<DeciderProvingKey_<Flavor>>> compute_proving_key_from_bytecode(
-    const std::vector<uint8_t>& bytecode, const std::vector<uint8_t>& witness)
+Result<std::shared_ptr<DeciderProvingKey_<Flavor>>> compute_proving_key_from_bytecode(std::vector<uint8_t>&& bytecode,
+                                                                                      std::vector<uint8_t>&& witness)
 {
-    auto circuit_result = create_circuit_from_buffers<Flavor>(bytecode, witness);
+    auto circuit_result = create_circuit_from_buffers<Flavor>(std::move(bytecode), std::move(witness));
     if (circuit_result.is_error()) {
         return { circuit_result.error_message.c_str() };
     }
@@ -169,12 +172,12 @@ PublicInputsAndProof generate_proof_from_keys(std::shared_ptr<DeciderProvingKey_
  * @return Result containing the proof and public inputs, or error
  */
 template <typename Flavor>
-ProveResult<PublicInputsAndProof> prove_from_bytecode(const std::vector<uint8_t>& bytecode,
-                                                      const std::vector<uint8_t>& witness,
-                                                      const std::vector<uint8_t>& vk_data = {})
+Result<PublicInputsAndProof> prove_from_bytecode(std::vector<uint8_t>&& bytecode,
+                                                 std::vector<uint8_t>&& witness,
+                                                 std::vector<uint8_t>&& vk_data = {})
 {
     // Create proving key
-    auto pk_result = compute_proving_key_from_bytecode<Flavor>(bytecode, witness);
+    auto pk_result = compute_proving_key_from_bytecode<Flavor>(std::move(bytecode), std::move(witness));
     if (pk_result.is_error()) {
         return { pk_result.error_message.c_str() };
     }
@@ -185,7 +188,7 @@ ProveResult<PublicInputsAndProof> prove_from_bytecode(const std::vector<uint8_t>
         vk = std::make_shared<typename Flavor::VerificationKey>(pk_result.value->proving_key);
     } else {
         using VerificationKey = typename Flavor::VerificationKey;
-        vk = std::make_shared<VerificationKey>(from_buffer<typename VerificationKey::BareData>(vk_data));
+        vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(std::move(vk_data)));
     }
 
     // Generate proof
@@ -201,8 +204,8 @@ struct ProofWithPublicInputs {
 };
 
 template <typename Flavor>
-ProveResult<ProofWithPublicInputs> extract_public_inputs_from_proof(const std::vector<uint8_t>& proof_buffer,
-                                                                    size_t num_public_inputs)
+Result<ProofWithPublicInputs> extract_public_inputs_from_proof(std::vector<uint8_t>&& proof_buffer,
+                                                               size_t num_public_inputs)
 {
     // Convert entire buffer to field elements
     HonkProof complete_proof = many_from_buffer<fr>(proof_buffer);
@@ -213,8 +216,9 @@ ProveResult<ProofWithPublicInputs> extract_public_inputs_from_proof(const std::v
     }
 
     // Split into public inputs and proof
-    PublicInputsVector public_inputs(complete_proof.begin(), complete_proof.begin() + num_public_inputs);
-    HonkProof proof(complete_proof.begin() + num_public_inputs, complete_proof.end());
+    PublicInputsVector public_inputs(complete_proof.begin(),
+                                     complete_proof.begin() + static_cast<std::ptrdiff_t>(num_public_inputs));
+    HonkProof proof(complete_proof.begin() + static_cast<std::ptrdiff_t>(num_public_inputs), complete_proof.end());
 
     return { ProofWithPublicInputs{ std::move(public_inputs), std::move(proof) } };
 }
@@ -230,10 +234,10 @@ ProveResult<ProofWithPublicInputs> extract_public_inputs_from_proof(const std::v
  * @return Result containing verification success or error
  */
 template <typename Flavor>
-ProveResult<bool> verify_proof(const std::shared_ptr<typename Flavor::VerificationKey>& vk,
-                               const PublicInputsVector& public_inputs,
-                               const HonkProof& proof,
-                               bool ipa_accumulation = false)
+Result<bool> verify_proof(const std::shared_ptr<typename Flavor::VerificationKey>& vk,
+                          const PublicInputsVector& public_inputs,
+                          const HonkProof& proof,
+                          bool ipa_accumulation = false)
 {
     using Verifier = UltraVerifier_<Flavor>;
 
@@ -267,12 +271,12 @@ ProveResult<bool> verify_proof(const std::shared_ptr<typename Flavor::Verificati
  * @brief Verify a proof from buffer with given verification key buffer
  */
 template <typename Flavor>
-ProveResult<bool> verify_proof_from_buffers(const std::vector<uint8_t>& vk_buffer,
-                                            const std::vector<uint8_t>& proof_buffer,
-                                            bool extract_public_inputs = true)
+Result<bool> verify_proof_from_buffers(std::vector<uint8_t>&& vk_buffer,
+                                       std::vector<uint8_t>&& proof_buffer,
+                                       bool extract_public_inputs = true)
 {
     using VerificationKey = typename Flavor::VerificationKey;
-    auto vk = std::make_shared<VerificationKey>(from_buffer<typename VerificationKey::BareData>(vk_buffer));
+    auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buffer));
 
     if (extract_public_inputs) {
         // Calculate the actual number of public inputs (accounting for special elements)
@@ -290,7 +294,7 @@ ProveResult<bool> verify_proof_from_buffers(const std::vector<uint8_t>& vk_buffe
             }
         }
 
-        auto proof_data = extract_public_inputs_from_proof<Flavor>(proof_buffer, num_public_inputs);
+        auto proof_data = extract_public_inputs_from_proof<Flavor>(std::move(proof_buffer), num_public_inputs);
         if (proof_data.is_error()) {
             return { proof_data.error_message.c_str() };
         }
@@ -299,7 +303,7 @@ ProveResult<bool> verify_proof_from_buffers(const std::vector<uint8_t>& vk_buffe
         return verify_proof<Flavor>(vk, proof_data.value.public_inputs, proof_data.value.proof, ipa_accumulation);
     } else {
         // Convert entire buffer to field elements
-        HonkProof proof = many_from_buffer<fr>(proof_buffer);
+        HonkProof proof = many_from_buffer<fr>(std::move(proof_buffer));
 
         using Verifier = UltraVerifier_<Flavor>;
         Verifier verifier{ vk };
@@ -316,10 +320,9 @@ ProveResult<bool> verify_proof_from_buffers(const std::vector<uint8_t>& vk_buffe
  * @return Result containing the verification key or error
  */
 template <typename Flavor>
-ProveResult<std::shared_ptr<typename Flavor::VerificationKey>> compute_vk_from_bytecode(
-    const std::vector<uint8_t>& bytecode)
+Result<std::shared_ptr<typename Flavor::VerificationKey>> compute_vk_from_bytecode(std::vector<uint8_t>&& bytecode)
 {
-    auto pk_result = compute_proving_key_from_bytecode<Flavor>(bytecode, {});
+    auto pk_result = compute_proving_key_from_bytecode<Flavor>(std::move(bytecode), std::vector<uint8_t>{});
     if (pk_result.is_error()) {
         return { pk_result.error_message.c_str() };
     }
@@ -330,10 +333,9 @@ ProveResult<std::shared_ptr<typename Flavor::VerificationKey>> compute_vk_from_b
 /**
  * @brief Check if a circuit is satisfied
  */
-template <typename Flavor>
-ProveResult<bool> check_circuit(const std::vector<uint8_t>& bytecode, const std::vector<uint8_t>& witness)
+template <typename Flavor> Result<bool> check_circuit(std::vector<uint8_t>&& bytecode, std::vector<uint8_t>&& witness)
 {
-    auto circuit_result = create_circuit_from_buffers<Flavor>(bytecode, witness);
+    auto circuit_result = create_circuit_from_buffers<Flavor>(std::move(bytecode), std::move(witness));
     if (circuit_result.is_error()) {
         return { circuit_result.error_message.c_str() };
     }
@@ -344,9 +346,9 @@ ProveResult<bool> check_circuit(const std::vector<uint8_t>& bytecode, const std:
 /**
  * @brief Get circuit gate count
  */
-template <typename Flavor> ProveResult<uint32_t> get_gate_count(const std::vector<uint8_t>& bytecode)
+template <typename Flavor> Result<uint32_t> get_gate_count(std::vector<uint8_t>&& bytecode)
 {
-    auto circuit_result = create_circuit_from_buffers<Flavor>(bytecode);
+    auto circuit_result = create_circuit_from_buffers<Flavor>(std::move(bytecode));
     if (circuit_result.is_error()) {
         return { circuit_result.error_message.c_str() };
     }
@@ -365,9 +367,9 @@ struct CircuitConstraintsInfo {
     size_t num_ipa_claims;
 };
 
-template <typename Flavor> ProveResult<CircuitConstraintsInfo> get_circuit_info(const std::vector<uint8_t>& bytecode)
+template <typename Flavor> Result<CircuitConstraintsInfo> get_circuit_info(std::vector<uint8_t>&& bytecode)
 {
-    auto circuit_result = create_circuit_from_buffers<Flavor>(bytecode);
+    auto circuit_result = create_circuit_from_buffers<Flavor>(std::move(bytecode));
     if (circuit_result.is_error()) {
         return { circuit_result.error_message.c_str() };
     }
@@ -379,7 +381,7 @@ template <typename Flavor> ProveResult<CircuitConstraintsInfo> get_circuit_info(
                                  .contains_ipa_claim = circuit.ipa_proof_public_input_indices.size() > 0,
                                  .num_ipa_claims = circuit.ipa_proof_public_input_indices.size() };
 
-    return { std::move(info) };
+    return { info };
 }
 
 } // namespace bb
