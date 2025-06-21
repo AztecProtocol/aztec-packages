@@ -947,6 +947,8 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
                 0,
             },
             ((i == num_limb_triples - 1) ? false : true));
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
+        // wire/variable in the circuit, in the last iteration of the loop.
         accumulator_idx = this->add_variable(new_accumulator);
         accumulator = new_accumulator;
     }
@@ -1681,7 +1683,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
  **/
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{
@@ -1882,7 +1884,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.lo_0));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.lo_0);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
         ++this->num_gates;
 
@@ -1890,11 +1892,11 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_2);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, static_cast<uint32_t>(input.hi_0));
+        blocks.aux.populate_wires(input.a[2], input.b[2], this->zero_idx, input.hi_0);
         apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_3);
         ++this->num_gates;
 
-        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, static_cast<uint32_t>(input.hi_1));
+        blocks.aux.populate_wires(input.a[1], input.b[1], this->zero_idx, input.hi_1);
         apply_aux_selectors(AUX_SELECTORS::NONE);
         ++this->num_gates;
     }
@@ -1910,7 +1912,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
 template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_native_field_multiplication(
-    const non_native_field_witnesses<FF>& input)
+    const non_native_partial_multiplication_witnesses<FF>& input)
 {
 
     std::array<fr, 4> a{

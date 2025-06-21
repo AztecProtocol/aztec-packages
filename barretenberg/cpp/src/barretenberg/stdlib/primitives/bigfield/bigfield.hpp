@@ -9,6 +9,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -567,6 +568,16 @@ template <typename Builder, typename T> class bigfield {
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
+
+    /**
+     * @brief Create an element which is equal to either this or other based on the predicate
+     *
+     * @tparam Builder
+     * @tparam T
+     * @param other The other bigfield element
+     * @param predicate Predicate controlling the result (0 for this, 1 for the other)
+     * @return Resulting element
+     */
     bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
     static bigfield conditional_assign(const bool_t<Builder>& predicate, const bigfield& lhs, const bigfield& rhs)
     {
@@ -587,9 +598,16 @@ template <typename Builder, typename T> class bigfield {
      *
      * @return true if the bigfield is constant, false otherwise.
      *
-     * TODO(https://github.com/AztecProtocol/aztec-packages/issues/14662): should we check if all limbs are constants?
+     * @details We use assertions to ensure that all limbs are consistent in their constant status.
      */
-    bool is_constant() const { return prime_basis_limb.witness_index == IS_CONSTANT; }
+    bool is_constant() const
+    {
+        ASSERT(binary_basis_limbs[0].element.is_constant() == binary_basis_limbs[1].element.is_constant() &&
+               binary_basis_limbs[1].element.is_constant() == binary_basis_limbs[2].element.is_constant() &&
+               binary_basis_limbs[2].element.is_constant() == binary_basis_limbs[3].element.is_constant() &&
+               binary_basis_limbs[3].element.is_constant() == prime_basis_limb.is_constant());
+        return prime_basis_limb.is_constant();
+    }
 
     /**
      * @brief Inverting function with the assumption that the bigfield element we are calling invert on is not zero.
@@ -890,6 +908,20 @@ template <typename Builder, typename T> class bigfield {
     static_assert(PROHIBITED_LIMB_BITS < MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW);
 
   private:
+    /**
+     * @brief Get the witness indices of the (normalized) binary basis limbs
+     *
+     * @return Witness indices of the binary basis limbs
+     */
+    std::array<uint32_t, NUM_LIMBS> get_binary_basis_limb_witness_indices() const
+    {
+        std::array<uint32_t, NUM_LIMBS> limb_witness_indices;
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            limb_witness_indices[i] = binary_basis_limbs[i].element.get_normalized_witness_index();
+        }
+        return limb_witness_indices;
+    }
+
     /**
      * @brief Compute the quotient and remainder values for dividing (a * b + (to_add[0] + ... + to_add[-1])) with p
      *
