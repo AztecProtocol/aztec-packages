@@ -10,7 +10,11 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <tuple>
+#include <utility>
 
 #include "../circuit_builders/circuit_builders.hpp"
 #include "bigfield.hpp"
@@ -521,108 +525,27 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
         return operator+(bigfield(ctx, uint256_t(neg_right.lo)));
     }
 
-    /**
-     * Plookup bigfield subtractoin
-     *
-     * We have a special addition gate we can toggle, that will compute: (w_1 + w_4 - w_4_omega + q_arith = 0)
-     * This is in addition to the regular addition gate
-     *
-     * We can arrange our wires in memory like this:
-     *
-     *   |  1  |  2  |  3  |  4  |
-     *   |-----|-----|-----|-----|
-     *   | b.p | a.0 | b.0 | c.p | (b.p + c.p - a.p = 0) AND (a.0 - b.0 - c.0 = 0)
-     *   | a.p | a.1 | b.1 | c.0 | (a.1 - b.1 - c.1 = 0)
-     *   | a.2 | b.2 | c.2 | c.1 | (a.2 - b.2 - c.2 = 0)
-     *   | a.3 | b.3 | c.3 | --- | (a.3 - b.3 - c.3 = 0)
-     *
-     **/
-
     bigfield result(ctx);
 
-    /**
-     * Step 1: For each limb compute the MAXIMUM value we will have to borrow from the next significant limb
-     *
-     * i.e. if we assume that `*this = 0` and `other = other.maximum_value`, how many bits do we need to borrow from
-     * the next significant limb to ensure each limb value is positive?
-     *
-     * N.B. for this segment `maximum_value` really refers to maximum NEGATIVE value of the result
-     **/
-    uint256_t limb_0_maximum_value = other.binary_basis_limbs[0].maximum_value;
-
-    // Compute maximum shift factor for limb_0
-    uint64_t limb_0_borrow_shift = std::max(limb_0_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-
-    // Compute the maximum negative value of limb_1, including the bits limb_0 may need to borrow
-    uint256_t limb_1_maximum_value =
-        other.binary_basis_limbs[1].maximum_value + (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS));
-
-    // repeat the above for the remaining limbs
-    uint64_t limb_1_borrow_shift = std::max(limb_1_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_2_maximum_value =
-        other.binary_basis_limbs[2].maximum_value + (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_2_borrow_shift = std::max(limb_2_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-
-    uint256_t limb_3_maximum_value =
-        other.binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    /**
-     * Step 2: Compute the constant value `X = m * p` we must add to the result to ensure EVERY limb is >= 0
-     *
-     * We need to find a value `X` where `X.limb[3] > limb_3_maximum_value`.
-     * As long as the above holds, we can borrow bits from X.limb[3] to ensure less significant limbs are positive
-     *
-     * Start by setting constant_to_add = p
-     **/
-    uint512_t constant_to_add = modulus_u512;
-    // add a large enough multiple of p to not get negative result in subtraction
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
-
-    /**
-     * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
-     *
-     * t3 represents the value we are BORROWING from constant_to_add.limb[3]
-     * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1],
-     *constant_to_add.limb[0]
-     *
-     * i.e. The net value we add to `constant_to_add` is 0. We must ensure that:
-     * t3 = t0 + (t1 << NUM_LIMB_BITS) + (t2 << NUM_LIMB_BITS * 2)
-     *
-     * e.g. the value we borrow to produce t0 is subtracted from t1,
-     *      the value we borrow from t1 is subtracted from t2
-     *      the value we borrow from t2 is equal to t3
-     **/
-    uint256_t t0(uint256_t(1) << limb_0_borrow_shift);
-    uint256_t t1((uint256_t(1) << limb_1_borrow_shift) - (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t2((uint256_t(1) << limb_2_borrow_shift) - (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t3(uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    /**
-     * Compute the limbs of `constant_to_add`, including our offset terms t0, t1, t2, t3 that ensure each result
-     *limb is positive
-     **/
-    uint256_t to_add_0 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS)) + t0;
-    uint256_t to_add_1 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)) + t1;
-    uint256_t to_add_2 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3)) + t2;
-    uint256_t to_add_3 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4)) - t3;
+    uint512_t constant_to_add = 0;
+    std::array<uint256_t, bigfield<Builder, T>::NUM_LIMBS> to_add_limbs{ 0, 0, 0, 0 };
+    std::tie(constant_to_add, to_add_limbs) = bigfield<Builder, T>::get_multiple_of_modulus_for_subtracting(other);
 
     /**
      * Update the maximum possible value of the result. We assume here that (*this.value) = 0
      **/
-    result.binary_basis_limbs[0].maximum_value = binary_basis_limbs[0].maximum_value + to_add_0;
-    result.binary_basis_limbs[1].maximum_value = binary_basis_limbs[1].maximum_value + to_add_1;
-    result.binary_basis_limbs[2].maximum_value = binary_basis_limbs[2].maximum_value + to_add_2;
-    result.binary_basis_limbs[3].maximum_value = binary_basis_limbs[3].maximum_value + to_add_3;
+    result.binary_basis_limbs[0].maximum_value = binary_basis_limbs[0].maximum_value + to_add_limbs[0];
+    result.binary_basis_limbs[1].maximum_value = binary_basis_limbs[1].maximum_value + to_add_limbs[1];
+    result.binary_basis_limbs[2].maximum_value = binary_basis_limbs[2].maximum_value + to_add_limbs[2];
+    result.binary_basis_limbs[3].maximum_value = binary_basis_limbs[3].maximum_value + to_add_limbs[3];
 
     /**
      * Compute the binary basis limbs of our result
      **/
-    result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + bb::fr(to_add_0);
-    result.binary_basis_limbs[1].element = binary_basis_limbs[1].element + bb::fr(to_add_1);
-    result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_2);
-    result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_3);
+    result.binary_basis_limbs[0].element = binary_basis_limbs[0].element + bb::fr(to_add_limbs[0]);
+    result.binary_basis_limbs[1].element = binary_basis_limbs[1].element + bb::fr(to_add_limbs[1]);
+    result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_limbs[2]);
+    result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_limbs[3]);
 
     if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
         !is_constant() && !other.is_constant()) {
@@ -1581,87 +1504,15 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     }
     reduction_check();
 
-    uint256_t limb_0_maximum_value = binary_basis_limbs[0].maximum_value;
-    uint64_t limb_0_borrow_shift = std::max(limb_0_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_1_maximum_value =
-        binary_basis_limbs[1].maximum_value + (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_1_borrow_shift = std::max(limb_1_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_2_maximum_value =
-        binary_basis_limbs[2].maximum_value + (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_2_borrow_shift = std::max(limb_2_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-
-    uint256_t limb_3_maximum_value =
-        binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    // uint256_t comparison_maximum = uint256_t(modulus_u512.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-    // uint256_t additive_term = comparison_maximum;
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14656): This is terribly inefficient. We should
-    // change it.
-    uint512_t constant_to_add = modulus_u512;
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
-
-    uint256_t t0(uint256_t(1) << limb_0_borrow_shift);
-    uint256_t t1((uint256_t(1) << limb_1_borrow_shift) - (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t2((uint256_t(1) << limb_2_borrow_shift) - (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t3(uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    uint256_t to_add_0_u256 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS));
-    uint256_t to_add_1_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2));
-    uint256_t to_add_2_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3));
-    uint256_t to_add_3_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-
-    bb::fr to_add_0(t0 + to_add_0_u256);
-    bb::fr to_add_1(t1 + to_add_1_u256);
-    bb::fr to_add_2(t2 + to_add_2_u256);
-    bb::fr to_add_3(to_add_3_u256 - t3);
-
-    // we either return current value if predicate is false, or (limb_i - value) if predicate is true
-    // (1 - predicate) * value + predicate * (limb_i - value)
-    // = predicate * (limb_i - 2 * value) + value
-    bb::fr two(2);
-
-    field_t limb_0 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[0].element * two) + to_add_0,
-                                                                   binary_basis_limbs[0].element);
-    field_t limb_1 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[1].element * two) + to_add_1,
-                                                                   binary_basis_limbs[1].element);
-    field_t limb_2 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[2].element * two) + to_add_2,
-                                                                   binary_basis_limbs[2].element);
-    field_t limb_3 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[3].element * two) + to_add_3,
-                                                                   binary_basis_limbs[3].element);
-
-    uint256_t maximum_negated_limb_0 = to_add_0_u256 + t0;
-    uint256_t maximum_negated_limb_1 = to_add_1_u256 + t1;
-    uint256_t maximum_negated_limb_2 = to_add_2_u256 + t2;
-    uint256_t maximum_negated_limb_3 = to_add_3_u256;
-
-    uint256_t max_limb_0 = binary_basis_limbs[0].maximum_value > maximum_negated_limb_0
-                               ? binary_basis_limbs[0].maximum_value
-                               : maximum_negated_limb_0;
-    uint256_t max_limb_1 = binary_basis_limbs[1].maximum_value > maximum_negated_limb_1
-                               ? binary_basis_limbs[1].maximum_value
-                               : maximum_negated_limb_1;
-    uint256_t max_limb_2 = binary_basis_limbs[2].maximum_value > maximum_negated_limb_2
-                               ? binary_basis_limbs[2].maximum_value
-                               : maximum_negated_limb_2;
-    uint256_t max_limb_3 = binary_basis_limbs[3].maximum_value > maximum_negated_limb_3
-                               ? binary_basis_limbs[3].maximum_value
-                               : maximum_negated_limb_3;
-
-    bigfield result(ctx);
-    result.binary_basis_limbs[0] = Limb(limb_0, max_limb_0);
-    result.binary_basis_limbs[1] = Limb(limb_1, max_limb_1);
-    result.binary_basis_limbs[2] = Limb(limb_2, max_limb_2);
-    result.binary_basis_limbs[3] = Limb(limb_3, max_limb_3);
-
-    uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
-    result.prime_basis_limb =
-        static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
-
-    result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
-
+    // We want to check:
+    // predicate = 1 ==> (0 - *this)
+    // predicate = 0 ==> *this
+    //
+    // We just use the conditional_assign method to do this as it costs the same number of gates as computing
+    // p * (0 - *this) + (1 - p) * (*this)
+    //
+    bigfield<Builder, T> negative_this = zero() - *this;
+    bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
     return result;
 }
 
@@ -2759,6 +2610,112 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
         return std::pair<bool, size_t>(true, 0);
     }
     return std::pair<bool, size_t>(false, num_quotient_bits);
+}
+
+template <typename Builder, typename T>
+std::pair<uint512_t, std::array<uint256_t, bigfield<Builder, T>::NUM_LIMBS>> bigfield<Builder, T>::
+    get_multiple_of_modulus_for_subtracting(const bigfield& to_subtract)
+{
+
+    /**
+     * We want to compute the maximum possible value `X = m * p` which must be added to `0 - to_subtract`
+     * to ensure each limb of the result is ALWAYS positive. Thus, we need to find m such that:
+     * X - to_subtract.maximum_value ≥ 0.
+     *
+     * Step 1: For each limb compute the MAXIMUM value we will have to borrow from the next significant limb.
+     *
+     * i.e. when computing `0 - to_subtract.maximum_value`, how many bits do we need to borrow from the
+     * next significant limb to ensure each limb value is positive?
+     *
+     */
+    const auto get_num_borrow_bits = [](const uint256_t& limb_maximum_value,
+                                        const uint64_t bits_borrowed_from_this_limb) {
+        uint256_t updated_limb_maximum_value = limb_maximum_value + (uint256_t(1) << bits_borrowed_from_this_limb);
+        uint64_t num_bits = updated_limb_maximum_value.get_msb() + 1;
+        uint64_t borrow_bits = (num_bits > NUM_LIMB_BITS) ? num_bits - NUM_LIMB_BITS : 0;
+        return borrow_bits;
+    };
+
+    // Compute the number of bits limb_0 will need to borrow from limb_1
+    uint64_t limb_0_borrow_bits = get_num_borrow_bits(to_subtract.binary_basis_limbs[0].maximum_value, 0);
+
+    // Compute the number of bits limb_1 will need to borrow from limb_2, including the bits borrowed from limb_0
+    uint64_t limb_1_borrow_bits =
+        get_num_borrow_bits(to_subtract.binary_basis_limbs[1].maximum_value, limb_0_borrow_bits);
+
+    // Compute the number of bits limb_2 will need to borrow from limb_3, including the bits borrowed from limb_1
+    uint64_t limb_2_borrow_bits =
+        get_num_borrow_bits(to_subtract.binary_basis_limbs[2].maximum_value, limb_1_borrow_bits);
+
+    // Compute the max value of limb_3, including the bits borrowed from limb_2
+    uint256_t limb_3_maximum_value =
+        to_subtract.binary_basis_limbs[3].maximum_value + (uint256_t(1) << limb_2_borrow_bits);
+
+    /**
+     * Step 2: Compute the constant value `X = m * p` we must add to the result to ensure EVERY limb is >= 0
+     *
+     * We need to find a value `X` where `X.limb[3] > limb_3_maximum_value`.
+     * As long as the above holds, we can borrow bits from X.limb[3] to ensure less significant limbs are positive
+     *
+     * Start by setting constant_to_add = p
+     **/
+    uint512_t constant_to_add = modulus_u512;
+    // add a large enough multiple of p to not get negative result in subtraction
+    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
+        constant_to_add += modulus_u512;
+    }
+
+    /**
+     * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
+     *
+     * t3 represents the value we are BORROWING from constant_to_add.limb[3]
+     * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1],
+     *constant_to_add.limb[0]
+     *
+     * i.e. The net value we add to `constant_to_add` is 0. We must ensure that:
+     * t3 = t0 + (t1 << NUM_LIMB_BITS) + (t2 << NUM_LIMB_BITS * 2)
+     *
+     * Borrow propagation table:
+     * ┌───────┬─────────────────────────────────┬──────────────────────────────────┐
+     * │ Limb  │ Value received FROM next limb   │ Value given TO previous limb     │
+     * ├───────┼─────────────────────────────────┼──────────────────────────────────┤
+     * │   0   │ 2^limb_0_borrow_bits            │ 0                                │
+     * │   1   │ 2^limb_1_borrow_bits            │ 2^limb_0_borrow_bits             │
+     * │   2   │ 2^limb_2_borrow_bits            │ 2^limb_1_borrow_bits             │
+     * │   3   │ 0                               │ 2^limb_2_borrow_bits             │
+     * └───────┴─────────────────────────────────┴──────────────────────────────────┘
+     *
+     * For each limb i, the net offset is:
+     * offset[i] = value_received_from_next_limb * 2^L - value_given_to_prev_limb
+     *
+     * The borrow chain ensures that:
+     * - Lower limbs receive enough value to stay positive during subtraction
+     * - Higher limbs provide the borrowed value by reducing their own value
+     * - The total value borrowed equals the total value lent (conservation)
+     *
+     **/
+    uint256_t one = uint256_t(1);
+    uint256_t t0 = (one << limb_0_borrow_bits) * shift_1;
+    uint256_t t1 = ((one << limb_1_borrow_bits) * shift_1 - (one << limb_0_borrow_bits));
+    uint256_t t2 = ((one << limb_2_borrow_bits) * shift_1 - (one << limb_1_borrow_bits));
+    uint256_t t3 = (one << limb_2_borrow_bits);
+
+    /**
+     * Compute the limbs of `constant_to_add`, including our offset terms t0, t1, t2, t3 that ensure each result
+     * limb is positive
+     **/
+    uint256_t to_add_0 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS)) + t0;
+    uint256_t to_add_1 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)) + t1;
+    uint256_t to_add_2 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3)) + t2;
+    uint256_t to_add_3 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4)) - t3;
+
+    constexpr size_t num_limbs = bigfield<Builder, T>::NUM_LIMBS;
+    std::array<uint256_t, num_limbs> constant_to_add_limbs;
+    constant_to_add_limbs[0] = to_add_0;
+    constant_to_add_limbs[1] = to_add_1;
+    constant_to_add_limbs[2] = to_add_2;
+    constant_to_add_limbs[3] = to_add_3;
+    return std::make_pair(constant_to_add, constant_to_add_limbs);
 }
 
 } // namespace bb::stdlib

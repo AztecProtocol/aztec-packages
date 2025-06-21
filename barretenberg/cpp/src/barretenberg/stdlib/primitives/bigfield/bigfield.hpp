@@ -566,6 +566,12 @@ template <typename Builder, typename T> class bigfield {
     bigfield div_without_denominator_check(const bigfield& denominator);
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
+    /**
+     * @brief Conditionally negate the bigfield element.
+     *
+     * @param predicate The condition to check.
+     * @return bigfield If predicate is true, return `-this`, otherwise return `this`.
+     */
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;
     bigfield conditional_select(const bigfield& other, const bool_t<Builder>& predicate) const;
     static bigfield conditional_assign(const bool_t<Builder>& predicate, const bigfield& lhs, const bigfield& rhs)
@@ -928,6 +934,9 @@ template <typename Builder, typename T> class bigfield {
                                                                const std::vector<bigfield>& to_add,
                                                                const std::vector<uint1024_t>& remainders_max = {
                                                                    DEFAULT_MAXIMUM_REMAINDER });
+
+    static std::pair<uint512_t, std::array<uint256_t, NUM_LIMBS>> get_multiple_of_modulus_for_subtracting(
+        const bigfield& to_subtract);
 
     /**
      * @brief Evaluate a multiply add identity with several added elements and several remainders
