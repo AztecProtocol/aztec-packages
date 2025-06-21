@@ -1,6 +1,6 @@
 ---
 title: Smart Contracts
-sidebar_position: 3
+sidebar_position: 0
 tags: [contracts]
 ---
 
