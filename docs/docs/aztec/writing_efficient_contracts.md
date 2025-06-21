@@ -108,23 +108,51 @@ comptime global TWO_POW_32: Field = 2.pow_32(16);
 }
 ```
 
-When comparing the flamegraph of the two functions, the inefficient shift example has a section of gates not present in the multiplicaton example. This difference equates to a saving of 60 gates.
+When comparing the flamegraph of the two functions, the inefficient shift example has a section of gates not present in the multiplication example. This difference equates to a saving of 60 gates.
 
-In the same vein bitwise `AND`/`OR`, and comparisons `>`/`<` are expensive. Try avoid these in your circuits.
-For example, you can use `&` for boolean comparison effectively, and avoid using `<`:
+In the same vein bitwise `AND`/`OR`, and inequality relational operators (`>`, `<`) are expensive. Try avoid these in your circuits.
+
+For example, use boolean equality effectively instead of `>=`:
+
 
 ```rust
 {
     #[private]
-    fn design_comparison() {
+    fn sum_from_inefficient(from: u32, array: [u32; 1000]) -> u32 {
+        let mut sum: u32 = 0;
+        for i in 0..1000 {
+            if i >= from { // condition based on `>=` each time (higher gate count)
+                sum += array[i];
+            }
+        }
+        sum
+    } // 44317 gates
 
-    }
     #[private]
-    fn design_() {
-
-    }
+    fn sum_from_efficient(from: u32, array: [u32; 1000]) -> u32 {
+        let mut sum: u32 = 0;
+        let mut do_sum = false;
+        for i in 0..1000 {
+            if i == from { // latches boolean at transition (equality comparison)
+                do_sum = true;
+            }
+            if do_sum { // condition based on boolean true (lower gate count)
+                sum += array[i];
+            }
+        }
+        sum
+    } // 45068 gates (751 gates less)
 }
 ```
+
+So for a loop of 1000 iterations, 751 gates were saved by:
+- Adding an equivalence check and a boolean assignment
+- Replacing `>=` with a boolean equivalence check
+
+:::note Difference with Rust
+Such designs with boolean flags lend themselves well into logical comparisons too since `&&` and `||` do not exist. With booleans, using `&` and `|` can give you the required logic efficiently. For more points specific to the Noir language, see [this](https://noir-lang.org/docs/explainers/explainer-writing-noir#translating-from-rust) section.
+
+:::
 
 ### Optimization: Loop design
 
@@ -205,7 +233,7 @@ Note: this is largely a factor of the loop size choice based on the maximum size
 
 #### Example - sorting an array
 
-Like with sqrt, we have the inefficent function that does the sort with constrained operations, and the efficient function that uses the unconstrained sort function then constrains the result.
+Like with sqrt, we have the inefficient function that does the sort with constrained operations, and the efficient function that uses the unconstrained sort function then constrains the result.
 
 ```rust
 //...
