@@ -13,7 +13,6 @@
  * simplify the codebase.
  */
 
-#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
@@ -56,8 +55,7 @@ template <class Curve> class CommitmentKey {
     }
 
   public:
-    scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
-    std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
+    scalar_multiplication::PippengerReference<Curve> pippenger_runtime_state;
     std::shared_ptr<srs::factories::Crs<Curve>> srs;
     size_t dyadic_size;
 
@@ -72,8 +70,7 @@ template <class Curve> class CommitmentKey {
      */
     CommitmentKey(const size_t num_points)
         : pippenger_runtime_state(get_num_needed_srs_points(num_points))
-        , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_crs(get_num_needed_srs_points(num_points)))
+        , srs(srs::get_crs_factory<Curve>()->get_crs(get_num_needed_srs_points(num_points)))
         , dyadic_size(get_num_needed_srs_points(num_points))
     {}
 
@@ -115,10 +112,8 @@ template <class Curve> class CommitmentKey {
         // with our polynomial span.
 
         std::span<G1> point_table = srs->get_monomial_points().subspan(actual_start_index * 2);
-        DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state);
-        DEBUG_LOG(point);
+            { relative_start_index, polynomial.span }, point_table, pippenger_runtime_state.get());
         return point;
     };
 
@@ -189,7 +184,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state.get());
     }
 
     /**
@@ -252,7 +247,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call pippenger
-        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>({ 0, scalars }, points, pippenger_runtime_state.get());
     }
 
     /**
