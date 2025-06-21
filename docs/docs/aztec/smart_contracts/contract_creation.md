@@ -4,11 +4,11 @@ sidebar_position: 1
 tags: [contracts, protocol]
 ---
 
-In the Aztec protocol, contracts are deployed as _instances_ of contract _classes_. The deployment process consists of two main steps: first registering the contract _class_ (if not already registered), and then creating a contract _instance_ that references this class.
+In the Aztec protocol, contracts are deployed as _instances_ of contract _classes_. The deployment process consists of two main steps: first, registering the contract _class_ (if not already registered), and then creating a contract _instance_ that references this class.
 
 ## Contract Classes
 
-A contract class is a collection of state variable declarations, and related private, public and utility functions. Contract classes don't have state, they just define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
+A contract class is a collection of state variable declarations and related private, public, and utility functions. Contract classes don't have state, they define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
 
 ### Key Benefits of Contract Classes
 
@@ -22,7 +22,7 @@ A contract class includes:
 - `private_functions`: List of individual private functions, including constructors
 - `packed_public_bytecode`: Packed bytecode representation of the AVM bytecode for all public functions
 
-The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
+The protocol does not enforce the specification of the artifact hash. It should include commitments to the utility functions code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
 
 ### Contract Class Registration
 
@@ -55,7 +55,7 @@ The address of a contract instance is computed as the hash of the elements in it
 
 Aztec makes an important distinction between initialization and public deployment:
 
-1. **Initialization**: A contract instance is considered Initialized once it emits an initialization nullifier, meaning it can only be initialized once. The default state for any address is to be uninitialized. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function doesn't assert that the contract has been initialized.
+1. **Initialization**: A contract instance is considered initialized once it emits an initialization nullifier, meaning it can only be initialized once. The default state for any address is to be uninitialized. A user who knows the preimage of the address can still issue a private call into a function in the contract, as long as that function doesn't assert that the contract has been initialized.
 2. **Public Deployment**: A Contract Instance is considered to be publicly deployed when it has been broadcast to the network via a canonical `ContractInstanceDeployer` contract, which also emits a deployment nullifier. All public function calls to an undeployed address must fail, since the contract class for it is not known to the network.
 
 ### Initialization
