@@ -27,7 +27,9 @@ bool circuit_should_fail = false;
 #include "barretenberg/common/fuzzer.hpp"
 
 // #define SHOW_INFORMATION
-#define DISABLE_MULTIPLICATION
+
+// #define DISABLE_MULTIPLICATION
+// #define DISABLE_BATCH_MUL
 
 #ifdef SHOW_INFORMATION
 #define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
@@ -51,8 +53,8 @@ bool circuit_should_fail = false;
 
 FastRandom VarianceRNG(0);
 
-#define MINIMUM_MUL_ELEMENTS 0
-#define MAXIMUM_MUL_ELEMENTS 8
+constexpr size_t MINIMUM_MUL_ELEMENTS = 0;
+constexpr size_t MAXIMUM_MUL_ELEMENTS = 8;
 
 // This is an external function in Libfuzzer used internally by custom mutators
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
@@ -91,6 +93,8 @@ template <typename Builder> class CycleGroupBase {
             DBL,
 #ifndef DISABLE_MULTIPLICATION
             MULTIPLY,
+#endif
+#ifndef DISABLE_BATCH_MUL
             BATCH_MUL,
 #endif
             RANDOMSEED,
@@ -232,9 +236,18 @@ template <typename Builder> class CycleGroupBase {
                          .arguments.mulArgs.scalar = ScalarField(Instruction::fast_log_distributed_uint256(rng)),
                          .arguments.mulArgs.in = in,
                          .arguments.mulArgs.out = out };
+#endif
+#ifndef DISABLE_BATCH_MUL
             case OPCODE::BATCH_MUL: {
-                uint8_t mult_size = MINIMUM_MUL_ELEMENTS +
-                                    static_cast<uint8_t>(rng.next() % (MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS));
+                uint8_t mult_size0 =
+                    MINIMUM_MUL_ELEMENTS +
+                    static_cast<uint8_t>(rng.next() % ((MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS) / 2));
+                uint8_t mult_size1 =
+                    MINIMUM_MUL_ELEMENTS +
+                    static_cast<uint8_t>(rng.next() % ((MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS) / 2));
+                uint8_t mult_size =
+                    mult_size0 +
+                    mult_size1; // Sample the amount of batch mul participants from the binomial distribution
                 instr.id = instruction_opcode;
                 instr.arguments.batchMulArgs.add_elements_count = mult_size;
                 for (size_t i = 0; i < mult_size; i++) {
@@ -544,12 +557,19 @@ template <typename Builder> class CycleGroupBase {
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.fourArgs.in3);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.fourArgs.out);
                 break;
-#ifndef DISABLE_MULTIPLICATION
+#ifndef DISABLE_BATCH_MUL
             case OPCODE::BATCH_MUL:
                 if (rng.next() & 1) {
-                    instruction.arguments.batchMulArgs.add_elements_count =
+                    uint8_t mult_size0 =
                         MINIMUM_MUL_ELEMENTS +
-                        static_cast<uint8_t>(rng.next() % (MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS));
+                        static_cast<uint8_t>(rng.next() % ((MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS) / 2));
+                    uint8_t mult_size1 =
+                        MINIMUM_MUL_ELEMENTS +
+                        static_cast<uint8_t>(rng.next() % ((MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS) / 2));
+                    uint8_t mult_size =
+                        mult_size0 +
+                        mult_size1; // Sample the amount of batch mul participants from the binomial distribution
+                    instruction.arguments.batchMulArgs.add_elements_count = mult_size;
                 }
                 if (instruction.arguments.batchMulArgs.add_elements_count && (rng.next() & 1)) {
                     size_t mut_count =
@@ -600,6 +620,8 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t COND_ASSIGN = 4;
 #ifndef DISABLE_MULTIPLICATION
         static constexpr size_t MULTIPLY = sizeof(typename Instruction::MulArgs);
+#endif
+#ifndef DISABLE_BATCH_MUL
         static constexpr size_t BATCH_MUL = sizeof(typename Instruction::BatchMulArgs);
 #endif
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
@@ -630,7 +652,7 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t SET_INF = 2;
 
-#ifndef DISABLE_MULTIPLICATION
+#ifndef DISABLE_BATCH_MUL
         static constexpr size_t BATCH_MUL = 4;
 #endif
         static constexpr size_t _LIMIT = 64;
@@ -682,9 +704,25 @@ template <typename Builder> class CycleGroupBase {
                 instr.arguments.mulArgs.out = *(Data + 1);
                 instr.arguments.mulArgs.scalar = ScalarField::serialize_from_buffer(Data + 2);
                 break;
-            case Instruction::OPCODE::BATCH_MUL:
-                memcpy(&instr.arguments.batchMulArgs, Data, sizeof(typename Instruction::BatchMulArgs));
-                break;
+#endif
+#ifndef DISABLE_BATCH_MUL
+            case Instruction::OPCODE::BATCH_MUL: {
+                // In case of LLVM native instruction mutator
+                instr.arguments.batchMulArgs.add_elements_count = *Data % MAXIMUM_MUL_ELEMENTS;
+                if (instr.arguments.batchMulArgs.add_elements_count < MINIMUM_MUL_ELEMENTS) {
+                    instr.arguments.batchMulArgs.add_elements_count = MINIMUM_MUL_ELEMENTS;
+                }
+                instr.arguments.batchMulArgs.output_index = *(Data + 1);
+
+                size_t n = instr.arguments.batchMulArgs.add_elements_count;
+                memcpy(instr.arguments.batchMulArgs.inputs, Data + 2, n);
+
+                size_t offset = n + 2;
+                for (size_t i = 0; i < n; i++) {
+                    instr.arguments.batchMulArgs.scalars[i] = ScalarField::serialize_from_buffer(Data + offset);
+                    offset += sizeof(ScalarField);
+                }
+            }
 #endif
             case Instruction::OPCODE::RANDOMSEED:
                 memcpy(&instr.arguments.randomseed, Data, sizeof(uint32_t));
@@ -710,7 +748,7 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::WITNESS:
             case Instruction::OPCODE::CONSTANT_WITNESS:
                 ScalarField::serialize_to_buffer(instruction.arguments.element.scalar, Data + 1);
-                return;
+                break;
             case Instruction::OPCODE::DBL:
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
@@ -718,35 +756,49 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::SET_INF:
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;
-                return;
+                break;
             case Instruction::OPCODE::ADD:
             case Instruction::OPCODE::SUBTRACT:
                 *(Data + 1) = instruction.arguments.threeArgs.in1;
                 *(Data + 2) = instruction.arguments.threeArgs.in2;
                 *(Data + 3) = instruction.arguments.threeArgs.out;
-                return;
+                break;
             case Instruction::OPCODE::COND_ASSIGN:
                 *(Data + 1) = instruction.arguments.fourArgs.in1;
                 *(Data + 2) = instruction.arguments.fourArgs.in2;
                 *(Data + 3) = instruction.arguments.fourArgs.in3;
                 *(Data + 4) = instruction.arguments.fourArgs.out;
-                return;
+                break;
 #ifndef DISABLE_MULTIPLICATION
             case Instruction::OPCODE::MULTIPLY:
                 *(Data + 1) = instruction.arguments.mulArgs.in;
                 *(Data + 2) = instruction.arguments.mulArgs.out;
                 ScalarField::serialize_to_buffer(instruction.arguments.mulArgs.scalar, Data + 3);
-                return;
-            case Instruction::OPCODE::BATCH_MUL:
-                memcpy(Data + 1, &instruction.arguments.batchMulArgs, sizeof(typename Instruction::BatchMulArgs));
-                return;
+                break;
+#endif
+#ifndef DISABLE_BATCH_MUL
+            case Instruction::OPCODE::BATCH_MUL: {
+                *(Data + 1) = instruction.arguments.batchMulArgs.add_elements_count;
+                *(Data + 2) = instruction.arguments.batchMulArgs.output_index;
+
+                size_t n = instruction.arguments.batchMulArgs.add_elements_count;
+
+                memcpy(Data + 3, instruction.arguments.batchMulArgs.inputs, n);
+                size_t offset = n + 3;
+                for (size_t i = 0; i < n; i++) {
+                    ScalarField::serialize_to_buffer(instruction.arguments.batchMulArgs.scalars[i], Data + offset);
+                    offset += sizeof(ScalarField);
+                }
+                break;
+            }
 #endif
             case Instruction::OPCODE::RANDOMSEED:
                 memcpy(Data + 1, &instruction.arguments.randomseed, sizeof(uint32_t));
-                return;
+                break;
             default:
                 abort(); // We missed some instructions in switch
             }
+            return;
         };
     };
     /**
@@ -961,9 +1013,9 @@ template <typename Builder> class CycleGroupBase {
             bool is_witness = VarianceRNG.next() & 1;
 #ifdef SHOW_INFORMATION
             std::cout << " * cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
-                      << multiplier << "\");";
+                      << multiplier << "\"));";
 #endif
-            auto scalar = is_witness ? cycle_scalar_t(multiplier) : cycle_scalar_t::from_witness(builder, multiplier);
+            auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, multiplier) : cycle_scalar_t(multiplier);
             return ExecutionHandler(this->base_scalar * multiplier, this->base * multiplier, this->cg() * scalar);
         }
 
@@ -985,7 +1037,7 @@ template <typename Builder> class CycleGroupBase {
                 bool is_witness = VarianceRNG.next() & 1;
 #ifdef SHOW_INFORMATION
                 std::cout << "cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
-                          << to_mul[i] << "\"), ";
+                          << to_mul[i] << "\")), ";
 #endif
                 auto scalar = is_witness ? cycle_scalar_t(to_mul[i]) : cycle_scalar_t::from_witness(builder, to_mul[i]);
                 to_mul_cs.push_back(scalar);
@@ -994,7 +1046,9 @@ template <typename Builder> class CycleGroupBase {
                 accumulator_cs += to_add[i].base_scalar * to_mul[i];
             }
             accumulator_cg -= GroupElement::one();
-            return ExecutionHandler(accumulator_cs, accumulator_cg, cycle_group_t::batch_mul(to_add_cg, to_mul_cs));
+
+            auto batch_mul_res = cycle_group_t::batch_mul(to_add_cg, to_mul_cs);
+            return ExecutionHandler(accumulator_cs, accumulator_cg, batch_mul_res);
         }
 
         ExecutionHandler operator-()
@@ -1493,28 +1547,30 @@ template <typename Builder> class CycleGroupBase {
                 return 1;
             }
             std::vector<ExecutionHandler> to_add;
-            std::vector<ScalarField> to_mul = instruction.batchMulArgs.scalars;
+            std::vector<ScalarField> to_mul;
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                 to_add.push_back(stack[(size_t)instruction.arguments.batchMulArgs.inputs[i] % stack.size()]);
+                to_mul.push_back(instruction.arguments.batchMulArgs.scalars[i]);
             }
-            size_t output_index = (size_t)instruction.arguments.multOpArgs.output_index;
+            size_t output_index = (size_t)instruction.arguments.batchMulArgs.output_index;
 
 #ifdef SHOW_INFORMATION
             std::string res = "";
             bool is_const = true;
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                 size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
-                std::string el = stack[idx].is_constant() ? "c" : "w";
+                std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
                 el += std::to_string(idx);
                 res += el + ", ";
-                is_const &= stack[idx].is_constant();
+                is_const &= stack[idx].cycle_group.is_constant();
             }
             std::string out = is_const ? "c" : "w";
-            out = (output_index >= stack.size()) ? "auto " : "" + out;
+            out = ((output_index >= stack.size()) ? "auto " : "") + out;
             out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
             std::cout << out << " = cycle_group_t::batch_mul({" << res << "}, {";
 #endif
             auto result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
+
 #ifdef SHOW_INFORMATION
             std::cout << "});" << std::endl;
 #endif
@@ -1582,8 +1638,8 @@ template <typename Builder> class CycleGroupBase {
             fake_standardized &= element.cycle_group.is_point_at_infinity().get_value();
             fake_standardized &= (element.cycle_group.x.get_value() != 0) || (element.cycle_group.y.get_value() != 0);
             if (fake_standardized) {
-                std::cerr << "Failed at " << i << " with value claimed to be standard((0, 0)) but the actual value is {"
-                          << element.cycle_group.x.get_value() << ", " << element.cycle_group.y.get_value() << "}"
+                std::cerr << "Failed at " << i << " with value claimed to be standard: (0, 0) but the actual value is ("
+                          << element.cycle_group.x.get_value() << ", " << element.cycle_group.y.get_value() << ")"
                           << std::endl;
                 return false;
             }
