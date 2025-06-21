@@ -34,6 +34,7 @@ const k8sLocalConfigSchema = z.object({
   AZTEC_SLOT_DURATION: z.coerce.number().min(1, 'AZTEC_SLOT_DURATION env variable must be set'),
   AZTEC_EPOCH_DURATION: z.coerce.number().min(1, 'AZTEC_EPOCH_DURATION env variable must be set'),
   AZTEC_PROOF_SUBMISSION_WINDOW: z.coerce.number().min(1, 'AZTEC_PROOF_SUBMISSION_WINDOW env variable must be set'),
+  AZTEC_REAL_PROOFS: z.string().default('false'),
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
@@ -56,6 +57,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
   K8S: z.literal('gcloud'),
   CLUSTER_NAME: z.string().min(1, 'CLUSTER_NAME env variable must be set'),
   REGION: z.string().min(1, 'REGION env variable must be set'),
+  PROJECT_ID: z.string().min(1, 'PROJECT_ID env variable must be set'),
 });
 
 const directConfigSchema = z.object({
@@ -84,7 +86,7 @@ export function isGCloudConfig(config: EnvConfig): config is K8sGCloudConfig {
 export function setupEnvironment(env: unknown): EnvConfig {
   const config = envSchema.parse(env);
   if (isGCloudConfig(config)) {
-    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION}`;
+    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION} --project=${config.PROJECT_ID}`;
     execSync(command);
   }
   return config;
@@ -233,12 +235,14 @@ export async function deleteResourceByLabel({
   resource,
   namespace,
   label,
+  timeout = '5m',
 }: {
   resource: string;
   namespace: string;
   label: string;
+  timeout?: string;
 }) {
-  const command = `kubectl delete ${resource} -l ${label} -n ${namespace} --ignore-not-found=true --wait=true`;
+  const command = `kubectl delete ${resource} -l ${label} -n ${namespace} --ignore-not-found=true --wait=true --timeout=${timeout}`;
   logger.info(`command: ${command}`);
   const { stdout } = await execAsync(command);
   return stdout;

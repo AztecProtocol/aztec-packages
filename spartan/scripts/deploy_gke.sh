@@ -31,16 +31,7 @@ install_timeout=${INSTALL_TIMEOUT:-30m}
 overrides="${OVERRIDES:-}"
 resources_file="${RESOURCES_FILE:-default.yaml}"
 
-if ! docker_has_image "aztecprotocol/aztec:$aztec_docker_tag"; then
-  echo "Aztec Docker image not found. It needs to be built."
-  exit 1
-fi
 
-# Switch to a KIND cluster (will also pull in necessary dependencies)
-../bootstrap.sh kind
-
-# Load the Docker image into kind
-flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
 # Start the deployment monitor in background
 ./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
@@ -67,10 +58,10 @@ function generate_overrides {
 }
 
 # if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "$chaos_values" ]; then
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
-fi
+# if [ -z "$chaos_values" ]; then
+#   echo "Deleting existing network chaos experiments..."
+#   kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
+# fi
 
 # Initialize Helm set arguments
 helm_set_args=(
