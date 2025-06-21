@@ -1,0 +1,6 @@
+dependencies:
+- name: aztec-node
+  repository: ""
+  version: 0.1.0
+digest: sha256:3bf62f61f0249c0b01785af1d179b8d8b173e35dab496497900675d8d2a600ee
+generated: "2025-06-09T16:01:11.090038532Z"
