@@ -10,7 +10,8 @@ void NoteHashTreeCheck::assert_read(const FF& note_hash,
                                     const AppendOnlyTreeSnapshot& snapshot)
 {
     merkle_check.assert_membership(note_hash, leaf_index, sibling_path, snapshot.root);
-    events.emit(NoteHashTreeCheckEvent{ .note_hash = note_hash, .leaf_index = leaf_index, .prev_snapshot = snapshot });
+    events.emit(
+        NoteHashTreeReadWriteEvent{ .note_hash = note_hash, .leaf_index = leaf_index, .prev_snapshot = snapshot });
 }
 
 FF NoteHashTreeCheck::make_siloed(AztecAddress contract_address, const FF& note_hash) const
@@ -92,15 +93,15 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
         .root = next_root,
         .nextAvailableLeafIndex = prev_snapshot.nextAvailableLeafIndex + 1,
     };
-    events.emit(NoteHashTreeCheckEvent{ .note_hash = original_note_hash,
-                                        .leaf_index = prev_snapshot.nextAvailableLeafIndex,
-                                        .prev_snapshot = prev_snapshot,
-                                        .append_data = NoteHashAppendData{
-                                            .siloing_data = siloing_data,
-                                            .uniqueness_data = uniqueness_data,
-                                            .note_hash_counter = note_hash_counter,
-                                            .next_snapshot = next_snapshot,
-                                        } });
+    events.emit(NoteHashTreeReadWriteEvent{ .note_hash = original_note_hash,
+                                            .leaf_index = prev_snapshot.nextAvailableLeafIndex,
+                                            .prev_snapshot = prev_snapshot,
+                                            .append_data = NoteHashAppendData{
+                                                .siloing_data = siloing_data,
+                                                .uniqueness_data = uniqueness_data,
+                                                .note_hash_counter = note_hash_counter,
+                                                .next_snapshot = next_snapshot,
+                                            } });
     return next_snapshot;
 }
 

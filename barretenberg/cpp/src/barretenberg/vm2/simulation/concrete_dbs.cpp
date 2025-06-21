@@ -184,16 +184,25 @@ void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_created();
+    }
 }
 
 void MerkleDB::commit_checkpoint()
 {
     raw_merkle_db.commit_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_committed();
+    }
 }
 
 void MerkleDB::revert_checkpoint()
 {
     raw_merkle_db.revert_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_reverted();
+    }
 }
 
 } // namespace bb::avm2::simulation

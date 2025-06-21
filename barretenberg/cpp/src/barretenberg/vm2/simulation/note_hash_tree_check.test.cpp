@@ -44,7 +44,7 @@ TEST(AvmSimulationNoteHashTree, Read)
 
     note_hash_tree_check.assert_read(note_hash, leaf_index, sibling_path, snapshot);
 
-    NoteHashTreeCheckEvent expect_event = {
+    NoteHashTreeReadWriteEvent expect_event = {
         .note_hash = note_hash,
         .leaf_index = leaf_index,
         .prev_snapshot = snapshot,
@@ -76,13 +76,13 @@ TEST(AvmSimulationNoteHashTree, WriteUnique)
         note_hash_tree_check.append_unique_note_hash(note_hash, note_hash_counter, sibling_path, snapshot);
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
-    NoteHashTreeCheckEvent expect_event = { .note_hash = note_hash,
-                                            .leaf_index = snapshot.nextAvailableLeafIndex,
-                                            .prev_snapshot = snapshot,
-                                            .append_data = NoteHashAppendData{
-                                                .note_hash_counter = note_hash_counter,
-                                                .next_snapshot = next_snapshot,
-                                            } };
+    NoteHashTreeReadWriteEvent expect_event = { .note_hash = note_hash,
+                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .prev_snapshot = snapshot,
+                                                .append_data = NoteHashAppendData{
+                                                    .note_hash_counter = note_hash_counter,
+                                                    .next_snapshot = next_snapshot,
+                                                } };
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
@@ -120,19 +120,19 @@ TEST(AvmSimulationNoteHashTree, WriteSiloed)
         note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, sibling_path, snapshot);
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
-    NoteHashTreeCheckEvent expect_event = { .note_hash = siloed_note_hash,
-                                            .leaf_index = snapshot.nextAvailableLeafIndex,
-                                            .prev_snapshot = snapshot,
-                                            .append_data = NoteHashAppendData{
-                                                .uniqueness_data =
-                                                    NoteHashUniquenessData{
-                                                        .nonce = nonce,
-                                                        .unique_note_hash = unique_note_hash,
-                                                        .first_nullifier = first_nullifier,
-                                                    },
-                                                .note_hash_counter = note_hash_counter,
-                                                .next_snapshot = next_snapshot,
-                                            } };
+    NoteHashTreeReadWriteEvent expect_event = { .note_hash = siloed_note_hash,
+                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .prev_snapshot = snapshot,
+                                                .append_data = NoteHashAppendData{
+                                                    .uniqueness_data =
+                                                        NoteHashUniquenessData{
+                                                            .nonce = nonce,
+                                                            .unique_note_hash = unique_note_hash,
+                                                            .first_nullifier = first_nullifier,
+                                                        },
+                                                    .note_hash_counter = note_hash_counter,
+                                                    .next_snapshot = next_snapshot,
+                                                } };
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 }
 
@@ -178,25 +178,43 @@ TEST(AvmSimulationNoteHashTree, WriteRaw)
         raw_note_hash, contract_address, note_hash_counter, sibling_path, snapshot);
 
     EXPECT_EQ(next_snapshot.nextAvailableLeafIndex, snapshot.nextAvailableLeafIndex + 1);
-    NoteHashTreeCheckEvent expect_event = { .note_hash = raw_note_hash,
-                                            .leaf_index = snapshot.nextAvailableLeafIndex,
-                                            .prev_snapshot = snapshot,
-                                            .append_data = NoteHashAppendData{
-                                                .siloing_data =
-                                                    NoteHashSiloingData{
-                                                        .siloed_note_hash = siloed_note_hash,
-                                                        .address = contract_address,
-                                                    },
-                                                .uniqueness_data =
-                                                    NoteHashUniquenessData{
-                                                        .nonce = nonce,
-                                                        .unique_note_hash = unique_note_hash,
-                                                        .first_nullifier = first_nullifier,
-                                                    },
-                                                .note_hash_counter = note_hash_counter,
-                                                .next_snapshot = next_snapshot,
-                                            } };
+    NoteHashTreeReadWriteEvent expect_event = { .note_hash = raw_note_hash,
+                                                .leaf_index = snapshot.nextAvailableLeafIndex,
+                                                .prev_snapshot = snapshot,
+                                                .append_data = NoteHashAppendData{
+                                                    .siloing_data =
+                                                        NoteHashSiloingData{
+                                                            .siloed_note_hash = siloed_note_hash,
+                                                            .address = contract_address,
+                                                        },
+                                                    .uniqueness_data =
+                                                        NoteHashUniquenessData{
+                                                            .nonce = nonce,
+                                                            .unique_note_hash = unique_note_hash,
+                                                            .first_nullifier = first_nullifier,
+                                                        },
+                                                    .note_hash_counter = note_hash_counter,
+                                                    .next_snapshot = next_snapshot,
+                                                } };
     EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
+}
+
+TEST(AvmSimulationNoteHashTree, CheckpointListener)
+{
+    StrictMock<MockPoseidon2> poseidon2;
+    StrictMock<MockMerkleCheck> merkle_check;
+
+    EventEmitter<NoteHashTreeCheckEvent> event_emitter;
+    NoteHashTreeCheck note_hash_tree_check(1, poseidon2, merkle_check, event_emitter);
+
+    note_hash_tree_check.on_checkpoint_created();
+    note_hash_tree_check.on_checkpoint_committed();
+    note_hash_tree_check.on_checkpoint_reverted();
+    EXPECT_THAT(event_emitter.get_events().size(), 3);
+    EXPECT_THAT(event_emitter.dump_events(),
+                ElementsAre(CheckPointEventType::CREATE_CHECKPOINT,
+                            CheckPointEventType::COMMIT_CHECKPOINT,
+                            CheckPointEventType::REVERT_CHECKPOINT));
 }
 
 } // namespace
