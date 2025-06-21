@@ -251,7 +251,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+  getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    // Mock implementation - blockNumber parameter is accepted for interface compliance
+    // In a real implementation, this would filter contracts by the specified block number
+    // TODO: Implement historical contract state if needed for more realistic mocking
     return Promise.resolve(undefined);
   }
 

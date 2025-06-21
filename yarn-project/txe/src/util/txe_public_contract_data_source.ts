@@ -59,7 +59,9 @@ export class TXEPublicContractDataSource implements ContractDataSource {
     return contractClass && computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
 
-  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    // Note: blockNumber parameter is currently ignored in TXE context as TXE operates on current state
+    // TODO: Consider implementing historical state queries if needed for TXE
     const instance = await this.txeOracle.getContractDataProvider().getContractInstance(address);
     return instance && { ...instance, address };
   }
