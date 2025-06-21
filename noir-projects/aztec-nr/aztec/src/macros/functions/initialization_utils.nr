@@ -24,8 +24,9 @@ pub fn mark_as_initialized_private(context: &mut PrivateContext) {
 }
 
 pub fn assert_is_initialized_public(context: &mut PublicContext) {
-    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
-    assert(context.nullifier_exists(init_nullifier, context.this_address()), "Not initialized");
+    let this_address = context.this_address();
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(this_address);
+    assert(context.nullifier_exists(init_nullifier, this_address), "Not initialized");
 }
 
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
