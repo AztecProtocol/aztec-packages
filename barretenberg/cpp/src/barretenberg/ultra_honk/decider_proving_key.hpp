@@ -54,7 +54,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
-    FF target_sum;
+    FF target_sum{ 0 };
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
     size_t dyadic_circuit_size{ 0 };   // final power-of-2 circuit size
 

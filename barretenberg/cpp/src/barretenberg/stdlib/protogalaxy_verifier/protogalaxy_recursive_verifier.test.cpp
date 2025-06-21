@@ -127,8 +127,11 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
         auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
-        InnerFoldingVerifier folding_verifier({ decider_vk_1, decider_vk_2 });
+        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                          { decider_vk_1, decider_vk_2 },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
+        InnerFoldingVerifier folding_verifier({ decider_vk_1, decider_vk_2 },
+                                              std::make_shared<typename InnerFoldingVerifier::Transcript>());
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
@@ -195,7 +198,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                          { decider_vk_1, decider_vk_2 },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
@@ -207,16 +212,20 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         StdlibProof<OuterBuilder> stdlib_proof =
             bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
-        auto verifier =
-            FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                  recursive_decider_vk_1,
+                                                  { recursive_decider_vk_2 },
+                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         std::shared_ptr<RecursiveDeciderVerificationKey> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             accumulator = verifier.verify_folding_proof(stdlib_proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                verifier = FoldingRecursiveVerifier{ &folding_circuit,
-                                                     accumulator,
-                                                     { std::make_shared<RecursiveVerificationKey>(
-                                                         &folding_circuit, decider_vk_1->verification_key) } };
+                verifier = FoldingRecursiveVerifier{
+                    &folding_circuit,
+                    accumulator,
+                    { std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_1->verification_key) },
+                    std::make_shared<typename FoldingRecursiveVerifier::Transcript>()
+                };
             }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
@@ -224,13 +233,16 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
-        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
+        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 },
+                                                     std::make_shared<typename InnerFoldingVerifier::Transcript>());
         std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
         native_folding_verifier.verify_folding_proof(folding_proof.proof);
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                native_folding_verifier = InnerFoldingVerifier{ { native_accumulator, decider_vk_1 } };
+                native_folding_verifier =
+                    InnerFoldingVerifier{ { native_accumulator, decider_vk_1 },
+                                          std::make_shared<typename InnerFoldingVerifier::Transcript>() };
             }
         }
 
@@ -286,7 +298,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
         auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
         // Generate a folding proof
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                          { decider_vk_1, decider_vk_2 },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
@@ -297,8 +311,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         StdlibProof<OuterBuilder> stdlib_proof =
             bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
-        auto verifier =
-            FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                  recursive_decider_vk_1,
+                                                  { recursive_decider_vk_2 },
+                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
@@ -309,7 +325,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
-        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
+        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 },
+                                                     std::make_shared<typename InnerFoldingVerifier::Transcript>());
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
@@ -396,7 +413,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum
-        InnerFoldingProver folding_prover({ prover_accumulator, prover_inst }, { verifier_accumulator, verifier_inst });
+        InnerFoldingProver folding_prover({ prover_accumulator, prover_inst },
+                                          { verifier_accumulator, verifier_inst },
+                                          std::make_shared<typename InnerFoldingProver::Transcript>());
         auto folding_proof = folding_prover.prove();
 
         // Create a folding verifier circuit
@@ -409,8 +428,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         StdlibProof<OuterBuilder> stdlib_proof =
             bb::convert_native_proof_to_stdlib(&folding_circuit, folding_proof.proof);
 
-        auto verifier =
-            FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        auto verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                  recursive_decider_vk_1,
+                                                  { recursive_decider_vk_2 },
+                                                  std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
         auto recursive_verifier_acc = verifier.verify_folding_proof(stdlib_proof);
 
         // Validate that the target sum between prover and verifier is now different
@@ -439,7 +460,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
             auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
             auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
-            InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+            InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 },
+                                              { decider_vk_1, decider_vk_2 },
+                                              std::make_shared<typename InnerFoldingProver::Transcript>());
             auto fold_result = folding_prover.prove();
 
             // Create a folding verifier circuit
@@ -451,7 +474,10 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                 bb::convert_native_proof_to_stdlib(&verifier_circuit, fold_result.proof);
 
             auto verifier =
-                FoldingRecursiveVerifier{ &verifier_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+                FoldingRecursiveVerifier{ &verifier_circuit,
+                                          recursive_decider_vk_1,
+                                          { recursive_decider_vk_2 },
+                                          std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
             auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
 
             return { fold_result.proof, verifier_circuit };

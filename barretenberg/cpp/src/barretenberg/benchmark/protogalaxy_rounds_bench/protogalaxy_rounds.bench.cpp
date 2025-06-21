@@ -35,8 +35,10 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Flavor
     std::shared_ptr<DeciderProvingKey> decider_pk_2 = construct_key();
     auto honk_vk_2 = std::make_shared<Flavor::VerificationKey>(decider_pk_2->proving_key);
     auto decider_vk_2 = std::make_shared<DeciderVerificationKey>(honk_vk_2);
+    std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
+        std::make_shared<typename ProtogalaxyProver::Transcript>();
 
-    ProtogalaxyProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
+    ProtogalaxyProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 }, transcript);
 
     // prepare the prover state
     folding_prover.accumulator = decider_pk_1;
