@@ -178,6 +178,10 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+  - regex: "src/e2e_p2p/data_withholding_slash.test.ts" # http://ci.aztec-labs.com/f3fcfc02ba9a9b4e
+    error_regex: "Timeout awaiting slash payload deployed"
+    owners:
+      - *mitch
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

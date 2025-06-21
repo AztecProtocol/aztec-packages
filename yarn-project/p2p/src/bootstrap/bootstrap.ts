@@ -44,7 +44,7 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
-    const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
+    const { enr: ourEnr, peerId } = createBootnodeENRandPeerId(
       peerIdPrivateKey,
       p2pIp,
       config.p2pBroadcastPort!,
@@ -57,7 +57,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry);
     this.node = Discv5.create({
       enr: ourEnr,
-      peerId,
+      privateKey: peerIdPrivateKey,
       bindAddrs: { ip4: listenAddrUdp },
       config: {
         lookupTimeout: 2000,

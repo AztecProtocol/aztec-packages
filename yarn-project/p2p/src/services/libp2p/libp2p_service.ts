@@ -39,7 +39,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
+import { type Message, type PeerId, type PrivateKey, TopicValidatorResult } from '@libp2p/interface';
 import type { ConnectionManager } from '@libp2p/interface-internal';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
@@ -173,7 +173,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public static async new<T extends P2PClientType>(
     clientType: T,
     config: P2PConfig,
-    peerId: PeerId,
+    privateKey: PrivateKey,
     deps: {
       mempools: MemPools<T>;
       l2BlockSource: L2BlockSource & ContractDataSource;
@@ -205,7 +205,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
     const peerDiscoveryService = new DiscV5Service(
-      peerId,
+      privateKey,
       config,
       packageVersion,
       telemetry,
@@ -232,10 +232,13 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const node = await createLibp2p({
       start: false,
-      peerId,
+      privateKey,
       addresses: {
         listen: [bindAddrTcp],
         announce: [], // announce is handled by the peer discovery service
+      },
+      connectionMonitor: {
+        protocolPrefix: 'aztec',
       },
       transports: [
         tcp({
@@ -253,9 +256,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       datastore,
       peerDiscovery,
       streamMuxers: [yamux(), mplex()],
-      connectionEncryption: [noise()],
+      connectionEncrypters: [noise()],
       connectionManager: {
-        minConnections: 0,
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,

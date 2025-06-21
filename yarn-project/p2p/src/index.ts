@@ -8,3 +8,4 @@ export * from './mem_pools/attestation_pool/index.js';
 export * from './mem_pools/tx_pool/index.js';
 export * from './msg_validators/index.js';
 export * from './services/index.js';
+export { privateKeyFromHex, privateKeyToHex, createSecp256k1PrivateKeyWithPeerId } from './util.js';

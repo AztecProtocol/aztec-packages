@@ -99,7 +99,7 @@ export class PeerManager implements PeerManagerInterface {
   async initializePeers() {
     if (this.config.trustedPeers) {
       const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
+      await Promise.all(trustedPeersEnrs.map(enr => enr.peerId))
         .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId.toString())))
         .finally(() => {
           this.trustedPeersInitialized = true;
@@ -109,7 +109,7 @@ export class PeerManager implements PeerManagerInterface {
 
     if (this.config.privatePeers) {
       const privatePeersEnrs: ENR[] = this.config.privatePeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(privatePeersEnrs.map(enr => enr.peerId()))
+      await Promise.all(privatePeersEnrs.map(enr => enr.peerId))
         .then(peerIds =>
           peerIds.forEach(peerId => {
             this.trustedPeers.add(peerId.toString());
@@ -502,7 +502,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private async handleDiscoveredPeer(enr: ENR) {
     // Check that the peer has not already been banned
-    const peerId = await enr.peerId();
+    const peerId = enr.peerId;
     const peerIdString = peerId.toString();
 
     // Check if peer is temporarily timed out
@@ -546,7 +546,7 @@ export class PeerManager implements PeerManagerInterface {
     const cachedPeer: CachedPeer = {
       peerId,
       enr,
-      multiaddrTcp,
+      multiaddrTcp: multiaddrTcp as Multiaddr,
       dialAttempts: 0,
       addedUnixMs: Date.now(),
     };
