@@ -49,7 +49,7 @@ TEST(boomerang_rom_ram_table, graph_description_rom_table)
     }
 
     result.fix_witness();
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -91,7 +91,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_read)
     }
 
     result.fix_witness();
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -164,7 +164,7 @@ TEST(boomerang_rom_ram_table, graph_description_ram_table_write)
     update();
 
     result.fix_witness();
-    Graph graph = Graph(builder);
+    StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);

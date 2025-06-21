@@ -188,8 +188,19 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     uint32_t right_witness_index = this->add_variable(right_witness_value);
     const auto dummy_accumulators = plookup::get_lookup_accumulators(
         plookup::MultiTableId::HONK_DUMMY_MULTI, left_witness_value, right_witness_value, true);
-    create_gates_from_plookup_accumulators(
+    auto read_data = create_gates_from_plookup_accumulators(
         plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
+
+    update_used_witnesses(left_witness_index);
+    update_used_witnesses(right_witness_index);
+    std::array<std::vector<uint32_t>, 3> parse_read_data{ read_data[plookup::ColumnIdx::C1],
+                                                          read_data[plookup::ColumnIdx::C2],
+                                                          read_data[plookup::ColumnIdx::C3] };
+    for (const auto& column : parse_read_data) {
+        for (const auto& index : column) {
+            update_used_witnesses(index);
+        }
+    }
 
     // mock a poseidon external gate, with all zeros as input
     blocks.poseidon2_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
