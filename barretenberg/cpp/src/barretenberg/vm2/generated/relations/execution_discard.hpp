@@ -13,9 +13,7 @@ template <typename FF_> class execution_discardImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 15> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 4, 3, 3, 5, 3, 3, 3, 5, 5, 5, 4, 5, 5
-    };
+    static constexpr std::array<size_t, 14> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 5, 3, 3, 5, 5, 5, 4, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -81,74 +79,67 @@ template <typename FF_> class execution_discardImpl {
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        { // END_OF_ENQUEUED_CALL
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_end_of_enqueued_call) -
-                        in.get(C::execution_sel_exit_call) * (FF(1) - in.get(C::execution_has_parent_ctx)));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
         { // RESOLVES_DYING_CONTEXT
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_resolves_dying_context) -
                         in.get(C::execution_sel_failure) * in.get(C::execution_is_dying_context));
             tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // NESTED_CALL_FROM_UNDISCARDED_CONTEXT
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_nested_call_from_undiscarded_context) -
                         in.get(C::execution_sel_enter_call) * (FF(1) - in.get(C::execution_discard)));
             tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
+            std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         { // SHOULD_PROPAGATE_DISCARD
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp =
                 in.get(C::execution_sel) * (in.get(C::execution_propagate_discard) -
-                                            (FF(1) - in.get(C::execution_end_of_enqueued_call)) *
+                                            (FF(1) - in.get(C::execution_enqueued_call_end)) *
                                                 (FF(1) - in.get(C::execution_resolves_dying_context)) *
                                                 (FF(1) - in.get(C::execution_nested_call_from_undiscarded_context)));
             tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
+            std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         { // DISCARD_PROPAGATION
-            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_last)) *
                        in.get(C::execution_propagate_discard) *
                        (in.get(C::execution_discard_shift) - in.get(C::execution_discard));
             tmp *= scaling_factor;
-            std::get<10>(evals) += typename Accumulator::View(tmp);
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         { // DYING_CONTEXT_PROPAGATION
-            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_last)) *
                        in.get(C::execution_propagate_discard) *
                        (in.get(C::execution_dying_context_id_shift) - in.get(C::execution_dying_context_id));
             tmp *= scaling_factor;
-            std::get<11>(evals) += typename Accumulator::View(tmp);
+            std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         { // DYING_CONTEXT_MUST_FAIL
-            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_is_dying_context) * in.get(C::execution_sel_exit_call) *
                        (FF(1) - in.get(C::execution_sel_failure));
             tmp *= scaling_factor;
-            std::get<12>(evals) += typename Accumulator::View(tmp);
+            std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         { // ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT
-            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_enter_call) * (FF(1) - in.get(C::execution_discard)) *
                        in.get(C::execution_discard_shift) *
                        (in.get(C::execution_context_id_shift) - in.get(C::execution_dying_context_id_shift));
             tmp *= scaling_factor;
-            std::get<13>(evals) += typename Accumulator::View(tmp);
+            std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         { // DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD
-            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_failure) * in.get(C::execution_is_dying_context) *
                        in.get(C::execution_has_parent_ctx) * in.get(C::execution_discard_shift);
             tmp *= scaling_factor;
-            std::get<14>(evals) += typename Accumulator::View(tmp);
+            std::get<13>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -169,22 +160,20 @@ template <typename FF> class execution_discard : public Relation<execution_disca
         case 5:
             return "IS_DYING_CONTEXT_CHECK";
         case 6:
-            return "END_OF_ENQUEUED_CALL";
-        case 7:
             return "RESOLVES_DYING_CONTEXT";
-        case 8:
+        case 7:
             return "NESTED_CALL_FROM_UNDISCARDED_CONTEXT";
-        case 9:
+        case 8:
             return "SHOULD_PROPAGATE_DISCARD";
-        case 10:
+        case 9:
             return "DISCARD_PROPAGATION";
-        case 11:
+        case 10:
             return "DYING_CONTEXT_PROPAGATION";
-        case 12:
+        case 11:
             return "DYING_CONTEXT_MUST_FAIL";
-        case 13:
+        case 12:
             return "ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT";
-        case 14:
+        case 13:
             return "DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD";
         }
         return std::to_string(index);
@@ -195,15 +184,14 @@ template <typename FF> class execution_discard : public Relation<execution_disca
     static constexpr size_t SR_DISCARD_IFF_DYING_CONTEXT = 2;
     static constexpr size_t SR_DISCARD_IF_FAILURE = 3;
     static constexpr size_t SR_IS_DYING_CONTEXT_CHECK = 5;
-    static constexpr size_t SR_END_OF_ENQUEUED_CALL = 6;
-    static constexpr size_t SR_RESOLVES_DYING_CONTEXT = 7;
-    static constexpr size_t SR_NESTED_CALL_FROM_UNDISCARDED_CONTEXT = 8;
-    static constexpr size_t SR_SHOULD_PROPAGATE_DISCARD = 9;
-    static constexpr size_t SR_DISCARD_PROPAGATION = 10;
-    static constexpr size_t SR_DYING_CONTEXT_PROPAGATION = 11;
-    static constexpr size_t SR_DYING_CONTEXT_MUST_FAIL = 12;
-    static constexpr size_t SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT = 13;
-    static constexpr size_t SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD = 14;
+    static constexpr size_t SR_RESOLVES_DYING_CONTEXT = 6;
+    static constexpr size_t SR_NESTED_CALL_FROM_UNDISCARDED_CONTEXT = 7;
+    static constexpr size_t SR_SHOULD_PROPAGATE_DISCARD = 8;
+    static constexpr size_t SR_DISCARD_PROPAGATION = 9;
+    static constexpr size_t SR_DYING_CONTEXT_PROPAGATION = 10;
+    static constexpr size_t SR_DYING_CONTEXT_MUST_FAIL = 11;
+    static constexpr size_t SR_ENTER_CALL_DISCARD_MUST_BE_DYING_CONTEXT = 12;
+    static constexpr size_t SR_DYING_CONTEXT_WITH_PARENT_MUST_CLEAR_DISCARD = 13;
 };
 
 } // namespace bb::avm2

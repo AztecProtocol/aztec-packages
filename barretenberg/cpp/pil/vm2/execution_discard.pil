@@ -51,11 +51,6 @@ namespace execution;
     //    b. This instruction/row is a failure in the dying context (discard == 1 && sel_failure == 1 && context_id == dying_context_id)
     //    c. This instruction/row is a call and the nested context will eventually fail (sel_enter_call == 1 && discard == 0)
 
-    // Helper columns to determine when propagation should be lifted
-    pol commit end_of_enqueued_call;
-    #[END_OF_ENQUEUED_CALL]
-    (end_of_enqueued_call - sel_exit_call * (1 - has_parent_ctx)) = 0;
-
     // Note: we could, instead, _not_ lift propagation at enqueued call boundaries,
     // but then we need to special case the transition from setup to app logic,
     // since setup must have discard=0, and app logic can have discard=1.
@@ -72,7 +67,7 @@ namespace execution;
     // Otherwise, propagation is enforced.
     pol commit propagate_discard; // Implicitly boolean as its components are boolean.
     #[SHOULD_PROPAGATE_DISCARD]
-    sel * (propagate_discard - (1 - end_of_enqueued_call) * (1 - resolves_dying_context) * (1 - nested_call_from_undiscarded_context)) = 0;
+    sel * (propagate_discard - (1 - enqueued_call_end) * (1 - resolves_dying_context) * (1 - nested_call_from_undiscarded_context)) = 0;
     // Note: on nested call, can't know yet whether or not the nested context will eventually revert.
     // But, we can lift the propagation constraint, and enforce that a dying context _must_ be resolved.
     // In this way, we allow `discard` to be raised to 1 on a nested call. And once 1, `discard` _must_
