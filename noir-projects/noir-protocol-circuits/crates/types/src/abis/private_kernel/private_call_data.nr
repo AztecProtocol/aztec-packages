@@ -22,8 +22,6 @@ pub struct PrivateCallData {
 
 impl PrivateCallData {
     pub fn verify(self, is_first_app: bool) {
-        self.vk.check_hash();
-
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {

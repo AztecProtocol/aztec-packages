@@ -72,7 +72,7 @@ use crate::{
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NULLIFIER_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX,
         AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
+        AVM_VK_INDEX, MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM, PUBLIC_LOG_SIZE_IN_FIELDS,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
@@ -632,9 +632,16 @@ impl Verifiable for AvmProofData {
             self.vk_data.vk.key,
             self.proof.fields,
             self.public_inputs.to_columns_flat(),
-            0,
+            self.vk_data.vk.hash,
             PROOF_TYPE_AVM,
         );
+    }
+}
+
+impl AvmProofData {
+    pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
+        assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
+        self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }
 

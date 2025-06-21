@@ -23,7 +23,7 @@ use dep::types::{
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        NOTE_HASH_SUBTREE_HEIGHT, TUBE_VK_INDEX,
+        NOTE_HASH_SUBTREE_HEIGHT,
     },
     data::{hash::compute_public_data_tree_value, public_data_hint::PublicDataHint},
     hash::silo_l2_to_l1_message,
@@ -33,8 +33,6 @@ use dep::types::{
     partial_state_reference::PartialStateReference,
     traits::{Empty, Hash},
 };
-
-global ALLOWED_PREVIOUS_CIRCUITS: [u32; 1] = [TUBE_VK_INDEX];
 
 pub struct PrivateBaseRollupInputs {
     tube_data: PrivateTubeData,
@@ -53,7 +51,7 @@ pub struct PrivateBaseRollupInputs {
 impl PrivateBaseRollupInputs {
     pub fn execute(self) -> BaseOrMergeRollupPublicInputs {
         let tube_data_validator = PrivateTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        tube_data_validator.validate_proof_and_vk();
         tube_data_validator.validate_with_block_constant_data(
             self.constants,
             self.archive_root_membership_witness,
@@ -219,9 +217,9 @@ mod tests {
             MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
             NOTES_PREFIX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_TREE_HEIGHT,
-            PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX, TX_FEE_PREFIX,
-            TX_START_PREFIX,
+            NULLIFIER_TREE_HEIGHT, NULLIFIERS_PREFIX, PRIVATE_LOGS_PREFIX, PRIVATE_TUBE_VK_INDEX,
+            PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, REVERT_CODE_PREFIX,
+            TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{public_data_hint::PublicDataHint, PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         hash::{compute_contract_class_log_hash, silo_l2_to_l1_message},
@@ -307,7 +305,8 @@ mod tests {
 
     impl PrivateBaseRollupInputsBuilder {
         fn new() -> Self {
-            let mut tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX).use_last_archive();
+            let mut tube_data =
+                FixtureBuilder::new().in_vk_tree(PRIVATE_TUBE_VK_INDEX).use_last_archive();
 
             let mut constants = BlockConstantData::empty();
             constants.global_variables.chain_id = fixtures::CHAIN_ID;

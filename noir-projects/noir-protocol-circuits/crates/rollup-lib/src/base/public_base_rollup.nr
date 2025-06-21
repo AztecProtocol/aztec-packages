@@ -103,7 +103,7 @@ impl PublicBaseRollupInputs {
         let constants = self.generate_block_constant_data();
 
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof();
+        tube_data_validator.validate_proof_and_vk();
         tube_data_validator.validate_with_block_constant_data(
             constants,
             self.archive_root_membership_witness,
@@ -113,7 +113,8 @@ impl PublicBaseRollupInputs {
         // TODO(#8470)
         if !dep::std::runtime::is_unconstrained() {
             self.avm_proof_data.verify();
-            //     self.avm_proof_data.vk_data.validate_in_vk_tree([AVM_VK_INDEX]);
+            // TODO: Add avm vk hash to the tree and uncomment this.
+            // self.avm_proof_data.validate_vk_in_vk_tree(constants.vk_tree_root);
         }
 
         let tx_effect = self.generate_tx_effect();
@@ -162,7 +163,7 @@ mod tests {
             MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
             MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
             PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
-            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TUBE_VK_INDEX,
+            PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, PUBLIC_TUBE_VK_INDEX, REVERT_CODE_PREFIX,
             TX_FEE_PREFIX, TX_START_PREFIX,
         },
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
@@ -200,7 +201,8 @@ mod tests {
     impl PublicBaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = PublicBaseRollupInputsBuilder::empty();
-            inputs.tube_data = FixtureBuilder::new().in_vk_tree(TUBE_VK_INDEX).use_last_archive();
+            inputs.tube_data =
+                FixtureBuilder::new().in_vk_tree(PUBLIC_TUBE_VK_INDEX).use_last_archive();
             inputs.avm_data = FixtureBuilder::new().in_vk_tree(AVM_VK_INDEX);
 
             inputs

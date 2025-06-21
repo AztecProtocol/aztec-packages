@@ -26,7 +26,7 @@ pub fn validate_contract_address(
 
     let private_functions_root = private_functions_root_from_siblings(
         private_call_data.public_inputs.call_context.function_selector,
-        private_call_data.vk.hash, // vk.hash is verified in `PrivateCallData.verify()`
+        private_call_data.vk.hash, // vk.hash is verified in bb when verifying the proof.
         hints.function_leaf_membership_witness.leaf_index,
         hints.function_leaf_membership_witness.sibling_path,
     );

@@ -11,12 +11,6 @@ pub struct VerificationKey<let N: u32> {
     pub hash: Field,
 }
 
-impl<let N: u32> VerificationKey<N> {
-    pub fn check_hash(self) {
-        assert_eq(self.hash, crate::hash::verification_key_hash(self.key), "Invalid VK hash");
-    }
-}
-
 impl<let N: u32> Serialize<N + 1> for VerificationKey<N> {
     fn serialize(self) -> [Field; N + 1] {
         let mut fields = [0; N + 1];
