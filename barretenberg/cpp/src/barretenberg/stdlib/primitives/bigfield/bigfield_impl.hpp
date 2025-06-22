@@ -573,11 +573,9 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      *
      * Start by setting constant_to_add = p
      **/
-    uint512_t constant_to_add = modulus_u512;
-    // add a large enough multiple of p to not get negative result in subtraction
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
+    uint1024_t constant_to_add_factor =
+        (uint1024_t(limb_3_maximum_value) << (NUM_LIMB_BITS * 3)) / uint1024_t(modulus_u512) + uint1024_t(1);
+    uint512_t constant_to_add = constant_to_add_factor.lo * modulus_u512;
 
     /**
      * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
@@ -585,6 +583,16 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      * t3 represents the value we are BORROWING from constant_to_add.limb[3]
      * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1],
      *constant_to_add.limb[0]
+     *
+     * Borrow propagation table:
+     * ┌───────┬─────────────────────────────────┬──────────────────────────────────┐
+     * │ Limb  │ Value received FROM next limb   │ Value given TO previous limb     │
+     * ├───────┼─────────────────────────────────┼──────────────────────────────────┤
+     * │   0   │ 2^limb_0_borrow_shift           │ 0                                │
+     * │   1   │ 2^limb_1_borrow_shift           │ 2^(limb_0_borrow_shift - L)      │
+     * │   2   │ 2^limb_2_borrow_shift           │ 2^(limb_1_borrow_shift - L)      │
+     * │   3   │ 0                               │ 2^(limb_2_borrow_shift - L)      │
+     * └───────┴─────────────────────────────────┴──────────────────────────────────┘
      *
      * i.e. The net value we add to `constant_to_add` is 0. We must ensure that:
      * t3 = t0 + (t1 << NUM_LIMB_BITS) + (t2 << NUM_LIMB_BITS * 2)
