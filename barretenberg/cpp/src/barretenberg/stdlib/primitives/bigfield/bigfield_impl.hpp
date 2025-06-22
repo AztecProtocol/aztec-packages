@@ -1764,8 +1764,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     // We need to manually propagate the origin tag
     inverse.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14723): investigate whether conditional_assign is
-    // needed when defining `multiplicand`
+
     bigfield multiplicand = bigfield::conditional_assign(is_equal, one(), inverse);
 
     bigfield product = diff * multiplicand;
