@@ -52,4 +52,14 @@ contract MerkleCheck is StakingAssetHandlerBase, MerkleTreeGetters {
     vm.prank(addr);
     stakingAssetHandler.addValidatorToQueue(addr, addr, proof, realProof);
   }
+
+  function test_WhenAttesterIsNotSender(address _attester, address _sender) external {
+    // it reverts
+
+    vm.assume(_sender != address(this) && _sender != _attester);
+
+    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.AttesterNotSender.selector));
+    vm.prank(_sender);
+    stakingAssetHandler.addValidatorToQueue(_attester, _attester, validMerkleProof, realProof);
+  }
 }
