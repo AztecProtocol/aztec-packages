@@ -1256,11 +1256,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         check_selector_length_consistency();
     }
 
-    // dummy gate needed because of sort widget's check of next row
-    // use this gate to check end condition
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): This was formerly a single arithmetic gate. A
-    // dummy gate has been added to allow the previous gate to access the required wire data via shifts, allowing the
-    // arithmetic gate to occur out of sequence.
+    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
+    // (and remove dummy gate). This used to be a single gate before trace sorting based on gate types. The dummy gate
+    // has been added to allow the previous gate to access the required wire data via shifts, allowing the arithmetic
+    // gate to occur out of sequence. More details on the linked Github issue.
     create_dummy_gate(block, variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, this->zero_idx);
     create_add_gate({ variable_index[variable_index.size() - 1], this->zero_idx, this->zero_idx, 1, 0, 0, -end });
 }
