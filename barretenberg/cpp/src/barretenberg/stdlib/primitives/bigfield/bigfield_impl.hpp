@@ -1012,6 +1012,24 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
         return bigfield(uint256_t(1));
     }
 
+    // If this is a constant, compute result directly
+    if (is_constant()) {
+        auto base_val = get_value();
+        uint512_t result_val = 1;
+        uint512_t base = base_val % modulus_u512;
+        uint32_t shifted_exponent = exponent;
+
+        // Fast modular exponentiation
+        while (shifted_exponent > 0) {
+            if (shifted_exponent & 1) {
+                result_val = (uint1024_t(result_val) * uint1024_t(base) % uint1024_t(modulus_u512)).lo;
+            }
+            base = (uint1024_t(base) * uint1024_t(base) % uint1024_t(modulus_u512)).lo;
+            shifted_exponent >>= 1;
+        }
+        return bigfield(this->context, uint256_t(result_val.lo));
+    }
+
     bool accumulator_initialized = false;
     bigfield accumulator;
     bigfield running_power = *this;
