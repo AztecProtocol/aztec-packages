@@ -521,7 +521,8 @@ template <typename Builder, typename T> class bigfield {
      *
      * @details Uses the square-and-multiply algorithm to compute a^exponent mod p.
      *
-     * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
+     * NOTE(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function using
+     * sliding window method.
      */
     bigfield pow(const uint32_t exponent) const;
 
