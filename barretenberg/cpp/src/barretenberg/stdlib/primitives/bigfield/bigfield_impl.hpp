@@ -894,8 +894,6 @@ bigfield<Builder, T> bigfield<Builder, T>::div_without_denominator_check(const b
  * Div method with constraints for denominator!=0.
  *
  * Similar to operator/ but numerator can be linear sum of multiple elements
- *
- * TODO: After we create a mechanism for easy updating of witnesses, create a test with proof check
  **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const std::vector<bigfield>& numerators,
