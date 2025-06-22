@@ -1610,84 +1610,15 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     }
     reduction_check();
 
-    uint256_t limb_0_maximum_value = binary_basis_limbs[0].maximum_value;
-    uint64_t limb_0_borrow_shift = std::max(limb_0_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_1_maximum_value =
-        binary_basis_limbs[1].maximum_value + (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_1_borrow_shift = std::max(limb_1_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-    uint256_t limb_2_maximum_value =
-        binary_basis_limbs[2].maximum_value + (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS));
-    uint64_t limb_2_borrow_shift = std::max(limb_2_maximum_value.get_msb() + 1, NUM_LIMB_BITS);
-
-    uint256_t limb_3_maximum_value =
-        binary_basis_limbs[3].maximum_value + (uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    // uint256_t comparison_maximum = uint256_t(modulus_u512.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-    // uint256_t additive_term = comparison_maximum;
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14656): This is terribly inefficient. We should
-    // change it.
-    uint512_t constant_to_add = modulus_u512;
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
-
-    uint256_t t0(uint256_t(1) << limb_0_borrow_shift);
-    uint256_t t1((uint256_t(1) << limb_1_borrow_shift) - (uint256_t(1) << (limb_0_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t2((uint256_t(1) << limb_2_borrow_shift) - (uint256_t(1) << (limb_1_borrow_shift - NUM_LIMB_BITS)));
-    uint256_t t3(uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
-
-    uint256_t to_add_0_u256 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS));
-    uint256_t to_add_1_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2));
-    uint256_t to_add_2_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3));
-    uint256_t to_add_3_u256 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4));
-
-    bb::fr to_add_0(t0 + to_add_0_u256);
-    bb::fr to_add_1(t1 + to_add_1_u256);
-    bb::fr to_add_2(t2 + to_add_2_u256);
-    bb::fr to_add_3(to_add_3_u256 - t3);
-
-    // we either return current value if predicate is false, or (limb_i - value) if predicate is true
-    // (1 - predicate) * value + predicate * (limb_i - value)
-    // = predicate * (limb_i - 2 * value) + value
-    bb::fr two(2);
-
-    field_t limb_0 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[0].element * two) + to_add_0,
-                                                                   binary_basis_limbs[0].element);
-    field_t limb_1 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[1].element * two) + to_add_1,
-                                                                   binary_basis_limbs[1].element);
-    field_t limb_2 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[2].element * two) + to_add_2,
-                                                                   binary_basis_limbs[2].element);
-    field_t limb_3 = static_cast<field_t<Builder>>(predicate).madd(-(binary_basis_limbs[3].element * two) + to_add_3,
-                                                                   binary_basis_limbs[3].element);
-
-    uint256_t maximum_negated_limb_0 = to_add_0_u256 + t0;
-    uint256_t maximum_negated_limb_1 = to_add_1_u256 + t1;
-    uint256_t maximum_negated_limb_2 = to_add_2_u256 + t2;
-    uint256_t maximum_negated_limb_3 = to_add_3_u256;
-
-    uint256_t max_limb_0 = binary_basis_limbs[0].maximum_value > maximum_negated_limb_0
-                               ? binary_basis_limbs[0].maximum_value
-                               : maximum_negated_limb_0;
-    uint256_t max_limb_1 = binary_basis_limbs[1].maximum_value > maximum_negated_limb_1
-                               ? binary_basis_limbs[1].maximum_value
-                               : maximum_negated_limb_1;
-    uint256_t max_limb_2 = binary_basis_limbs[2].maximum_value > maximum_negated_limb_2
-                               ? binary_basis_limbs[2].maximum_value
-                               : maximum_negated_limb_2;
-    uint256_t max_limb_3 = binary_basis_limbs[3].maximum_value > maximum_negated_limb_3
-                               ? binary_basis_limbs[3].maximum_value
-                               : maximum_negated_limb_3;
-
-    bigfield result(ctx);
-    result.binary_basis_limbs[0] = Limb(limb_0, max_limb_0);
-    result.binary_basis_limbs[1] = Limb(limb_1, max_limb_1);
-    result.binary_basis_limbs[2] = Limb(limb_2, max_limb_2);
-    result.binary_basis_limbs[3] = Limb(limb_3, max_limb_3);
-
-    uint512_t constant_to_add_mod_p = constant_to_add % prime_basis.modulus;
-    field_t prime_basis_to_add(ctx, bb::fr(constant_to_add_mod_p.lo));
-    result.prime_basis_limb =
-        static_cast<field_t<Builder>>(predicate).madd(-(prime_basis_limb * two) + prime_basis_to_add, prime_basis_limb);
+    // We want to check:
+    // predicate = 1 ==> (0 - *this)
+    // predicate = 0 ==> *this
+    //
+    // We just use the conditional_assign method to do this as it costs the same number of gates as computing
+    // p * (0 - *this) + (1 - p) * (*this)
+    //
+    bigfield<Builder, T> negative_this = zero() - *this;
+    bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
 
