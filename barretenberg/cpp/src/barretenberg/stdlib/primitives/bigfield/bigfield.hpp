@@ -523,7 +523,7 @@ template <typename Builder, typename T> class bigfield {
      *
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
      */
-    bigfield pow(const size_t exponent) const;
+    bigfield pow(const uint32_t exponent) const;
 
     /**
      * @brief Compute a * b + ...to_add = c mod p

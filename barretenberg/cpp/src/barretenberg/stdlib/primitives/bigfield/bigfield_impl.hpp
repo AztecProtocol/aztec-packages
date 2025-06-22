@@ -10,6 +10,7 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
+#include <cstdint>
 #include <tuple>
 
 #include "../circuit_builders/circuit_builders.hpp"
@@ -1004,10 +1005,9 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
     return remainder;
 }
 
-template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const uint32_t exponent) const
 {
     // Just return one immediately
-
     if (exponent == 0) {
         return bigfield(uint256_t(1));
     }
@@ -1015,7 +1015,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
     bool accumulator_initialized = false;
     bigfield accumulator;
     bigfield running_power = *this;
-    auto shifted_exponent = exponent;
+    uint32_t shifted_exponent = exponent;
 
     // Square and multiply
     while (shifted_exponent != 0) {
@@ -1027,10 +1027,14 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
                 accumulator *= running_power;
             }
         }
-        if (shifted_exponent >= 2) {
+        shifted_exponent >>= 1;
+
+        // Only square if there are more bits to process.
+        // It is important to avoid squaring in the final iteration as it otherwise results in
+        // unwanted gates and variables in the circuit.
+        if (shifted_exponent != 0) {
             running_power = running_power.sqr();
         }
-        shifted_exponent >>= 1;
     }
     return accumulator;
 }
