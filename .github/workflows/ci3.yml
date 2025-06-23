@@ -46,6 +46,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
         run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
+      - name: Barretenberg CI Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg')
+        run: echo "BARRETENBERG_CI=1" >> $GITHUB_ENV
+
       - name: Compute Target Branch
         id: target_branch
         run: |
