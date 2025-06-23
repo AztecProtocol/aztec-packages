@@ -24,11 +24,6 @@ function test_cmds_internal {
     echo "cd barretenberg/sol && forge test --no-match-contract Base"
 }
 
-function download_old_crs {
-  echo_header "barretenberg/sol downloading old crs"
-  ../cpp/srs_db/download_ignition.sh 3
-}
-
 function build_sol {
     echo_header "barretenberg/sol building sol"
 
@@ -72,7 +67,7 @@ function build_code {
     build_sol
 }
 
-export -f build_code build_cpp generate_vks build_sol download_old_crs
+export -f build_code build_cpp generate_vks build_sol
 
 function build {
     echo_header "barretenberg/sol building"
