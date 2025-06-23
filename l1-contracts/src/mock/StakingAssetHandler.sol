@@ -175,6 +175,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     } else {
       _topUpIfRequired(depositAmount);
 
+      // Check attester has the guardian role (included in merkle tree)
       _validateMerkleProof(_attester, _merkleProof);
       _validatePassportProof(_attester, _params);
 
