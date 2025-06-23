@@ -187,14 +187,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
             private_call.public_inputs.include_by_timestamp,
         );
 
-        // TODO(#15178): The proving_at_genesis flag disables setting the include_by_timestamp for contract updates
-        // when proving at genesis block. This is a hack that needs to get removed.
-        let proving_at_genesis =
-            private_call.public_inputs.historical_header.global_variables.block_number == 0;
-
         // Update the expiration timestamp for the shared mutable read
-        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract()
-            & !proving_at_genesis {
+        if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
             let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
                 private_call.verification_key_hints.updated_class_id_shared_mutable_values,
             );

@@ -1122,7 +1122,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     if (maybeTimestamp === undefined) {
       const latestBlockHeader = await this.getBlockHeader('latest');
       // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
-      // TODO(#15178): Use genesis timestamp here instead of 0.
       timestamp = latestBlockHeader ? latestBlockHeader.globalVariables.timestamp : 0n;
     } else {
       timestamp = maybeTimestamp;

@@ -592,7 +592,10 @@ export class AztecKVTxPool implements TxPool {
 
       // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
       const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
-      if (includeByTimestamp.isSome && includeByTimestamp.value <= timestamp) {
+      // If proving at genesis, we skip the expiration check. For details on why see the `validate_include_by_timestamp`
+      // function in `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+      const txProvingAtGenesis = tx.data.constants.historicalHeader.globalVariables.blockNumber === 0;
+      if (!txProvingAtGenesis && includeByTimestamp.isSome && includeByTimestamp.value <= timestamp) {
         this.#log.verbose(
           `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp.value}, mined block timestamp: ${timestamp})`,
         );
