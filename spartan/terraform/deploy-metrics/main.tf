@@ -92,7 +92,10 @@ resource "helm_release" "aztec-gke-cluster" {
   reuse_values      = true
 
   # base values file
-  values = [file("../../metrics/values/${var.VALUES_FILE}")]
+  values = [
+    file("../../metrics/values.yaml"),
+    file("../../metrics/values/${var.VALUES_FILE}")
+  ]
 
   set {
     name  = "grafana.service.loadBalancerIP"
@@ -100,7 +103,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "grafana.grafana\\.ini.server.domain"
+    name  = "grafana.grafana\\.ini.server.root_url"
     value = "http://${google_compute_address.grafana_ip.address}"
   }
 
