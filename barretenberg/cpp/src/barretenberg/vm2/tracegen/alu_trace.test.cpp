@@ -50,7 +50,7 @@ TEST(AluTraceGenTest, TraceGenerationBasicAddU32)
                   ROW_FIELD_EQ(alu_is_u1, 0),
                   ROW_FIELD_EQ(alu_max_bits, 32),
                   ROW_FIELD_EQ(alu_max_value, uint256_t(1) << 32),
-                  ROW_FIELD_EQ(alu_tag_m1_inv, FF(static_cast<uint8_t>(ValueTag::U32) - 1).invert()))));
+                  ROW_FIELD_EQ(alu_tag_minus_1_inv, FF(static_cast<uint8_t>(ValueTag::U32) - 1).invert()))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU1)
@@ -88,7 +88,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU1)
                   ROW_FIELD_EQ(alu_is_u1, 1),
                   ROW_FIELD_EQ(alu_max_bits, 1),
                   ROW_FIELD_EQ(alu_max_value, 2),
-                  ROW_FIELD_EQ(alu_tag_m1_inv, 0)),
+                  ROW_FIELD_EQ(alu_tag_minus_1_inv, 0)),
             AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
                   ROW_FIELD_EQ(alu_op_id,
@@ -103,7 +103,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU1)
                   ROW_FIELD_EQ(alu_is_u1, 1),
                   ROW_FIELD_EQ(alu_max_bits, 1),
                   ROW_FIELD_EQ(alu_max_value, 2),
-                  ROW_FIELD_EQ(alu_tag_m1_inv, 0))));
+                  ROW_FIELD_EQ(alu_tag_minus_1_inv, 0))));
 }
 
 TEST(AluTraceGenTest, TraceGenerationAddU128)
@@ -145,7 +145,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU128)
                   ROW_FIELD_EQ(alu_is_u1, 0),
                   ROW_FIELD_EQ(alu_max_bits, 128),
                   ROW_FIELD_EQ(alu_max_value, uint256_t(1) << 128),
-                  ROW_FIELD_EQ(alu_tag_m1_inv, FF(static_cast<uint8_t>(ValueTag::U128) - 1).invert())),
+                  ROW_FIELD_EQ(alu_tag_minus_1_inv, FF(static_cast<uint8_t>(ValueTag::U128) - 1).invert())),
             AllOf(ROW_FIELD_EQ(alu_sel_op_add, 1),
                   ROW_FIELD_EQ(alu_sel, 1),
                   ROW_FIELD_EQ(alu_op_id,
@@ -160,7 +160,7 @@ TEST(AluTraceGenTest, TraceGenerationAddU128)
                   ROW_FIELD_EQ(alu_is_u1, 0),
                   ROW_FIELD_EQ(alu_max_bits, 128),
                   ROW_FIELD_EQ(alu_max_value, uint256_t(1) << 128),
-                  ROW_FIELD_EQ(alu_tag_m1_inv, FF(static_cast<uint8_t>(ValueTag::U128) - 1).invert()))));
+                  ROW_FIELD_EQ(alu_tag_minus_1_inv, FF(static_cast<uint8_t>(ValueTag::U128) - 1).invert()))));
 }
 
 } // namespace

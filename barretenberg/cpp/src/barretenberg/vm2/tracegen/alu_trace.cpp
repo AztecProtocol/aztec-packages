@@ -81,7 +81,7 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_is_u1, event.a.get_tag() == ValueTag::U1 ? 1 : 0 },
                       { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
                       { C::alu_max_value, uint256_t(1) << get_tag_bits(event.a.get_tag()) },
-                      { C::alu_tag_m1_inv, tag_m1 == 0 ? 0 : FF(tag_m1).invert() },
+                      { C::alu_tag_minus_1_inv, tag_m1 == 0 ? 0 : FF(tag_m1).invert() },
                   } });
 
         row++;

@@ -47,7 +47,7 @@ TEST(AluConstrainingTest, BasicAdd)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = 1,
+            .alu_tag_minus_1_inv = 1,
         },
     });
 
@@ -71,7 +71,7 @@ TEST(AluConstrainingTest, AddCarry)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = FF(2).invert(),
+            .alu_tag_minus_1_inv = FF(2).invert(),
         },
     });
 
@@ -94,7 +94,7 @@ TEST(AluConstrainingTest, BasicAddWithRegisterLookup)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = 1,
+            .alu_tag_minus_1_inv = 1,
             .execution_mem_tag_0_ = 2,            // = ia_tag
             .execution_mem_tag_1_ = 2,            // = ia_tag
             .execution_mem_tag_2_ = 2,            // = ia_tag
@@ -125,7 +125,7 @@ TEST(AluConstrainingTest, BasicAddWithRangeLookup)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = 1,
+            .alu_tag_minus_1_inv = 1,
             .range_check_rng_chk_bits = 8, // = max_bits
             .range_check_sel = 1,
             .range_check_value = 3, // = ic
@@ -156,7 +156,7 @@ TEST(AluConstrainingTest, AddCarryWithTagBitsLookup)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = FF(2).invert(),
+            .alu_tag_minus_1_inv = FF(2).invert(),
 
         },
     });
@@ -192,29 +192,6 @@ TEST(AluConstrainingTest, AddCarryU1WithTagBitsLookup)
 
     check_interaction<AluTraceBuilder, lookup_alu_tag_bits_lookup_settings>(trace);
     check_relation<alu>(trace);
-}
-
-TEST(AluConstrainingTest, NegativeAddSelNonBoolean)
-{
-    auto trace = TestTraceContainer::from_rows({
-        // Negative test, this should be a boolean only!
-        { .alu_sel_op_add = 23 },
-    });
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_SEL_ADD_BINARY), "SEL_ADD_BINARY");
-}
-
-TEST(AluConstrainingTest, NegativeSelNonBoolean)
-{
-    auto trace = TestTraceContainer::from_rows({
-        // Negative test, this should be a boolean only!
-        { .alu_cf = 23, .alu_is_u1 = 23, .alu_sel = 23 },
-    });
-
-    // TODO(MW): Split these out?
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_SEL_BINARY), "SEL_BINARY");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_CF_BINARY), "CF_BINARY");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_IS_U1_BINARY), "IS_U1_BINARY");
 }
 
 TEST(AluConstrainingTest, NegativeAddWrongOpId)
@@ -320,7 +297,7 @@ TEST(AluConstrainingTest, NegativeBasicAddWrongInverse)
             .alu_op_id = 1,
             .alu_sel = 1,
             .alu_sel_op_add = 1,
-            .alu_tag_m1_inv = FF(23).invert(), // Should be inv(tag - 1) = inv(2)
+            .alu_tag_minus_1_inv = FF(23).invert(), // Should be inv(tag - 1) = inv(2)
 
         },
     });

@@ -1,3 +1,4 @@
+
 include "execution.pil";
 include "precomputed.pil";
 include "range_check.pil";
@@ -25,13 +26,8 @@ pol commit max_bits;
 // TODO(MW): Rename this - it's the max value the num can hold PLUS ONE (i.e. 256 for a u8)
 pol commit max_value;
 
-#[SEL_BINARY]
 sel * (1 - sel) = 0;
-
-#[CF_BINARY]
 cf * (1 - cf) = 0;
-
-#[IS_U1_BINARY]
 is_u1 * (is_u1 - 1) = 0;
 
 #[VALUE_TAG_LOOKUP]
@@ -52,24 +48,14 @@ ia_tag - ic_tag = 0;
 sel { ic, max_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
 
-// Note: The complication below is to check:
-//  is_u1 => tag == 1 (equiv, tag_m_1 := tag - 1 == 0 => tag_m_1 := * tag_m_1 :=^-1 == 1 )
-//  !is_u1 => tag != 1 (equiv, tag_m_1 := tag - 1 != 0)=> tag_m_1 := * tag_m_1 :=^-1 == 0 )
-// We need a special u1 case to map from tag to max_bits (see below table)
-pol TAG_M_1 = ia_tag - 1;
-pol commit tag_m1_inv;
-// This must be 0, otherwise either the inv is wrong, or is_u1 is wrong
-pol INVERSE_CHECK = sel * ( TAG_M_1 * tag_m1_inv - 1 + is_u1 );
+// Note: The complication below is because we need a special u1 case to map from tag to max_bits (see below table)
+pol TAG_MINUS_1 = ia_tag - 1;
+pol commit tag_minus_1_inv;
 
-// good paths
-//  tag is u1, is_u1 true => TAG_M_1 = 0, INVERSE_CHECK = 0 showing is_u1 = 1 -> passes
-//  tag is not u1, is_u1 false => is_u1 = 0, INVERSE_CHECK = 0 showing is_u1 = 0 -> passes
-// bad paths
-//  tag is u1, is_u1 false => TAG_M_1 = 0, INVERSE_CHECK = -1 -> correctly fails
-//  tag is not u1, is_u1 true => TAG_M_1 != 0 & is_u1 = 1 so below becomes:
-//      TAG_M_1 - TAG_M_1 * tag_m1_inv + TAG_M_1 * tag_m1_inv = TAG_M_1 != 0 -> correctly fails
+// We prove that is_u1 == 0 <==> ia_tag == MEM_TAG_U1
 #[TAG_IS_U1_CHECK]
-TAG_M_1 * is_u1 * (1 - tag_m1_inv) + INVERSE_CHECK = 0;
+sel * (TAG_MINUS_1 * (is_u1 * (1 - tag_minus_1_inv) + tag_minus_1_inv) + is_u1 - 1) = 0;
+
 
 // GOAL - tag -> bits -> max
 //      | tag |  max  | bits  |
@@ -102,11 +88,10 @@ cf { max_bits, max_value } in precomputed.sel_range_8 { precomputed.clk, precomp
 #[OP_ID_CHECK]
 sel_op_add - op_id = 0;
 
-#[SEL_ADD_BINARY]
 sel_op_add * (1 - sel_op_add) = 0;
 
 #[ALU_ADD]
-sel_op_add * (ia + ib - ic - cf * max_value ) = 0;
+sel_op_add * (ia + ib - ic - cf * max_value) = 0;
 
 // ** Note on TAG_BITS_CHECK relation
 // If we simply had:

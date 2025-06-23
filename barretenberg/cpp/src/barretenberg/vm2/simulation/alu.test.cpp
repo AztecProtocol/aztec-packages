@@ -12,20 +12,22 @@
 
 namespace bb::avm2::simulation {
 
-using ::testing::NiceMock;
+using ::testing::StrictMock;
 
 namespace {
 
 // TODO(MW): Add more simulation tests
 TEST(AvmSimulationAluTest, Add)
 {
-    NiceMock<MockRangeCheck> range_check;
+    StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<AluEvent> alu_event_emitter;
     Alu alu(range_check, alu_event_emitter);
 
     auto a = MemoryValue::from<uint32_t>(1);
     auto b = MemoryValue::from<uint32_t>(2);
+
+    EXPECT_CALL(range_check, assert_range(3, /*num_bits=*/32));
 
     auto c = alu.add(a, b);
 

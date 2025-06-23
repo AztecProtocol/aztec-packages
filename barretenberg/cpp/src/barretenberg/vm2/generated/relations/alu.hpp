@@ -13,7 +13,7 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 2, 4, 5, 2, 3, 4 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 2, 5, 5, 2, 3, 4 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -23,24 +23,22 @@ template <typename FF_> class aluImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto alu_TAG_M_1 = (in.get(C::alu_ia_tag) - FF(1));
-        const auto alu_INVERSE_CHECK =
-            in.get(C::alu_sel) * ((alu_TAG_M_1 * in.get(C::alu_tag_m1_inv) - FF(1)) + in.get(C::alu_is_u1));
+        const auto alu_TAG_MINUS_1 = (in.get(C::alu_ia_tag) - FF(1));
         const auto alu_POS_MAX_BITS = in.get(C::alu_sel) * (in.get(C::alu_ia_tag) - FF(1)) * FF(8);
 
-        { // SEL_BINARY
+        {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel) * (FF(1) - in.get(C::alu_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        { // CF_BINARY
+        {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_cf) * (FF(1) - in.get(C::alu_cf));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // IS_U1_BINARY
+        {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_is_u1) * (in.get(C::alu_is_u1) - FF(1));
             tmp *= scaling_factor;
@@ -60,7 +58,11 @@ template <typename FF_> class aluImpl {
         }
         { // TAG_IS_U1_CHECK
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (alu_TAG_M_1 * in.get(C::alu_is_u1) * (FF(1) - in.get(C::alu_tag_m1_inv)) + alu_INVERSE_CHECK);
+            auto tmp = in.get(C::alu_sel) *
+                       ((alu_TAG_MINUS_1 * (in.get(C::alu_is_u1) * (FF(1) - in.get(C::alu_tag_minus_1_inv)) +
+                                            in.get(C::alu_tag_minus_1_inv)) +
+                         in.get(C::alu_is_u1)) -
+                        FF(1));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
@@ -77,7 +79,7 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_ADD_BINARY
+        {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = in.get(C::alu_sel_op_add) * (FF(1) - in.get(C::alu_sel_op_add));
             tmp *= scaling_factor;
@@ -100,12 +102,6 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 0:
-            return "SEL_BINARY";
-        case 1:
-            return "CF_BINARY";
-        case 2:
-            return "IS_U1_BINARY";
         case 3:
             return "AB_TAG_EQUAL";
         case 4:
@@ -116,8 +112,6 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "TAG_BITS_CHECK";
         case 7:
             return "OP_ID_CHECK";
-        case 8:
-            return "SEL_ADD_BINARY";
         case 9:
             return "ALU_ADD";
         }
@@ -125,15 +119,11 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_SEL_BINARY = 0;
-    static constexpr size_t SR_CF_BINARY = 1;
-    static constexpr size_t SR_IS_U1_BINARY = 2;
     static constexpr size_t SR_AB_TAG_EQUAL = 3;
     static constexpr size_t SR_AC_TAG_EQUAL = 4;
     static constexpr size_t SR_TAG_IS_U1_CHECK = 5;
     static constexpr size_t SR_TAG_BITS_CHECK = 6;
     static constexpr size_t SR_OP_ID_CHECK = 7;
-    static constexpr size_t SR_SEL_ADD_BINARY = 8;
     static constexpr size_t SR_ALU_ADD = 9;
 };
 
