@@ -404,6 +404,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
              other.prime_basis_limb.get_witness_index()); // We are comparing if the bigfield elements are exactly the
                                                           // same object, so we compare the unnormalized witness indices
         if (!limbconst) {
+            // NOTE: can we simplify this further and not access the witness indices directly?
             std::pair<uint32_t, bb::fr> x0{ binary_basis_limbs[0].element.witness_index,
                                             binary_basis_limbs[0].element.multiplicative_constant };
             std::pair<uint32_t, bb::fr> x1{ binary_basis_limbs[1].element.witness_index,
@@ -633,8 +634,10 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     result.binary_basis_limbs[2].element = binary_basis_limbs[2].element + bb::fr(to_add_2);
     result.binary_basis_limbs[3].element = binary_basis_limbs[3].element + bb::fr(to_add_3);
 
-    if (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1 &&
-        !is_constant() && !other.is_constant()) {
+    bool both_witness = !is_constant() && !other.is_constant();
+    bool both_prime_limb_multiplicative_constant_one =
+        (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
+    if (both_prime_limb_multiplicative_constant_one && both_witness) {
         bool limbconst = result.binary_basis_limbs[0].element.is_constant();
         limbconst = limbconst || result.binary_basis_limbs[1].element.is_constant();
         limbconst = limbconst || result.binary_basis_limbs[2].element.is_constant();
@@ -650,6 +653,7 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
                      other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
                                                             // need to compare the actual indices, not normalized ones
         if (!limbconst) {
+            // NOTE: can we simplify this redundant code?
             std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
                                             binary_basis_limbs[0].element.multiplicative_constant };
             std::pair<uint32_t, bb::fr> x1{ result.binary_basis_limbs[1].element.witness_index,
@@ -2033,8 +2037,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     bigfield to_mul = input_to_mul;
     bigfield quotient = input_quotient;
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14661): what if left and to_mul both do not have a
-    // context?
     Builder* ctx = left.context ? left.context : to_mul.context;
 
     // Compute the maximum value of the product of the two inputs: max(a * b)
