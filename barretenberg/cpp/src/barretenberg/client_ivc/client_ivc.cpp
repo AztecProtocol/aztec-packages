@@ -303,7 +303,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         tr->enable_manifest();
         auto decider_vk = std::make_shared<DeciderVerificationKey>(honk_vk);
         if (!store_init) {
-            tr->load_proof(verification_queue[0].proof);
+            tr->load_proof(verification_queue.back().proof);
             OinkVerifier oink_verifier{ decider_vk, tr };
             oink_verifier.verify();
         } else {
