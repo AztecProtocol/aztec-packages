@@ -297,24 +297,6 @@ pub struct EmptyRHSArray<T, let N: u32> {
     pub length: u32,
 }
 
-/// A DenseTrimmedArray is a wrapped array where:
-/// - nonempty elements are tightly-packed to the left (with no interspersed `0`s).
-/// - the `length` hint has been validated (constrained) to be correct.
-/// The `length` is defined as the length of the array ignoring _all_ trailing `0`s.
-///
-/// Importantly, the "left part" of a EmptyRHSArray _can_ contain interspersed `0` elements.
-/// [3, 3, 3, 3, 3, 0, 0, 0] <-- length = 5 exactly
-/// [3, 0, 0, 3, 3, 0, 0, 0] <-- THROWS, because of the interspersed 0's. It is not left-packed.
-/// [3, 3, 3, 3, 3, 3, 3, 3] <-- length = 8 exactly
-/// [0, 0, 0, 0, 0, 0, 0, 0] <-- length = 0 exactly
-///
-/// Notice: not every array can be converted into a DenseTrimmedArray; it must be left-packed!
-#[derive(Eq)]
-pub struct DenseTrimmedArray<T, let N: u32> {
-    pub array: [T; N],
-    pub length: u32,
-}
-
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
 /// Validation must include:
@@ -355,51 +337,6 @@ where
             true,
             false,
         );
-    }
-}
-
-impl<T, let N: u32> DenseTrimmedArray<T, N>
-where
-    T: Empty,
-{
-    // Used to be called `validate_array`
-    pub fn new(array: [T; N]) -> Self {
-        // Safety: validated immediately below.
-        let trimmed_array_length_hint = unsafe { trimmed_array_length_hint(array) };
-        Self::assert_dense_trimmed(array, trimmed_array_length_hint);
-        DenseTrimmedArray { array, length: trimmed_array_length_hint }
-    }
-
-    pub fn new_from_claimed_length_array(array: ClaimedLengthArray<T, N>) -> Self {
-        Self::assert_dense_trimmed(array.array, array.length);
-        DenseTrimmedArray { array: array.array, length: array.length }
-    }
-
-    // Guard rails off: You MUST write an enormously detailed comment which explains
-    // why:
-    // - Why are you convinced that the RHS is all empty (trimmed)?
-    // - Why are you convinced that the LHS is all nonempty (dense)?
-    // This unsafe conversion to a DenseTrimmedArray should flag to any skeptical reader
-    // to spend a huge amount of time thinking about whether this caller's
-    // reasoning is safe.
-    pub fn new_unsafe(array: ClaimedLengthArray<T, N>) -> Self {
-        DenseTrimmedArray { array: array.array, length: array.length }
-    }
-
-    fn assert_dense_trimmed(array: [T; N], length_hint: u32) {
-        for_i_in_0_(
-            length_hint,
-            array.len(),
-            |i| {
-                array[i].assert_not_empty(); // LHS of input array is not dense.
-            },
-            |i| array[i].assert_empty("RHS of input array is not empty"),
-            false,
-        );
-    }
-
-    pub unconstrained fn to_bounded_vec(self) -> BoundedVec<T, N> {
-        BoundedVec::from_parts_unchecked(self.array, self.length)
     }
 }
 
@@ -598,28 +535,7 @@ where
 }
 
 #[test]
-fn smoke_left_packed_array() {
-    let valid_array: [Field; 0] = [];
-    assert(DenseTrimmedArray::new(valid_array).length == 0);
-
-    let valid_array = [0];
-    assert(DenseTrimmedArray::new(valid_array).length == 0);
-
-    let valid_array = [3];
-    assert(DenseTrimmedArray::new(valid_array).length == 1);
-
-    let valid_array = [1, 2, 3];
-    assert(DenseTrimmedArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 2, 3, 0];
-    assert(DenseTrimmedArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 2, 3, 0, 0];
-    assert(DenseTrimmedArray::new(valid_array).length == 3);
-}
-
-#[test]
-fn smoke_somewhat_trimmed_array() {
+fn smoke_rhs_empty_array() {
     let valid_array: [Field; 0] = [];
     assert(EmptyRHSArray::new(valid_array).length == 0);
 
@@ -640,38 +556,6 @@ fn smoke_somewhat_trimmed_array() {
 
     let valid_array = [0, 0, 3, 0, 0];
     assert(EmptyRHSArray::new(valid_array).length == 3);
-}
-
-#[test(should_fail)]
-fn smoke_left_packed_array_invalid_case0() {
-    let invalid_array = [0, 1];
-    let _ = DenseTrimmedArray::new(invalid_array);
-}
-
-#[test(should_fail)]
-fn smoke_left_packed_array_invalid_case1() {
-    let invalid_array = [1, 0, 0, 1, 0];
-    let _ = DenseTrimmedArray::new(invalid_array);
-}
-
-#[test(should_fail)]
-fn smoke_left_packed_array_invalid_case2() {
-    let invalid_array = [0, 0, 0, 0, 1];
-    let _ = DenseTrimmedArray::new(invalid_array);
-}
-
-#[test]
-fn test_empty_left_packed_array_length() {
-    assert_eq(DenseTrimmedArray::new([0]).length, 0);
-    assert_eq(DenseTrimmedArray::new([0, 0, 0]).length, 0);
-}
-
-#[test]
-fn test_array_length() {
-    assert_eq(DenseTrimmedArray::new([123]).length, 1);
-    assert_eq(DenseTrimmedArray::new([123, 0, 0]).length, 1);
-    assert_eq(DenseTrimmedArray::new([123, 456]).length, 2);
-    assert_eq(DenseTrimmedArray::new([123, 456, 0]).length, 2);
 }
 
 // #[test]

@@ -117,7 +117,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Sort:
         let sorted_kept_note_hashes = ClaimedLengthArray {
             array: sort_by_counter_asc(self.hints.kept_note_hashes.array),
-            // If an array is already a DenseTrimmedArray, then the sorted version of
+            // If an array is already a dense, trimmed array, then the sorted version of
             // that array will have the same length.
             // If the LHS is at all sparse, then the sorted version of the array will
             // get left-packed and the resulting length will be shorter.
