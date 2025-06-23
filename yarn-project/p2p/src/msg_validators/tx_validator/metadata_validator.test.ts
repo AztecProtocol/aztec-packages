@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { AnyTx, Tx } from '@aztec/stdlib/tx';
 import {
   IncludeByTimestamp,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
@@ -13,23 +13,34 @@ import {
 import { MetadataTxValidator } from './metadata_validator.js';
 
 describe('MetadataTxValidator', () => {
-  const chainId = new Fr(1);
-  // Timestamp against which we will validate the expiration timestamp.
-  const currentTimestamp = 10n;
-  // Block number in which the tx is considered to be included.
-  const blockNumber = 3;
-  const rollupVersion = new Fr(2);
-  const vkTreeRoot = new Fr(3);
-  const protocolContractTreeRoot = new Fr(4);
+  let timestamp: bigint;
+  let chainId: Fr;
+  let rollupVersion: Fr;
+  let vkTreeRoot: Fr;
+  let protocolContractTreeRoot: Fr;
+
   let seed = 1;
 
-  const validator = new MetadataTxValidator({
-    l1ChainId: chainId,
-    rollupVersion,
-    timestamp: currentTimestamp,
-    blockNumber,
-    vkTreeRoot,
-    protocolContractTreeRoot,
+  let validator: MetadataTxValidator<AnyTx>;
+
+  const setValidatorAtBlock = (blockNumber: number) => {
+    chainId = new Fr(1);
+    timestamp = 10n;
+    rollupVersion = new Fr(2);
+    vkTreeRoot = new Fr(3);
+    protocolContractTreeRoot = new Fr(4);
+    validator = new MetadataTxValidator({
+      l1ChainId: chainId,
+      rollupVersion,
+      timestamp,
+      blockNumber,
+      vkTreeRoot,
+      protocolContractTreeRoot,
+    });
+  };
+
+  beforeEach(() => {
+    setValidatorAtBlock(3);
   });
 
   const expectValid = async (tx: Tx) => {
@@ -105,8 +116,21 @@ describe('MetadataTxValidator', () => {
 
   it('rejects txs with lower expiration timestamp', async () => {
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, currentTimestamp - 1n);
+    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, timestamp - 1n);
 
     await expectInvalid(badTx, TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP);
+  });
+
+  it('accept txs with lower expiration timestamp when building block 1', async () => {
+    // Since at block 1, we skip the expiration check, we expect the tx to be valid even if the expiration timestamp
+    // is lower than the current timestamp. For details on why the check is disable for block 1 see the
+    // `validate_include_by_timestamp` function in
+    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    setValidatorAtBlock(1);
+
+    const [badTx] = await makeTxs();
+    badTx.data.rollupValidationRequests.includeByTimestamp = new IncludeByTimestamp(true, timestamp - 1n);
+
+    await expectValid(badTx);
   });
 });
