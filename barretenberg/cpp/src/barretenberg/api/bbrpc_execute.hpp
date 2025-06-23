@@ -27,8 +27,6 @@ struct BBRpcRequest {
     std::optional<acir_format::AcirFormat> last_circuit_constraints;
     // TODO(AI) parse vk passed with this circuit
     std::vector<Command> commands;
-    // For testing only! Create mock kernels such as in mock_circuit_producer.hpp.
-    bool testing_only_generate_mock_kernels = false;
 
     BBRpcRequest(RequestId request_id, std::vector<Command>&& commands)
         : request_id(request_id)
@@ -255,11 +253,6 @@ inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAcc
     // Use the program-based create_circuit which sets proper metadata
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(acir_program, metadata);
-
-    if (request.testing_only_generate_mock_kernels && request.ivc_stack_depth % 2 == 1) {
-        info("ClientIvcAccumulate - TESTING ONLY! Generating mock kernel circuit.");
-        request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
-    }
 
     // Accumulate the circuit
     // TODO(AI) pass precomputed VK here if vk not blank

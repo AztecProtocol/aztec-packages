@@ -59,6 +59,46 @@ std::vector<uint8_t> create_simple_circuit_bytecode()
     return program.bincodeSerialize();
 }
 
+std::vector<uint8_t> create_simple_kernel()
+{
+    Acir::Circuit circuit;
+
+    // Need witness indices for VK elements, proof, and public inputs
+    uint32_t witness_idx = 0;
+
+    // Create FunctionInputs for verification key (~100+ elements)
+    std::vector<Acir::FunctionInput> vk_inputs;
+    for (int i = 0; i < 100; i++) {
+        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ witness_idx++ } } }, 128 };
+        vk_inputs.push_back(input);
+    }
+
+    // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
+    // We only have something like the init kernel, so verify OINK. pass no proof or public inputs like there.
+    Acir::BlackBoxFuncCall::RecursiveAggregation recursion{
+        .verification_key = vk_inputs,
+        .proof = {},
+        .public_inputs = {},
+        // unused
+        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Constant{
+                                             { "0000000000000000000000000000000000000000000000000000000000000000" } } },
+                                         128 },
+        .proof_type = 2 // OINK for IVC (or 3 for PG)
+    };
+
+    // Create the BlackBoxFuncCall opcode
+    Acir::BlackBoxFuncCall black_box_call;
+    black_box_call.value = recursion;
+
+    // Add to circuit opcodes
+    circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
+
+    circuit.current_witness_index = witness_idx;
+    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Unbounded{} };
+
+    return circuit;
+}
+
 class BBRpcTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -301,130 +341,87 @@ TEST_F(BBRpcTests, VkAsFields)
     EXPECT_GT(fields_response.fields.size(), 0);
 }
 
-// Helper to create a more complex circuit suitable for IVC
-std::vector<uint8_t> create_ivc_circuit_bytecode()
+// Helper to create a minimal circuit suitable for IVC testing
+// Returns a pair of (circuit_bytecode, witness_data)
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_minimal_ivc_circuit()
 {
-    // Create a circuit with multiple gates suitable for IVC
-    std::vector<Acir::Opcode> opcodes;
+    // Create a simple circuit with public inputs (required for IVC)
+    // Constraint: public_input * w1 = w2
+    Acir::Circuit circuit;
 
-    // Create multiple constraints:
-    // w0 + w1 = w2
-    // w2 * w3 = w4
-    // w4 + w5 = w6
+    // Make witness 0 a public input
+    circuit.public_parameters = Acir::PublicInputs{ { Acir::Witness{ 0 } } };
 
     std::string one = "0000000000000000000000000000000000000000000000000000000000000001";
     std::string minus_one = "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000";
-    std::string zero = "0000000000000000000000000000000000000000000000000000000000000000";
 
-    // First constraint: w0 + w1 - w2 = 0
-    {
-        Acir::Expression expr;
-        expr.mul_terms = {};
-        expr.linear_combinations = {
-            { one, Acir::Witness{ 0 } },      // 1 * w0
-            { one, Acir::Witness{ 1 } },      // 1 * w1
-            { minus_one, Acir::Witness{ 2 } } // -1 * w2
-        };
-        expr.q_c = zero;
-        opcodes.push_back(Acir::Opcode{ Acir::Opcode::AssertZero{ expr } });
-    }
+    // Create constraint: w0 * w1 - w2 = 0
+    Acir::Expression expr;
+    expr.mul_terms = { { one, Acir::Witness{ 0 }, Acir::Witness{ 1 } } }; // w0 * w1
+    expr.linear_combinations = { { minus_one, Acir::Witness{ 2 } } };     // -1 * w2
+    expr.q_c = "0000000000000000000000000000000000000000000000000000000000000000";
 
-    // Second constraint: w2 * w3 - w4 = 0
-    {
-        Acir::Expression expr;
-        expr.mul_terms = { { one, Acir::Witness{ 2 }, Acir::Witness{ 3 } } }; // w2 * w3
-        expr.linear_combinations = { { minus_one, Acir::Witness{ 4 } } };     // -1 * w4
-        expr.q_c = zero;
-        opcodes.push_back(Acir::Opcode{ Acir::Opcode::AssertZero{ expr } });
-    }
+    Acir::Opcode::AssertZero assert_zero;
+    assert_zero.value = expr;
+    Acir::Opcode opcode;
+    opcode.value = assert_zero;
+    circuit.opcodes.push_back(opcode);
 
-    // Third constraint: w4 + w5 - w6 = 0
-    {
-        Acir::Expression expr;
-        expr.mul_terms = {};
-        expr.linear_combinations = {
-            { one, Acir::Witness{ 4 } },      // 1 * w4
-            { one, Acir::Witness{ 5 } },      // 1 * w5
-            { minus_one, Acir::Witness{ 6 } } // -1 * w6
-        };
-        expr.q_c = zero;
-        opcodes.push_back(Acir::Opcode{ Acir::Opcode::AssertZero{ expr } });
-    }
-
-    // Create the circuit
-    Acir::Circuit circuit;
-    circuit.current_witness_index = 7; // We have 7 witnesses (0-6)
-    circuit.opcodes = opcodes;
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
+    circuit.current_witness_index = 3;
+    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Unbounded{} };
     circuit.private_parameters = {};
-    circuit.public_parameters = Acir::PublicInputs{ {} };
     circuit.return_values = Acir::PublicInputs{ {} };
     circuit.assert_messages = {};
 
-    // Create the program with the circuit
+    // Create the program
     Acir::Program program;
     program.functions = { circuit };
     program.unconstrained_functions = {};
 
-    return program.bincodeSerialize();
+    // Create witness data: public_input=2, w1=3, w2=6 (so 2*3=6)
+    Witnesses::WitnessStack witness_stack;
+    Witnesses::StackItem stack_item;
+    stack_item.index = 0;
+    stack_item.witness.value = {
+        { Witnesses::Witness{ 0 },
+          "0000000000000000000000000000000000000000000000000000000000000002" }, // public_input = 2
+        { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
+        { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000006" }  // w2 = 6
+    };
+    witness_stack.stack.push_back(stack_item);
+
+    return { program.bincodeSerialize(), witness_stack.bincodeSerialize() };
 }
 
-// IVC tests are disabled until we have proper ACIR circuit generation for IVC
-// The simple circuits we create don't have the proper structure needed for IVC
-// (they need recursive verification components, pairing points, etc)
-TEST_F(BBRpcTests, DISABLED_ClientIvcBasicFlow)
+// Test IVC with mock kernels enabled
+TEST_F(BBRpcTests, ClientIvcWithMockKernels)
 {
-    // Test basic IVC flow: start, load, accumulate, prove
+    // Create request with testing_only_generate_mock_kernels enabled
+    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
 
     // Start IVC
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
     auto start_response = execute(request, ClientIvcStart{});
     EXPECT_TRUE(start_response.error_message.empty());
 
-    // Need to accumulate at least 2 circuits for IVC
+    // Get our minimal circuit and witness
+    auto [circuit_bytecode, witness_data] = create_minimal_ivc_circuit();
+
     for (int i = 0; i < 2; i++) {
-        // Load a circuit
-        auto bytecode = create_ivc_circuit_bytecode();
-        CircuitInput circuit{ .name = "ivc_test_circuit_" + std::to_string(i),
-                              .bytecode = bytecode,
+        // Load the circuit
+        CircuitInput circuit{ .name = "circuit_" + std::to_string(i),
+                              .bytecode = circuit_bytecode,
                               .verification_key = {} };
 
-        ClientIvcLoad load_command{ .circuit = circuit };
-        auto load_response = execute(request, std::move(load_command));
+        auto load_response = execute(request, ClientIvcLoad{ circuit });
         EXPECT_TRUE(load_response.error_message.empty());
 
-        // Create witness data that satisfies the constraints
-        Witnesses::WitnessStack witness_stack;
-        Witnesses::StackItem stack_item;
-        stack_item.index = 0;
-
-        // Values that satisfy:
-        // w0 + w1 = w2  (2 + 3 = 5)
-        // w2 * w3 = w4  (5 * 4 = 20)
-        // w4 + w5 = w6  (20 + 7 = 27)
-        stack_item.witness.value = {
-            { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000002" }, // w0 = 2
-            { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
-            { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000005" }, // w2 = 5
-            { Witnesses::Witness{ 3 }, "0000000000000000000000000000000000000000000000000000000000000004" }, // w3 = 4
-            { Witnesses::Witness{ 4 },
-              "0000000000000000000000000000000000000000000000000000000000000014" }, // w4 = 20 (0x14)
-            { Witnesses::Witness{ 5 }, "0000000000000000000000000000000000000000000000000000000000000007" }, // w5 = 7
-            { Witnesses::Witness{ 6 },
-              "000000000000000000000000000000000000000000000000000000000000001b" } // w6 = 27 (0x1b)
-        };
-        witness_stack.stack.push_back(stack_item);
-        std::vector<uint8_t> witness_data = witness_stack.bincodeSerialize();
-
-        ClientIvcAccumulate accumulate_command{ .witness = witness_data };
-        auto accumulate_response = execute(request, std::move(accumulate_command));
+        auto accumulate_response = execute(request, ClientIvcAccumulate{ witness_data });
         EXPECT_TRUE(accumulate_response.error_message.empty());
     }
 
     // Generate proof
     auto prove_response = execute(request, ClientIvcProve{});
     EXPECT_TRUE(prove_response.error_message.empty());
-    // Check that we got a proof with content
     EXPECT_GT(prove_response.proof.mega_proof.size(), 0);
     EXPECT_GT(prove_response.proof.goblin_proof.eccvm_proof.pre_ipa_proof.size(), 0);
 }
@@ -476,407 +473,5 @@ TEST_F(BBRpcTests, ClientIvcErrorNoStart)
     EXPECT_FALSE(response.error_message.empty());
     EXPECT_TRUE(response.error_message.find("No IVC in progress") != std::string::npos);
 }
-
-// Helper to create witness data for kernel circuit
-std::vector<uint8_t> create_kernel_witness_data(size_t num_vk_elements = 10, size_t num_public_inputs = 3)
-{
-    Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item;
-    stack_item.index = 0;
-
-    uint32_t witness_idx = 0;
-
-    // Add VK element witnesses (dummy values for testing)
-    for (size_t i = 0; i < num_vk_elements; i++) {
-        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-            "0000000000000000000000000000000000000000000000000000000000000001";
-    }
-
-    // Add public input witnesses
-    for (size_t i = 0; i < num_public_inputs; i++) {
-        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-            "0000000000000000000000000000000000000000000000000000000000000002";
-    }
-
-    // Add key hash witness
-    stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-        "0000000000000000000000000000000000000000000000000000000000000003";
-
-    // Add arithmetic constraint witnesses (a + b = c)
-    for (int i = 0; i < 5; i++) {
-        // a = 5
-        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-            "0000000000000000000000000000000000000000000000000000000000000005";
-        // b = 7
-        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-            "0000000000000000000000000000000000000000000000000000000000000007";
-        // c = 12
-        stack_item.witness.value[Witnesses::Witness{ witness_idx++ }] =
-            "000000000000000000000000000000000000000000000000000000000000000c";
-    }
-
-    witness_stack.stack.push_back(stack_item);
-    return witness_stack.bincodeSerialize();
-}
-
-TEST_F(BBRpcTests, CreateAndSerializeIvcCircuitWithRecursion)
-{
-    // Test that we can create and serialize an IVC kernel circuit with RecursiveAggregation
-    auto kernel_bytecode = create_ivc_kernel_circuit_bytecode();
-    EXPECT_GT(kernel_bytecode.size(), 0);
-
-    // Deserialize to verify structure
-    Acir::Program program = Acir::Program::bincodeDeserialize(kernel_bytecode);
-    EXPECT_EQ(program.functions.size(), 1);
-
-    auto& circuit = program.functions[0];
-    EXPECT_GT(circuit.opcodes.size(), 0);
-
-    // Find the BlackBoxFuncCall opcode with RecursiveAggregation
-    bool found_recursion = false;
-    for (const auto& opcode : circuit.opcodes) {
-        if (std::holds_alternative<Acir::Opcode::BlackBoxFuncCall>(opcode.value)) {
-            const auto& bb_call = std::get<Acir::Opcode::BlackBoxFuncCall>(opcode.value);
-            if (std::holds_alternative<Acir::BlackBoxFuncCall::RecursiveAggregation>(bb_call.value.value)) {
-                const auto& recursion = std::get<Acir::BlackBoxFuncCall::RecursiveAggregation>(bb_call.value.value);
-                EXPECT_EQ(recursion.proof_type, 2);               // OINK
-                EXPECT_EQ(recursion.verification_key.size(), 10); // Our test VK size
-                EXPECT_EQ(recursion.public_inputs.size(), 3);     // Our test public inputs
-                found_recursion = true;
-            }
-        }
-    }
-    EXPECT_TRUE(found_recursion);
-
-    // Test witness data creation and serialization
-    auto witness_data = create_kernel_witness_data();
-    EXPECT_GT(witness_data.size(), 0);
-
-    // Verify witness can be deserialized
-    Witnesses::WitnessStack witness_stack = Witnesses::WitnessStack::bincodeDeserialize(witness_data);
-    EXPECT_EQ(witness_stack.stack.size(), 1);
-    EXPECT_GE(witness_stack.stack[0].witness.value.size(), 14); // VK + public inputs + key hash
-}
-
-// Create a simple circuit that has the proper structure for IVC
-std::vector<uint8_t> create_simple_ivc_compatible_circuit()
-{
-    Acir::Circuit circuit;
-
-    // Create a circuit with:
-    // 1. At least one public input (required for IVC)
-    // 2. Multiple arithmetic constraints
-
-    // Make witness 0 a public input
-    circuit.public_parameters = Acir::PublicInputs{ { Acir::Witness{ 0 } } };
-
-    uint32_t witness_idx = 1; // Start from 1 since 0 is public
-
-    // Add arithmetic constraints
-    // First constraint: public_input * w1 - w2 = 0
-    {
-        Acir::Expression expr;
-        expr.mul_terms = {
-            { "0000000000000000000000000000000000000000000000000000000000000001",
-              Acir::Witness{ 0 },
-              Acir::Witness{ 1 } } // 1 * w0 * w1
-        };
-        expr.linear_combinations = {
-            { "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000", Acir::Witness{ 2 } } // -1 * w2
-        };
-        expr.q_c = "0000000000000000000000000000000000000000000000000000000000000000";
-
-        Acir::Opcode::AssertZero assert_zero;
-        assert_zero.value = expr;
-        Acir::Opcode opcode;
-        opcode.value = assert_zero;
-        circuit.opcodes.push_back(opcode);
-    }
-
-    // Add more constraints to make the circuit substantial
-    for (int i = 0; i < 10; i++) {
-        Acir::Expression expr;
-        expr.mul_terms = {};
-        expr.linear_combinations = {
-            { "0000000000000000000000000000000000000000000000000000000000000001", Acir::Witness{ witness_idx + 1 } },
-            { "0000000000000000000000000000000000000000000000000000000000000001", Acir::Witness{ witness_idx + 2 } },
-            { "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000", Acir::Witness{ witness_idx + 3 } }
-        };
-        expr.q_c = "0000000000000000000000000000000000000000000000000000000000000000";
-
-        Acir::Opcode::AssertZero assert_zero;
-        assert_zero.value = expr;
-        Acir::Opcode arith_opcode;
-        arith_opcode.value = assert_zero;
-        circuit.opcodes.push_back(arith_opcode);
-
-        witness_idx += 3;
-    }
-
-    circuit.current_witness_index = witness_idx + 4;
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Unbounded{} };
-    circuit.private_parameters = {};
-    circuit.return_values = Acir::PublicInputs{ {} };
-    circuit.assert_messages = {};
-
-    Acir::Program program;
-    program.functions = { circuit };
-    program.unconstrained_functions = {};
-
-    return program.bincodeSerialize();
-}
-
-// This test demonstrates the limitations of creating IVC circuits with pure ACIR format
-// DISABLED: IVC requires goblin ECC operations that cannot be expressed in ACIR format
-TEST_F(BBRpcTests, ClientIvcWithRecursionConstraints)
-{
-    // LIMITATION DISCOVERED:
-    // This test fails with "BAD GET(): index = 0, virtual_size_ = 0" in Goblin::prove_merge()
-    // because IVC circuits require goblin ECC operations that populate the op_queue.
-    //
-    // While we can create RecursiveAggregation constraints using BlackBoxFuncCall (proof_type = OINK),
-    // the circuits also need:
-    // 1. To be created with `ivc.goblin.op_queue`
-    // 2. For kernel circuits: `ivc.complete_kernel_circuit_logic(circuit)`
-    // 3. For app circuits: `stdlib::recursion::PairingPoints::add_default_to_public_inputs(circuit)`
-    //
-    // These requirements cannot be expressed in pure ACIR format, which only supports:
-    // - Arithmetic constraints
-    // - BlackBox operations (including EmbeddedCurveAdd, MultiScalarMul)
-    // - RecursiveAggregation constraints
-    //
-    // The EmbeddedCurveAdd and MultiScalarMul operations create standard EC operations,
-    // not the goblin operations required for IVC.
-
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
-
-    // Start IVC
-    auto start_response = execute(request, ClientIvcStart{});
-    EXPECT_TRUE(start_response.error_message.empty());
-
-    // First, accumulate a more complex app circuit (IVC circuits need more constraints)
-    {
-        auto app_bytecode = create_ivc_circuit_bytecode(); // Use the more complex circuit
-        CircuitInput app_circuit{ .name = "app_circuit", .bytecode = app_bytecode, .verification_key = {} };
-
-        ClientIvcLoad load_command{ .circuit = app_circuit };
-        auto load_response = execute(request, std::move(load_command));
-        EXPECT_TRUE(load_response.error_message.empty());
-
-        // Create witness for app circuit
-        Witnesses::WitnessStack app_witness_stack;
-        Witnesses::StackItem app_stack_item;
-        app_stack_item.index = 0;
-
-        // Values that satisfy:
-        // w0 + w1 = w2  (2 + 3 = 5)
-        // w2 * w3 = w4  (5 * 4 = 20)
-        // w4 + w5 = w6  (20 + 7 = 27)
-        app_stack_item.witness.value = {
-            { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000002" }, // w0 = 2
-            { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
-            { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000005" }, // w2 = 5
-            { Witnesses::Witness{ 3 }, "0000000000000000000000000000000000000000000000000000000000000004" }, // w3 = 4
-            { Witnesses::Witness{ 4 }, "0000000000000000000000000000000000000000000000000000000000000014" }, // w4 = 20
-            { Witnesses::Witness{ 5 }, "0000000000000000000000000000000000000000000000000000000000000007" }, // w5 = 7
-            { Witnesses::Witness{ 6 }, "000000000000000000000000000000000000000000000000000000000000001b" }  // w6 = 27
-        };
-        app_witness_stack.stack.push_back(app_stack_item);
-        std::vector<uint8_t> app_witness_data = app_witness_stack.bincodeSerialize();
-
-        ClientIvcAccumulate accumulate_command{ .witness = app_witness_data };
-        auto accumulate_response = execute(request, std::move(accumulate_command));
-        EXPECT_TRUE(accumulate_response.error_message.empty());
-    }
-
-    // Now accumulate a kernel circuit with IVC recursion constraints
-    {
-        auto kernel_bytecode = create_ivc_kernel_circuit_bytecode();
-        CircuitInput kernel_circuit{ .name = "kernel_circuit", .bytecode = kernel_bytecode, .verification_key = {} };
-
-        ClientIvcLoad load_command{ .circuit = kernel_circuit };
-        auto load_response = execute(request, std::move(load_command));
-        EXPECT_TRUE(load_response.error_message.empty());
-
-        auto kernel_witness_data = create_kernel_witness_data();
-
-        ClientIvcAccumulate accumulate_command{ .witness = kernel_witness_data };
-        auto accumulate_response = execute(request, std::move(accumulate_command));
-
-        // This is where it would fail with goblin operations missing
-        EXPECT_TRUE(accumulate_response.error_message.empty());
-    }
-
-    // Generate proof - this would fail with "BAD GET(): index = 0, virtual_size_ = 0"
-    // because the circuits lack goblin operations
-    auto prove_response = execute(request, ClientIvcProve{});
-    EXPECT_TRUE(prove_response.error_message.empty());
-}
-
-// === FINDINGS: How to Create a Valid Client IVC Circuit using ONLY Acir::Circuit ===
-//
-// KEY DISCOVERY: IVC recursion constraints CAN be created using Acir::Opcode::BlackBoxFuncCall
-// with the RecursiveAggregation variant!
-//
-// 1. ACIR CIRCUIT STRUCTURE (from serde/acir.hpp):
-//    ```cpp
-//    struct Circuit {
-//        uint32_t current_witness_index;
-//        std::vector<Opcode> opcodes;
-//        ExpressionWidth expression_width;
-//        std::vector<Witness> private_parameters;
-//        PublicInputs public_parameters;
-//        PublicInputs return_values;
-//        std::vector<std::tuple<OpcodeLocation, std::string>> assert_messages;
-//    };
-//    ```
-//
-// 2. CREATING IVC RECURSION VIA BLACKBOXFUNCCALL:
-//    The BlackBoxFuncCall struct contains a RecursiveAggregation variant:
-//    ```cpp
-//    struct BlackBoxFuncCall {
-//        std::variant<..., RecursiveAggregation, ...> value;
-//    };
-//
-//    struct RecursiveAggregation {
-//        std::vector<Acir::FunctionInput> verification_key;
-//        std::vector<Acir::FunctionInput> proof;
-//        std::vector<Acir::FunctionInput> public_inputs;
-//        Acir::FunctionInput key_hash;
-//        uint32_t proof_type;  // OINK = 2, PG = 3 for IVC
-//    };
-//    ```
-//
-// 3. HOW IT WORKS IN acir_to_constraint_buf.cpp:
-//    When processing BlackBoxFuncCall::RecursiveAggregation:
-//    - If proof_type is OINK (2) or PG (3), it creates IVC recursion constraints
-//    - These are added to af.ivc_recursion_constraints
-//    - The conversion happens in lines 748-751 of acir_to_constraint_buf.cpp
-//
-// 4. CREATING AN IVC KERNEL CIRCUIT WITH ACIR:
-//    ```cpp
-//    Acir::Circuit create_ivc_kernel_circuit() {
-//        Acir::Circuit circuit;
-//
-//        // Need witness indices for VK elements, proof, and public inputs
-//        uint32_t witness_idx = 0;
-//
-//        // Create FunctionInputs for verification key (~100+ elements)
-//        std::vector<Acir::FunctionInput> vk_inputs;
-//        for (int i = 0; i < 100; i++) {
-//            vk_inputs.push_back(Acir::FunctionInput{
-//                Acir::FunctionInput::witness{Acir::Witness{witness_idx++}}
-//            });
-//        }
-//
-//        // Create FunctionInputs for public inputs to verify
-//        std::vector<Acir::FunctionInput> public_inputs;
-//        for (int i = 0; i < num_public_inputs; i++) {
-//            public_inputs.push_back(Acir::FunctionInput{
-//                Acir::FunctionInput::witness{Acir::Witness{witness_idx++}}
-//            });
-//        }
-//
-//        // Create the RecursiveAggregation constraint
-//        Acir::BlackBoxFuncCall::RecursiveAggregation recursion{
-//            .verification_key = vk_inputs,
-//            .proof = {},  // Empty for IVC
-//            .public_inputs = public_inputs,
-//            .key_hash = Acir::FunctionInput{
-//                Acir::FunctionInput::witness{Acir::Witness{witness_idx++}}
-//            },
-//            .proof_type = 2  // OINK for IVC (or 3 for PG)
-//        };
-//
-//        // Create the BlackBoxFuncCall opcode
-//        Acir::BlackBoxFuncCall black_box_call;
-//        black_box_call.value = recursion;
-//
-//        // Add to circuit opcodes
-//        circuit.opcodes.push_back(Acir::Opcode{
-//            Acir::Opcode::BlackBoxFuncCall{black_box_call}
-//        });
-//
-//        circuit.current_witness_index = witness_idx;
-//        circuit.expression_width = Acir::ExpressionWidth{
-//            Acir::ExpressionWidth::Unbounded{}
-//        };
-//
-//        return circuit;
-//    }
-//    ```
-//
-// 5. WITNESS DATA REQUIREMENTS:
-//    For the IVC recursion to work, witness data must include:
-//    - Verification key elements (from honk_verification_key->to_field_elements())
-//    - Public inputs from the circuit being verified
-//    - Key hash value
-//
-// 6. CREATING APP CIRCUITS:
-//    App circuits are simpler - just arithmetic constraints without recursion.
-//    The pairing points are added automatically during circuit construction.
-//
-// 7. COMPLETE IVC FLOW WITH ACIR:
-//    ```cpp
-//    // 1. Create app circuit (no recursion)
-//    auto app_circuit = create_simple_circuit_bytecode();
-//
-//    // 2. Accumulate it in IVC
-//    ivc->accumulate(app_circuit);
-//
-//    // 3. Create kernel circuit with RecursiveAggregation
-//    auto kernel_circuit = create_ivc_kernel_circuit();
-//
-//    // 4. Provide witness data with VK elements and public inputs
-//    auto witness_data = create_kernel_witness_data(ivc->verification_queue);
-//
-//    // 5. Accumulate kernel
-//    ivc->accumulate(kernel_circuit, witness_data);
-//    ```
-//
-// 8. KEY INSIGHT:
-//    The critical discovery is that Acir::BlackBoxFuncCall::RecursiveAggregation
-//    with proof_type = OINK (2) or PG (3) is the mechanism to create IVC recursion
-//    constraints from pure ACIR format. This is how Noir's verify_proof() calls
-//    get translated into IVC recursion constraints.
-
-// === SUMMARY: Creating IVC Circuits with Recursion Constraints ===
-//
-// We successfully demonstrated how to:
-// 1. Create IVC kernel circuits using pure Acir::Circuit with RecursiveAggregation
-// 2. Serialize and deserialize these circuits
-// 3. Create proper witness data for IVC recursion constraints
-//
-// The key components are:
-// - Acir::BlackBoxFuncCall::RecursiveAggregation with proof_type = OINK (2) or PG (3)
-// - FunctionInput structures for verification key, public inputs, and key hash
-// - Witness data that provides the actual values for verification
-//
-// See the test CreateAndSerializeIvcCircuitWithRecursion for a working example.
-//
-// FUNDAMENTAL LIMITATION DISCOVERED:
-// IVC circuits require goblin ECC operations that CANNOT be expressed in ACIR format.
-//
-// The error "BAD GET(): index = 0, virtual_size_ = 0" in Goblin::prove_merge() occurs
-// because IVC circuits need:
-// 1. To be created with `ivc.goblin.op_queue` - provides goblin ECC operation queue
-// 2. For kernel circuits: `ivc.complete_kernel_circuit_logic(circuit)` - adds recursive verifiers
-// 3. For app circuits: `stdlib::recursion::PairingPoints::add_default_to_public_inputs(circuit)`
-//
-// ACIR format only supports:
-// - Arithmetic constraints (AssertZero)
-// - BlackBox operations (including EmbeddedCurveAdd, MultiScalarMul)
-// - RecursiveAggregation constraints
-//
-// The EmbeddedCurveAdd and MultiScalarMul operations in ACIR create standard EC operations
-// using cycle_group, NOT the goblin operations required for IVC. Goblin operations are
-// special ECC operations that populate the op_queue for the ECCVM and Translator components.
-//
-// CONCLUSION:
-// While IVC recursion constraints CAN be expressed in pure ACIR format using
-// BlackBoxFuncCall::RecursiveAggregation, and the structure is correct, generating
-// actual IVC proofs is IMPOSSIBLE with pure ACIR circuits because they lack the
-// necessary goblin infrastructure. This is a fundamental architectural limitation,
-// not a bug or missing feature in the ACIR format.
 
 } // namespace bb::bbrpc
