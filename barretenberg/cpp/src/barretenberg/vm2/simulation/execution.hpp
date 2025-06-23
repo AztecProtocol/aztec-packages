@@ -116,8 +116,8 @@ class Execution : public ExecutionInterface {
 
     // TODO(#13683): This is leaking circuit implementation details. We should have a better way to do this.
     // Setters for inputs and output for gadgets/subtraces. These are used for register allocation.
-    void set_inputs(std::vector<TaggedValue> inputs) { this->inputs = std::move(inputs); }
-    void set_output(TaggedValue output) { this->output = std::move(output); }
+    void set_and_validate_inputs(ExecutionOpCode opcode, std::vector<TaggedValue> inputs);
+    void set_output(ExecutionOpCode opcode, TaggedValue output);
     const std::vector<TaggedValue>& get_inputs() const { return inputs; }
     const TaggedValue& get_output() const { return output; }
 
