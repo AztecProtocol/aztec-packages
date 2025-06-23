@@ -24,15 +24,14 @@ import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
   RollupCore,
   GenesisState,
-  IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
   TimeLib,
@@ -65,7 +64,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   constructor(
     IERC20 _feeAsset,
-    IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     GSE _gse,
     IVerifier _epochProofVerifier,
@@ -75,7 +73,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   )
     RollupCore(
       _feeAsset,
-      _rewardDistributor,
       _stakingAsset,
       _gse,
       _epochProofVerifier,
@@ -586,7 +583,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
-    return STFLib.getStorage().config.rewardDistributor;
+    return RewardLib.getStorage().config.rewardDistributor;
   }
 
   function getL1FeesAt(Timestamp _timestamp)

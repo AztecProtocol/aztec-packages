@@ -226,6 +226,8 @@ contract RollupBuilder is Test {
       config.testERC20.mint(
         address(config.rewardDistributor), 1e6 * config.rewardDistributor.BLOCK_REWARD()
       );
+    } else {
+      config.rewardDistributor = RewardDistributor(address(config.registry.getRewardDistributor()));
     }
 
     if (config.flags.makeGovernance) {
@@ -247,9 +249,10 @@ contract RollupBuilder is Test {
       }
     }
 
+    config.rollupConfigInput.rewardConfig.rewardDistributor = config.rewardDistributor;
+
     config.rollup = new Rollup(
       config.testERC20,
-      config.rewardDistributor,
       config.testERC20,
       config.gse,
       new MockVerifier(),
