@@ -121,6 +121,7 @@ grafana:
     type: LoadBalancer
   persistence:
     type: pvc
+    storageClassName: standard-rwo
     enabled: true
     size: "128Gi"
   datasources:
