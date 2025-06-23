@@ -15,7 +15,6 @@ import {Transcript} from "./Transcript.sol";
 
 import "forge-std/console2.sol";
 
-
 function logG(string memory name, Honk.G1ProofPoint memory p) pure {
     Honk.G1Point memory point = convertProofPoint(p);
 
