@@ -12,7 +12,7 @@ jobs:
       state: ${{ steps.check.outputs.label_check }}
     steps:
       - id: check
-        uses: agilepathway/label-checker@v1.6.55
+        uses: agilepathway/label-checker@825944377ab3bce1269b38c99b718767e2ca6bbc
         with:
           prefix_mode: true
           any_of: backport-to-
@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Backport Action
-        uses: sorenlouv/backport-github-action@v9.5.1
+        uses: sorenlouv/backport-github-action@ad888e978060bc1b2798690dd9d03c4036560947
         with:
           github_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto_backport_label_prefix: backport-to-
