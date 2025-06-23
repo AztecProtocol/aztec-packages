@@ -20,24 +20,24 @@ where
 {
     // --- Validate the hints ---
 
-    // We do not allow an Option::none for the first padded index.
-    let first_after_split_index = first_after_split_index.unwrap();
-    let first_padded_index = first_padded_index.unwrap();
+    // TODO: refactor this function so that `N` isn't treated as nullish.
+    // For now, I'm just doing this do that I don't have to do it yet.
+    let first_after_split_index = if first_after_split_index.is_none() {
+        N
+    } else {
+        first_after_split_index.unwrap_unchecked()
+    };
 
-    // Validate first_after_split_index
+    let first_padded_index = if first_padded_index.is_none() {
+        N
+    } else {
+        first_padded_index.unwrap_unchecked()
+    };
 
-    if first_padded_index != 0 {
-        assert(
-            sorted_array[first_padded_index - 1].counter() < split_counter,
-            "first_after_split_index is too large",
-        );
-    }
-
-    let counter = sorted_array[first_padded_index].counter();
-    // Note: A padded item can also be the first item after the split counter.
-    assert((counter == 0) | (counter >= split_counter), "incorrect first_after_split_index");
-
-    // Validate first_padded_index
+    // Validate first_padded_index:
+    // sorted_array[first_padded_index - 1].counter() is not nullish, but sorted_array[first_padded_index].counter() is nullish.
+    // Q: where do we validate that all counters earlier are also not nullish,
+    // and that all counters later are also nullish?
 
     if first_padded_index != 0 {
         assert(
@@ -53,6 +53,50 @@ where
 
     // Validate num_padded_lt/first_padded_gte_index
 
+    let first_padded_gte_index = first_padded_index + num_padded_lt;
+    if first_padded_gte_index != N {
+        // If num_padded_lt is too large and there isn't enough padded items,
+        // first_padded_gte_index will be > N and the following will fail because the index is out of bounds.
+        let counter = sorted_array[first_padded_gte_index].counter();
+        // If there's no padded items for gte, the index will point to an empty item. And we can treat them as regular
+        // items and "pad" them to the gte array.
+        assert((counter == 0) | (counter == MAX_U32_VALUE), "incorrect first_padded_gte_index");
+    }
+
+    // --- Validate the hints ---
+    //
+
+    // Validate first_after_split_index:
+    // sorted_array[first_after_split_index - 1].counter() < split_counter <= sorted_array[first_after_split_index].counter()
+    if first_after_split_index != 0 {
+        assert(
+            sorted_array[first_after_split_index - 1].counter() < split_counter,
+            "first_after_split_index is too large",
+        );
+    }
+    if first_after_split_index != N {
+        let counter = sorted_array[first_after_split_index].counter();
+        // Note: A padded item can also be the first item after the split counter.
+        assert((counter == 0) | (counter >= split_counter), "incorrect first_after_split_index");
+    }
+
+    // Validate first_padded_index:
+    // sorted_array[first_padded_index - 1].counter() is not nullish, but sorted_array[first_padded_index].counter() is nullish.
+    // Q: where do we validate that all counters earlier are also not nullish,
+    // and that all counters later are also nullish?
+    if first_padded_index != 0 {
+        assert(
+            sorted_array[first_padded_index - 1].counter() != MAX_U32_VALUE,
+            "first_padded_index is too large",
+        );
+    }
+    if first_padded_index != N {
+        assert(
+            sorted_array[first_padded_index].counter() == MAX_U32_VALUE,
+            "incorrect first_padded_index",
+        );
+    }
+    // Validate num_padded_lt/first_padded_gte_index
     let first_padded_gte_index = first_padded_index + num_padded_lt;
     if first_padded_gte_index != N {
         // If num_padded_lt is too large and there isn't enough padded items,
@@ -85,6 +129,13 @@ where
     // } else {
     //     Phase 3
     // }
+    //
+    // [ _, _, _, 0| 0, 0, 0, 0]
+    //   ^        ^
+    //   1        2
+    // [ _, _, _, _| _, 0, 0, 0]
+    //               ^  ^
+    //               3  4
     let mut is_lt = true;
     let mut is_non_padded_lt = true;
     let mut is_padded = false;
