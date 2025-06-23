@@ -138,7 +138,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
                          testing::Values("1327_concrete_in_generic",
-                                         "1_mul",
+                                         "a_1_mul",
                                          "2_div",
                                          "3_add",
                                          "4_sub",
