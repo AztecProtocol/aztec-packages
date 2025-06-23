@@ -165,7 +165,7 @@ describe('KV TX pool', () => {
     const firstBatch = await timesAsync(10, () => mockFixedSizeTx());
     await txPool.addTxs(firstBatch);
 
-    // we've just added 10 txs. They should all be availble
+    // we've just added 10 txs. They should all be available
     expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
@@ -208,6 +208,60 @@ describe('KV TX pool', () => {
 
     // the pool should evict enough txs to stay under the size limit
     expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
+  });
+
+  it('evicts based on the updated size limit', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+    });
+
+    const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
+
+    const firstBatch = await timesAsync(10, (i: number) => mockFixedSizeTx(new GasFees(i + 1, i + 1)));
+    const expectedRemainingTxs = firstBatch.slice(6);
+    await txPool.addTxs(firstBatch);
+
+    // we've just added 10 txs. They should all be available
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(firstBatch, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    // now set the limit to 5 txs
+    const numRemainingTxs = 5;
+    txPool.updateConfig({ maxTxPoolSize: mockTxSize * numRemainingTxs });
+
+    // txs are not immediately evicted
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(firstBatch, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    // now add one more transaction
+    const lastTx = await mockFixedSizeTx(new GasFees(20, 20));
+    await txPool.addTxs([lastTx]);
+
+    const finalExpectedPool = expectedRemainingTxs.concat(lastTx);
+
+    // There should now just be numRemainingTxs txs in the pool
+    expect(await txPool.getPendingTxCount()).toEqual(finalExpectedPool.length);
+
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(finalExpectedPool, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
   });
 
   it('Evicts txs with nullifiers that are already included in the mined block', async () => {
