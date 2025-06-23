@@ -295,14 +295,17 @@ template <typename Builder, typename T> class bigfield {
 
     bigfield& operator=(const bigfield& other);
     bigfield& operator=(bigfield&& other);
-    // code assumes modulus is at most 256 bits so good to define it via a uint256_t
+
+    // Code assumes modulus is at most 256 bits so good to define it via a uint256_t
     static constexpr uint256_t modulus = (uint256_t(T::modulus_0, T::modulus_1, T::modulus_2, T::modulus_3));
     static constexpr uint512_t modulus_u512 = uint512_t(modulus);
     static constexpr uint64_t NUM_LIMB_BITS = NUM_LIMB_BITS_IN_FIELD_SIMULATION;
     static constexpr uint64_t NUM_LAST_LIMB_BITS = modulus_u512.get_msb() + 1 - (NUM_LIMB_BITS * 3);
+
     // The quotient reduction checks currently only support >=250 bit moduli and moduli >256 have never been tested
     // (Check zkSecurity audit report issue #12 for explanation)
     static_assert(modulus_u512.get_msb() + 1 >= 250 && modulus_u512.get_msb() + 1 <= 256);
+
     inline static const uint1024_t DEFAULT_MAXIMUM_REMAINDER =
         (uint1024_t(1) << (NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS)) - uint1024_t(1);
     static constexpr uint256_t DEFAULT_MAXIMUM_LIMB = (uint256_t(1) << NUM_LIMB_BITS) - uint256_t(1);
@@ -886,13 +889,28 @@ template <typename Builder, typename T> class bigfield {
     // The rationale of the expression is we should not overflow Fr when applying any bigfield operation (e.g. *) and
     // starting with this max limb size
     //
-    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form: 2^L . ai . bj.
-    // Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
+    // In multiplication of bigfield elements a * b, we encounter sum of limbs multiplications of form:
+    // c0 := a0 * b0
+    // c1 := a1 * b0 + a0 * b1
+    // c2 := a2 * b0 + a1 * b1 + a0 * b2
+    // c3 := a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
+    // output:
+    // lo := c0 + c1 * 2^L,
+    // hi := c2 + c3 * 2^L.
+    // Since hi term contains upto 4 limb-products, we must ensure that the hi term does not overflow the native field
+    // modulus. Suppose we are adding 2^k such terms. Let Q be the max bitsize of a limb. We want to ensure that the sum
     // doesn't overflow the native field modulus. Hence:
-    // 2^k . 2^L . 2^Q . 2^Q < n  ==> Q < (log(n) - k - L) / 2
+    // max(∑ hi) = max(∑ c2 + c3 * 2^L)
+    //           = max(∑ c2) + max(∑ c3 * 2^L)
+    //           = 2^k * (3 * 2^2Q) + 2^k * 2^L * (4 * 2^2Q)
+    //           < 2^k * (2^L + 1) * (4 * 2^2Q)
+    //           < n
+    // ==> 2^k * 2^L * 2^(2Q + 2) < n
+    // ==> 2Q + 2 < (log(n) - k - L)
+    // ==> Q < ((log(n) - k - L) - 2) / 2
     //
     static constexpr uint64_t MAXIMUM_LIMB_SIZE_THAT_WOULDNT_OVERFLOW =
-        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS) / 2;
+        (bb::fr::modulus.get_msb() - MAX_ADDITION_LOG - NUM_LIMB_BITS - 2) / 2;
 
     // If the logarithm of the maximum value of a limb is more than this, we need to reduce.
     // We allow an element to be added to itself 10 times, so we allow the limb to grow by 10 bits.
