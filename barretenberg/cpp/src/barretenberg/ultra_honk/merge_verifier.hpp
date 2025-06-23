@@ -22,7 +22,6 @@ namespace bb {
 class MergeVerifier {
     using Curve = curve::BN254;
     using FF = typename Curve::ScalarField;
-    using Commitment = typename Curve::AffineElement;
     using PCS = bb::KZG<Curve>;
     using OpeningClaim = bb::OpeningClaim<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
@@ -33,11 +32,13 @@ class MergeVerifier {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
   public:
+    using Commitment = typename Curve::AffineElement;
+
     std::shared_ptr<Transcript> transcript;
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    bool verify_proof(const HonkProof& proof, const std::array<Commitment, NUM_WIRES> t_commitments);
+    bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
 };
 
 } // namespace bb

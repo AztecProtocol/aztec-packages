@@ -22,6 +22,7 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 {
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
 
@@ -30,8 +31,9 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
 
     auto instance = std::make_shared<DeciderProvingKey>(builder);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto decider_vk = std::make_shared<DeciderVerificationKey>(verification_key);
     Prover prover(instance, verification_key);
-    Verifier verifier(verification_key);
+    Verifier verifier(decider_vk);
 
     HonkProof proof = prover.construct_proof();
     {

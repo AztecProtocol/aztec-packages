@@ -36,6 +36,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterDeciderVerificationKey = DeciderVerificationKey_<OuterFlavor>;
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     /**
@@ -129,8 +130,9 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            auto decider_vk = std::make_shared<OuterDeciderVerificationKey>(verification_key);
             OuterProver prover(proving_key, verification_key);
-            OuterVerifier verifier(verification_key);
+            OuterVerifier verifier(decider_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

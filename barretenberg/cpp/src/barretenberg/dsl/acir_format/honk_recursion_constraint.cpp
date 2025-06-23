@@ -230,6 +230,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 {
     using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
+    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
@@ -275,7 +276,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
 
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
-    RecursiveVerifier verifier(&builder, vkey);
+    auto decider_vk = std::make_shared<RecursiveDeciderVK>(&builder, vkey);
+    RecursiveVerifier verifier(&builder, decider_vk);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.verify_proof(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.

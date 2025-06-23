@@ -52,6 +52,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     info("WARNING: computing tube vk in prove_tube, but a precomputed vk should be passed in.");
     auto tube_verification_key =
         std::make_shared<typename UltraRollupFlavor::VerificationKey>(proving_key->proving_key);
+    auto tube_decider_vk = std::make_shared<DeciderVerificationKey_<UltraRollupFlavor>>(tube_verification_key);
 
     Prover tube_prover{ proving_key, tube_verification_key };
     auto tube_proof = tube_prover.construct_proof();
@@ -89,7 +90,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     info("Native verification of the tube_proof");
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-    Verifier tube_verifier(tube_verification_key, ipa_verification_key);
+    Verifier tube_verifier(tube_decider_vk, ipa_verification_key);
 
     // Break up the tube proof into the honk portion and the ipa portion
     const size_t HONK_PROOF_LENGTH_WITHOUT_INNER_PUB_INPUTS =

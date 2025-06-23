@@ -73,21 +73,12 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 
-    std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_decider_vk(
-        const std::shared_ptr<DeciderVerificationKey>& decider_vk)
-    {
-        auto ecc_op_wires_ref = decider_vk->witness_commitments.get_ecc_op_wires();
-        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
-        std::copy(ecc_op_wires_ref.begin(), ecc_op_wires_ref.end(), t_commitments.begin());
-        return t_commitments;
-    }
-
-    std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_op_queue(
+    RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_op_queue(
         auto& op_queue, const MergeProver& merge_prover)
     {
         std::array<typename Flavor::Polynomial, Flavor::NUM_WIRES> t_current =
             op_queue->construct_current_ultra_ops_subtable_columns();
-        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
+        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
             t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         }
@@ -104,10 +95,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         MergeProver merge_prover{ op_queue };
         MergeVerifier merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
-        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
+        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
 
         if (decider_vk.has_value()) {
-            t_commitments = this->construct_subtable_commitments_from_decider_vk(decider_vk.value());
+            t_commitments = decider_vk.value()->witness_commitments.get_ecc_op_wires();
         } else {
             t_commitments = this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover);
         }

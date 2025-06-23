@@ -28,6 +28,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
+    using InnerDeciderVerificationKey = DeciderVerificationKey_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
@@ -103,14 +104,15 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         // Generate a proof over the inner circuit
         auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
+        auto decider_vk = std::make_shared<InnerDeciderVerificationKey>(verification_key);
         InnerProver inner_prover(proving_key, verification_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.key->num_public_inputs.fix_witness();
-        verifier.key->pub_inputs_offset.fix_witness();
+        RecursiveVerifier verifier{ &outer_circuit, decider_vk };
+        verifier.key->verification_key->num_public_inputs.fix_witness();
+        verifier.key->verification_key->pub_inputs_offset.fix_witness();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;

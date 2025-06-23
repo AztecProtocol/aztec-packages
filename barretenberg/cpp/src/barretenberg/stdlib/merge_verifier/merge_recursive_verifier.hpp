@@ -33,7 +33,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const StdlibProof<CircuitBuilder>& proof, const std::array<Commitment, NUM_WIRES> t_commitments);
+        const StdlibProof<CircuitBuilder>& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
 };
 
 } // namespace bb::stdlib::recursion::goblin

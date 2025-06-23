@@ -89,16 +89,17 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // Compute native verification key
             auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
             auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+            auto decider_honk_vk = std::make_shared<DeciderVerificationKey_<UltraFlavor>>(honk_vk);
             UltraProver prover(proving_key, honk_vk); // A prerequisite for computing VK
             auto inner_proof = prover.construct_proof();
 
             if (tamper_vk) {
                 honk_vk->q_l = g1::one;
-                UltraVerifier_<UltraFlavor> verifier(honk_vk);
+                UltraVerifier_<UltraFlavor> verifier(decider_honk_vk);
                 EXPECT_FALSE(verifier.verify_proof(inner_proof));
             }
             // Instantiate the recursive verifier using the native verification key
-            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
+            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, decider_honk_vk);
 
             VerifierOutput output = verifier.verify_proof(inner_proof);
             output.points_accumulator.set_public(); // useless for now but just checking if it breaks anything

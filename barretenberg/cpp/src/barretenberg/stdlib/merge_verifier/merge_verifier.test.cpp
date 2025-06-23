@@ -54,8 +54,8 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        std::array<Commitment, InnerFlavor::NUM_WIRES> t_commitments;
-        std::array<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec;
+        RefArray<Commitment, InnerFlavor::NUM_WIRES> t_commitments;
+        RefArray<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec;
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
             t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             t_commitments_rec[idx] =

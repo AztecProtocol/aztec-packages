@@ -254,7 +254,7 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    Verifier verifier(verification_key);
+    Verifier verifier(decider_key);
     verifier.transcript->enable_manifest();
     verifier.verify_proof(proof);
 
@@ -306,6 +306,7 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
     using Flavor = TypeParam;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using FF = Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using Prover = UltraProver_<Flavor>;
@@ -325,7 +326,8 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         Prover prover(proving_key);
         auto proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        Verifier verifier(verification_key);
+        auto decider_vk = std::make_shared<DeciderVerificationKey>(verification_key);
+        Verifier verifier(decider_vk);
         EXPECT_TRUE(verifier.verify_proof(proof));
 
         // try deserializing and serializing with no changes and check proof is still valid

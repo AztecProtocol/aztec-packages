@@ -281,7 +281,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    typename TestFixture::Verifier verifier(verification_key);
+    typename TestFixture::Verifier verifier(decider_vk);
     verifier.transcript->enable_manifest();
     HonkProof honk_proof;
     HonkProof ipa_proof;

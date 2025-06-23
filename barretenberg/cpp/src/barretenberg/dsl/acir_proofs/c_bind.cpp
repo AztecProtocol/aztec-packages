@@ -49,10 +49,11 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 
     auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
     auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<UltraFlavor>>(verification_key);
     UltraProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    UltraVerifier verifier{ verification_key };
+    UltraVerifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
     info("verified: ", *result);
@@ -71,10 +72,11 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 
     auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
     auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<MegaFlavor>>(verification_key);
     MegaProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    MegaVerifier verifier{ verification_key };
+    MegaVerifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
 }
@@ -244,8 +246,9 @@ WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const*
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<UltraFlavor>>(verification_key);
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
 }
@@ -257,8 +260,9 @@ WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<UltraKeccakFlavor>>(verification_key);
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
 }
@@ -270,8 +274,9 @@ WASM_EXPORT void acir_verify_ultra_keccak_zk_honk(uint8_t const* proof_buf, uint
 
     auto proof = many_from_buffer<bb::fr>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<UltraKeccakZKFlavor>>(verification_key);
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
 }
@@ -286,8 +291,9 @@ WASM_EXPORT void acir_verify_ultra_starknet_honk([[maybe_unused]] uint8_t const*
 
     auto proof = from_buffer<std::vector<bb::fr>>(from_buffer<std::vector<uint8_t>>(proof_buf));
     auto verification_key = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(vk_buf));
+    auto decider_vk = std::make_shared<DeciderVerificationKey_<UltraStarknetFlavor>>(verification_key);
 
-    Verifier verifier{ verification_key };
+    Verifier verifier{ decider_vk };
 
     *result = verifier.verify_proof(proof);
 #else
