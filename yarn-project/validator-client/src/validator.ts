@@ -10,7 +10,6 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { ReqRespSubProtocol, TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import {
   Offense,
   type SlasherConfig,
