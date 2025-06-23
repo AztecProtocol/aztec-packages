@@ -1,0 +1,5 @@
+
+snapshots:
+  uploadLocation: "gs://aztec-testnet/snapshots/"
+  frequency: "0 */4 * * *" # every 4 hours
+  aztecNodeAdminUrl: null

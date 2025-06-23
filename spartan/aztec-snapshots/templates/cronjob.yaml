@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  schedule: "{{ .Values.snapshots.frequency }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: snapshot
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -ex
+                  echo "Starting snapshot upload to {{ .Values.snapshots.uploadLocation }} via {{ .Values.snapshots.aztecNodeAdminUrl }}"
+                  curl -XPOST {{ .Values.snapshots.aztecNodeAdminUrl }} -d '{"method": "nodeAdmin_startSnapshotUpload", "params": ["{{ .Values.snapshots.uploadLocation }}"], "id": 1, "jsonrpc": "2.0"}' -H 'Content-Type: application/json'
