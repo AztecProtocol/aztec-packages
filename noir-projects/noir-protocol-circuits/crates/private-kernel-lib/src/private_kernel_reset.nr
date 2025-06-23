@@ -28,16 +28,16 @@ pub struct PrivateKernelResetHints<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u3
 }
 
 pub struct PrivateKernelResetDimensions {
-    pub note_hash_pending_read: u32, // num pending note hash read requests to process
-    pub note_hash_settled_read: u32, // num settled note hash read requests to process (merkle membership)
-    pub nullifier_pending_read: u32, // num pending nullifier read requests to process
-    pub nullifier_settled_read: u32, // num settled note hash read requests to process (merkle membership)
-    pub key_validation: u32, // num key validation requests to process
-    pub transient_data_squashing: u32, // num (note, nullifier, note_log) tuples to squash.
+    pub NOTE_HASH_PENDING_READ_AMOUNT: u32, // num pending note hash read requests to process
+    pub NOTE_HASH_SETTLED_READ_AMOUNT: u32, // num settled note hash read requests to process (merkle membership)
+    pub NULLIFIER_PENDING_READ_AMOUNT: u32, // num pending nullifier read requests to process
+    pub NULLIFIER_SETTLED_READ_AMOUNT: u32, // num settled note hash read requests to process (merkle membership)
+    pub KEY_VALIDATION_AMOUNT: u32, // num key validation requests to process
+    pub TRANSIENT_DATA_SQUASHING_AMOUNT: u32, // num (note, nullifier, note_log) tuples to squash.
     // (Recall: we can squash a note that gets nullified in a later execution frame).
-    pub note_hash_siloing: u32, // num new note hashes to silo
-    pub nullifier_siloing: u32, // num new nullifiers to silo
-    pub private_log_siloing: u32, // num private logs to silo
+    pub NOTE_HASH_SILOING_AMOUNT: u32, // num new note hashes to silo
+    pub NULLIFIER_SILOING_AMOUNT: u32, // num new nullifiers to silo
+    pub PRIVATE_LOG_SILOING_AMOUNT: u32, // num private logs to silo
 }
 
 pub struct PrivateKernelResetCircuitPrivateInputs<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, let NLL_RR_SETTLED: u32, let KEY_VALIDATION_HINTS_LEN: u32, let TRANSIENT_DATA_SQUASHING_HINTS_LEN: u32> {
@@ -73,9 +73,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             validation_request_processor,
             self.padded_side_effects,
             self.hints.transient_data_index_hints,
-            self.dimensions.note_hash_siloing,
-            self.dimensions.nullifier_siloing,
-            self.dimensions.private_log_siloing,
+            self.dimensions.NOTE_HASH_SILOING_AMOUNT,
+            self.dimensions.NULLIFIER_SILOING_AMOUNT,
+            self.dimensions.PRIVATE_LOG_SILOING_AMOUNT,
         );
         (composer.finish(), composer.hints)
     }
@@ -86,7 +86,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             validation_requests: previous_public_inputs.validation_requests,
             note_hash_read_request_hints: self.hints.note_hash_read_request_hints,
             pending_note_hashes: previous_public_inputs.end.note_hashes,
-            pending_note_hash_read_amount: self.dimensions.note_hash_pending_read,
+            pending_note_hash_read_amount: self.dimensions.NOTE_HASH_PENDING_READ_AMOUNT,
             note_hash_tree_root: previous_public_inputs
                 .constants
                 .historical_header
@@ -94,10 +94,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 .partial
                 .note_hash_tree
                 .root,
-            settled_note_hash_read_amount: self.dimensions.note_hash_settled_read,
+            settled_note_hash_read_amount: self.dimensions.NOTE_HASH_SETTLED_READ_AMOUNT,
             nullifier_read_request_hints: self.hints.nullifier_read_request_hints,
             pending_nullifiers: previous_public_inputs.end.nullifiers,
-            pending_nullifier_read_amount: self.dimensions.nullifier_pending_read,
+            pending_nullifier_read_amount: self.dimensions.NULLIFIER_PENDING_READ_AMOUNT,
             nullifier_tree_root: previous_public_inputs
                 .constants
                 .historical_header
@@ -105,9 +105,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 .partial
                 .nullifier_tree
                 .root,
-            settled_nullifier_read_amount: self.dimensions.nullifier_settled_read,
+            settled_nullifier_read_amount: self.dimensions.NULLIFIER_SETTLED_READ_AMOUNT,
             key_validation_hints: self.hints.key_validation_hints,
-            key_validation_amount: self.dimensions.key_validation,
+            key_validation_amount: self.dimensions.KEY_VALIDATION_AMOUNT,
             validation_requests_split_counter: self.hints.validation_requests_split_counter,
         };
 
@@ -127,10 +127,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 previous_public_inputs,
                 validation_request_processor,
                 self.hints.transient_data_index_hints,
-                self.dimensions.transient_data_squashing,
-                self.dimensions.note_hash_siloing,
-                self.dimensions.nullifier_siloing,
-                self.dimensions.private_log_siloing,
+                self.dimensions.TRANSIENT_DATA_SQUASHING_AMOUNT,
+                self.dimensions.NOTE_HASH_SILOING_AMOUNT,
+                self.dimensions.NULLIFIER_SILOING_AMOUNT,
+                self.dimensions.PRIVATE_LOG_SILOING_AMOUNT,
                 self.padded_side_effects,
                 output_hints,
             )
@@ -208,15 +208,15 @@ mod tests {
             let mut previous_kernel = FixtureBuilder::new().in_vk_tree(PRIVATE_KERNEL_INNER_INDEX);
 
             let dimensions = PrivateKernelResetDimensions {
-                note_hash_pending_read: 0,
-                note_hash_settled_read: 0,
-                nullifier_pending_read: 0,
-                nullifier_settled_read: 0,
-                key_validation: 0,
-                transient_data_squashing: 0,
-                note_hash_siloing: 0,
-                nullifier_siloing: 0,
-                private_log_siloing: 0,
+                NOTE_HASH_PENDING_READ_AMOUNT: 0,
+                NOTE_HASH_SETTLED_READ_AMOUNT: 0,
+                NULLIFIER_PENDING_READ_AMOUNT: 0,
+                NULLIFIER_SETTLED_READ_AMOUNT: 0,
+                KEY_VALIDATION_AMOUNT: 0,
+                TRANSIENT_DATA_SQUASHING_AMOUNT: 0,
+                NOTE_HASH_SILOING_AMOUNT: 0,
+                NULLIFIER_SILOING_AMOUNT: 0,
+                PRIVATE_LOG_SILOING_AMOUNT: 0,
             };
 
             Self {
@@ -235,9 +235,9 @@ mod tests {
         }
 
         pub fn with_siloing(&mut self) -> Self {
-            self.dimensions.note_hash_siloing = NOTE_HASH_SILOING_AMOUNT;
-            self.dimensions.nullifier_siloing = NULLIFIER_SILOING_AMOUNT;
-            self.dimensions.private_log_siloing = PRIVATE_LOG_SILOING_AMOUNT;
+            self.dimensions.NOTE_HASH_SILOING_AMOUNT = NOTE_HASH_SILOING_AMOUNT;
+            self.dimensions.NULLIFIER_SILOING_AMOUNT = NULLIFIER_SILOING_AMOUNT;
+            self.dimensions.PRIVATE_LOG_SILOING_AMOUNT = PRIVATE_LOG_SILOING_AMOUNT;
             *self
         }
 
@@ -249,7 +249,7 @@ mod tests {
                 note_hash_index,
             );
 
-            self.dimensions.note_hash_pending_read += 1;
+            self.dimensions.NOTE_HASH_PENDING_READ_AMOUNT += 1;
         }
 
         pub fn add_pending_nullifier_read_request(&mut self, nullifier_index: u32) {
@@ -260,7 +260,7 @@ mod tests {
                 nullifier_index,
             );
 
-            self.dimensions.nullifier_pending_read += 1;
+            self.dimensions.NULLIFIER_PENDING_READ_AMOUNT += 1;
         }
 
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
@@ -279,7 +279,7 @@ mod tests {
             self.transient_data_index_hints[num_hints] =
                 TransientDataIndexHint { nullifier_index, note_hash_index };
 
-            self.dimensions.transient_data_squashing += 1;
+            self.dimensions.TRANSIENT_DATA_SQUASHING_AMOUNT += 1;
         }
 
         pub fn add_key_validation_request(&mut self, sk: Field) {
@@ -623,7 +623,7 @@ mod tests {
         builder.add_key_validation_request(2468);
         builder.add_key_validation_request(54321);
 
-        builder.dimensions.key_validation = 4;
+        builder.dimensions.KEY_VALIDATION_AMOUNT = 4;
 
         let public_inputs = builder.execute();
         assert(public_inputs
@@ -644,7 +644,7 @@ mod tests {
             builder.previous_kernel.scoped_key_validation_requests_and_generators.storage();
 
         // Only the first key validation request is verified and cleared.
-        builder.dimensions.key_validation = 1;
+        builder.dimensions.KEY_VALIDATION_AMOUNT = 1;
 
         let public_inputs = builder.execute();
 
