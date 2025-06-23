@@ -25,6 +25,7 @@ export type L2ChainConfig = {
   snapshotsUrl: string;
   autoUpdate: SharedNodeConfig['autoUpdate'];
   autoUpdateUrl?: string;
+  maxTxPoolSize: number;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -46,6 +47,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'disabled',
   autoUpdateUrl: undefined,
+  maxTxPoolSize: 100_000_000, // 100MB
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -67,6 +69,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
+  maxTxPoolSize: 2 * 1024 * 1024 * 1024, // 2GB
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -132,6 +135,7 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
+  enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());

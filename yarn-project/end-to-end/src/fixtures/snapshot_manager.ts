@@ -50,7 +50,7 @@ import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -306,6 +306,7 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  aztecNodeConfig.maxTxPoolSize = opts.maxTxPoolSize ?? TEST_MAX_TX_POOL_SIZE;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
   // Only enforce the time table if requested
