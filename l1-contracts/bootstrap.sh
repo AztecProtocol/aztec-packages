@@ -56,7 +56,7 @@ function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
   echo "$hash cd l1-contracts && forge test"
-  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" ]]; then
+  if [ "$CI" -eq 0 ] || [[ "${TARGET_BRANCH:-}" == "master" || "${TARGET_BRANCH:-}" == "staging" ]]; then
     echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest --match-contract ScreamAndShoutTest"
   fi
 }

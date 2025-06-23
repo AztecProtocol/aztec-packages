@@ -494,7 +494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to fetch the current block number.
+   * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
   public async getBlockNumber(): Promise<number> {
