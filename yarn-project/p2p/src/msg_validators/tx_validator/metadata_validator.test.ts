@@ -16,6 +16,8 @@ describe('MetadataTxValidator', () => {
   const chainId = new Fr(1);
   // Timestamp against which we will validate the expiration timestamp.
   const currentTimestamp = 10n;
+  // Block number in which the tx is considered to be included.
+  const blockNumber = 3;
   const rollupVersion = new Fr(2);
   const vkTreeRoot = new Fr(3);
   const protocolContractTreeRoot = new Fr(4);
@@ -25,6 +27,7 @@ describe('MetadataTxValidator', () => {
     l1ChainId: chainId,
     rollupVersion,
     timestamp: currentTimestamp,
+    blockNumber,
     vkTreeRoot,
     protocolContractTreeRoot,
   });

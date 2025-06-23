@@ -31,6 +31,7 @@ export interface MessageValidator {
 
 export function createTxMessageValidators(
   timestamp: UInt64,
+  blockNumber: number,
   worldStateSynchronizer: WorldStateSynchronizer,
   gasFees: GasFees,
   l1ChainId: number,
@@ -53,6 +54,7 @@ export function createTxMessageValidators(
           l1ChainId: new Fr(l1ChainId),
           rollupVersion: new Fr(rollupVersion),
           timestamp,
+          blockNumber,
           protocolContractTreeRoot,
           vkTreeRoot: getVKTreeRoot(),
         }),

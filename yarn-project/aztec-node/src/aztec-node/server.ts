@@ -1060,8 +1060,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     // We accept transactions if they are not expired by the next slot (checked based on the IncludeByTimestamp field)
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
+    const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       timestamp: nextSlotTimestamp,
+      blockNumber,
       l1ChainId: this.l1ChainId,
       rollupVersion: this.version,
       setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),

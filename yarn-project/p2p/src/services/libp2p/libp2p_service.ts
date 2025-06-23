@@ -902,8 +902,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const gasFees = await this.getGasFees(currentBlockNumber);
     const allowedInSetup = this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
+    const blockNumberInWhichTheTxIsConsideredToBeIncluded = currentBlockNumber + 1;
+
     return createTxMessageValidators(
       nextSlotTimestamp,
+      blockNumberInWhichTheTxIsConsideredToBeIncluded,
       this.worldStateSynchronizer,
       gasFees,
       this.config.l1ChainId,

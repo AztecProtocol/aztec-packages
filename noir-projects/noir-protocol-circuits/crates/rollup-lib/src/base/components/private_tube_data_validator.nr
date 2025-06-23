@@ -40,7 +40,7 @@ impl PrivateTubeDataValidator {
 
         validate_include_by_timestamp(
             tube_data.rollup_validation_requests,
-            constants.global_variables.timestamp,
+            constants.global_variables,
         );
     }
 }

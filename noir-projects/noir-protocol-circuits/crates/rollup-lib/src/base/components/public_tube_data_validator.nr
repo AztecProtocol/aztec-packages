@@ -60,7 +60,7 @@ impl PublicTubeDataValidator {
 
         validate_include_by_timestamp(
             self.data.public_inputs.rollup_validation_requests,
-            constants.global_variables.timestamp,
+            constants.global_variables,
         );
     }
 

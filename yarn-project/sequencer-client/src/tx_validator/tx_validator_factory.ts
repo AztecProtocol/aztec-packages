@@ -37,6 +37,7 @@ export function createValidatorForAcceptingTxs(
     gasFees,
     skipFeeEnforcement,
     timestamp,
+    blockNumber,
   }: {
     l1ChainId: number;
     rollupVersion: number;
@@ -44,6 +45,7 @@ export function createValidatorForAcceptingTxs(
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
     timestamp: UInt64;
+    blockNumber: number;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
@@ -52,6 +54,7 @@ export function createValidatorForAcceptingTxs(
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
       timestamp,
+      blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
@@ -108,6 +111,7 @@ function preprocessValidator(
       l1ChainId: globalVariables.chainId,
       rollupVersion: globalVariables.version,
       timestamp: globalVariables.timestamp,
+      blockNumber: globalVariables.blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
