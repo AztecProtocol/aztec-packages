@@ -17,7 +17,7 @@ name="$1"
 # Now $@ = our binary path args
 shift 1
 
-if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:0}" -eq 0 ]]; then
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
   echo_stderr "Skipping upload because CI=0 and S3_FORCE_UPLOAD not set."
   exit 0
 fi
