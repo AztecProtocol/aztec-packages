@@ -1,6 +1,8 @@
 #![warn(clippy::semicolon_if_nothing_returned)]
 #![cfg_attr(not(test), warn(unused_crate_dependencies, unused_extern_crates))]
 
+use noirc_frontend as _;
+
 use log::warn;
 use std::env;
 use std::fs;
