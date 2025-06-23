@@ -23,7 +23,7 @@ provider "google" {
 
 resource "google_compute_address" "grafana_ip" {
   provider     = google
-  name         = "grafana-ip-${var.RELEASE_NAME}"
+  name         = "grafana-ip"
   address_type = "EXTERNAL"
   region       = var.region
 
@@ -34,7 +34,7 @@ resource "google_compute_address" "grafana_ip" {
 
 resource "google_compute_address" "otel_collector_ip" {
   provider     = google
-  name         = "otel-ip-${var.RELEASE_NAME}"
+  name         = "otel-ip"
   address_type = "EXTERNAL"
   region       = var.region
 
@@ -69,11 +69,13 @@ provider "helm" {
 }
 
 data "google_secret_manager_secret_version" "grafana_password" {
-  secret = var.GRAFANA_PASSWORD_SECRET_NAME
+  secret  = var.GRAFANA_PASSWORD_SECRET_NAME
+  project = var.project
 }
 
 data "google_secret_manager_secret_version" "slack_webhook" {
-  secret = var.SLACK_WEBHOOK_SECRET_NAME
+  secret  = var.SLACK_WEBHOOK_SECRET_NAME
+  project = var.project
 }
 
 # Aztec Helm release for gke-cluster
