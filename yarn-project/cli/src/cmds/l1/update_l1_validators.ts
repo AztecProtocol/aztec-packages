@@ -48,7 +48,7 @@ export function generateL1Account() {
   };
 }
 
-export async function addL1ValidatorToQueue({
+export async function addL1Validator({
   rpcUrls,
   chainId,
   privateKey,
@@ -80,7 +80,7 @@ export async function addL1ValidatorToQueue({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
-      functionName: 'addValidatorToQueue',
+      functionName: 'addValidator',
       args: [attesterAddress.toString(), proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
@@ -97,42 +97,6 @@ export async function addL1ValidatorToQueue({
     if (balance === 0n) {
       dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }
-  }
-}
-
-export async function dripQueue({
-  rpcUrls,
-  chainId,
-  privateKey,
-  mnemonic,
-  stakingAssetHandlerAddress,
-  log,
-  debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs) {
-  const dualLog = makeDualLog(log, debugLogger);
-  const account = getAccount(privateKey, mnemonic);
-  const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-
-  dualLog('Dripping Queue');
-
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
-
-  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-    to: stakingAssetHandlerAddress.toString(),
-    data: encodeFunctionData({
-      abi: StakingAssetHandlerAbi,
-      functionName: 'dripQueue',
-      args: [],
-    }),
-    abi: StakingAssetHandlerAbi,
-  });
-  dualLog(`Receipt: ${receipt.transactionHash}`);
-
-  if (receipt.status === 'success') {
-    dualLog('Queue dripped successfully');
-  } else {
-    dualLog('Queue drip failed');
   }
 }
 

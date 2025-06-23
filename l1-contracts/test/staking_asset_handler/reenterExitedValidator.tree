@@ -3,6 +3,6 @@ ReenterExitedValidatorTest
 │   └── it reverts
 ├── when attester has provided a valid deposit
 │   └── it succeeds
-│   └── it emits a {AddedToQueue} event
+│   └── it emits a {ValidatorAdded} event
 └── when in Entry Queue
     └── it reverts
