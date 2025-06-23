@@ -50,8 +50,16 @@ export class TXEService {
 
   // Cheatcodes
 
-  async getPrivateContextInputs(blockNumber: ForeignCallSingle) {
-    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(fromSingle(blockNumber).toNumber());
+  async getPrivateContextInputs(
+    blockNumberIsSome: ForeignCallSingle,
+    blockNumberValue: ForeignCallSingle,
+    timestampIsSome: ForeignCallSingle,
+    timestampValue: ForeignCallSingle,
+  ) {
+    const blockNumber = fromSingle(blockNumberIsSome).toBool() ? fromSingle(blockNumberValue).toNumber() : null;
+    const timestamp = fromSingle(timestampIsSome).toBool() ? fromSingle(timestampValue).toBigInt() : null;
+
+    const inputs = await (this.typedOracle as TXE).getPrivateContextInputs(blockNumber, timestamp);
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
@@ -64,6 +72,13 @@ export class TXEService {
       await (this.typedOracle as TXE).commitState();
       (this.typedOracle as TXE).setBlockNumber(blockNumber + 1);
     }
+    return toForeignCallResult([]);
+  }
+
+  advanceTimestampBy(duration: ForeignCallSingle) {
+    const durationBigInt = fromSingle(duration).toBigInt();
+    this.logger.debug(`time traveling ${durationBigInt} seconds`);
+    (this.typedOracle as TXE).advanceTimestampBy(durationBigInt);
     return toForeignCallResult([]);
   }
 
@@ -243,6 +258,17 @@ export class TXEService {
 
     const blockNumber = await this.typedOracle.getBlockNumber();
     return toForeignCallResult([toSingle(new Fr(blockNumber))]);
+  }
+
+  async getTimestamp() {
+    if (!this.oraclesEnabled) {
+      throw new Error(
+        'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
+      );
+    }
+
+    const timestamp = await this.typedOracle.getTimestamp();
+    return toForeignCallResult([toSingle(new Fr(timestamp))]);
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
@@ -852,14 +878,14 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  emitOffchainMessage(_message: ForeignCallArray, _recipient: ForeignCallSingle) {
+  emitOffchainEffect(_data: ForeignCallArray) {
     if (!this.oraclesEnabled) {
       throw new Error(
         'Oracle access from the root of a TXe test are not enabled. Please use env._ to interact with the oracles.',
       );
     }
 
-    // Offchain messages are currently discarded in the TXE tests.
+    // Offchain effects are currently discarded in the TXE tests.
     // TODO: Expose this to the tests.
 
     return toForeignCallResult([]);

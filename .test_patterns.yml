@@ -300,9 +300,3 @@ tests:
     owners:
       - *charlie
       - *adam
-
-  # l1-contracts
-  - regex: "cd l1-contracts && forge test"
-    error_regex: "staking_asset_handler/addValidator.t.sol:addValidatorToQueueTest.*FAIL: next call did not revert as expected;"
-    owners:
-      - *lasse
