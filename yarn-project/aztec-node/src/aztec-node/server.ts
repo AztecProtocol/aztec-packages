@@ -282,7 +282,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         l1ChainId: config.l1ChainId,
         txPublicSetupAllowList: config.txPublicSetupAllowList,
       },
-      archiver,
       worldStateSynchronizer,
       archiver,
       dateProvider,
@@ -305,6 +304,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       const txCollector = new TxCollector(p2pClient);
       epochPruneWatcher = new EpochPruneWatcher(
         archiver,
+        archiver,
         epochCache,
         txCollector,
         blockBuilder,
@@ -321,6 +321,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       epochCache,
       blockBuilder,
       blockSource: archiver,
+      l1ToL2MessageSource: archiver,
     });
 
     if (validatorClient) {
@@ -493,7 +494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
-   * Method to fetch the current block number.
+   * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
   public async getBlockNumber(): Promise<number> {

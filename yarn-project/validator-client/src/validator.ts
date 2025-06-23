@@ -6,10 +6,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
-import type { AuthResponse, P2P, PeerId } from '@aztec/p2p';
+import { DateProvider, Timer } from '@aztec/foundation/timer';
+import type { P2P, PeerId } from '@aztec/p2p';
 import { ReqRespSubProtocol, TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
+import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import {
   Offense,
   type SlasherConfig,
@@ -21,6 +22,7 @@ import {
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, ITxCollector, SequencerConfig } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockAttestation, BlockProposal, BlockProposalOptions } from '@aztec/stdlib/p2p';
 import { GlobalVariables, type ProposedBlockHeader, type StateReference, type Tx } from '@aztec/stdlib/tx';
 import {
@@ -90,6 +92,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private epochCache: EpochCache,
     private p2pClient: P2P,
     private blockSource: L2BlockSource,
+    private l1ToL2MessageSource: L1ToL2MessageSource,
     private config: ValidatorClientConfig &
       Pick<SequencerConfig, 'txPublicSetupAllowList'> &
       Pick<SlasherConfig, 'slashInvalidBlockEnabled' | 'slashInvalidBlockPenalty' | 'slashInvalidBlockMaxPenalty'>,
@@ -148,6 +151,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     epochCache: EpochCache,
     p2pClient: P2P,
     blockSource: L2BlockSource,
+    l1ToL2MessageSource: L1ToL2MessageSource,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
@@ -164,6 +168,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       epochCache,
       p2pClient,
       blockSource,
+      l1ToL2MessageSource,
       config,
       dateProvider,
       telemetry,
@@ -222,20 +227,23 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async attestToProposal(proposal: BlockProposal, proposalSender: PeerId): Promise<BlockAttestation[] | undefined> {
     const slotNumber = proposal.slotNumber.toNumber();
     const blockNumber = proposal.blockNumber;
+    const proposer = proposal.getSender();
+
     const proposalInfo = {
       slotNumber,
       blockNumber,
+      proposer: proposer.toString(),
       archive: proposal.payload.archive.toString(),
       txCount: proposal.payload.txHashes.length,
       txHashes: proposal.payload.txHashes.map(txHash => txHash.toString()),
     };
-    this.log.verbose(`Received request to attest for slot ${slotNumber}`);
+    this.log.info(`Received request to attest for slot ${slotNumber}`, proposalInfo);
 
     // Check that the proposal is from the current proposer, or the next proposer.
     // Q: Should this be moved to the block proposal validator, so we disregard proposals from anyone?
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
-      this.log.verbose(`Proposal is not valid, skipping attestation`);
+      this.log.warn(`Proposal is not valid, skipping attestation`);
       this.metrics.incFailedAttestations(1, 'invalid_proposal');
       return undefined;
     }
@@ -248,12 +256,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     if (blockNumber > INITIAL_L2_BLOCK_NUM) {
       const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
       if (parentBlock === undefined) {
-        this.log.verbose(`Parent block for ${blockNumber} not found, skipping attestation`);
+        this.log.warn(`Parent block for ${blockNumber} not found, skipping attestation`);
         this.metrics.incFailedAttestations(1, 'parent_block_not_found');
         return undefined;
       }
       if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
-        this.log.verbose(`Parent block archive root for proposal does not match, skipping attestation`, {
+        this.log.warn(`Parent block archive root for proposal does not match, skipping attestation`, {
           proposalLastArchiveRoot: proposal.payload.header.lastArchiveRoot.toString(),
           parentBlockArchiveRoot: parentBlock.archive.root.toString(),
           ...proposalInfo,
@@ -275,12 +283,25 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     if (missing && missing.length > 0) {
-      this.log.error(
-        `Missing ${missing.length}/${proposal.payload.txHashes.length} txs to attest to proposal`,
-        undefined,
-        { proposalInfo, missing },
-      );
+      this.log.warn(`Missing ${missing.length}/${proposal.payload.txHashes.length} txs to attest to proposal`, {
+        ...proposalInfo,
+        missing,
+      });
       this.metrics.incFailedAttestations(1, 'TransactionsNotAvailableError');
+      return undefined;
+    }
+
+    // Check that I have the same set of l1ToL2Messages as the proposal
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
+    const computedInHash = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
+    const proposalInHash = proposal.payload.header.contentCommitment.inHash;
+    if (!computedInHash.equals(proposalInHash)) {
+      this.log.warn(`L1 to L2 messages in hash mismatch, skipping attestation`, {
+        proposalInHash: proposalInHash.toString(),
+        computedInHash: computedInHash.toString(),
+        ...proposalInfo,
+      });
+      this.metrics.incFailedAttestations(1, 'in_hash_mismatch');
       return undefined;
     }
 
@@ -289,17 +310,15 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.verbose(`Processing attestation for slot ${slotNumber}`, proposalInfo);
       if (this.config.validatorReexecute) {
         this.log.verbose(`Re-executing transactions in the proposal before attesting`);
-        await this.reExecuteTransactions(proposal, txs).catch(error => {
-          if (error instanceof ReExStateMismatchError) {
-            this.log.warn(`Re-execution state mismatch, slashing invalid block`, proposalInfo);
-            this.slashInvalidBlock(proposal);
-          }
-          throw error;
-        });
+        await this.reExecuteTransactions(proposal, txs, l1ToL2Messages);
       }
     } catch (error: any) {
       this.metrics.incFailedAttestations(1, error instanceof Error ? error.name : 'unknown');
-      this.log.error(`Failed to attest to proposal`, error, proposalInfo);
+      this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
+      if (error instanceof ReExStateMismatchError && this.config.slashInvalidBlockEnabled) {
+        this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
+        this.slashInvalidBlock(proposal);
+      }
       return undefined;
     }
 
@@ -324,7 +343,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    * Re-execute the transactions in the proposal and check that the state updates match the header state
    * @param proposal - The proposal to re-execute
    */
-  async reExecuteTransactions(proposal: BlockProposal, txs: Tx[]) {
+  async reExecuteTransactions(proposal: BlockProposal, txs: Tx[], l1ToL2Messages: Fr[]): Promise<void> {
     const { header, txHashes } = proposal.payload;
 
     // If we do not have all of the transactions, then we should fail
@@ -335,7 +354,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Use the sequencer's block building logic to re-execute the transactions
-    const stopTimer = this.metrics.reExecutionTimer();
+    const timer = new Timer();
     const config = this.blockBuilder.getConfig();
     const globalVariables = GlobalVariables.from({
       ...proposal.payload.header,
@@ -345,10 +364,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       version: new Fr(config.rollupVersion),
     });
 
-    const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, globalVariables, {
+    const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, l1ToL2Messages, globalVariables, {
       deadline: this.getReexecutionDeadline(proposal, config),
     });
-    stopTimer();
 
     this.log.verbose(`Transaction re-execution complete`);
     const numFailedTxs = failedTxs.length;
@@ -366,15 +384,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // This function will throw an error if state updates do not match
     if (!block.archive.root.equals(proposal.archive)) {
       this.metrics.recordFailedReexecution(proposal);
-      throw new ReExStateMismatchError();
+      throw new ReExStateMismatchError(
+        proposal.archive,
+        block.archive.root,
+        proposal.payload.stateReference,
+        block.header.state,
+      );
     }
+
+    this.metrics.recordReex(timer.ms(), txs.length, block.header.totalManaUsed.toNumber() / 1e6);
   }
 
   private slashInvalidBlock(proposal: BlockProposal) {
-    if (!this.config.slashInvalidBlockEnabled) {
-      return;
-    }
-
     const proposer = proposal.getSender();
 
     // Trim the set if it's too big.

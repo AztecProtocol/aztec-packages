@@ -21,6 +21,7 @@
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -52,13 +53,15 @@ class Execution : public ExecutionInterface {
               const InstructionInfoDBInterface& instruction_info_db,
               ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
-              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
+              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
+              KeccakF1600Interface& keccakf1600)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
         , data_copy(data_copy)
+        , keccakf1600(keccakf1600)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -93,6 +96,8 @@ class Execution : public ExecutionInterface {
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();
 
+    void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
+
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
     ExecutionResult get_execution_result() const { return exec_result; }
@@ -124,6 +129,7 @@ class Execution : public ExecutionInterface {
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
     DataCopyInterface& data_copy;
+    KeccakF1600Interface& keccakf1600;
 
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
