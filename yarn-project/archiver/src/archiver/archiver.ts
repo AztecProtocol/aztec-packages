@@ -1118,7 +1118,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     address: AztecAddress,
     maybeTimestamp?: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    let timestamp = 0n;
+    let timestamp;
     if (maybeTimestamp === undefined) {
       const latestBlockHeader = await this.getBlockHeader('latest');
       // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
