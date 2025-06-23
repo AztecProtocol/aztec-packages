@@ -1,4 +1,4 @@
- 
+/* eslint-disable */
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
 export const MAX_FIELD_VALUE = 21888242871839275222246405745257275088548364400416034343698204186575808495616n;
 export const MAX_U32_VALUE = 4294967295;
@@ -62,7 +62,6 @@ export const PRIVATE_KERNEL_INIT_INDEX = 0;
 export const PRIVATE_KERNEL_INNER_INDEX = 1;
 export const PRIVATE_KERNEL_TAIL_INDEX = 2;
 export const PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 3;
-export const TUBE_VK_INDEX = 4;
 export const AVM_VK_INDEX = 5;
 export const PRIVATE_BASE_ROLLUP_VK_INDEX = 6;
 export const PUBLIC_BASE_ROLLUP_VK_INDEX = 7;
@@ -74,6 +73,8 @@ export const BLOCK_MERGE_ROLLUP_INDEX = 12;
 export const ROOT_ROLLUP_INDEX = 13;
 export const BASE_PARITY_INDEX = 14;
 export const ROOT_PARITY_INDEX = 15;
+export const PRIVATE_TUBE_VK_INDEX = 16;
+export const PUBLIC_TUBE_VK_INDEX = 17;
 export const PRIVATE_KERNEL_RESET_INDEX = 20;
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
 export const INITIAL_L2_BLOCK_NUM = 1;
