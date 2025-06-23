@@ -2037,43 +2037,27 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     // context?
     Builder* ctx = left.context ? left.context : to_mul.context;
 
-    uint512_t max_b0 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_b0 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_b1 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_b1 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c0 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_c0 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c1 = (left.binary_basis_limbs[2].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_c1 += (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_c2 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[2].maximum_value);
-    max_c2 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d0 = (left.binary_basis_limbs[3].maximum_value * to_mul.binary_basis_limbs[0].maximum_value);
-    max_d0 += (neg_modulus_limbs_u256[3] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_d1 = (left.binary_basis_limbs[2].maximum_value * to_mul.binary_basis_limbs[1].maximum_value);
-    max_d1 += (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_d2 = (left.binary_basis_limbs[1].maximum_value * to_mul.binary_basis_limbs[2].maximum_value);
-    max_d2 += (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d3 = (left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[3].maximum_value);
-    max_d3 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[3].maximum_value);
+    // Compute the maximum value of the product of the two inputs: max(a * b)
+    uint512_t max_ab_lo(0);
+    uint512_t max_ab_hi(0);
+    std::tie(max_ab_lo, max_ab_hi) = compute_partial_schoolbook_multiplication(left.get_binary_basis_limb_maximums(),
+                                                                               to_mul.get_binary_basis_limb_maximums());
 
-    uint512_t max_r0 = left.binary_basis_limbs[0].maximum_value * to_mul.binary_basis_limbs[0].maximum_value;
-    max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
+    // Compute the maximum value of the product of the quotient and neg_modulus: max(q * p')
+    uint512_t max_q_neg_p_lo(0);
+    uint512_t max_q_neg_p_hi(0);
+    std::tie(max_q_neg_p_lo, max_q_neg_p_hi) =
+        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
-    uint512_t max_r1 = max_b0 + max_b1;
-
-    uint256_t borrow_lo_value = 0;
+    // Compute the maximum value that needs to be borrowed from the hi limbs to the lo limb.
+    // Check the README for the explanation of the borrow.
+    uint256_t max_remainders_lo(0);
     for (const auto& remainder : input_remainders) {
-        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
-        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
-
-        borrow_lo_value += (remainder.binary_basis_limbs[0].maximum_value +
-                            (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS));
+        max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
+                             (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
-    field_t borrow_lo(ctx, bb::fr(borrow_lo_value));
-
-    const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
-    const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
+    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
+    field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
     uint512_t max_a0(0);
     uint512_t max_a1(0);
@@ -2083,9 +2067,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         max_a1 += to_add[i].binary_basis_limbs[2].maximum_value +
                   (to_add[i].binary_basis_limbs[3].maximum_value << NUM_LIMB_BITS);
     }
-    const uint512_t max_lo = max_r0 + (max_r1 << NUM_LIMB_BITS) + max_a0;
+    const uint512_t max_lo = max_ab_lo + max_q_neg_p_lo + max_remainders_lo + max_a0;
     const uint512_t max_lo_carry = max_lo >> (2 * NUM_LIMB_BITS);
-    const uint512_t max_hi = max_r2 + (max_r3 << NUM_LIMB_BITS) + max_a1 + max_lo_carry;
+    const uint512_t max_hi = max_ab_hi + max_q_neg_p_hi + max_a1 + max_lo_carry;
 
     uint64_t max_lo_bits = (max_lo.get_msb() + 1);
     uint64_t max_hi_bits = max_hi.get_msb() + 1;
@@ -2289,26 +2273,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     }
     ASSERT(ctx != nullptr);
 
-    const auto get_product_maximum = [](const bigfield& left, const bigfield& right) {
-        uint512_t max_b0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_b1_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_c0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_c1_inner = (left.binary_basis_limbs[2].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_c2_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[2].maximum_value);
-        uint512_t max_d0_inner = (left.binary_basis_limbs[3].maximum_value * right.binary_basis_limbs[0].maximum_value);
-        uint512_t max_d1_inner = (left.binary_basis_limbs[2].maximum_value * right.binary_basis_limbs[1].maximum_value);
-        uint512_t max_d2_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[2].maximum_value);
-        uint512_t max_d3_inner = (left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[3].maximum_value);
-        uint512_t max_r0_inner = left.binary_basis_limbs[0].maximum_value * right.binary_basis_limbs[0].maximum_value;
-
-        const uint512_t max_r1_inner = max_b0_inner + max_b1_inner;
-        const uint512_t max_r2_inner = max_c0_inner + max_c1_inner + max_c2_inner;
-        const uint512_t max_r3_inner = max_d0_inner + max_d1_inner + max_d2_inner + max_d3_inner;
-        const uint512_t max_lo_temp = max_r0_inner + (max_r1_inner << NUM_LIMB_BITS);
-        const uint512_t max_hi_temp = max_r2_inner + (max_r3_inner << NUM_LIMB_BITS);
-        return std::pair<uint512_t, uint512_t>(max_lo_temp, max_hi_temp);
-    };
-
     /**
      * Step 1: Compute the maximum potential value of our product limbs
      *
@@ -2319,42 +2283,23 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     uint512_t max_lo = 0;
     uint512_t max_hi = 0;
 
-    // Compute max values of quotient product limb products
-    uint512_t max_b0 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_b1 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c0 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_c1 = (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_c2 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d0 = (neg_modulus_limbs_u256[3] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_d1 = (neg_modulus_limbs_u256[2] * quotient.binary_basis_limbs[1].maximum_value);
-    uint512_t max_d2 = (neg_modulus_limbs_u256[1] * quotient.binary_basis_limbs[2].maximum_value);
-    uint512_t max_d3 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[3].maximum_value);
-
-    // max_r0 = terms from 0 - 2^2t
-    // max_r1 = terms from 2^t - 2^3t
-    // max_r2 = terms from 2^2t - 2^4t
-    // max_r3 = terms from 2^3t - 2^5t
-    uint512_t max_r0 = (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    max_r0 += (neg_modulus_limbs_u256[0] * quotient.binary_basis_limbs[0].maximum_value);
-    uint512_t max_r1 = max_b0 + max_b1;
-
-    uint256_t borrow_lo_value(0);
+    // Compute the maximum value that needs to be borrowed from the hi limbs to the lo limb.
+    // Check the README for the explanation of the borrow.
+    uint256_t max_remainders_lo(0);
     for (const auto& remainder : input_remainders) {
-        max_r0 += remainder.binary_basis_limbs[0].maximum_value;
-        max_r1 += remainder.binary_basis_limbs[1].maximum_value;
-
-        borrow_lo_value += remainder.binary_basis_limbs[0].maximum_value +
-                           (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
+        max_remainders_lo += remainder.binary_basis_limbs[0].maximum_value +
+                             (remainder.binary_basis_limbs[1].maximum_value << NUM_LIMB_BITS);
     }
-    borrow_lo_value >>= 2 * NUM_LIMB_BITS;
+    uint256_t borrow_lo_value = max_remainders_lo >> (2 * NUM_LIMB_BITS);
     field_t<Builder> borrow_lo(ctx, bb::fr(borrow_lo_value));
 
-    const uint512_t max_r2 = max_c0 + max_c1 + max_c2;
-    const uint512_t max_r3 = max_d0 + max_d1 + max_d2 + max_d3;
+    // Compute the maximum value of the quotient times modulus.
+    const auto [max_q_neg_p_lo, max_q_neg_p_hi] =
+        compute_partial_schoolbook_multiplication(neg_modulus_limbs_u256, quotient.get_binary_basis_limb_maximums());
 
     // update max_lo, max_hi with quotient limb product terms.
-    max_lo += max_r0 + (max_r1 << NUM_LIMB_BITS);
-    max_hi += max_r2 + (max_r3 << NUM_LIMB_BITS);
+    max_lo += max_q_neg_p_lo + max_remainders_lo;
+    max_hi += max_q_neg_p_hi;
 
     // Compute maximum value of addition terms in `to_add` and add to max_lo, max_hi
     uint512_t max_a0(0);
@@ -2370,7 +2315,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     // Compute the maximum value of our multiplication products and add to max_lo, max_hi
     for (size_t i = 0; i < num_multiplications; ++i) {
-        const auto [product_lo, product_hi] = get_product_maximum(left[i], right[i]);
+        const auto [product_lo, product_hi] = compute_partial_schoolbook_multiplication(
+            left[i].get_binary_basis_limb_maximums(), right[i].get_binary_basis_limb_maximums());
         max_lo += product_lo;
         max_hi += product_hi;
     }
@@ -2664,6 +2610,29 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
         return std::pair<bool, size_t>(true, 0);
     }
     return std::pair<bool, size_t>(false, num_quotient_bits);
+}
+
+template <typename Builder, typename T>
+std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook_multiplication(
+    const std::array<uint256_t, NUM_LIMBS>& a_limbs, const std::array<uint256_t, NUM_LIMBS>& b_limbs)
+{
+    const uint512_t b0_inner = (a_limbs[1] * b_limbs[0]);
+    const uint512_t b1_inner = (a_limbs[0] * b_limbs[1]);
+    const uint512_t c0_inner = (a_limbs[1] * b_limbs[1]);
+    const uint512_t c1_inner = (a_limbs[2] * b_limbs[0]);
+    const uint512_t c2_inner = (a_limbs[0] * b_limbs[2]);
+    const uint512_t d0_inner = (a_limbs[3] * b_limbs[0]);
+    const uint512_t d1_inner = (a_limbs[2] * b_limbs[1]);
+    const uint512_t d2_inner = (a_limbs[1] * b_limbs[2]);
+    const uint512_t d3_inner = (a_limbs[0] * b_limbs[3]);
+
+    const uint512_t r0_inner = (a_limbs[0] * b_limbs[0]);                 // c0 := a0 * b0
+    const uint512_t r1_inner = b0_inner + b1_inner;                       // c1 := a1 * b0 + a0 * b1
+    const uint512_t r2_inner = c0_inner + c1_inner + c2_inner;            // c2 := a2 * b0 + a1 * b1 + a0 * b2
+    const uint512_t r3_inner = d0_inner + d1_inner + d2_inner + d3_inner; // c3 := a3 * b0 + a2 * b1 + a1 * b2 + a0 * b3
+    const uint512_t lo_val = r0_inner + (r1_inner << NUM_LIMB_BITS);      // lo := c0 + c1 * 2^b
+    const uint512_t hi_val = r2_inner + (r3_inner << NUM_LIMB_BITS);      // hi := c2 + c3 * 2^b
+    return std::pair<uint512_t, uint512_t>(lo_val, hi_val);
 }
 
 } // namespace bb::stdlib

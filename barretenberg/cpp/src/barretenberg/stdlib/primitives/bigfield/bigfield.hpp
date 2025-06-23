@@ -327,13 +327,13 @@ template <typename Builder, typename T> class bigfield {
     static constexpr bb::fr shift_right_2 = bb::fr(1) / shift_2;
     static constexpr bb::fr negative_prime_modulus_mod_binary_basis = -bb::fr(uint256_t(modulus_u512));
     static constexpr uint512_t negative_prime_modulus = binary_basis.modulus - target_basis.modulus;
-    static constexpr uint256_t neg_modulus_limbs_u256[NUM_LIMBS]{
+    static constexpr std::array<uint256_t, NUM_LIMBS> neg_modulus_limbs_u256{
         negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo,
         negative_prime_modulus.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo,
     };
-    static constexpr bb::fr neg_modulus_limbs[NUM_LIMBS]{
+    static constexpr std::array<bb::fr, NUM_LIMBS> neg_modulus_limbs{
         bb::fr(negative_prime_modulus.slice(0, NUM_LIMB_BITS).lo),
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
         bb::fr(negative_prime_modulus.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
@@ -1063,6 +1063,35 @@ template <typename Builder, typename T> class bigfield {
      *the maximum value of the whole element is also less than a prohibited maximum value.
      */
     void sanity_check() const;
+
+    /**
+     * @brief Get the maximum values of the binary basis limbs.
+     *
+     * @return std::array<field_t<Builder>, NUM_LIMBS> An array containing the maximum values of the binary basis limbs.
+     */
+    std::array<uint256_t, NUM_LIMBS> get_binary_basis_limb_maximums()
+    {
+        std::array<uint256_t, NUM_LIMBS> limb_maximums;
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            limb_maximums[i] = binary_basis_limbs[i].maximum_value;
+        }
+        return limb_maximums;
+    }
+
+    /**
+     * @brief Compute the partial multiplication of two uint256_t arrays using schoolbook multiplication.
+     *
+     * @param a_limbs
+     * @param b_limbs
+     * @return std::pair<uint512_t, uint512_t>
+     *
+     * @details Regular schoolbook multiplication of two arrays each with L = 4 limbs will produce a result of size
+     * 2 * L - 1 = 7. In this context, we can ignore the last three limbs as those terms have multiplicands: (2^4L,
+     * 2^5L, 2^6L) and since we are working modulo 2^t = 2^4L, those terms will always be zero. This is why we call this
+     * helper function "partial schoolbook multiplication".
+     */
+    static std::pair<uint512_t, uint512_t> compute_partial_schoolbook_multiplication(
+        const std::array<uint256_t, NUM_LIMBS>& a_limbs, const std::array<uint256_t, NUM_LIMBS>& b_limbs);
 
 }; // namespace stdlib
 
