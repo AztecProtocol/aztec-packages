@@ -108,7 +108,7 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     // A: We don't have to. The init and inner circuits add contract address to non-empty nullifiers.
     // So we know we should silo it if the contract address is not empty.
     if nullifier.contract_address.is_zero() {
-        // Q: I don't understand this comment:
+        // Q: I don't understand this comment. We could still compute a siloed nullifier from a zero contract address.
         nullifier.value() // Return value instead of 0 because the first nullifier's contract address is zero.
     } else {
         compute_siloed_nullifier(nullifier.contract_address, nullifier.value())

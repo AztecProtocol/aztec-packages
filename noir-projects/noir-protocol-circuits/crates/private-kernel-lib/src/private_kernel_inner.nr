@@ -51,9 +51,9 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
-        // Notice: within this constructor, the lengths of arrays are being rhs-empty-validated.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
 
+        // Pop the next call of the stack, and process it now.
         let start_private_call_stack_length =
             self.previous_kernel.public_inputs.end.private_call_stack.length;
         let call_request = self.previous_kernel.public_inputs.end.private_call_stack.array[

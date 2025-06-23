@@ -109,6 +109,8 @@ where
 
     // --- Initialize state tracking for the iteration ---
     //
+    // TODO: this section is difficult to understand.
+    //
     // There are 4 phases in the iteration:
     // 1. Processing items that belong to the `_lt` array and are not padded: `non_padded_lt`
     // 2. Processing items that belong to the `_lt` array and are padded: `padded_lt`

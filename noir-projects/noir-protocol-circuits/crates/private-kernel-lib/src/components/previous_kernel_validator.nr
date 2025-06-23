@@ -7,25 +7,16 @@ use dep::types::{
     traits::Empty,
 };
 
-use previous_kernel_validator_hints::{
-    generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
-};
+use previous_kernel_validator_hints::generate_previous_kernel_validator_hints;
 
 pub struct PreviousKernelValidator {
     pub previous_kernel: PrivateKernelData,
-    pub hints: PreviousKernelValidatorHints,
 }
 
+// TODO: consider renaming to be `Tail`-specific, because all the methods except `verify_proof` are tail-specific, iiuc.
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelData) -> Self {
-        // Note: the only hint at the moment is the index of each transient note hash:
-        // `transient_note_hash_index_for_each_nullifier`.
-        //
-        // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
-        let hints =
-            unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
-
-        PreviousKernelValidator { previous_kernel, hints }
+        PreviousKernelValidator { previous_kernel }
     }
 
     pub fn verify_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
@@ -239,10 +230,20 @@ impl PreviousKernelValidator {
     // that should already have been squashed against a transient (not siloed) note
     // hash, they won't be able to find a match.
     fn validate_no_transient_data(self) {
+        // Note: the only hint at the moment is the index of each transient note hash:
+        // `transient_note_hash_index_for_each_nullifier`.
+        // Note: we generate the hints here, instead of in the constructor (`new()`),
+        // because the hints are only needed in the Tail circuit, and returning
+        // an output from an unconstrained function incurs range constraints that we
+        // don't want non-Tail circuits to incur when calling `new()`.
+        // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
+        let hints =
+            unsafe { generate_previous_kernel_validator_hints(self.previous_kernel.public_inputs) };
+
         let nullifiers = self.previous_kernel.public_inputs.end.nullifiers;
         let note_hashes = self.previous_kernel.public_inputs.end.note_hashes;
         let transient_note_hash_index_for_each_nullifier =
-            self.hints.transient_note_hash_index_for_each_nullifier;
+            hints.transient_note_hash_index_for_each_nullifier;
         for i in 0..nullifiers.array.len() {
             let nullifier = nullifiers.array[i];
             let nullified_note_hash = nullifier.nullifier.note_hash;
