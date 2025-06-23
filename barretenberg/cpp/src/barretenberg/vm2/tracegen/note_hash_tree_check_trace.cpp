@@ -65,7 +65,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                 discard = true;
             } else if (check_point_event == simulation::CheckPointEventType::REVERT_CHECKPOINT &&
                        waiting_for_revert.has_value() && waiting_for_revert.value() == i) {
-                // We found the revert we were waiting for: stop discarding.
+                // We found the revert we were waiting for: stop discarding events.
                 // Note that we ensure that we find exactly the revert we were waiting for and ignore any nested
                 // reverts.
                 waiting_for_revert = std::nullopt;
