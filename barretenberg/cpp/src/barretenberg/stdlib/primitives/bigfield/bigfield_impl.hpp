@@ -801,6 +801,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         const bigfield& denominator,
                                                         bool check_for_zero)
 {
+    ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
     if (numerators.size() == 0) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
