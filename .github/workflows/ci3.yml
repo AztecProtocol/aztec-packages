@@ -46,6 +46,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
         run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
+      - name: Barretenberg CI Override
+        if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci')
+        run: echo "BARRETENBERG_CI=1" >> $GITHUB_ENV
+
       - name: Compute Target Branch
         id: target_branch
         run: |
@@ -89,7 +93,9 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
         run: |
-          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
+          if [ "${BARRETENBERG_CI:-0}" -eq 1 ]; then
+            exec ./ci.sh barretenberg
+          elif [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
           elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ]; then
             exec ./ci.sh nightly
