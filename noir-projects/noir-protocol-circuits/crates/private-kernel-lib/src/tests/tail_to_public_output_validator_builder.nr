@@ -1,9 +1,6 @@
 use crate::{
     abis::PaddedSideEffectAmounts,
-    components::{
-        previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
-        tail_to_public_output_validator::TailToPublicOutputValidator,
-    },
+    components::tail_to_public_output_validator::TailToPublicOutputValidator,
 };
 use dep::types::{tests::fixture_builder::FixtureBuilder, traits::Empty};
 

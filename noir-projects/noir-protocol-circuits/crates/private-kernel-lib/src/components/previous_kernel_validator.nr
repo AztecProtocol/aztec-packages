@@ -1,54 +1,15 @@
 mod previous_kernel_validator_hints;
 
 use dep::types::{
-    abis::{
-        log_hash::LogHash,
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
-        private_kernel_data::PrivateKernelData,
-        private_log::PrivateLogData,
-        public_call_request::PublicCallRequest,
-        side_effect::{Counted, Ordered, OrderedValue, scoped::Scoped},
-    },
+    abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
     address::AztecAddress,
-    constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-    },
-    messaging::l2_to_l1_message::L2ToL1Message,
     proof::traits::Verifiable,
     traits::Empty,
-    utils::arrays::DenseTrimmedArray,
 };
 
 use previous_kernel_validator_hints::{
     generate_previous_kernel_validator_hints, PreviousKernelValidatorHints,
 };
-
-#[derive(Eq)]
-pub struct PreviousKernelDenseTrimmedArrays {
-    pub note_hashes: Option<DenseTrimmedArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>>,
-    pub nullifiers: Option<DenseTrimmedArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>>,
-    pub l2_to_l1_msgs: Option<DenseTrimmedArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>>,
-
-    pub private_logs: Option<DenseTrimmedArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>>,
-    pub contract_class_logs_hashes: Option<DenseTrimmedArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>>,
-
-    pub public_call_requests: Option<DenseTrimmedArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>>,
-}
-
-impl Empty for PreviousKernelDenseTrimmedArrays {
-    fn empty() -> Self {
-        Self {
-            note_hashes: Option::none(),
-            nullifiers: Option::none(),
-            l2_to_l1_msgs: Option::none(),
-            private_logs: Option::none(),
-            contract_class_logs_hashes: Option::none(),
-            public_call_requests: Option::none(),
-        }
-    }
-}
 
 pub struct PreviousKernelValidator {
     pub previous_kernel: PrivateKernelData,

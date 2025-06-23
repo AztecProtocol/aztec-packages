@@ -1,9 +1,6 @@
 pub mod tail_output_hints;
 
-use crate::components::{
-    previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
-    tail_output_composer::meter_gas_used,
-};
+use crate::components::tail_output_composer::meter_gas_used;
 
 use dep::types::{
     abis::{

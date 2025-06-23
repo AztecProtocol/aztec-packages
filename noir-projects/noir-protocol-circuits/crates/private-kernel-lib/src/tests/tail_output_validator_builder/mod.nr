@@ -3,7 +3,6 @@ mod validate_propagated_sorted_values;
 mod validate_propagated_values;
 
 use crate::components::{
-    previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
     tail_output_composer::meter_gas_used,
     tail_output_validator::{
         tail_output_hints::{generate_tail_output_hints, TailOutputHints},
@@ -23,7 +22,6 @@ use dep::types::{
 pub struct TailOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
-    previous_kernel_dense_trimmed_arrays: PreviousKernelDenseTrimmedArrays,
 }
 
 impl TailOutputValidatorBuilder {
@@ -39,16 +37,13 @@ impl TailOutputValidatorBuilder {
 
         let mut previous_kernel = FixtureBuilder::new();
 
-        // TODO: I don't know how this will be used in the tests.
-        let previous_kernel_dense_trimmed_arrays = PreviousKernelDenseTrimmedArrays::empty();
-
         output.tx_context.gas_settings = gas_settings;
         previous_kernel.tx_context.gas_settings = gas_settings;
 
         output.set_protocol_nullifier();
         previous_kernel.set_protocol_nullifier();
 
-        TailOutputValidatorBuilder { output, previous_kernel, previous_kernel_dense_trimmed_arrays }
+        TailOutputValidatorBuilder { output, previous_kernel }
     }
 
     pub fn get_hints(self) -> TailOutputHints {
