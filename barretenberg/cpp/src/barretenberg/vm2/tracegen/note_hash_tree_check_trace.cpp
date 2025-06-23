@@ -26,6 +26,9 @@ void NoteHashTreeCheckTraceBuilder::process(
 
     std::stack<size_t> checkpoint_stack;
 
+    // We need to reconstruct discard in this trace using checkpointing events.
+    // https://hackmd.io/luYtD3XVTpGCDFeeCYS_Uw?view#Discard-reconstruction
+    // Find all the reverts and record which checkpoint is being reverted.
     for (size_t i = 0; i < events.size(); i++) {
         const auto& event = events.at(i);
 
@@ -57,10 +60,14 @@ void NoteHashTreeCheckTraceBuilder::process(
             auto check_point_event = std::get<simulation::CheckPointEventType>(event);
             if (check_point_event == simulation::CheckPointEventType::CREATE_CHECKPOINT && reverted_in.contains(i) &&
                 !waiting_for_revert.has_value()) {
+                // This checkpoint will revert in the future: discard all events until the revert.
                 waiting_for_revert = reverted_in.at(i);
                 discard = true;
             } else if (check_point_event == simulation::CheckPointEventType::REVERT_CHECKPOINT &&
                        waiting_for_revert.has_value() && waiting_for_revert.value() == i) {
+                // We found the revert we were waiting for: stop discarding.
+                // Note that we ensure that we find exactly the revert we were waiting for and ignore any nested
+                // reverts.
                 waiting_for_revert = std::nullopt;
                 discard = false;
             }
