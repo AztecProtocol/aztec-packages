@@ -163,10 +163,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 std::cerr << "num gates per mul = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Bigfield", "MUL", "Gate Count", after - before);
             }
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0] * inputs[1]);
             expected = expected.from_montgomery_form();
@@ -206,10 +202,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 std::cerr << "num gates per mul = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Bigfield", "SQR", "Gate Count", after - before);
             }
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0].sqr());
             expected = expected.from_montgomery_form();
@@ -257,10 +249,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 std::cerr << "num gates per mul = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Bigfield", "MADD", "Gate Count", after - before);
             }
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0] * inputs[1]) + inputs[2];
             expected = expected.from_montgomery_form();
@@ -328,17 +316,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 std::cerr << "num gates with mult_madd = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Bigfield", "MULT_MADD", "Gate Count", after - before);
             }
-            /**
-            before = builder.get_estimated_num_finalized_gates();
-            fq_ct f1(0);
-            for (size_t j = 0; j < number_of_madds; j++) {
-                f1 += mul_left[j] * mul_right[j] + to_add[j];
-            }
-            after = builder.get_estimated_num_finalized_gates();
-            if (i == num_repetitions - 1) {
-                std::cerr << "num gates with regular multiply_add = " << after - before << std::endl;
-            }
-            **/
 
             expected = expected.from_montgomery_form();
             uint512_t result = f.get_value();
@@ -394,10 +371,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             if (i == num_repetitions - 1) {
                 std::cerr << "num gates per mul = " << after - before << std::endl;
             }
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0] * inputs[1]) + (inputs[2] * inputs[3]) + inputs[4];
             expected = expected.from_montgomery_form();
@@ -443,10 +416,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
                 std::cout << "num gates per div = " << after - before << std::endl;
                 benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV", "Gate Count", after - before);
             }
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0] / inputs[1]);
             expected = expected.reduce_once().reduce_once();
@@ -489,10 +458,6 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             d.set_origin_tag(next_challenge_tag);
             fq_ct e = (a + b) / (c + d);
             EXPECT_EQ(e.get_origin_tag(), first_second_third_merged_tag);
-            // uint256_t modulus{ Bn254FqParams::modulus_0,
-            //                    Bn254FqParams::modulus_1,
-            //                    Bn254FqParams::modulus_2,
-            //                    Bn254FqParams::modulus_3 };
 
             fq expected = (inputs[0] + inputs[1]) / (inputs[2] + inputs[3]);
             expected = expected.reduce_once().reduce_once();
@@ -686,18 +651,12 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
             fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
                     witness_ct(&builder,
                                fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-            // fq_ct b(witness_ct(&builder,
-            // fr(uint256_t(inputs[1]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-            //            witness_ct(&builder,
-            //            fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2,
-            //            fq_ct::NUM_LIMB_BITS * 4))));
 
             a.set_origin_tag(submitted_value_origin_tag);
 
             typename bn254::bool_ct predicate_a(witness_ct(&builder, true));
 
             predicate_a.set_origin_tag(challenge_origin_tag);
-            // bool_ct predicate_b(witness_ct(&builder, false));
 
             fq_ct c = a.conditional_negate(predicate_a);
 
