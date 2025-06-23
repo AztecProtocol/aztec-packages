@@ -64,13 +64,14 @@ fn assert_correctly_siloed_note_hash(
 // Without this check, an app could impersonate another by emitting a log identical to one from a different contract
 // or copying a tag from another contract while using entirely different content, potentially misleading the recipient.
 fn assert_valid_siloed_private_log(out: PrivateLog, prev: Scoped<PrivateLogData>) -> () {
+    // Q: is checking `if prev.contract_address.is_zero()` being used to mean "if the prev is empty"?
     let expected_first_field = if prev.contract_address.is_zero() {
         prev.inner.log.fields[0]
     } else {
         compute_siloed_private_log_field(prev.contract_address, prev.inner.log.fields[0])
     };
     assert_eq(out.fields[0], expected_first_field);
-    for i in 0..out.fields.len() {
+    for i in 1..out.fields.len() {
         assert_eq(out.fields[i], prev.inner.log.fields[i]);
     }
 
