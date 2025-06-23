@@ -14,6 +14,10 @@ export hash=$(cache_content_hash \
 
 function build {
   echo_header "l1-contracts build"
+
+  # Deps install
+  yarn
+
   local artifact=l1-contracts-$hash.tar.gz
   if ! cache_download $artifact; then
     # Clean
