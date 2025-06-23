@@ -137,7 +137,7 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
-                         testing::Values("1327_concrete_in_generic",
+                         testing::Values("a_1327_concrete_in_generic",
                                          "a_1_mul",
                                          "a_2_div",
                                          "a_3_add",
