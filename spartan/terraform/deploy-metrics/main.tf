@@ -159,8 +159,17 @@ locals {
   public_otel_ingress_host = "telemetry.alpha-testnet.aztec.network"
 }
 
-resource "kubernetes_manifest" "public_otel_ingress_certificate" {
+resource "kubernetes_namespace" "public_ns" {
   provider = kubernetes.gke-cluster
+  metadata {
+    name = "${var.RELEASE_NAME}-public"
+  }
+}
+
+resource "kubernetes_manifest" "public_otel_ingress_certificate" {
+  provider   = kubernetes.gke-cluster
+  depends_on = [kubernetes_namespace.public_ns]
+
   manifest = {
     "apiVersion" = "networking.gke.io/v1"
     "kind"       = "ManagedCertificate"
@@ -183,11 +192,12 @@ resource "helm_release" "public_otel_collector" {
   repository        = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart             = "opentelemetry-collector"
   version           = "0.104.0"
-  create_namespace  = true
+  create_namespace  = false
   upgrade_install   = true
   dependency_update = true
   force_update      = true
   reuse_values      = true
+  depends_on        = [kubernetes_namespace.public_ns]
 
   # base values file
   values = [file("./values/public-otel-collector.yaml")]
@@ -219,11 +229,12 @@ resource "helm_release" "public_prometheus" {
   repository        = "https://prometheus-community.github.io/helm-charts"
   chart             = "prometheus"
   version           = "25.27.0"
-  create_namespace  = true
+  create_namespace  = false
   upgrade_install   = true
   dependency_update = true
   force_update      = true
   reuse_values      = true
+  depends_on        = [kubernetes_namespace.public_ns]
 
   values = [file("./values/public-prometheus.yaml")]
 
