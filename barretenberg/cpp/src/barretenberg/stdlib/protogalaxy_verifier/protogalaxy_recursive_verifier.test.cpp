@@ -216,6 +216,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                                                   recursive_decider_vk_1,
                                                   { recursive_decider_vk_2 },
                                                   std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
+        verifier.transcript->enable_manifest();
         std::shared_ptr<RecursiveDeciderVerificationKey> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
             accumulator = verifier.verify_folding_proof(stdlib_proof);
@@ -226,6 +227,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                     { std::make_shared<RecursiveVerificationKey>(&folding_circuit, decider_vk_1->verification_key) },
                     std::make_shared<typename FoldingRecursiveVerifier::Transcript>()
                 };
+                verifier.transcript->enable_manifest();
             }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
@@ -235,6 +237,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // calling check_circuit on the recursive folding verifier
         InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 },
                                                      std::make_shared<typename InnerFoldingVerifier::Transcript>());
+        native_folding_verifier.transcript->enable_manifest();
         std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
         native_folding_verifier.verify_folding_proof(folding_proof.proof);
         for (size_t idx = 0; idx < num_verifiers; idx++) {
@@ -243,6 +246,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                 native_folding_verifier =
                     InnerFoldingVerifier{ { native_accumulator, decider_vk_1 },
                                           std::make_shared<typename InnerFoldingVerifier::Transcript>() };
+                native_folding_verifier.transcript->enable_manifest();
             }
         }
 
@@ -315,6 +319,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                                                   recursive_decider_vk_1,
                                                   { recursive_decider_vk_2 },
                                                   std::make_shared<typename FoldingRecursiveVerifier::Transcript>() };
+        verifier.transcript->enable_manifest();
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
@@ -327,6 +332,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // calling check_circuit on the recursive folding verifier
         InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 },
                                                      std::make_shared<typename InnerFoldingVerifier::Transcript>());
+        native_folding_verifier.transcript->enable_manifest();
         auto verifier_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the

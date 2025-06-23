@@ -25,7 +25,6 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     const std::vector<FF>& proof)
 {
     transcript->load_proof(proof);
-    transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
