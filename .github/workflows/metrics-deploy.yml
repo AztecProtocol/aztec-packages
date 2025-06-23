@@ -122,18 +122,6 @@ jobs:
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} --region ${{ env.REGION }}
 
-      - name: Grab the Grafana dashboard password
-        id: get-grafana-dashboard-password
-        run: |
-          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})"
-          echo "grafana_dashboard_password=$(gcloud secrets versions access latest --secret=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
-
-      - name: Grab the Slack webhook URL
-        id: get-slack-webhook-url
-        run: |
-          echo "::add-mask::$(gcloud secrets versions access latest --secret=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }})"
-          echo "slack_webhook_url=$(gcloud secrets versions access latest --secret=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }})" >> "$GITHUB_OUTPUT"
-
       - name: Ensure Terraform state bucket exists
         run: |
           if ! gsutil ls gs://${{ env.TF_STATE_BUCKET }} >/dev/null 2>&1; then
@@ -170,8 +158,8 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
-            -var="SLACK_WEBHOOK_URL=${{ steps.get-slack-webhook-url.outputs.slack_webhook_url }}" \
+            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_PASSWORD_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
       - name: Terraform Plan
@@ -181,8 +169,8 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="GRAFANA_DASHBOARD_PASSWORD=${{ steps.get-grafana-dashboard-password.outputs.grafana_dashboard_password }}" \
-            -var="SLACK_WEBHOOK_URL=${{ steps.get-slack-webhook-url.outputs.slack_webhook_url }}" \
+            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_PASSWORD_SECRET_NAME }}" \
+            -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}
 

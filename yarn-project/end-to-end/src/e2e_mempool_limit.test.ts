@@ -45,7 +45,7 @@ describe('e2e_mempool_limit', () => {
     const sendSpy = jest.spyOn(wallet, 'sendTx');
     const sentTx3 = tx3.send();
 
-    // this retry is needed becauase tx3 is sent asynchronously and we need to wait for the event loop to fully drain
+    // this retry is needed because tx3 is sent asynchronously and we need to wait for the event loop to fully drain
     await retryUntil(() => sendSpy.mock.results[0]?.value);
 
     // one of the txs will be dropped. Which one is picked is somewhat random because all three will have the same fee

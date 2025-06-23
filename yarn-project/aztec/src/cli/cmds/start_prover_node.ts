@@ -72,6 +72,7 @@ export async function startProverNode(
     proverConfig.l1ChainId,
     proverConfig.rollupVersion,
   );
+  process.env.ROLLUP_CONTRACT_ADDRESS ??= addresses.rollupAddress.toString();
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 

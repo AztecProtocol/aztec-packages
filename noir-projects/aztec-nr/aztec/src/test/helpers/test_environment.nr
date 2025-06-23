@@ -1,33 +1,35 @@
-use dep::protocol_types::{
+use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::PUBLIC_DISPATCH_SELECTOR,
     traits::{Deserialize, FromField, Packable, ToField},
 };
 
-use crate::context::{
-    call_interfaces::{
-        CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+use crate::{
+    context::{
+        call_interfaces::{
+            CallInterface, TXEPrivateCallInterface, TXEPublicCallInterface, TXEUtilityCallInterface,
+        },
+        PrivateCallInterface,
+        PrivateContext,
+        PrivateVoidCallInterface,
+        PublicCallInterface,
+        PublicContext,
+        PublicVoidCallInterface,
+        ReturnsHash,
+        UtilityCallInterface,
+        UtilityContext,
     },
-    PrivateCallInterface,
-    PrivateContext,
-    PrivateVoidCallInterface,
-    PublicCallInterface,
-    PublicContext,
-    PublicVoidCallInterface,
-    ReturnsHash,
-    UtilityCallInterface,
-    UtilityContext,
+    hash::hash_args,
+    note::note_interface::{NoteHash, NoteType},
+    oracle::{
+        execution::{get_block_number, get_contract_address, get_timestamp},
+        execution_cache,
+        notes::notify_created_note,
+    },
+    test::{helpers::{cheatcodes, utils::Deployer}, txe_constants::AZTEC_SLOT_DURATION},
 };
-use crate::hash::hash_args;
-use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::note_interface::{NoteHash, NoteType};
-use crate::oracle::{
-    execution::{get_block_number, get_contract_address},
-    execution_cache,
-    notes::notify_created_note,
-};
 use super::cheatcodes::public_call_new_flow;
 
 pub struct TestEnvironment {}
@@ -52,7 +54,17 @@ impl TestEnvironment {
     /// Returns the block number of the block currently being built. Since sequencer is executing the public part
     /// of transactions when building blocks, this block number is also returned by public_context.block_number().
     pub unconstrained fn pending_block_number(_self: Self) -> u32 {
+        // TODO: This oracle when used in PXE returns the latest synched block number by the node and not the pending
+        // block number! But TXE handles this in some messed up custom way so this might actually be kinda correct.
+        // Terrible.
         get_block_number()
+    }
+
+    /// Returns the timestamp of the block currently being built. Since sequencer is executing the public part
+    /// of transactions when building blocks, this timestamp is also returned by public_context.timestamp().
+    pub unconstrained fn pending_timestamp(_self: Self) -> u64 {
+        // TODO: This has the same behavior as pending_block_number() so it's also messed up.
+        get_timestamp()
     }
 
     /// This does what the above does but should be considered deprecated as the naming is subpar.
@@ -64,6 +76,10 @@ impl TestEnvironment {
     /// to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
     pub unconstrained fn committed_block_number(self: Self) -> u32 {
         self.pending_block_number() - 1
+    }
+
+    pub unconstrained fn committed_timestamp(self: Self) -> u64 {
+        self.pending_timestamp() - AZTEC_SLOT_DURATION
     }
 
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
@@ -96,10 +112,26 @@ impl TestEnvironment {
         self.advance_block_by(difference);
     }
 
+    /// Advances the internal TXe timestamp to the specified timestamp.
+    pub unconstrained fn advance_timestamp_to(&mut self, timestamp: u64) {
+        let pending_timestamp = self.pending_timestamp();
+        assert(
+            pending_timestamp <= timestamp,
+            "Cannot go back in time. Timestamp cannot be less than current timestamp.",
+        );
+        let difference: u64 = timestamp - pending_timestamp;
+        self.advance_timestamp_by(difference);
+    }
+
     /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
     /// block advanced, and we are able to fetch historical data from warped over blocks.
     pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
+    }
+
+    /// Advances the internal TXe timestamp by the specified duration in seconds.
+    pub unconstrained fn advance_timestamp_by(_self: &mut Self, duration: u64) {
+        cheatcodes::advance_timestamp_by(duration);
     }
 
     /// Instantiates a public context. The block number returned from public_context.block_number() will be the
@@ -130,7 +162,21 @@ impl TestEnvironment {
             self.advance_block_to(historical_block_number + 1);
         }
 
-        let mut inputs = cheatcodes::get_private_context_inputs(historical_block_number);
+        let mut inputs = cheatcodes::get_private_context_inputs_at_block(historical_block_number);
+
+        PrivateContext::new(inputs, 0)
+    }
+
+    /// Instantiates a private context at a specific historical timestamp.
+    pub unconstrained fn private_at_timestamp(
+        &mut self,
+        historical_timestamp: u64,
+    ) -> PrivateContext {
+        if historical_timestamp > get_timestamp() {
+            self.advance_timestamp_to(historical_timestamp);
+        }
+
+        let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
 
         PrivateContext::new(inputs, 0)
     }

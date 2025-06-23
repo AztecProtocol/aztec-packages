@@ -69,7 +69,7 @@ impl Deserialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationReques
                     ScopedKeyValidationRequestAndGenerator::empty();
                          MAX_KEY_VALIDATION_REQUESTS_PER_TX
                     ],
-                ),
+            ),
             split_counter: if reader.read_bool() {
                 Option::some(reader.read_u32())
             } else {
