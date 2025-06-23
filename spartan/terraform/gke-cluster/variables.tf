@@ -9,11 +9,3 @@ variable "region" {
 variable "zone" {
   default = "us-west1-a"
 }
-
-variable "import_blockchain_node_region" {
-  default = "us-central1"
-}
-
-variable "import_blockchain_node_id" {
-  default = "eth-sepolia-node-3"
-}
