@@ -1121,7 +1121,8 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     let timestamp = 0n;
     if (maybeTimestamp === undefined) {
       const latestBlockHeader = await this.getBlockHeader('latest');
-      // If we get undefined block header, it mean that the archiver has not yet synced any block so we default to 0.
+      // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
+      // TODO(#15178): Use genesis timestamp here instead of 0.
       timestamp = latestBlockHeader ? latestBlockHeader.globalVariables.timestamp : 0n;
     } else {
       timestamp = maybeTimestamp;
@@ -1331,6 +1332,8 @@ export class ArchiverStoreHelper
   /**
    * Extracts and stores contract instances out of ContractInstanceDeployed events emitted by the canonical deployer contract.
    * @param allLogs - All logs emitted in a bunch of blocks.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @param operation - The operation to perform on the contract instance updates (Store or Delete).
    */
   async #updateUpdatedContractInstances(allLogs: PublicLog[], timestamp: UInt64, operation: Operation) {
     const contractUpdates = allLogs

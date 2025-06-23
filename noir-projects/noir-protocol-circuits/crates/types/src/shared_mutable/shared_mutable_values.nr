@@ -38,7 +38,8 @@ where
     let svc_pre_packed = arrays::subarray(packed, 1);
     let svc_post_packed = arrays::subarray(packed, N + 1);
 
-    // We first cast to u32 as the timestamp_of_change is packed into the field with delay change.
+    // We first cast to u32 as the timestamp_of_change is packed into the same field as the delay change and it
+    // occupies the first 32 bits of the field.
     let timestamp_of_change = (packed[0] as u32) as u64;
     ScheduledValueChange::new(
         T::unpack(svc_pre_packed),
