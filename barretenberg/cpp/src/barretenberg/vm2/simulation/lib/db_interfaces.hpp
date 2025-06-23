@@ -91,4 +91,12 @@ class HighLevelMerkleDBInterface {
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
+class CheckpointNotifiable {
+  public:
+    virtual ~CheckpointNotifiable() = default;
+    virtual void on_checkpoint_created() = 0;
+    virtual void on_checkpoint_committed() = 0;
+    virtual void on_checkpoint_reverted() = 0;
+};
+
 } // namespace bb::avm2::simulation
