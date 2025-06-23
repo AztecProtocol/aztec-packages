@@ -17,9 +17,6 @@ HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 # Can also set PRESET=tracy-gates env variable
 PRESET=${PRESET:-tracy-memory}
 
-# Check if cmake exists
-cmake --version
-
 # Checkout tracy 0.11.1, build the headless capture tool and then capture a trace
 ssh $BOX "
 	set -eux ;
