@@ -594,29 +594,53 @@ template <typename TranscriptParams> class BaseTranscript {
         manifest.print();
     }
 
+    /**
+     * @brief Branch a transcript to perform verifier-only computations
+     * @details This function takes the current state of a transcript and creates a new transcript that starts from that
+     * state. In this way, computations that are not part of the prover's transcript (e.g., computations that can be
+     * used to perform calculations more efficiently) will not affect the verifier's transcript.
+     *
+     * The relation between the transcript and the branched transcript is the following:
+     *
+     * round_index      transcript      branched_transcript
+     *      0               *
+     *      1               |
+     *      |               |
+     *      |               |
+     *      n               * ================= *
+     *      |                                   |
+     *      |                                   |
+     *      |                                   |
+     *     n+5              *                   |
+     *     n+6              |                   |
+     *      |               |                   |
+     *     ...             ...                 ...
+     *
+     *
+     * In this way, we can distinguish between operations that happen in the transcript before/after branching.
+     * @return BaseTranscript
+     */
     BaseTranscript branch_transcript()
     {
-        /// Increase the round_number of the original transcript (+1000
-        /// Set round_number of branched == round number of original
-        /// Set transcript_index branch == original
-        ASSERT(current_round_data.size() == 0, "Trying to branch a transcript with non empty round data");
+        // This is an implementation choice that simplifies tracking which operations happen before/after branching.
+        ASSERT(current_round_data.size() == 0, "Branching a transcript with non empty round data");
 
         /*
          * Create the branched transcript. The requirements are:
          *  - branched_transcript.unique_transcript_index = unique_transcript_index, so that we don't get false errors
          * of witnesses from different transcripts interacting
          *  - branched_transcript.round_index = round_index, so that it is clear that branched_transcript builds on the
-         * original transcript
+         * status of the original transcript at this round_index
          *  - branched_transcript.current_round_data = { previous_challenge }, so that the branched transcripts builds
          * on the previous one
-         *  - round_index += 1000, so that it is clear what is done in the original transcript after branching
+         *  - round_index += 5, so that it is clear what is done in the original transcript after branching
          */
         BaseTranscript branched_transcript;
 
         branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
         branched_transcript.round_index = round_index;
         branched_transcript.add_to_hash_buffer("init", previous_challenge);
-        round_index += 1000;
+        round_index += 5;
 
         return branched_transcript;
     }
