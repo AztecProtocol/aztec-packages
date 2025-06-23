@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.0-staging.0](https://github.com/AztecProtocol/aztec-packages/compare/v1.0.0...v1.0.0-staging.0) (2025-06-23)
+
+
+### Miscellaneous
+
+* release 1.0.0 ([0c4292f](https://github.com/AztecProtocol/aztec-packages/commit/0c4292f2da3bfcf3556aa48c6380a74c11bbd963))
+* release 1.0.0 ([f46a350](https://github.com/AztecProtocol/aztec-packages/commit/f46a35094b2e1badf51767b5926826c2d4e5686c))
+* try to fix release please prerelease tags ([32b2a48](https://github.com/AztecProtocol/aztec-packages/commit/32b2a485546821f2ed7cad1bebe7d67419e4ea4d))
+* try to fix release please prerelease tags ([b16ec6d](https://github.com/AztecProtocol/aztec-packages/commit/b16ec6d5d9763c3f0d87cde0091785d23cff2875))
+* try to fix release please prerelease tags ([42e4fc3](https://github.com/AztecProtocol/aztec-packages/commit/42e4fc3f43c4e40f04b4a53fc367a16805e92e50))
+* try to fix release please prerelease tags ([6e80c26](https://github.com/AztecProtocol/aztec-packages/commit/6e80c267f2a8b80e8a08a50467ee662a2a1853f9))
+* try to fix release please prerelease tags ([c33c747](https://github.com/AztecProtocol/aztec-packages/commit/c33c74797bdd75cdbf813c0135abce1408b10804))
+* try to fix release please prerelease tags ([07ddfbe](https://github.com/AztecProtocol/aztec-packages/commit/07ddfbe883681d68c8e5726b2bb4b68db3399442))
+
 ## [1.0.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.6...v1.0.0) (2025-06-23)
 
 
