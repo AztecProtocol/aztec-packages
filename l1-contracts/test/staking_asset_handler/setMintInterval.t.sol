@@ -49,7 +49,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
       )
     );
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), fakeProof);
+    stakingAssetHandler.addValidator(address(1), validMerkleProof, fakeProof);
   }
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
@@ -69,7 +69,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(address(staking), address(1), WITHDRAWER);
     vm.prank(address(0xbeefdeef));
-    stakingAssetHandler.addValidator(address(1), realProof);
+    stakingAssetHandler.addValidator(address(1), validMerkleProof, realProof);
 
     assertEq(stakingAssetHandler.lastMintTimestamp(), block.timestamp);
   }

@@ -120,6 +120,7 @@ describe('e2e_p2p_network', () => {
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
+        merkleProof: [], // empty merkle proof - check is disabled in the test
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         proofParams: mockPassportProof,
         log: t.logger.info,
