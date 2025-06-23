@@ -1620,8 +1620,6 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_negate(const bool_t<Build
     bigfield<Builder, T> negative_this = zero() - *this;
     bigfield<Builder, T> result = bigfield<Builder, T>::conditional_assign(predicate, negative_this, *this);
 
-    result.set_origin_tag(OriginTag(get_origin_tag(), predicate.tag));
-
     return result;
 }
 
