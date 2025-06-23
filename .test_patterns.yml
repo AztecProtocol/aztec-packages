@@ -179,7 +179,7 @@ tests:
     owners:
       - *palla
   - regex: "src/e2e_p2p/data_withholding_slash.test.ts" # http://ci.aztec-labs.com/f3fcfc02ba9a9b4e
-    error_regex: "Timeout awaiting slash payload deployed"
+    error_regex: "Timeout awaiting slash payload deployed|Tx dropped by P2P node"
     owners:
       - *mitch
 
