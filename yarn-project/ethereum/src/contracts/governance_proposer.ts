@@ -44,6 +44,10 @@ export class GovernanceProposerContract implements IEmpireBase {
     return this.proposer.read.computeRound([slot]);
   }
 
+  public getNonce(proposer: Hex): Promise<bigint> {
+    return this.proposer.read.nonces([proposer]);
+  }
+
   public async getRoundInfo(
     rollupAddress: Hex,
     round: bigint,
@@ -68,7 +72,8 @@ export class GovernanceProposerContract implements IEmpireBase {
   }
 
   public async createVoteRequestWithSignature(payload: Hex, wallet: ExtendedViemWalletClient): Promise<L1TxRequest> {
-    const signature = await signVoteWithSig(wallet, payload, this.address.toString(), wallet.chain.id);
+    const nonce = await this.getNonce(wallet.account.address);
+    const signature = await signVoteWithSig(wallet, payload, nonce, this.address.toString(), wallet.chain.id);
     return {
       to: this.address.toString(),
       data: encodeVoteWithSignature(payload, signature),

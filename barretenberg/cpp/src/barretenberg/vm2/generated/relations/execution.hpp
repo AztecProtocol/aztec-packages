@@ -13,11 +13,12 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::execution_sel)).is_zero();
     }
 
@@ -83,11 +84,17 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OPCODE_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            auto tmp = in.get(C::execution_opcode_error) * (FF(1) - in.get(C::execution_opcode_error));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -105,6 +112,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "TRACE_CONTINUITY_2";
         case 4:
             return "LAST_IS_LAST";
+        case 8:
+            return "OPCODE_ERROR_BOOLEAN";
         }
         return std::to_string(index);
     }
@@ -113,6 +122,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY_1 = 2;
     static constexpr size_t SR_TRACE_CONTINUITY_2 = 3;
     static constexpr size_t SR_LAST_IS_LAST = 4;
+    static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
 };
 
 } // namespace bb::avm2

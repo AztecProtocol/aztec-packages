@@ -584,6 +584,10 @@ pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
 pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
+// Misc generators
+// TODO(8974): this likely belongs in the middle of the list, but was placed
+// here to avoid changing all of the key generators.
+pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -594,10 +598,20 @@ pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
-// AvmCircuitPublicInputs - row indices
-// TODO(dbanks12): could we somehow use Noir macros to generate these?
-// TODO(dbanks12): could we somehow generate these from the actual struct? Or no, because codegen can't use that?
+// AVM memory related constants
+pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
+pub global AVM_MEMORY_NUM_BITS: u8 = 32;
 
+// AVM bitwise operation IDs
+pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+
+// AVM Keccakf1600 specific constants
+pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
+pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
+// AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias
 pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_ROW_IDX: u32 = 0;
@@ -938,8 +952,9 @@ pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
 pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
 
 // Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
 pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
-pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;

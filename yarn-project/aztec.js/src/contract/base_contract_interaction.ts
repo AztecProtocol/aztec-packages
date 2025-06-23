@@ -64,7 +64,7 @@ export abstract class BaseContractInteraction {
     return new ProvenTx(
       this.wallet,
       txProvingResult.toTx(),
-      txProvingResult.getOffchainMessages(),
+      txProvingResult.getOffchainEffects(),
       txProvingResult.stats,
     );
   }
@@ -103,7 +103,6 @@ export abstract class BaseContractInteraction {
     const simulationResult = await this.wallet.simulateTx(
       txRequest,
       true /*simulatePublic*/,
-      undefined /* msgSender */,
       undefined /* skipTxValidation */,
       true /* skipFeeEnforcement */,
     );
@@ -153,7 +152,6 @@ export abstract class BaseContractInteraction {
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
-        undefined /* msgSender */,
         undefined /* skipTxValidation */,
         true /* skipFeeEnforcement */,
       );

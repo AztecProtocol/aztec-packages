@@ -43,8 +43,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
             goblin.prove_merge();
         }
 
-        auto goblin_transcript = std::make_shared<Goblin::Transcript>();
-
         Goblin goblin_final;
         goblin_final.op_queue = goblin.op_queue;
         MegaCircuitBuilder builder{ goblin_final.op_queue };
@@ -91,8 +89,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
         auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, verification_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -118,8 +116,8 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterProver prover(proving_key, outer_verification_key);
         OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };
     };
@@ -153,11 +151,10 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
     auto crs_factory = srs::get_grumpkin_crs_factory();
-    auto grumpkin_verifier_commitment_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N, crs_factory);
+    VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
     OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.opening_claim.get_native_opening_claim();
-    auto native_ipa_transcript = std::make_shared<NativeTranscript>(
-        convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_transcript->proof_data));
+    auto native_ipa_transcript = std::make_shared<NativeTranscript>();
+    native_ipa_transcript->load_proof(convert_stdlib_proof_to_native(goblin_rec_verifier_output.ipa_proof));
 
     EXPECT_FALSE(
         IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript));

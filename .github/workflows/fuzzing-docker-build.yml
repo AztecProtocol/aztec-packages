@@ -1,0 +1,29 @@
+name: Build Fuzzing Container
+
+on:
+  push:
+    branches: [next]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: container-builds/fuzzing-container/src/
+          push: true
+          tags: ghcr.io/aztecprotocol/fuzzing-container:latest

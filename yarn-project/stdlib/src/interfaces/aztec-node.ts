@@ -9,7 +9,7 @@ import {
 import { type L1ContractAddresses, L1ContractAddressesSchema } from '@aztec/ethereum/l1-contract-addresses';
 import type { Fr } from '@aztec/foundation/fields';
 import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { SiblingPath } from '@aztec/foundation/trees';
+import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -113,31 +113,6 @@ export interface AztecNode
   ): Promise<SiblingPath<typeof NOTE_HASH_TREE_HEIGHT>>;
 
   /**
-   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
-   * @param blockNumber - The block number at which to get the data.
-   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
-   * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
-   */
-  getL1ToL2MessageMembershipWitness(
-    blockNumber: L2BlockNumber,
-    l1ToL2Message: Fr,
-  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
-
-  /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
-   */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
-  /**
-   * Returns all the L2 to L1 messages in a block.
-   * @param blockNumber - The block number at which to get the data.
-   * @returns The L2 to L1 messages (undefined if the block number is not found).
-   */
-  getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined>;
-
-  /**
    * Returns a sibling path for a leaf in the committed historic blocks tree.
    * @param blockNumber - The block number at which to get the data.
    * @param leafIndex - Index of the leaf in the tree.
@@ -193,6 +168,51 @@ export interface AztecNode
   getPublicDataWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
+   * Returns a membership witness for a given archive leaf at a given block.
+   * @param blockNumber - The block number at which to get the data.
+   * @param archive - The archive leaf we try to find the witness for.
+   */
+  getArchiveMembershipWitness(
+    blockNumber: L2BlockNumber,
+    archive: Fr,
+  ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined>;
+
+  /**
+   * Returns a membership witness for a given note hash at a given block.
+   * @param blockNumber - The block number at which to get the data.
+   * @param noteHash - The note hash we try to find the witness for.
+   */
+  getNoteHashMembershipWitness(
+    blockNumber: L2BlockNumber,
+    noteHash: Fr,
+  ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined>;
+
+  /**
+   * Returns the index and a sibling path for a leaf in the committed l1 to l2 data tree.
+   * @param blockNumber - The block number at which to get the data.
+   * @param l1ToL2Message - The l1ToL2Message to get the index / sibling path for.
+   * @returns A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
+   */
+  getL1ToL2MessageMembershipWitness(
+    blockNumber: L2BlockNumber,
+    l1ToL2Message: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
+
+  /**
+   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * @param l1ToL2Message - The L1 to L2 message to check.
+   * @returns Whether the message is synced and ready to be included in a block.
+   */
+  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+
+  /**
+   * Returns all the L2 to L1 messages in a block.
+   * @param blockNumber - The block number at which to get the data.
+   * @returns The L2 to L1 messages (undefined if the block number is not found).
+   */
+  getL2ToL1Messages(blockNumber: L2BlockNumber): Promise<Fr[][] | undefined>;
+
+  /**
    * Get a block specified by its number.
    * @param number - The block number being requested.
    * @returns The requested block.
@@ -200,7 +220,7 @@ export interface AztecNode
   getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
-   * Fetches the current block number.
+   * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
@@ -268,11 +288,10 @@ export interface AztecNode
   getProtocolContractAddresses(): Promise<ProtocolContractAddresses>;
 
   /**
-   * Method to add a contract artifact to the database.
-   * @param aztecAddress
-   * @param artifact
+   * Registers contract function signatures for debugging purposes.
+   * @param functionSignatures - An array of function signatures to register by selector.
    */
-  registerContractFunctionSignatures(address: AztecAddress, functionSignatures: string[]): Promise<void>;
+  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 
   /**
    * Retrieves all private logs from up to `limit` blocks, starting from the block number `from`.
@@ -414,6 +433,8 @@ export interface AztecNode
 }
 
 export const MAX_LOGS_PER_TAG = 10;
+const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
+const MAX_SIGNATURE_LEN = 10000;
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getL2Tips: z.function().args().returns(L2TipsSchema),
@@ -434,18 +455,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .function()
     .args(L2BlockNumberSchema, schemas.BigInt)
     .returns(SiblingPath.schemaFor(NOTE_HASH_TREE_HEIGHT)),
-
-  getL1ToL2MessageMembershipWitness: z
-    .function()
-    .args(L2BlockNumberSchema, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
-
-  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-
-  getL2ToL1Messages: z
-    .function()
-    .args(L2BlockNumberSchema)
-    .returns(z.array(z.array(schemas.Fr)).optional()),
 
   getArchiveSiblingPath: z
     .function()
@@ -468,6 +477,28 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .returns(NullifierMembershipWitness.schema.optional()),
 
   getPublicDataWitness: z.function().args(L2BlockNumberSchema, schemas.Fr).returns(PublicDataWitness.schema.optional()),
+
+  getArchiveMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(MembershipWitness.schemaFor(ARCHIVE_HEIGHT).optional()),
+
+  getNoteHashMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(MembershipWitness.schemaFor(NOTE_HASH_TREE_HEIGHT).optional()),
+
+  getL1ToL2MessageMembershipWitness: z
+    .function()
+    .args(L2BlockNumberSchema, schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
+
+  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+
+  getL2ToL1Messages: z
+    .function()
+    .args(L2BlockNumberSchema)
+    .returns(z.array(z.array(schemas.Fr)).optional()),
 
   getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
 
@@ -501,7 +532,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getProtocolContractAddresses: z.function().returns(ProtocolContractAddressesSchema),
 
-  registerContractFunctionSignatures: z.function().args(schemas.AztecAddress, z.array(z.string())).returns(z.void()),
+  registerContractFunctionSignatures: z
+    .function()
+    .args(z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL))
+    .returns(z.void()),
 
   getPrivateLogs: z
     .function()

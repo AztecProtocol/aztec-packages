@@ -37,8 +37,8 @@ describe('e2e_simple', () => {
         blockCheckIntervalMS: 200,
         minTxsPerBlock: 1,
         aztecEpochDuration: 4,
-        aztecProofSubmissionWindow: 8,
         aztecSlotDuration: 12,
+        aztecTargetCommitteeSize: 0,
         ethereumSlotDuration: 4,
         startProverNode: true,
       }));
@@ -58,7 +58,7 @@ describe('e2e_simple', () => {
       });
       const tx = await provenTx.send().wait();
       await waitForProven(aztecNode, tx, {
-        provenTimeout: config.aztecProofSubmissionWindow * config.aztecSlotDuration,
+        provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
       });
       expect(tx.blockNumber).toBeDefined();
     });

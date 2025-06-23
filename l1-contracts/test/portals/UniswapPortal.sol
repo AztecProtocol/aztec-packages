@@ -34,7 +34,7 @@ contract UniswapPortal {
     registry = IRegistry(_registry);
     l2UniswapAddress = _l2UniswapAddress;
 
-    rollup = IRollup(registry.getCanonicalRollup());
+    rollup = IRollup(address(registry.getCanonicalRollup()));
     outbox = rollup.getOutbox();
     rollupVersion = rollup.getVersion();
   }

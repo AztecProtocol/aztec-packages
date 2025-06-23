@@ -150,7 +150,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return {
       data: txEffect,
       l2BlockNumber: block.number,
-      l2BlockHash: (await block.hash()).toString(),
+      l2BlockHash: L2BlockHash.fromField(await block.hash()),
       txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
@@ -263,7 +263,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(undefined);
   }
 
-  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 

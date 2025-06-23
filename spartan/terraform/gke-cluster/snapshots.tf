@@ -50,7 +50,7 @@ resource "google_storage_bucket_object" "alpha_testnet_json" {
   cache_control = "no-store"
   # see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
   content = jsonencode({
-    version = "0.87.8"
+    version = "0.87.9"
     config = {
       maxTxsPerBlock            = 8
       publishTxsWithProposals   = true

@@ -115,7 +115,7 @@ describe('Keys', () => {
       const ovskApp = new Fr(ovskAppBigInt);
 
       // Check that the ovsk_app is as expected
-      expect(ovskApp).toEqual(expectedOvskApp);
+      expect(ovskApp.equals(expectedOvskApp)).toBeTrue();
     });
   });
 });

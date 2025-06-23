@@ -6,7 +6,7 @@ import { randomInt } from 'crypto';
 
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
@@ -16,7 +16,7 @@ describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
   const version = Fr.random();
-  const blockNumber = Fr.random();
+  const blockNumber = randomInt(20000);
   const timestamp = BigInt(randomInt(100000)); // timestamp as UInt64
   const isStaticCall = true;
   const gasFees = GasFees.random();
@@ -62,7 +62,7 @@ describe('Environment getters', () => {
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
     [EnvironmentVariable.VERSION, version.toField()],
-    [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
+    [EnvironmentVariable.BLOCKNUMBER, new Fr(blockNumber), TypeTag.UINT32],
     [EnvironmentVariable.TIMESTAMP, new Fr(timestamp), TypeTag.UINT64],
     [EnvironmentVariable.FEEPERDAGAS, new Fr(gasFees.feePerDaGas), TypeTag.UINT128],
     [EnvironmentVariable.FEEPERL2GAS, new Fr(gasFees.feePerL2Gas), TypeTag.UINT128],
@@ -82,6 +82,6 @@ describe('Environment getters', () => {
   it(`GETENVVAR reverts for bad enum operand`, async () => {
     const invalidEnum = 255;
     const instruction = new GetEnvVar(/*indirect=*/ 0, /*dstOffset=*/ 0, invalidEnum);
-    await expect(instruction.execute(context)).rejects.toThrowError(`Invalid GETENVVAR var enum ${invalidEnum}`);
+    await expect(instruction.execute(context)).rejects.toThrow(`Invalid GETENVVAR var enum ${invalidEnum}`);
   });
 });

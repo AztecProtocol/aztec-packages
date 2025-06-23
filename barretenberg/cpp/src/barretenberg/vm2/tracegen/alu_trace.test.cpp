@@ -35,11 +35,11 @@ TEST(AluTraceGenTest, TraceGeneration)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(ROW_FIELD_EQ(R, alu_op, static_cast<uint8_t>(AluOperation::ADD)),
-                          ROW_FIELD_EQ(R, alu_sel_op_add, 1),
-                          ROW_FIELD_EQ(R, alu_ia, 1),
-                          ROW_FIELD_EQ(R, alu_ib, 2),
-                          ROW_FIELD_EQ(R, alu_ic, 3))));
+                    AllOf(ROW_FIELD_EQ(alu_op, static_cast<uint8_t>(AluOperation::ADD)),
+                          ROW_FIELD_EQ(alu_sel_op_add, 1),
+                          ROW_FIELD_EQ(alu_ia, 1),
+                          ROW_FIELD_EQ(alu_ib, 2),
+                          ROW_FIELD_EQ(alu_ic, 3))));
 }
 
 } // namespace

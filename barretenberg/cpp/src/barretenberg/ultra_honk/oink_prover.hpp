@@ -39,12 +39,14 @@ namespace bb {
  */
 template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using HonkVK = typename Flavor::VerificationKey;
     using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
 
   public:
     std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
     ExecutionTraceUsageTracker trace_usage_tracker;
@@ -53,16 +55,19 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     OinkProver(std::shared_ptr<DeciderPK> proving_key,
+               std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
                std::string domain_separator = "",
                const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
         : proving_key(proving_key)
+        , honk_vk(honk_vk)
         , transcript(transcript)
         , domain_separator(std::move(domain_separator))
         , trace_usage_tracker(trace_usage_tracker)
     {}
 
-    HonkProof prove();
+    void prove();
+    HonkProof export_proof();
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();

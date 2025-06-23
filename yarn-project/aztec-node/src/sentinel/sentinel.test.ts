@@ -77,10 +77,10 @@ describe('sentinel', () => {
       slotDuration: 24,
       epochDuration: 8,
       ethereumSlotDuration: 12,
-      proofSubmissionWindow: 16,
+      proofSubmissionEpochs: 1,
     };
 
-    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts });
+    epochCache.getEpochAndSlotNow.mockReturnValue({ epoch, slot, ts, now: ts });
     epochCache.getL1Constants.mockReturnValue(l1Constants);
 
     sentinel = new TestSentinel(epochCache, archiver, p2p, store, config, blockStream);
@@ -249,7 +249,7 @@ describe('sentinel', () => {
         return header;
       });
 
-      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts });
+      epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts, now: ts });
       archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
 

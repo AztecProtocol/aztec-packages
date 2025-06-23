@@ -60,9 +60,9 @@ export class TXEStateMachine {
         {
           block,
           l1: {
-            blockHash: block.header.globalVariables.blockNumber.toNumber().toString(),
-            blockNumber: block.header.globalVariables.blockNumber.toBigInt(),
-            timestamp: block.header.globalVariables.blockNumber.toBigInt(),
+            blockHash: block.header.globalVariables.blockNumber.toString(),
+            blockNumber: BigInt(block.header.globalVariables.blockNumber),
+            timestamp: block.header.globalVariables.timestamp,
           },
           attestations: [],
         },
