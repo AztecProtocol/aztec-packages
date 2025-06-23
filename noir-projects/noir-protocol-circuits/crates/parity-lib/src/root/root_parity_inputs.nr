@@ -41,6 +41,11 @@ impl RootParityInputs {
     }
 
     fn verify_child_proofs(self) {
+        self.children[0].verify();
+        // Since the vk hash and path have been checked to be consistent across all children,
+        // it's sufficient to validate that one of them exists in the vk tree.
+        self.children[0].validate_vk_in_vk_tree();
+
         for i in 1..NUM_BASE_PARITY_PER_ROOT_PARITY {
             // No need to check verification_key.key directly, as it's verified in bb that it produces the given hash.
             // We ensure that all the keys are the same by asserting that their hashes are equal across all children.
@@ -56,10 +61,6 @@ impl RootParityInputs {
             );
             self.children[i].verify();
         }
-
-        // Since the vk hash and path have been checked to be consistent across all children,
-        // it's sufficient to validate that one of them exists in the vk tree.
-        self.children[0].validate_vk_in_vk_tree();
     }
 }
 
