@@ -11,9 +11,7 @@ import { IncludeByTimestamp } from '../../tx/include_by_timestamp.js';
  */
 export class RollupValidationRequests {
   constructor(
-    /**
-     * The largest block number in which this transaction can be included.
-     */
+    /** The highest timestamp of a block in which this transaction can still be included. */
     public includeByTimestamp: IncludeByTimestamp,
   ) {}
 

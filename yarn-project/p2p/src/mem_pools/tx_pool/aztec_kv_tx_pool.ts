@@ -129,7 +129,13 @@ export class AztecKVTxPool implements TxPool {
     }
     return true;
   }
-
+  /**
+   * Marks transactions as mined in a block and updates the pool state accordingly.
+   * Removes the transactions from the pending set and adds them to the mined set.
+   * Also evicts any transactions that become invalid after these transactions are mined.
+   * @param txHashes - Array of transaction hashes that were mined
+   * @param blockHeader - The header of the block the transactions were mined in
+   */
   public async markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
@@ -584,7 +590,7 @@ export class AztecKVTxPool implements TxPool {
         continue;
       }
 
-      // Evict pending txs with a expiration timestamp less than or equal to the mined block timestamp
+      // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
       const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
       if (includeByTimestamp.isSome && includeByTimestamp.value <= timestamp) {
         this.#log.verbose(

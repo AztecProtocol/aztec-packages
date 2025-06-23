@@ -64,7 +64,7 @@ export class PrivateCircuitPublicInputs {
      */
     public isFeePayer: boolean,
     /**
-     * The maximum block number in which this transaction can be included and be valid.
+     * The highest timestamp of a block in which the transaction can still be included.
      */
     public includeByTimestamp: IncludeByTimestamp,
     /**

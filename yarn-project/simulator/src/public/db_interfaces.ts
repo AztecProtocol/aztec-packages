@@ -30,9 +30,9 @@ export interface PublicStateDBInterface {
  */
 export interface PublicContractsDBInterface {
   /**
-   * Returns a publicly deployed contract instance.
+   * Returns a contract instance given its address and the given timestamp, or undefined if not exists.
    * @param address - Address of the contract.
-   * @param timestamp - The timestamp at which to retrieve the contract instance.
+   * @param timestamp - Timestamp to get the contract instance at. Contract updates might change the instance.
    * @returns The contract instance or undefined if not found.
    */
   getContractInstance(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined>;

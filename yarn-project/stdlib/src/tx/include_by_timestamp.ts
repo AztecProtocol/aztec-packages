@@ -6,7 +6,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import type { UInt64 } from '../types/index.js';
 
 /**
- * Maximum block timestamp value at which tx tx can be included.
+ * Maximum block timestamp value at which the transaction can still be included.
  */
 export class IncludeByTimestamp {
   constructor(

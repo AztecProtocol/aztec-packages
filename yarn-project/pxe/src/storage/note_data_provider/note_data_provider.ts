@@ -130,8 +130,8 @@ export class NoteDataProvider implements DataProvider {
     await this.#store.transactionAsync(async () => {
       const nullifiersToUndo: string[] = [];
       const currentBlockNumber = blockNumber + 1;
-      const includeByTimestamp = synchedBlockNumber ?? currentBlockNumber;
-      for (let i = currentBlockNumber; i <= includeByTimestamp; i++) {
+      const maxBlockNumber = synchedBlockNumber ?? currentBlockNumber;
+      for (let i = currentBlockNumber; i <= maxBlockNumber; i++) {
         nullifiersToUndo.push(...(await toArray(this.#nullifiersByBlockNumber.getValuesAsync(i))));
       }
       const notesIndexesToReinsert = await Promise.all(
