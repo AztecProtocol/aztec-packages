@@ -5,9 +5,11 @@
 #include <ranges>
 #include <stdexcept>
 
+#include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -38,11 +40,11 @@ uint8_t get_operation_id(simulation::AluOperation operation)
 
 // MW Note - will reuse this for other ops (hopefully can use the same column to deal w/ e.g. underflowed sub and
 // overflowed add)
-bool get_carry_flag(simulation::AluEvent event)
+bool get_carry_flag(const simulation::AluEvent& event)
 {
     switch (event.operation) {
     case simulation::AluOperation::ADD:
-        // I think the only situation in which a + b !=c as fields is when c overflows the bit size
+        // I think the only situation in which a + b != c as fields is when c overflows the bit size
         // if this in unclear, I can use > or actually check bit sizes
         return event.a.as_ff() + event.b.as_ff() != event.c.as_ff();
     default:
@@ -85,5 +87,11 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         row++;
     }
 }
+
+const InteractionDefinition AluTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_alu_value_tag_lookup_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_c_range_check_settings, InteractionType::LookupGeneric>()
+        .add<lookup_alu_tag_bits_lookup_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

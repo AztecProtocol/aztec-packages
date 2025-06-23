@@ -368,6 +368,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
     {
         auto jobs_interactions = concatenate_jobs(TxTraceBuilder::interactions.get_all_jobs(),
                                                   ExecutionTraceBuilder::interactions.get_all_jobs(),
+                                                  AluTraceBuilder::interactions.get_all_jobs(),
                                                   Poseidon2TraceBuilder::interactions.get_all_jobs(),
                                                   RangeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   BitwiseTraceBuilder::interactions.get_all_jobs(),

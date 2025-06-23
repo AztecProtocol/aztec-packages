@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tooling/debugger.hpp"
+#include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,10 +25,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using alu = bb::avm2::alu<FF>;
-using tracegen::LookupIntoDynamicTableGeneric;
-using lookup_registers = bb::avm2::lookup_alu_value_tag_lookup_relation<FF>;
-using lookup_c_range = bb::avm2::lookup_alu_c_range_check_relation<FF>;
-using lookup_tag_bits = bb::avm2::lookup_alu_tag_bits_lookup_relation<FF>;
+using tracegen::AluTraceBuilder;
 
 TEST(AluConstrainingTest, EmptyRow)
 {
@@ -108,7 +106,7 @@ TEST(AluConstrainingTest, BasicAddWithRegisterLookup)
         },
     });
 
-    LookupIntoDynamicTableGeneric<lookup_registers::Settings>().process(trace);
+    check_interaction<AluTraceBuilder, lookup_alu_value_tag_lookup_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -134,7 +132,7 @@ TEST(AluConstrainingTest, BasicAddWithRangeLookup)
         },
     });
 
-    LookupIntoDynamicTableGeneric<lookup_c_range::Settings>().process(trace);
+    check_interaction<AluTraceBuilder, lookup_alu_c_range_check_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -163,7 +161,7 @@ TEST(AluConstrainingTest, AddCarryWithTagBitsLookup)
         },
     });
 
-    LookupIntoDynamicTableGeneric<lookup_tag_bits::Settings>().process(trace);
+    check_interaction<AluTraceBuilder, lookup_alu_tag_bits_lookup_settings>(trace);
     check_relation<alu>(trace);
 }
 
@@ -192,7 +190,7 @@ TEST(AluConstrainingTest, AddCarryU1WithTagBitsLookup)
         },
     });
 
-    LookupIntoDynamicTableGeneric<lookup_tag_bits::Settings>().process(trace);
+    check_interaction<AluTraceBuilder, lookup_alu_tag_bits_lookup_settings>(trace);
     check_relation<alu>(trace);
 }
 
