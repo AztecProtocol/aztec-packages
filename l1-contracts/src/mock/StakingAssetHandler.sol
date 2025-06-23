@@ -172,7 +172,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
     require(nullifiers[nullifier] != false, NoNullifier());
 
-    // TODO: just deposit as usual
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getDepositAmount();
 
