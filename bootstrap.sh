@@ -416,6 +416,11 @@ case "$cmd" in
     build
     release
     ;;
+  "ci-docs")
+    export CI=1
+    export USE_TEST_CACHE=1
+    cd docs && ./bootstrap.sh && ./bootstrap.sh test
+    ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
     $cmd "$@"
     ;;
