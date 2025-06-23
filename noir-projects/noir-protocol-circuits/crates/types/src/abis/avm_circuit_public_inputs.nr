@@ -627,6 +627,8 @@ pub struct AvmProofData {
 }
 
 impl Verifiable for AvmProofData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         std::verify_proof_with_type(
             self.vk_data.vk.key,
@@ -639,8 +641,10 @@ impl Verifiable for AvmProofData {
 }
 
 impl AvmProofData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
     pub fn validate_vk_in_vk_tree(self, vk_tree_root: Field) {
         assert_eq(self.vk_data.leaf_index, AVM_VK_INDEX);
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 }

@@ -17,6 +17,8 @@ pub struct PublicTubeData {
 }
 
 impl Verifiable for PublicTubeData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         let inputs = PrivateToPublicKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
@@ -30,8 +32,10 @@ impl Verifiable for PublicTubeData {
 }
 
 impl PublicTubeData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
     pub fn validate_vk_in_vk_tree(self) {
         assert_eq(self.vk_data.leaf_index, PUBLIC_TUBE_VK_INDEX);
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 }
@@ -43,6 +47,8 @@ pub struct PrivateTubeData {
 }
 
 impl Verifiable for PrivateTubeData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         let inputs = PrivateToRollupKernelCircuitPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
@@ -56,8 +62,10 @@ impl Verifiable for PrivateTubeData {
 }
 
 impl PrivateTubeData {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
     pub fn validate_vk_in_vk_tree(self) {
         assert_eq(self.vk_data.leaf_index, PRIVATE_TUBE_VK_INDEX);
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 }

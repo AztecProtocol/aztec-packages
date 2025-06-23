@@ -29,6 +29,8 @@ impl Empty for RootRollupParityInput {
 }
 
 impl Verifiable for RootRollupParityInput {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     fn verify(self) {
         let inputs = ParityPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
@@ -42,7 +44,9 @@ impl Verifiable for RootRollupParityInput {
 }
 
 impl RootRollupParityInput {
+    /// Validates that the vk hash exists in the vk tree at the expected index.
     pub fn validate_vk_in_vk_tree(self) {
+        // Note: The hash of the verification key is checked in `verify_proof_with_type` against the given vk hash.
         VkData {
             vk: self.verification_key,
             leaf_index: ROOT_PARITY_INDEX,
