@@ -29,7 +29,7 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
     address _proposer
   ) external {
     // it succeeds
-    // it emits a {AddedToQueue} event
+    // it emits a {ValidatorAdded} event
 
     // 1. Perform a valid deposit
     // 2. Exit the validator
@@ -39,10 +39,9 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 1. Perform a valid deposit
     vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
+    stakingAssetHandler.addValidator(_attester, realProof);
 
-    emit IStakingAssetHandler.AddedToQueue(_attester, 0);
-    stakingAssetHandler.dripQueue();
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     staking.flushEntryQueue();
 
     // 2. Exit the validator
@@ -54,27 +53,10 @@ contract ReenterExitedValidatorTest is StakingAssetHandlerBase {
 
     // 3. Reenter the validator
     vm.prank(_caller);
-    emit IStakingAssetHandler.AddedToQueue(_attester, 1);
+    emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
     stakingAssetHandler.reenterExitedValidator(_attester);
 
     vm.prank(_caller);
     emit IStakingAssetHandler.ValidatorAdded(address(staking), _attester, WITHDRAWER);
-    stakingAssetHandler.dripQueue();
-  }
-
-  function test_WhenInEntryQueue(address _caller, address _attester, address _proposer) external {
-    // it reverts
-
-    // Do not allow deposits from validators that are currently in the entry queue
-    vm.assume(_attester != address(0) && _proposer != address(0) && _caller != address(this));
-
-    // 1. Perform adding to queue
-    vm.prank(_caller);
-    stakingAssetHandler.addValidatorToQueue(_attester, realProof);
-
-    // 2. Reenter the validator should revert
-    vm.prank(_caller);
-    vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.InDepositQueue.selector));
-    stakingAssetHandler.reenterExitedValidator(_attester);
   }
 }
