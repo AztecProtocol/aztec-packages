@@ -19,7 +19,7 @@
 auto& engine = bb::numeric::get_debug_randomness();
 
 namespace bb::stdlib::recursion::honk {
-template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public testing::Test {
+template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : public testing::Test {
   public:
     // Define types for the inner circuit, i.e. the circuit whose proof will be recursively verified
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
@@ -104,29 +104,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         stdlib::recursion::PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
     };
 
-    static std::tuple<std::shared_ptr<InnerDeciderProvingKey>, std::shared_ptr<InnerDeciderVerificationKey>>
-    fold_and_verify_native()
-    {
-        InnerBuilder builder1;
-        create_function_circuit(builder1);
-        InnerBuilder builder2;
-        builder2.add_public_variable(FF(1));
-        create_function_circuit(builder2);
-
-        auto decider_pk_1 = std::make_shared<InnerDeciderProvingKey>(builder1);
-        auto honk_vk_1 = std::make_shared<InnerVerificationKey>(decider_pk_1->proving_key);
-        auto decider_vk_1 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_1);
-        auto decider_pk_2 = std::make_shared<InnerDeciderProvingKey>(builder2);
-        auto honk_vk_2 = std::make_shared<InnerVerificationKey>(decider_pk_2->proving_key);
-        auto decider_vk_2 = std::make_shared<InnerDeciderVerificationKey>(honk_vk_2);
-        InnerFoldingProver folding_prover({ decider_pk_1, decider_pk_2 }, { decider_vk_1, decider_vk_2 });
-        InnerFoldingVerifier folding_verifier({ decider_vk_1, decider_vk_2 });
-
-        auto [prover_accumulator, folding_proof] = folding_prover.prove();
-        auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
-        return { prover_accumulator, verifier_accumulator };
-    }
-
     static void test_recursive_folding(const size_t num_verifiers = 1)
     {
         // Create two arbitrary circuits for the first round of folding
@@ -167,8 +144,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
                                                          &folding_circuit, decider_vk_1->verification_key) } };
             }
         }
-        info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
-        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
@@ -180,17 +155,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             if (idx < num_verifiers - 1) { // else the transcript is null in the test below
                 native_folding_verifier = InnerFoldingVerifier{ { native_accumulator, decider_vk_1 } };
             }
-        }
-
-        // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
-        // manifests produced by each agree.
-        auto recursive_folding_manifest = verifier.transcript->get_manifest();
-        auto native_folding_manifest = native_folding_verifier.transcript->get_manifest();
-
-        ASSERT(recursive_folding_manifest.size() > 0);
-        for (size_t i = 0; i < recursive_folding_manifest.size(); ++i) {
-            EXPECT_EQ(recursive_folding_manifest[i], native_folding_manifest[i])
-                << "Recursive Verifier/Verifier manifest discrepency in round " << i;
         }
 
         // Check for a failure flag in the recursive verifier circuit
@@ -206,9 +170,20 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
-
             ASSERT(verified);
         }
+        auto graph = cdg::Graph(folding_circuit);
+        auto variables_in_one_gate = graph.show_variables_in_one_gate(folding_circuit);
+        EXPECT_EQ(variables_in_one_gate.size(), 0);
     }
 };
+
+using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+TYPED_TEST_SUITE(BoomerangProtogalaxyRecursiveTests, FlavorTypes);
+
+TYPED_TEST(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTest)
+{
+    TestFixture::test_recursive_folding(/* num_verifiers= */ 1);
+}
+
 } // namespace bb::stdlib::recursion::honk
