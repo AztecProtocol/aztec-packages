@@ -5,6 +5,7 @@
 // =====================
 
 #include "merge_prover.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -47,6 +48,8 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
+    BB_ASSERT_GT(current_table_size, 0UL, "Current table size must be non-negative.");
+    BB_ASSERT_GT(current_subtable_size, 0UL, "Current subtable size must be non-negative.");
 
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
