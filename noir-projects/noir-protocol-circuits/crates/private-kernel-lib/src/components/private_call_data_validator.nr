@@ -113,8 +113,8 @@ impl PrivateCallDataValidator {
         self.validate_private_call_requests();
         self.validate_public_call_requests();
 
-        self.validate_counters();
-        self.validate_logs(accumulated_note_hashes);
+        self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
+        self.validate_that_logs_of_notes_actually_point_to_notes(accumulated_note_hashes);
         self.validate_log_lengths();
     }
 
@@ -330,7 +330,8 @@ impl PrivateCallDataValidator {
         }
     }
 
-    fn validate_counters(self) {
+    // Tested with validate_counters.nr
+    fn validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds(self) {
         let public_inputs = self.data.public_inputs;
         let counter_start = public_inputs.start_side_effect_counter;
         let counter_end = public_inputs.end_side_effect_counter;
@@ -387,7 +388,7 @@ impl PrivateCallDataValidator {
     }
 
     // TODO: maybe we can do this just once in the reset circuit, before siloing, when the contract address is set to 0.
-    fn validate_logs<let N: u32>(
+    fn validate_that_logs_of_notes_actually_point_to_notes<let N: u32>(
         self,
         accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
     ) {

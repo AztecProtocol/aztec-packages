@@ -69,7 +69,7 @@ where
     let num_private_call_requests = private_call_requests.length;
 
     // Note: we assert that the counters of the private call requests are in ascending
-    // order, within `PrivateCallDataValidator.validate_counters`.
+    // order, within `PrivateCallDataValidator.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds`.
 
     // If the first_fully_revertible_private_call_index_hint is 0, then the min_revertible_side_effect_counter
     // should have been set before any of the nested function calls. We need to validate this in here.
