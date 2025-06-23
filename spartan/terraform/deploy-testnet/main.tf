@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
     bucket = "aztec-terraform"
-    prefix = "terraform/state"
+    prefix = "terraform/state/alpha-testnet"
   }
   required_providers {
     helm = {
@@ -48,11 +48,11 @@ data "terraform_remote_state" "metrics" {
   }
 }
 
-data "terraform_remote_state" "cluster" {
+data "terraform_remote_state" "blochain_node_engine" {
   backend = "gcs"
   config = {
     bucket = "aztec-terraform"
-    prefix = "terraform/state/gke-cluster/terraform.tfstate"
+    prefix = "terraform/state/blockchain-node-engine/default.tfstate"
   }
 }
 
@@ -83,14 +83,14 @@ data "kubernetes_service" "lighthouse" {
 locals {
   ethereum_hosts = [
     "http://${data.kubernetes_service.reth.metadata.0.name}.${data.kubernetes_service.reth.metadata.0.namespace}.svc.cluster.local:8545",
-    "https://${data.terraform_remote_state.cluster.outputs.sepolia_node_rpc_api_url}?key=${
+    "https://${data.terraform_remote_state.blockchain_node_engine.outputs.sepolia_node_rpc_api_url}?key=${
       data.google_secret_manager_secret_version.blockchain_node_api_key_latest.secret_data
     }"
   ]
 
   consensus_hosts = [
     "http://${data.kubernetes_service.lighthouse.metadata.0.name}.${data.kubernetes_service.lighthouse.metadata.0.namespace}.svc.cluster.local:5052",
-    "https://${data.terraform_remote_state.cluster.outputs.sepolia_node_beacon_api_url}"
+    "https://${data.terraform_remote_state.blockchain_node_engine.outputs.outputs.sepolia_node_beacon_api_url}"
   ]
 
   consensus_api_keys = [
