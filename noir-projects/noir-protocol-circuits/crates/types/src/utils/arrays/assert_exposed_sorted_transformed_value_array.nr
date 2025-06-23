@@ -5,13 +5,13 @@ use crate::{
     traits::Empty,
     utils::arrays::{
         assert_exposed_sorted_transformed_value_array::get_order_hints::OrderHint,
-        DenseTrimmedArray,
+        ClaimedLengthArray,
     },
 };
 
 // Items in exposed_sorted_transformed_value_array do not have counters. Their corresponding counters are in hints.
 pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
-    original_array: DenseTrimmedArray<T, N>,
+    original_array: ClaimedLengthArray<T, N>,
     exposed_sorted_transformed_value_array: [S; N],
     assert_transformed: fn[Env](T, S) -> (),
     hints: [OrderHint; N],
@@ -52,19 +52,19 @@ mod tests {
             assert_exposed_sorted_transformed_value_array::{
                 assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint,
             },
-            DenseTrimmedArray,
+            ClaimedLengthArray,
         },
     };
 
     struct TestDataBuilder<let N: u32> {
-        original_array: DenseTrimmedArray<TestTwoValues, N>,
+        original_array: ClaimedLengthArray<TestTwoValues, N>,
         exposed_sorted_transformed_value_array: [TestCombinedValue; N],
         hints: [OrderHint; N],
     }
 
     impl TestDataBuilder<6> {
         pub fn new() -> Self {
-            let original_array = DenseTrimmedArray {
+            let original_array = ClaimedLengthArray {
                 array: [
                     TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
                     TestTwoValues { value_1: 20, value_2: 6, counter: 22 },

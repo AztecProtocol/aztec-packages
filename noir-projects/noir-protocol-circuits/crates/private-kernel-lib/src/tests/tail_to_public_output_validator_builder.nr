@@ -28,12 +28,7 @@ impl TailToPublicOutputValidatorBuilder {
 
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
 
-        TailToPublicOutputValidator::new(
-            output,
-            previous_kernel,
-            PreviousKernelDenseTrimmedArrays::empty(),
-            self.padded_side_effect_amounts,
-        )
+        TailToPublicOutputValidator::new(output, previous_kernel, self.padded_side_effect_amounts)
             .validate();
     }
 }

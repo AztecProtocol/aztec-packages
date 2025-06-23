@@ -1,11 +1,7 @@
 mod tail_to_public_output_hints;
 
 use crate::{
-    abis::PaddedSideEffectAmounts,
-    components::{
-        previous_kernel_validator::PreviousKernelDenseTrimmedArrays,
-        tail_to_public_output_composer::meter_gas_used,
-    },
+    abis::PaddedSideEffectAmounts, components::tail_to_public_output_composer::meter_gas_used,
 };
 use dep::types::{
     abis::{
@@ -29,7 +25,6 @@ use tail_to_public_output_hints::{generate_tail_to_public_output_hints, TailToPu
 pub struct TailToPublicOutputValidator {
     output: PrivateToPublicKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
-    previous_kernel_dense_trimmed_arrays: PreviousKernelDenseTrimmedArrays,
     padded_side_effect_amounts: PaddedSideEffectAmounts,
     hints: TailToPublicOutputHints,
 }
@@ -38,19 +33,12 @@ impl TailToPublicOutputValidator {
     pub fn new(
         output: PrivateToPublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs,
-        previous_kernel_dense_trimmed_arrays: PreviousKernelDenseTrimmedArrays,
         padded_side_effect_amounts: PaddedSideEffectAmounts,
     ) -> Self {
         // Safety: the below hints are constrained by calling .validate(). See private_kernel_tail_to_public for use.
         let hints = unsafe { generate_tail_to_public_output_hints(previous_kernel) };
 
-        TailToPublicOutputValidator {
-            output,
-            previous_kernel,
-            previous_kernel_dense_trimmed_arrays,
-            padded_side_effect_amounts,
-            hints,
-        }
+        TailToPublicOutputValidator { output, previous_kernel, padded_side_effect_amounts, hints }
     }
 
     pub fn validate(self) {

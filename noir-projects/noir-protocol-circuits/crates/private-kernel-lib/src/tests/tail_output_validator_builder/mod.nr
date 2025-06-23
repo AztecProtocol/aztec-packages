@@ -72,23 +72,12 @@ impl TailOutputValidatorBuilder {
 
     pub fn validate_with_output(self, output: PrivateToRollupKernelCircuitPublicInputs) {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator::new(
-            output,
-            previous_kernel,
-            self.previous_kernel_dense_trimmed_arrays,
-        )
-            .validate();
+        TailOutputValidator::new(output, previous_kernel).validate();
     }
 
     pub fn validate_with_hints(self, hints: TailOutputHints) {
         let output = self.export_output();
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        TailOutputValidator::new_with_hints(
-            output,
-            previous_kernel,
-            self.previous_kernel_dense_trimmed_arrays,
-            hints,
-        )
-            .validate();
+        TailOutputValidator::new_with_hints(output, previous_kernel, hints).validate();
     }
 }

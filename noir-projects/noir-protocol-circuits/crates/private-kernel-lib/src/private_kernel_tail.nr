@@ -46,12 +46,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
         // Validate output.
         if dep::types::validate::should_validate_output() {
-            TailOutputValidator::new(
-                output,
-                self.previous_kernel.public_inputs,
-                previous_kernel_validator.previous_kernel_dense_trimmed_arrays,
-            )
-                .validate();
+            TailOutputValidator::new(output, self.previous_kernel.public_inputs).validate();
         }
 
         output

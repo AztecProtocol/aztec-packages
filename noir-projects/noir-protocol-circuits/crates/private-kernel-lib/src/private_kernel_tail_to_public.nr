@@ -60,7 +60,6 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
             TailToPublicOutputValidator::new(
                 output,
                 self.previous_kernel.public_inputs,
-                previous_kernel_validator.previous_kernel_dense_trimmed_arrays,
                 self.padded_side_effect_amounts,
             )
                 .validate();

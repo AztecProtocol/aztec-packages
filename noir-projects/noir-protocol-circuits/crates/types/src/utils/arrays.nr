@@ -370,8 +370,19 @@ where
         DenseTrimmedArray { array, length: trimmed_array_length_hint }
     }
 
-    pub fn new_from_appended_unvalidated_array(array: ClaimedLengthArray<T, N>) -> Self {
+    pub fn new_from_claimed_length_array(array: ClaimedLengthArray<T, N>) -> Self {
         Self::assert_dense_trimmed(array.array, array.length);
+        DenseTrimmedArray { array: array.array, length: array.length }
+    }
+
+    // Guard rails off: You MUST write an enormously detailed comment which explains
+    // why:
+    // - Why are you convinced that the RHS is all empty (trimmed)?
+    // - Why are you convinced that the LHS is all nonempty (dense)?
+    // This unsafe conversion to a DenseTrimmedArray should flag to any skeptical reader
+    // to spend a huge amount of time thinking about whether this caller's
+    // reasoning is safe.
+    pub fn new_unsafe(array: ClaimedLengthArray<T, N>) -> Self {
         DenseTrimmedArray { array: array.array, length: array.length }
     }
 
@@ -408,17 +419,23 @@ where
         self.length += 1;
     }
 
-    pub fn assert_dense_trimmed(self) -> DenseTrimmedArray<T, N> {
-        DenseTrimmedArray::new_from_appended_unvalidated_array(self)
+    pub fn assert_dense_trimmed(self) {
+        for_i_in_0_(
+            self.length,
+            self.array.len(),
+            |i| {
+                self.array[i].assert_not_empty(); // LHS of input array is not dense.
+            },
+            |i| self.array[i].assert_empty("RHS of input array is not empty"),
+            false,
+        );
     }
 
-    pub fn assert_empty<let S: u32>(self, msg: str<S>) -> DenseTrimmedArray<T, N> {
+    pub fn assert_empty<let S: u32>(self, msg: str<S>) {
         for i in 0..N {
             self.array[i].assert_empty(msg);
         }
         assert_eq(self.length, 0);
-
-        DenseTrimmedArray { array: self.array, length: self.length }
     }
 
     pub unconstrained fn push_hint(&mut self, item: T) {

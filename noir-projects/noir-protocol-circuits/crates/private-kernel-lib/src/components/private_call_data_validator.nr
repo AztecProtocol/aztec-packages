@@ -35,7 +35,7 @@ where
     let num_items = items.length;
     let mut prev_counter = counter_start;
     let mut should_check = true;
-    // TODO: use items.for_each_i()
+
     for i in 0..N {
         should_check &= i != num_items;
         if should_check {
@@ -61,7 +61,7 @@ where
     let num_items = items.length;
     let mut prev_counter = counter_start;
     let mut should_check = true;
-    // TODO: use items.for_each_i()
+
     for i in 0..N {
         should_check &= i != num_items;
         if should_check {

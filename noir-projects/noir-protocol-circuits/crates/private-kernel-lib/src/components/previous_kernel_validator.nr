@@ -53,7 +53,6 @@ impl Empty for PreviousKernelDenseTrimmedArrays {
 pub struct PreviousKernelValidator {
     pub previous_kernel: PrivateKernelData,
     pub hints: PreviousKernelValidatorHints,
-    pub previous_kernel_dense_trimmed_arrays: PreviousKernelDenseTrimmedArrays,
 }
 
 impl PreviousKernelValidator {
@@ -65,11 +64,7 @@ impl PreviousKernelValidator {
         let hints =
             unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
 
-        // Eurgh, I only really want this for the Tail circuit; not the other kernel circuits.
-        // TODO: check whether this empty instantiation is costing unnecessary gates in the init & inner.
-        let previous_kernel_dense_trimmed_arrays = PreviousKernelDenseTrimmedArrays::empty();
-
-        PreviousKernelValidator { previous_kernel, hints, previous_kernel_dense_trimmed_arrays }
+        PreviousKernelValidator { previous_kernel, hints }
     }
 
     pub fn validate_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
@@ -116,7 +111,7 @@ impl PreviousKernelValidator {
         }
     }
 
-    fn validate_common(&mut self) {
+    fn validate_common(self) {
         self.validate_fee_payer();
         self.validate_empty_private_call_stack();
         self.verify_empty_validation_requests();
@@ -125,41 +120,16 @@ impl PreviousKernelValidator {
         self.verify_no_transient_data();
     }
 
-    fn validate_dense_trimmed_arrays(&mut self) {
-        self.previous_kernel_dense_trimmed_arrays.note_hashes = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .note_hashes
-            .assert_dense_trimmed());
+    fn validate_dense_trimmed_arrays(self) {
+        self.previous_kernel.public_inputs.end.note_hashes.assert_dense_trimmed();
 
-        self.previous_kernel_dense_trimmed_arrays.nullifiers = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .nullifiers
-            .assert_dense_trimmed());
+        self.previous_kernel.public_inputs.end.nullifiers.assert_dense_trimmed();
 
-        self.previous_kernel_dense_trimmed_arrays.l2_to_l1_msgs = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .l2_to_l1_msgs
-            .assert_dense_trimmed());
+        self.previous_kernel.public_inputs.end.l2_to_l1_msgs.assert_dense_trimmed();
 
-        self.previous_kernel_dense_trimmed_arrays.private_logs = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .private_logs
-            .assert_dense_trimmed());
+        self.previous_kernel.public_inputs.end.private_logs.assert_dense_trimmed();
 
-        self.previous_kernel_dense_trimmed_arrays.contract_class_logs_hashes = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .contract_class_logs_hashes
-            .assert_dense_trimmed());
+        self.previous_kernel.public_inputs.end.contract_class_logs_hashes.assert_dense_trimmed();
 
         // Private call stack is separately validated to be empty.
         // Public call stack is separately validated to be:
@@ -168,12 +138,7 @@ impl PreviousKernelValidator {
     }
 
     fn validate_dense_trimmed_public_calls(&mut self) {
-        self.previous_kernel_dense_trimmed_arrays.public_call_requests = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .public_call_requests
-            .assert_dense_trimmed());
+        self.previous_kernel.public_inputs.end.public_call_requests.assert_dense_trimmed();
     }
 
     fn validate_fee_payer(self) {
@@ -181,18 +146,15 @@ impl PreviousKernelValidator {
     }
 
     fn validate_empty_private_call_stack(self) {
-        let _ = self.previous_kernel.public_inputs.end.private_call_stack.assert_empty(
+        self.previous_kernel.public_inputs.end.private_call_stack.assert_empty(
             "Private call stack must be empty when executing the tail circuit",
         );
     }
 
     fn validate_empty_data(&mut self) {
-        self.previous_kernel_dense_trimmed_arrays.public_call_requests = Option::some(self
-            .previous_kernel
-            .public_inputs
-            .end
-            .public_call_requests
-            .assert_empty("Public call stack must be empty when executing the tail circuit"));
+        self.previous_kernel.public_inputs.end.public_call_requests.assert_empty(
+            "Public call stack must be empty when executing the tail circuit",
+        );
 
         self.previous_kernel.public_inputs.public_teardown_call_request.assert_empty(
             "Public teardown call request must be empty when executing the tail circuit",
