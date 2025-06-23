@@ -183,7 +183,7 @@ fuzz() {
             log "Something wrong with $fuzzer. Not related to fuzzing. Exit status: $status";
             exit 1;
         fi
-        log "No crashes occured";
+        log "No crashes occurred";
     else 
         log "Start minimization"
         for crash in "${files[@]}"; do
