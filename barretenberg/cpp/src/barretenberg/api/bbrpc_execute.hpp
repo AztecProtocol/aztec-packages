@@ -18,6 +18,8 @@ namespace bb::bbrpc {
 
 struct BBRpcRequest {
     RequestId request_id;
+    // Current depth of the IVC stack for this request
+    uint32_t ivc_stack_depth = 0;
     std::shared_ptr<ClientIVC> ivc_in_progress;
     // Name of the last loaded circuit
     std::string last_circuit_name;
@@ -25,6 +27,8 @@ struct BBRpcRequest {
     std::optional<acir_format::AcirFormat> last_circuit_constraints;
     // TODO(AI) parse vk passed with this circuit
     std::vector<Command> commands;
+    // For testing only! Create mock kernels such as in mock_circuit_producer.hpp.
+    bool testing_only_generate_mock_kernels = false;
 
     BBRpcRequest(RequestId request_id, std::vector<Command>&& commands)
         : request_id(request_id)
@@ -229,15 +233,15 @@ inline ClientIvcLoad::Response execute(BBRpcRequest& request, ClientIvcLoad&& co
 
 inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAccumulate&& command)
 {
-    info("ClientIvcAccumulate - accumulating ", request.last_circuit_name);
+    info("ClientIvcAccumulate - (", request.ivc_stack_depth, "): ", request.last_circuit_name);
 
     if (!request.ivc_in_progress) {
-        info("ClientIvcAccumulate - no IVC in progress");
+        info("ClientIvcAccumulate - error: no IVC in progress");
         return ClientIvcAccumulate::Response{ .error_message = "No IVC in progress. Call ClientIvcStart first." };
     }
 
     if (!request.last_circuit_constraints.has_value()) {
-        info("ClientIvcAccumulate - no circuit loaded");
+        info("ClientIvcAccumulate - error: o circuit loaded");
         return ClientIvcAccumulate::Response{ .error_message = "No circuit loaded. Call ClientIvcLoad first." };
     }
 
@@ -252,11 +256,18 @@ inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAcc
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(acir_program, metadata);
 
+    if (request.testing_only_generate_mock_kernels && request.ivc_stack_depth % 2 == 1) {
+        info("ClientIvcAccumulate - TESTING ONLY! Generating mock kernel circuit.");
+        request.ivc_in_progress->complete_kernel_circuit_logic(circuit);
+    }
+
     // Accumulate the circuit
     // TODO(AI) pass precomputed VK here if vk not blank
     request.ivc_in_progress->accumulate(circuit);
 
-    info("ClientIvcAccumulate - circuit accumulated successfully");
+    request.ivc_stack_depth += 1;
+
+    info("ClientIvcAccumulate - success");
     return ClientIvcAccumulate::Response{ .error_message = "" };
 }
 

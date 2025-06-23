@@ -156,9 +156,7 @@ struct ClientIvcAccumulate {
         std::string error_message;
     };
 
-    /**
-     * @brief Serialized witness for the last loaded circuit.
-     */
+    // Serialized witness for the last loaded circuit.
     std::vector<uint8_t> witness;
 };
 
