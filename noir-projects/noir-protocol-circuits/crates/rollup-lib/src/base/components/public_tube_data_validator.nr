@@ -39,7 +39,7 @@ impl PublicTubeDataValidator {
         PublicTubeDataValidator { data }
     }
 
-    pub fn validate_proof(self) {
+    pub fn verify_proof(self) {
         if !dep::std::runtime::is_unconstrained() {
             self.data.verify();
             // TODO(#7410)

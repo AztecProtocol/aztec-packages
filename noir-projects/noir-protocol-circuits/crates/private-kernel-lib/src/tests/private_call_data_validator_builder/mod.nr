@@ -10,7 +10,7 @@ mod validate_counters;
 mod validate_log_lengths;
 mod validate_note_logs;
 mod validate_private_call_requests;
-mod validate_proof;
+mod verify_proof;
 
 use crate::components::private_call_data_validator::PrivateCallDataValidator;
 use dep::types::{
@@ -88,8 +88,8 @@ impl PrivateCallDataValidatorBuilder {
         );
     }
 
-    pub fn validate_proof(self, is_first_call: bool) {
+    pub fn verify_proof(self, is_first_call: bool) {
         let private_call = self.private_call.to_private_call_data();
-        PrivateCallDataValidator::new(private_call).validate_proof(is_first_call);
+        PrivateCallDataValidator::new(private_call).verify_proof(is_first_call);
     }
 }

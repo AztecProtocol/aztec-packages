@@ -92,7 +92,7 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data }
     }
 
-    pub fn validate_proof(self, is_first_app: bool) {
+    pub fn verify_proof(self, is_first_app: bool) {
         if !std::runtime::is_unconstrained() {
             self.data.verify(is_first_app);
         }

@@ -28,7 +28,7 @@ impl PreviousKernelValidator {
         PreviousKernelValidator { previous_kernel, hints }
     }
 
-    pub fn validate_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
+    pub fn verify_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
         if !dep::std::runtime::is_unconstrained() {
             self.previous_kernel.verify();
             self.previous_kernel.validate_in_vk_tree(allowed_indices);
@@ -75,10 +75,10 @@ impl PreviousKernelValidator {
     fn validate_common(self) {
         self.validate_fee_payer();
         self.validate_empty_private_call_stack();
-        self.verify_empty_validation_requests();
+        self.validate_empty_validation_requests();
         self.validate_dense_trimmed_arrays();
-        self.verify_siloed_values();
-        self.verify_no_transient_data();
+        self.validate_siloed_values();
+        self.validate_no_transient_data();
     }
 
     fn validate_dense_trimmed_arrays(self) {
@@ -161,7 +161,7 @@ impl PreviousKernelValidator {
         }
     }
 
-    fn verify_empty_validation_requests(self) {
+    fn validate_empty_validation_requests(self) {
         let _ = self
             .previous_kernel
             .public_inputs
@@ -186,7 +186,7 @@ impl PreviousKernelValidator {
     }
 
     // Ensure that the data has been properly siloed in the reset circuit.
-    fn verify_siloed_values(self) {
+    fn validate_siloed_values(self) {
         // note_hashes
         let num_note_hashes = self.previous_kernel.public_inputs.end.note_hashes.length;
         if num_note_hashes != 0 {
@@ -238,7 +238,7 @@ impl PreviousKernelValidator {
     // note hashes will match up with those _siloed_ note hashes. But for nullifiers
     // that should already have been squashed against a transient (not siloed) note
     // hash, they won't be able to find a match.
-    fn verify_no_transient_data(self) {
+    fn validate_no_transient_data(self) {
         let nullifiers = self.previous_kernel.public_inputs.end.nullifiers;
         let note_hashes = self.previous_kernel.public_inputs.end.note_hashes;
         let transient_note_hash_index_for_each_nullifier =

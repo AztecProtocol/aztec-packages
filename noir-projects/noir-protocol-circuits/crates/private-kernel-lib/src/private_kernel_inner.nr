@@ -49,7 +49,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
 
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Notice: within this constructor, the lengths of arrays are being rhs-empty-validated.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
@@ -60,7 +60,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             start_private_call_stack_length
                 - 1];
 
-    private_call_data_validator.validate_proof(false /* is_first_app */);
+    private_call_data_validator.verify_proof(false /* is_first_app */);
     private_call_data_validator.validate_against_call_request(call_request);
     private_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
 

@@ -36,7 +36,7 @@ impl PrivateKernelTailCircuitPrivateInputs {
         // Validate inputs.
         let mut previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
 
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         previous_kernel_validator.validate_for_private_tail();
 

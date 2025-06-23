@@ -114,7 +114,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Validate inputs.
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
 
-        previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
+        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         // Generate output.
         // Safety: The output is validated below by ResetOutputValidator.

@@ -103,7 +103,7 @@ impl PublicBaseRollupInputs {
         let constants = self.generate_block_constant_data();
 
         let tube_data_validator = PublicTubeDataValidator::new(self.tube_data);
-        tube_data_validator.validate_proof();
+        tube_data_validator.verify_proof();
         tube_data_validator.validate_with_block_constant_data(
             constants,
             self.archive_root_membership_witness,

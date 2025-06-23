@@ -64,7 +64,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Notice: within this constructor, the lengths of arrays are being rhs-empty-validated.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
 
-        private_call_data_validator.validate_proof(true /* is_first_app */);
+        private_call_data_validator.verify_proof(true /* is_first_app */);
 
         private_call_data_validator.validate_as_first_call();
 

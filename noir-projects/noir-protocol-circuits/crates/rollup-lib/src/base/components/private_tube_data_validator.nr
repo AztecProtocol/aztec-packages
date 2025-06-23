@@ -17,7 +17,7 @@ impl PrivateTubeDataValidator {
         PrivateTubeDataValidator { data }
     }
 
-    pub fn validate_proof<let N: u32>(self, _allowed_previous_circuits: [u32; N]) {
+    pub fn verify_proof<let N: u32>(self, _allowed_previous_circuits: [u32; N]) {
         if !dep::std::runtime::is_unconstrained() {
             self.data.verify();
             // TODO(#7410)
