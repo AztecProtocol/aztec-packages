@@ -7,7 +7,7 @@ use types::{
         AZTEC_MAX_EPOCH_DURATION, BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
         BLOCK_ROOT_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
-    traits::{Empty, is_empty},
+    traits::Empty,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
@@ -73,8 +73,7 @@ impl RootRollupInputs {
         // - final_gamma == injected.challenge_gamma
         // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
 
-        assert(
-            is_empty(left.blob_public_inputs.start_blob_accumulator),
+        left.blob_public_inputs.start_blob_accumulator.assert_empty(
             "Epoch did not start with empty blob state.",
         );
 

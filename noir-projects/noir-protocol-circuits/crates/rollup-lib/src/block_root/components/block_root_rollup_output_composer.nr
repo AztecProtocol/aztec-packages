@@ -24,7 +24,7 @@ use types::{
     partial_state_reference::PartialStateReference,
     proposed_block_header::ProposedBlockHeader,
     state_reference::StateReference,
-    traits::{Empty, Hash, is_empty},
+    traits::{Empty, Hash},
 };
 
 pub struct BlockRootRollupOutputComposer {
@@ -103,7 +103,7 @@ impl BlockRootRollupOutputComposer {
         let end_blob_accumulator = if is_padding {
             self.data.start_blob_accumulator
         } else {
-            if is_empty(self.data.start_blob_accumulator) {
+            if self.data.start_blob_accumulator.is_empty() {
                 BlobAccumulatorPublicInputs::init(
                     empty_effect_blob_accumulation_input,
                     self.data.final_blob_challenges.gamma,

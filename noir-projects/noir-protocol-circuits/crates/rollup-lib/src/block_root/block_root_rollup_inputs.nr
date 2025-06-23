@@ -54,7 +54,6 @@ pub(crate) mod tests {
     use types::{
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         hash::{accumulate_sha256, poseidon2_hash},
-        utils::arrays::array_concat,
     };
 
     pub struct TestBuilder {
