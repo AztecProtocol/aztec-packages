@@ -104,6 +104,12 @@ pub unconstrained fn get_unverified_key_validation_requests<let N: u32>(
     for i in key_validation_amount..N {
         propagated.array[i - key_validation_amount] = key_validation_requests.array[i];
     }
-    propagated.length = key_validation_requests.length - key_validation_amount;
+
+    propagated.length = if key_validation_requests.length > key_validation_amount {
+        key_validation_requests.length - key_validation_amount
+    } else {
+        0
+    };
+
     propagated
 }
