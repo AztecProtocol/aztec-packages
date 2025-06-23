@@ -9,7 +9,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-type ContractInstanceUpdateKey = [string, number] | [string, number, number];
+type ContractInstanceUpdateKey = [string, string] | [string, string, number];
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
@@ -44,9 +44,9 @@ export class ContractInstanceStore {
 
   getUpdateKey(contractAddress: AztecAddress, timestamp: UInt64, logIndex?: number): ContractInstanceUpdateKey {
     if (logIndex === undefined) {
-      return [contractAddress.toString(), Number(timestamp)];
+      return [contractAddress.toString(), timestamp.toString()];
     } else {
-      return [contractAddress.toString(), Number(timestamp), logIndex];
+      return [contractAddress.toString(), timestamp.toString(), logIndex];
     }
   }
 
