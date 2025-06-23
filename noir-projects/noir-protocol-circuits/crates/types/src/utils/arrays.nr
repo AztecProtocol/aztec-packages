@@ -149,9 +149,9 @@ where
     // of the element and non-emptiness of the previous element is checked below.
     let maybe_length = unsafe { find_index_hint(array, |elem: T| elem.is_empty()) };
 
-    let mut length = 0;
+    let mut length = N;
     if maybe_length.is_some() {
-        let length = maybe_length.unwrap_unchecked();
+        length = maybe_length.unwrap_unchecked();
 
         array[length].assert_empty("Expected array empty");
 
@@ -222,8 +222,8 @@ where
     result
 }
 
-// Helper function to convert a validated array to BoundedVec.
-// Important: Only use it for validated arrays: validate_array(array) should be true.
+/// Helper function to convert a validated array to BoundedVec.
+/// Important: Only use it for validated arrays: validate_array(array) should be true.
 pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
 where
     T: Empty,
@@ -559,14 +559,67 @@ fn smoke_rhs_empty_array() {
     assert(EmptyRHSArray::new(valid_array).length == 3);
 }
 
-// #[test]
-// fn test_array_length_invalid_arrays() {
-//     // Result can be misleading (but correct) for invalid arrays.
-//     assert_eq(array_length([0, 0, 123]), 0);
-//     assert_eq(array_length([0, 123, 0]), 0);
-//     assert_eq(array_length([0, 123, 456]), 0);
-//     assert_eq(array_length([123, 0, 456]), 1);
-// }
+#[test]
+fn smoke_validate_array() {
+    let valid_array: [Field; 0] = [];
+    assert(validate_array(valid_array) == 0);
+
+    let valid_array = [0];
+    assert(validate_array(valid_array) == 0);
+
+    let valid_array = [3];
+    assert(validate_array(valid_array) == 1);
+
+    let valid_array = [1, 2, 3];
+    assert(validate_array(valid_array) == 3);
+
+    let valid_array = [1, 2, 3, 0];
+    assert(validate_array(valid_array) == 3);
+
+    let valid_array = [1, 2, 3, 0, 0];
+    assert(validate_array(valid_array) == 3);
+}
+
+#[test(should_fail_with = "invalid array")]
+fn smoke_validate_array_invalid_case0() {
+    let invalid_array = [0, 1];
+    let _ = validate_array(invalid_array);
+}
+
+#[test(should_fail_with = "invalid array")]
+fn smoke_validate_array_invalid_case1() {
+    let invalid_array = [1, 0, 0, 1, 0];
+    let _ = validate_array(invalid_array);
+}
+
+#[test(should_fail_with = "invalid array")]
+fn smoke_validate_array_invalid_case2() {
+    let invalid_array = [0, 0, 0, 0, 1];
+    let _ = validate_array(invalid_array);
+}
+
+#[test]
+fn test_empty_array_length() {
+    assert_eq(array_length([0]), 0);
+    assert_eq(array_length([0, 0, 0]), 0);
+}
+
+#[test]
+fn test_array_length() {
+    assert_eq(array_length([123]), 1);
+    assert_eq(array_length([123, 0, 0]), 1);
+    assert_eq(array_length([123, 456]), 2);
+    assert_eq(array_length([123, 456, 0]), 2);
+}
+
+#[test]
+fn test_array_length_invalid_arrays() {
+    // Result can be misleading (but correct) for invalid arrays.
+    assert_eq(array_length([0, 0, 123]), 0);
+    assert_eq(array_length([0, 123, 0]), 0);
+    assert_eq(array_length([0, 123, 456]), 0);
+    assert_eq(array_length([123, 0, 456]), 1);
+}
 
 #[test]
 fn test_array_length_until() {

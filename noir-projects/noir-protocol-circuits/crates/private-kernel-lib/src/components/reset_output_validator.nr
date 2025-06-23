@@ -167,10 +167,10 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     fn validate_transient_data(self) {
         if self.transient_data_squashing_amount == 0 {
-            let kept = self.hints.kept_note_hashes;
-            let prev = self.previous_kernel.end.note_hashes;
-            println(f"KEPT: {kept}");
-            println(f"PREV: {prev}");
+            // let kept = self.hints.kept_nullifiers;
+            // let prev = self.previous_kernel.end.nullifiers;
+            // println(f"KEPT: {kept}");
+            // println(f"PREV: {prev}");
             assert_eq(
                 self.hints.kept_note_hashes,
                 self.previous_kernel.end.note_hashes,
@@ -336,10 +336,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
             padded_nullifiers,
             self.output.end.nullifiers,
             |prev: ScopedNullifier, out: ScopedNullifier| {
-                let out_val = out.value();
-                let prev_val = silo_nullifier(prev);
-                println(f"out_val: {out_val}");
-                println(f"prev_val: {prev_val}");
                 assert_eq(
                     out.value(),
                     silo_nullifier(prev),

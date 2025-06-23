@@ -16,7 +16,6 @@ use dep::types::{
     },
     constants::{DEFAULT_GAS_LIMIT, DEFAULT_TEARDOWN_GAS_LIMIT},
     tests::fixture_builder::FixtureBuilder,
-    traits::Empty,
 };
 
 pub struct TailOutputValidatorBuilder {

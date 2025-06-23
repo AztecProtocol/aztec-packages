@@ -54,6 +54,7 @@ pub(crate) mod tests {
     use types::{
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
         hash::{accumulate_sha256, poseidon2_hash},
+        tests::utils::assert_array_eq,
     };
 
     pub struct TestBuilder {
@@ -110,7 +111,7 @@ pub(crate) mod tests {
             recipient: left_rollup.constants.global_variables.coinbase,
             value: left_rollup.accumulated_fees + right_rollup.accumulated_fees,
         };
-        assert_eq(output.fees, [expected_fee]);
+        assert_array_eq(output.fees, [expected_fee]);
     }
 
     #[test]

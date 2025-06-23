@@ -85,8 +85,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         // Before we propagate side-effects, we might be in the final reset circuit,
         // in which case we'll also silo all of them, and then pad them for better privacy.
 
-        // Q: `note_hash_siloing_amount` is a confusing name.
-
         output.end.note_hashes = if self.note_hash_siloing_amount == 0 {
             // Some transient note_hashes have been removed (squashed).
             self.hints.kept_note_hashes
@@ -141,7 +139,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         for i in 0..sorted_kept_note_hashes.array.len() {
             // Push padding:
-            if (i >= num_kept_note_hashes) & (padded_note_hashes[i] != 0) {
+            if (i >= num_kept_note_hashes)
+                // we only apply padding if the executor of this circuit provides padding as input:
+                & (padded_note_hashes[i] != 0) {
                 // We 'push' so that the length increments.
                 // Note: beyond NOTE_HASH_SILOING_AMOUNT, these so-called "padded" note_hashes
                 // will be empty. I.e. we don't pad 64; it depends on the dimensions
@@ -215,7 +215,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         for i in 0..sorted_kept_nullifiers.array.len() {
             // Push padding:
-            if (i >= num_kept_nullifiers) {
+            if (i >= num_kept_nullifiers)
+                // we only apply padding if the executor of this circuit provides padding as input:
+                & (padded_nullifiers[i] != 0) {
                 padded_siloed_sorted_kept_nullifiers.push(
                     ScopedNullifier {
                         nullifier: Nullifier {
@@ -233,6 +235,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
                 silo_nullifier(padded_siloed_sorted_kept_nullifiers.array[i]);
             padded_siloed_sorted_kept_nullifiers.array[i].contract_address = AztecAddress::zero();
         }
+
         padded_siloed_sorted_kept_nullifiers
     }
 
@@ -262,7 +265,9 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
         for i in 0..sorted_kept_private_logs.array.len() {
             // Pad:
-            if (i >= num_kept_private_logs) & (padded_private_logs[i].length != 0) {
+            if (i >= num_kept_private_logs)
+                // we only apply padding if the executor of this circuit provides padding as input:
+                & (padded_private_logs[i].length != 0) {
                 padded_siloed_sorted_kept_private_logs.push(
                     Scoped {
                         inner: PrivateLogData {

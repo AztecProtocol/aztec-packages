@@ -100,7 +100,5 @@ pub unconstrained fn squash_transient_data<let M: u32, let N: u32, let P: u32, l
         }
     }
 
-    let l = propagated_note_hashes.length;
-
     (propagated_note_hashes, propagated_nullifiers, propagated_logs)
 }
