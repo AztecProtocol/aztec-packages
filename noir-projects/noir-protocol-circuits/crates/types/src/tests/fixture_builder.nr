@@ -222,6 +222,7 @@ impl FixtureBuilder {
 
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
+        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,

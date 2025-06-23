@@ -118,6 +118,9 @@ fn hash_of_genesis_block_header() {
         0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9;
     header.state.partial.public_data_tree.next_available_leaf_index = 128;
 
+    // Set genesis timestamp in global variables
+    header.global_variables.timestamp = 1767225600; // Genesis timestamp - Thu Jan 01 2026 00:00:00 GMT+0000
+
     let hash = header.hash();
     assert_eq(hash, GENESIS_BLOCK_HEADER_HASH);
 }
