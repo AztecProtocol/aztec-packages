@@ -1,6 +1,6 @@
-{{- if .Values.statefulSet.enabled }}
+{{- if not .Values.statefulSet.enabled }}
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: {{ include "chart.fullname" . }}
   labels:
@@ -17,6 +17,4 @@ spec:
       app: node
   template:
     {{- include "chart.podTemplate" . | nindent 4 }}
-  volumeClaimTemplates:
-    {{- toYaml .Values.statefulSet.volumeClaimTemplates | nindent 4 }}
 {{- end }}

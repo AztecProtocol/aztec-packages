@@ -1,0 +1,51 @@
+global:
+  aztecRollupVersion: "canonical"
+  aztecNetwork: ""
+  customAztecNetwork:
+    enabled: false
+
+  l1ExecutionUrls: []
+  l1ConsensusUrls: []
+  l1ConsensusHostApiKeys: []
+  l1ConsensusHostApiKeyHeaders: []
+
+validator:
+  mnemonic: "test test test test test test test test test test test junk"
+  mnemonicStartIndex: 2000
+  validatorsPerNode: 1
+
+  persistence:
+    enabled: false
+  statefulSet:
+    enabled: true
+
+  replicaCount: 1
+
+  node:
+    configMap:
+      envEnabled: true
+    secret:
+      envEnabled: true
+
+    preStartScript: |
+      source /scripts/get-private-key.sh
+
+    env:
+      OTEL_SERVICE_NAME: "validator"
+
+    startCmd:
+      - --node
+      - --archiver
+      - --sequencer
+
+    hostNetwork: true
+
+  service:
+    p2p:
+      enabled: true
+      nodePortEnabled: false
+    admin:
+      enabled: true
+    headless:
+      enabled: true
+
