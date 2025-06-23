@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
@@ -131,14 +132,18 @@ class AvmGoblinRecursiveVerifier {
         auto transcript = std::make_shared<MegaRecursiveFlavor::Transcript>();
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto mega_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, inner_output.mega_vk);
-        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_vk, transcript);
+        auto mega_decider_vk =
+            std::make_shared<bb::stdlib::recursion::honk::RecursiveDeciderVerificationKey_<MegaRecursiveFlavor>>(
+                &ultra_builder, mega_vk);
+        MegaRecursiveVerifier mega_verifier(&ultra_builder, mega_decider_vk, transcript);
         StdlibProof<UltraBuilder> mega_proof =
             bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
         auto mega_verifier_output = mega_verifier.verify_proof(mega_proof);
 
         // Recursively verify the goblin proof\pi_G in the Ultra circuit
         GoblinRecursiveVerifier goblin_verifier{ &ultra_builder, inner_output.goblin_vk, transcript };
-        GoblinRecursiveVerifierOutput goblin_verifier_output = goblin_verifier.verify(inner_output.goblin_proof);
+        GoblinRecursiveVerifierOutput goblin_verifier_output =
+            goblin_verifier.verify(inner_output.goblin_proof, mega_decider_vk->witness_commitments.get_ecc_op_wires());
         goblin_verifier_output.points_accumulator.aggregate(mega_verifier_output.points_accumulator);
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)

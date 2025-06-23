@@ -67,6 +67,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using OuterDeciderVerificationKey = DeciderVerificationKey_<UltraFlavor>;
     using NativeVerifierCommitmentKey = typename AvmFlavor::VerifierCommitmentKey;
 
     if (testing::skip_slow_tests()) {
@@ -142,7 +143,8 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);
-    OuterVerifier ultra_verifier(ultra_verification_key);
+    auto ultra_decider_vk = std::make_shared<OuterDeciderVerificationKey>(ultra_verification_key);
+    OuterVerifier ultra_verifier(ultra_decider_vk);
     EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
 }
 
@@ -223,8 +225,9 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
     auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);
+    auto outer_decider_vk = std::make_shared<DeciderVerificationKey_<UltraRollupFlavor>>(outer_verification_key);
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-    UltraRollupVerifier final_verifier(outer_verification_key, ipa_verification_key);
+    UltraRollupVerifier final_verifier(outer_decider_vk, ipa_verification_key);
 
     EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
 }
