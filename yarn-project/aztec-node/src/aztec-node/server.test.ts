@@ -243,6 +243,12 @@ describe('aztec node', () => {
         new IncludeByTimestamp(true, BigInt(NOW_S + 1)),
       );
 
+      // We need to set the last block number to get this working properly because if it was set to 0, it would mean
+      // that we are building block 1, and for block 1 the timestamp expiration check is skipped. For details on why
+      // see the `validate_include_by_timestamp` function in
+      // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+      lastBlockNumber = 1;
+
       // Default tx with no should be valid
       expect(await node.isValidTx(noIncludeByTimestampMetadata)).toEqual({ result: 'valid' });
       // Tx with include by timestamp < current block number should be invalid
