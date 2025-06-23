@@ -154,11 +154,11 @@ function test_cmds {
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array"
+  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test a_6_array"
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
+  echo "$prefix FLOW=prove_then_verify_tube $run_test a_6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # SYS decides which scheme will be used for the test.
