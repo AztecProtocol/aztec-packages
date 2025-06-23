@@ -627,6 +627,11 @@ export const deployRollup = async (
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
+  const rewardConfig = {
+    ...DefaultRewardConfig,
+    rewardDistributor: addresses.rewardDistributorAddress.toString(),
+  };
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -638,7 +643,7 @@ export const deployRollup = async (
     entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
     entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
-    rewardConfig: DefaultRewardConfig,
+    rewardConfig: rewardConfig,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -649,7 +654,6 @@ export const deployRollup = async (
 
   const rollupArgs = [
     addresses.feeJuiceAddress.toString(),
-    addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
     addresses.gseAddress.toString(),
     epochProofVerifier.toString(),
