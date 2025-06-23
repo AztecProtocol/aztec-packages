@@ -10,6 +10,7 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -143,8 +144,15 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     assertEq(config.k, defaultConfig.k, "invalid k");
     assertEq(config.minimum, defaultConfig.minimum, "invalid minimum");
 
-    RewardConfig memory updated =
-      RewardConfig({sequencerBps: Bps.wrap(1), increment: 2, maxScore: 3, a: 4, k: 5, minimum: 6});
+    RewardConfig memory updated = RewardConfig({
+      sequencerBps: Bps.wrap(1),
+      increment: 2,
+      maxScore: 3,
+      a: 4,
+      k: 5,
+      minimum: 6,
+      rewardDistributor: IRewardDistributor(address(0))
+    });
 
     address owner = rollup.owner();
 

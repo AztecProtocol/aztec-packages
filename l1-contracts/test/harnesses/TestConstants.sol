@@ -11,6 +11,7 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -40,6 +41,7 @@ library TestConstants {
 
   function getRewardConfig() internal pure returns (RewardConfig memory) {
     return RewardConfig({
+      rewardDistributor: IRewardDistributor(address(0)),
       sequencerBps: Bps.wrap(5000),
       increment: 200000,
       maxScore: 5000000,
