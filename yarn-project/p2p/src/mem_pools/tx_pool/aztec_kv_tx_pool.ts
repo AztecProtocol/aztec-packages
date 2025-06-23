@@ -132,7 +132,7 @@ export class AztecKVTxPool implements TxPool {
   /**
    * Marks transactions as mined in a block and updates the pool state accordingly.
    * Removes the transactions from the pending set and adds them to the mined set.
-   * Also evicts any transactions that become invalid after these transactions are mined.
+   * Also evicts any transactions that become invalid after the block is mined.
    * @param txHashes - Array of transaction hashes that were mined
    * @param blockHeader - The header of the block the transactions were mined in
    */
