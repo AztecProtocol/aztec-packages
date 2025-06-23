@@ -319,7 +319,6 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        // However, we will not do it all in the same place. We do it by temporality groups, but always unconditionally.
         bool should_read_exec_spec = !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
@@ -545,22 +544,30 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                                                    TraceContainer& trace,
                                                    uint32_t row)
 {
-    trace.set(row,
-              { {
-                  // Gas.
-                  { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
-                  { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
-                  { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
-                  { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
-              } });
-
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+    const auto& gas_cost = EXEC_INSTRUCTION_SPEC.at(exec_opcode).gas_cost;
+
+    // Gas.
+    trace.set(row,
+              { {
+                  { C::execution_opcode_gas, gas_cost.opcode_gas },
+                  { C::execution_base_da_gas, gas_cost.base_da },
+                  { C::execution_dynamic_l2_gas, gas_cost.dyn_l2 },
+                  { C::execution_dynamic_da_gas, gas_cost.dyn_da },
+              } });
+
     const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
 
     for (size_t i = 0; i < NUM_REGISTERS; i++) {
         trace.set(REGISTER_IS_WRITE_COLUMNS[i], row, register_info.is_write(static_cast<uint8_t>(i)) ? 1 : 0);
         trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
+    }
+
+    // Set is_address columns
+    const auto& num_addresses = EXEC_INSTRUCTION_SPEC.at(exec_opcode).num_addresses;
+    for (size_t i = 0; i < num_addresses; i++) {
+        trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, 1);
     }
 
     // At this point we can assume instruction fetching succeeded, so this should never fail.
@@ -643,7 +650,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     assert(resolution_info_vec.size() <= NUM_OPERANDS);
     resolution_info_vec.resize(NUM_OPERANDS);
 
-    std::array<bool, NUM_OPERANDS> is_address{};
     std::array<bool, NUM_OPERANDS> should_apply_indirection{};
     std::array<bool, NUM_OPERANDS> is_relative_effective{};
     std::array<bool, NUM_OPERANDS> is_indirect_effective{};
@@ -661,7 +667,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        is_address[i] = op_is_address;
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
@@ -680,7 +685,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         }
         trace.set(row,
                   { {
-                      { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },

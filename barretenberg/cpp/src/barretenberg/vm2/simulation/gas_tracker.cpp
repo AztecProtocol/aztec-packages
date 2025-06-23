@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
 
 #include <cstddef>
+#include <cstdint>
 
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
@@ -22,23 +23,18 @@ void GasTracker::set_instruction(const Instruction& instruction)
     indirect = instruction.indirect;
 
     const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
-    gas_event.opcode_gas = spec.gas_cost.opcode_gas;
     gas_event.addressing_gas = compute_addressing_gas(indirect);
 
-    gas_event.base_gas = Gas{
-        gas_event.opcode_gas + gas_event.addressing_gas,
-        spec.gas_cost.base_da,
-    };
-
-    gas_event.dynamic_gas = Gas{ spec.gas_cost.dyn_l2, spec.gas_cost.dyn_da };
+    gas_event.base_l2_gas = spec.gas_cost.opcode_gas + gas_event.addressing_gas;
 }
 
 void GasTracker::consume_base_gas()
 {
     Gas prev_gas_used = context.get_gas_used();
+    const uint32_t base_da_gas = instruction_info_db.get(exec_opcode).gas_cost.base_da;
 
     // Previous gas used can be up to 2**32 - 1
-    actual_gas_used = to_intermediate_gas(prev_gas_used) + to_intermediate_gas(gas_event.base_gas);
+    actual_gas_used = to_intermediate_gas(prev_gas_used) + to_intermediate_gas({ gas_event.base_l2_gas, base_da_gas });
 
     IntermediateGas gas_limit = to_intermediate_gas(context.get_gas_limit());
 
@@ -59,9 +55,11 @@ void GasTracker::consume_dynamic_gas(Gas dynamic_gas_factor)
     gas_event.dynamic_gas_factor = dynamic_gas_factor;
 
     IntermediateGas gas_limit = to_intermediate_gas(context.get_gas_limit());
+    const uint32_t dynamic_l2_gas = instruction_info_db.get(exec_opcode).gas_cost.dyn_l2;
+    const uint32_t dynamic_da_gas = instruction_info_db.get(exec_opcode).gas_cost.dyn_da;
 
-    actual_gas_used =
-        actual_gas_used + (to_intermediate_gas(gas_event.dynamic_gas) * to_intermediate_gas(dynamic_gas_factor));
+    actual_gas_used = actual_gas_used + (to_intermediate_gas(Gas{ dynamic_l2_gas, dynamic_da_gas }) *
+                                         to_intermediate_gas(dynamic_gas_factor));
 
     gas_event.oog_dynamic_l2 = actual_gas_used.l2Gas > gas_limit.l2Gas;
     gas_event.oog_dynamic_da = actual_gas_used.daGas > gas_limit.daGas;
