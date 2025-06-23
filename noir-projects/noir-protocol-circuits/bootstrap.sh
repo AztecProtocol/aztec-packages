@@ -178,6 +178,8 @@ function test_cmds {
     private-kernel-reset
     private-kernel-tail-to-public
     private-kernel-tail
+    rollup-base-private
+    rollup-base-public
     rollup-block-root
     rollup-block-merge
     rollup-merge rollup-root
