@@ -379,7 +379,6 @@ struct AvmFlavorVariables {
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
-        lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
         lookup_update_check_timestamp_of_change_cmp_range_relation<FF_>,
