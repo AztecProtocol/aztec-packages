@@ -34,37 +34,7 @@ where
         first_padded_index.unwrap_unchecked()
     };
 
-    // Validate first_padded_index:
-    // sorted_array[first_padded_index - 1].counter() is not nullish, but sorted_array[first_padded_index].counter() is nullish.
-    // Q: where do we validate that all counters earlier are also not nullish,
-    // and that all counters later are also nullish?
-
-    if first_padded_index != 0 {
-        assert(
-            sorted_array[first_padded_index - 1].counter() != MAX_U32_VALUE,
-            "first_padded_index is too large",
-        );
-    }
-
-    assert(
-        sorted_array[first_padded_index].counter() == MAX_U32_VALUE,
-        "incorrect first_padded_index",
-    );
-
-    // Validate num_padded_lt/first_padded_gte_index
-
-    let first_padded_gte_index = first_padded_index + num_padded_lt;
-    if first_padded_gte_index != N {
-        // If num_padded_lt is too large and there isn't enough padded items,
-        // first_padded_gte_index will be > N and the following will fail because the index is out of bounds.
-        let counter = sorted_array[first_padded_gte_index].counter();
-        // If there's no padded items for gte, the index will point to an empty item. And we can treat them as regular
-        // items and "pad" them to the gte array.
-        assert((counter == 0) | (counter == MAX_U32_VALUE), "incorrect first_padded_gte_index");
-    }
-
     // --- Validate the hints ---
-    //
 
     // Validate first_after_split_index:
     // sorted_array[first_after_split_index - 1].counter() < split_counter <= sorted_array[first_after_split_index].counter()
@@ -96,6 +66,7 @@ where
             "incorrect first_padded_index",
         );
     }
+
     // Validate num_padded_lt/first_padded_gte_index
     let first_padded_gte_index = first_padded_index + num_padded_lt;
     if first_padded_gte_index != N {
