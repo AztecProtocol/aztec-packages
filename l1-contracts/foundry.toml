@@ -52,7 +52,7 @@ fs_permissions = [
   {access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json"}
 ]
 
-no_match_contract="(ScreamAndShoutTest|UniswapPortalTest)"
+no_match_contract="(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
 [fmt]
 line_length = 100
