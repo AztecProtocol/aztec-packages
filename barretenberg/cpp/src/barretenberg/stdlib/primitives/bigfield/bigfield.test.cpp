@@ -435,6 +435,50 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
         EXPECT_EQ(result, true);
     }
 
+    static void test_div_with_constant()
+    {
+        auto builder = Builder();
+        size_t num_repetitions = 10;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            fq inputs[2]{ fq::random_element(), fq::random_element() };
+            inputs[0] = inputs[0].reduce_once().reduce_once();
+            inputs[1] = inputs[1].reduce_once().reduce_once();
+
+            // a is witness, b is constant
+            fq_ct a(witness_ct(&builder, fr(uint256_t(inputs[0]).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
+                    witness_ct(&builder,
+                               fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
+            fq_ct b(&builder, uint256_t(inputs[1]));
+
+            a.set_origin_tag(submitted_value_origin_tag);
+            b.set_origin_tag(challenge_origin_tag);
+            uint64_t before = builder.get_estimated_num_finalized_gates();
+            fq_ct c = a / b;
+            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+            uint64_t after = builder.get_estimated_num_finalized_gates();
+            if (i == num_repetitions - 1) {
+                std::cout << "num gates per div against constant = " << after - before << std::endl;
+                benchmark_info(Builder::NAME_STRING, "Bigfield", "DIV_CONSTANT", "Gate Count", after - before);
+            }
+
+            fq expected = (inputs[0] / inputs[1]);
+            expected = expected.reduce_once().reduce_once();
+            expected = expected.from_montgomery_form();
+            uint512_t result = c.get_value();
+
+            EXPECT_EQ(result.lo.data[0], expected.data[0]);
+            EXPECT_EQ(result.lo.data[1], expected.data[1]);
+            EXPECT_EQ(result.lo.data[2], expected.data[2]);
+            EXPECT_EQ(result.lo.data[3], expected.data[3]);
+            EXPECT_EQ(result.hi.data[0], 0ULL);
+            EXPECT_EQ(result.hi.data[1], 0ULL);
+            EXPECT_EQ(result.hi.data[2], 0ULL);
+            EXPECT_EQ(result.hi.data[3], 0ULL);
+        }
+        bool result = CircuitChecker::check(builder);
+        EXPECT_EQ(result, true);
+    }
+
     static void test_add_and_div()
     {
         auto builder = Builder();
@@ -1217,6 +1261,10 @@ TYPED_TEST(stdlib_bigfield, div_without_denominator_check)
 {
     TestFixture::test_div();
 }
+TYPED_TEST(stdlib_bigfield, div_with_constant)
+{
+    TestFixture::test_div_with_constant();
+}
 TYPED_TEST(stdlib_bigfield, add_and_div)
 {
     TestFixture::test_add_and_div();
@@ -1310,46 +1358,3 @@ TYPED_TEST(stdlib_bigfield, internal_div_bug_regression)
     TestFixture::test_internal_div_regression2();
     TestFixture::test_internal_div_regression3();
 }
-
-// // This test was disabled before the refactor to use TYPED_TEST's/
-// TEST(stdlib_bigfield, DISABLED_test_div_against_constants)
-// {
-//     auto builder = Builder();
-//     size_t num_repetitions = 1;
-//     for (size_t i = 0; i < num_repetitions; ++i) {
-//         fq inputs[3]{ fq::random_element(), fq::random_element(), fq::random_element() };
-//         fq_ct a(witness_ct(&builder, bb::fr(uint256_t(inputs[0]).slice(0,
-//         fq_ct::NUM_LIMB_BITS * 2))),
-//                 witness_ct(
-//                     &builder,
-//                     fr(uint256_t(inputs[0]).slice(fq_ct::NUM_LIMB_BITS * 2,
-//                     fq_ct::NUM_LIMB_BITS * 4))));
-//         fq_ct b1(&builder, uint256_t(inputs[1]));
-//         fq_ct b2(&builder, uint256_t(inputs[2]));
-//         fq_ct c = a / (b1 - b2);
-//         // uint256_t modulus{ bb::Bn254FqParams::modulus_0,
-//         //                    Bn254FqParams::modulus_1,
-//         //                    Bn254FqParams::modulus_2,
-//         //                    Bn254FqParams::modulus_3 };
-
-//         fq expected = (inputs[0] / (inputs[1] - inputs[2]));
-//         std::cerr << "denominator = " << inputs[1] - inputs[2] << std::endl;
-//         std::cerr << "expected = " << expected << std::endl;
-//         expected = expected.from_montgomery_form();
-//         uint512_t result = c.get_value();
-
-//         EXPECT_EQ(result.lo.data[0], expected.data[0]);
-//         EXPECT_EQ(result.lo.data[1], expected.data[1]);
-//         EXPECT_EQ(result.lo.data[2], expected.data[2]);
-//         EXPECT_EQ(result.lo.data[3], expected.data[3]);
-//         EXPECT_EQ(result.hi.data[0], 0ULL);
-//         EXPECT_EQ(result.hi.data[1], 0ULL);
-//         EXPECT_EQ(result.hi.data[2], 0ULL);
-//         EXPECT_EQ(result.hi.data[3], 0ULL);
-//     }
-//     auto prover = composer.create_prover();
-//     auto verifier = composer.create_verifier();
-//     plonk::proof proof = prover.construct_proof();
-//     bool result = verifier.verify_proof(proof);
-//     EXPECT_EQ(result, true);
-// }
