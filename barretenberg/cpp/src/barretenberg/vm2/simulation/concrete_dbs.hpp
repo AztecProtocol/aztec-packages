@@ -75,6 +75,8 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void siloed_note_hash_write(const FF& note_hash) override;
     void unique_note_hash_write(const FF& note_hash) override;
 
+    void add_checkpoint_listener(CheckpointNotifiable& listener) { checkpoint_listeners.push_back(&listener); }
+
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
   private:
@@ -92,6 +94,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Set for semantics.
     using Slot = FF;
     std::unordered_set<Slot> storage_set;
+    std::vector<CheckpointNotifiable*> checkpoint_listeners;
 };
 
 } // namespace bb::avm2::simulation
