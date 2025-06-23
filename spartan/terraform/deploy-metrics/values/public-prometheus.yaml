@@ -31,9 +31,9 @@ serverFiles:
 
 alertmanager:
   enabled: false
-nodeExporter:
+prometheus-node-exporter:
   enabled: false
-pushgateway:
+prometheus-pushgateway:
   enabled: false
 kube-state-metrics:
   enabled: false
