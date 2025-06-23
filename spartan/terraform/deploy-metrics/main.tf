@@ -208,8 +208,8 @@ resource "helm_release" "public_otel_collector" {
   }
 
   timeout       = 600
-  wait          = true
-  wait_for_jobs = true
+  wait          = false
+  wait_for_jobs = false
 }
 
 resource "helm_release" "public_prometheus" {
@@ -228,6 +228,6 @@ resource "helm_release" "public_prometheus" {
   values = [file("./values/public-prometheus.yaml")]
 
   timeout       = 600
-  wait          = true
-  wait_for_jobs = true
+  wait          = false
+  wait_for_jobs = false
 }
