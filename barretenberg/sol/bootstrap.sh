@@ -20,7 +20,6 @@ function test_cmds {
     test_cmds_internal | awk "{ print \"$hash \" \$0 }"
 }
 
-# TODO: maybe manually run these in parallel
 function test_cmds_internal {
     echo "cd barretenberg/sol && forge test --no-match-contract Base"
 }
@@ -51,7 +50,7 @@ function build_sol {
 function build_cpp {
     echo_header "barretenberg/sol building cpp"
 
-    local artifact=barretenberg-sol-cpp-$hash.tar.zst
+    local artifact=barretenberg-sol-cpp-$hash.tar.gz
     if ! cache_download $artifact; then
         cd ../cpp
         cmake --build --preset default --parallel --target honk_solidity_proof_gen honk_solidity_key_gen
