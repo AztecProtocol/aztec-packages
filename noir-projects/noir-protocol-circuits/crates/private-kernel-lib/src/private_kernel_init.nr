@@ -79,7 +79,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         // Q: why is the output needed for this validation?
         // A: it's used in log validation.
         // Q: Should that log validation instead happen within the Output Validator steps below?
-        private_call_data_validator.validate_data(
+        private_call_data_validator.validate_common(
             output.end.note_hashes,
             self.protocol_contract_tree_root,
         );

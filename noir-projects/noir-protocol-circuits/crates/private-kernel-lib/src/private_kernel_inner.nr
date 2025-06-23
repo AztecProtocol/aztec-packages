@@ -68,7 +68,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
     let output = unsafe { self.generate_output() };
 
-    private_call_data_validator.validate_data(
+    private_call_data_validator.validate_common(
         output.end.note_hashes,
         self.previous_kernel.public_inputs.constants.protocol_contract_tree_root,
     );

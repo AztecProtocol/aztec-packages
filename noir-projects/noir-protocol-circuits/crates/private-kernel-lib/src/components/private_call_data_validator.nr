@@ -7,7 +7,6 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         note_hash::ScopedNoteHash,
         private_call_request::PrivateCallRequest,
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
         public_call_request::PublicCallRequest,
         side_effect::{Ordered, RangeOrdered},
@@ -98,8 +97,9 @@ impl PrivateCallDataValidator {
         }
     }
 
-    // Why are some of the `validate` functions top-level, and others are put inside this fn?
-    pub fn validate_data<let N: u32>(
+    /// Validate properties of the PrivateCallData, which are "common" to both
+    /// the Init and Inner circuits.
+    pub fn validate_common<let N: u32>(
         self,
         accumulated_note_hashes: ClaimedLengthArray<ScopedNoteHash, N>,
         protocol_contract_tree_root: Field,
@@ -118,12 +118,12 @@ impl PrivateCallDataValidator {
         self.validate_log_lengths();
     }
 
-    /**
-     * Asserts: No static calls. No msg_sender.
-     */
+    /// For Init only.
+    /// Asserts: No static calls. No msg_sender.
     pub fn validate_as_first_call(self) {
         let public_inputs = self.data.public_inputs;
         let call_context = public_inputs.call_context;
+
         assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
 
         // Notice: msg_sender MUST be `-1` for the first function call in a tx.
@@ -133,8 +133,8 @@ impl PrivateCallDataValidator {
         );
     }
 
-    // Confirm that the TxRequest (user's intent) matches the private call being executed.
-    // TODO: Consider removing the tx_request from this circuit.
+    /// For Init only.
+    /// Confirm that the TxRequest (user's intent) matches the private call being executed.
     pub fn validate_against_tx_request(self, tx_request: TxRequest) {
         let public_inputs = self.data.public_inputs;
         assert_eq(
@@ -163,6 +163,7 @@ impl PrivateCallDataValidator {
         );
     }
 
+    /// For Inner only.
     pub fn validate_against_call_request(self, request: PrivateCallRequest) {
         let public_inputs = self.data.public_inputs;
         assert_eq(
@@ -196,6 +197,9 @@ impl PrivateCallDataValidator {
         );
     }
 
+    /// For Inner only.
+    /// Ensures that data that must be consistent between the previous kernel and
+    /// this private call _is_ consistent.
     pub fn validate_against_previous_kernel(
         self,
         previous_kernel: PrivateKernelCircuitPublicInputs,
@@ -260,7 +264,7 @@ impl PrivateCallDataValidator {
         }
     }
 
-    // Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
+    // TODO: Maybe we should loop once over each array. This will be the 2nd time we iterate over this array (the first time being the length validation).
     fn validate_private_call_requests(self) {
         let public_inputs = self.data.public_inputs;
         let call_requests = public_inputs.private_call_requests;
