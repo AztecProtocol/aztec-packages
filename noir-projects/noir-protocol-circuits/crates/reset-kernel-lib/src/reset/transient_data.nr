@@ -82,15 +82,15 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let to_be_padded_note_hash =
                 expected_kept_note_hashes.array[NUM_NOTE_HASHES - squashed_counter];
 
-            // TODO: might not need to do this, given how we track lengths,
-            // although asserting empty might be zero cost, so...
+            // TODO: might not need to do this, given how we track lengths.
+            // TODO: check that the index hints are less than the length,
+            // because the arrays are not guaranteed to be padded with empty items beyond length.
             // TODO: this check might be more at home in the next for loop, below, where we're
             // validating the correctness of the data in `expected_kept_note_hashes`.
             to_be_padded_note_hash.assert_empty("Empty note hash must be padded to the right");
 
             // Padded nullifiers.
-            // TODO: might not need to do this, given how we track lengths,
-            // although asserting empty might be zero cost, so...
+            // TODO: might not need to do this, given how we track lengths.
             let to_be_padded_nullifier =
                 expected_kept_nullifiers.array[NUM_NULLIFIERS - squashed_counter];
             to_be_padded_nullifier.assert_empty("Empty nullifier must be padded to the right");
@@ -172,7 +172,7 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
 
         // Logs with 0 note_hash_counter must be propagated, since they do not relate to any note,
         // and therefore cannot ever be squashed.
-        // Logs linked to a propagated note hash will also be propagated. In this case, the log's note_hash_counter points to a note hash in expected_kept_note_hashes.
+        // Logs linked to a _propagated_ note hash will also be propagated. In this case, the log's note_hash_counter points to a note hash in expected_kept_note_hashes.
         // TODO: it's quite complicated that the index hint could possibly point to an index in one of two arrays.
         let is_propagated = (log.inner.note_hash_counter == 0)
             | (
