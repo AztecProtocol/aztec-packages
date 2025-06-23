@@ -56,6 +56,20 @@ pub fn subarray<let SRC_LEN: u32, let DST_LEN: u32>(
     dst
 }
 
+// Helper fn to create a subarray from a given array
+// TODO: rename to `slice`. This is not a splice.
+// TODO: looks very similar to `subarray` above.
+pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+where
+    T: Empty,
+{
+    let mut result: [T; M] = [T::empty(); M];
+    for i in 0..M {
+        result[i] = array[offset + i];
+    }
+    result
+}
+
 // Helper function to find the index of the first element in an array that satisfies a given predicate.
 // If the element is not found, the function returns Option::none.
 // TODO: Consider making this a part of the noir stdlib.
@@ -91,21 +105,8 @@ pub unconstrained fn find_index_hint_in_reverse<T, let N: u32, Env>(
     index
 }
 
-// Helper fn to create a subarray from a given array
-// TODO: rename to `slice`. This is not a splice.
-pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
-where
-    T: Empty,
-{
-    let mut result: [T; M] = [T::empty(); M];
-    for i in 0..M {
-        result[i] = array[offset + i];
-    }
-    result
-}
-
 //**********************************************************************************
-// TO DEPRECATE
+// FREE ARRAY FUNCTIONS (to deprecate or make into methods of array wrappers)
 //**********************************************************************************
 
 /// Deprecated.
@@ -229,6 +230,58 @@ where
 {
     let len = array_length(array);
     BoundedVec::from_parts_unchecked(array, len)
+}
+
+// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
+// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
+pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
+    let mut length = 0;
+    let mut stop = false;
+    for i in 0..N {
+        if predicate(array[i]) {
+            stop = true;
+        } else {
+            assert(
+                stop == false,
+                "matching element found after already encountering a non-matching element",
+            );
+            length += 1;
+        }
+    }
+    length
+}
+
+pub fn check_permutation<T, let N: u32>(
+    original_array: [T; N],
+    permuted_array: [T; N],
+    original_indexes: [u32; N],
+)
+where
+    T: Empty,
+{
+    let mut seen_value = [false; N];
+    for i in 0..N {
+        let index = original_indexes[i];
+        let original_value = original_array[index];
+        assert(permuted_array[i].eq(original_value), "Invalid index");
+        assert(!seen_value[index], "Duplicated index");
+        seen_value[index] = true;
+    }
+}
+
+// Helper function to check if an array is padded with a given value from a given index.
+// Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
+pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
+where
+    T: Eq,
+{
+    let mut is_valid = true;
+    let mut should_check = false;
+    for i in 0..N {
+        should_check |= i == from_index;
+        is_valid &= !should_check | (array[i] == padded_with);
+    }
+    is_valid
 }
 
 //**********************************************************************************
@@ -480,58 +533,6 @@ where
 
         fields
     }
-}
-
-// Returns the number of consecutive elements at the start of the array for which the predicate returns false.
-// This function ensures that any element after the first matching element (predicate returns true) also matches the predicate.
-pub fn array_length_until<T, let N: u32, Env>(array: [T; N], predicate: fn[Env](T) -> bool) -> u32 {
-    let mut length = 0;
-    let mut stop = false;
-    for i in 0..N {
-        if predicate(array[i]) {
-            stop = true;
-        } else {
-            assert(
-                stop == false,
-                "matching element found after already encountering a non-matching element",
-            );
-            length += 1;
-        }
-    }
-    length
-}
-
-pub fn check_permutation<T, let N: u32>(
-    original_array: [T; N],
-    permuted_array: [T; N],
-    original_indexes: [u32; N],
-)
-where
-    T: Empty,
-{
-    let mut seen_value = [false; N];
-    for i in 0..N {
-        let index = original_indexes[i];
-        let original_value = original_array[index];
-        assert(permuted_array[i].eq(original_value), "Invalid index");
-        assert(!seen_value[index], "Duplicated index");
-        seen_value[index] = true;
-    }
-}
-
-// Helper function to check if an array is padded with a given value from a given index.
-// Different to padded_array_length in that it allows the elements before the given index to be the same as the padded value.
-pub fn array_padded_with<T, let N: u32>(array: [T; N], from_index: u32, padded_with: T) -> bool
-where
-    T: Eq,
-{
-    let mut is_valid = true;
-    let mut should_check = false;
-    for i in 0..N {
-        should_check |= i == from_index;
-        is_valid &= !should_check | (array[i] == padded_with);
-    }
-    is_valid
 }
 
 #[test]
