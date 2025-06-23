@@ -134,31 +134,31 @@ function test_cmds {
   # Solidity tests. Isolate because anvil.
   local prefix="$tests_hash:ISOLATE=1"
   echo "$prefix FLOW=sol_honk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk $run_test 1_mul"
+  echo "$prefix FLOW=sol_honk $run_test a_1_mul"
   echo "$prefix FLOW=sol_honk $run_test slices"
   echo "$prefix FLOW=sol_honk $run_test verify_honk_proof"
   echo "$prefix FLOW=sol_honk_zk $run_test assert_statement"
-  echo "$prefix FLOW=sol_honk_zk $run_test 1_mul"
+  echo "$prefix FLOW=sol_honk_zk $run_test a_1_mul"
   echo "$prefix FLOW=sol_honk_zk $run_test slices"
   echo "$prefix FLOW=sol_honk_zk $run_test verify_honk_proof"
 
   # bb.js browser tests. Isolate because server.
   local prefix="$tests_hash:ISOLATE=1:NET=1:CPUS=8"
   echo "$prefix:NAME=chrome_verify_honk_proof BROWSER=chrome $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=chrome_1_mul BROWSER=chrome $run_test_browser 1_mul"
+  echo "$prefix:NAME=chrome_a_1_mul BROWSER=chrome $run_test_browser a_1_mul"
   echo "$prefix:NAME=webkit_verify_honk_proof BROWSER=webkit $run_test_browser verify_honk_proof"
-  echo "$prefix:NAME=webkit_1_mul BROWSER=webkit $run_test_browser 1_mul"
+  echo "$prefix:NAME=webkit_a_1_mul BROWSER=webkit $run_test_browser a_1_mul"
 
   # bb.js tests.
   local prefix=$tests_hash
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test ecdsa_secp256r1_3x"
   # the prove then verify flow for UltraHonk. This makes sure we have the same circuit for different witness inputs.
-  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test 6_array"
+  echo "$prefix BIN=$bbjs_bin SYS=ultra_honk_deprecated FLOW=prove_then_verify $run_test a_6_array"
 
   # barretenberg-acir-tests-bb:
   # Fold and verify an ACIR program stack using ClientIVC, recursively verify as part of the Tube circuit and produce and verify a Honk proof
-  echo "$prefix FLOW=prove_then_verify_tube $run_test 6_array"
+  echo "$prefix FLOW=prove_then_verify_tube $run_test a_6_array"
 
   # barretenberg-acir-tests-bb-ultra-honk:
   # SYS decides which scheme will be used for the test.
@@ -184,19 +184,19 @@ function test_cmds {
   echo "$prefix SYS=ultra_honk FLOW=prove_then_verify DISABLE_ZK=true $run_test assert_statement"
 
   # prove and verify using bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_verify $run_test assert_statement"
 
   # prove with bb.js and verify with solidity verifier
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_sol_verify $run_test assert_statement"
 
   # prove with bb cli and verify with bb.js classes
-  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bb_prove_bbjs_verify $run_test assert_statement"
 
   # prove with bb.js and verify with bb cli
-  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test 1_mul"
+  echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test a_1_mul"
   echo "$prefix SYS=ultra_honk FLOW=bbjs_prove_bb_verify $run_test assert_statement"
 }
 
