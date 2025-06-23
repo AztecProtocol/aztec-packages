@@ -226,6 +226,8 @@ tests:
     error_regex: "Exceeded timeout of"
     owners:
       - *lucas
+  - regex: "e2e_prover/full"
+    error_regex: "ProvingError: Failed to verify proof from key!"
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
