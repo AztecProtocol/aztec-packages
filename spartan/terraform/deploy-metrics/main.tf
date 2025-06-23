@@ -69,11 +69,13 @@ provider "helm" {
 }
 
 data "google_secret_manager_secret_version" "grafana_password" {
-  secret = var.GRAFANA_PASSWORD_SECRET_NAME
+  secret  = var.GRAFANA_PASSWORD_SECRET_NAME
+  project = var.project
 }
 
 data "google_secret_manager_secret_version" "slack_webhook" {
-  secret = var.SLACK_WEBHOOK_SECRET_NAME
+  secret  = var.SLACK_WEBHOOK_SECRET_NAME
+  project = var.project
 }
 
 # Aztec Helm release for gke-cluster
