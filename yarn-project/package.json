@@ -87,5 +87,6 @@
     "@aztec/noir-noir_codegen": "portal:../noir/packages/noir_codegen",
     "@aztec/noir-noir_js": "file:../noir/packages/noir_js",
     "jest-runner@npm:^29.7.0": "patch:jest-runner@npm%3A29.7.0#~/.yarn/patches/jest-runner-npm-29.7.0-3bc9f82b58.patch"
-  }
+  },
+  "version": "1.0.0"
 }

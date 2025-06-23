@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/AztecProtocol/aztec-packages/compare/v1.0.0...v1.0.1) (2025-06-23)
+
+
+### Miscellaneous
+
+* try to fix release please prerelease tags ([07ddfbe](https://github.com/AztecProtocol/aztec-packages/commit/07ddfbe883681d68c8e5726b2bb4b68db3399442))
+
 ## [1.0.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.87.6...v1.0.0) (2025-06-23)
 
 
