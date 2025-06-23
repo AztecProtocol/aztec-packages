@@ -27,7 +27,7 @@ function test_cmds_internal {
 function build_sol {
     echo_header "barretenberg/sol building sol"
 
-    local artifact=barretenberg-sol-$hash.tar.gz
+    local artifact=barretenberg-sol-$hash.zst
     if ! cache_download $artifact; then
 
         rm -rf broadcast cache out
