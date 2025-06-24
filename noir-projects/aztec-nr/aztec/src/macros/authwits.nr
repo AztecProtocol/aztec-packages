@@ -12,7 +12,7 @@ comptime fn register_authwit(authwit_selector: Field, authwit_struct: TypeDefini
         let existing_authwit = AUTHWIT_TYPES.get(authwit_selector).unwrap().name();
         let authwit_name = authwit_struct.name();
         panic(
-            f"Authwit selector collision detected between events '{authwit_name}' and '{existing_authwit}'",
+            f"Authwit selector collision detected between authwits '{authwit_name}' and '{existing_authwit}'",
         );
     }
     AUTHWIT_TYPES.insert(authwit_selector, authwit_struct);
