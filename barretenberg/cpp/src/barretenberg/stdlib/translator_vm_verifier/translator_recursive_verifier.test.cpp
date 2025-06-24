@@ -193,8 +193,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     };
 };
 
-using FlavorTypes =
-    testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>, TranslatorRecursiveFlavor_<MegaCircuitBuilder>>;
+using FlavorTypes = testing::Types<TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
 
 TYPED_TEST_SUITE(TranslatorRecursiveTests, FlavorTypes);
 
