@@ -40,7 +40,6 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     transcript->load_proof(proof);
 
     FF subtable_size = transcript->template receive_from_prover<FF>("subtable_size");
-    // info("subtable size: ", subtable_size.get_value());
 
     // Receive table column polynomial commitments [T_{j,prev}], and [T_j], j = 1,2,3,4
     std::array<Commitment, NUM_WIRES> T_prev_commitments;
@@ -48,14 +47,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         std::string suffix = std::to_string(idx);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
         T_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + suffix);
-
-        // info("t_comm_" + std::to_string(idx), t_commitments[idx].get_value());
-        // info("T_prev_comm_" + std::to_string(idx), T_prev_commitments[idx].get_value());
-        // info("T_comm" + std::to_string(idx), T_commitments[idx].get_value());
     }
 
     FF kappa = transcript->template get_challenge<FF>("kappa");
-    // info("kappa: ", kappa.get_value());
 
     // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
     std::array<FF, NUM_WIRES> t_evals;
@@ -82,7 +76,6 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
     }
 
     FF alpha = transcript->template get_challenge<FF>("alpha");
-    // info("alpha: ", alpha.get_value());
 
     // Constuct inputs to batched commitment and batched evaluation from constituents using batching challenge \alpha
     std::vector<FF> scalars;
