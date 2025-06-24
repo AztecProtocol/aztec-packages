@@ -53,7 +53,7 @@ Measuring the gate count across a private function can be seen at the end of the
 
 ### L2 Data costs
 
-Of the L2 costs, the public/private data being updated is most significant. Like on Ethereum, if a lot of data is written/updated, then tx/block limits may be reached.
+Of the L2 costs, the public/private data being updated is most significant. As L2 functions create notes, nullifiers, encrypted logs, all of this get posted into blobs on ethereum and will be quite expensive
 
 ### L1 Limits
 
