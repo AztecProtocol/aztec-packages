@@ -200,6 +200,18 @@ export class RollupCheatCodes {
     await this.ethCheatCodes.stopImpersonating(owner);
   }
 
+  /**
+   * Sets up the epoch.
+   */
+  public async setupEpoch() {
+    // Doesn't need to be done as owner, but the functionality is here...
+    await this.asOwner(async (account, rollup) => {
+      const hash = await rollup.write.setupEpoch({ account });
+      await this.client.waitForTransactionReceipt({ hash });
+      this.logger.warn(`Setup epoch`);
+    });
+  }
+
   /** Directly calls the L1 gas fee oracle. */
   public async updateL1GasFeeOracle() {
     await this.asOwner(async (account, rollup) => {

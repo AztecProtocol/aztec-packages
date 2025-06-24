@@ -254,7 +254,7 @@ export class P2PNetworkTest {
           ]),
         });
 
-        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n);
+        const timestamp = await cheatCodes.rollup.advanceToEpoch(2n, { updateDateProvider: dateProvider });
 
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         await this._sendDummyTx(deployL1ContractsValues.l1Client);

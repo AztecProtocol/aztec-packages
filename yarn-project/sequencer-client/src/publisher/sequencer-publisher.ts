@@ -257,13 +257,19 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice },
+    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
   ) {
-    const success = result?.receipt.status === 'success';
+    const isError = result instanceof FormattedViemError;
+    const success = isError ? false : result?.receipt.status === 'success';
     const logger = success ? this.log.info : this.log.error;
     for (const request of requests) {
       logger(`Bundled [${request.action}] transaction [${success ? 'succeeded' : 'failed'}]`);
-      request.onResult?.(request.request, result);
+      if (!isError) {
+        request.onResult?.(request.request, result);
+      }
+    }
+    if (isError) {
+      this.log.error('Failed to publish bundled transactions', result);
     }
   }
 
