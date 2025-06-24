@@ -33,7 +33,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/private_base_rollup_output_composer/compute_transaction_fee.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
       'expected_fee',
       feeStr,
     );
@@ -47,7 +47,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/private_base_rollup_output_composer/compute_transaction_fee.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
       'expected_fee_empty_priority',
       feeStr,
     );
@@ -62,7 +62,7 @@ describe('computeTransactionFee', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/private_base_rollup_output_composer/compute_transaction_fee.nr',
+      'noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/fees.nr',
       'expected_max_fee',
       feeStr,
     );

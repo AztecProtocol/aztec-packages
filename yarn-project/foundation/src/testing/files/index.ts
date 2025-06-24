@@ -35,12 +35,16 @@ export function updateInlineTestData(targetFileFromRepoRoot: string, itemName: s
   const logger = createConsoleLogger('aztec:testing:test_data');
   const targetFile = getPathToFile(targetFileFromRepoRoot);
   const contents = readFileSync(targetFile, 'utf8').toString();
-  const regex = new RegExp(`let ${itemName} =[\\s\\S]*?;`, 'g');
+  const regex = new RegExp(`(let|pub\\s+global)\\s+${itemName}(\\s*:\\s*[^=]+)?\\s*=\\s*([\\s\\S]*?);`, 'g');
   if (!regex.exec(contents)) {
     throw new Error(`Test data marker for ${itemName} not found in ${targetFile}`);
   }
 
-  const updatedContents = contents.replaceAll(regex, `let ${itemName} = ${value};`);
+  const updatedContents = contents.replace(
+    regex,
+    (_, declareKeyword, typeAnnotation) =>
+      `${declareKeyword} ${itemName}${(typeAnnotation || '').trimEnd()} = ${value};`,
+  );
   writeFileSync(targetFile, updatedContents);
   logger(`Updated test data in ${targetFile} for ${itemName} to ${value}`);
 }
