@@ -1021,7 +1021,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
                 accumulator *= running_power;
             }
         }
-        if (shifted_exponent != 0) {
+        if (shifted_exponent >= 2) {
             running_power = running_power.sqr();
         }
         shifted_exponent >>= 1;
