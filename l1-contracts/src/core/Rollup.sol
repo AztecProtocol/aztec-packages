@@ -28,7 +28,7 @@ import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
-import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
   RollupCore,
   GenesisState,
@@ -393,17 +393,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getAttesterView(_attester);
   }
 
-  function getActivityScore(address _prover)
-    external
-    view
-    override(IRollup)
-    returns (ActivityScore memory)
-  {
-    return RewardLib.getActivityScore(_prover);
-  }
-
   function getSharesFor(address _prover) external view override(IRollup) returns (uint256) {
-    return RewardLib.toShares(_prover);
+    return RewardLib.getSharesFor(_prover);
   }
 
   /**

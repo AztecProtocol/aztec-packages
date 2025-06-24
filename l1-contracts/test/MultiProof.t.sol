@@ -19,8 +19,8 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -38,6 +38,7 @@ contract MultiProofTest is RollupBase {
   TestERC20 internal testERC20;
   FeeJuicePortal internal feeJuicePortal;
   RewardDistributor internal rewardDistributor;
+  RewardBooster internal rewardBooster;
 
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
@@ -74,6 +75,8 @@ contract MultiProofTest is RollupBase {
     testERC20 = builder.getConfig().testERC20;
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+
+    rewardBooster = RewardBooster(address(rollup.getRewardConfig().booster));
 
     _;
   }
@@ -209,18 +212,18 @@ contract MultiProofTest is RollupBase {
 
     assertEq(rollup.getProvenBlockNumber(), 0, "Block already proven");
 
-    ActivityScore memory activityScore = rollup.getActivityScore(alice);
+    ActivityScore memory activityScore = rewardBooster.getActivityScore(alice);
 
     assertEq(
       rollup.getSharesFor(alice), rollup.getSharesFor(bob), "Alice shares not equal to bob shares"
     );
 
-    uint256 maxActivityScore = TestConstants.getRollupConfigInput().rewardConfig.maxScore;
-    uint256 maxShares = TestConstants.getRollupConfigInput().rewardConfig.k;
+    uint256 maxActivityScore = TestConstants.getRewardBoostConfig().maxScore;
+    uint256 maxShares = TestConstants.getRewardBoostConfig().k;
 
     stdstore.clear();
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getActivityScore(address)").depth(1)
-      .with_key(alice).checked_write(maxActivityScore);
+    stdstore.enable_packed_slots().target(address(rewardBooster)).sig("getActivityScore(address)")
+      .depth(1).with_key(alice).checked_write(maxActivityScore);
 
     assertGt(
       rollup.getSharesFor(alice),
@@ -228,7 +231,7 @@ contract MultiProofTest is RollupBase {
       "Alice shares not greater than bob shares"
     );
 
-    activityScore = rollup.getActivityScore(alice);
+    activityScore = rewardBooster.getActivityScore(alice);
     assertEq(activityScore.value, maxActivityScore, "Activity score not set");
     assertEq(rollup.getSharesFor(alice), maxShares, "Alice shares not set");
 

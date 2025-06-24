@@ -12,7 +12,8 @@ import {
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
@@ -81,6 +82,7 @@ struct RollupConfigInput {
   uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
+  RewardBoostConfig rewardBoostConfig;
 }
 
 struct RollupConfig {
@@ -198,7 +200,6 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
-  function getActivityScore(address _prover) external view returns (ActivityScore memory);
   function getSharesFor(address _prover) external view returns (uint256);
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);

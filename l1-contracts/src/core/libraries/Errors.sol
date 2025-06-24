@@ -147,4 +147,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+
+  // RewardBooster
+  error RewardBooster__OnlyRollup(address caller);
 }
