@@ -283,14 +283,27 @@ void ExecutionTraceBuilder::process(
                   } });
 
         /**************************************************************************************************
-         *  Temporality group 1: Instruction fetching.
+         *  Temporality group 1: Bytecode retrieval.
+         **************************************************************************************************/
+
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        trace.set(row,
+                  { {
+                      { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        /**************************************************************************************************
+         *  Temporality group 2: Instruction fetching.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
+        bool process_instruction_fetching = !bytecode_retrieval_failed;
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
         trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (!instruction_fetching_failed) {
+        if (process_instruction_fetching && !instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
             // If we fetched an instruction successfully, we can set the next PC.
@@ -302,7 +315,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and Base gas.
+         *  Temporality group 3: Mapping from wire to execution and Base gas.
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
@@ -320,7 +333,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 3: Addressing.
+         *  Temporality group 4: Addressing.
          **************************************************************************************************/
 
         bool should_resolve_address = should_check_gas && !oog_base;
@@ -784,6 +797,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Bytecode retrieval
+        .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
