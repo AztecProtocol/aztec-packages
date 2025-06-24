@@ -4,8 +4,11 @@ fuzzer=''
 verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
-cpus=8
+cpus='8'
 mem="16G"
+jobs_="$cpus"
+workers='0'
+
 
 show_help() {
     echo "Usage: $0 [options]"
@@ -17,6 +20,9 @@ show_help() {
     echo "  -c, --cpus <cpus>           Set the amount of CPUs for container to use (default: $cpus)"
     echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
+    echo "  -j, --jobs <N>              Set the amount of processes to run (default: $jobs_)"
+    echo "  -w, --workers <N>           Set the amount of subprocesses per job (default: $workers)"
+    echo "  -m, --mode <mode>           Set the mode of operation (fuzzing, coverage or regress-only) (default: $mode)"
     echo "  -h, --help                  Display this help and exit"
     echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
@@ -41,6 +47,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -t|--timeout)
             timeout="$2"
+            shift 2
+            ;;
+        -w|--workers)
+            workers="$2"
+            shift 2
+            ;;
+        -j|--jobs)
+            jobs_="$2"
             shift 2
             ;;
         -m|--mode)
@@ -96,13 +110,16 @@ if [ -z "${fuzzer}" ]; then
 fi
 
 [[ -d crash-reports ]] || mkdir crash-reports;
+[[ -d crash-reports/unsorted ]] || mkdir crash-reports/unsorted;
 [[ -d output ]] || mkdir output;
+[[ -d corpus ]] || mkdir corpus;
 
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                         \
         --user root                                             \
         -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports:rw" \
         -v "$(pwd)/output:/home/fuzzer/output:rw"               \
+        -v "$(pwd)/corpus:/home/fuzzer/corpus:rw"               \
         --cpus="$cpus"                                          \
         -m "$mem"                                               \
         --entrypoint "./entrypoint.sh"                          \
@@ -110,17 +127,22 @@ if [[ $verbosity == '1' ]]; then
         --verbose                                               \
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
-        --timeout "$timeout"                             
+        --timeout "$timeout"                                    \
+        --workers "$workers"                                    \
+        --jobs "$jobs_"
 else
     docker run -it --rm                                         \
         --user root                                             \
         -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports"    \
         -v "$(pwd)/output:/home/fuzzer/output"                  \
+        -v "$(pwd)/corpus:/home/fuzzer/corpus:rw"               \
         --cpus="$cpus"                                          \
         -m "$mem"                                               \
         --entrypoint "./entrypoint.sh"                          \
         "$image_name"                                           \
         --fuzzer "$fuzzer"                                      \
         --mode "$mode"                                          \
-        --timeout "$timeout"                             
+        --timeout "$timeout"                                    \
+        --workers "$workers"                                    \
+        --jobs "$jobs_"
 fi
