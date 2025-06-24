@@ -13,7 +13,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 7> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 3, 3, 3 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -50,7 +50,7 @@ template <typename FF_> class bc_retrievalImpl {
             auto tmp = (FF(1) - in.get(C::bc_retrieval_sel)) * in.get(C::bc_retrieval_sel_shift) *
                        in.get(C::bc_retrieval_bytecode_id);
             tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
+            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
@@ -61,24 +61,17 @@ template <typename FF_> class bc_retrievalImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
-                                                      in.get(C::bc_retrieval_outer_nullifier_domain_separator));
+            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
-                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
-            tmp *= scaling_factor;
-            std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = (in.get(C::bc_retrieval_error) -
                         in.get(C::bc_retrieval_sel) * (FF(1) - in.get(C::bc_retrieval_nullifier_exists)));
             tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
+            std::get<5>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
