@@ -36,6 +36,7 @@ export function createValidatorForAcceptingTxs(
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
+    maxTxExpirySlots,
   }: {
     blockNumber: number;
     l1ChainId: number;
@@ -43,6 +44,7 @@ export function createValidatorForAcceptingTxs(
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
+    maxTxExpirySlots: number;
   },
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
@@ -53,6 +55,7 @@ export function createValidatorForAcceptingTxs(
       blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
+      maxTxExpirySlots,
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
@@ -75,6 +78,7 @@ export function createValidatorForBlockBuilding(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
+  maxTxExpirySlots: number,
 ): PublicProcessorValidator {
   const nullifierCache = new NullifierCache(db);
   const archiveCache = new ArchiveCache(db);
@@ -88,6 +92,7 @@ export function createValidatorForBlockBuilding(
       contractDataSource,
       globalVariables,
       setupAllowList,
+      maxTxExpirySlots,
     ),
     nullifierCache,
   };
@@ -100,6 +105,7 @@ function preprocessValidator(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
+  maxTxExpirySlots: number,
 ): TxValidator<Tx> {
   // We don't include the TxProofValidator nor the DataTxValidator here because they are already checked by the time we get to block building.
   return new AggregateTxValidator(
@@ -109,6 +115,7 @@ function preprocessValidator(
       blockNumber: globalVariables.blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
+      maxTxExpirySlots,
     }),
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber),

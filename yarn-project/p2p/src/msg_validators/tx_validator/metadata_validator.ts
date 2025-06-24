@@ -22,6 +22,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       blockNumber: number;
       vkTreeRoot: Fr;
       protocolContractTreeRoot: Fr;
+      maxTxExpirySlots: number;
     },
   ) {}
 
@@ -87,11 +88,30 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   async #isValidForBlockNumber(tx: T): Promise<boolean> {
     const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
 
-    if (maxBlockNumber.isSome && maxBlockNumber.value < this.values.blockNumber) {
+    // All txs are required to have a max block number for expiration purposes.
+    if (!maxBlockNumber.isSome) {
+      this.#log.verbose(
+        `Rejecting tx ${await Tx.getHash(tx)} for not setting a max block number.`,
+      );
+      return false;
+    }
+
+    if (maxBlockNumber.value < this.values.blockNumber) {
       this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)} for low max block number. Tx max block number: ${
           maxBlockNumber.value
         }, current block number: ${this.values.blockNumber}.`,
+      );
+      return false;
+    }
+
+    // Txs must expire in at most maxTxExpirySlots
+    const highestMaxBlockNumberAllowed = this.values.blockNumber + this.values.maxTxExpirySlots;
+    if (maxBlockNumber.value > highestMaxBlockNumberAllowed) {
+      this.#log.verbose(
+        `Rejecting tx ${await Tx.getHash(tx)} for too high max block number. Tx max block number: ${
+          maxBlockNumber.value
+        }, highest max block number allowed: ${highestMaxBlockNumberAllowed}.`,
       );
       return false;
     } else {
