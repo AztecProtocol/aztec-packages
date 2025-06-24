@@ -12,5 +12,6 @@
     "lint:fix": "solhint --config ./.solhint.json --fix --noPrompt \"src/**/*.sol\"; forge fmt",
     "slither": "forge clean && forge build --build-info --skip '*/test/**' --force && slither . --checklist --ignore-compile --show-ignored-findings --config-file ./slither.config.json | tee slither_output.md",
     "slither-has-diff": "./slither_has_diff.sh"
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }
