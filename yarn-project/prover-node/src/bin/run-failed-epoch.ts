@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import type { L1ContractAddresses } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
-import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-rpc';
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { downloadEpochProvingJob, getProverNodeConfigFromEnv, rerunEpochProvingJob } from '@aztec/prover-node';
 import { type UploadSnapshotMetadata, UploadSnapshotMetadataSchema } from '@aztec/stdlib/snapshots';
@@ -33,7 +33,7 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   const metadataPath = join(localDir, 'metadata.json');
   if (existsSync(metadataPath)) {
     logger.info(`Using downloaded data`);
-    metadata = jsonParseWithSchemaSync(await readFile(metadataPath, 'utf-8'), UploadSnapshotMetadataSchema);
+    metadata = jsonParseWithSchema(await readFile(metadataPath, 'utf-8'), UploadSnapshotMetadataSchema);
   } else {
     logger.info(`Downloading epoch proving job data and state from ${provingJobUrl} to ${localDir}`);
     metadata = await downloadEpochProvingJob(provingJobUrl!, logger, {

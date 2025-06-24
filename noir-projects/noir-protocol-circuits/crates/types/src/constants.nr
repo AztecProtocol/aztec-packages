@@ -598,6 +598,19 @@ pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
+// AVM memory related constants
+pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
+pub global AVM_MEMORY_NUM_BITS: u8 = 32;
+
+// AVM bitwise operation IDs
+pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+
+// AVM Keccakf1600 specific constants
+pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
+pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
 // AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias

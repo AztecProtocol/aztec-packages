@@ -176,6 +176,8 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
         { Column::tx_sel_non_revertible_append_nullifier, phase == TransactionPhase::NR_NULLIFIER_INSERTION },
         { Column::tx_sel_revertible_append_note_hash, phase == TransactionPhase::R_NOTE_INSERTION },
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
+        { Column::tx_should_note_hash_append,
+          phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::NR_NOTE_INSERTION },
 
         // Revertible
         { Column::tx_successful_tree_insert, reverted ? 0 : 1 },
@@ -228,6 +230,7 @@ std::vector<std::pair<Column, FF>> handle_padded_row(TransactionPhase phase, Gas
 
     std::vector<std::pair<Column, FF>> columns = {
         { Column::tx_sel, 1 },
+        { Column::tx_discard, 0 }, // TODO: Actually reconstruct discard in the tx.
         { Column::tx_phase_value, static_cast<uint8_t>(phase) },
         { Column::tx_is_padded, 1 },
         { Column::tx_start_phase, 1 },
@@ -345,6 +348,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
             trace.set(row,
                       { {
                           { C::tx_sel, 1 },
+                          { C::tx_discard, 0 }, // TODO: Actually reconstruct discard in the tx.
                           { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                           { C::tx_is_padded, 0 },
                           { C::tx_start_phase, phase_counter == 0 ? 1 : 0 },
@@ -379,20 +383,11 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                                   handle_append_tree_event(event, tx_phase_event->phase, tx_phase_event->reverted));
 
                         // The read/write counter differs if we are inserting note hashes or nullifiers
-                        auto tree_state = tx_phase_event->prev_tree_state;
                         if (TransactionPhase::NR_NOTE_INSERTION == tx_phase_event->phase ||
                             TransactionPhase::R_NOTE_INSERTION == tx_phase_event->phase) {
-                            trace.set(row,
-                                      handle_pi_read_write(tx_phase_event->phase,
-                                                           phase_length,
-                                                           phase_counter,
-                                                           tree_state.noteHashTree.counter));
+                            trace.set(row, handle_pi_read_write(tx_phase_event->phase, phase_length, phase_counter, 0));
                         } else {
-                            trace.set(row,
-                                      handle_pi_read_write(tx_phase_event->phase,
-                                                           phase_length,
-                                                           phase_counter,
-                                                           tree_state.nullifierTree.counter));
+                            trace.set(row, handle_pi_read_write(tx_phase_event->phase, phase_length, phase_counter, 0));
                         }
                     },
                     [&](const simulation::PrivateEmitL2L1MessageEvent& event) {
@@ -436,12 +431,12 @@ const InteractionDefinition TxTraceBuilder::interactions =
         // .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
         // .add<lookup_tx_dispatch_exec_get_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_tree_insert_value_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_write_tree_insert_value_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_l2_l1_msg_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>();
+        .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>();
 // Commented out for now, to make the bulk test pass before all opcodes are implemented.
 // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
 // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()

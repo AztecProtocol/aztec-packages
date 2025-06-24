@@ -12,6 +12,7 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -38,6 +39,7 @@ struct EpochRewards {
 }
 
 struct RewardConfig {
+  IRewardDistributor rewardDistributor;
   Bps sequencerBps;
   uint32 increment;
   uint32 maxScore;
@@ -196,7 +198,7 @@ library RewardLib {
     RewardStorage storage rewardStorage = getStorage();
 
     bool isRewardDistributorCanonical =
-      address(this) == rollupStore.config.rewardDistributor.canonicalRollup();
+      address(this) == rewardStorage.config.rewardDistributor.canonicalRollup();
 
     uint256 length = _args.end - _args.start + 1;
     EpochRewards storage $er = rewardStorage.epochRewards[_endEpoch];
@@ -224,7 +226,7 @@ library RewardLib {
       {
         uint256 added = length - $er.longestProvenLength;
         uint256 blockRewardsAvailable = isRewardDistributorCanonical
-          ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
+          ? rewardStorage.config.rewardDistributor.claimBlockRewards(address(this), added)
           : 0;
         uint256 sequencerShare =
           BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);

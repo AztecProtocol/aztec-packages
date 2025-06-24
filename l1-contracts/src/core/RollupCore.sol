@@ -29,7 +29,6 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
@@ -67,7 +66,6 @@ contract RollupCore is
 
   constructor(
     IERC20 _feeAsset,
-    IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     GSE _gse,
     IVerifier _epochProofVerifier,
@@ -94,7 +92,6 @@ contract RollupCore is
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
     rollupStore.config.entryQueueFlushSizeMin = _config.entryQueueFlushSizeMin;
     rollupStore.config.entryQueueFlushSizeQuotient = _config.entryQueueFlushSizeQuotient;
