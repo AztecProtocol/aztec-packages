@@ -104,9 +104,7 @@ struct ExecutionTraceUsageTracker {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
         // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
         // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
-        size_t databus_end =
-            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
-        active_ranges.push_back(Range{ 0, databus_end });
+        active_ranges.push_back(Range{ 0, max_databus_size });
         size_t lookups_start = fixed_sizes.lookup.trace_offset;
         size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
         active_ranges.emplace_back(Range{ lookups_start, lookups_end });
