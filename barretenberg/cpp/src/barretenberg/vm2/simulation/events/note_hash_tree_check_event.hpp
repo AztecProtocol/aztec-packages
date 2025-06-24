@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 #include <cstdint>
@@ -33,14 +34,16 @@ struct NoteHashAppendData {
     bool operator==(const NoteHashAppendData& other) const = default;
 };
 
-struct NoteHashTreeCheckEvent {
+struct NoteHashTreeReadWriteEvent {
     FF note_hash;
     uint64_t leaf_index;
     AppendOnlyTreeSnapshot prev_snapshot;
 
     std::optional<NoteHashAppendData> append_data;
 
-    bool operator==(const NoteHashTreeCheckEvent& other) const = default;
+    bool operator==(const NoteHashTreeReadWriteEvent& other) const = default;
 };
+
+using NoteHashTreeCheckEvent = std::variant<NoteHashTreeReadWriteEvent, CheckPointEventType>;
 
 } // namespace bb::avm2::simulation

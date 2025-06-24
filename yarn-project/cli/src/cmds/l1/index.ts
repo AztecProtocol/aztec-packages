@@ -15,7 +15,7 @@ import {
   pxeOption,
 } from '../../utils/commands.js';
 
-export { addL1ValidatorToQueue, dripQueue } from './update_l1_validators.js';
+export { addL1Validator } from './update_l1_validators.js';
 
 const l1RpcUrlsOption = new Option(
   '--l1-rpc-urls <string>',
@@ -282,7 +282,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     });
 
   program
-    .command('add-l1-validator-to-queue')
+    .command('add-l1-validator')
     .description('Adds a validator to the L1 rollup contract.')
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
@@ -297,15 +297,21 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
       Buffer.from(withoutHexPrefix(arg), 'hex'),
     )
+    .option(
+      '--merkle-proof <string>',
+      'The merkle proof to use for the attestation (comma separated list of 32 byte buffers)',
+      arg => arg.split(','),
+    )
     .action(async options => {
-      const { addL1ValidatorToQueue } = await import('./update_l1_validators.js');
-      await addL1ValidatorToQueue({
+      const { addL1Validator } = await import('./update_l1_validators.js');
+      await addL1Validator({
         rpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
         stakingAssetHandlerAddress: options.stakingAssetHandler,
+        merkleProof: options.merkleProof,
         proofParams: options.proof,
         log,
         debugLogger,
