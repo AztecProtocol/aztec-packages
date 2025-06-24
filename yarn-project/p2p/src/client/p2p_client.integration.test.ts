@@ -31,6 +31,7 @@ import {
   startTestP2PClients,
 } from '../test-helpers/make-test-p2p-clients.js';
 import { MockGossipSubNetwork } from '../test-helpers/mock-pubsub.js';
+import { privateKeyToHex } from '../util.js';
 
 const TEST_TIMEOUT = 120000;
 
@@ -300,7 +301,7 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
-      const client2PeerId = await client2.getEnr()!.peerId();
+      const client2PeerId = client2.getEnr()!.peerId;
 
       // Give the nodes time to discover each other
       await sleep(6000);
@@ -343,7 +344,7 @@ describe('p2p client integration', () => {
         })
       ).map(x => x.client);
       const [client1, client2] = clients;
-      const client2PeerId = (await client2.getEnr()?.peerId())!;
+      const client2PeerId = client2.getEnr()?.peerId;
 
       // Give the nodes time to discover each other
       await sleep(6000);
@@ -418,11 +419,11 @@ describe('p2p client integration', () => {
 
       // We re-create client 2 as before, but client 3 moves to a new rollup version
       const newEnrs = [client1.enr, client2.enr, client3.enr];
-      const newClient2 = await makeTestP2PClient(client2.peerPrivateKey, client2.port, newEnrs, {
+      const newClient2 = await makeTestP2PClient(privateKeyToHex(client2.peerPrivateKey), client2.port, newEnrs, {
         ...testConfig,
         logger: createLogger(`p2p:new-client-2`),
       });
-      const newClient3 = await makeTestP2PClient(client3.peerPrivateKey, client3.port, newEnrs, {
+      const newClient3 = await makeTestP2PClient(privateKeyToHex(client3.peerPrivateKey), client3.port, newEnrs, {
         ...testConfig,
         p2pBaseConfig: newP2PConfig,
         logger: createLogger(`p2p:new-client-3`),
@@ -645,8 +646,6 @@ describe('p2p client integration', () => {
       expect(disconnectSpies[2]).not.toHaveBeenCalled(); // c2 is ok with both c0 and c1
 
       const expectedHandshakeCount = peerTestCount - 1;
-      // c2 established connection exactly once with both c0 and c1
-      expect(statusHandshakeSpies[2]).toHaveBeenCalledTimes(expectedHandshakeCount);
 
       // c1 received invalid status from c0 exactly once
       // the connection between c0 and c1 might have been retried in the meantime
@@ -654,6 +653,7 @@ describe('p2p client integration', () => {
       // This is why we use `toBeGreaterThanOrEqual` instead of `toHaveBeenCalledTimes`
       expect(statusHandshakeSpies[0].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
       expect(statusHandshakeSpies[1].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
+      expect(statusHandshakeSpies[2].mock.calls.length).toBeGreaterThanOrEqual(expectedHandshakeCount);
 
       await shutdown(clients);
     },

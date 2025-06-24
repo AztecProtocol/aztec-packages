@@ -17,7 +17,7 @@ import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
-import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
+import { configureP2PClientAddresses, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
   txPool?: TxPool;
@@ -71,11 +71,9 @@ export const createP2PClient = async <T extends P2PClientType>(
   logger.verbose('P2P is enabled. Using LibP2P service.');
   config = await configureP2PClientAddresses(_config);
 
-  // Create peer discovery service
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
-  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
 
-  const p2pService = await (deps.p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerId, {
+  const p2pService = await (deps.p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerIdPrivateKey, {
     packageVersion,
     mempools,
     l2BlockSource: archiver,
