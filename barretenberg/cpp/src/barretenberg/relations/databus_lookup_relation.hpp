@@ -58,6 +58,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     // degree to 4 which removes the need of having degree adjustments for folding.
     static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
     static constexpr size_t INVERSE_SUBREL_LENGTH_ADJUSTMENT = 0;
+    // the max degree of this subrelation is 4 in both the sumcheck and protogalaxy contexts because in the latter case databus_id is always degree 0 when formed via interpolation across two instances
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 5; // deg + 1 of log-deriv lookup subrelation
     static constexpr size_t LOOKUP_SUBREL_LENGTH_ADJUSTMENT = 0;
     static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH =
