@@ -13,7 +13,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2 };
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS = { 3, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -31,27 +31,19 @@ template <typename FF_> class bc_retrievalImpl {
         using C = ColumnAndShifts;
 
         const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
-        const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
-                                                      in.get(C::bc_retrieval_outer_nullifier_domain_separator));
+            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
+                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = in.get(C::bc_retrieval_sel) * (constants_DEPLOYER_CONTRACT_ADDRESS -
-                                                      in.get(C::bc_retrieval_deployer_protocol_contract_address));
-            tmp *= scaling_factor;
-            std::get<1>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = (in.get(C::bc_retrieval_sel) - in.get(C::bc_retrieval_sel));
             tmp *= scaling_factor;
-            std::get<2>(evals) += typename Accumulator::View(tmp);
+            std::get<1>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

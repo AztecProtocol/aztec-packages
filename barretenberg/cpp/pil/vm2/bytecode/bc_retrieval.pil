@@ -49,27 +49,26 @@ pol commit public_data_tree_root;
 pol commit nullifier_tree_root;
 
 // TODO: Remove this as a column when we can lookup with constants
-pol commit outer_nullifier_domain_separator;
-sel * (constants.GENERATOR_INDEX__OUTER_NULLIFIER - outer_nullifier_domain_separator) = 0;
-
-// TODO: Remove this as a column when we can lookup with constants
 pol commit deployer_protocol_contract_address;
 sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
-
-pol commit siloed_address;
-
-// TODO: use input length in the lookup to avoid extraneous items being added by the prover
-// Consider using start instead of end as selector.
-#[SILO_DEPLOYMENT_NULLIFIER_POSEIDON2]
-sel { outer_nullifier_domain_separator, deployer_protocol_contract_address, address, siloed_address }
-in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
 // TODO: Use the negation of this as an error flag.
 pol commit nullifier_exists;
 
 #[DEPLOYMENT_NULLIFIER_READ]
-sel { nullifier_exists, siloed_address, nullifier_tree_root }
-in nullifier_check.sel { nullifier_check.exists, nullifier_check.nullifier, nullifier_check.root };
+sel {
+  nullifier_exists,
+  address,
+  nullifier_tree_root,
+  deployer_protocol_contract_address,
+  sel
+} in nullifier_check.sel {
+  nullifier_check.exists,
+  nullifier_check.nullifier,
+  nullifier_check.root,
+  nullifier_check.address,
+  nullifier_check.should_silo
+};
 
 // TODO: Probably some latch is also needed.
 // TODO: Selector needs to be guarded by error flag.

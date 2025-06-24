@@ -88,17 +88,38 @@ void MerkleDB::storage_write(const FF& leaf_slot, const FF& value)
     }
 }
 
-bool MerkleDB::nullifier_exists(const FF& nullifier) const
+bool MerkleDB::nullifier_exists(AztecAddress contract_address, const FF& nullifier) const
 {
-    auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, nullifier);
+    return nullifier_exists_internal(contract_address, nullifier);
+}
+
+bool MerkleDB::siloed_nullifier_exists(const FF& nullifier) const
+{
+    return nullifier_exists_internal(/*contract_address*/ std::nullopt, nullifier);
+}
+
+bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_address, const FF& nullifier) const
+{
+    FF siloed_nullifier = nullifier;
+    if (contract_address.has_value()) {
+        siloed_nullifier = silo_nullifier(contract_address.value(), nullifier);
+    }
+
+    auto [present, low_leaf_index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::NULLIFIER_TREE, siloed_nullifier);
     auto low_leaf_path = raw_merkle_db.get_sibling_path(MerkleTreeId::NULLIFIER_TREE, low_leaf_index);
     auto low_leaf_preimage = raw_merkle_db.get_leaf_preimage_nullifier_tree(low_leaf_index);
 
-    nullifier_tree_check.assert_read(
-        nullifier, present, low_leaf_preimage, low_leaf_index, low_leaf_path, get_tree_roots().nullifierTree);
+    nullifier_tree_check.assert_read(nullifier,
+                                     contract_address,
+                                     present,
+                                     low_leaf_preimage,
+                                     low_leaf_index,
+                                     low_leaf_path,
+                                     get_tree_roots().nullifierTree);
 
     return present;
 }
+
 bool MerkleDB::nullifier_write(const AztecAddress& contract_address, const FF& nullifier)
 {
     return nullifier_write_internal(contract_address, nullifier);

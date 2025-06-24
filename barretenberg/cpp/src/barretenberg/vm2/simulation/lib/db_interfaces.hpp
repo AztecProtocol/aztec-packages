@@ -77,7 +77,8 @@ class HighLevelMerkleDBInterface {
 
     virtual FF storage_read(const FF& key) const = 0;
     virtual void storage_write(const FF& leaf_slot, const FF& value) = 0;
-    virtual bool nullifier_exists(const FF& nullifier) const = 0;
+    virtual bool nullifier_exists(AztecAddress contract_address, const FF& nullifier) const = 0;
+    virtual bool siloed_nullifier_exists(const FF& nullifier) const = 0;
     virtual bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) = 0;
     virtual bool siloed_nullifier_write(const FF& nullifier) = 0;
 

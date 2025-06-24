@@ -196,9 +196,7 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
-                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
                 { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
-                { C::bc_retrieval_siloed_address, event.siloed_address },
                 { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }
@@ -387,7 +385,6 @@ const InteractionDefinition BytecodeTraceBuilder::interactions =
         .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_address_derivation_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_update_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings, InteractionType::LookupSequential>()
         .add<lookup_bc_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
         // Bytecode Decomposition
         .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByClk>()

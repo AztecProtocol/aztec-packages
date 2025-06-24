@@ -32,13 +32,20 @@ void NullifierTreeCheck::validate_low_leaf(FF nullifier,
     }
 }
 
-void NullifierTreeCheck::assert_read(const FF& nullifier,
+void NullifierTreeCheck::assert_read(FF nullifier,
+                                     std::optional<AztecAddress> contract_address,
                                      bool exists,
                                      const NullifierTreeLeafPreimage& low_leaf_preimage,
                                      uint64_t low_leaf_index,
                                      std::span<const FF> sibling_path,
                                      const AppendOnlyTreeSnapshot& snapshot)
 {
+    FF source_nullifier = nullifier;
+    std::optional<NullifierSiloingData> siloing_data = std::nullopt;
+    if (contract_address.has_value()) {
+        nullifier = silo_nullifier(nullifier, contract_address.value());
+        siloing_data = NullifierSiloingData{ .siloed_nullifier = nullifier, .address = contract_address.value() };
+    }
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
     merkle_check.assert_membership(low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
@@ -47,12 +54,13 @@ void NullifierTreeCheck::assert_read(const FF& nullifier,
     validate_low_leaf(nullifier, low_leaf_preimage, exists);
 
     events.emit(NullifierTreeReadWriteEvent{
-        .nullifier = nullifier,
+        .nullifier = source_nullifier,
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
         .low_leaf_preimage = low_leaf_preimage,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
+        .siloing_data = siloing_data,
     });
 }
 

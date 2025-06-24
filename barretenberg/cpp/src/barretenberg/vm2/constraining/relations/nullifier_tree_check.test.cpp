@@ -116,6 +116,7 @@ TEST_P(NullifierReadPositiveTests, Positive)
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
+                                               /*contract_address*/ std::nullopt,
                                                param.exists,
                                                param.low_leaf,
                                                leaf_index,

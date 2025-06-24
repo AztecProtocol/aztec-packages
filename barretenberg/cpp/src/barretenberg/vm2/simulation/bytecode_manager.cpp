@@ -22,9 +22,8 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // TODO: catch errors etc.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
 
-    if (!merkle_db.nullifier_exists(siloed_address)) {
+    if (!merkle_db.nullifier_exists(DEPLOYER_CONTRACT_ADDRESS, address)) {
         throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
     }
 
@@ -55,7 +54,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
-        .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
         .nullifier_root = tree_snapshots.nullifierTree.root,
