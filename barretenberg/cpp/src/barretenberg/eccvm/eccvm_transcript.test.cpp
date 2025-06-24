@@ -221,7 +221,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t round = 0;
-        manifest_expected.add_entry(round, "IPA:poly_degree_plus_1", frs_per_Fr);
+        manifest_expected.add_entry(round, "IPA:poly_length", frs_per_Fr);
         manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
         for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {

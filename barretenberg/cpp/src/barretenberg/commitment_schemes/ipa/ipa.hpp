@@ -27,8 +27,12 @@
 
 namespace bb {
 // clang-format off
-
-constexpr size_t IPA_PROOF_LENGTH = 2 + 4 * CONST_ECCVM_LOG_N + 2 + 2;
+// Note that an update of this constant requires updating the inputs to noir protocol circuit (rollup-base-private, rollup-base-public,
+// rollup-block-merge, rollup-block-root, rollup-merge, rollup-root), as well as updating IPA_PROOF_LENGTH in other places.
+static constexpr size_t IPA_PROOF_LENGTH =  /* poly_length */ 2 +
+                                            /* comms IPA_L and IPA_R */ 4 * CONST_ECCVM_LOG_N  +
+                                            /* comm G_0 */    2 +
+                                            /* eval a_0 */    2;
 
 /**
 * @brief IPA (inner product argument) commitment scheme class.
@@ -99,6 +103,9 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
    using VK = VerifierCommitmentKey<Curve>;
    using VerifierAccumulator = stdlib::recursion::honk::IpaAccumulator<Curve>;
 
+   // Compute the length of the vector of coefficients of a polynomial being opened.
+   static constexpr size_t poly_length = 1UL<<log_poly_length;
+
 // These allow access to internal functions so that we can never use a mock transcript unless it's fuzzing or testing of IPA specifically
 #ifdef IPA_TEST
    FRIEND_TEST(IPATest, ChallengesAreZero);
@@ -150,12 +157,13 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
-        constexpr size_t poly_length = 1UL<<log_poly_length;
-
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1150): Hash more things here.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1408): Make IPA fuzzer compatible with `add_to_hash_buffer`.
         // Step 1.
+        // Note that we don't need to hash `poly_length` as it is a compile-time constant.
+        // It can go away as a result of the resolution of the above issues.
         // Send polynomial degree + 1 = d to the verifier
-        transcript->send_to_verifier("IPA:poly_degree_plus_1", Fr(poly_length));
+        transcript->send_to_verifier("IPA:poly_length", Fr(poly_length));
 
         // Step 2.
         // Receive challenge for the auxiliary generator
@@ -319,12 +327,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                       const std::shared_ptr<Transcript>& transcript)
         requires(!Curve::is_stdlib_type)
     {
-        static constexpr size_t poly_length = 1UL<<log_poly_length;
 
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length_received_from_prover = transcript->template receive_from_prover<Fr>(
-            "IPA:poly_degree_plus_1"); // note this is base field because this is a uint32_t, which should map
+            "IPA:poly_length"); // note this is base field because this is a uint32_t, which should map
                                         // to a bb::fr, not a grumpkin::fr, which is a BaseField element for
                                         // Grumpkin
         ASSERT(poly_length_received_from_prover == poly_length);
@@ -429,8 +436,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-    	Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
-        poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
+    	const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
+        poly_length_received_from_prover.assert_equal(poly_length);
 
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
@@ -576,15 +583,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
-        Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_degree_plus_1");
-        poly_length_received_from_prover.assert_equal(Fr(1UL<<log_poly_length));
+        const Fr poly_length_received_from_prover = transcript->template receive_from_prover<Fr>("IPA:poly_length");
+        poly_length_received_from_prover.assert_equal(poly_length);
         // Step 2.
         // Receive generator challenge u and compute auxiliary generator
         const Fr generator_challenge = transcript->template get_challenge<Fr>("IPA:generator_challenge");
         typename Curve::Builder* builder = generator_challenge.get_context();
-        constexpr size_t poly_length = 1UL<<log_poly_length;
 
-        constexpr size_t pippenger_size = 2 * log_poly_length;
+        static constexpr size_t pippenger_size = 2 * log_poly_length;
         std::vector<Fr> round_challenges(log_poly_length);
         std::vector<Fr> round_challenges_inv(log_poly_length);
         std::vector<Commitment> msm_elements(pippenger_size);
@@ -786,7 +792,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      * @return Polynomial<bb::fq>
      */
     static Polynomial<bb::fq> construct_poly_from_u_challenges_inv(const std::span<const bb::fq>& u_challenges_inv) {
-        constexpr size_t poly_length = (1 << log_poly_length);
 
         // Construct vector s in linear time.
         std::vector<bb::fq> s_vec(poly_length, bb::fq::one());
@@ -902,8 +907,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         using Builder = typename Curve::Builder;
         using Curve = stdlib::grumpkin<Builder>;
         auto ipa_transcript = std::make_shared<NativeTranscript>();
-        CommitmentKey<NativeCurve> ipa_commitment_key(1 << log_poly_length);
-        size_t n = 1UL<<log_poly_length;
+        CommitmentKey<NativeCurve> ipa_commitment_key(poly_length);
+        size_t n = poly_length;
         auto poly = Polynomial<fq>(n);
         for (size_t i = 0; i < n; i++) {
             poly.at(i) = fq::random_element();
