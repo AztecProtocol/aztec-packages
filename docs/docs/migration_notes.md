@@ -7,6 +7,17 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## 0.88.0
+
+## [Aztec.nr] Deprecation of the `authwit` library
+
+It is now included in `aztec-nr`, so imports must be updated:
+
+```diff
+-dep::authwit::...
++dep::aztec::authwit...
+```
+
 ## 0.87.0
 
 ## [Aztec.js/TS libraries]
