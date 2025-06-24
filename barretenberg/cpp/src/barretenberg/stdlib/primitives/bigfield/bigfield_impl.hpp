@@ -1110,8 +1110,6 @@ bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const st
     return remainder;
 }
 
-// MERGENOTE: Implementing dual_madd in terms of mult_madd following #729
-
 /**
  * @brief Performs individual reductions on the supplied elements as well as more complex reductions to prevent CRT
  * modulus overflow and to fit the quotient inside the range proof
