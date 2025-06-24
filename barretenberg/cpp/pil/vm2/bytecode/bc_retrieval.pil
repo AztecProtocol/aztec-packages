@@ -6,18 +6,44 @@ include "../constants_gen.pil";
 include "../trees/nullifier_check.pil";
 
 // Bytecode retrieval.
+//
+// This subtrace constrains everything related to "retrieving" a bytecode given an address.
+// In practice this means:
+// - Silo the address.
+// - Check if the nullifier exists.
+// - Derive the class id.
+// - Derive the address.
+// - Check updatability.
+//
+// The lookups into this subtrace are expected to be on the columns
+// { bytecode_id, address, error }
+// This trace is the owner of the bytecode_id (incrementing).
+//
+// Note that this trace will prove both success or failure of retrieval.
+
 namespace bc_retrieval;
 
 pol commit sel;
+sel * (1 - sel) = 0;
+
 // No relations will be checked if this identity is satisfied.
 #[skippable_if]
 sel = 0;
 
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
+#[TRACE_CONTINUITY]
+(1 - sel) * (1 - precomputed.first_row) * sel' = 0;
+
 // This id is generated at runtime starting from zero and incremented by 1.
 // The primary source of bytecode_id is this sub-trace.
 pol commit bytecode_id;
-pol commit err;  // some error occurred.
+pol commit error;  // some error occurred.
 pol commit address;  // contract address.
+
+// `bytecode_id` starts from zero and incremented by 1.
+// Note: we only need to require TRACE_CONTINUITY because of this.
+((1 - sel) * sel') * bytecode_id = 0;  // First row that has sel = 1.
+sel * sel' * (bytecode_id' - bytecode_id) = 0;  // Next row.
 
 // address instance members.
 // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
@@ -52,8 +78,9 @@ pol commit nullifier_tree_root;
 pol commit deployer_protocol_contract_address;
 sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
 
-// TODO: Use the negation of this as an error flag.
 pol commit nullifier_exists;
+// The only error that can happen is if the nullifier does not exist.
+error = sel * (1 - nullifier_exists);
 
 #[DEPLOYMENT_NULLIFIER_READ]
 sel {
@@ -71,9 +98,8 @@ sel {
 };
 
 // TODO: Probably some latch is also needed.
-// TODO: Selector needs to be guarded by error flag.
 #[ADDRESS_DERIVATION]
-sel {
+nullifier_exists {
   address, salt, deployer_addr, original_class_id, init_hash,
   nullifier_key_x, nullifier_key_y,
   incoming_viewing_key_x, incoming_viewing_key_y,
@@ -88,16 +114,14 @@ sel {
 };
 
 // TODO: Probably some latch is also needed.
-// TODO: Selector needs to be guarded by error flag.
 #[UPDATE_CHECK]
-sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
+nullifier_exists { address, current_class_id, original_class_id, public_data_tree_root, block_number }
 in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
 
 // Observe the folowing also connects the current_class_id of the instance to the class members.
 // TODO: Probably some latch is also needed.
-// TODO: Selector needs to be guarded by error flag.
 #[CLASS_ID_DERIVATION]
-sel {
+nullifier_exists {
   current_class_id,
   artifact_hash,
   private_function_root,
@@ -109,10 +133,9 @@ sel {
   class_id_derivation.public_bytecode_commitment
 };
 
-// TODO: Gate by error flag.
 // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
 //#[BYTECODE_HASH_IS_CORRECT]
-//sel { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
+//nullifier_exists { bytecode_id, public_bytecode_commitment } in bc_hashing.latch { bc_hashing.bytecode_id, bc_hashing.output_hash };
 
 
 // Note: we don't need to silo and check the class id because the deployer contract guarrantees
@@ -121,6 +144,3 @@ sel {
 // TODO: To ensure byetcode_id unicity inside of bc_decomposition.pil, we will have to introduce
 // a permutation of the form: sel_XXX {bytecode_id} is bc_decomposition.last_of_contract {bc_decomposition.id}
 // sel_XXX will have to be picked so that it selects a bytecode_id iff it has an entry in bc_decomposition
-
-// Dummy relation to make codegen work.
-sel = sel;
