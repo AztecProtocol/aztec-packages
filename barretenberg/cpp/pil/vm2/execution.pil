@@ -55,28 +55,33 @@ pol commit enqueued_call_end;
  *  Setup (some general constraints)
  **************************************************************************************************/
 
-// If the current row is an execution row, then either
-// the next row is an execution row, or the current row is marked as the last row.
-// sel => (sel' v last) = 1              iff
-// ¬sel v (sel' v last) = 1              iff
-// ¬(¬sel v (sel' v last)) = 0           iff
-// sel ^ (¬sel' ^ ¬last) = 0             iff
-// sel * (1 - sel') * (1 - last) = 0
-#[TRACE_CONTINUITY_1]
-sel * (1 - sel') * (1 - last) = 0;
-// If the current row is not an execution row, then there are no more execution rows after that.
-// (not enforced for the first row)
-#[TRACE_CONTINUITY_2]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-// If the current row is the last row, then the next row is not an execution row.
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
+#[TRACE_CONTINUITY]
+(1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 #[LAST_IS_LAST]
-last * sel' = 0;
+last = sel * (1 - sel');
 
 /**************************************************************************************************
- *  Temporality group 1: Instruction fetching (unconditional)
+ *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
 pol commit bytecode_id;
+pol commit sel_bytecode_retrieval_failure;
+
+#[BYTECODE_RETRIEVAL_RESULT]
+sel {
+    bytecode_id, contract_address, sel_bytecode_retrieval_failure
+} in bc_retrieval.sel {
+    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
+};
+
+pol commit sel_bytecode_retrieval_success;
+sel * (sel_bytecode_retrieval_success - (1 - sel_bytecode_retrieval_failure)) = 0;
+
+/**************************************************************************************************
+ *  Temporality group 2: Instruction fetching
+ **************************************************************************************************/
+
 pol commit instr_length; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure;
 
@@ -91,7 +96,7 @@ pol commit op[7];  // operands
 // TODO: We can consider optimizing this later, but it is probably the cleanest right now.
 
 #[INSTRUCTION_FETCHING_RESULT]
-sel {
+sel_bytecode_retrieval_success {
     pc, bytecode_id, sel_instruction_fetching_failure
 } in instr_fetching.sel {
     instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err

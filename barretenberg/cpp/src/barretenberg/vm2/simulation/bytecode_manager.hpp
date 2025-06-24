@@ -23,6 +23,15 @@
 
 namespace bb::avm2::simulation {
 
+struct BytecodeNotFoundError : public std::runtime_error {
+    BytecodeNotFoundError(BytecodeId id, const std::string& message)
+        : std::runtime_error(message)
+        , bytecode_id(id)
+    {}
+
+    BytecodeId bytecode_id;
+};
+
 // Manages the bytecode operations of all calls in a transaction.
 // In particular, it will not duplicate hashing and decomposition.
 class TxBytecodeManagerInterface {
@@ -77,8 +86,13 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
     unordered_flat_map<BytecodeId, std::shared_ptr<std::vector<uint8_t>>> bytecodes;
-    unordered_flat_map<AztecAddress, BytecodeId> resolved_addresses;
     BytecodeId next_bytecode_id = 0;
+
+    struct ResolvedAddress {
+        BytecodeId bytecode_id;
+        bool not_found = false;
+    };
+    unordered_flat_map<AztecAddress, ResolvedAddress> resolved_addresses;
 };
 
 // Manages the bytecode of a single nested call.
