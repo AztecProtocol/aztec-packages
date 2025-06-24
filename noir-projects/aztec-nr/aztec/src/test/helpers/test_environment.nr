@@ -173,10 +173,6 @@ impl TestEnvironment {
         &mut self,
         historical_timestamp: u64,
     ) -> PrivateContext {
-        if historical_timestamp > get_timestamp() {
-            self.advance_timestamp_to(historical_timestamp);
-        }
-
         let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
 
         PrivateContext::new(inputs, 0)
