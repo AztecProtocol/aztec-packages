@@ -231,7 +231,7 @@ TEST(AvmSimulationNullifierTree, Siloing)
 
     nullifier_tree_check.assert_read(nullifier, contract_address, 10, low_leaf, low_leaf_index, sibling_path, snapshot);
 
-    NullifierTreeReadWriteEvent expect_event = {
+    NullifierTreeReadWriteEvent read_event = {
         .nullifier = nullifier,
         .prev_snapshot = snapshot,
         .next_snapshot = snapshot,
@@ -240,7 +240,27 @@ TEST(AvmSimulationNullifierTree, Siloing)
         .low_leaf_index = low_leaf_index,
         .siloing_data = NullifierSiloingData{ .siloed_nullifier = siloed_nullifier, .address = contract_address },
     };
-    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
+    nullifier_tree_check.write(nullifier,
+                               contract_address,
+                               10,
+                               low_leaf,
+                               low_leaf_index,
+                               sibling_path,
+                               snapshot,
+                               /*insertion_path*/ std::nullopt);
+
+    NullifierTreeReadWriteEvent write_event = {
+        .nullifier = nullifier,
+        .prev_snapshot = snapshot,
+        .next_snapshot = snapshot,
+        .low_leaf_preimage = low_leaf,
+        .low_leaf_hash = low_leaf_hash,
+        .low_leaf_index = low_leaf_index,
+        .write = true,
+        .siloing_data = NullifierSiloingData{ .siloed_nullifier = siloed_nullifier, .address = contract_address },
+        .nullifier_counter = 10,
+    };
+    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(read_event, write_event));
 }
 
 TEST(AvmSimulationNullifierTree, WriteAppend)
