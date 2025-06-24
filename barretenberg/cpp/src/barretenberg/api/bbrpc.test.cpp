@@ -322,6 +322,8 @@ TEST_F(BBRpcTests, VkAsFields)
 }
 
 // Test IVC with mock kernels enabled
+// NOTE: we could consider using a more complex circuit with multiple kernels, but for now
+// we just test the basic functionality with a single kernel. This is enough to exercise the code path.
 TEST_F(BBRpcTests, ClientIvcWithMockKernels)
 {
     // Create request with testing_only_generate_mock_kernels enabled
@@ -339,12 +341,6 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
         from_buffer<MegaFlavor::VerificationKey>(app_vk_result.verification_key);
     auto app_vk_fields = app_vk.to_field_elements();
     auto init_kernel_bytecode = create_simple_kernel(app_vk_fields.size(), false);
-    // auto init_kernel_vk_result =
-    //     execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
-    // const MegaFlavor::VerificationKey& init_kernel_vk =
-    //     from_buffer<MegaFlavor::VerificationKey>(init_kernel_vk_result.verification_key);
-    // auto init_kernel_vk_fields = init_kernel_vk.to_field_elements();
-    // auto tail_kernel_bytecode = create_simple_kernel(init_kernel_vk_fields.size(), true);
 
     Witnesses::WitnessStack init_kernel_witness;
     init_kernel_witness.stack.push_back({});
@@ -354,21 +350,11 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
         init_kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
     }
 
-    // Witnesses::WitnessStack tail_kernel_witness;
-    // tail_kernel_witness.stack.push_back({});
-    // for (uint32_t i = 0; i < init_kernel_vk_fields.size(); i++) {
-    //     std::stringstream ss;
-    //     ss << init_kernel_vk_fields[i];
-    //     tail_kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
-    // }
-
     // Load the circuit
     execute(request, ClientIvcLoad{ CircuitInput{ "app_circuit", circuit_bytecode, {} } });
     execute(request, ClientIvcAccumulate{ witness_data });
     execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", init_kernel_bytecode, {} } });
     execute(request, ClientIvcAccumulate{ init_kernel_witness.bincodeSerialize() });
-    // execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", tail_kernel_bytecode, {} } });
-    // execute(request, ClientIvcAccumulate{ tail_kernel_witness.bincodeSerialize() });
 
     // Generate proof
     auto prove_response = execute(request, ClientIvcProve{});
