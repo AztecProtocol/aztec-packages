@@ -321,13 +321,11 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
      *10. Compute \f$C_{right}=a_{0}G_{s}+a_{0}b_{0}U\f$
      *11. Check that \f$C_{right} = C_0\f$. If they match, return true. Otherwise return false.
      */
-    template <typename Transcript>
     static bool reduce_verify_internal_native(const VK& vk,
                                                       const OpeningClaim<Curve>& opening_claim,
-                                                      const std::shared_ptr<Transcript>& transcript)
+                                                      auto& transcript)
         requires(!Curve::is_stdlib_type)
     {
-
         // Step 1.
         // Receive polynomial_degree + 1 = d from the prover
         auto poly_length_received_from_prover = transcript->template receive_from_prover<Fr>(
