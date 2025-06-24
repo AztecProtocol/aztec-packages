@@ -2023,6 +2023,8 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     bigfield to_mul = input_to_mul;
     bigfield quotient = input_quotient;
 
+    // Either of the multiplicand must be a witness.
+    ASSERT(!left.is_constant() || !to_mul.is_constant());
     Builder* ctx = left.context ? left.context : to_mul.context;
 
     // Compute the maximum value of the product of the two inputs: max(a * b)
