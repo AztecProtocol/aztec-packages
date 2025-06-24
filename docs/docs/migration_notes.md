@@ -18,6 +18,12 @@ It is now included in `aztec-nr`, so imports must be updated:
 +dep::aztec::authwit...
 ```
 
+and stale dependencies removed from `Nargo.toml`
+
+```diff
+-authwit = { path = "../../../../aztec-nr/authwit" }
+```
+
 ## 0.87.0
 
 ## [Aztec.js/TS libraries]
