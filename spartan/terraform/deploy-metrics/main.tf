@@ -43,17 +43,6 @@ resource "google_compute_address" "otel_collector_ip" {
   }
 }
 
-resource "google_compute_address" "public_otel_collector_ip" {
-  provider     = google
-  name         = "public-otel-ip-${var.RELEASE_NAME}"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
