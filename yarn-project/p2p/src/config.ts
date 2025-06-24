@@ -1,5 +1,6 @@
 import {
   type ConfigMappingsType,
+  SecretValue,
   booleanConfigHelper,
   floatConfigHelper,
   getConfigFromMappings,
@@ -51,7 +52,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   listenAddress: string;
 
   /** An optional peer id private key. If blank, will generate a random key. */
-  peerIdPrivateKey?: string;
+  peerIdPrivateKey?: SecretValue<string>;
 
   /** An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory. */
   peerIdPrivateKeyPath?: string;
