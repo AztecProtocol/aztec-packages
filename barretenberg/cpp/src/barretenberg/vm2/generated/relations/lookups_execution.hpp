@@ -16,16 +16,20 @@ namespace bb::avm2 {
 struct lookup_execution_bytecode_retrieval_result_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_BYTECODE_RETRIEVAL_RESULT";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::execution_sel;
     static constexpr Column DST_SELECTOR = Column::bc_retrieval_sel;
     static constexpr Column COUNTS = Column::lookup_execution_bytecode_retrieval_result_counts;
     static constexpr Column INVERSES = Column::lookup_execution_bytecode_retrieval_result_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_bytecode_id, ColumnAndShifts::execution_sel_bytecode_retrieval_failure
+        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_sel_bytecode_retrieval_failure
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_bytecode_id, ColumnAndShifts::bc_retrieval_error
+        ColumnAndShifts::bc_retrieval_bytecode_id,
+        ColumnAndShifts::bc_retrieval_address,
+        ColumnAndShifts::bc_retrieval_error
     };
 };
 

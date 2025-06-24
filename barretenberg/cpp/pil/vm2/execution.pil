@@ -70,9 +70,9 @@ pol commit sel_bytecode_retrieval_failure;
 
 #[BYTECODE_RETRIEVAL_RESULT]
 sel {
-    bytecode_id, sel_bytecode_retrieval_failure
+    bytecode_id, contract_address, sel_bytecode_retrieval_failure
 } in bc_retrieval.sel {
-    bc_retrieval.bytecode_id, bc_retrieval.error
+    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
 };
 
 pol commit sel_bytecode_retrieval_success;
