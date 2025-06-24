@@ -43,7 +43,7 @@ inline const std::string& get_error_message(const CommandResponse& response)
     return std::visit([](const auto& resp) -> const std::string& { return resp.error_message; }, response);
 }
 
-inline CircuitProve::Response execute(BB_UNUSED BBRpcRequest& request, CircuitProve&& command)
+inline CircuitProve::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitProve&& command)
 {
     info("CircuitProve - generating proof for circuit '", command.circuit.name, "'");
 
@@ -62,7 +62,7 @@ inline CircuitProve::Response execute(BB_UNUSED BBRpcRequest& request, CircuitPr
                                    .error_message = "" };
 }
 
-inline CircuitDeriveVk::Response execute(BB_UNUSED BBRpcRequest& request, CircuitDeriveVk&& command)
+inline CircuitDeriveVk::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitDeriveVk&& command)
 {
     info("CircuitDeriveVk - deriving verification key for circuit '", command.circuit.name, "'");
 
@@ -81,7 +81,7 @@ inline CircuitDeriveVk::Response execute(BB_UNUSED BBRpcRequest& request, Circui
     return CircuitDeriveVk::Response{ .verification_key = vk_data, .error_message = "" };
 }
 
-inline CircuitVerify::Response execute(BB_UNUSED BBRpcRequest& request, CircuitVerify&& command)
+inline CircuitVerify::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitVerify&& command)
 {
     info("CircuitVerify - verifying proof with ", command.public_inputs.size(), " public inputs");
 
@@ -102,7 +102,7 @@ inline CircuitVerify::Response execute(BB_UNUSED BBRpcRequest& request, CircuitV
     return CircuitVerify::Response{ .verified = result.value, .error_message = "" };
 }
 
-inline CircuitInfo::Response execute(BB_UNUSED BBRpcRequest& request, CircuitInfo&& command)
+inline CircuitInfo::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitInfo&& command)
 {
     info("CircuitInfo - analyzing circuit '", command.circuit.name, "'");
 
@@ -127,7 +127,7 @@ inline CircuitInfo::Response execute(BB_UNUSED BBRpcRequest& request, CircuitInf
     return response;
 }
 
-inline CircuitCheck::Response execute(BB_UNUSED BBRpcRequest& request, CircuitCheck&& command)
+inline CircuitCheck::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitCheck&& command)
 {
     info("CircuitCheck - checking circuit '", command.circuit.name, "' constraints");
 
@@ -175,7 +175,7 @@ inline CircuitCheck::Response execute(BB_UNUSED BBRpcRequest& request, CircuitCh
     return CircuitCheck::Response{ .satisfied = true, .error_message = "" };
 }
 
-inline ProofAsFields::Response execute(BB_UNUSED BBRpcRequest& request, ProofAsFields&& command)
+inline ProofAsFields::Response execute(BB_UNUSED const BBRpcRequest& request, ProofAsFields&& command)
 {
     info("ProofAsFields - converting proof to field elements, input size: ", command.proof.size());
 
@@ -183,7 +183,7 @@ inline ProofAsFields::Response execute(BB_UNUSED BBRpcRequest& request, ProofAsF
     return ProofAsFields::Response{ .fields = command.proof, .error_message = "" };
 }
 
-inline VkAsFields::Response execute(BB_UNUSED BBRpcRequest& request, VkAsFields&& command)
+inline VkAsFields::Response execute(BB_UNUSED const BBRpcRequest& request, VkAsFields&& command)
 {
     info("VkAsFields - converting VK to field elements, is_mega_honk: ", command.is_mega_honk);
 
@@ -304,7 +304,7 @@ inline ClientIvcProve::Response execute(BBRpcRequest& request, BB_UNUSED ClientI
 }
 
 inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    BBRpcRequest& request, acir_format::AcirProgram& program)
+    const BBRpcRequest& request, acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
@@ -312,7 +312,30 @@ inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_pr
     return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriveVk&& command)
+inline ClientIVC::VerificationKey compute_vk_for_ivc(const BBRpcRequest& request,
+                                                     size_t num_public_inputs_in_final_circuit)
+{
+    ClientIVC ivc{ request.trace_settings };
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    // We segfault if we only call accumulate once
+    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    MegaCircuitBuilder circuit_1 =
+        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
+    ivc.accumulate(circuit_1);
+
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
+    ivc.construct_hiding_circuit_key();
+
+    return ivc.get_vk();
+}
+
+inline ClientIvcDeriveVk::Response execute(const BBRpcRequest& request, ClientIvcDeriveVk&& command)
 {
     info("ClientIvcDeriveVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
 
@@ -330,27 +353,7 @@ inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriv
         vk_data = to_buffer(*verification_key);
         info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {
-        // Full IVC VK derivation - based on write_vk_for_ivc from api_client_ivc.cpp
-        ClientIVC ivc{ request.trace_settings };
-        ClientIVCMockCircuitProducer circuit_producer;
-
-        // Initialize the IVC with an arbitrary circuit (similar to write_vk_for_ivc)
-        static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-        MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-        ivc.accumulate(circuit_0);
-
-        // Create another circuit and accumulate, using the public inputs from the provided circuit
-        size_t num_public_inputs = constraint_system.public_inputs.size();
-        MegaCircuitBuilder circuit_1 =
-            circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs);
-        ivc.accumulate(circuit_1);
-
-        // Construct the hiding circuit and its VK
-        ivc.construct_hiding_circuit_key();
-
-        // Get the IVC VK
-        vk_data = to_buffer(ivc.get_vk());
-
+        vk_data = to_buffer(compute_vk_for_ivc(request, constraint_system.public_inputs.size()));
         info("ClientIvcDeriveVk - full IVC VK derived, size: ", vk_data.size(), " bytes");
     }
 
