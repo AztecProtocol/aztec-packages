@@ -68,7 +68,7 @@ struct ProofSystemSettings {
      * @brief Optional flag to indicate if the proof should be generated with IPA accumulation (i.e. for rollup
      * circuits).
      */
-    bool ipa_accumulation;
+    bool ipa_accumulation = false;
 
     /**
      * @brief The oracle hash type to be used for the proof.
@@ -76,13 +76,13 @@ struct ProofSystemSettings {
      * This is used to determine the hash function used in the proof generation.
      * Valid values are "poseidon2", "keccak", and "starknet".
      */
-    std::string oracle_hash_type;
+    std::string oracle_hash_type = "poseidon2";
 
     /**
      * @brief Flag to disable blinding of the proof.
      * Useful for cases that don't require privacy, such as when all inputs are public or zk-SNARK proofs themselves.
      */
-    bool disable_zk;
+    bool disable_zk = false;
 
     /**
      * @brief Honk recursion setting.
@@ -95,6 +95,35 @@ struct ProofSystemSettings {
      * @brief Flag to indicate if this circuit will be recursively verified.
      */
     bool recursive = false;
+
+    /**
+     * @brief Rollup configuration flag.
+     * For UltraRollupFlavor vs UltraFlavor.
+     */
+    bool is_rollup = false;
+
+    /**
+     * @brief Accumulator initialization.
+     * Initialize pairing point accumulator.
+     */
+    bool init_kzg_accumulator = false;
+
+    /**
+     * @brief Solver configuration (for ACIR).
+     * Use new solver implementation.
+     */
+    bool use_new_solver = false;
+
+    /**
+     * @brief Additional proving options.
+     * Skip public inputs check during proving.
+     */
+    bool skip_public_inputs_check = false;
+
+    /**
+     * @brief Enable profiling during proving.
+     */
+    bool enable_profiling = false;
 };
 
 /**
@@ -274,6 +303,84 @@ struct VkAsFields {
     bool is_mega_honk = false;
 };
 
+/**
+ * @brief Command to generate Solidity verifier contract
+ */
+struct CircuitWriteSolidityVerifier {
+    struct Response {
+        std::string solidity_code;
+        std::string error_message;
+    };
+
+    std::vector<uint8_t> verification_key;
+    ProofSystemSettings settings;
+};
+
+/**
+ * @brief Command to prove and verify in one step
+ */
+struct CircuitProveAndVerify {
+    struct Response {
+        bool verified;
+        std::vector<bb::fr> proof;         // The generated proof
+        std::vector<bb::fr> public_inputs; // Extracted public inputs
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    ProofSystemSettings settings;
+};
+
+/**
+ * @brief Command to write circuit bytecode in various formats
+ */
+struct CircuitWriteBytecode {
+    struct Response {
+        std::vector<uint8_t> bytecode;
+        std::string formatted_output; // For hex/base64
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    std::string format = "binary"; // binary, hex, base64
+};
+
+/**
+ * @brief Command to validate circuit structure
+ */
+struct CircuitValidate {
+    struct Response {
+        bool is_valid;
+        std::vector<std::string> validation_errors;
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    ProofSystemSettings settings;
+    bool check_recursive_structure = false;
+};
+
+/**
+ * @brief Command to benchmark circuit operations
+ */
+struct CircuitBenchmark {
+    struct Response {
+        double witness_generation_time_ms;
+        double proving_time_ms;
+        double verification_time_ms;
+        uint64_t peak_memory_bytes;
+        std::string error_message;
+    };
+
+    CircuitInput circuit;
+    std::vector<uint8_t> witness;
+    ProofSystemSettings settings;
+    uint32_t num_iterations = 1;
+    bool benchmark_witness_generation = true;
+    bool benchmark_proving = true;
+};
+
 using Command = std::variant<CircuitProve,
                              CircuitDeriveVk,
                              CircuitInfo,
@@ -285,7 +392,12 @@ using Command = std::variant<CircuitProve,
                              ClientIvcAccumulate,
                              ClientIvcProve,
                              ProofAsFields,
-                             VkAsFields>;
+                             VkAsFields,
+                             CircuitWriteSolidityVerifier,
+                             CircuitProveAndVerify,
+                             CircuitWriteBytecode,
+                             CircuitValidate,
+                             CircuitBenchmark>;
 
 using CommandResponse = std::variant<CircuitProve::Response,
                                      CircuitDeriveVk::Response,
@@ -298,6 +410,25 @@ using CommandResponse = std::variant<CircuitProve::Response,
                                      ClientIvcAccumulate::Response,
                                      ClientIvcProve::Response,
                                      ProofAsFields::Response,
-                                     VkAsFields::Response>;
+                                     VkAsFields::Response,
+                                     CircuitWriteSolidityVerifier::Response,
+                                     CircuitProveAndVerify::Response,
+                                     CircuitWriteBytecode::Response,
+                                     CircuitValidate::Response,
+                                     CircuitBenchmark::Response>;
+
+/**
+ * @brief Convert oracle hash type string to enum for internal use
+ */
+enum class OracleHashType { POSEIDON2, KECCAK, STARKNET };
+
+inline OracleHashType parse_oracle_hash_type(const std::string& type)
+{
+    if (type == "keccak")
+        return OracleHashType::KECCAK;
+    if (type == "starknet")
+        return OracleHashType::STARKNET;
+    return OracleHashType::POSEIDON2; // default
+}
 
 } // namespace bb::bbrpc
