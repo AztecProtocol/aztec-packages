@@ -15,10 +15,6 @@ resources:
     memory: 60Gi
     cpu: "7"
 
-service:
-  enabled: true
-  type: LoadBalancer
-
 ports:
   otlp:
     enabled: false
@@ -98,13 +94,22 @@ config:
         exporters:
           - prometheus
 
+service:
+  enabled: true
+  type: LoadBalancer
+  annotations:
+    cloud.google.com/backend-config: "{\"default\":\"otel-ingress-backend\"}"
+
 ingress:
   enabled: true
   annotations:
-    kubernetes.io/ingress.allow-http: "false"
+    kubernetes.io/ingress.allow-http: "true"
     kubernetes.io/ingress.class: gce
-    kubernetes.io/ingress.global-static-ip-name: null
-    networking.gke.io/managed-certificates: null
+    kubernetes.io/ingress.global-static-ip-name: ""
+    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-path: "/"
+
+    # networking.gke.io/managed-certificates: null
   hosts:
     - host: null
       paths:
