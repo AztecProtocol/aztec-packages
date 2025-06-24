@@ -21,8 +21,8 @@ const size_t BIT_COUNT = 254;
 
 BBRpcRequest create_test_bbrpc_request()
 {
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
-    request.trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE };
+    BBRpcRequest request(RequestId{ 1 });
+    request.trace_settings = TraceSettings{ SMALL_TEST_STRUCTURE };
     return request;
 }
 

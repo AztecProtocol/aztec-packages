@@ -32,11 +32,9 @@ struct BBRpcRequest {
     std::optional<acir_format::AcirFormat> last_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> last_circuit_vk;
-    std::vector<Command> commands;
 
-    BBRpcRequest(RequestId request_id, std::vector<Command>&& commands)
+    BBRpcRequest(RequestId request_id)
         : request_id(request_id)
-        , commands(std::move(commands))
     {}
 };
 
@@ -306,13 +304,12 @@ inline ClientIvcProve::Response execute(BBRpcRequest& request, BB_UNUSED ClientI
 }
 
 inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
-    acir_format::AcirProgram& program)
+    BBRpcRequest& request, acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
 }
 
 inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriveVk&& command)
@@ -382,11 +379,11 @@ inline CommandResponse execute(BBRpcRequest& request, Command&& command)
 }
 
 // Can only be called from the execution thread (the same as the main thread, except in threaded WASM).
-inline std::vector<CommandResponse> execute_request(BBRpcRequest&& request)
+inline std::vector<CommandResponse> execute_request(BBRpcRequest&& request, std::vector<Command>&& commands)
 {
     std::vector<CommandResponse> responses;
-    responses.reserve(request.commands.size());
-    for (Command& command : request.commands) {
+    responses.reserve(commands.size());
+    for (Command& command : commands) {
         responses.push_back(execute(request, std::move(command)));
         if (!get_error_message(responses.back()).empty()) {
             // If there was an error, we stop processing further commands.
