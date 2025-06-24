@@ -34,7 +34,7 @@ include "../precomputed.pil";
  *       nullifier_check.should_silo
  * };
  *
- * Write usage (use permutation on write):
+ * Write usage:
  * pol commit error;
  *
  * sel { error,
@@ -46,7 +46,7 @@ include "../precomputed.pil";
  *       nullifier_index,
  *       should_silo,
  *       address
- * } is nullifier_check.write {
+ * } in nullifier_check.write {
  *     nullifier_check.nullifier,
  *     nullifier_check.root,
  *     nullifier_check.exists,
