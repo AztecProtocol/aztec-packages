@@ -34,6 +34,10 @@ ports:
     enabled: false
 
 config:
+  extensions:
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
+
   receivers:
     jaeger: null
     prometheus: null
@@ -94,6 +98,27 @@ config:
         exporters:
           - prometheus
 
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  metrics:
+    enabled: false
+  healthcheck:
+    enabled: true
+    containerPort: 13133
+    servicePort: 13133
+    hostPort: 13133
+    protocol: TCP
 service:
   enabled: true
   type: LoadBalancer

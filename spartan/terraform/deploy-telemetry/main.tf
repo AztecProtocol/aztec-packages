@@ -102,7 +102,7 @@ resource "helm_release" "otel_collector" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = false
+  reuse_values      = true
 
   # base values file
   values = [file("./values/public-otel-collector.yaml")]
@@ -115,11 +115,6 @@ resource "helm_release" "otel_collector" {
   set {
     name  = "ingress.annotations.networking\\.gke\\.io\\/managed-certificates"
     value = "otel-ingress-cert"
-  }
-
-  set {
-    name  = "service.annotations.cloud\\.google\\.com\\/backend-config"
-    value = "{\"default\":\"otel-ingress-backend\"}"
   }
 
   set {
@@ -143,7 +138,7 @@ resource "helm_release" "public_prometheus" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = false
+  reuse_values      = true
 
   values = [file("./values/public-prometheus.yaml")]
 
