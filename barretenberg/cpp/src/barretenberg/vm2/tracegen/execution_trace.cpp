@@ -117,6 +117,75 @@ constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
 };
 
 /**
+ * @brief Get the column selector for a given subtrace selector.
+ *
+ * @param subtrace_sel The subtrace selector.
+ * @return The corresponding column selector.
+ */
+Column get_subtrace_selector(SubtraceSel subtrace_sel)
+{
+    switch (subtrace_sel) {
+    case SubtraceSel::ALU:
+        return C::execution_sel_alu;
+    case SubtraceSel::BITWISE:
+        return C::execution_sel_bitwise;
+    case SubtraceSel::TORADIXBE:
+        return C::execution_sel_to_radix;
+    case SubtraceSel::POSEIDON2PERM:
+        return C::execution_sel_poseidon2_perm;
+    case SubtraceSel::ECC:
+        return C::execution_sel_ecc_add;
+    case SubtraceSel::DATACOPY:
+        return C::execution_sel_data_copy;
+    case SubtraceSel::EXECUTION:
+        return C::execution_sel_execution;
+    case SubtraceSel::KECCAKF1600:
+        return C::execution_sel_keccakf1600;
+
+        // clangd will complain if we miss a case.
+        // This is just to please gcc.
+        __builtin_unreachable();
+    }
+}
+
+/**
+ * @brief Get the column selector for a given execution opcode.
+ *
+ * @param exec_opcode The execution opcode.
+ * @return The corresponding column selector.
+ * @throws std::runtime_error if the opcode doesn't have a corresponding selector.
+ */
+Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
+{
+    switch (exec_opcode) {
+    case ExecutionOpCode::SET:
+        return C::execution_sel_set;
+    case ExecutionOpCode::MOV:
+        return C::execution_sel_mov;
+    case ExecutionOpCode::JUMP:
+        return C::execution_sel_jump;
+    case ExecutionOpCode::JUMPI:
+        return C::execution_sel_jumpi;
+    case ExecutionOpCode::CALL:
+        return C::execution_sel_call;
+    case ExecutionOpCode::STATICCALL:
+        return C::execution_sel_static_call;
+    case ExecutionOpCode::INTERNALCALL:
+        return C::execution_sel_internal_call;
+    case ExecutionOpCode::INTERNALRETURN:
+        return C::execution_sel_internal_return;
+    case ExecutionOpCode::RETURN:
+        return C::execution_sel_return;
+    case ExecutionOpCode::REVERT:
+        return C::execution_sel_revert;
+    case ExecutionOpCode::SUCCESSCOPY:
+        return C::execution_sel_success_copy;
+    default:
+        throw std::runtime_error("Execution opcode does not have a corresponding selector");
+    }
+}
+
+/**
  * @brief Helper struct to track info after "discard" preprocessing.
  */
 struct FailingContexts {
@@ -319,7 +388,6 @@ void ExecutionTraceBuilder::process(
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        // However, we will not do it all in the same place. We do it by temporality groups, but always unconditionally.
         bool should_read_exec_spec = !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
@@ -545,17 +613,19 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                                                    TraceContainer& trace,
                                                    uint32_t row)
 {
-    trace.set(row,
-              { {
-                  // Gas.
-                  { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
-                  { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
-                  { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
-                  { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
-              } });
-
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+    const auto& gas_cost = EXEC_INSTRUCTION_SPEC.at(exec_opcode).gas_cost;
+
+    // Gas.
+    trace.set(row,
+              { {
+                  { C::execution_opcode_gas, gas_cost.opcode_gas },
+                  { C::execution_base_da_gas, gas_cost.base_da },
+                  { C::execution_dynamic_l2_gas, gas_cost.dyn_l2 },
+                  { C::execution_dynamic_da_gas, gas_cost.dyn_da },
+              } });
+
     const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
 
     for (size_t i = 0; i < NUM_REGISTERS; i++) {
@@ -563,34 +633,30 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
         trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
     }
 
+    // Set is_address columns
+    const auto& num_addresses = EXEC_INSTRUCTION_SPEC.at(exec_opcode).num_addresses;
+    for (size_t i = 0; i < num_addresses; i++) {
+        trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, 1);
+    }
+
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
 
     // Subtrace dispatching.
-    trace.set(
-        row,
-        { {
-            // Selector Id
-            { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-            // Selectors
-            { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
-            { C::execution_sel_bitwise, dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
-            { C::execution_sel_poseidon2_perm,
-              dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
-            { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
-            { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
-            { C::execution_sel_keccakf1600,
-              dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0 },
-        } });
-
-    // Execution Trace opcodes - separating for clarity
     trace.set(row,
               { {
-                  { C::execution_sel_internal_call, exec_opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
-                  { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
-                  { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
-                  { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
+                  // Selector Id
+                  { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                  // Selectors
+                  { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
               } });
+
+    // Execution Trace opcodes - separating for clarity
+    try {
+        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+    } catch (const std::runtime_error&) {
+        // Execution opcode doesn't have a corresponding selector, do nothing
+    }
 }
 
 void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,
@@ -634,7 +700,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     assert(resolution_info_vec.size() <= NUM_OPERANDS);
     resolution_info_vec.resize(NUM_OPERANDS);
 
-    std::array<bool, NUM_OPERANDS> is_address{};
     std::array<bool, NUM_OPERANDS> should_apply_indirection{};
     std::array<bool, NUM_OPERANDS> is_relative_effective{};
     std::array<bool, NUM_OPERANDS> is_indirect_effective{};
@@ -652,7 +717,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        is_address[i] = op_is_address;
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
@@ -671,7 +735,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         }
         trace.set(row,
                   { {
-                      { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
