@@ -11,13 +11,41 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_execution_bytecode_retrieval_result ///////////////////
+
+struct lookup_execution_bytecode_retrieval_result_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_EXECUTION_BYTECODE_RETRIEVAL_RESULT";
+    static constexpr std::string_view RELATION_NAME = "execution";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel;
+    static constexpr Column DST_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column COUNTS = Column::lookup_execution_bytecode_retrieval_result_counts;
+    static constexpr Column INVERSES = Column::lookup_execution_bytecode_retrieval_result_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::execution_bytecode_id,
+        ColumnAndShifts::execution_contract_address,
+        ColumnAndShifts::execution_sel_bytecode_retrieval_failure
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::bc_retrieval_bytecode_id,
+        ColumnAndShifts::bc_retrieval_address,
+        ColumnAndShifts::bc_retrieval_error
+    };
+};
+
+using lookup_execution_bytecode_retrieval_result_settings =
+    lookup_settings<lookup_execution_bytecode_retrieval_result_settings_>;
+template <typename FF_>
+using lookup_execution_bytecode_retrieval_result_relation =
+    lookup_relation_base<FF_, lookup_execution_bytecode_retrieval_result_settings>;
+
 /////////////////// lookup_execution_instruction_fetching_result ///////////////////
 
 struct lookup_execution_instruction_fetching_result_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_INSTRUCTION_FETCHING_RESULT";
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_bytecode_retrieval_success;
     static constexpr Column DST_SELECTOR = Column::instr_fetching_sel;
     static constexpr Column COUNTS = Column::lookup_execution_instruction_fetching_result_counts;
     static constexpr Column INVERSES = Column::lookup_execution_instruction_fetching_result_inv;
@@ -78,7 +106,7 @@ using lookup_execution_instruction_fetching_body_relation =
 struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_EXEC_SPEC_READ";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 32;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 33;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_exec_spec;
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;
@@ -99,9 +127,10 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::execution_subtrace_operation_id,
         ColumnAndShifts::execution_sel_alu,
         ColumnAndShifts::execution_sel_bitwise,
+        ColumnAndShifts::execution_sel_poseidon2_perm,
         ColumnAndShifts::execution_sel_to_radix,
         ColumnAndShifts::execution_sel_ecc_add,
-        ColumnAndShifts::execution_sel_poseidon2_perm,
+        ColumnAndShifts::execution_sel_keccakf1600,
         ColumnAndShifts::execution_mem_op_0_,
         ColumnAndShifts::execution_mem_op_1_,
         ColumnAndShifts::execution_mem_op_2_,
@@ -136,6 +165,7 @@ struct lookup_execution_exec_spec_read_settings_ {
         ColumnAndShifts::precomputed_sel_dispatch_poseidon_perm,
         ColumnAndShifts::precomputed_sel_dispatch_to_radix,
         ColumnAndShifts::precomputed_sel_dispatch_ecc,
+        ColumnAndShifts::precomputed_sel_dispatch_keccakf1600,
         ColumnAndShifts::precomputed_mem_op_reg_0_,
         ColumnAndShifts::precomputed_mem_op_reg_1_,
         ColumnAndShifts::precomputed_mem_op_reg_2_,

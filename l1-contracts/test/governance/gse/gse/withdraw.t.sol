@@ -30,6 +30,7 @@ contract WithdrawTest is WithGSE {
 
   modifier whenCallerIsRegisteredRollup(address _instance) {
     vm.assume(_instance != address(0) && _instance != MAGIC_ADDRESS);
+    vm.assume(gse.isRollupRegistered(_instance) == false);
 
     vm.prank(gse.owner());
     gse.addRollup(_instance);

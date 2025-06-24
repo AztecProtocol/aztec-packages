@@ -65,44 +65,27 @@ contract SetDepositsPerMintTest is StakingAssetHandlerBase {
 
     stakingAssetHandler.setDepositsPerMint(_depositsPerMint);
 
-    address rollup = stakingAssetHandler.getRollup();
-
     for (uint256 i = 0; i < _depositsPerMint; i++) {
       vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.AddedToQueue(validators[i], 1 + i);
+      emit IStakingAssetHandler.ValidatorAdded(address(staking), validators[i], WITHDRAWER);
       vm.prank(caller);
-      stakingAssetHandler.addValidatorToQueue(validators[i], realProof);
+      stakingAssetHandler.addValidator(validators[i], validMerkleProof, realProof);
 
       // Increase the unique identifier in our zkpassport proof such that the nullifier for each validator is different.
       mockZKPassportVerifier.incrementUniqueIdentifier();
     }
-    assertEq(stakingAssetHandler.getQueueLength(), _depositsPerMint);
-
-    for (uint256 i = 0; i < _depositsPerMint; i++) {
-      vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-      emit IStakingAssetHandler.ValidatorAdded(rollup, validators[i], WITHDRAWER);
-    }
-    // Drip the queue to allow validators to join the set
-    stakingAssetHandler.dripQueue();
-    assertEq(stakingAssetHandler.getQueueLength(), 0);
-
-    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
 
-    // Added to the queue successfully
-    vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
-    emit IStakingAssetHandler.AddedToQueue(address(0xbeefdeef), _depositsPerMint + 1);
-    vm.prank(caller);
-    stakingAssetHandler.addValidatorToQueue(address(0xbeefdeef), realProof);
-
     // it reverts when adding one more validator
+    uint256 lastMintTimestamp = stakingAssetHandler.lastMintTimestamp();
     vm.expectRevert(
       abi.encodeWithSelector(
         IStakingAssetHandler.ValidatorQuotaFilledUntil.selector, lastMintTimestamp + mintInterval
       )
     );
-    stakingAssetHandler.dripQueue();
+    vm.prank(caller);
+    stakingAssetHandler.addValidator(address(0xbeefdeef), validMerkleProof, realProof);
 
     emit log_named_uint("balance", stakingAsset.balanceOf(address(stakingAssetHandler)));
   }

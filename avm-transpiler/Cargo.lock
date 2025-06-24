@@ -346,6 +346,7 @@ dependencies = [
  "noirc_abi",
  "noirc_errors",
  "noirc_evaluator",
+ "noirc_frontend",
  "once_cell",
  "regex",
  "serde",

@@ -27,7 +27,7 @@ impl PreviousKernelValidator {
     pub fn validate_proof<let N: u32>(self: Self, allowed_indices: [u32; N]) {
         if !dep::std::runtime::is_unconstrained() {
             self.previous_kernel.verify();
-            self.previous_kernel.validate_in_vk_tree(allowed_indices);
+            self.previous_kernel.validate_vk_in_vk_tree(allowed_indices);
         }
     }
 

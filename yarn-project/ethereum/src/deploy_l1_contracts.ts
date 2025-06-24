@@ -435,19 +435,26 @@ export const deploySharedContracts = async (
       zkPassportVerifierAddress = await getZkPassportVerifierAddress(deployer, args);
       const [scope, subscope] = getZkPassportScopes(args);
 
-      stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
-        l1Client.account.address,
-        stakingAssetAddress.toString(),
-        registryAddress.toString(),
-        AMIN.toString(), // withdrawer,
-        BigInt(60 * 60 * 24), // mintInterval,
-        BigInt(10), // depositsPerMint,
-        zkPassportVerifierAddress.toString(),
-        [AMIN.toString()], // isUnhinged,
+      const stakingAssetHandlerDeployArgs = {
+        owner: l1Client.account.address,
+        stakingAsset: stakingAssetAddress.toString(),
+        registry: registryAddress.toString(),
+        withdrawer: AMIN.toString(),
+        mintInterval: BigInt(60 * 60 * 24),
+        depositsPerMint: BigInt(10),
+        depositMerkleRoot: '0x0000000000000000000000000000000000000000000000000000000000000000',
+        zkPassportVerifier: zkPassportVerifierAddress.toString(),
+        unhinged: [AMIN.toString()], // isUnhinged,
         // Scopes
-        scope,
-        subscope,
-        args.zkPassportArgs?.mockZkPassportVerifier ?? false, // skip Address Bind check - needed for testing without generating proofs
+        scope: scope,
+        subscope: subscope,
+        // Skip checks
+        skipBindCheck: args.zkPassportArgs?.mockZkPassportVerifier ?? false,
+        skipMerkleCheck: true, // skip merkle check - needed for testing without generating proofs
+      };
+
+      stakingAssetHandlerAddress = await deployer.deploy(l1Artifacts.stakingAssetHandler, [
+        stakingAssetHandlerDeployArgs,
       ]);
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
@@ -620,6 +627,11 @@ export const deployRollup = async (
     logger.verbose(`Rollup will use the mock verifier at ${epochProofVerifier}`);
   }
 
+  const rewardConfig = {
+    ...DefaultRewardConfig,
+    rewardDistributor: addresses.rewardDistributorAddress.toString(),
+  };
+
   const rollupConfigArgs = {
     aztecSlotDuration: args.aztecSlotDuration,
     aztecEpochDuration: args.aztecEpochDuration,
@@ -631,7 +643,7 @@ export const deployRollup = async (
     entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
     entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
-    rewardConfig: DefaultRewardConfig,
+    rewardConfig: rewardConfig,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -642,7 +654,6 @@ export const deployRollup = async (
 
   const rollupArgs = [
     addresses.feeJuiceAddress.toString(),
-    addresses.rewardDistributorAddress.toString(),
     addresses.stakingAssetAddress.toString(),
     addresses.gseAddress.toString(),
     epochProofVerifier.toString(),
@@ -1221,9 +1232,10 @@ export async function deployL1Contract(
   }
 
   if (maybeSalt) {
+    logger?.info(`Deploying contract with salt ${maybeSalt}`);
     const { address, paddedSalt: salt, calldata } = getExpectedAddress(abi, bytecode, args, maybeSalt);
     resultingAddress = address;
-    const existing = await extendedClient.getBytecode({ address: resultingAddress });
+    const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
       const res = await l1TxUtils.sendTransaction({
         to: DEPLOYER_ADDRESS,

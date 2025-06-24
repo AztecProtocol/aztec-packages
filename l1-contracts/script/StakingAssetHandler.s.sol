@@ -28,6 +28,8 @@ contract StakingAssetHandlerScript is Test {
   string internal constant SCOPE = "testnet.aztec.network";
   string internal constant SUBSCOPE = "personhood";
 
+  bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
+
   ZKPassportVerifier internal constant zkPassportVerifier =
     ZKPassportVerifier(0xEE9F10f38319eAE2730dBa28fB09081dB806c5E5);
 
@@ -42,20 +44,25 @@ contract StakingAssetHandlerScript is Test {
     address[] memory isUnhinged = new address[](1);
     isUnhinged[0] = amin;
 
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
+      .StakingAssetHandlerArgs({
+      owner: ME,
+      stakingAsset: address(stakingAsset),
+      registry: registry,
+      withdrawer: amin,
+      mintInterval: 60 * 60 * 24,
+      depositsPerMint: 10,
+      depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
+      zkPassportVerifier: zkPassportVerifier,
+      unhinged: isUnhinged,
+      scope: SCOPE,
+      subscope: SUBSCOPE,
+      skipBindCheck: false, // DO NOT: skip bind check
+      skipMerkleCheck: false // DO NOT: skip merkle check
+    });
+
     vm.startBroadcast(ME);
-    StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(
-      ME,
-      address(stakingAsset),
-      registry,
-      amin,
-      60 * 60 * 24,
-      10,
-      zkPassportVerifier,
-      isUnhinged,
-      SCOPE,
-      SUBSCOPE,
-      false // DO NOT: skip bind check
-    );
+    StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     stakingAsset.addMinter(address(stakingAssetHandler));
     vm.stopBroadcast();
 
