@@ -134,7 +134,7 @@ export async function getPeerIdPrivateKey(
   };
 
   // If the peerIdPrivateKey is provided in the config, we use it and persist it in either a file or the node's store
-  if (config.peerIdPrivateKey && config.peerIdPrivateKey.getValue()) {
+  if (config.peerIdPrivateKey && config.peerIdPrivateKey.getValue().trim()) {
     if (peerIdPrivateKeyFilePath) {
       await writePrivateKeyToFile(peerIdPrivateKeyFilePath, config.peerIdPrivateKey.getValue());
     } else {
