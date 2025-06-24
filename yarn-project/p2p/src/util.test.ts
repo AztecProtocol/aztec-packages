@@ -33,7 +33,7 @@ describe('p2p utils', () => {
     let store: AztecAsyncKVStore;
 
     const readFromSingleton = async (store: AztecAsyncKVStore) => {
-      const peerIdPrivateKeySingleton = store.openSingleton('peerIdPrivateKey');
+      const peerIdPrivateKeySingleton = store.openSingleton<string>('peerIdPrivateKey');
       return await peerIdPrivateKeySingleton.getAsync();
     };
 
@@ -59,7 +59,7 @@ describe('p2p utils', () => {
 
       // When we try again, it should read the value from the file, not generate a new one
       const peerIdPrivateKey2 = await getPeerIdPrivateKey(config, store, logger);
-      expect(peerIdPrivateKey2).toBe(peerIdPrivateKey);
+      expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
@@ -77,7 +77,7 @@ describe('p2p utils', () => {
 
       // When we try again, it should read the value from the file, not generate a new one
       const peerIdPrivateKey2 = await getPeerIdPrivateKey(config, store, logger);
-      expect(peerIdPrivateKey2).toBe(peerIdPrivateKey);
+      expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
@@ -95,7 +95,7 @@ describe('p2p utils', () => {
 
       // When we try again, it should read the value from the store, not generate a new one
       const peerIdPrivateKey2 = await getPeerIdPrivateKey(config, store, logger);
-      expect(peerIdPrivateKey2).toBe(peerIdPrivateKey);
+      expect(peerIdPrivateKey2.getValue()).toBe(peerIdPrivateKey);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
@@ -104,13 +104,13 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and the peer id private key file path is populated, it should use and persist that value to the file`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
+      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const peerIdPrivateKeyPath = path.join(tempDir, 'private-key');
       const config = {
         peerIdPrivateKeyPath,
-        peerIdPrivateKey: privateKeyString,
+        peerIdPrivateKey: new SecretValue(privateKeyString),
       } as P2PConfig;
-      const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
+      const peerIdPrivateKey = (await getPeerIdPrivateKey(config, store, logger)).getValue();
 
       expect(peerIdPrivateKey).toBe(privateKeyString);
 
@@ -119,7 +119,7 @@ describe('p2p utils', () => {
 
       // Now when given an empty private key, it should read the value from the file
       const peerIdPrivateKey2 = await getPeerIdPrivateKey({ peerIdPrivateKeyPath } as P2PConfig, store, logger);
-      expect(peerIdPrivateKey2).toBe(privateKeyString);
+      expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
@@ -128,21 +128,21 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and a peer id private key file path is not provided, it should use and persist that value to the data directory`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyForConfig = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
+      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const config = {
         dataDirectory: tempDir,
-        peerIdPrivateKey: privateKeyForConfig,
+        peerIdPrivateKey: new SecretValue(privateKeyString),
       } as P2PConfig & DataStoreConfig;
       const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
 
-      expect(peerIdPrivateKey).toBe(privateKeyForConfig);
+      expect(peerIdPrivateKey.getValue()).toBe(privateKeyString);
 
       const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'p2p-private-key'), 'utf8');
-      expect(storedPeerIdPrivateKey).toBe(privateKeyForConfig);
+      expect(storedPeerIdPrivateKey).toBe(privateKeyString);
 
       // Now when given an empty private key, it should read the value from the file in the data directory
       const peerIdPrivateKey2 = await getPeerIdPrivateKey({ dataDirectory: tempDir } as DataStoreConfig, store, logger);
-      expect(peerIdPrivateKey2).toBe(privateKeyForConfig);
+      expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
@@ -151,20 +151,20 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and the peer id private key file path and data dir are both empty, it should use and persist that value to the node's store`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyForConfig = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
+      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
       const config = {
-        peerIdPrivateKey: privateKeyForConfig,
+        peerIdPrivateKey: new SecretValue(privateKeyString),
       } as P2PConfig;
       const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
 
-      expect(peerIdPrivateKey).toBe(privateKeyForConfig);
+      expect(peerIdPrivateKey.getValue()).toBe(privateKeyString);
 
       const storedPeerIdPrivateKey = await readFromSingleton(store);
-      expect(storedPeerIdPrivateKey).toBe(privateKeyForConfig);
+      expect(storedPeerIdPrivateKey).toBe(privateKeyString);
 
       // Now when given an empty config, it should read the value from the store
       const peerIdPrivateKey2 = await getPeerIdPrivateKey({} as P2PConfig, store, logger);
-      expect(peerIdPrivateKey2).toBe(privateKeyForConfig);
+      expect(peerIdPrivateKey2.getValue()).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
       const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
