@@ -89,7 +89,9 @@ MergeRecursiveVerifier_<CircuitBuilder>::PairingPoints MergeRecursiveVerifier_<C
         scalars.emplace_back(alpha_pow);
         commitments.emplace_back(claim.commitment);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
-        alpha_pow *= alpha;
+        if (idx < opening_claims.size() - 1) {
+            alpha_pow *= alpha;
+        }
     }
 
     auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);

@@ -742,7 +742,9 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const bool_t y_coordinates_match = (y == other.y);
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
-
+    if constexpr (IsUltraBuilder<Builder>) {
+        infinity_predicate.get_context()->update_used_witnesses(infinity_predicate.witness_index);
+    }
     auto x1 = x;
     auto y1 = y;
     auto x2 = other.x;
@@ -770,6 +772,11 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // infinity if x_match, y_match
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+
+    if constexpr (IsUltraBuilder<Builder>) {
+        result_x.get_context()->update_used_witnesses(result_x.witness_index);
+        result_y.get_context()->update_used_witnesses(result_y.witness_index);
+    }
 
     const bool_t lhs_infinity = is_point_at_infinity();
     const bool_t rhs_infinity = other.is_point_at_infinity();
