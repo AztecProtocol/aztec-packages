@@ -11,12 +11,12 @@ namespace bb::avm2::simulation {
 class NullifierTreeCheckInterface {
   public:
     virtual ~NullifierTreeCheckInterface() = default;
-    virtual void read(FF nullifier,
-                      bool exists,
-                      const NullifierTreeLeafPreimage& low_leaf_preimage,
-                      uint64_t low_leaf_index,
-                      std::span<const FF> sibling_path,
-                      const AppendOnlyTreeSnapshot& snapshot) = 0;
+    virtual void assert_read(FF nullifier,
+                             bool exists,
+                             const NullifierTreeLeafPreimage& low_leaf_preimage,
+                             uint64_t low_leaf_index,
+                             std::span<const FF> sibling_path,
+                             const AppendOnlyTreeSnapshot& snapshot) = 0;
     virtual AppendOnlyTreeSnapshot write(FF nullifier,
                                          std::optional<AztecAddress> contract_address,
                                          uint64_t nullifier_counter,
@@ -40,12 +40,12 @@ class NullifierTreeCheck : public NullifierTreeCheckInterface, public Checkpoint
         , field_gt(field_gt)
     {}
 
-    void read(FF nullifier,
-              bool exists,
-              const NullifierTreeLeafPreimage& low_leaf_preimage,
-              uint64_t low_leaf_index,
-              std::span<const FF> sibling_path,
-              const AppendOnlyTreeSnapshot& snapshot) override;
+    void assert_read(FF nullifier,
+                     bool exists,
+                     const NullifierTreeLeafPreimage& low_leaf_preimage,
+                     uint64_t low_leaf_index,
+                     std::span<const FF> sibling_path,
+                     const AppendOnlyTreeSnapshot& snapshot) override;
     AppendOnlyTreeSnapshot write(FF nullifier,
                                  std::optional<AztecAddress> contract_address,
                                  uint64_t nullifier_counter,

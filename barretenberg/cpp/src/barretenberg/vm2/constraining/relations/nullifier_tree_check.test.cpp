@@ -115,12 +115,12 @@ TEST_P(NullifierReadPositiveTests, Positive)
     }
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
-    nullifier_tree_check_simulator.read(param.nullifier,
-                                        param.exists,
-                                        param.low_leaf,
-                                        leaf_index,
-                                        sibling_path,
-                                        AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 });
+    nullifier_tree_check_simulator.assert_read(param.nullifier,
+                                               param.exists,
+                                               param.low_leaf,
+                                               leaf_index,
+                                               sibling_path,
+                                               AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 });
 
     nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), 1);

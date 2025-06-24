@@ -75,13 +75,13 @@ namespace nullifier_check;
     pol commit nullifier;
     pol commit root;
     pol commit exists;
+    exists * (1 - exists) = 0;
 
     // Write specific inputs
     pol commit write_root;
     pol commit tree_size_before_write;
     pol commit discard;
     pol commit nullifier_index;
-    exists * (1 - exists) = 0;
     pol commit should_silo;
     should_silo * (1 - should_silo) = 0;
     pol commit address;

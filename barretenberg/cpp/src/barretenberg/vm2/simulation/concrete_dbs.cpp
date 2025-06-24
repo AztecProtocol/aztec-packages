@@ -94,7 +94,7 @@ bool MerkleDB::nullifier_exists(const FF& nullifier) const
     auto low_leaf_path = raw_merkle_db.get_sibling_path(MerkleTreeId::NULLIFIER_TREE, low_leaf_index);
     auto low_leaf_preimage = raw_merkle_db.get_leaf_preimage_nullifier_tree(low_leaf_index);
 
-    nullifier_tree_check.read(
+    nullifier_tree_check.assert_read(
         nullifier, present, low_leaf_preimage, low_leaf_index, low_leaf_path, get_tree_roots().nullifierTree);
 
     return present;

@@ -14,7 +14,7 @@ class MockNullifierTreeCheck : public NullifierTreeCheckInterface {
     ~MockNullifierTreeCheck() override;
 
     MOCK_METHOD(void,
-                read,
+                assert_read,
                 (FF nullifier,
                  bool exists,
                  const NullifierTreeLeafPreimage& low_leaf_preimage,

@@ -32,12 +32,12 @@ void NullifierTreeCheck::validate_low_leaf(FF nullifier,
     }
 }
 
-void NullifierTreeCheck::read(FF nullifier,
-                              bool exists,
-                              const NullifierTreeLeafPreimage& low_leaf_preimage,
-                              uint64_t low_leaf_index,
-                              std::span<const FF> sibling_path,
-                              const AppendOnlyTreeSnapshot& snapshot)
+void NullifierTreeCheck::assert_read(FF nullifier,
+                                     bool exists,
+                                     const NullifierTreeLeafPreimage& low_leaf_preimage,
+                                     uint64_t low_leaf_index,
+                                     std::span<const FF> sibling_path,
+                                     const AppendOnlyTreeSnapshot& snapshot)
 {
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());

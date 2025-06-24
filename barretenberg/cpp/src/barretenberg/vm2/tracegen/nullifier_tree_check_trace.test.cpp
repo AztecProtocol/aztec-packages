@@ -115,12 +115,12 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     }
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
-    nullifier_tree_check_simulator.read(param.nullifier,
-                                        param.exists,
-                                        param.low_leaf,
-                                        leaf_index,
-                                        sibling_path,
-                                        AppendOnlyTreeSnapshot{ .root = root });
+    nullifier_tree_check_simulator.assert_read(param.nullifier,
+                                               param.exists,
+                                               param.low_leaf,
+                                               leaf_index,
+                                               sibling_path,
+                                               AppendOnlyTreeSnapshot{ .root = root });
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);

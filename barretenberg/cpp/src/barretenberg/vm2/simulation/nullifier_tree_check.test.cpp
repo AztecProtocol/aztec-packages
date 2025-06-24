@@ -44,7 +44,7 @@ TEST(AvmSimulationNullifierTree, ReadExists)
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
-    nullifier_tree_check.read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot);
+    nullifier_tree_check.assert_read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot);
 
     NullifierTreeReadWriteEvent expect_event = {
         .nullifier = nullifier,
@@ -58,7 +58,7 @@ TEST(AvmSimulationNullifierTree, ReadExists)
 
     // Negative test: nullifier does not exist
     EXPECT_THROW_WITH_MESSAGE(
-        nullifier_tree_check.read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot),
+        nullifier_tree_check.assert_read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot),
         "Nullifier non-membership check failed");
 }
 
@@ -83,7 +83,7 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToInfinity)
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(nullifier, low_leaf.leaf.nullifier)).WillRepeatedly(Return(true));
 
-    nullifier_tree_check.read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot);
+    nullifier_tree_check.assert_read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot);
     NullifierTreeReadWriteEvent expect_event = {
         .nullifier = nullifier,
         .prev_snapshot = snapshot,
@@ -96,13 +96,13 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToInfinity)
 
     // Negative test: nullifier exists
     EXPECT_THROW_WITH_MESSAGE(
-        nullifier_tree_check.read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
+        nullifier_tree_check.assert_read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
         "Nullifier membership check failed");
 
     // Negative test: failed nullifier > low_leaf_preimage.value.nullifier
     EXPECT_CALL(field_gt, ff_gt(nullifier, low_leaf.leaf.nullifier)).WillOnce(Return(false));
     EXPECT_THROW_WITH_MESSAGE(
-        nullifier_tree_check.read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
+        nullifier_tree_check.assert_read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
         "Low leaf value is GTE leaf value");
 }
 
@@ -128,7 +128,7 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToAnotherLeaf)
     EXPECT_CALL(field_gt, ff_gt(nullifier, low_leaf.leaf.nullifier)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, nullifier)).WillRepeatedly(Return(true));
 
-    nullifier_tree_check.read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot);
+    nullifier_tree_check.assert_read(nullifier, false, low_leaf, low_leaf_index, sibling_path, snapshot);
     NullifierTreeReadWriteEvent expect_event = {
         .nullifier = nullifier,
         .prev_snapshot = snapshot,
@@ -141,13 +141,13 @@ TEST(AvmSimulationNullifierTree, ReadNotExistsLowPointsToAnotherLeaf)
 
     // Negative test: nullifier exists
     EXPECT_THROW_WITH_MESSAGE(
-        nullifier_tree_check.read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
+        nullifier_tree_check.assert_read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
         "Nullifier membership check failed");
 
     // Negative test: failed low_leaf_preimage.nextKey > nullifier
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, nullifier)).WillOnce(Return(false));
     EXPECT_THROW_WITH_MESSAGE(
-        nullifier_tree_check.read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
+        nullifier_tree_check.assert_read(nullifier, true, low_leaf, low_leaf_index, sibling_path, snapshot),
         "Leaf value is GTE low leaf next value");
 }
 
