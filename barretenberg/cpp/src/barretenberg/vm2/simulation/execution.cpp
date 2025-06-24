@@ -172,6 +172,16 @@ void Execution::internal_return(ContextInterface& context)
     }
 }
 
+void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
+{
+    try {
+        keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
+    } catch (const KeccakF1600Exception& e) {
+        // TODO: Possibly handle the error here.
+        throw e;
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -193,12 +203,14 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
             ex_event.next_context_id = context_provider.get_next_context_id();
-
-            // Basic pc and bytecode setup.
             auto pc = context.get_pc();
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
             //// Temporality group 1 starts ////
+
+            // We try to get the bytecode id. This can throw if the contract is not deployed.
+            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+
+            //// Temporality group 2 starts ////
 
             // We try to fetch an instruction.
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING; // Set preemptively.
@@ -207,21 +219,21 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            //// Temporality group 2 starts ////
+            //// Temporality group 3 starts ////
 
             // Gas checking may throw OOG.
             ex_event.error = ExecutionError::GAS_BASE;      // Set preemptively.
             get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
             get_gas_tracker().consume_base_gas();
 
-            //// Temporality group 3 starts ////
+            //// Temporality group 4 starts ////
 
             // Resolve the operands.
             ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
-            //// Temporality group 4+ starts (to be defined) ////
+            //// Temporality group 5+ starts (to be defined) ////
 
             // Execute the opcode.
             ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
@@ -229,8 +241,16 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
             // If we made it this far, there was no error.
             ex_event.error = ExecutionError::NONE;
+        }
+        // TODO(fcarreiro): do this in a nicer way.
+        catch (const BytecodeNotFoundError& e) {
+            vinfo("Bytecode not found: ", e.what());
+            context.halt();
+            ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
+            ex_event.bytecode_id = e.bytecode_id;
+            set_execution_result({ .success = false });
         } catch (const std::exception& e) {
-            info("Exceptional halt: ", e.what());
+            vinfo("Exceptional halt: ", e.what());
             context.halt();
             set_execution_result({ .success = false });
         }
@@ -339,6 +359,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::INTERNALRETURN:
         call_with_operands(&Execution::internal_return, context, resolved_operands);
+        break;
+    case ExecutionOpCode::KECCAKF1600:
+        call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

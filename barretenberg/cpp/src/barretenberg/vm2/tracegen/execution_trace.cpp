@@ -20,6 +20,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -282,14 +283,27 @@ void ExecutionTraceBuilder::process(
                   } });
 
         /**************************************************************************************************
-         *  Temporality group 1: Instruction fetching.
+         *  Temporality group 1: Bytecode retrieval.
+         **************************************************************************************************/
+
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        trace.set(row,
+                  { {
+                      { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        /**************************************************************************************************
+         *  Temporality group 2: Instruction fetching.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
+        bool process_instruction_fetching = !bytecode_retrieval_failed;
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
         trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (!instruction_fetching_failed) {
+        if (process_instruction_fetching && !instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
             // If we fetched an instruction successfully, we can set the next PC.
@@ -301,7 +315,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and Base gas.
+         *  Temporality group 3: Mapping from wire to execution and Base gas.
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
@@ -319,7 +333,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 3: Addressing.
+         *  Temporality group 4: Addressing.
          **************************************************************************************************/
 
         bool should_resolve_address = should_check_gas && !oog_base;
@@ -363,6 +377,7 @@ void ExecutionTraceBuilder::process(
         bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
         bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+        bool is_opcode_error = ex_event.error == ExecutionError::DISPATCHING;
         bool is_err = ex_event.error != ExecutionError::NONE;
         bool is_failure = is_revert || is_err;
         bool has_parent = ex_event.after_context_event.parent_id != 0;
@@ -423,6 +438,10 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
+            }
+
+            if (is_opcode_error) {
+                trace.set(C::execution_opcode_error, row, 1);
             }
         }
 
@@ -560,6 +579,8 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
               dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
             { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
             { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
+            { C::execution_sel_keccakf1600,
+              dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0 },
         } });
 
     // Execution Trace opcodes - separating for clarity
@@ -776,6 +797,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
         // Execution
         .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Bytecode retrieval
+        .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
         .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
         .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
@@ -804,6 +827,8 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
         // External Call
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
-        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>();
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Dispatch to gadget sub-traces
+        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen

@@ -13,7 +13,7 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -42,23 +42,24 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRACE_CONTINUITY_1
+        { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_shift)) *
-                       (FF(1) - in.get(C::execution_last));
+            auto tmp = (FF(1) - in.get(C::execution_sel)) * (FF(1) - in.get(C::precomputed_first_row)) *
+                       in.get(C::execution_sel_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRACE_CONTINUITY_2
+        { // LAST_IS_LAST
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::execution_sel)) *
-                       in.get(C::execution_sel_shift);
+            auto tmp =
+                (in.get(C::execution_last) - in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_shift)));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // LAST_IS_LAST
+        {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_last) * in.get(C::execution_sel_shift);
+            auto tmp = in.get(C::execution_sel) * (in.get(C::execution_sel_bytecode_retrieval_success) -
+                                                   (FF(1) - in.get(C::execution_sel_bytecode_retrieval_failure)));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
@@ -84,11 +85,17 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OPCODE_ERROR_BOOLEAN
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            auto tmp = in.get(C::execution_opcode_error) * (FF(1) - in.get(C::execution_opcode_error));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -101,19 +108,19 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     {
         switch (index) {
         case 2:
-            return "TRACE_CONTINUITY_1";
+            return "TRACE_CONTINUITY";
         case 3:
-            return "TRACE_CONTINUITY_2";
-        case 4:
             return "LAST_IS_LAST";
+        case 8:
+            return "OPCODE_ERROR_BOOLEAN";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY_1 = 2;
-    static constexpr size_t SR_TRACE_CONTINUITY_2 = 3;
-    static constexpr size_t SR_LAST_IS_LAST = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 2;
+    static constexpr size_t SR_LAST_IS_LAST = 3;
+    static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
 };
 
 } // namespace bb::avm2

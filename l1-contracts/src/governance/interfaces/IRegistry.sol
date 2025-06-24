@@ -10,9 +10,11 @@ interface IHaveVersion {
 interface IRegistry {
   event InstanceAdded(address indexed instance, uint256 indexed version);
   event GovernanceUpdated(address indexed governance);
+  event RewardDistributorUpdated(address indexed rewardDistributor);
 
   function addRollup(IHaveVersion _rollup) external;
   function updateGovernance(address _governance) external;
+  function updateRewardDistributor(address _rewardDistributor) external;
 
   // docs:start:registry_get_canonical_rollup
   function getCanonicalRollup() external view returns (IHaveVersion);
