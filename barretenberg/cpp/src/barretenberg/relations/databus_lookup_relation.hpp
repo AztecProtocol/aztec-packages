@@ -53,11 +53,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
   public:
     using FF = FF_;
     static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
-
+    // the actual degree of this subrelation is 3, and requires a degree adjustment of 1.
+    // however as we reuse the accumulators used to compute this subrelation for the lookup subrelation, we set the
+    // degree to 4 which removes the need of having degree adjustments for folding.
     static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
-    static constexpr size_t LOOKUP_SUBREL_LENGTH = 5;  // deg + 1 of log-deriv lookup subrelation
+    static constexpr size_t INVERSE_SUBREL_LENGTH_ADJUSTMENT = 0;
+    static constexpr size_t LOOKUP_SUBREL_LENGTH = 5; // deg + 1 of log-deriv lookup subrelation
+    static constexpr size_t LOOKUP_SUBREL_LENGTH_ADJUSTMENT = 0;
     static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH =
         3; // deg + 1 of the relation checking that read_tag_m is a boolean value
+    static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT = 0;
     static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
     // Note: Inverse correctness subrelations are actually {SUBRELTYPE}_LENGTH-1; taking advantage would require
@@ -72,6 +77,18 @@ template <typename FF_> class DatabusLookupRelationImpl {
         INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 2)
         LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 2)
         READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 2)
+    };
+
+    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> TOTAL_LENGTH_ADJUSTMENTS{
+        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
+        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT,
+        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
+        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT,
+        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
+        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
+        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT
     };
 
     static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true;         // to be satisfied independently at each row
@@ -157,6 +174,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto read_tag_m =
             CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in)); // does row contain data being read
         const Accumulator read_tag(read_tag_m);
+        //         degree 2(2)   1             2 (2)        1       // Degree 3 (3)
         return is_read_gate + read_tag - (is_read_gate * read_tag); // Degree 3 (5)
     }
 
@@ -173,6 +191,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         auto q_busread = CoefficientAccumulator(in.q_busread);
         auto column_selector = CoefficientAccumulator(BusData<bus_idx, AllEntities>::selector(in));
 
+        //          degree    1                1           2 (2)
         return Accumulator(q_busread * column_selector);
     }
 
@@ -193,7 +212,8 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value_i + idx_i*\beta + \gamma
-        return Accumulator(id * beta + value + gamma); // degree 1
+        // degrees         1(0) 0(1)  1(1)       0(1)
+        return Accumulator(id * beta + value + gamma); // degree 1 (1)
     }
 
     /**
@@ -216,7 +236,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         const auto& beta = ParameterCoefficientAccumulator(params.beta);
 
         // Construct value + index*\beta + \gamma
-        return Accumulator((w_2 * beta) + w_1 + gamma);
+        return Accumulator((w_2 * beta) + w_1 + gamma); // degree 1 (2)
     }
 
     /**
@@ -296,16 +316,16 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const FF& scaling_factor)
     {
         PROFILE_THIS_NAME("DatabusRead::accumulate");
-        using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
+        using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
         using ShortAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
         const auto inverses_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::inverses(in)); // Degree 1
         Accumulator inverses(inverses_m);
         const auto read_counts_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_counts(in)); // Degree 1
         const auto read_term = compute_read_term<Accumulator>(in, params);            // Degree 1 (2)
-        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1 (2)
-        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 2
-        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2
+        const auto write_term = compute_write_term<Accumulator, bus_idx>(in, params); // Degree 1 (1)
+        const auto inverse_exists = compute_inverse_exists<Accumulator, bus_idx>(in); // Degree 3 (3)
+        const auto read_selector = get_read_selector<Accumulator, bus_idx>(in);       // Degree 2 (2)
 
         // Determine which pair of subrelations to update based on which bus column is being read
         constexpr size_t subrel_idx_1 = NUM_SUB_RELATION_PER_IDX * bus_idx;
@@ -314,20 +334,25 @@ template <typename FF_> class DatabusLookupRelationImpl {
         constexpr size_t subrel_idx_3 = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value
-        // is 0 if !inverse_exists. Degree 3 (5)
+        // is 0 if !inverse_exists. Degree 3 (4)
+        // degrees            3(4)    =            1(2)         1(1)       1(1)           3(3)
         std::get<subrel_idx_1>(accumulator) += (read_term * write_term * inverses - inverse_exists) * scaling_factor;
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is enforced across the
         // entire trace, not on a per-row basis.
-        Accumulator tmp = read_selector * write_term;
 
+        // degree  3(3)   =    2(2)          1(1)
+        Accumulator tmp = read_selector * write_term;
+        // degree 2(3) =        1(1)         1(2)
         tmp -= Accumulator(read_counts_m) * read_term;
+        // degree 1(1)
         tmp *= inverses;
-        std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (5)
+        std::get<subrel_idx_2>(accumulator) += tmp; // Deg 4 (4)
 
         const auto read_tag_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::read_tags(in));
         const auto read_tag = ShortAccumulator(read_tag_m);
         // // this is done by row so we have to multiply by the scaling factor
+        // degree                                  1(1)       1(1)       1(1)      =      2(2)
         std::get<subrel_idx_3>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
     }
 
