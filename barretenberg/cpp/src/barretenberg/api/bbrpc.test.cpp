@@ -188,7 +188,7 @@ TEST_F(BBRpcTests, ProveAndVerifyCircuit)
                                   .public_inputs = prove_response.public_inputs,
                                   .proof = prove_response.proof,
                                   .settings = settings };
-    BBRpcRequest verify_request(RequestId{ 3 }, std::vector<Command>{});
+    BBRpcRequest verify_request = create_test_bbrpc_request();
     auto verify_response = execute(verify_request, std::move(verify_command));
 
     EXPECT_TRUE(verify_response.error_message.empty());
@@ -211,7 +211,7 @@ TEST_F(BBRpcTests, CircuitInfo)
                                   .recursive = false };
 
     // Get circuit info
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, CircuitInfo{ circuit, false, settings });
 
     EXPECT_TRUE(response.error_message.empty());
@@ -236,7 +236,7 @@ TEST_F(BBRpcTests, CircuitCheckValid)
                                   .honk_recursion = 0,
                                   .recursive = false };
 
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, CircuitCheck{ circuit, witness_data, settings });
 
     EXPECT_TRUE(response.error_message.empty());
@@ -272,7 +272,7 @@ TEST_F(BBRpcTests, CircuitCheckInvalid)
                                   .recursive = false };
 
     CircuitCheck check_command{ .circuit = circuit, .witness = witness_data, .settings = settings };
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, std::move(check_command));
 
     EXPECT_FALSE(response.error_message.empty());
@@ -285,7 +285,7 @@ TEST_F(BBRpcTests, ProofAsFields)
     HonkProof proof = { bb::fr(1), bb::fr(2), bb::fr(3), bb::fr(4) };
 
     ProofAsFields command{ .proof = proof };
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, std::move(command));
 
     EXPECT_TRUE(response.error_message.empty());
@@ -308,13 +308,13 @@ TEST_F(BBRpcTests, VkAsFields)
                                   .honk_recursion = 0,
                                   .recursive = false };
 
-    BBRpcRequest vk_request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest vk_request = create_test_bbrpc_request();
     auto vk_response = execute(vk_request, CircuitDeriveVk{ circuit, settings });
 
     EXPECT_TRUE(vk_response.error_message.empty());
 
     // Now convert VK to fields
-    BBRpcRequest fields_request(RequestId{ 2 }, std::vector<Command>{});
+    BBRpcRequest fields_request = create_test_bbrpc_request();
     auto fields_response = execute(fields_request, VkAsFields{ vk_response.verification_key, false });
 
     EXPECT_TRUE(fields_response.error_message.empty());
@@ -327,7 +327,7 @@ TEST_F(BBRpcTests, VkAsFields)
 TEST_F(BBRpcTests, ClientIvcWithMockKernels)
 {
     // Create request with testing_only_generate_mock_kernels enabled
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
 
     // Start IVC
     auto start_response = execute(request, ClientIvcStart{});
@@ -369,7 +369,7 @@ TEST_F(BBRpcTests, ClientIvcDeriveVkStandalone)
     CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test standalone VK derivation (just the circuit VK, not full IVC VK)
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, ClientIvcDeriveVk{ .circuit = circuit, .standalone = true });
 
     EXPECT_TRUE(response.error_message.empty());
@@ -382,7 +382,7 @@ TEST_F(BBRpcTests, ClientIvcDeriveVkFullIvc)
     CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test non-standalone (full IVC) VK derivation
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, ClientIvcDeriveVk{ circuit, false });
 
     // Full IVC VK derivation is now implemented
@@ -402,7 +402,7 @@ TEST_F(BBRpcTests, ClientIvcErrorNoStart)
     std::vector<uint8_t> witness_data = witness_stack.bincodeSerialize();
 
     ClientIvcAccumulate accumulate_command{ .witness = witness_data };
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
     auto response = execute(request, std::move(accumulate_command));
 
     EXPECT_FALSE(response.error_message.empty());

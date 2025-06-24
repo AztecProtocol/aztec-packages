@@ -322,17 +322,10 @@ inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriv
     // Create verification key based on whether it's standalone or not
     std::vector<uint8_t> vk_data;
     if (command.standalone) {
-        // // For standalone, we just need the circuit's verification key (not the full IVC VK)
-        // ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(
-        //     constraint_system, /*recursive=*/false, /*size_hint=*/0);
-
-        // auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(circuit);
-        // auto vk = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-        // vk_data = to_buffer(*vk);
-
-        // info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
+        // For standalone, we just need the circuit's verification key (not the full IVC VK)
         acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
+            get_acir_program_decider_proving_key(request, program);
         auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
         vk_data = to_buffer(*verification_key);
         info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
