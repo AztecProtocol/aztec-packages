@@ -240,7 +240,7 @@ export class P2PNetworkTest {
           client: deployL1ContractsValues.l1Client,
         });
 
-        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfNodes);
+        const stakeNeeded = l1ContractsConfig.depositAmount * BigInt(this.numberOfValidators);
         await Promise.all(
           [await stakingAsset.write.mint([multiAdder.address, stakeNeeded], {} as any)].map(txHash =>
             deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: txHash }),
@@ -308,7 +308,7 @@ export class P2PNetworkTest {
 
   async removeInitialNode() {
     await this.snapshotManager.snapshot(
-      'remove-inital-validator',
+      'remove-initial-validator',
       async ({ deployL1ContractsValues, aztecNode, dateProvider }) => {
         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
         const { receipt } = await this._sendDummyTx(deployL1ContractsValues.l1Client);
