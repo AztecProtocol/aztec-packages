@@ -188,7 +188,8 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the already siloed nullifiers.
     for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
-        merkle_db.nullifier_write(nullifier);
+        // TODO: handle the error case
+        merkle_db.siloed_nullifier_write(nullifier);
 
         auto next_tree_state = merkle_db.get_tree_state();
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::NR_NULLIFIER_INSERTION,
@@ -235,7 +236,8 @@ void TxExecution::insert_revertibles(const Tx& tx)
     auto prev_tree_state = merkle_db.get_tree_state();
     // 1. Write the already siloed nullifiers.
     for (const auto& siloed_nullifier : tx.revertibleAccumulatedData.nullifiers) {
-        merkle_db.nullifier_write(siloed_nullifier);
+        // TODO: handle the error case
+        merkle_db.siloed_nullifier_write(siloed_nullifier);
 
         auto next_tree_state = merkle_db.get_tree_state();
         events.emit(TxPhaseEvent{ .phase = TransactionPhase::R_NULLIFIER_INSERTION,

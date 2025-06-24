@@ -66,8 +66,9 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     void storage_write(const FF& leaf_slot, const FF& value) override;
 
     bool nullifier_exists(const FF& nullifier) const override;
-    // Throws if the nullifier already exists
-    void nullifier_write(const FF& nullifier) override;
+    // Returns false if the nullifier already exists, performing a membership proof instead.
+    bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
+    bool siloed_nullifier_write(const FF& nullifier) override;
 
     // Returns a unique note hash stored in the tree at leaf_index.
     FF note_hash_read(index_t leaf_index) const override;
@@ -80,6 +81,8 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
 
   private:
+    bool nullifier_write_internal(std::optional<AztecAddress> contract_address, const FF& nullifier);
+
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...

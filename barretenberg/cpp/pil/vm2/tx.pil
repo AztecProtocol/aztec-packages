@@ -300,11 +300,36 @@ namespace tx;
     should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
     should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
-    pol commit successful_tree_insert;
     // Note hash appends can't fail
-    should_note_hash_append * (1 - successful_tree_insert) = 0;
-    // A tree insert phase must be successful if it didnt revert or isnt a padded row
-    sel * ((1 - reverted - is_padded) * is_tree_insert_phase - successful_tree_insert) = 0;
+    should_note_hash_append * reverted = 0;
+
+    pol commit should_nullifier_append;
+    should_nullifier_append = sel * (1 - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+
+    #[NULLIFIER_APPEND]
+    should_nullifier_append {
+        reverted,
+        leaf_value,
+        prev_nullifier_tree_root,
+        next_nullifier_tree_root,
+        prev_nullifier_tree_size,
+        discard,
+        prev_num_nullifiers_emitted,
+        precomputed.zero
+    } in
+    nullifier_check.write {
+        nullifier_check.exists,
+        nullifier_check.nullifier,
+        nullifier_check.root,
+        nullifier_check.write_root,
+        nullifier_check.tree_size_before_write,
+        nullifier_check.discard,
+        nullifier_check.nullifier_index,
+        nullifier_check.should_silo
+    };
+
+    should_nullifier_append * ((prev_nullifier_tree_size + 1 - reverted) - next_nullifier_tree_size) = 0;
+    should_nullifier_append * ((prev_num_nullifiers_emitted + 1 - reverted) - next_num_nullifiers_emitted) = 0;
 
     // Previous Tree State
     pol commit prev_note_hash_tree_root;

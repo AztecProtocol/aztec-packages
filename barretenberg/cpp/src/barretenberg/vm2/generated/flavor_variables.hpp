@@ -77,10 +77,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 97;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2085;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2099;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 238;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2420;
+    static constexpr size_t NUM_ALL_ENTITIES = 2434;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -336,7 +336,9 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_silo_poseidon2_relation<FF_>,
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
@@ -369,6 +371,7 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_range_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
+        lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,

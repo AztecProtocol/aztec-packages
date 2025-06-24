@@ -10,6 +10,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
@@ -21,34 +22,7 @@ void NoteHashTreeCheckTraceBuilder::process(
 {
     using C = Column;
 
-    // Maps the index of the checkpoint to the index it was reverted in.
-    std::unordered_map<size_t, size_t> reverted_in;
-
-    std::stack<size_t> checkpoint_stack;
-
-    // We need to reconstruct discard in this trace using checkpointing events.
-    // https://hackmd.io/luYtD3XVTpGCDFeeCYS_Uw?view#Discard-reconstruction
-    // Find all the reverts and record which checkpoint is being reverted.
-    for (size_t i = 0; i < events.size(); i++) {
-        const auto& event = events.at(i);
-
-        if (std::holds_alternative<simulation::CheckPointEventType>(event)) {
-            switch (std::get<simulation::CheckPointEventType>(event)) {
-            case simulation::CheckPointEventType::CREATE_CHECKPOINT:
-                checkpoint_stack.push(i);
-                break;
-            case simulation::CheckPointEventType::COMMIT_CHECKPOINT:
-                assert(!checkpoint_stack.empty());
-                checkpoint_stack.pop();
-                break;
-            case simulation::CheckPointEventType::REVERT_CHECKPOINT:
-                assert(!checkpoint_stack.empty());
-                reverted_in[checkpoint_stack.top()] = i;
-                checkpoint_stack.pop();
-                break;
-            }
-        }
-    }
+    auto reverted_in = compute_reverted_in_map(events);
 
     uint32_t row = 0;
     bool discard = false;
