@@ -98,16 +98,14 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        // (Note: lookup tables are constructed from the beginning of the lookup block ; databus data is constructed at
-        // the start of the trace).
+        size_t databus_data_start = 0; // Databus column data starts at idx 0
+        size_t databus_data_end = databus_data_start + max_databus_size;
+        active_ranges.push_back(Range{ databus_data_start, databus_data_end }); // region where databus contains data
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1152): should be able to use simply Range{ 0,
-        // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
-        // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
-        active_ranges.push_back(Range{ 0, max_databus_size });
-        size_t lookups_start = fixed_sizes.lookup.trace_offset;
-        size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
-        active_ranges.emplace_back(Range{ lookups_start, lookups_end });
+        // Note: lookup table data is stored in the table polynomials at the idx where lookup gates block begins
+        size_t lookup_tables_start = fixed_sizes.lookup.trace_offset;
+        size_t lookup_tables_end = lookup_tables_start + max_tables_size;
+        active_ranges.emplace_back(Range{ lookup_tables_start, lookup_tables_end }); // region of actual table data
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
