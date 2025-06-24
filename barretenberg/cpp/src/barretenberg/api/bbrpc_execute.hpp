@@ -10,6 +10,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <queue>
@@ -17,6 +18,7 @@
 namespace bb::bbrpc {
 
 struct BBRpcRequest {
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     RequestId request_id;
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
@@ -206,8 +208,7 @@ inline ClientIvcStart::Response execute(BBRpcRequest& request, BB_UNUSED ClientI
     }
 
     // Initialize a new ClientIVC instance
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    request.ivc_in_progress = std::make_shared<ClientIVC>(trace_settings);
+    request.ivc_in_progress = std::make_shared<ClientIVC>(request.trace_settings);
     info("ClientIvcStart - IVC instance created successfully");
     return ClientIvcStart::Response{ .error_message = "" };
 }
@@ -311,7 +312,7 @@ inline ClientIvcDeriveVk::Response execute(BB_UNUSED BBRpcRequest& request, Clie
 
         info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {
-        // TODO(AD) base this off of write_vk_for_ivc in api_client_ivc.cpp
+        // TODO(AI) base this off of write_vk_for_ivc in api_client_ivc.cpp
         return ClientIvcDeriveVk::Response{
             .verification_key = {},
             .error_message = "Full IVC VK derivation not yet implemented - requires complex mock circuit setup"

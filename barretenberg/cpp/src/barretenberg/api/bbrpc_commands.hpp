@@ -14,6 +14,28 @@
 namespace bb::bbrpc {
 
 /**
+ * @struct CircuitInputNoVK
+ * @brief A circuit to be used in either ultrahonk or ClientIVC-honk verification key derivation..
+ */
+struct CircuitInputNoVK {
+    /**
+     * @brief Human-readable name for the circuit
+     *
+     * This name is not used for processing but serves as a debugging aid and
+     * provides context for circuit identification in logs and diagnostics.
+     */
+    std::string name;
+
+    /**
+     * @brief Serialized bytecode representation of the circuit
+     *
+     * Contains the ACIR program in serialized form. The format (bincode or msgpack)
+     * is determined by examining the first byte of the bytecode.
+     */
+    std::vector<uint8_t> bytecode;
+};
+
+/**
  * @struct CircuitInput
  * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
  */
@@ -35,7 +57,8 @@ struct CircuitInput {
     std::vector<uint8_t> bytecode;
 
     /**
-     * @brief Verification key. Should always be passed, except for write_vk.
+     * @brief Verification key of the circuit. This could be derived, but it is more efficient to have it fixed ahead of
+     * time. As well, this guards against unexpected changes in the verification key.
      */
     std::vector<uint8_t> verification_key;
 };
@@ -112,7 +135,7 @@ struct CircuitDeriveVk {
         std::string error_message;
     };
 
-    CircuitInput circuit;
+    CircuitInputNoVK circuit;
     ProofSystemSettings settings;
 };
 
@@ -126,7 +149,7 @@ struct ClientIvcDeriveVk {
         std::string error_message;
     };
 
-    CircuitInput circuit;
+    CircuitInputNoVK circuit;
     bool standalone;
 };
 

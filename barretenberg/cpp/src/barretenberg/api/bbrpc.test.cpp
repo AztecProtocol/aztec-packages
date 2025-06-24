@@ -5,13 +5,23 @@
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/serde/acir.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "bbrpc_execute.hpp"
 #include "msgpack/v3/sbuffer_decl.hpp"
+#include <cstddef>
 #include <gtest/gtest.h>
+#include <sstream>
 
 namespace bb::bbrpc {
+
+BBRpcRequest create_test_bbrpc_request()
+{
+    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    request.trace_settings = TraceSettings{ SMALL_TEST_STRUCTURE }; // Minimal test structure
+    return request;
+}
 
 // Helper function to create a minimal circuit bytecode for testing
 std::vector<uint8_t> create_simple_circuit_bytecode()
@@ -45,32 +55,29 @@ std::vector<uint8_t> create_simple_circuit_bytecode()
     circuit.current_witness_index = 3; // We have 3 witnesses (0, 1, 2)
     circuit.opcodes = { opcode };
     circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
-    circuit.private_parameters = {};                      // No private parameters
-    circuit.public_parameters = Acir::PublicInputs{ {} }; // No public inputs
-    circuit.return_values = Acir::PublicInputs{ {} };     // No return values
-    circuit.assert_messages = {};                         // No assert messages
-
     // Create the program with the circuit
     Acir::Program program;
     program.functions = { circuit };
-    program.unconstrained_functions = {}; // No unconstrained functions
 
     // Serialize the program using bincode
     return program.bincodeSerialize();
 }
 
-std::vector<uint8_t> create_simple_kernel()
+std::vector<uint8_t> create_simple_kernel(size_t vk_size)
 {
     Acir::Circuit circuit;
 
     // Need witness indices for VK elements, proof, and public inputs
     uint32_t witness_idx = 0;
 
-    // Create FunctionInputs for verification key (~100+ elements)
+    circuit.public_parameters = Acir::PublicInputs{ {} }; // No public inputs
     std::vector<Acir::FunctionInput> vk_inputs;
-    for (int i = 0; i < 100; i++) {
-        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ witness_idx++ } } }, 128 };
+    for (uint32_t i = 0; i < vk_size; i++) {
+        auto pub_input = Acir::Witness{ witness_idx };
+        circuit.public_parameters.value.push_back({ pub_input });
+        Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ pub_input } }, 128 };
         vk_inputs.push_back(input);
+        witness_idx++;
     }
 
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
@@ -80,23 +87,28 @@ std::vector<uint8_t> create_simple_kernel()
         .proof = {},
         .public_inputs = {},
         // unused
-        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Constant{
-                                             { "0000000000000000000000000000000000000000000000000000000000000000" } } },
-                                         128 },
-        .proof_type = 2 // OINK for IVC (or 3 for PG)
+        .key_hash = Acir::FunctionInput{ { Acir::ConstantOrWitnessEnum::Witness{ Acir::Witness{ 0 } } }, 128 },
+        .proof_type = acir_format::PROOF_TYPE::OINK
     };
+    recursion.bincodeDeserialize(recursion.bincodeSerialize());
 
     // Create the BlackBoxFuncCall opcode
     Acir::BlackBoxFuncCall black_box_call;
     black_box_call.value = recursion;
+    black_box_call.bincodeDeserialize(black_box_call.bincodeSerialize());
 
     // Add to circuit opcodes
     circuit.opcodes.push_back(Acir::Opcode{ Acir::Opcode::BlackBoxFuncCall{ black_box_call } });
-
     circuit.current_witness_index = witness_idx;
-    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Unbounded{} };
+    circuit.expression_width = Acir::ExpressionWidth{ Acir::ExpressionWidth::Bounded{ 3 } };
 
-    return circuit;
+    // Create the program with the circuit
+    Acir::Program program;
+    program.functions = { circuit };
+
+    program.bincodeDeserialize(program.bincodeSerialize());
+    // Serialize the program using bincode
+    return program.bincodeSerialize();
 }
 
 class BBRpcTests : public ::testing::Test {
@@ -107,10 +119,9 @@ class BBRpcTests : public ::testing::Test {
 TEST_F(BBRpcTests, CircuitDeriveVkDirect)
 {
     // Create a minimal circuit
-    CircuitInput circuit{
+    CircuitInputNoVK circuit{
         .name = "test_circuit",
         .bytecode = create_simple_circuit_bytecode(),
-        .verification_key = {} // Empty for derive_vk
     };
 
     ProofSystemSettings settings{ .ipa_accumulation = false,
@@ -119,14 +130,11 @@ TEST_F(BBRpcTests, CircuitDeriveVkDirect)
                                   .honk_recursion = 0,
                                   .recursive = false };
 
-    // Create the command
-    CircuitDeriveVk command{ .circuit = circuit, .settings = settings };
-
     // Create a minimal request context
-    BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
+    BBRpcRequest request = create_test_bbrpc_request();
 
     // Call execute directly
-    auto response = execute(request, std::move(command));
+    auto response = execute(request, CircuitDeriveVk{ circuit, settings });
 
     // Check that the command succeeded
     EXPECT_TRUE(response.error_message.empty());
@@ -139,9 +147,7 @@ TEST_F(BBRpcTests, ProveAndVerifyCircuit)
     auto bytecode = create_simple_circuit_bytecode();
 
     // First derive the verification key
-    CircuitInput circuit_for_vk{
-        .name = "test_circuit", .bytecode = bytecode, .verification_key = {} // Empty for derive_vk
-    };
+    CircuitInputNoVK circuit_for_vk{ .name = "test_circuit", .bytecode = bytecode };
 
     ProofSystemSettings settings{ .ipa_accumulation = false,
                                   .oracle_hash_type = "poseidon2",
@@ -150,9 +156,11 @@ TEST_F(BBRpcTests, ProveAndVerifyCircuit)
                                   .recursive = false };
 
     // Derive VK
+    // TODO(AI): make all std::move'd constructors like this just use a constructor on the std::move line - construct
+    // with positional arguments for brevity
     CircuitDeriveVk derive_vk_command{ .circuit = circuit_for_vk, .settings = settings };
-    BBRpcRequest vk_request(RequestId{ 1 }, std::vector<Command>{});
-    auto vk_response = execute(vk_request, std::move(derive_vk_command));
+    BBRpcRequest request = create_test_bbrpc_request();
+    auto vk_response = execute(request, std::move(derive_vk_command));
 
     EXPECT_TRUE(vk_response.error_message.empty());
     EXPECT_FALSE(vk_response.verification_key.empty());
@@ -180,9 +188,9 @@ TEST_F(BBRpcTests, ProveAndVerifyCircuit)
                                     .bytecode = bytecode,
                                     .verification_key = vk_response.verification_key };
 
+    // TODO(AI) simplify as above
     CircuitProve prove_command{ .circuit = circuit_for_proof, .witness = witness_data, .settings = settings };
-    BBRpcRequest prove_request(RequestId{ 2 }, std::vector<Command>{});
-    auto prove_response = execute(prove_request, std::move(prove_command));
+    auto prove_response = execute(request, std::move(prove_command));
 
     EXPECT_TRUE(prove_response.error_message.empty());
     EXPECT_FALSE(prove_response.proof.empty());
@@ -215,6 +223,7 @@ TEST_F(BBRpcTests, CircuitInfo)
                                   .recursive = false };
 
     // Get circuit info
+    // TODO(AI) simplify as above
     CircuitInfo info_command{ .circuit = circuit, .include_gates_per_opcode = false, .settings = settings };
     BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
     auto response = execute(request, std::move(info_command));
@@ -253,6 +262,7 @@ TEST_F(BBRpcTests, CircuitCheckValid)
                                   .honk_recursion = 0,
                                   .recursive = false };
 
+    // TODO(AI) simplify as above
     CircuitCheck check_command{ .circuit = circuit, .witness = witness_data, .settings = settings };
     BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
     auto response = execute(request, std::move(check_command));
@@ -318,7 +328,7 @@ TEST_F(BBRpcTests, VkAsFields)
 {
     // First derive a VK to convert
     auto bytecode = create_simple_circuit_bytecode();
-    CircuitInput circuit{ .name = "test_circuit", .bytecode = bytecode, .verification_key = {} };
+    CircuitInputNoVK circuit{ .name = "test_circuit", .bytecode = bytecode };
 
     ProofSystemSettings settings{ .ipa_accumulation = false,
                                   .oracle_hash_type = "poseidon2",
@@ -326,16 +336,14 @@ TEST_F(BBRpcTests, VkAsFields)
                                   .honk_recursion = 0,
                                   .recursive = false };
 
-    CircuitDeriveVk derive_vk_command{ .circuit = circuit, .settings = settings };
     BBRpcRequest vk_request(RequestId{ 1 }, std::vector<Command>{});
-    auto vk_response = execute(vk_request, std::move(derive_vk_command));
+    auto vk_response = execute(vk_request, CircuitDeriveVk{ circuit, settings });
 
     EXPECT_TRUE(vk_response.error_message.empty());
 
     // Now convert VK to fields
-    VkAsFields vk_as_fields_command{ .verification_key = vk_response.verification_key, .is_mega_honk = false };
     BBRpcRequest fields_request(RequestId{ 2 }, std::vector<Command>{});
-    auto fields_response = execute(fields_request, std::move(vk_as_fields_command));
+    auto fields_response = execute(fields_request, VkAsFields{ vk_response.verification_key, false });
 
     EXPECT_TRUE(fields_response.error_message.empty());
     EXPECT_GT(fields_response.fields.size(), 0);
@@ -343,6 +351,7 @@ TEST_F(BBRpcTests, VkAsFields)
 
 // Helper to create a minimal circuit suitable for IVC testing
 // Returns a pair of (circuit_bytecode, witness_data)
+// TODO(AI) deduplicate this so there is only ONE app circuit construction
 std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_minimal_ivc_circuit()
 {
     // Create a simple circuit with public inputs (required for IVC)
@@ -380,8 +389,7 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_minimal_ivc_circuit
 
     // Create witness data: public_input=2, w1=3, w2=6 (so 2*3=6)
     Witnesses::WitnessStack witness_stack;
-    Witnesses::StackItem stack_item;
-    stack_item.index = 0;
+    Witnesses::StackItem stack_item{};
     stack_item.witness.value = {
         { Witnesses::Witness{ 0 },
           "0000000000000000000000000000000000000000000000000000000000000002" }, // public_input = 2
@@ -405,19 +413,26 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
 
     // Get our minimal circuit and witness
     auto [circuit_bytecode, witness_data] = create_minimal_ivc_circuit();
+    auto vk_result =
+        execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
+    const MegaFlavor::VerificationKey& app_vk = from_buffer<MegaFlavor::VerificationKey>(vk_result.verification_key);
+    auto vk_as_fields = app_vk.to_field_elements();
+    auto kernel_bytecode = create_simple_kernel(vk_as_fields.size());
 
-    for (int i = 0; i < 2; i++) {
-        // Load the circuit
-        CircuitInput circuit{ .name = "circuit_" + std::to_string(i),
-                              .bytecode = circuit_bytecode,
-                              .verification_key = {} };
-
-        auto load_response = execute(request, ClientIvcLoad{ circuit });
-        EXPECT_TRUE(load_response.error_message.empty());
-
-        auto accumulate_response = execute(request, ClientIvcAccumulate{ witness_data });
-        EXPECT_TRUE(accumulate_response.error_message.empty());
+    Witnesses::WitnessStack kernel_witness;
+    Witnesses::StackItem stack_item{};
+    for (uint32_t i = 0; i < vk_as_fields.size(); i++) {
+        std::stringstream ss;
+        ss << vk_as_fields[i];
+        stack_item.witness.value[Witnesses::Witness{ i }] = ss.str();
     }
+    kernel_witness.stack.push_back(stack_item);
+
+    // Load the circuit
+    execute(request, ClientIvcLoad{ CircuitInput{ "app_circuit", circuit_bytecode, {} } });
+    execute(request, ClientIvcAccumulate{ witness_data });
+    execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", kernel_bytecode, {} } });
+    execute(request, ClientIvcAccumulate{ kernel_witness.bincodeSerialize() });
 
     // Generate proof
     auto prove_response = execute(request, ClientIvcProve{});
@@ -429,12 +444,11 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
 TEST_F(BBRpcTests, ClientIvcDeriveVkStandalone)
 {
     auto bytecode = create_simple_circuit_bytecode();
-    CircuitInput circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode, .verification_key = {} };
+    CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test standalone VK derivation (just the circuit VK, not full IVC VK)
-    ClientIvcDeriveVk derive_vk_command{ .circuit = circuit, .standalone = true };
     BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
-    auto response = execute(request, std::move(derive_vk_command));
+    auto response = execute(request, ClientIvcDeriveVk{ .circuit = circuit, .standalone = true });
 
     EXPECT_TRUE(response.error_message.empty());
     EXPECT_FALSE(response.verification_key.empty());
@@ -443,9 +457,10 @@ TEST_F(BBRpcTests, ClientIvcDeriveVkStandalone)
 TEST_F(BBRpcTests, ClientIvcDeriveVkFullIvc)
 {
     auto bytecode = create_simple_circuit_bytecode();
-    CircuitInput circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode, .verification_key = {} };
+    CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test non-standalone (full IVC) VK derivation
+    // TODO(AI) simplify
     ClientIvcDeriveVk derive_vk_command{ .circuit = circuit, .standalone = false };
     BBRpcRequest request(RequestId{ 1 }, std::vector<Command>{});
     auto response = execute(request, std::move(derive_vk_command));

@@ -48,7 +48,7 @@
       "type": "lldb",
       "request": "launch",
       "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/api_tests",
-      "args": ["--gtest_filter=BBRpcTests.ClientIvcWithRecursionConstraints"],
+      "args": ["--gtest_filter=BBRpcTests.ClientIvcWithMockKernels"],
       "cwd": "${workspaceFolder}/barretenberg/cpp/build-debug",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
