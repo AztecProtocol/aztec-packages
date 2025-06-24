@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eu
 
+VALIDATORS_PER_NODE=${VALIDATORS_PER_NODE:-1}
+
 # We get the index in the config map from the pod name, which will have the service index within it
 # For multiple validators per node, we need to multiply the pod index by VALIDATORS_PER_NODE
 POD_INDEX=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF}')
@@ -13,7 +15,7 @@ echo "KEY_INDEX: $KEY_INDEX"
 echo "KEY_INDEX_START: $KEY_INDEX_START"
 echo "PRIVATE_KEY_INDEX: $PRIVATE_KEY_INDEX"
 # Specific for validators that can hold multiple keys on one node
-echo "VALIDATORS_PER_NODE: ${VALIDATORS_PER_NODE:-1}"
+echo "VALIDATORS_PER_NODE: ${VALIDATORS_PER_NODE}"
 echo "MNEMONIC: $(echo $MNEMONIC | cut -d' ' -f1-2)..."
 
 private_keys=()

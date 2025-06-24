@@ -56,7 +56,9 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
 
     PROFILE_THIS_NAME("creating prover");
 
-    return Prover(builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    return Prover(proving_key, verification_key);
 };
 
 /**

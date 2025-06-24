@@ -10,6 +10,8 @@ struct ContextEvent {
     uint32_t id;
     uint32_t parent_id;
 
+    TransactionPhase phase;
+
     // State
     uint32_t pc;
     AztecAddress msg_sender;
@@ -31,6 +33,11 @@ struct ContextEvent {
 
     Gas parent_gas_used;
     Gas parent_gas_limit;
+
+    // Internal Call Stack Info
+    InternalCallId internal_call_id = 0;
+    InternalCallId internal_call_return_id = 0;
+    InternalCallId next_internal_call_id = 0;
 
     // Tree State
     // TreeSnapshots tree_state;

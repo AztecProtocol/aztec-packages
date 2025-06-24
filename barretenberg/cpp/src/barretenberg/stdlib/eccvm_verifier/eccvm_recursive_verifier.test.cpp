@@ -126,8 +126,8 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         // Construct a full proof from the recursive verifier circuit
         {
             auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            OuterProver prover(proving_key);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+            OuterProver prover(proving_key, verification_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -175,7 +175,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
             std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
                 std::make_shared<typename RecursiveFlavor::Transcript>();
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
-            auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
+            auto [opening_claim, ipa_proof] = verifier.verify_proof(proof);
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
             if (idx == 0) {
@@ -187,11 +187,14 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
                 EXPECT_TRUE(CircuitChecker::check(outer_circuit));
 
                 // However, IPA recursive verifier must fail, as one of the commitments is incorrect.
-                auto native_pcs_vk =
-                    std::make_shared<VerifierCommitmentKey<typename InnerFlavor::Curve>>(1UL << CONST_ECCVM_LOG_N);
-                auto stdlib_pcs_vkey = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>>>(
+                VerifierCommitmentKey<typename InnerFlavor::Curve> native_pcs_vk(1UL << CONST_ECCVM_LOG_N);
+                VerifierCommitmentKey<stdlib::grumpkin<OuterBuilder>> stdlib_pcs_vkey(
                     &outer_circuit, 1UL << CONST_ECCVM_LOG_N, native_pcs_vk);
 
+                // Construct ipa_transcript from proof
+                std::shared_ptr<typename RecursiveFlavor::Transcript> ipa_transcript =
+                    std::make_shared<typename RecursiveFlavor::Transcript>();
+                ipa_transcript->load_proof(ipa_proof);
                 EXPECT_FALSE(IPA<typename RecursiveFlavor::Curve>::full_verify_recursive(
                     stdlib_pcs_vkey, opening_claim, ipa_transcript));
             }

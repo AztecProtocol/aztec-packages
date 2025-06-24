@@ -33,6 +33,7 @@ describe('UpdateChecker', () => {
       updateNodeConfig: jest.fn(),
       newNodeVersion: jest.fn(),
       newRollupVersion: jest.fn(),
+      updatePublicTelemetryConfig: jest.fn(),
     };
 
     for (const [event, fn] of Object.entries(eventHandlers)) {
@@ -108,6 +109,14 @@ describe('UpdateChecker', () => {
         fetch.mockResolvedValueOnce(new Response(JSON.stringify({ config: { maxTxsPerBlock: 16 } })));
       },
     ],
+    [
+      'updatePublicTelemetryConfig',
+      () => {
+        fetch.mockResolvedValueOnce(
+          new Response(JSON.stringify({ publicTelemetry: { publicIncludeMetrics: ['aztec'] } })),
+        );
+      },
+    ],
   ])('emits event: %s', async (event, patchFn) => {
     patchFn();
     await expect(checker.trigger()).resolves.toBeUndefined();
@@ -145,6 +154,37 @@ describe('UpdateChecker', () => {
 
     await checker.trigger();
     expect(eventHandlers.updateNodeConfig).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls updatePublicTelemetryConfig only when config changes', async () => {
+    fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          publicTelemetry: {
+            publicIncludeMetrics: ['aztec'],
+          },
+        }),
+      ),
+    );
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(1);
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(1);
+
+    fetch.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          publicTelemetry: {
+            publicIncludeMetrics: ['aztec.validator'],
+          },
+        }),
+      ),
+    );
+
+    await checker.trigger();
+    expect(eventHandlers.updatePublicTelemetryConfig).toHaveBeenCalledTimes(2);
   });
 
   it('reaches out to the expected config URL', async () => {

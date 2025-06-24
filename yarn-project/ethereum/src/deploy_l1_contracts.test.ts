@@ -63,6 +63,7 @@ describe('deploy_l1_contracts', () => {
       protocolContractTreeRoot,
       genesisArchiveRoot,
       l1TxConfig: { checkIntervalMs: 100 },
+      realVerifier: false,
       ...args,
     });
 
@@ -76,17 +77,19 @@ describe('deploy_l1_contracts', () => {
   it('deploys initializing validators', async () => {
     const deployed = await deploy({ initialValidators });
     const rollup = getRollup(deployed);
-    for (const validator of initialValidators) {
-      await retryUntil(
-        async () => {
-          const view = await rollup.getAttesterView(validator.attester);
-          return view.status > 0;
-        },
-        'attester is attesting',
-        DefaultL1ContractsConfig.ethereumSlotDuration * 3,
-        1,
-      );
-    }
+    await Promise.all(
+      initialValidators.map(async validator => {
+        await retryUntil(
+          async () => {
+            const view = await rollup.getAttesterView(validator.attester);
+            return view.status > 0;
+          },
+          `attester ${validator.attester} is attesting`,
+          DefaultL1ContractsConfig.ethereumSlotDuration * 3,
+          1,
+        );
+      }),
+    );
   });
 
   it('deploys with salt on different addresses', async () => {

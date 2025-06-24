@@ -5,6 +5,8 @@ import {StakingAssetHandlerBase} from "./base.t.sol";
 import {StakingAssetHandler, IStakingAssetHandler} from "@aztec/mock/StakingAssetHandler.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 
+import "forge-std/console.sol";
+
 // solhint-disable comprehensive-interface
 // solhint-disable func-name-mixedcase
 // solhint-disable ordering
@@ -47,7 +49,8 @@ contract SetWithdrawerTest is StakingAssetHandlerBase {
 
     vm.expectEmit(true, true, true, true, address(stakingAssetHandler));
     emit IStakingAssetHandler.ValidatorAdded(rollup, attester, _newWithdrawer);
-    stakingAssetHandler.addValidator(attester);
-    assertEq(staking.getConfig(attester).withdrawer, _newWithdrawer);
+    stakingAssetHandler.addValidator(attester, validMerkleProof, realProof);
+    staking.flushEntryQueue();
+    assertEq(staking.getAttesterView(attester).config.withdrawer, _newWithdrawer);
   }
 }

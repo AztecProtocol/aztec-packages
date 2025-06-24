@@ -1,3 +1,4 @@
+import { BatchedBlob, type FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import type {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -48,6 +49,7 @@ export class EpochProvingState {
     | PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
   private rootRollupProvingOutput: PublicInputsAndRecursiveProof<RootRollupPublicInputs> | undefined;
+  private finalBatchedBlob: BatchedBlob | undefined;
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
 
   // Map from tx hash to tube proof promise. Used when kickstarting tube proofs before tx processing.
@@ -59,6 +61,7 @@ export class EpochProvingState {
     public readonly epochNumber: number,
     public readonly firstBlockNumber: number,
     public readonly totalNumBlocks: number,
+    public readonly finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
   ) {
@@ -70,6 +73,7 @@ export class EpochProvingState {
   public startNewBlock(
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
+    l1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     l1ToL2MessageSubtreeSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     l1ToL2MessageTreeSnapshotAfterInsertion: AppendOnlyTreeSnapshot,
     lastArchiveSnapshot: AppendOnlyTreeSnapshot,
@@ -77,11 +81,12 @@ export class EpochProvingState {
     newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHeader: BlockHeader,
   ): BlockProvingState {
-    const index = globalVariables.blockNumber.toNumber() - this.firstBlockNumber;
+    const index = globalVariables.blockNumber - this.firstBlockNumber;
     const block = new BlockProvingState(
       index,
       globalVariables,
       l1ToL2Messages,
+      l1ToL2MessageTreeSnapshot,
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchiveSnapshot,
@@ -143,6 +148,31 @@ export class EpochProvingState {
     this.paddingBlockRootProvingOutput = proof;
   }
 
+  public setFinalBatchedBlob(batchedBlob: BatchedBlob) {
+    this.finalBatchedBlob = batchedBlob;
+  }
+
+  public async setBlobAccumulators(toBlock?: number) {
+    let previousAccumulator;
+    const end = toBlock ? toBlock - this.firstBlockNumber : this.blocks.length;
+    // Accumulate blobs as far as we can for this epoch.
+    for (let i = 0; i <= end; i++) {
+      const block = this.blocks[i];
+      if (!block || !block.block) {
+        // If the block proving state does not have a .block property, it may be awaiting more txs.
+        break;
+      }
+      if (!block.startBlobAccumulator) {
+        // startBlobAccumulator always exists for firstBlockNumber, so the below should never assign an undefined:
+        block.setStartBlobAccumulator(previousAccumulator!);
+      }
+      if (block.startBlobAccumulator && !block.endBlobAccumulator) {
+        await block.accumulateBlobs();
+      }
+      previousAccumulator = block.endBlobAccumulator;
+    }
+  }
+
   public getParentLocation(location: TreeNodeLocation) {
     return this.blockRootOrMergeProvingOutputs.getParentLocation(location);
   }
@@ -156,7 +186,7 @@ export class EpochProvingState {
     return new BlockMergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public getRootRollupInputs(proverId: Fr) {
+  public getRootRollupInputs() {
     const [left, right] = this.#getChildProofsForRoot();
     if (!left || !right) {
       throw new Error('At lease one child is not ready.');
@@ -164,7 +194,6 @@ export class EpochProvingState {
 
     return RootRollupInputs.from({
       previousRollupData: [this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)],
-      proverId,
     });
   }
 
@@ -181,14 +210,15 @@ export class EpochProvingState {
     return this.blocks.find(block => block?.blockNumber === blockNumber);
   }
 
-  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs } {
-    if (!this.rootRollupProvingOutput) {
+  public getEpochProofResult(): { proof: Proof; publicInputs: RootRollupPublicInputs; batchedBlobInputs: BatchedBlob } {
+    if (!this.rootRollupProvingOutput || !this.finalBatchedBlob) {
       throw new Error('Unable to get epoch proof result. Root rollup is not ready.');
     }
 
     return {
       proof: this.rootRollupProvingOutput.proof.binaryProof,
       publicInputs: this.rootRollupProvingOutput.inputs,
+      batchedBlobInputs: this.finalBatchedBlob,
     };
   }
 

@@ -10,6 +10,7 @@ namespace bb::avm2 {
 
 using AztecAddress = FF;
 using ContractClassId = FF;
+using PC = uint32_t;
 using AffinePoint = grumpkin::g1::affine_element;
 // In typescript the EthAddress is a byte vector, but in our circuit implementation
 // it's represented as a field element for simplicity
@@ -27,6 +28,8 @@ enum TransactionPhase {
     TEARDOWN = 9,
     COLLECT_GAS_FEES = 10,
 };
+
+using InternalCallId = uint32_t;
 
 ////////////////////////////////////////////////////////////////////////////
 // Keys, Instances, Classes
@@ -72,11 +75,10 @@ struct ContractClass {
 struct L2ToL1Message {
     EthAddress recipient;
     FF content;
-    uint32_t counter;
 
     bool operator==(const L2ToL1Message& other) const = default;
 
-    MSGPACK_FIELDS(recipient, content, counter);
+    MSGPACK_FIELDS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -112,8 +114,8 @@ struct PublicDataWrite {
 ////////////////////////////////////////////////////////////////////////////
 
 struct GasFees {
-    FF feePerDaGas;
-    FF feePerL2Gas;
+    uint128_t feePerDaGas;
+    uint128_t feePerL2Gas;
 
     bool operator==(const GasFees& other) const = default;
 
@@ -223,9 +225,9 @@ struct AvmAccumulatedData {
 struct GlobalVariables {
     FF chainId;
     FF version;
-    FF blockNumber;
+    uint32_t blockNumber;
     FF slotNumber;
-    FF timestamp;
+    uint64_t timestamp;
     EthAddress coinbase;
     AztecAddress feeRecipient;
     GasFees gasFees;

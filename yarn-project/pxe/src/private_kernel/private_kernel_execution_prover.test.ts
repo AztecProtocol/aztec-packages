@@ -65,6 +65,7 @@ describe('Private Kernel Sequencer', () => {
       newNoteIndices.map(idx => notesAndSlots[idx]),
       new Map(),
       [],
+      [],
       (dependencies[fnName] || []).map(name => createCallExecutionResult(name)),
       [],
     );

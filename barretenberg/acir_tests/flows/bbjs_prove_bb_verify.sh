@@ -34,13 +34,16 @@ echo -n $proof_bytes | xxd -r -p > $output_dir/proof
 echo -n $public_inputs_bytes | xxd -r -p > $output_dir/public_inputs
 echo "$BIN verify \
   --scheme ultra_honk \
+  --disable_zk \ 
   -k $output_dir/vk \
   -p $output_dir/proof \
   -i $output_dir/public_inputs"
 
 # Verify the proof with bb cli
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1441): Remove --disable_zk
 $BIN verify \
   --scheme ultra_honk \
+  --disable_zk \
   -k $output_dir/vk \
   -p $output_dir/proof \
   -i $output_dir/public_inputs

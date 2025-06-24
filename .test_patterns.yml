@@ -28,6 +28,8 @@ names:
   - jan: &jan "U03FGA0BWNR"
   - esau: &esau "U067FJ9A4Q1"
   - saleel: &saleel "U07KJ0AV20J"
+  - nico: &nico "U06D2QSLY10"
+  - lucas: &lucas "U05MW7WQ8LQ"
 
 tests:
   # barretenberg
@@ -51,11 +53,10 @@ tests:
     error_regex: "RuntimeError: Out of bounds memory access"
     owners:
       - *adam
-  # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
-    skip: true
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "call_indirect to a null table entry"
     owners:
-      - *tom
+      - *adam
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -72,11 +73,6 @@ tests:
     skip: true
     owners:
       - *charlie
-  - regex: "arb_program_can_be_executed"
-    owners:
-      - *akosh
-  - regex: "noir_ast_fuzzer_fuzz"
-    skip: true
 
   # AD: hit this flake
   # 18:04:38 thread 'arb_program_freqs_in_expected_range' panicked at tooling/ast_fuzzer/tests/calibration.rs:75:5:
@@ -92,14 +88,6 @@ tests:
     skip: true
     owners:
       - *lasse
-  - regex: "src/slasher_client"
-    skip: true
-    owners:
-      - *mitch
-  - regex: "src/e2e_p2p/validators_sentinel"
-    skip: true
-    owners:
-      - *mitch
   - regex: "testbench/port_change.test.ts"
     skip: true
     owners:
@@ -118,14 +106,14 @@ tests:
     owners:
       - *sean
   # http://ci.aztec-labs.com/5a291189b35a1b38
-  - regex: "src/e2e_p2p/rediscovery.test.ts"
+  # http://ci.aztec-labs.com/b175321d1289021c
+  - regex: "src/e2e_p2p"
     error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
       - *palla
   - regex: "src/e2e_p2p/reqresp"
-    error_regex: 'CodeError: writable end state is "writing" not "ready"'
     owners:
-      - *sean
+      - *palla
   - regex: "src/e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
@@ -149,22 +137,12 @@ tests:
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  # http://ci.aztec-labs.com/7a5104e136578d64
-  # The "loop that wastes 5m" thing.
-  - regex: "src/e2e_fees/failures"
-    error_regex: "Exceeded timeout"
-    owners:
-      - *palla
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
   - regex: "src/e2e_lending_contract"
     error_regex: "✕ Repay"
-    owners:
-      - *lasse
-  - regex: "src/e2e_epochs/epochs_l1_reorgs"
-    error_regex: "updates L1 to L2 messages changed due to an L1 reorg"
     owners:
       - *lasse
   - regex: "src/e2e_epochs/epochs_empty_blocks"
@@ -187,21 +165,17 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_block_building"
-    error_regex: "Could not retrieve body for block"
-    owners:
-      - *palla
   - regex: "src/composed/integration_l1_publisher"
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "src/e2e_sequencer_config"
-    error_regex: "Anvil failed to stop in time"
+  # http://ci.aztec-labs.com/f2007345762c50a8
+  - regex: "src/e2e_multi_validator_node.test.ts"
+    error_regex: "✕ should attest ONLY with the correct validator keys"
     owners:
-      - *palla
-  # http://ci.aztec-labs.com/2322cdddbb351b34
-  - regex: "src/e2e_fees/public_payments.test.ts"
-    error_regex: "Exceeded timeout"
+      - *spyros
+  - regex: "src/e2e_epochs/epochs_monitor_block_building.test.ts"
+    error_regex: "Failed events from sequencers"
     owners:
       - *palla
 
@@ -222,11 +196,7 @@ tests:
     error_regex: "✕ should stop after max retry attempts"
     owners:
       - *sean
-  # http://ci.aztec-labs.com/dbd1f6d89d783fe6
-  # http://ci.aztec-labs.com/2edd22a1ffa9edea
-  # http://ci.aztec-labs.com/ef728e7bedb2710b
-  # http://ci.aztec-labs.com/2edd22a1ffa9edea
-  - regex: "p2p/src/client/p2p_client.integration.test.ts"
+  - regex: "p2p/src/client/p2p_client.integration.test.ts" # http://ci.aztec-labs.com/31c4c9821b1a533c
     owners:
       - *palla
   - regex: "yarn-project/kv-store"
@@ -242,17 +212,8 @@ tests:
     owners:
       - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
-    error_regex: "Expected: > 0"
-    owners:
-      - *palla
-  - regex: "ethereum/src/l1_tx_utils.test.ts"
-    error_regex: "✕ calculates correct gas prices for initial attempt"
-    owners:
-      - *spyros
   - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
     error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
@@ -261,6 +222,12 @@ tests:
     error_regex: "delays a transaction until a given L1 timestamp"
     owners:
       - *esau
+  - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
+    error_regex: "Exceeded timeout of"
+    owners:
+      - *lucas
+  - regex: "e2e_prover/full"
+    error_regex: "ProvingError: Failed to verify proof from key!"
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
@@ -271,6 +238,10 @@ tests:
       - *alex
   - regex: "spartan/bootstrap.sh"
     error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "tar: Error is not recoverable: exiting now"
     owners:
       - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"
@@ -287,10 +258,39 @@ tests:
     error_regex: "code: 124"
     owners:
       - *esau
+  - regex: "aztec-up/scripts/run_test.sh amm_flow"
+    error_regex: "Sumcheck failed"
+    owners:
+      - *luke
 
   # boxes
-  - regex: "boxes/boxes/vanilla/tests/e2e.spec.ts"
-    error_regex: "Error: Timed out 20000ms waiting for expect(locator).toHaveText(expected)"
+  - regex: "vanilla-all-browsers box boxes"
+    error_regex: "Error: Timed out [0-9]+ms waiting for expect\\(locator\\)"
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test vite-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "Test timeout of [0-9]+ms exceeded."
+    owners:
+      - *saleel
+
+  - regex: "run_compose_test react-[a-z]* box boxes"
+    error_regex: "toBeVisible" # http://ci.aztec-labs.com/b7b10b95167d5ed6
+    owners:
+      - *saleel
+
+  - regex: "tests/browser.spec.ts"
+    error_regex: "Error: locator\\.click: Test timeout of"
+    owners:
+      - *saleel
+
+  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
+    error_regex: "create account and cast vote"
     owners:
       - *saleel
 

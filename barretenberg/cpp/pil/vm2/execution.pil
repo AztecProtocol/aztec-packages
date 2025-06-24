@@ -1,15 +1,7 @@
 include "alu.pil";
 include "addressing.pil";
-include "address_derivation.pil";
-include "bc_decomposition.pil";
-include "bc_hashing.pil";
-include "bc_retrieval.pil";
-include "call_opcode.pil";
-include "instr_fetching.pil";
-include "class_id_derivation.pil";
 include "range_check.pil";
 include "bitwise.pil";
-include "merkle_check.pil";
 include "memory.pil";
 include "keccakf1600.pil";
 include "precomputed.pil";
@@ -22,13 +14,32 @@ include "to_radix.pil";
 include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
-include "public_data_check.pil";
-include "update_check.pil";
-include "nullifier_check.pil";
+include "execution_discard.pil";
 include "public_inputs.pil";
 include "gas.pil";
+include "data_copy.pil";
+include "internal_call_stack.pil";
+
+include "trees/merkle_check.pil";
+include "trees/nullifier_check.pil";
+include "trees/public_data_check.pil";
+
+include "bytecode/address_derivation.pil";
+include "bytecode/bc_decomposition.pil";
+include "bytecode/bc_hashing.pil";
+include "bytecode/bc_retrieval.pil";
+include "bytecode/instr_fetching.pil";
+include "bytecode/class_id_derivation.pil";
+include "bytecode/update_check.pil";
+
+include "opcodes/internal_call.pil";
+include "opcodes/external_call.pil";
 
 namespace execution;
+
+// If `sel` is 0, then the Execution relation should pass.
+#[skippable_if]
+sel = 0;
 
 pol commit sel; // subtrace selector
 pol commit last; // last row selector
@@ -39,36 +50,38 @@ last * (1 - last) = 0;
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
 
-// If `sel` is 0, then the Execution relation should pass.
-#[skippable_if]
-sel = 0;
 
 /**************************************************************************************************
  *  Setup (some general constraints)
  **************************************************************************************************/
 
-// If the current row is an execution row, then either
-// the next row is an execution row, or the current row is marked as the last row.
-// sel => (sel' v last) = 1              iff
-// ¬sel v (sel' v last) = 1              iff
-// ¬(¬sel v (sel' v last)) = 0           iff
-// sel ^ (¬sel' ^ ¬last) = 0             iff
-// sel * (1 - sel') * (1 - last) = 0
-#[TRACE_CONTINUITY_1]
-sel * (1 - sel') * (1 - last) = 0;
-// If the current row is not an execution row, then there are no more execution rows after that.
-// (not enforced for the first row)
-#[TRACE_CONTINUITY_2]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-// If the current row is the last row, then the next row is not an execution row.
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
+#[TRACE_CONTINUITY]
+(1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 #[LAST_IS_LAST]
-last * sel' = 0;
+last = sel * (1 - sel');
 
 /**************************************************************************************************
- *  Temporality group 1: Instruction fetching (unconditional)
+ *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
 pol commit bytecode_id;
+pol commit sel_bytecode_retrieval_failure;
+
+#[BYTECODE_RETRIEVAL_RESULT]
+sel {
+    bytecode_id, contract_address, sel_bytecode_retrieval_failure
+} in bc_retrieval.sel {
+    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
+};
+
+pol commit sel_bytecode_retrieval_success;
+sel * (sel_bytecode_retrieval_success - (1 - sel_bytecode_retrieval_failure)) = 0;
+
+/**************************************************************************************************
+ *  Temporality group 2: Instruction fetching
+ **************************************************************************************************/
+
 pol commit instr_length; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure;
 
@@ -83,7 +96,7 @@ pol commit op[7];  // operands
 // TODO: We can consider optimizing this later, but it is probably the cleanest right now.
 
 #[INSTRUCTION_FETCHING_RESULT]
-sel {
+sel_bytecode_retrieval_success {
     pc, bytecode_id, sel_instruction_fetching_failure
 } in instr_fetching.sel {
     instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
@@ -127,8 +140,12 @@ sel_instruction_fetching_success {
     base_da_gas,
     dynamic_l2_gas,
     dynamic_da_gas,
+    // addressing
+    sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
+    sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
-    subtrace_operation_id, sel_alu, sel_bitwise, sel_to_radix, sel_ecc_add, sel_poseidon2_perm,
+    subtrace_operation_id, sel_alu, sel_bitwise, sel_poseidon2_perm,
+    sel_to_radix, sel_ecc_add, sel_keccakf1600,
     mem_op[0], mem_op[1], mem_op[2], mem_op[3], mem_op[4], mem_op[5], mem_op[6],
     rw[0], rw[1], rw[2], rw[3], rw[4], rw[5], rw[6]
 } in
@@ -140,6 +157,14 @@ precomputed.sel_exec_spec {
     precomputed.exec_opcode_base_da_gas,
     precomputed.exec_opcode_dynamic_l2_gas,
     precomputed.exec_opcode_dynamic_da_gas,
+    // addressing
+    precomputed.sel_op_is_address[0],
+    precomputed.sel_op_is_address[1],
+    precomputed.sel_op_is_address[2],
+    precomputed.sel_op_is_address[3],
+    precomputed.sel_op_is_address[4],
+    precomputed.sel_op_is_address[5],
+    precomputed.sel_op_is_address[6],
     // subtraces
     precomputed.subtrace_operation_id,
     precomputed.sel_dispatch_alu,
@@ -147,6 +172,7 @@ precomputed.sel_exec_spec {
     precomputed.sel_dispatch_poseidon_perm,
     precomputed.sel_dispatch_to_radix,
     precomputed.sel_dispatch_ecc,
+    precomputed.sel_dispatch_keccakf1600,
     // memory operations per register
     precomputed.mem_op_reg[0],
     precomputed.mem_op_reg[1],
@@ -189,16 +215,10 @@ pol commit rop[7];
 // The "output we want is" sel_addressing_error from addressing.pil.
 
 /**************************************************************************************************
- *  Temporality group N: Dynamic gas
- **************************************************************************************************/
-
-// TODO: gate this group with sel_addressing_error, etc.
-
-/**************************************************************************************************
  *  Temporality group N: Registers + Dispatch opcode
  **************************************************************************************************/
 
-// TODO: gate this group with oog_dynamic, etc.
+// TODO: gate this group.
 
 // Registers
 pol commit register[7];
@@ -215,6 +235,10 @@ pol commit rw[7];
 
 // TODO: gate this group with some error flag from the previous group.
 
+pol commit opcode_error;
+#[OPCODE_ERROR_BOOLEAN]
+opcode_error * (1 - opcode_error) = 0;
+
 // Subtrace operation id
 pol commit subtrace_operation_id;
 
@@ -225,6 +249,29 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_jump;
+pol commit sel_jumpi;
+
+// This is used in context.pil
+pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+pol commit sel_keccakf1600;
+
+/**************************************************************************************************
+* Dispatch permutations to the gadget subtraces
+ **************************************************************************************************/
+
+#[DISPATCH_KECCAKF1600]
+sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, opcode_error }
+is
+keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+
+/**************************************************************************************************
+ *  Temporality group N: Dynamic gas
+ **************************************************************************************************/
+
+// TODO: gate this group. This is actually interleaved with the previous group.
 
 /**************************************************************************************************
  *  Error collection
@@ -237,3 +284,4 @@ sel_error * (1 - sel_error) = 0;
 // TODO: complete.
 // This implies mutual exclusivity of the failure selectors.
 // sel_error = sel_gas_failure + sel_instruction_fetching_failure;
+

@@ -5,12 +5,12 @@ import {TestBase} from "@test/base/Base.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
-import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
+import {Proposal, ProposalState} from "@aztec/governance/interfaces/IGovernance.sol";
+import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {
   ProposalLib,
   VoteTabulationReturn,
@@ -22,16 +22,16 @@ import {
 } from "./TestPayloads.sol";
 
 contract GovernanceBase is TestBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
   IMintableERC20 internal token;
   Registry internal registry;
   Governance internal governance;
   GovernanceProposer internal governanceProposer;
 
-  mapping(bytes32 => DataStructures.Proposal) internal proposals;
+  mapping(bytes32 => Proposal) internal proposals;
   mapping(bytes32 => uint256) internal proposalIds;
-  DataStructures.Proposal internal proposal;
+  Proposal internal proposal;
   uint256 proposalId;
 
   function setUp() public virtual {
@@ -50,7 +50,7 @@ contract GovernanceBase is TestBase {
     {
       CallAssetPayload payload = new CallAssetPayload(token, address(governance));
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["call_asset"] = governance.proposalCount() - 1;
       proposals["call_asset"] = governance.getProposal(proposalIds["call_asset"]);
@@ -59,7 +59,7 @@ contract GovernanceBase is TestBase {
     {
       UpgradePayload payload = new UpgradePayload(registry);
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["upgrade"] = governance.proposalCount() - 1;
       proposals["upgrade"] = governance.getProposal(proposalIds["upgrade"]);
@@ -68,7 +68,7 @@ contract GovernanceBase is TestBase {
     {
       CallRevertingPayload payload = new CallRevertingPayload();
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["revert"] = governance.proposalCount() - 1;
       proposals["revert"] = governance.getProposal(proposalIds["revert"]);
@@ -77,7 +77,7 @@ contract GovernanceBase is TestBase {
     {
       EmptyPayload payload = new EmptyPayload();
       vm.prank(address(governanceProposer));
-      assertTrue(governance.propose(payload));
+      governance.propose(payload);
 
       proposalIds["empty"] = governance.proposalCount() - 1;
       proposals["empty"] = governance.getProposal(proposalIds["empty"]);
@@ -96,7 +96,7 @@ contract GovernanceBase is TestBase {
     // @note We jump to the point where it becomes active
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
 
-    assertTrue(governance.getProposalState(proposalId) == DataStructures.ProposalState.Active);
+    assertTrue(governance.getProposalState(proposalId) == ProposalState.Active);
   }
 
   function _stateDropped(bytes32 _proposalName, address _proposer) internal {
@@ -117,7 +117,7 @@ contract GovernanceBase is TestBase {
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
 
-    assertTrue(governance.getProposalState(proposalId) == DataStructures.ProposalState.Rejected);
+    assertTrue(governance.getProposalState(proposalId) == ProposalState.Rejected);
   }
 
   function _stateQueued(
@@ -155,9 +155,7 @@ contract GovernanceBase is TestBase {
 
     vm.warp(Timestamp.unwrap(proposal.activeThrough()) + 1);
 
-    assertEq(
-      governance.getProposalState(proposalId), DataStructures.ProposalState.Queued, "invalid state"
-    );
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued, "invalid state");
   }
 
   function _stateExecutable(
@@ -174,11 +172,7 @@ contract GovernanceBase is TestBase {
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
 
-    assertEq(
-      governance.getProposalState(proposalId),
-      DataStructures.ProposalState.Executable,
-      "invalid state"
-    );
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable, "invalid state");
   }
 
   function _stateExpired(
@@ -195,9 +189,7 @@ contract GovernanceBase is TestBase {
 
     vm.warp(Timestamp.unwrap(proposal.executableThrough()) + 1);
 
-    assertEq(
-      governance.getProposalState(proposalId), DataStructures.ProposalState.Expired, "invalid state"
-    );
+    assertEq(governance.getProposalState(proposalId), ProposalState.Expired, "invalid state");
   }
 
   function assertEq(VoteTabulationReturn a, VoteTabulationReturn b) internal {
@@ -232,20 +224,16 @@ contract GovernanceBase is TestBase {
     }
   }
 
-  function assertEq(DataStructures.ProposalState a, DataStructures.ProposalState b) internal {
+  function assertEq(ProposalState a, ProposalState b) internal {
     if (a != b) {
-      emit log("Error: a == b not satisfied [DataStructures.ProposalState]");
+      emit log("Error: a == b not satisfied [ProposalState]");
       emit log_named_uint("      Left", uint256(a));
       emit log_named_uint("     Right", uint256(b));
       fail();
     }
   }
 
-  function assertEq(
-    DataStructures.ProposalState a,
-    DataStructures.ProposalState b,
-    string memory err
-  ) internal {
+  function assertEq(ProposalState a, ProposalState b, string memory err) internal {
     if (a != b) {
       emit log_named_string("Error", err);
       assertEq(a, b);

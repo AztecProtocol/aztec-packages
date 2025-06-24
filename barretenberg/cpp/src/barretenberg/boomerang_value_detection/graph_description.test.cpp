@@ -39,7 +39,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
         }
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
     EXPECT_EQ(variables_in_one_gate.size(), 1024);
@@ -71,7 +71,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_s
         }
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 1;
@@ -96,7 +96,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_boolean_gates)
         circuit_constructor.create_bool_gate(a_idx);
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
@@ -133,7 +133,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
 
     circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 1;
@@ -164,7 +164,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
 
     circuit_constructor.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 1;
@@ -221,7 +221,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
     uint32_t y8 = circuit_constructor.add_variable(p8.y);
     circuit_constructor.create_ecc_dbl_gate({ x7, y7, x8, y8 });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 2;
@@ -261,7 +261,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
     auto h_idx = circuit_constructor.add_variable(h);
     circuit_constructor.create_sort_constraint({ e_idx, f_idx, g_idx, h_idx });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components[0].size(), 4);
     EXPECT_EQ(connected_components[1].size(), 4);
@@ -320,7 +320,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints_with_e
 
     circuit_constructor.create_sort_constraint_with_edges(
         { a1_idx, b1_idx, c1_idx, d1_idx, e1_idx, f1_idx, g1_idx, h1_idx }, a1, h1);
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 2;
@@ -351,7 +351,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_with_plookup_accumulators)
 
     EXPECT_EQ(num_lookups, lookup_witnesses[plookup::ColumnIdx::C1].size());
 
-    Graph graph = Graph(circuit_builder);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_builder);
     auto connected_components = graph.find_connected_components();
     auto num_connected_components = connected_components.size();
     bool result = num_connected_components == 1;
@@ -384,7 +384,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
         }
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     bool result = true;
     for (const auto pair : variables_gate_counts) {
@@ -420,7 +420,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
         }
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     bool result = true;
     auto variables_gate_counts = graph.get_variables_gate_counts();
     for (const auto& pair : variables_gate_counts) {
@@ -450,7 +450,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_boolea
         circuit_constructor.create_bool_gate(a_idx);
     }
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     bool result = true;
     for (const auto& part : variables_gate_counts) {
@@ -490,7 +490,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
     auto h_idx = circuit_constructor.add_variable(h);
     circuit_constructor.create_sort_constraint({ e_idx, f_idx, g_idx, h_idx });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 2);
@@ -555,7 +555,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
 
     circuit_constructor.create_sort_constraint_with_edges(
         { a1_idx, b1_idx, c1_idx, d1_idx, e1_idx, f1_idx, g1_idx, h1_idx }, a1, h1);
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     auto variables_gate_counts = graph.get_variables_gate_counts();
     bool result = true;
@@ -597,7 +597,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_ad
 
     circuit_constructor.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, 1 });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
     bool result = (variables_gate_counts[connected_components[0][0]] == 1) &&
@@ -634,7 +634,7 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_db
 
     circuit_constructor.create_ecc_dbl_gate({ x1, y1, x3, y3 });
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto variables_gate_counts = graph.get_variables_gate_counts();
     auto connected_components = graph.find_connected_components();
 
@@ -671,7 +671,7 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_range_constraints)
         circuit_constructor.create_new_range_constraint(indices[i], 5);
     }
     circuit_constructor.create_sort_constraint(indices);
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
 }
@@ -694,7 +694,7 @@ TEST(boomerang_ultra_circuit_constructor, composed_range_constraint)
         { a_idx, circuit_constructor.zero_idx, circuit_constructor.zero_idx, 1, 0, 0, -fr(e) });
     circuit_constructor.decompose_into_default_range(a_idx, 134);
 
-    Graph graph = Graph(circuit_constructor);
+    StaticAnalyzer graph = StaticAnalyzer(circuit_constructor);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
 }

@@ -107,18 +107,18 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[0] = new Fr(0x9999);
     tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[1] = new Fr(0xaaaa);
     tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromNumber(0x5555), new Fr(0xbbbb), 0),
+      new L2ToL1Message(EthAddress.fromNumber(0x5555), new Fr(0xbbbb)),
       AztecAddress.fromField(new Fr(0x6666)),
     );
     tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[1] = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromNumber(0x6666), new Fr(0xcccc), 0),
+      new L2ToL1Message(EthAddress.fromNumber(0x6666), new Fr(0xcccc)),
       AztecAddress.fromField(new Fr(0x7777)),
     );
 
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(0x9999);
     tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(0xbbbb);
     tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
-      new L2ToL1Message(EthAddress.fromNumber(0x7777), new Fr(0xdddd), 0),
+      new L2ToL1Message(EthAddress.fromNumber(0x7777), new Fr(0xdddd)),
       AztecAddress.fromField(new Fr(0x8888)),
     );
 
@@ -576,7 +576,7 @@ describe('public_tx_simulator', () => {
     const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
     const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
     const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
-      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i], 0).scope(l2ToL1Addresses[i]),
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
     );
 
     mockPublicExecutor([
@@ -712,7 +712,7 @@ describe('public_tx_simulator', () => {
     const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
     const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
     const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
-      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i], 0).scope(l2ToL1Addresses[i]),
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
     );
 
     mockPublicExecutor([
@@ -839,7 +839,7 @@ describe('public_tx_simulator', () => {
     const l2ToL1Recipients = [new Fr(0xb0000), new Fr(0xc0000), new Fr(0xd0000), new Fr(0xe0000), new Fr(0xf0000)];
     const l2ToL1Contents = [new Fr(0x100000), new Fr(0x110000), new Fr(0x120000), new Fr(0x130000), new Fr(0x140000)];
     const l2ToL1Messages = l2ToL1Recipients.map((recipient, i) =>
-      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i], 0).scope(l2ToL1Addresses[i]),
+      new L2ToL1Message(EthAddress.fromField(recipient), l2ToL1Contents[i]).scope(l2ToL1Addresses[i]),
     );
 
     mockPublicExecutor([

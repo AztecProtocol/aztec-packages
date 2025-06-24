@@ -39,6 +39,11 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
     return result;
   }
 
+  sizeAsync(): Promise<number> {
+    const rangeQuery = IDBKeyRange.bound([this.container, ''], [this.container, '\uffff']);
+    return this.db.count(rangeQuery);
+  }
+
   async set(key: K, val: V): Promise<void> {
     await this.db.put({
       value: val,
@@ -48,6 +53,12 @@ export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecA
       keyCount: 1,
       slot: this.slot(key),
     });
+  }
+
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    for (const { key, value } of entries) {
+      await this.set(key, value);
+    }
   }
 
   swap(_key: K, _fn: (val: V | undefined) => V): Promise<void> {

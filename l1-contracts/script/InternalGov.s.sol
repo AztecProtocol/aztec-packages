@@ -4,7 +4,10 @@ pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 
-import {Governance, DataStructures} from "@aztec/governance/Governance.sol";
+import {Governance} from "@aztec/governance/Governance.sol";
+import {
+  Proposal, Configuration, ProposalState
+} from "@aztec/governance/interfaces/IGovernance.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
@@ -24,7 +27,7 @@ import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 
 contract GovScript is Test {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
 
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
@@ -41,7 +44,7 @@ contract GovScript is Test {
 
   IRollup public rollup;
   IValidatorSelection public validatorSelection;
-  DataStructures.Proposal internal proposal;
+  Proposal internal proposal;
 
   string[8] internal stateNames =
     ["Pending", "Active", "Queued", "Executable", "Rejected", "Executed", "Dropped", "Expired"];
@@ -52,7 +55,7 @@ contract GovScript is Test {
     emit log_named_uint("\tBlock number", block.number);
     emit log_named_uint("\tTimestamp   ", block.timestamp);
 
-    rollup = registry.getCanonicalRollup();
+    rollup = IRollup(address(registry.getCanonicalRollup()));
     validatorSelection = IValidatorSelection(address(rollup));
   }
 
@@ -80,10 +83,10 @@ contract GovScript is Test {
     emit log_named_uint(
       "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
     );
-    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getMinimumStake(), 18);
+    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getDepositAmount(), 18);
 
     emit log_named_address("# Governance", address(governance));
-    DataStructures.Configuration memory config = governance.getConfiguration();
+    Configuration memory config = governance.getConfiguration();
     emit log_named_decimal_uint("\tquorum           ", config.quorum, 18);
     emit log_named_decimal_uint("\tvote Differential", config.voteDifferential, 18);
     emit log_named_decimal_uint("\tminimum Votes    ", config.minimumVotes, 18);
@@ -139,7 +142,7 @@ contract GovScript is Test {
 
   function lookAtProposal(uint256 _proposalId) public {
     proposal = governance.getProposal(_proposalId);
-    DataStructures.ProposalState state = governance.getProposalState(_proposalId);
+    ProposalState state = governance.getProposalState(_proposalId);
 
     Timestamp pendingThrough = proposal.pendingThrough();
 

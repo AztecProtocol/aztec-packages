@@ -1,9 +1,10 @@
-use crate::constants::{
-    MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-    NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
-};
 use crate::{
-    messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    abis::side_effect::scoped::Scoped,
+    constants::{
+        MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
+    },
+    messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     utils::{arrays::array_length, reader::Reader},
 };
@@ -11,7 +12,7 @@ use crate::{
 pub struct PrivateToAvmAccumulatedData {
     pub note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     pub nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
-    pub l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
+    pub l2_to_l1_msgs: [Scoped<L2ToL1Message>; MAX_L2_TO_L1_MSGS_PER_TX],
 }
 
 impl Empty for PrivateToAvmAccumulatedData {
@@ -19,7 +20,7 @@ impl Empty for PrivateToAvmAccumulatedData {
         PrivateToAvmAccumulatedData {
             note_hashes: [0; MAX_NOTE_HASHES_PER_TX],
             nullifiers: [0; MAX_NULLIFIERS_PER_TX],
-            l2_to_l1_msgs: [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+            l2_to_l1_msgs: [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
         }
     }
 }
@@ -59,8 +60,8 @@ impl Deserialize<PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH> for PrivateToAvmAccumul
             note_hashes: reader.read_array(),
             nullifiers: reader.read_array(),
             l2_to_l1_msgs: reader.read_struct_array(
-                ScopedL2ToL1Message::deserialize,
-                [ScopedL2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
+                Scoped::deserialize,
+                [Scoped::empty(); MAX_L2_TO_L1_MSGS_PER_TX],
             ),
         };
         reader.finish();

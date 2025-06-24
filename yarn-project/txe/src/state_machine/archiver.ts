@@ -129,4 +129,8 @@ export class TXEArchiver extends ArchiverStoreHelper {
   public getRegistryAddress(): Promise<EthAddress> {
     throw new Error('TXE Archiver does not implement "getRegistryAddress"');
   }
+
+  public getL1Timestamp(): Promise<bigint> {
+    throw new Error('TXE Archiver does not implement "getL1Timestamp"');
+  }
 }

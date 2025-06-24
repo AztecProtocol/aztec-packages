@@ -2,8 +2,8 @@ import type { Fr } from '@aztec/foundation/fields';
 import type { Timer } from '@aztec/foundation/timer';
 
 import type { L2Block } from '../block/l2_block.js';
-import type { AllowedElement } from '../config/index.js';
 import type { Gas } from '../gas/gas.js';
+import type { MerkleTreeWriteOperations } from '../trees/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { GlobalVariables } from '../tx/global_variables.js';
 import type { FailedTx, ProcessedTx } from '../tx/processed_tx.js';
@@ -48,11 +48,6 @@ export interface PublicProcessorValidator {
   preprocessValidator?: TxValidator<Tx>;
   nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
 }
-
-export interface BuildBlockOptions extends PublicProcessorLimits {
-  txPublicSetupAllowList?: AllowedElement[];
-}
-
 export interface BuildBlockResult {
   block: L2Block;
   publicGas: Gas;
@@ -74,7 +69,11 @@ export interface IFullNodeBlockBuilder {
 
   buildBlock(
     txs: Iterable<Tx> | AsyncIterable<Tx>,
+    l1ToL2Messages: Fr[],
     globalVariables: GlobalVariables,
-    options: BuildBlockOptions,
+    options: PublicProcessorLimits,
+    fork?: MerkleTreeWriteOperations,
   ): Promise<BuildBlockResult>;
+
+  getFork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
 }

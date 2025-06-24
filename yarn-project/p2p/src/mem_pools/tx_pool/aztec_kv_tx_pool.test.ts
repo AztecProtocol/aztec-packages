@@ -165,7 +165,7 @@ describe('KV TX pool', () => {
     const firstBatch = await timesAsync(10, () => mockFixedSizeTx());
     await txPool.addTxs(firstBatch);
 
-    // we've just added 10 txs. They should all be availble
+    // we've just added 10 txs. They should all be available
     expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
       await toArray(
         sort(
@@ -210,6 +210,60 @@ describe('KV TX pool', () => {
     expect(await txPool.getPendingTxCount()).toBeLessThanOrEqual(10);
   });
 
+  it('evicts based on the updated size limit', async () => {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+      maxTxPoolSize: mockTxSize * 10, // pool should contain no more than 10 mock txs
+    });
+
+    const cmp = (a: TxHash, b: TxHash) => (a.toBigInt() < b.toBigInt() ? -1 : a.toBigInt() > b.toBigInt() ? 1 : 0);
+
+    const firstBatch = await timesAsync(10, (i: number) => mockFixedSizeTx(new GasFees(i + 1, i + 1)));
+    const expectedRemainingTxs = firstBatch.slice(6);
+    await txPool.addTxs(firstBatch);
+
+    // we've just added 10 txs. They should all be available
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(firstBatch, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    // now set the limit to 5 txs
+    const numRemainingTxs = 5;
+    txPool.updateConfig({ maxTxPoolSize: mockTxSize * numRemainingTxs });
+
+    // txs are not immediately evicted
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(firstBatch, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+
+    // now add one more transaction
+    const lastTx = await mockFixedSizeTx(new GasFees(20, 20));
+    await txPool.addTxs([lastTx]);
+
+    const finalExpectedPool = expectedRemainingTxs.concat(lastTx);
+
+    // There should now just be numRemainingTxs txs in the pool
+    expect(await txPool.getPendingTxCount()).toEqual(finalExpectedPool.length);
+
+    expect(await toArray(sort(await txPool.getPendingTxHashes(), cmp))).toEqual(
+      await toArray(
+        sort(
+          map(finalExpectedPool, tx => tx.getTxHash()),
+          cmp,
+        ),
+      ),
+    );
+  });
+
   it('Evicts txs with nullifiers that are already included in the mined block', async () => {
     const tx1 = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 1 });
     const tx2 = await mockTx(2, { numberOfNonRevertiblePublicCallRequests: 1 });
@@ -251,11 +305,11 @@ describe('KV TX pool', () => {
 
   it('Evicts txs with a max block number lower than or equal to the mined block', async () => {
     const tx1 = await mockTx(1);
-    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(1));
+    tx1.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 1);
     const tx2 = await mockTx(2);
-    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(2));
+    tx2.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 2);
     const tx3 = await mockTx(3);
-    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(3));
+    tx3.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, 3);
 
     await txPool.addTxs([tx1, tx2, tx3]);
     await txPool.markAsMined([await tx1.getTxHash()], 2);
@@ -268,7 +322,7 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
 
     // modify tx1 to return no archive indices
-    tx1.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
+    tx1.data.constants.historicalHeader.globalVariables.blockNumber = 1;
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
     txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {

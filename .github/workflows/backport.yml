@@ -5,13 +5,31 @@ on:
     types: ["labeled", "closed"]
 
 jobs:
+  label_checker:
+    name: Check labels
+    runs-on: ubuntu-latest
+    outputs:
+      state: ${{ steps.check.outputs.label_check }}
+    steps:
+      - id: check
+        uses: agilepathway/label-checker@825944377ab3bce1269b38c99b718767e2ca6bbc
+        with:
+          prefix_mode: true
+          any_of: backport-to-
+          repo_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          allow_failure: true
+      - name: Print status
+        shell: bash
+        run: 'echo "Label detection status: ${{ steps.check.outputs.label_check }}"'
+
   backport:
+    needs: [label_checker]
     name: Backport PR
-    if: github.event.pull_request.merged == true && !(contains(github.event.pull_request.labels.*.name, 'backport'))
+    if: github.event.pull_request.merged == true && needs.label_checker.outputs.state == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Backport Action
-        uses: sorenlouv/backport-github-action@v9.5.1
+        uses: sorenlouv/backport-github-action@ad888e978060bc1b2798690dd9d03c4036560947
         with:
           github_token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           auto_backport_label_prefix: backport-to-

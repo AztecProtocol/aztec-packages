@@ -3,6 +3,7 @@ include "range_check.pil";
 namespace memory;
 
 pol commit sel;
+pol commit clk;
 pol commit address;
 pol commit value;
 pol commit tag;

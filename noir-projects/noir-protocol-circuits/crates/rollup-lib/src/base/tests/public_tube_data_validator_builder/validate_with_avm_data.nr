@@ -140,6 +140,9 @@ fn public_tube_validate_with_avm_data_mismatch_gas_limits_fails(avm_gas_settings
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
     }
 }
 
@@ -181,6 +184,9 @@ fn public_tube_validate_with_avm_data_mismatch_clamped_gas_limits_fails(
     if !builder.equal_default_avm_gas_limits(avm_gas_settings) {
         builder.avm_data.tx_context.gas_settings = avm_gas_settings;
         builder.validate_with_avm_data();
+    } else {
+        // Fail with the expected error message if we are not testing the input.
+        assert(false, "unexpected gas settings used in the AVM");
     }
 }
 
@@ -288,7 +294,7 @@ fn public_tube_validate_with_avm_data_mismatch_non_revertible_l2_to_l1_msgs_fail
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }
@@ -348,7 +354,7 @@ fn public_tube_validate_with_avm_data_mismatch_revertible_l2_to_l1_msgs_fails() 
     let builder = PublicTubeDataValidatorBuilder::new_with_full_data();
 
     let mut avm_data = builder.avm_data.to_avm_circuit_public_inputs();
-    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content += 1;
+    avm_data.previous_revertible_accumulated_data.l2_to_l1_msgs[0].inner.content += 1;
 
     builder.validate_with_tweaked_avm_data(avm_data);
 }

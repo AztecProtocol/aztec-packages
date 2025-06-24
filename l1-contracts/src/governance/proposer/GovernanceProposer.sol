@@ -2,8 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IGSE} from "@aztec/core/staking/GSE.sol";
+import {IGSE} from "@aztec/governance/GSE.sol";
 import {GSEPayload} from "@aztec/governance/GSEPayload.sol";
+import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
@@ -21,21 +22,34 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
   IRegistry public immutable REGISTRY;
   IGSE public immutable GSE;
 
+  mapping(uint256 proposalId => address proposer) internal proposalProposer;
+
   constructor(IRegistry _registry, IGSE _gse, uint256 _n, uint256 _m) EmpireBase(_n, _m) {
     REGISTRY = _registry;
     GSE = _gse;
   }
 
-  function getExecutor() public view override(EmpireBase, IGovernanceProposer) returns (address) {
+  function getProposalProposer(uint256 _proposalId)
+    external
+    view
+    override(IGovernanceProposer)
+    returns (address)
+  {
+    return proposalProposer[_proposalId];
+  }
+
+  function getExecutor() public view override(EmpireBase, IEmpire) returns (address) {
     return REGISTRY.getGovernance();
   }
 
-  function getInstance() public view override(EmpireBase, IGovernanceProposer) returns (address) {
+  function getInstance() public view override(EmpireBase, IEmpire) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
   }
 
   function _execute(IPayload _proposal) internal override(EmpireBase) returns (bool) {
     GSEPayload extendedPayload = new GSEPayload(_proposal, GSE);
-    return IGovernance(getExecutor()).propose(IPayload(address(extendedPayload)));
+    uint256 proposalId = IGovernance(getExecutor()).propose(IPayload(address(extendedPayload)));
+    proposalProposer[proposalId] = getInstance();
+    return true;
   }
 }
