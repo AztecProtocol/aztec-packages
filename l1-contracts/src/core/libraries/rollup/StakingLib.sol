@@ -4,7 +4,12 @@ pragma solidity >=0.8.27;
 
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {StakingQueueLib, StakingQueue, DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
+import {
+  StakingQueueLib,
+  StakingQueue,
+  DepositArgs,
+  StakingQueueConfig
+} from "@aztec/core/libraries/StakingQueue.sol";
 import {TimeLib, Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
@@ -50,6 +55,7 @@ struct StakingStorage {
   GSE gse;
   Timestamp exitDelay;
   mapping(address attester => Exit) exits;
+  StakingQueueConfig queueConfig;
   StakingQueue entryQueue;
   Epoch nextFlushableEpoch;
 }
@@ -62,14 +68,19 @@ library StakingLib {
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
-  function initialize(IERC20 _stakingAsset, GSE _gse, Timestamp _exitDelay, address _slasher)
-    internal
-  {
+  function initialize(
+    IERC20 _stakingAsset,
+    GSE _gse,
+    Timestamp _exitDelay,
+    address _slasher,
+    StakingQueueConfig memory _config
+  ) internal {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
     store.gse = _gse;
     store.exitDelay = _exitDelay;
     store.slasher = _slasher;
+    store.queueConfig = _config;
     store.entryQueue.init();
   }
 
@@ -215,6 +226,10 @@ library StakingLib {
   }
 
   function flushEntryQueue(uint256 _maxAddableValidators) internal {
+    if (_maxAddableValidators == 0) {
+      return;
+    }
+
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
     StakingStorage storage store = getStorage();
     require(
@@ -292,8 +307,17 @@ library StakingLib {
     return true;
   }
 
+  function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
+    getStorage().queueConfig = _config;
+    emit IStakingCore.StakingQueueConfigUpdated(_config);
+  }
+
   function getNextFlushableEpoch() internal view returns (Epoch) {
     return getStorage().nextFlushableEpoch;
+  }
+
+  function getEntryQueueLength() internal view returns (uint256) {
+    return getStorage().entryQueue.length();
   }
 
   function isSlashable(address _attester) internal view returns (bool) {
@@ -359,6 +383,44 @@ library StakingLib {
     }
 
     return status;
+  }
+
+  /**
+   * @notice Determines the maximum number of validators that can be flushed from the entry queue
+   * @dev Implements three-phase validator set management:
+   *      1. Bootstrap phase: When no validators exist, the queue must grow to the bootstrap validator set size
+   *      2. Growth phase: When validators are below target size, adds a large fixed batch size
+   *      3. Normal phase: When at target size, adds proportional amount based on current set size
+   *
+   *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
+   * @return maxAddableValidators The maximum number of validators that can be flushed from the entry queue
+   */
+  function getEntryQueueFlushSize() internal view returns (uint256 maxAddableValidators) {
+    StakingStorage storage store = getStorage();
+    StakingQueueConfig memory config = store.queueConfig;
+
+    uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
+    uint256 queueSize = store.entryQueue.length();
+
+    maxAddableValidators = 0;
+
+    bool bootstrapMode =
+      config.bootstrapValidatorSetSize > 0 && activeAttesterCount < config.bootstrapValidatorSetSize;
+
+    // if we're in bootstrap mode, and either have enough validators in the queue to satisfy the bootstrap validator set size,
+    // or we had enough in the past, then we flush the bootstrap size
+    // note: if we are in bootstrap mode but don't have enough validators in the queue to satisfy the bootstrap validator set size,
+    // we don't flush anything
+    if (bootstrapMode && (queueSize >= config.bootstrapValidatorSetSize || activeAttesterCount > 0))
+    {
+      maxAddableValidators = config.bootstrapFlushSize;
+    } else if (!bootstrapMode) {
+      maxAddableValidators =
+        Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin);
+    }
+
+    // We cap the number of validators that can be flushed to the hard cap
+    maxAddableValidators = Math.min(maxAddableValidators, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {
