@@ -11,7 +11,7 @@ namespace bb::avm2::simulation {
 class NullifierTreeCheckInterface {
   public:
     virtual ~NullifierTreeCheckInterface() = default;
-    virtual void assert_read(FF nullifier,
+    virtual void assert_read(const FF& nullifier,
                              bool exists,
                              const NullifierTreeLeafPreimage& low_leaf_preimage,
                              uint64_t low_leaf_index,
@@ -40,7 +40,7 @@ class NullifierTreeCheck : public NullifierTreeCheckInterface, public Checkpoint
         , field_gt(field_gt)
     {}
 
-    void assert_read(FF nullifier,
+    void assert_read(const FF& nullifier,
                      bool exists,
                      const NullifierTreeLeafPreimage& low_leaf_preimage,
                      uint64_t low_leaf_index,
