@@ -37,7 +37,7 @@ class UltraCircuitChecker {
      * @tparam Builder
      * @param builder
      */
-    template <typename Builder> static bool check(const Builder& builder);
+    template <typename Builder> static bool check(const Builder& builder_in);
 
   private:
     struct TagCheckData;           // Container for data pertaining to generalized permutation tag check
@@ -45,6 +45,15 @@ class UltraCircuitChecker {
     using Key = std::array<FF, 4>; // Key type for lookup table hash table
     struct HashFunction;           // Custom hash function for lookup table hash table
     using LookupHashTable = std::unordered_set<Key, HashFunction>;
+
+    /**
+     * @brief Copy the builder and finalizes it before checking its validity
+     *
+     * @tparam Builder
+     * @param builder
+     * @return Builder
+     */
+    template <typename Builder> static Builder prepare_circuit(const Builder& builder_in);
 
     /**
      * @brief Checks that the provided witness satisfies all gates contained in a single execution trace block
