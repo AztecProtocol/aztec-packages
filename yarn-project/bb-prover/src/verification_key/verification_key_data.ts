@@ -1,7 +1,6 @@
 import { AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { hashVK } from '@aztec/stdlib/hash';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { strict as assert } from 'assert';
@@ -22,9 +21,7 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   ]);
   const fieldsJson = JSON.parse(rawFields);
   const fields = fieldsJson.map(Fr.fromHexString);
-  // The hash is not included in the BB response
-  const vkHash = await hashVK(fields);
-  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  const vkAsFields = await VerificationKeyAsFields.fromKey(fields);
   return new VerificationKeyData(vkAsFields, rawBinary);
 }
 
@@ -45,8 +42,7 @@ export async function extractAvmVkData(vkDirectoryPath: string): Promise<Verific
   const fieldsArrayPadded = fieldsArray.concat(
     Array(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED - fieldsArray.length).fill(new Fr(0)),
   );
-  // Currently, we do not need the vk hash for the AVM as we are not adding in the vk tree.
-  const vkAsFields = new VerificationKeyAsFields(fieldsArrayPadded, new Fr(0));
+  const vkAsFields = await VerificationKeyAsFields.fromKey(fieldsArrayPadded);
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

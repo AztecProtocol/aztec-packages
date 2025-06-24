@@ -21,9 +21,9 @@ pub struct PrivateCallData {
 }
 
 impl PrivateCallData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     pub fn verify(self, is_first_app: bool) {
-        self.vk.check_hash();
-
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {

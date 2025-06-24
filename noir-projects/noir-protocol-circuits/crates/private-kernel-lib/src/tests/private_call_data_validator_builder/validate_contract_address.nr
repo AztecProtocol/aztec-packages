@@ -3,7 +3,6 @@ use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as deri
 use types::{
     address::AztecAddress,
     contract_class_id::ContractClassId,
-    hash::verification_key_hash,
     shared_mutable::scheduled_value_change::ScheduledValueChange,
     tests::fixtures,
     traits::{FromField, ToField},
@@ -157,10 +156,8 @@ fn validate_contract_address_protocol_address_wrong_low_leaf_next_key() {
 fn validate_contract_address_wrong_vk_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
-    // Change the VK so the address doesn't match anymore
-    builder.private_call.client_ivc_vk.key[0] = 27;
-    builder.private_call.client_ivc_vk.hash =
-        verification_key_hash(builder.private_call.client_ivc_vk.key);
+    // Change the vk hash so the address doesn't match anymore
+    builder.private_call.client_ivc_vk.hash += 1;
 
     builder.validate();
 }
