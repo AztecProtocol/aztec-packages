@@ -127,7 +127,7 @@ template <typename FF_> class AuxiliaryRelationImpl {
     {
         PROFILE_THIS_NAME("Auxiliary::accumulate");
         // all accumulators are of the same length, so we set our accumulator type to (arbitrarily) be the first one.
-        // if there were one that were shorter, we could use also profitably use a `ShortAccumulator` type. however,
+        // if there were one that were shorter, we could also profitably use a `ShortAccumulator` type. however,
         // that is not the case here.
         using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
         using View = typename Accumulator::View;
