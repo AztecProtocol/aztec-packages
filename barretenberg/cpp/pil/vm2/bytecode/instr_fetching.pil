@@ -111,7 +111,6 @@ sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
 #[PC_ABS_DIFF_POSITIVE]
 sel { pc_abs_diff, pc_size_in_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-
 // ****************************************************************************
 //                Handling instr_out_of_range error
 // ****************************************************************************

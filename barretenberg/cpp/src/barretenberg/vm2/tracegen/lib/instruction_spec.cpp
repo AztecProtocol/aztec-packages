@@ -82,6 +82,8 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     { ExecutionOpCode::REVERT, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 10 } },
     { ExecutionOpCode::SUCCESSCOPY, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 11 } },
     { ExecutionOpCode::RETURNDATASIZE, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 12 } },
+    // KeccakF1600
+    { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
 };
 
 // Maps Execution opcodes to their register + memory accesses
@@ -99,6 +101,7 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::RETURNDATACOPY, RegisterMemInfo().has_inputs(2) },
     { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
     { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
+    { ExecutionOpCode::KECCAKF1600, RegisterMemInfo() },
 } };
 
 } // namespace bb::avm2::tracegen
