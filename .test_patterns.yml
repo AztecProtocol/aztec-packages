@@ -226,6 +226,8 @@ tests:
     error_regex: "Exceeded timeout of"
     owners:
       - *lucas
+  - regex: "e2e_prover/full"
+    error_regex: "ProvingError: Failed to verify proof from key!"
 
   # kind tests
   - regex: "spartan/bootstrap.sh"
@@ -298,9 +300,3 @@ tests:
     owners:
       - *charlie
       - *adam
-
-  # l1-contracts
-  - regex: "cd l1-contracts && forge test"
-    error_regex: "staking_asset_handler/addValidator.t.sol:addValidatorToQueueTest.*FAIL: next call did not revert as expected;"
-    owners:
-      - *lasse

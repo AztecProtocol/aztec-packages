@@ -25,9 +25,11 @@
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/internal_call_stack_trace.hpp"
+#include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/memory_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/note_hash_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
@@ -65,6 +67,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/keccak_round_constants",
+                           precomputed_builder.process_keccak_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
                            precomputed_builder.process_integral_tag_length(trace));
             AVM_TRACK_TIME("tracegen/precomputed/operand_dec_selectors",
@@ -258,6 +262,14 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     clear_events(events.sha256_compression);
                 },
                 [&]() {
+                    KeccakF1600TraceBuilder keccakf1600_builder;
+                    AVM_TRACK_TIME("tracegen/keccak_f1600_permutation",
+                                   keccakf1600_builder.process_permutation(events.keccakf1600, trace));
+                    AVM_TRACK_TIME("tracegen/keccak_f1600_memory_slices",
+                                   keccakf1600_builder.process_memory_slices(events.keccakf1600, trace));
+                    clear_events(events.keccakf1600);
+                },
+                [&]() {
                     EccTraceBuilder ecc_builder;
                     AVM_TRACK_TIME("tracegen/ecc_add", ecc_builder.process_add(events.ecc_add, trace));
                     clear_events(events.ecc_add);
@@ -348,6 +360,13 @@ void AvmTraceGenHelper::fill_trace_columns(TraceContainer& trace,
                     AVM_TRACK_TIME("tracegen/internal_call_stack",
                                    internal_call_stack_builder.process(events.internal_call_stack_events, trace));
                     clear_events(events.internal_call_stack_events);
+                },
+                [&]() {
+                    NoteHashTreeCheckTraceBuilder note_hash_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/note_hash_tree_check",
+                        note_hash_tree_check_trace_builder.process(events.note_hash_tree_check_events, trace));
+                    clear_events(events.note_hash_tree_check_events);
                 } });
 
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -364,6 +383,7 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   RangeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   BitwiseTraceBuilder::interactions.get_all_jobs(),
                                                   Sha256TraceBuilder::interactions.get_all_jobs(),
+                                                  KeccakF1600TraceBuilder::interactions.get_all_jobs(),
                                                   BytecodeTraceBuilder::interactions.get_all_jobs(),
                                                   ClassIdDerivationTraceBuilder::interactions.get_all_jobs(),
                                                   EccTraceBuilder::interactions.get_all_jobs(),
@@ -376,7 +396,8 @@ void AvmTraceGenHelper::fill_trace_interactions(TraceContainer& trace)
                                                   NullifierTreeCheckTraceBuilder::interactions.get_all_jobs(),
                                                   MemoryTraceBuilder::interactions.get_all_jobs(),
                                                   DataCopyTraceBuilder::interactions.get_all_jobs(),
-                                                  CalldataTraceBuilder::interactions.get_all_jobs());
+                                                  CalldataTraceBuilder::interactions.get_all_jobs(),
+                                                  NoteHashTreeCheckTraceBuilder::interactions.get_all_jobs());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

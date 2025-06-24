@@ -36,11 +36,22 @@ import {
 
 import { strict as assert } from 'assert';
 
+export type TestPrivateInsertions = {
+  revertible?: {
+    nullifiers?: Fr[];
+    noteHashes?: Fr[];
+  };
+  nonRevertible?: {
+    nullifiers?: Fr[];
+    noteHashes?: Fr[];
+  };
+};
+
 /**
  * Craft a carrier transaction for some public calls for simulation by PublicTxSimulator.
  */
 export function createTxForPublicCalls(
-  firstNullifier: Fr,
+  privateInsertions: TestPrivateInsertions,
   setupCallRequests: PublicCallRequestWithCalldata[],
   appCallRequests: PublicCallRequestWithCalldata[],
   teardownCallRequest?: PublicCallRequestWithCalldata,
@@ -56,8 +67,38 @@ export function createTxForPublicCalls(
   const gasLimits = new Gas(DEFAULT_GAS_LIMIT, MAX_L2_GAS_PER_TX_PUBLIC_PORTION);
 
   const forPublic = PartialPrivateTailPublicInputsForPublic.empty();
-  // TODO(#9269): Remove this fake nullifier method as we move away from 1st nullifier as hash.
-  forPublic.nonRevertibleAccumulatedData.nullifiers[0] = firstNullifier;
+
+  // Non revertible private insertions
+  if (!privateInsertions.nonRevertible?.nullifiers?.length) {
+    throw new Error('At least one non-revertible nullifier is required');
+  }
+
+  for (let i = 0; i < privateInsertions.nonRevertible.nullifiers.length; i++) {
+    assert(i < forPublic.nonRevertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+    forPublic.nonRevertibleAccumulatedData.nullifiers[i] = privateInsertions.nonRevertible.nullifiers[i];
+  }
+  if (privateInsertions.nonRevertible.noteHashes) {
+    for (let i = 0; i < privateInsertions.nonRevertible.noteHashes.length; i++) {
+      assert(i < forPublic.nonRevertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+      forPublic.nonRevertibleAccumulatedData.noteHashes[i] = privateInsertions.nonRevertible.noteHashes[i];
+    }
+  }
+
+  // Revertible private insertions
+  if (privateInsertions.revertible) {
+    if (privateInsertions.revertible.noteHashes) {
+      for (let i = 0; i < privateInsertions.revertible.noteHashes.length; i++) {
+        assert(i < forPublic.revertibleAccumulatedData.noteHashes.length, 'Note hash index out of bounds');
+        forPublic.revertibleAccumulatedData.noteHashes[i] = privateInsertions.revertible.noteHashes[i];
+      }
+    }
+    if (privateInsertions.revertible.nullifiers) {
+      for (let i = 0; i < privateInsertions.revertible.nullifiers.length; i++) {
+        assert(i < forPublic.revertibleAccumulatedData.nullifiers.length, 'Nullifier index out of bounds');
+        forPublic.revertibleAccumulatedData.nullifiers[i] = privateInsertions.revertible.nullifiers[i];
+      }
+    }
+  }
 
   for (let i = 0; i < setupCallRequests.length; i++) {
     forPublic.nonRevertibleAccumulatedData.publicCallRequests[i] = setupCallRequests[i].request;
