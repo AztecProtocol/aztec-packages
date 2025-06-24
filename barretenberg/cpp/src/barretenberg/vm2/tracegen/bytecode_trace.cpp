@@ -164,15 +164,14 @@ void BytecodeTraceBuilder::process_retrieval(
 {
     using C = Column;
 
-    uint32_t row = 0;
+    uint32_t row = 1;
     for (const auto& event : events) {
         trace.set(
             row,
             { { { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
-                // TODO: handle errors.
-                // { C::bc_retrieval_error, event.error },
+                { C::bc_retrieval_error, event.error ? 1 : 0 },
                 // Contract instance.
                 { C::bc_retrieval_salt, event.contract_instance.salt },
                 { C::bc_retrieval_deployer_addr, event.contract_instance.deployer_addr },
