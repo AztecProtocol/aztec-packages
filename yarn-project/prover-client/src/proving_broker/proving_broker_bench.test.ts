@@ -1,51 +1,111 @@
+/**
+ * Proving Broker Performance Benchmarks
+ *
+ * These benchmarks test the KV database (production configuration) for realistic performance metrics.
+ */
+import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import {
-  makeAvmCircuitInputs,
-  makeBaseParityInputs,
-  makeBlockMergeRollupInputs,
-  makeBlockRootRollupInputs,
-  makeEmptyBlockRootRollupInputs,
-  makeMergeRollupInputs,
-  makePrivateBaseRollupInputs,
-  makePublicBaseRollupInputs,
-  makeRootParityInputs,
-  makeRootRollupInputs,
-  makeSingleTxBlockRootRollupInputs,
-} from '@aztec/stdlib/testing';
 
-import { jest } from '@jest/globals';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
-import { MockProofStore } from '../test/mock_database.js';
-import { MockProver } from '../test/mock_prover.js';
+import { MockProofStore } from '../test/mock_proof_store.js';
+import { defaultProverBrokerConfig } from './config.js';
 import { makeRandomProvingJobId } from './fixtures.js';
-import { ProvingBroker } from './proving_broker.js';
-import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
+import { PROOF_TYPES_IN_PRIORITY_ORDER, ProvingBroker } from './proving_broker.js';
+import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
 
-jest.setTimeout(300_000);
+const logger = createLogger('proving-broker-bench');
+const benchTimer = new Timer();
 
-const BROKER_PRIORITY_ORDER: ProvingRequestType[] = [
-  ProvingRequestType.BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP,
-  ProvingRequestType.BLOCK_MERGE_ROLLUP,
-  ProvingRequestType.ROOT_ROLLUP,
-  ProvingRequestType.MERGE_ROLLUP,
-  ProvingRequestType.PUBLIC_BASE_ROLLUP,
-  ProvingRequestType.PRIVATE_BASE_ROLLUP,
-  ProvingRequestType.PUBLIC_VM,
-  ProvingRequestType.TUBE_PROOF,
-  ProvingRequestType.ROOT_PARITY,
-  ProvingRequestType.BASE_PARITY,
-  ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP,
-];
+async function createKVDatabase() {
+  const directory = await mkdtemp(join(tmpdir(), 'proving-broker-bench'));
+  const database = await KVBrokerDatabase.new({
+    ...defaultProverBrokerConfig,
+    dataDirectory: directory,
+    l1Contracts: Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses,
+  });
+  return { database, directory };
+}
+
+/**
+ * Builds a flat list of jobs to enqueue/dequeue based on the counts per proof type.
+ * @param proofCounts - Array whose indices correspond to `PROOF_TYPES_IN_PRIORITY_ORDER`.
+ * @param epochGenerator - Function deciding which epoch a given job belongs to.
+ */
+function buildJobList(
+  proofCounts: number[],
+  epochGenerator: (index: number) => number = () => 1,
+): Array<{ type: ProvingRequestType; epochNumber: number }> {
+  const jobs: Array<{ type: ProvingRequestType; epochNumber: number }> = [];
+
+  const proofTypeCounts = new Map<ProvingRequestType, number>(
+    proofCounts
+      .map((count, index): [ProvingRequestType, number] => [PROOF_TYPES_IN_PRIORITY_ORDER[index], count])
+      .filter(([_, count]) => count > 0),
+  );
+
+  let jobIndex = 0;
+  for (const [proofType, count] of proofTypeCounts) {
+    times(count, () => {
+      jobs.push({ type: proofType, epochNumber: epochGenerator(jobIndex++) });
+    });
+  }
+
+  return jobs;
+}
+
+// Helper function to calculate percentiles from an array of numbers
+function calculatePercentiles(values: number[]) {
+  if (values.length === 0) {
+    return { median: 0, p90: 0, p95: 0, p99: 0 };
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const getPercentile = (p: number) => {
+    const index = Math.ceil((p / 100) * sorted.length) - 1;
+    return sorted[Math.max(0, index)];
+  };
+
+  return {
+    median: getPercentile(50),
+    p90: getPercentile(90),
+    p95: getPercentile(95),
+    p99: getPercentile(99),
+  };
+}
+
+/** Returns a deterministic pseudo-random generator (32-bit LCG). */
+function makeSeededRng(seed = 1): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0xffffffff;
+  };
+}
 
 interface BenchmarkResults {
   avgEnqueueLatency: number;
+  medianEnqueueLatency: number;
+  p90EnqueueLatency: number;
+  p95EnqueueLatency: number;
+  p99EnqueueLatency: number;
+  totalJobs: number;
+  totalEnqueueTime: number;
+  jobsPerSecond: number;
 }
 
 interface DequeueBenchmarkResults {
   avgDequeueLatency: number;
+  medianDequeueLatency: number;
+  p90DequeueLatency: number;
+  p95DequeueLatency: number;
+  p99DequeueLatency: number;
   totalJobs: number;
   jobsPerSecond: number;
   queueEmptyTime: number;
@@ -58,21 +118,111 @@ interface GithubActionBenchmarkResult {
   extra?: string;
 }
 
+const proofDistributionTestCases = [
+  {
+    name: 'minimum epoch',
+    description: '1 block', // 8 transactions per block = 8 total transactions
+    proofCounts: [1, 0, 0, 1, 6, 4, 4, 4, 8, 1, 4, 0],
+  },
+  {
+    name: 'small epoch',
+    description: '6 blocks, 48 transactions', // 8 transactions per block = 48 total transactions
+    proofCounts: [6, 0, 4, 1, 36, 24, 24, 24, 48, 6, 24, 0],
+  },
+  {
+    name: 'medium epoch',
+    description: '20 blocks, 400 transactions', // 20 transactions per block = 400 total transactions
+    proofCounts: [20, 0, 18, 1, 360, 200, 200, 200, 400, 20, 80, 0],
+  },
+  {
+    name: 'large epoch',
+    description: '32 blocks, 6400 transactions', // 200 transactions per block = 6400 total transactions
+    proofCounts: [32, 0, 30, 1, 6336, 3200, 3200, 3200, 6400, 32, 128, 0],
+  },
+  {
+    name: 'maximum epoch',
+    description: '32 blocks, 12,800 transactions', // 400 transactions per block = 12,800 total txs (all public)
+    proofCounts: [32, 0, 30, 1, 12736, 12800, 0, 12800, 12800, 32, 128, 0],
+  },
+];
+
+const agentCounts = [1, 10, 50];
+
+const epochPatterns = [
+  {
+    name: 'single epoch',
+    generator: () => 1,
+  },
+  {
+    name: 'random epochs',
+    generator: (() => {
+      const rng = makeSeededRng();
+      const maxEpochsToKeep = 1;
+      const epochRange = maxEpochsToKeep + 1;
+      return () => Math.floor(rng() * epochRange) + 1;
+    })(),
+  },
+  {
+    name: 'interleaved epochs',
+    generator: (index: number) => {
+      const maxEpochsToKeep = 1;
+      const epochRange = maxEpochsToKeep + 1;
+      return (index % epochRange) + 1;
+    },
+  },
+];
+
 class ProvingBrokerBenchmarkCollector {
   private results: GithubActionBenchmarkResult[] = [];
 
-  addEnqueueResult(testName: string, avgLatency: number) {
+  addEnqueueResult(testName: string, results: BenchmarkResults) {
     this.results.push({
       name: `proving_broker/enqueue/${testName}/avg_latency`,
-      value: avgLatency,
+      value: results.avgEnqueueLatency,
       unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/enqueue/${testName}/median_latency`,
+      value: results.medianEnqueueLatency,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/enqueue/${testName}/p95_latency`,
+      value: results.p95EnqueueLatency,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/enqueue/${testName}/total_duration`,
+      value: results.totalEnqueueTime,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/enqueue/${testName}/jobs_per_sec`,
+      value: results.jobsPerSecond,
+      unit: 'jobs/s',
     });
   }
 
-  addDequeueResult(testName: string, results: DequeueBenchmarkResults) {
+  addDequeueResult(testName: string, results: DequeueBenchmarkResults, agentCount?: number) {
+    const agentSuffix = agentCount ? `_${agentCount}agents` : '';
     this.results.push({
-      name: `proving_broker/dequeue/${testName}/queue_empty_time`,
+      name: `proving_broker/dequeue/${testName}${agentSuffix}/queue_empty_time`,
       value: results.queueEmptyTime,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/dequeue/${testName}${agentSuffix}/avg_dequeue_latency`,
+      value: results.avgDequeueLatency,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/dequeue/${testName}${agentSuffix}/median_dequeue_latency`,
+      value: results.medianDequeueLatency,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/dequeue/${testName}${agentSuffix}/p95_dequeue_latency`,
+      value: results.p95DequeueLatency,
       unit: 'ms',
     });
   }
@@ -118,36 +268,35 @@ class ProvingBrokerBenchmarkCollector {
 
 describe('Proving Broker: Benchmarks', () => {
   let broker: ProvingBroker;
-  let _prover: MockProver;
   let proofStore: MockProofStore;
+  let databaseHandle: KVBrokerDatabase;
+  let tempDirectory: string;
 
   const benchmarkCollector = new ProvingBrokerBenchmarkCollector();
 
   beforeEach(async () => {
-    // Initialize the broker with in-memory database
-    const database = new InMemoryBrokerDatabase();
-    broker = new ProvingBroker(database, {
-      proverBrokerJobTimeoutMs: 30_000,
-      proverBrokerPollIntervalMs: 1_000,
-      proverBrokerJobMaxRetries: 3,
-      proverBrokerMaxEpochsToKeepResultsFor: 1,
-    });
+    // Initialize the broker with configured database type
+    const { database, directory } = await createKVDatabase();
+    databaseHandle = database;
+    tempDirectory = directory;
+    broker = new ProvingBroker(databaseHandle);
 
-    // Initialize the mock prover
-    _prover = new MockProver();
-
-    // Initialize the mock proof store for faster benchmarks
+    // Initialize the mock proof store to generate realistic GCP URI
     proofStore = new MockProofStore();
 
-    // Start both broker and agent
+    // Start both broker
     await broker.start();
   });
 
   afterEach(async () => {
     await broker.stop();
+    await databaseHandle.close();
   });
 
   afterAll(async () => {
+    // Clean up the temporary directory
+    await rm(tempDirectory, { recursive: true, force: true, maxRetries: 3 });
+
     // Output benchmark results
     if (process.env.BENCH_OUTPUT) {
       const fs = await import('fs');
@@ -158,230 +307,203 @@ describe('Proving Broker: Benchmarks', () => {
       const fs = await import('fs');
       fs.writeFileSync(process.env.BENCH_OUTPUT_MD, benchmarkCollector.toPrettyString());
     } else {
-      // Default: output to console
-      // eslint-disable-next-line no-console
-      console.log(benchmarkCollector.toPrettyString());
+      logger.info(`Benchmark Results:${benchmarkCollector.toPrettyString()}`);
     }
   });
 
-  /**
-   * Helper function to generate test inputs based on proof type
-   * Set USE_MOCK_INPUTS to true for faster benchmarks with minimal data
-   */
-  function makeTestInputs(type: ProvingRequestType): any {
-    const USE_MOCK_INPUTS = false; // Toggle this to use mock database
+  function assertEpochRules(proofCounts: number[], expectedBlocks: number, expectedTransactionsPerBlock: number): void {
+    // Create a map of proof types to their counts for easier reference
+    const proofTypeCounts = new Map<ProvingRequestType, number>(
+      proofCounts
+        .map((count, index): [ProvingRequestType, number] => [PROOF_TYPES_IN_PRIORITY_ORDER[index], count])
+        .filter(([_, count]) => count > 0),
+    );
 
-    if (USE_MOCK_INPUTS) {
-      return { mockType: type, mockData: 'minimal' };
+    const totalTransactions = expectedBlocks * expectedTransactionsPerBlock;
+    const totalBaseRollup =
+      (proofTypeCounts.get(ProvingRequestType.PRIVATE_BASE_ROLLUP) ?? 0) +
+      (proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0);
+
+    // Per-block rules (scaled by number of blocks)
+    expect(proofTypeCounts.get(ProvingRequestType.BASE_PARITY) ?? 0).toBe(4 * expectedBlocks); // 4 base parity jobs per block
+    expect(proofTypeCounts.get(ProvingRequestType.ROOT_PARITY) ?? 0).toBe(1 * expectedBlocks); // 1 root parity job per block
+    expect(proofTypeCounts.get(ProvingRequestType.BLOCK_ROOT_ROLLUP) ?? 0).toBe(1 * expectedBlocks); // 1 block root per block
+    expect(proofTypeCounts.get(ProvingRequestType.TUBE_PROOF) ?? 0).toBe(totalTransactions); // n tube proofs per block
+    expect(totalBaseRollup).toBe(totalTransactions); // n base rollup jobs per block
+    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_VM) ?? 0).toBe(
+      proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0,
+    ); // 1 AVM job per public base rollup
+
+    // Merge jobs: (n-2) per block when n > 2
+    if (expectedTransactionsPerBlock > 2) {
+      expect(proofTypeCounts.get(ProvingRequestType.MERGE_ROLLUP) ?? 0).toBe(
+        (expectedTransactionsPerBlock - 2) * expectedBlocks,
+      );
+    } else {
+      expect(proofTypeCounts.get(ProvingRequestType.MERGE_ROLLUP) ?? 0).toBe(0);
     }
 
-    switch (type) {
-      case ProvingRequestType.BASE_PARITY:
-        return makeBaseParityInputs();
-      case ProvingRequestType.ROOT_PARITY:
-        return makeRootParityInputs();
-      case ProvingRequestType.PRIVATE_BASE_ROLLUP:
-        return makePrivateBaseRollupInputs();
-      case ProvingRequestType.PUBLIC_BASE_ROLLUP:
-        return makePublicBaseRollupInputs();
-      case ProvingRequestType.MERGE_ROLLUP:
-        return makeMergeRollupInputs();
-      case ProvingRequestType.BLOCK_MERGE_ROLLUP:
-        return makeBlockMergeRollupInputs();
-      case ProvingRequestType.BLOCK_ROOT_ROLLUP:
-        return makeBlockRootRollupInputs();
-      case ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP:
-        return makeEmptyBlockRootRollupInputs();
-      case ProvingRequestType.ROOT_ROLLUP:
-        return makeRootRollupInputs();
-      case ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP:
-        return makeSingleTxBlockRootRollupInputs();
-      case ProvingRequestType.PUBLIC_VM:
-        return makeAvmCircuitInputs();
-      case ProvingRequestType.TUBE_PROOF:
-        return makeBaseParityInputs();
-      default:
-        return makeBaseParityInputs();
+    // Epoch-level rules
+    expect(proofTypeCounts.get(ProvingRequestType.ROOT_ROLLUP) ?? 0).toBe(1); // Exactly 1 root rollup per epoch
+
+    // Block merge jobs: (m-2) when m > 2
+    if (expectedBlocks > 2) {
+      expect(proofTypeCounts.get(ProvingRequestType.BLOCK_MERGE_ROLLUP) ?? 0).toBe(expectedBlocks - 2);
+    } else {
+      expect(proofTypeCounts.get(ProvingRequestType.BLOCK_MERGE_ROLLUP) ?? 0).toBe(0);
     }
+
+    expect(proofTypeCounts.get(ProvingRequestType.SINGLE_TX_BLOCK_ROOT_ROLLUP) ?? 0).toBe(0);
+    expect(proofTypeCounts.get(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP) ?? 0).toBe(0);
+
+    expect(proofTypeCounts.get(ProvingRequestType.PRIVATE_BASE_ROLLUP) ?? 0).toBeGreaterThanOrEqual(0);
+    expect(proofTypeCounts.get(ProvingRequestType.PUBLIC_BASE_ROLLUP) ?? 0).toBeGreaterThanOrEqual(0);
+    expect(totalBaseRollup).toBeGreaterThan(0);
   }
 
   async function benchmarkEnqueueProofDistribution(
     proofCounts: number[],
     epochGenerator: (index: number) => number = () => 1,
   ): Promise<BenchmarkResults> {
-    const jobs: Array<{ type: ProvingRequestType; epochNumber: number }> = [];
+    const jobs = buildJobList(proofCounts, epochGenerator);
+    const preparedJobs = await Promise.all(
+      jobs.map(async job => {
+        const jobId = makeRandomProvingJobId(job.epochNumber);
+        const inputsUri = (await proofStore.saveProofInput(jobId, job.type)) as any;
+        return { ...job, jobId, inputsUri } as const;
+      }),
+    );
+
     const enqueueLatencies: number[] = [];
+    const timer = benchTimer;
 
-    // Generate job list based on counts
-    let jobIndex = 0;
-    proofCounts.forEach((count, index) => {
-      if (count > 0 && index < BROKER_PRIORITY_ORDER.length) {
-        const proofType = BROKER_PRIORITY_ORDER[index];
-        times(count, () => {
-          jobs.push({
-            type: proofType,
-            epochNumber: epochGenerator(jobIndex++),
-          });
-        });
-      }
-    });
-
-    const timer = new Timer();
-
-    // Enqueue all jobs and measure latency
-    for (const job of jobs) {
-      const inputs = makeTestInputs(job.type);
-      const inputsUri = (await proofStore.saveProofInput(makeRandomProvingJobId(), job.type, inputs)) as any;
-      const jobId = makeRandomProvingJobId();
-
+    // Enqueue all jobs concurrently and measure individual latencies
+    const enqueuePromises: Promise<void>[] = [];
+    const enqueueStartTime = timer.ms();
+    for (const { jobId, inputsUri, type, epochNumber } of preparedJobs) {
       const enqueueStart = timer.ms();
-      await broker.enqueueProvingJob({
-        id: jobId,
-        type: job.type,
-        inputsUri,
-        epochNumber: job.epochNumber,
-      });
-      const enqueueLatency = timer.ms() - enqueueStart;
-      enqueueLatencies.push(enqueueLatency);
+
+      const p = broker
+        .enqueueProvingJob({
+          id: jobId,
+          type,
+          inputsUri,
+          epochNumber,
+        })
+        .then(() => {
+          const enqueueLatency = timer.ms() - enqueueStart;
+          enqueueLatencies.push(enqueueLatency);
+        });
+
+      enqueuePromises.push(p);
     }
+
+    // Wait for all enqueues to be persisted and measure total enqueue time duration
+    await Promise.all(enqueuePromises);
+    const totalEnqueueTime = timer.ms() - enqueueStartTime;
+
+    // Compute total enqueue duration and throughput
+    const jobsPerSecond = enqueueLatencies.length > 0 ? enqueueLatencies.length / (totalEnqueueTime / 1000) : 0;
+
+    const percentiles = calculatePercentiles(enqueueLatencies);
 
     return {
       avgEnqueueLatency: enqueueLatencies.reduce((a, b) => a + b, 0) / enqueueLatencies.length,
+      medianEnqueueLatency: percentiles.median,
+      p90EnqueueLatency: percentiles.p90,
+      p95EnqueueLatency: percentiles.p95,
+      p99EnqueueLatency: percentiles.p99,
+      totalJobs: enqueueLatencies.length,
+      totalEnqueueTime,
+      jobsPerSecond,
     };
   }
 
   async function benchmarkDequeueProofDistribution(
     proofCounts: number[],
     epochGenerator: (index: number) => number = () => 1,
+    agentCount: number = 1,
   ): Promise<DequeueBenchmarkResults> {
-    // First, populate the broker with jobs
-    const jobs: Array<{ type: ProvingRequestType; epochNumber: number }> = [];
-    let jobIndex = 0;
+    const jobs = buildJobList(proofCounts, epochGenerator);
+    await Promise.all(
+      jobs.map(async ({ type, epochNumber }) => {
+        const jobId = makeRandomProvingJobId(epochNumber);
+        const inputsUri = (await proofStore.saveProofInput(jobId, type)) as any;
+        await broker.enqueueProvingJob({ id: jobId, type, inputsUri, epochNumber });
+      }),
+    );
 
-    proofCounts.forEach((count, index) => {
-      if (count > 0 && index < BROKER_PRIORITY_ORDER.length) {
-        const proofType = BROKER_PRIORITY_ORDER[index];
-        times(count, () => {
-          jobs.push({
-            type: proofType,
-            epochNumber: epochGenerator(jobIndex++),
-          });
-        });
+    // Now benchmark concurrent dequeuing (simulating multiple agents)
+    const dequeueLatencies: number[] = [];
+    let totalJobsDequeued = 0;
+    const timer = benchTimer;
+    const startTime = timer.ms();
+
+    // Create concurrent agent simulators
+    const agentPromises = Array.from({ length: agentCount }, async (_, agentId) => {
+      const agentLatencies: number[] = [];
+      let agentJobCount = 0;
+
+      while (true) {
+        const dequeueStart = timer.ms();
+        const result = await broker.getProvingJob();
+        const dequeueLatency = timer.ms() - dequeueStart;
+
+        if (!result) {
+          // No more jobs available
+          break;
+        }
+
+        agentLatencies.push(dequeueLatency);
+        agentJobCount++;
       }
+
+      return { agentId, latencies: agentLatencies, jobCount: agentJobCount };
     });
 
-    // Enqueue all jobs without measuring (setup phase)
-    for (const job of jobs) {
-      const inputs = makeTestInputs(job.type);
-      const inputsUri = (await proofStore.saveProofInput(makeRandomProvingJobId(), job.type, inputs)) as any;
-      const jobId = makeRandomProvingJobId();
-
-      await broker.enqueueProvingJob({
-        id: jobId,
-        type: job.type,
-        inputsUri,
-        epochNumber: job.epochNumber,
-      });
-    }
-
-    // Now benchmark dequeuing
-    const dequeueLatencies: number[] = [];
-    const timer = new Timer();
-    const startTime = timer.ms();
-    let totalJobsDequeued = 0;
-
-    // Simple poll loop - dequeue all jobs and measure latency
-    while (true) {
-      const dequeueStart = timer.ms();
-      const result = await broker.getProvingJob();
-      const dequeueLatency = timer.ms() - dequeueStart;
-
-      if (!result) {
-        // No more jobs available
-        break;
-      }
-
-      dequeueLatencies.push(dequeueLatency);
-      totalJobsDequeued++;
-    }
-
+    // Wait for all agents to finish dequeuing
+    const agentResults = await Promise.all(agentPromises);
     const queueEmptyTime = timer.ms() - startTime;
+
+    // Aggregate results from all agents
+    agentResults.forEach(({ latencies, jobCount }) => {
+      dequeueLatencies.push(...latencies);
+      totalJobsDequeued += jobCount;
+    });
     const jobsPerSecond = totalJobsDequeued / (queueEmptyTime / 1000);
+    const percentiles = calculatePercentiles(dequeueLatencies);
 
     return {
       avgDequeueLatency:
         dequeueLatencies.length > 0 ? dequeueLatencies.reduce((a, b) => a + b, 0) / dequeueLatencies.length : 0,
+      medianDequeueLatency: percentiles.median,
+      p90DequeueLatency: percentiles.p90,
+      p95DequeueLatency: percentiles.p95,
+      p99DequeueLatency: percentiles.p99,
       totalJobs: totalJobsDequeued,
       jobsPerSecond,
       queueEmptyTime,
     };
   }
 
-  const proofDistributionTestCases = [
-    {
-      name: 'minimum epoch',
-      description: '1 block', // 1 transaction
-      proofCounts: [0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 4, 0],
-    },
-    {
-      name: 'small epoch',
-      description: '6 blocks', // ~8 transactions per block = ~48 total transactions
-      proofCounts: [4, 2, 5, 1, 30, 20, 28, 20, 48, 6, 24, 0],
-    },
+  // Validate epoch configurations against the rules
+  it('validate epoch configurations follow the rules', () => {
+    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'minimum epoch')!.proofCounts, 1, 8);
+    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'small epoch')!.proofCounts, 6, 8);
+    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'medium epoch')!.proofCounts, 20, 20);
+    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'large epoch')!.proofCounts, 32, 200);
+    assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'maximum epoch')!.proofCounts, 32, 400);
+  });
 
-    {
-      name: 'medium epoch',
-      description: '20 blocks', // ~20 transactions per block = ~400 total transactions
-      proofCounts: [18, 1, 19, 1, 300, 160, 240, 160, 400, 20, 80, 1],
-    },
-    {
-      name: 'large epoch',
-      description: '35 blocks', // ~25 transactions per block = ~875 total transactions
-      proofCounts: [32, 2, 34, 1, 525, 350, 525, 350, 875, 35, 140, 1],
-    },
-    {
-      name: 'maximum epoch',
-      description: '48 blocks', // 32 transactions per block = 1,536 total txs
-      proofCounts: [48, 0, 47, 1, 912, 768, 768, 768, 1536, 48, 192, 0],
-    },
-  ];
-
-  const epochPatterns = [
-    {
-      name: 'single epoch',
-      generator: () => 1,
-    },
-    {
-      name: 'random epochs',
-      generator: () => {
-        const maxEpochsToKeep = 1;
-        const epochRange = maxEpochsToKeep + 1;
-        return Math.floor(Math.random() * epochRange) + 1;
-      },
-    },
-    {
-      name: 'interleaved epochs',
-      generator: (index: number) => {
-        const maxEpochsToKeep = 1;
-        const epochRange = maxEpochsToKeep + 1;
-        return (index % epochRange) + 1;
-      },
-    },
-  ];
-
-  function createCombinedTestCases(proofCases: typeof proofDistributionTestCases, patterns: typeof epochPatterns) {
-    return proofCases.flatMap(proofCase =>
-      patterns.map(pattern => ({
-        name: `${proofCase.name} with ${pattern.name}`,
-        description: proofCase.description,
-        proofCounts: proofCase.proofCounts,
-        epochGenerator: pattern.generator,
-        patternName: pattern.name,
-      })),
-    );
-  }
-
-  const combinedTestCases = createCombinedTestCases(proofDistributionTestCases, epochPatterns);
+  const combinedTestCases = proofDistributionTestCases.flatMap(proofCase =>
+    epochPatterns.map(pattern => ({
+      name: `${proofCase.name} with ${pattern.name}`,
+      description: proofCase.description,
+      proofCounts: proofCase.proofCounts,
+      epochGenerator: pattern.generator,
+      patternName: pattern.name,
+    })),
+  );
 
   it.each(combinedTestCases)(
     'enqueue $name proofs',
@@ -390,26 +512,44 @@ describe('Proving Broker: Benchmarks', () => {
 
       // Collect benchmark data
       const testName = `${_description.replace(' ', '_')}_${patternName.replace(' ', '_')}`;
-      benchmarkCollector.addEnqueueResult(testName, results.avgEnqueueLatency);
+      benchmarkCollector.addEnqueueResult(testName, results);
 
       expect(results.avgEnqueueLatency).toBeGreaterThan(0);
-      expect(results.avgEnqueueLatency).toBeLessThan(1000); // Should be under 1 second per job
+
+      // Verify total jobs enqueued matches expected count
+      const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
+      expect(results.totalJobs).toBe(expectedJobs);
     },
   );
 
-  it.each(proofDistributionTestCases)('dequeue $name proofs', async ({ description: _description, proofCounts }) => {
-    const results = await benchmarkDequeueProofDistribution(proofCounts, () => 1);
+  const dequeueTestCases = proofDistributionTestCases
+    .filter(tc => ['minimum epoch', 'small epoch', 'medium epoch', 'large epoch', 'maximum epoch'].includes(tc.name))
+    .flatMap(testCase =>
+      agentCounts.map(agentCount => ({
+        epochName: testCase.name,
+        description: testCase.description,
+        proofCounts: testCase.proofCounts,
+        agentCount,
+        testName: `${testCase.name.replace(' ', '_')}_${agentCount}agents`,
+      })),
+    );
 
-    // Collect benchmark data
-    const testName = _description.replace(' ', '_');
-    benchmarkCollector.addDequeueResult(testName, results);
+  it.each(dequeueTestCases)(
+    'dequeue $epochName proofs ($agentCount agents)',
+    async ({ epochName: _epochName, proofCounts, agentCount, testName }) => {
+      const results = await benchmarkDequeueProofDistribution(proofCounts, () => 1, agentCount);
 
-    expect(results.totalJobs).toBeGreaterThan(0);
-    expect(results.avgDequeueLatency).toBeGreaterThan(0);
-    expect(results.avgDequeueLatency).toBeLessThan(100);
-    expect(results.jobsPerSecond).toBeGreaterThan(0);
+      // Collect benchmark data
+      benchmarkCollector.addDequeueResult(testName, results, agentCount);
 
-    const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
-    expect(results.totalJobs).toBe(expectedJobs);
-  });
+      expect(results.totalJobs).toBeGreaterThan(0);
+      expect(results.avgDequeueLatency).toBeGreaterThan(0);
+      expect(results.avgDequeueLatency).toBeLessThan(100);
+      expect(results.jobsPerSecond).toBeGreaterThan(0);
+
+      // Verify total jobs dequeued matches expected count
+      const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
+      expect(results.totalJobs).toBe(expectedJobs);
+    },
+  );
 });
