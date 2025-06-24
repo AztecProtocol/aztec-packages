@@ -89,6 +89,10 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
       }
     }
   }
+
+  lifecycle {
+    replace_triggered_by = [helm_release.otel_collector]
+  }
 }
 
 resource "helm_release" "otel_collector" {
@@ -102,7 +106,8 @@ resource "helm_release" "otel_collector" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
 
   # base values file
   values = [file("./values/public-otel-collector.yaml")]
@@ -122,9 +127,11 @@ resource "helm_release" "otel_collector" {
     value = var.HOSTNAME
   }
 
-  timeout       = 300
-  wait          = false
-  wait_for_jobs = false
+  timeout         = 300
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
 }
 
 resource "helm_release" "public_prometheus" {
@@ -138,11 +145,14 @@ resource "helm_release" "public_prometheus" {
   upgrade_install   = true
   dependency_update = true
   force_update      = true
-  reuse_values      = true
+  reuse_values      = false
+  reset_values      = true
 
   values = [file("./values/public-prometheus.yaml")]
 
-  timeout       = 600
-  wait          = false
-  wait_for_jobs = false
+  timeout         = 300
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = true
+  cleanup_on_fail = true
 }

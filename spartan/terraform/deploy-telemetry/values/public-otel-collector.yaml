@@ -1,4 +1,4 @@
-mode: deployment
+mode: statefulset
 replicaCount: 1
 
 nodeSelector:
@@ -39,12 +39,12 @@ config:
       endpoint: ${env:MY_POD_IP}:13133
 
   receivers:
-    jaeger: null
-    prometheus: null
-    zipkin: null
+    jaeger: {}
+    prometheus: {}
+    zipkin: {}
     otlp:
       protocols:
-        grpc: null
+        grpc: {}
         http:
           endpoint: ${env:MY_POD_IP}:4318
 
@@ -57,7 +57,7 @@ config:
     filter:
       metrics:
         metric:
-          - 'not IsMatch(name, "aztec\\..*")'
+          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector"))'
           - 'resource.attributes["aztec.node_role"] != "sequencer"'
           - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
         datapoint:
@@ -83,6 +83,10 @@ config:
         enabled: false
 
   service:
+    telemetry:
+      metrics:
+        address: ${env:MY_POD_IP}:8888
+
     pipelines:
       logs: null
       traces: null
@@ -118,6 +122,18 @@ ports:
     containerPort: 13133
     servicePort: 13133
     hostPort: 13133
+    protocol: TCP
+  prom-otel:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    hostPort: 8888
+    protocol: TCP
+  prom-aztec:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    hostPort: 8889
     protocol: TCP
 service:
   enabled: true
