@@ -4,9 +4,9 @@
   "license": "Apache-2.0",
   "description": "Aztec contracts for the Ethereum mainnet and testnets",
   "devDependencies": {
-    "solhint": "5.1.0",
     "@openzeppelin/merkle-tree": "^1.0.8",
-    "ox": "^0.8.3"
+    "ox": "^0.8.3",
+    "solhint": "5.1.0"
   },
   "scripts": {
     "format": "forge fmt",
