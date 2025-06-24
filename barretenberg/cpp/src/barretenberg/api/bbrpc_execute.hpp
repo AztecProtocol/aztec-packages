@@ -3,6 +3,7 @@
 #include "barretenberg/api/bbrpc_circuit_registry.hpp"
 #include "barretenberg/api/bbrpc_commands.hpp"
 #include "barretenberg/api/proving_helpers.hpp"
+#include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
@@ -255,7 +256,6 @@ inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAcc
     // Create AcirProgram with constraints and witness
     acir_format::AcirProgram acir_program{ request.last_circuit_constraints.value(), witness_vec };
 
-    // Use the program-based create_circuit which sets proper metadata
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(acir_program, metadata);
 
@@ -305,6 +305,16 @@ inline ClientIvcProve::Response execute(BBRpcRequest& request, BB_UNUSED ClientI
     return ClientIvcProve::Response{ .proof = proof, .error_message = error_message };
 }
 
+inline std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
+    acir_format::AcirProgram& program)
+{
+    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
+
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+}
+
 inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriveVk&& command)
 {
     info("ClientIvcDeriveVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
@@ -315,14 +325,10 @@ inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriv
     // Create verification key based on whether it's standalone or not
     std::vector<uint8_t> vk_data;
     if (command.standalone) {
-        // For standalone, we just need the circuit's verification key (not the full IVC VK)
-        ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(
-            constraint_system, /*recursive=*/false, /*size_hint=*/0);
-
-        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(circuit);
-        auto vk = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
-        vk_data = to_buffer(*vk);
-
+        acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
+        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(program);
+        auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+        vk_data = to_buffer(*verification_key);
         info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {
         // Full IVC VK derivation - based on write_vk_for_ivc from api_client_ivc.cpp

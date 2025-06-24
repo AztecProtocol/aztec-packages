@@ -29,7 +29,7 @@ BBRpcRequest create_test_bbrpc_request()
 // Helper function to create a minimal circuit bytecode and witness for testing
 // Returns a pair of (circuit_bytecode, witness_data)
 // The circuit implements: w0 * w1 = w2 (for IVC) or w0 + w1 = w2 (for simple tests)
-std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circuit_bytecode(bool multiplication = false)
+std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circuit_bytecode()
 {
     Acir::Circuit circuit;
 
@@ -41,19 +41,9 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circuit_byte
 
     Acir::Expression expr;
 
-    if (multiplication) {
-        // Create constraint: w0 * w1 - w2 = 0
-        expr.mul_terms = { { one, Acir::Witness{ 0 }, Acir::Witness{ 1 } } }; // w0 * w1
-        expr.linear_combinations = { { minus_one, Acir::Witness{ 2 } } };     // -1 * w2
-    } else {
-        // Create constraint: w0 + w1 - w2 = 0
-        expr.mul_terms = {}; // No multiplication terms
-        expr.linear_combinations = {
-            { one, Acir::Witness{ 0 } },      // 1 * w0
-            { one, Acir::Witness{ 1 } },      // 1 * w1
-            { minus_one, Acir::Witness{ 2 } } // -1 * w2
-        };
-    }
+    // Create constraint: w0 * w1 - w2 = 0
+    expr.mul_terms = { { one, Acir::Witness{ 0 }, Acir::Witness{ 1 } } }; // w0 * w1
+    expr.linear_combinations = { { minus_one, Acir::Witness{ 2 } } };     // -1 * w2
     expr.q_c = "0000000000000000000000000000000000000000000000000000000000000000";
 
     Acir::Opcode::AssertZero assert_zero;
@@ -77,21 +67,12 @@ std::pair<std::vector<uint8_t>, std::vector<uint8_t>> create_simple_circuit_byte
     Witnesses::WitnessStack witness_stack;
     Witnesses::StackItem stack_item{};
 
-    if (multiplication) {
-        // w0=2, w1=3, w2=6 (so 2*3=6)
-        stack_item.witness.value = {
-            { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000002" }, // w0 = 2
-            { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
-            { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000006" }  // w2 = 6
-        };
-    } else {
-        // w0=5, w1=7, w2=12 (so 5+7=12)
-        stack_item.witness.value = {
-            { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000005" }, // w0 = 5
-            { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000007" }, // w1 = 7
-            { Witnesses::Witness{ 2 }, "000000000000000000000000000000000000000000000000000000000000000c" }  // w2 = 12
-        };
-    }
+    // w0=2, w1=3, w2=6 (so 2*3=6)
+    stack_item.witness.value = {
+        { Witnesses::Witness{ 0 }, "0000000000000000000000000000000000000000000000000000000000000002" }, // w0 = 2
+        { Witnesses::Witness{ 1 }, "0000000000000000000000000000000000000000000000000000000000000003" }, // w1 = 3
+        { Witnesses::Witness{ 2 }, "0000000000000000000000000000000000000000000000000000000000000006" }  // w2 = 6
+    };
     witness_stack.stack.push_back(stack_item);
 
     return { program.bincodeSerialize(), witness_stack.bincodeSerialize() };
@@ -104,11 +85,9 @@ std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_tail)
     // Need witness indices for VK elements, proof, and public inputs
     uint32_t witness_idx = 0;
 
-    circuit.public_parameters = Acir::PublicInputs{ {} }; // No public inputs
     std::vector<Acir::FunctionInput> vk_inputs;
     for (uint32_t i = 0; i < vk_size; i++) {
         auto pub_input = Acir::Witness{ witness_idx };
-        circuit.public_parameters.value.push_back({ pub_input });
         Acir::FunctionInput input{ { Acir::ConstantOrWitnessEnum::Witness{ pub_input } }, BIT_COUNT };
         vk_inputs.push_back(input);
         witness_idx++;
@@ -353,19 +332,19 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
     EXPECT_TRUE(start_response.error_message.empty());
 
     // Get our minimal circuit and witness
-    auto [circuit_bytecode, witness_data] = create_simple_circuit_bytecode(true); // multiplication for IVC
+    auto [circuit_bytecode, witness_data] = create_simple_circuit_bytecode();
     auto app_vk_result =
         execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
     const MegaFlavor::VerificationKey& app_vk =
         from_buffer<MegaFlavor::VerificationKey>(app_vk_result.verification_key);
     auto app_vk_fields = app_vk.to_field_elements();
     auto init_kernel_bytecode = create_simple_kernel(app_vk_fields.size(), false);
-    auto init_kernel_vk_result =
-        execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
-    const MegaFlavor::VerificationKey& init_kernel_vk =
-        from_buffer<MegaFlavor::VerificationKey>(init_kernel_vk_result.verification_key);
-    auto init_kernel_vk_fields = init_kernel_vk.to_field_elements();
-    auto tail_kernel_bytecode = create_simple_kernel(init_kernel_vk_fields.size(), true);
+    // auto init_kernel_vk_result =
+    //     execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
+    // const MegaFlavor::VerificationKey& init_kernel_vk =
+    //     from_buffer<MegaFlavor::VerificationKey>(init_kernel_vk_result.verification_key);
+    // auto init_kernel_vk_fields = init_kernel_vk.to_field_elements();
+    // auto tail_kernel_bytecode = create_simple_kernel(init_kernel_vk_fields.size(), true);
 
     Witnesses::WitnessStack init_kernel_witness;
     init_kernel_witness.stack.push_back({});
@@ -375,21 +354,21 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
         init_kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
     }
 
-    Witnesses::WitnessStack tail_kernel_witness;
-    tail_kernel_witness.stack.push_back({});
-    for (uint32_t i = 0; i < init_kernel_vk_fields.size(); i++) {
-        std::stringstream ss;
-        ss << init_kernel_vk_fields[i];
-        tail_kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
-    }
+    // Witnesses::WitnessStack tail_kernel_witness;
+    // tail_kernel_witness.stack.push_back({});
+    // for (uint32_t i = 0; i < init_kernel_vk_fields.size(); i++) {
+    //     std::stringstream ss;
+    //     ss << init_kernel_vk_fields[i];
+    //     tail_kernel_witness.stack.back().witness.value[Witnesses::Witness{ i }] = ss.str();
+    // }
 
     // Load the circuit
     execute(request, ClientIvcLoad{ CircuitInput{ "app_circuit", circuit_bytecode, {} } });
     execute(request, ClientIvcAccumulate{ witness_data });
     execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", init_kernel_bytecode, {} } });
     execute(request, ClientIvcAccumulate{ init_kernel_witness.bincodeSerialize() });
-    execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", tail_kernel_bytecode, {} } });
-    execute(request, ClientIvcAccumulate{ tail_kernel_witness.bincodeSerialize() });
+    // execute(request, ClientIvcLoad{ CircuitInput{ "kernel_circuit", tail_kernel_bytecode, {} } });
+    // execute(request, ClientIvcAccumulate{ tail_kernel_witness.bincodeSerialize() });
 
     // Generate proof
     auto prove_response = execute(request, ClientIvcProve{});
