@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch} from "./TimeMath.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {Timestamp, Slot, Epoch} from "./TimeMath.sol";
 
 type CompressedTimestamp is uint32;
 

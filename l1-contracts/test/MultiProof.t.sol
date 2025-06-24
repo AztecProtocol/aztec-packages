@@ -21,6 +21,7 @@ import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -77,6 +78,10 @@ contract MultiProofTest is RollupBase {
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 
     rewardBooster = RewardBooster(address(rollup.getRewardConfig().booster));
+
+    // Deploy the test helper such that we can easily update storage and replace the implementation
+    BoostedHelper boostedHelper = new BoostedHelper(rollup, rewardBooster.getConfig());
+    vm.etch(address(rewardBooster), address(boostedHelper).code);
 
     _;
   }
@@ -221,9 +226,7 @@ contract MultiProofTest is RollupBase {
     uint256 maxActivityScore = TestConstants.getRewardBoostConfig().maxScore;
     uint256 maxShares = TestConstants.getRewardBoostConfig().k;
 
-    stdstore.clear();
-    stdstore.enable_packed_slots().target(address(rewardBooster)).sig("getActivityScore(address)")
-      .depth(1).with_key(alice).checked_write(maxActivityScore);
+    BoostedHelper(address(rewardBooster)).setActivityScore(alice, maxActivityScore);
 
     assertGt(
       rollup.getSharesFor(alice),
