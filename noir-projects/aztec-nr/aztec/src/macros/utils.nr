@@ -396,7 +396,6 @@ comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
 
 /// Generates a quote that implements `Serialize` for a given struct `s`.
 /// If the struct already implements `Serialize`, we return an empty quote.
-// TODO(#11571): Drop this function and use the `derive_packable_if_not_implemented_and_get_len` function instead.
 pub comptime fn derive_serialize_if_not_implemented(s: TypeDefinition) -> Quoted {
     // We try to get the serialized length of the struct. If it does not implement `Serialize`, we get Option::none()
     let serialized_len_typ = std::meta::typ::fresh_type_variable();
