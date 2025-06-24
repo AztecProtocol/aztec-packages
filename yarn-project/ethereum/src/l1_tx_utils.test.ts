@@ -651,17 +651,17 @@ describe('GasUtils', () => {
 
     try {
       // Test with ensureBlockGasLimit: true (default)
-      await gasUtils.simulate(request, {}, [], undefined, { ensureBlockGasLimit: true });
+      await gasUtils.simulate(request, {}, [], undefined, { ignoreBlockGasLimit: false });
       expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n);
 
       // Test with ensureBlockGasLimit: false
       capturedBlockOverrides = {};
-      await gasUtils.simulate(request, {}, [], undefined, { ensureBlockGasLimit: false });
+      await gasUtils.simulate(request, {}, [], undefined, { ignoreBlockGasLimit: true });
       expect(capturedBlockOverrides.gasLimit).toBeUndefined();
 
       // Test with explicit gas in request
       capturedBlockOverrides = {};
-      await gasUtils.simulate({ ...request, gas: 1_000_000n }, {}, [], undefined, { ensureBlockGasLimit: true });
+      await gasUtils.simulate({ ...request, gas: 1_000_000n }, {}, [], undefined, { ignoreBlockGasLimit: false });
       expect(capturedBlockOverrides.gasLimit).toBeUndefined();
     } finally {
       spy.mockRestore();
@@ -688,7 +688,7 @@ describe('GasUtils', () => {
     try {
       // Test with custom block overrides and ensureBlockGasLimit: true
       const myCustomBlockOverrides = { baseFeePerGas: 1000000000n };
-      await gasUtils.simulate(request, myCustomBlockOverrides, [], undefined, { ensureBlockGasLimit: true });
+      await gasUtils.simulate(request, myCustomBlockOverrides, [], undefined, { ignoreBlockGasLimit: false });
 
       // Verify that block gas limit is set while preserving custom overrides
       expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n); // 12_000_000 * 2
