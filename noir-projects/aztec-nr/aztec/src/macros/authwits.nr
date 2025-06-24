@@ -54,8 +54,6 @@ pub comptime fn generate_auhtwit_interface_and_get_selector(s: TypeDefinition) -
     )
 }
 
-pub comptime fn generate_authwit_exports() {}
-
 pub comptime fn authwit(s: TypeDefinition) -> Quoted {
     let (authwit_interface_impl, authwit_selector) = generate_auhtwit_interface_and_get_selector(s);
     register_authwit(authwit_selector, s);
