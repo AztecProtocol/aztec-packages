@@ -5,6 +5,7 @@
 #include "barretenberg/api/proving_helpers.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -14,6 +15,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <queue>
+#include <string>
 
 namespace bb::bbrpc {
 
@@ -27,7 +29,8 @@ struct BBRpcRequest {
     std::string last_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate
     std::optional<acir_format::AcirFormat> last_circuit_constraints;
-    // TODO(AI) parse vk passed with this circuit
+    // Store the verification key passed with the circuit
+    std::vector<uint8_t> last_circuit_vk;
     std::vector<Command> commands;
 
     BBRpcRequest(RequestId request_id, std::vector<Command>&& commands)
@@ -225,6 +228,7 @@ inline ClientIvcLoad::Response execute(BBRpcRequest& request, ClientIvcLoad&& co
     // Parse and store the constraint system to avoid re-parsing during accumulate
     request.last_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(command.circuit.bytecode));
     request.last_circuit_name = command.circuit.name;
+    request.last_circuit_vk = command.circuit.verification_key;
 
     info("ClientIvcLoad - circuit loaded with ", request.last_circuit_constraints->num_acir_opcodes, " opcodes");
     return ClientIvcLoad::Response{ .error_message = "" };
@@ -255,9 +259,16 @@ inline ClientIvcAccumulate::Response execute(BBRpcRequest& request, ClientIvcAcc
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
     ClientIVC::ClientCircuit circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(acir_program, metadata);
 
+    ASSERT(CircuitChecker::check(circuit));
+    std::shared_ptr<ClientIVC::MegaVerificationKey> vk;
+
     // Accumulate the circuit
-    // TODO(AI) pass precomputed VK here if vk not blank
-    request.ivc_in_progress->accumulate(circuit);
+    if (!request.last_circuit_vk.empty()) {
+        // Parse the verification key
+        vk = std::make_shared<ClientIVC::MegaVerificationKey>(
+            from_buffer<ClientIVC::MegaVerificationKey>(request.last_circuit_vk));
+    }
+    request.ivc_in_progress->accumulate(circuit, vk);
 
     request.ivc_stack_depth += 1;
 
@@ -277,22 +288,24 @@ inline ClientIvcProve::Response execute(BBRpcRequest& request, BB_UNUSED ClientI
 
     // Generate the IVC proof
     ClientIVC::Proof proof = request.ivc_in_progress->prove();
-
-    info("ClientIvcProve - proof generated, mega proof size: ",
-         proof.mega_proof.size(),
-         " field elements, goblin proof size: ",
-         proof.goblin_proof.size(),
-         " bytes");
+    std::string error_message;
+    if (!request.ivc_in_progress->verify(proof)) {
+        error_message = "IVC proof verification check failed!";
+        info("ClientIvcProve - proof failed to verify!");
+    } else {
+        info("ClientIvcProve - proof generated and verified");
+    }
 
     // Clear the IVC instance after proving
     request.ivc_in_progress.reset();
     request.last_circuit_constraints.reset();
     request.last_circuit_name.clear();
+    request.last_circuit_vk.clear();
 
-    return ClientIvcProve::Response{ .proof = proof, .error_message = "" };
+    return ClientIvcProve::Response{ .proof = proof, .error_message = error_message };
 }
 
-inline ClientIvcDeriveVk::Response execute(BB_UNUSED BBRpcRequest& request, ClientIvcDeriveVk&& command)
+inline ClientIvcDeriveVk::Response execute(BBRpcRequest& request, ClientIvcDeriveVk&& command)
 {
     info("ClientIvcDeriveVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
 
@@ -312,11 +325,28 @@ inline ClientIvcDeriveVk::Response execute(BB_UNUSED BBRpcRequest& request, Clie
 
         info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {
-        // TODO(AI) base this off of write_vk_for_ivc in api_client_ivc.cpp
-        return ClientIvcDeriveVk::Response{
-            .verification_key = {},
-            .error_message = "Full IVC VK derivation not yet implemented - requires complex mock circuit setup"
-        };
+        // Full IVC VK derivation - based on write_vk_for_ivc from api_client_ivc.cpp
+        ClientIVC ivc{ request.trace_settings };
+        ClientIVCMockCircuitProducer circuit_producer;
+
+        // Initialize the IVC with an arbitrary circuit (similar to write_vk_for_ivc)
+        static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+        MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+        ivc.accumulate(circuit_0);
+
+        // Create another circuit and accumulate, using the public inputs from the provided circuit
+        size_t num_public_inputs = constraint_system.public_inputs.size();
+        MegaCircuitBuilder circuit_1 =
+            circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs);
+        ivc.accumulate(circuit_1);
+
+        // Construct the hiding circuit and its VK
+        ivc.construct_hiding_circuit_key();
+
+        // Get the IVC VK
+        vk_data = to_buffer(ivc.get_vk());
+
+        info("ClientIvcDeriveVk - full IVC VK derived, size: ", vk_data.size(), " bytes");
     }
 
     return ClientIvcDeriveVk::Response{ .verification_key = vk_data, .error_message = "" };
