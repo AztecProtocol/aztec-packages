@@ -612,6 +612,20 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
+// Execution Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_SET: u32 = 1;
+pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
+pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
+pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
+pub global AVM_EXEC_OP_ID_CALL: u32 = 2 * AVM_EXEC_OP_ID_JUMPI;
+pub global AVM_EXEC_OP_ID_STATICCALL: u32 = 2 * AVM_EXEC_OP_ID_CALL;
+pub global AVM_EXEC_OP_ID_INTERNALCALL: u32 = 2 * AVM_EXEC_OP_ID_STATICCALL;
+pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
+pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
+pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
+pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
+
 // AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias

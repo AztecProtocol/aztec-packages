@@ -238,11 +238,8 @@ TEST_F(GasTrackerTest, GasEvent)
 
     EXPECT_EQ(tracker.finish(),
               (GasEvent{
-                  .opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS,
                   .addressing_gas = compute_addressing_gas(instruction.indirect),
-                  .base_gas = (Gas{ AVM_CALLDATACOPY_BASE_L2_GAS + compute_addressing_gas(instruction.indirect), 0 }),
                   .dynamic_gas_factor = (Gas{ 10, 0 }),
-                  .dynamic_gas = (Gas{ AVM_CALLDATACOPY_DYN_L2_GAS, 0 }),
                   .limit_used_l2_comparison_witness = limit_used_l2_comparison_witness,
                   .limit_used_da_comparison_witness = limit_used_da_comparison_witness,
                   .oog_base_l2 = false,
