@@ -13,11 +13,10 @@ pub contract SimulatedAccount {
     use dep::aztec::{
         authwit::{
             account::AccountActions,
-            auth::{compute_authwit_message_hash, IS_VALID_SELECTOR},
+            auth::IS_VALID_SELECTOR,
             entrypoint::{app::AppPayload, fee::FeePayload},
         },
         macros::{functions::{private, view}, storage::storage},
-        oracle::offchain_effect::emit_offchain_effect,
         prelude::{PrivateContext, PrivateImmutable},
     };
 
@@ -38,13 +37,6 @@ pub contract SimulatedAccount {
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
-        let message_hash = compute_authwit_message_hash(
-            context.msg_sender(),
-            context.chain_id(),
-            context.version(),
-            inner_hash,
-        );
-        emit_offchain_effect(message_hash);
         IS_VALID_SELECTOR
     }
 
