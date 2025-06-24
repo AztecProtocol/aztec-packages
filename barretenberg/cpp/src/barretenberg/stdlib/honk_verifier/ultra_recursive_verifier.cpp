@@ -17,19 +17,20 @@
 namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                         const std::shared_ptr<DeciderVK>& native_decider_vkey,
-                                                         const std::shared_ptr<Transcript>& transcript)
-    : key(std::make_shared<RecursiveDeciderVK>(builder, native_decider_vkey))
+UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(
+    Builder* builder,
+    const std::shared_ptr<NativeVerificationKey>& native_verifier_key,
+    const std::shared_ptr<Transcript>& transcript)
+    : key(std::make_shared<RecursiveDeciderVK>(builder, native_verifier_key))
     , builder(builder)
     , transcript(transcript)
 {}
 
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                         const std::shared_ptr<RecursiveDeciderVK>& decider_vkey,
+                                                         const std::shared_ptr<VerificationKey>& vkey,
                                                          const std::shared_ptr<Transcript>& transcript)
-    : key(decider_vkey)
+    : key(std::make_shared<RecursiveDeciderVK>(builder, vkey))
     , builder(builder)
     , transcript(transcript)
 {}

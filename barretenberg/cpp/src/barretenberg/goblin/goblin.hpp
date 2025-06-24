@@ -90,8 +90,8 @@ class Goblin {
      * @details Proofs are verified in a FIFO manner
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param transcript The transcript to be passed to the MergeRecursiveVerifier
-     * @param t_commitments The commitments to the subtable for which the merge is being verified
+     * @param t_commitments The commitments to the subtable for which the merge is being verified.
+     * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return PairingPoints
      */
     PairingPoints recursively_verify_merge(

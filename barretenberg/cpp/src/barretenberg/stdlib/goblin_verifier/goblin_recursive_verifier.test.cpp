@@ -37,7 +37,8 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
+    static ProverOutput create_goblin_prover_output(std::array<Commitment, MegaFlavor::NUM_WIRES>& t_commitments_val,
+                                                    const size_t NUM_CIRCUITS = 3)
     {
 
         Goblin goblin;
@@ -54,13 +55,16 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         builder.queue_ecc_no_op();
         GoblinMockCircuits::construct_simple_circuit(builder);
 
-        // Construct subtable commitments
-        auto ecc_op_wires = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
-        RefArray<Commitment, MegaFlavor::NUM_WIRES> t_commitments;
-        bb::CommitmentKey<bb::curve::BN254> pcs_commitment_key{};
+        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        auto t_current = goblin_final.op_queue->construct_current_ultra_ops_subtable_columns();
+        std::array<Commitment*, MegaFlavor::NUM_WIRES> ptr_t_commitments;
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin_final.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            t_commitments[idx] = pcs_commitment_key.commit(ecc_op_wires[idx]);
+            t_commitments_val[idx] = pcs_commitment_key.commit(t_current[idx]);
+            ptr_t_commitments[idx] = &t_commitments_val[idx];
         }
+
+        RefArray<Commitment, MegaFlavor::NUM_WIRES> t_commitments(ptr_t_commitments);
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
         return { goblin_final.prove(),
@@ -73,14 +77,19 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      */
     static RefArray<RecursiveCommitment, MegaFlavor::NUM_WIRES> convert_native_t_commitments_to_stdlib(
-        Builder* builder, const RefArray<Commitment, MegaFlavor::NUM_WIRES> t_commitments)
+        Builder* builder,
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val,
+        const std::array<Commitment, MegaFlavor::NUM_WIRES>& t_commitments_val)
     {
-        RefArray<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_recursive;
+        std::array<RecursiveCommitment*, MegaFlavor::NUM_WIRES> ptr_t_commitments_rec;
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            t_commitments_recursive[idx] = RecursiveCommitment::from_witness(builder, t_commitments[idx]);
+            t_commitments_rec_val[idx] = RecursiveCommitment::from_witness(builder, t_commitments_val[idx]);
+            ptr_t_commitments_rec[idx] = &t_commitments_rec_val[idx];
         }
 
-        return t_commitments_recursive;
+        RefArray<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec(ptr_t_commitments_rec);
+
+        return t_commitments_rec;
     }
 };
 
@@ -90,7 +99,9 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  */
 TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
-    auto [proof, _, t_commitments] = create_goblin_prover_output();
+    // Global array to store the values of the subtable commitments
+    std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+    auto [proof, _, t_commitments] = create_goblin_prover_output(t_commitments_val);
 
     std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
@@ -103,11 +114,15 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
  */
 TEST_F(GoblinRecursiveVerifierTests, Basic)
 {
-    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output();
+    // Global array to store the values of the commitments
+    std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val);
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+    // Global array to store the witness version of the subtable commitments
+    std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
     GoblinRecursiveVerifierOutput output = verifier.verify(proof, t_commitments);
     output.points_accumulator.set_public();
 
@@ -121,9 +136,8 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     {
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<OuterDeciderVerificationkey>(verification_key);
         OuterProver prover(proving_key, verification_key);
-        OuterVerifier verifier(decider_vk);
+        OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -137,11 +151,15 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
-        auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(inner_size);
+        // Global array to store the values of the subtable commitments
+        std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+        auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val, inner_size);
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+        // Global array to store the witness version of the subtable commitments
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
         GoblinRecursiveVerifierOutput output = verifier.verify(proof, t_commitments);
         output.points_accumulator.set_public();
 
@@ -150,9 +168,8 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
         // Construct and verify a proof for the Goblin Recursive Verifier circuit
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
         auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-        auto outer_decider_vk = std::make_shared<OuterDeciderVerificationkey>(outer_verification_key);
         OuterProver prover(proving_key, outer_verification_key);
-        OuterVerifier outer_verifier(outer_decider_vk);
+        OuterVerifier outer_verifier(outer_verification_key);
         return { builder.blocks, outer_verification_key };
     };
 
@@ -169,7 +186,9 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
  */
 TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 {
-    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output();
+    // Global array to store the values of the subtable commitments
+    std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val);
 
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
@@ -181,7 +200,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+    // Global array to store the witness version of the subtable commitments
+    std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
     GoblinRecursiveVerifierOutput goblin_rec_verifier_output = verifier.verify(proof, t_commitments);
 
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -201,7 +222,9 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
  */
 TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 {
-    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output();
+    // Global array to store the values of the subtable commitments
+    std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val);
     // Tamper with the Translator proof preamble
     {
         GoblinProof tampered_proof = proof;
@@ -214,7 +237,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+        // Global array to store the witness version of the subtable commitments
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
         [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof, t_commitments);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
@@ -233,7 +258,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+        // Global array to store the witness version of the subtable commitments
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
         [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(tampered_proof, t_commitments);
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
@@ -245,7 +272,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
  */
 TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 {
-    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output();
+    // Global array to store the values of the subtable commitments
+    std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+    auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val);
 
     // Tamper with the evaluation of `op` witness. The index is computed manually.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1298):
@@ -255,7 +284,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslationEvaluationsFailure)
 
     Builder builder;
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+    // Global array to store the witness version of the subtable commitments
+    std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+    auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
     [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof, t_commitments);
 
     EXPECT_FALSE(CircuitChecker::check(builder));
@@ -273,7 +304,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         using FF = TranslatorFlavor::FF;
         using BF = TranslatorFlavor::BF;
 
-        auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output();
+        // Global array to store the values of the subtable commitments
+        std::array<Commitment, MegaFlavor::NUM_WIRES> t_commitments_val;
+        auto [proof, verifier_input, native_t_commitments] = create_goblin_prover_output(t_commitments_val);
 
         std::shared_ptr<Goblin::Transcript> verifier_transcript = std::make_shared<Goblin::Transcript>();
 
@@ -305,7 +338,9 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorMergeConsistencyFailure)
         // Construct and check the Goblin Recursive Verifier circuit
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, native_t_commitments);
+        // Global array to store the witness version of the subtable commitments
+        std::array<RecursiveCommitment, MegaFlavor::NUM_WIRES> t_commitments_rec_val;
+        auto t_commitments = convert_native_t_commitments_to_stdlib(&builder, t_commitments_rec_val, t_commitments_val);
         [[maybe_unused]] auto goblin_rec_verifier_output = verifier.verify(proof, t_commitments);
 
         EXPECT_FALSE(CircuitChecker::check(builder));

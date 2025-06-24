@@ -63,7 +63,6 @@ class AcirIntegrationTest : public ::testing::Test {
 
         auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<DeciderVerificationKey_<Flavor>>(verification_key);
         Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
@@ -75,7 +74,7 @@ class AcirIntegrationTest : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        Verifier verifier{ decider_vk };
+        Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
 

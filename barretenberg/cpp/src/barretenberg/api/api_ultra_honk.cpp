@@ -115,7 +115,6 @@ bool _verify(const bool ipa_accumulation,
     using Verifier = UltraVerifier_<Flavor>;
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
-    auto decider_vk = std::make_shared<DeciderVerificationKey_<Flavor>>(vk);
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
     // concatenate public inputs and proof
@@ -127,7 +126,7 @@ bool _verify(const bool ipa_accumulation,
         ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
     }
 
-    Verifier verifier{ decider_vk, ipa_verification_key };
+    Verifier verifier{ vk, ipa_verification_key };
 
     bool verified;
     if (ipa_accumulation) {

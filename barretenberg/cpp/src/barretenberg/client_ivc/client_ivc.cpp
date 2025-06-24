@@ -452,15 +452,14 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    auto decider_vk_mega = std::make_shared<DeciderVerificationKey_<MegaZKFlavor>>(vk.mega);
-    MegaZKVerifier verifer{ decider_vk_mega,
+    MegaZKVerifier verifer{ vk.mega,
                             /*ipa_verification_key=*/{},
                             civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, decider_vk_mega->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
+        proof.goblin_proof, verifer.verification_key->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;

@@ -26,10 +26,10 @@ template <typename Flavor> class UltraVerifier_ {
 
   public:
     explicit UltraVerifier_(
-        const std::shared_ptr<DeciderVK>& decider_vk,
+        const std::shared_ptr<VerificationKey>& verifier_key,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
         const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
-        : verification_key(decider_vk)
+        : verification_key(std::make_shared<DeciderVK>(verifier_key))
         , ipa_verification_key(std::move(ipa_verification_key))
         , transcript(transcript)
     {}

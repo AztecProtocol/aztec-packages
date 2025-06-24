@@ -38,7 +38,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
-    using OuterDeciderVerificationKey = DeciderVerificationKey_<OuterFlavor>;
 
     using RecursiveDeciderVerificationKeys =
         ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
@@ -271,9 +270,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
             auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
-            auto decider_honk_vk = std::make_shared<OuterDeciderVerificationKey>(honk_vk);
             OuterProver prover(decider_pk, honk_vk);
-            OuterVerifier verifier(decider_honk_vk);
+            OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 
@@ -372,9 +370,8 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         {
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(decider_circuit);
             auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->proving_key);
-            auto decider_honk_vk = std::make_shared<OuterDeciderVerificationKey>(honk_vk);
             OuterProver prover(decider_pk, honk_vk);
-            OuterVerifier verifier(decider_honk_vk);
+            OuterVerifier verifier(honk_vk);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
 

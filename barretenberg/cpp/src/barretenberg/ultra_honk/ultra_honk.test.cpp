@@ -26,7 +26,6 @@ using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -55,16 +54,15 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     {
         auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(verification_key);
         Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<Flavor>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-            Verifier verifier(decider_vk, ipa_verification_key);
+            Verifier verifier(verification_key, ipa_verification_key);
             bool verified = verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
             EXPECT_EQ(verified, expected_result);
         } else {
-            Verifier verifier(decider_vk);
+            Verifier verifier(verification_key);
             bool verified = verifier.verify_proof(proof);
             EXPECT_EQ(verified, expected_result);
         }
@@ -267,7 +265,6 @@ TYPED_TEST(UltraHonkTests, CreateGatesFromPlookupAccumulators)
 TYPED_TEST(UltraHonkTests, LookupFailure)
 {
     using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
-    using DeciderVerificationKey = typename TestFixture::DeciderVerificationKey;
     using VerificationKey = typename TestFixture::VerificationKey;
     // Construct a circuit with lookup and arithmetic gates
     auto construct_circuit_with_lookups = [this]() {
@@ -282,15 +279,14 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
 
     auto prove_and_verify = [](auto& proving_key) {
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(verification_key);
         typename TestFixture::Prover prover(proving_key, verification_key);
         auto proof = prover.construct_proof();
         if constexpr (HasIPAAccumulator<TypeParam>) {
             VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = (1 << CONST_ECCVM_LOG_N);
-            typename TestFixture::Verifier verifier(decider_vk, ipa_verification_key);
+            typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
             return verifier.verify_proof(proof, proving_key->proving_key.ipa_proof);
         } else {
-            typename TestFixture::Verifier verifier(decider_vk);
+            typename TestFixture::Verifier verifier(verification_key);
             return verifier.verify_proof(proof);
         }
     };

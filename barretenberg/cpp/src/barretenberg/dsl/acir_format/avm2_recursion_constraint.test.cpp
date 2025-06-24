@@ -42,7 +42,6 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using OuterVerificationKey = OuterFlavor::VerificationKey;
-    using OuterDeciderVerificationKey = DeciderVerificationKey_<OuterFlavor>;
     using OuterBuilder = UltraCircuitBuilder;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -136,12 +135,11 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 
     auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
-    auto decider_vk = std::make_shared<OuterDeciderVerificationKey>(verification_key);
     OuterProver prover(proving_key, verification_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-    OuterVerifier verifier(decider_vk, ipa_verification_key);
+    OuterVerifier verifier(verification_key, ipa_verification_key);
     EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
 }
 
@@ -168,14 +166,13 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         auto proving_key = std::make_shared<OuterDeciderProvingKey>(layer_2_circuit);
         expected_vk = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<OuterDeciderVerificationKey>(expected_vk);
         OuterProver prover(proving_key, expected_vk);
         info("prover gates = ", proving_key->proving_key.circuit_size);
 
         // Construct and verify a proof of the outer AVM verifier circuits
         auto proof = prover.construct_proof();
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        OuterVerifier verifier(decider_vk, ipa_verification_key);
+        OuterVerifier verifier(expected_vk, ipa_verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof));
     }
 

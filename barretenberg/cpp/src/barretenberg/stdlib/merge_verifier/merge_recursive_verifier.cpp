@@ -29,7 +29,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::MergeRecursiveVerifier_(CircuitBuilder*
  * @tparam CircuitBuilder
  * @param proof
  * @param t_commitments The commitments to t_j read from the transcript by the PG recursive verifier with which the
- * Merge recursive verifier
+ * Merge recursive verifier shares a transcript
  * @return std::array<typename Flavor::GroupElement, 2> Inputs to final pairing
  */
 template <typename CircuitBuilder>

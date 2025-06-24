@@ -42,9 +42,12 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
                                          std::shared_ptr<DeciderVerificationKey>& verification_key)
     {
         Prover prover(proving_key, verification_key->verification_key);
-        Verifier verifier(verification_key);
+        Verifier verifier(verification_key->verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
+
+        // Update decider_vk
+        verification_key = verifier.verification_key;
 
         return verified;
     }
@@ -60,13 +63,11 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         using Verifier = UltraVerifier_<MegaFlavor>;
         using VerificationKey = typename MegaFlavor::VerificationKey;
         using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-        using DeciderVerificationKey = DeciderVerificationKey_<MegaFlavor>;
         auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
 
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<DeciderVerificationKey>(verification_key);
         Prover prover(proving_key, verification_key);
-        Verifier verifier(decider_vk);
+        Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
 
@@ -199,9 +200,8 @@ TYPED_TEST(MegaHonkTests, BasicStructured)
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder, trace_settings);
     auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
-    auto decider_vk = std::make_shared<DeciderVerificationKey_<Flavor>>(verification_key);
     Prover prover(proving_key, verification_key);
-    Verifier verifier(decider_vk);
+    Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
     // Sanity check: ensure z_perm is not zero everywhere
@@ -257,15 +257,13 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
         EXPECT_EQ(entry, entry_copy);
     }
 
-    auto decider_vk = std::make_shared<DeciderVerificationKey_<Flavor>>(verification_key);
-    Verifier verifier(decider_vk);
+    Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
-    auto decider_vk_copy = std::make_shared<DeciderVerificationKey_<Flavor>>(verification_key_copy);
-    Verifier verifier_copy(decider_vk_copy);
+    Verifier verifier_copy(verification_key_copy);
     auto proof_copy = prover_copy.construct_proof();
 
     RelationChecker<Flavor>::check_all(proving_key->proving_key.polynomials, proving_key->relation_parameters);
@@ -491,18 +489,16 @@ TYPED_TEST(MegaHonkTests, PolySwap)
 
     { // Verification based on pkey 1 should succeed
         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_1->proving_key);
-        auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
         typename TestFixture::Prover prover(proving_key_1, verification_key);
-        typename TestFixture::Verifier verifier(decider_vk);
+        typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         EXPECT_TRUE(verifier.verify_proof(proof));
     }
 
     { // Verification based on pkey 2 should fail
         auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key_2->proving_key);
-        auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
         typename TestFixture::Prover prover(proving_key_2, verification_key);
-        typename TestFixture::Verifier verifier(decider_vk);
+        typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         EXPECT_FALSE(verifier.verify_proof(proof));
     }

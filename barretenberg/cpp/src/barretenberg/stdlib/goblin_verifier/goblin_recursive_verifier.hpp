@@ -53,7 +53,7 @@ class GoblinRecursiveVerifier {
      * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
      *
      * @param proof
-     * @param t_commitments // The commitments to the subtable for the merge being verified)
+     * @param t_commitments // The commitments to the subtable for the merge being verified
      *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */

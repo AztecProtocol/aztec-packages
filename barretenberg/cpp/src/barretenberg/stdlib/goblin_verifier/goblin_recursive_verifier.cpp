@@ -12,7 +12,7 @@ namespace bb::stdlib::recursion::honk {
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
  *
  * @param proof
- * @param t_commitments // The commitments to the subtable for the merge being verified)
+ * @param t_commitments // The commitments to the subtable for the merge being verified
  *
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(
