@@ -26,11 +26,12 @@ import {
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
   MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   PreviousRollupData,
   SingleTxBlockRootRollupInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
-import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { AppendOnlyTreeSnapshot, type MerkleTreeId } from '@aztec/stdlib/trees';
 import { type BlockHeader, type GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 import { VkData } from '@aztec/stdlib/vks';
 
@@ -233,7 +234,6 @@ export class BlockProvingState {
         inputs: EmptyBlockRootRollupInputs.from({
           data,
           constants,
-          isPadding: false,
         }),
       };
     }
@@ -259,30 +259,17 @@ export class BlockProvingState {
     }
   }
 
-  public async getPaddingBlockRootInputs(proverId: Fr) {
-    if (!this.rootParityProvingOutput) {
-      throw new Error('Root parity is not ready.');
-    }
-
-    if (!this.blockRootProvingOutput || !this.endBlobAccumulator) {
+  public getPaddingBlockRootInputs(proverId: Fr) {
+    if (!this.blockRootProvingOutput) {
       throw new Error('Block root not ready for padding.');
     }
 
-    // Use the new block header, archive and l1toL2 of the current block as the previous header, archive and l1toL2 of the next padding block.
-    const previousBlockHeader = await this.buildHeaderFromProvingOutputs();
+    // Use the new archive of the current block as the previous archive of the padding block.
     const lastArchive = this.blockRootProvingOutput!.inputs.newArchive;
-    const lastL1ToL2 = this.l1ToL2MessageTreeSnapshotAfterInsertion;
 
-    const data = BlockRootRollupData.from({
-      l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
-      l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
-      previousArchiveSiblingPath: this.lastArchiveSiblingPath,
-      newArchiveSiblingPath: this.newArchiveSiblingPath,
-      previousBlockHeader,
-      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.endBlobAccumulator),
-      finalBlobChallenges: this.endBlobAccumulator.finalBlobChallenges,
-      proverId,
-    });
+    // Set an empty lastL1ToL2 as it's not used in the padding block root rollup.
+    // It's not outputted from the circuit either.
+    const lastL1ToL2 = AppendOnlyTreeSnapshot.empty();
 
     const constants = BlockConstantData.from({
       lastArchive,
@@ -292,10 +279,9 @@ export class BlockProvingState {
       protocolContractTreeRoot,
     });
 
-    return EmptyBlockRootRollupInputs.from({
-      data,
+    return PaddingBlockRootRollupInputs.from({
       constants,
-      isPadding: true,
+      proverId,
     });
   }
 

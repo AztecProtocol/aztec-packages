@@ -53,6 +53,7 @@ import {
   EpochConstantData,
   FeeRecipient,
   type MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   type PreviousRollupBlockData,
   type PreviousRollupData,
   type PrivateBaseRollupInputs,
@@ -91,6 +92,7 @@ import type {
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
+  PaddingBlockRootRollupInputs as PaddingBlockRootRollupInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
   Poseidon2Sponge as Poseidon2SpongeNoir,
@@ -792,7 +794,15 @@ export function mapEmptyBlockRootRollupInputsToNoir(
   return {
     data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
     constants: mapBlockConstantDataToNoir(rootRollupInputs.constants),
-    is_padding: rootRollupInputs.isPadding,
+  };
+}
+
+export function mapPaddingBlockRootRollupInputsToNoir(
+  inputs: PaddingBlockRootRollupInputs,
+): PaddingBlockRootRollupInputsNoir {
+  return {
+    constants: mapBlockConstantDataToNoir(inputs.constants),
+    prover_id: mapFieldToNoir(inputs.proverId),
   };
 }
 

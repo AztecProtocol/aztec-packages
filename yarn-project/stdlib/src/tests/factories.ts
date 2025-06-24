@@ -833,7 +833,6 @@ export function makeEmptyBlockRootRollupInputs(
   return new EmptyBlockRootRollupInputs(
     makeBlockRootRollupData(seed + 0x1000),
     makeBlockConstantData(0x2500, globalVariables),
-    true,
   );
 }
 

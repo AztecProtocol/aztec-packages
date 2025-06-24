@@ -743,7 +743,7 @@ export class ProvingOrchestrator implements EpochProver {
         const epochProvingState = this.provingState!;
         const leafLocation = epochProvingState.setBlockRootRollupProof(provingState.index, result);
         if (epochProvingState.totalNumBlocks === 1) {
-          await this.enqueueEpochPadding(epochProvingState);
+          this.enqueueEpochPadding(epochProvingState);
         } else {
           this.checkAndEnqueueNextBlockMergeRollup(epochProvingState, leafLocation);
         }
@@ -837,25 +837,25 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  private async enqueueEpochPadding(provingState: EpochProvingState) {
+  private enqueueEpochPadding(provingState: EpochProvingState) {
     if (!provingState.verifyState()) {
       logger.debug('Not running epoch padding. State no longer valid.');
       return;
     }
 
-    logger.debug('Padding epoch proof with an empty block root proof.');
+    logger.debug('Padding epoch proof with a padding block root proof.');
 
-    const inputs = await provingState.getPaddingBlockRootInputs(this.proverId);
+    const inputs = provingState.getPaddingBlockRootInputs(this.proverId);
 
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
+        'ProvingOrchestrator.prover.getPaddingBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'padding-block-root-rollup' satisfies CircuitName,
         },
-        signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
+        signal => this.prover.getPaddingBlockRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         logger.debug('Completed proof for padding block root.');

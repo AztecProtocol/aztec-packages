@@ -22,6 +22,7 @@ const circuits = [
   'rollup_block_root_single_tx',
   'rollup_block_merge',
   'rollup_block_root_empty',
+  'rollup_block_root_padding',
   'rollup_root',
 ];
 

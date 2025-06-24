@@ -40,29 +40,20 @@ pub fn assert_prev_block_rollups_follow_on_from_each_other(
         left.end_global_variables.version == right.start_global_variables.version,
         "input blocks have different chain version",
     );
-    assert(
-        left.blob_public_inputs.end_blob_accumulator.eq(
-            right.blob_public_inputs.start_blob_accumulator,
-        ),
-        "input block blob accumulators do not follow on from each other",
-    );
-    assert(
-        left.blob_public_inputs.final_blob_challenges.eq(
-            right.blob_public_inputs.final_blob_challenges,
-        ),
-        "input blocks have different epoch blob challenges",
-    );
 
-    if right.is_padding() {
+    if !right.is_padding() {
         assert(
-            left.end_global_variables.block_number == right.start_global_variables.block_number,
-            "input block numbers do not match",
+            left.blob_public_inputs.end_blob_accumulator.eq(
+                right.blob_public_inputs.start_blob_accumulator,
+            ),
+            "input block blob accumulators do not follow on from each other",
         );
         assert(
-            left.end_global_variables.timestamp == right.start_global_variables.timestamp,
-            "input block timestamps do not match",
+            left.blob_public_inputs.final_blob_challenges.eq(
+                right.blob_public_inputs.final_blob_challenges,
+            ),
+            "input blocks have different epoch blob challenges",
         );
-    } else {
         assert(
             left.end_global_variables.block_number + 1 == right.start_global_variables.block_number,
             "input block numbers do not follow on from each other",
