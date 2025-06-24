@@ -158,7 +158,7 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_PASSWORD_SECRET_NAME }}" \
+            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -lock=${{ inputs.respect_tf_lock }}
 
@@ -169,7 +169,7 @@ jobs:
             -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
             -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
             -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
-            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_PASSWORD_SECRET_NAME }}" \
+            -var="GRAFANA_PASSWORD_SECRET_NAME=${{ env.GRAFANA_DASHBOARD_PASSWORD_SECRET_NAME }}" \
             -var="SLACK_WEBHOOK_SECRET_NAME=${{ env.SLACK_WEBHOOK_URL_SECRET_NAME }}" \
             -out=tfplan \
             -lock=${{ inputs.respect_tf_lock }}

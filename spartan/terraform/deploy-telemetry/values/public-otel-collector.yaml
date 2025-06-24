@@ -15,10 +15,6 @@ resources:
     memory: 60Gi
     cpu: "7"
 
-service:
-  enabled: true
-  type: LoadBalancer
-
 ports:
   otlp:
     enabled: false
@@ -38,6 +34,10 @@ ports:
     enabled: false
 
 config:
+  extensions:
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
+
   receivers:
     jaeger: null
     prometheus: null
@@ -98,12 +98,43 @@ config:
         exporters:
           - prometheus
 
-ingress:
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  metrics:
+    enabled: false
+  healthcheck:
+    enabled: true
+    containerPort: 13133
+    servicePort: 13133
+    hostPort: 13133
+    protocol: TCP
+service:
+  enabled: true
+  type: LoadBalancer
   annotations:
-    kubernetes.io/ingress.allow-http: "false"
+    cloud.google.com/backend-config: "{\"default\":\"otel-ingress-backend\"}"
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.allow-http: "true"
     kubernetes.io/ingress.class: gce
-    kubernetes.io/ingress.global-static-ip-name: null
-    networking.gke.io/managed-certificates: null
+    kubernetes.io/ingress.global-static-ip-name: ""
+    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-path: "/"
+
+    # networking.gke.io/managed-certificates: null
   hosts:
     - host: null
       paths:
