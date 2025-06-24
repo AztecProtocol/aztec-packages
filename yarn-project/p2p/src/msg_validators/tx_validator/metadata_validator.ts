@@ -96,6 +96,11 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     const buildingBlock1 = this.values.blockNumber === 1;
 
     if (!buildingBlock1 && includeByTimestamp.isSome && includeByTimestamp.value < this.values.timestamp) {
+      if (tx.data.constants.historicalHeader.globalVariables.blockNumber === 0) {
+        this.#log.warn(
+          `A tx built against a genesis block failed to be included in block 1 which is the only block in which txs built against a genesis block are allowed to be included.`,
+        );
+      }
       this.#log.verbose(
         `Rejecting tx ${await Tx.getHash(tx)} for low expiration timestamp. Tx expiration timestamp: ${includeByTimestamp.value}, timestamp: ${this.values.timestamp}.`,
       );
