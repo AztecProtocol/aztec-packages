@@ -11,12 +11,12 @@ contract AvmGadgetsTest {
 
     #[public]
     fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
-        std::hash::keccak::keccakf1600(data)
+        std::hash::keccakf1600(data)
     }
 
     #[public]
     fn poseidon2_hash(data: [Field; 10]) -> Field {
-        std::hash::poseidon2::Poseidon2::hash(data, data.len())
+        poseidon::poseidon2::Poseidon2::hash(data, data.len())
     }
 
     #[public]
