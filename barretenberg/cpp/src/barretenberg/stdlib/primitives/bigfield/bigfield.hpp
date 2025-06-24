@@ -593,11 +593,14 @@ template <typename Builder, typename T> class bigfield {
      */
     bool is_constant() const
     {
-        ASSERT(binary_basis_limbs[0].element.is_constant() == binary_basis_limbs[1].element.is_constant() &&
-               binary_basis_limbs[1].element.is_constant() == binary_basis_limbs[2].element.is_constant() &&
-               binary_basis_limbs[2].element.is_constant() == binary_basis_limbs[3].element.is_constant() &&
-               binary_basis_limbs[3].element.is_constant() == prime_basis_limb.is_constant());
-        return prime_basis_limb.is_constant();
+        bool is_limb_0_constant = binary_basis_limbs[0].element.is_constant();
+        bool is_limb_1_constant = binary_basis_limbs[1].element.is_constant();
+        bool is_limb_2_constant = binary_basis_limbs[2].element.is_constant();
+        bool is_limb_3_constant = binary_basis_limbs[3].element.is_constant();
+        bool is_prime_limb_constant = prime_basis_limb.is_constant();
+        ASSERT(is_limb_0_constant == is_limb_1_constant && is_limb_1_constant == is_limb_2_constant &&
+               is_limb_2_constant == is_limb_3_constant && is_limb_3_constant == is_prime_limb_constant);
+        return is_prime_limb_constant;
     }
 
     /**
