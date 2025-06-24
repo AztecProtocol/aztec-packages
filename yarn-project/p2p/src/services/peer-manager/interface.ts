@@ -12,6 +12,7 @@ export interface PeerManagerInterface {
   heartbeat(): void;
   addTrustedPeer(peerId: PeerId): void;
   addPrivatePeer(peerId: PeerId): void;
+  addPreferredPeer(peerId: PeerId): void;
   goodbyeReceived(peerId: PeerId, reason: GoodByeReason): void;
   penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity): void;
 

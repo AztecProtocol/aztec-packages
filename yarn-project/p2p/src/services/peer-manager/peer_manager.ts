@@ -50,6 +50,8 @@ export class PeerManager implements PeerManagerInterface {
   private trustedPeersInitialized: boolean = false;
   private privatePeers: Set<string> = new Set();
   private privatePeersInitialized: boolean = false;
+  private preferredPeers: Set<string> = new Set();
+  private preferredPeersInitialized: boolean = false;
   private authenticatedPeers: Set<string> = new Set();
 
   private metrics: PeerManagerMetrics;
@@ -125,6 +127,16 @@ export class PeerManager implements PeerManagerInterface {
         })
         .catch(e => this.logger.error('Error initializing private peers', e));
     }
+
+    if (this.config.preferredPeers) {
+      const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+      await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
+        .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
+        .finally(() => {
+          this.preferredPeersInitialized = true;
+        })
+        .catch(e => this.logger.error('Error initializing preferred peers', e));
+    }
   }
 
   get tracer() {
@@ -198,7 +210,11 @@ export class PeerManager implements PeerManagerInterface {
       this.logger.warn('Trusted peers not initialized, returning false');
       return false;
     }
-    return this.trustedPeers.has(peerId.toString());
+    const isTrusted = this.trustedPeers.has(peerId.toString());
+    if (isTrusted) {
+      this.logger.info(`Peer ${peerId.toString()} is trusted`);
+    }
+    return isTrusted;
   }
 
   /**
@@ -210,7 +226,7 @@ export class PeerManager implements PeerManagerInterface {
 
     this.trustedPeers.add(peerIdStr);
     this.trustedPeersInitialized = true;
-    this.logger.verbose(`Added trusted peer ${peerIdStr}`);
+    this.logger.info(`Added trusted peer ${peerIdStr}`);
   }
 
   /**
@@ -241,12 +257,37 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
+   * Adds a peer to the preferred peers set.
+   * @param peerId - The peer ID to add to preferred peers.
+   */
+  public addPreferredPeer(peerId: PeerId): void {
+    const peerIdStr = peerId.toString();
+
+    this.preferredPeers.add(peerIdStr);
+    this.preferredPeersInitialized = true;
+    this.logger.verbose(`Added preferred peer ${peerIdStr}`);
+  }
+
+  /**
+   * Checks if a peer is preferred.
+   * @param peerId - The peer ID.
+   * @returns True if the peer is preferred, false otherwise.
+   */
+  private isPreferredPeer(peerId: PeerId): boolean {
+    if (!this.preferredPeersInitialized) {
+      this.logger.warn('Private peers not initialized, returning false');
+      return false;
+    }
+    return this.preferredPeers.has(peerId.toString());
+  }
+
+  /**
    * Checks if a peer is protected (either trusted or private).
    * @param peerId - The peer ID.
    * @returns True if the peer is protected, false otherwise.
    */
   private isProtectedPeer(peerId: PeerId): boolean {
-    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+    return this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId) || this.isPreferredPeer(peerId);
   }
 
   /**
@@ -306,7 +347,11 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public isAuthenticatedPeer(peerId: PeerId): boolean {
-    return this.isProtectedPeer(peerId) || this.authenticatedPeers.has(peerId.toString());
+    return (
+      this.privatePeers.has(peerId.toString()) ||
+      this.trustedPeers.has(peerId.toString()) ||
+      this.authenticatedPeers.has(peerId.toString())
+    );
   }
   /**
    * Discovers peers.
@@ -319,12 +364,13 @@ export class PeerManager implements PeerManagerInterface {
     );
 
     // Calculate how many connections we're looking to make
-    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
+    const protectedPeerCount = this.getProtectedPeerCount();
+    const peersToConnect = this.config.maxPeerCount - healthyConnections.length - protectedPeerCount;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
     this.logger[logLevel](`Connected to ${healthyConnections.length + this.trustedPeers.size} peers`, {
       discoveredConnections: healthyConnections.length,
-      protectedConnections: this.trustedPeers.size,
+      protectedConnections: protectedPeerCount,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),
@@ -381,6 +427,10 @@ export class PeerManager implements PeerManagerInterface {
     return connections.filter(conn => !this.isProtectedPeer(conn.remotePeer));
   }
 
+  private getProtectedPeerCount(): number {
+    return this.trustedPeers.size + this.privatePeers.size + this.preferredPeers.size;
+  }
+
   private pruneUnhealthyPeers(connections: Connection[]): Connection[] {
     const connectedHealthyPeers: Connection[] = [];
 
@@ -408,7 +458,8 @@ export class PeerManager implements PeerManagerInterface {
    * @returns The pruned list of connections.
    */
   private prioritizePeers(connections: Connection[]): Connection[] {
-    if (connections.length > this.config.maxPeerCount - this.trustedPeers.size) {
+    const protectedPeerCount = this.getProtectedPeerCount();
+    if (connections.length > this.config.maxPeerCount - protectedPeerCount) {
       // Sort the regular peer scores from highest to lowest
       const prioritizedConnections = connections.sort((connectionA, connectionB) => {
         const connectionScoreA = this.peerScoring.getScore(connectionA.remotePeer.toString());
@@ -417,7 +468,7 @@ export class PeerManager implements PeerManagerInterface {
       });
 
       // Calculate how many regular peers we can keep
-      const peersToKeep = Math.max(0, this.config.maxPeerCount - this.trustedPeers.size);
+      const peersToKeep = Math.max(0, this.config.maxPeerCount - protectedPeerCount);
 
       // Disconnect from the lowest scoring regular connections that exceed our limit
       for (const conn of prioritizedConnections.slice(peersToKeep)) {
@@ -450,7 +501,7 @@ export class PeerManager implements PeerManagerInterface {
         peerConnections.set(peerId, conn);
       } else {
         // Keep the oldest connection for each peer
-        this.logger.debug(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
+        this.logger.info(`Found duplicate connection to peer ${peerId}, keeping oldest connection`);
         if (conn.timeline.open < existingConnection.timeline.open) {
           peerConnections.set(peerId, conn);
           void existingConnection.close();
@@ -464,7 +515,7 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   private async goodbyeAndDisconnectPeer(peer: PeerId, reason: GoodByeReason) {
-    this.logger.debug(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
+    this.logger.info(`Disconnecting peer ${peer.toString()} with reason ${prettyGoodbyeReason(reason)}`);
 
     this.metrics.recordGoodbyeSent(reason);
 
@@ -650,7 +701,7 @@ export class PeerManager implements PeerManagerInterface {
         ourStatus.toBuffer(),
       );
       const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
-      if (status !== ReqRespStatus.SUCCESS || status === ReqRespStatus.SUCCESS) {
+      if (status !== ReqRespStatus.SUCCESS) {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater

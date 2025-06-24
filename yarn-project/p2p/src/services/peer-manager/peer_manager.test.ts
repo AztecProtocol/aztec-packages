@@ -812,6 +812,90 @@ describe('PeerManager', () => {
     });
   });
 
+  describe('preferred peers', () => {
+    it('should not prune preferred peers with low scores', async () => {
+      const preferredPeerId = await createSecp256k1PeerId();
+      const regularPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPreferredPeer(preferredPeerId);
+
+      mockLibP2PNode.getConnections.mockReturnValue([{ remotePeer: preferredPeerId }, { remotePeer: regularPeerId }]);
+
+      peerManager.penalizePeer(preferredPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(preferredPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+      peerManager.penalizePeer(regularPeerId, PeerErrorSeverity.LowToleranceError);
+
+      peerManager.heartbeat();
+
+      await sleep(100);
+
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledWith(regularPeerId);
+      expect(mockLibP2PNode.hangUp).not.toHaveBeenCalledWith(preferredPeerId);
+      expect(mockLibP2PNode.hangUp).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not remove preferred peers from the cache during pruning', async () => {
+      const preferredPeerId = await createSecp256k1PeerId();
+
+      peerManager.addPreferredPeer(preferredPeerId);
+
+      const preferredEnr = await createMockENR();
+      const preferredCachePeer = {
+        peerId: preferredPeerId,
+        enr: preferredEnr,
+        multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+        dialAttempts: 0,
+        addedUnixMs: Date.now() - 1000,
+      };
+
+      const cachedPeersMap = (peerManager as any).cachedPeers;
+      cachedPeersMap.set(preferredPeerId.toString(), preferredCachePeer);
+
+      for (let i = 0; i < 101; i++) {
+        const regularPeerId = await createSecp256k1PeerId();
+        const regularEnr = await createMockENR();
+        const regularCachedPeer = {
+          peerId: regularPeerId,
+          enr: regularEnr,
+          multiaddrTcp: multiaddr('/ip4/127.0.0.1/tcp/8000'),
+          dialAttempts: 0,
+          addedUnixMs: Date.now(),
+        };
+        cachedPeersMap.set(regularPeerId.toString(), regularCachedPeer);
+      }
+
+      (peerManager as any).pruneCachedPeers();
+
+      expect(cachedPeersMap.has(preferredPeerId.toString())).toBe(true);
+      expect(cachedPeersMap.size).toBeLessThanOrEqual(100);
+    });
+
+    it('should return false from isPreferredPeer when preferred peers are not initialized', async () => {
+      const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3);
+
+      const peerId = await createSecp256k1PeerId();
+
+      const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
+
+      expect(isPreferredPeer(peerId)).toBe(false);
+    });
+
+    it('should initialize preferred peers from config', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const enr = SignableENR.createFromPeerId(peerId);
+      enr.setLocationMultiaddr(multiaddr('/ip4/127.0.0.1/tcp/8000'));
+
+      const newPeerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [enr]);
+
+      await newPeerManager.initializePeers();
+
+      const isPreferredPeer = (newPeerManager as any).isPreferredPeer.bind(newPeerManager);
+
+      expect(isPreferredPeer(peerId)).toBe(true);
+    });
+  });
+
   describe('goodbye metrics', () => {
     it('should record metrics when receiving goodbye messages', async () => {
       const peerId = await createSecp256k1PeerId();
@@ -876,11 +960,13 @@ describe('PeerManager', () => {
     maxPeerCount: number,
     trustedPeers?: SignableENR[],
     privatePeers?: SignableENR[],
+    preferredPeers?: SignableENR[],
   ): PeerManager {
     const config = {
       ...getP2PDefaultConfig(),
       trustedPeers: trustedPeers ? trustedPeers.map(peer => peer.encodeTxt()) : [],
       privatePeers: privatePeers ? privatePeers.map(peer => peer.encodeTxt()) : [],
+      preferredPeers: preferredPeers ? preferredPeers.map(peer => peer.encodeTxt()) : [],
       maxPeerCount: maxPeerCount,
     };
     peerScoring = new PeerScoring(config);

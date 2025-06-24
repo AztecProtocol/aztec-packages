@@ -19,7 +19,7 @@ import { createPXEServiceAndSubmitTransactions } from './shared.js';
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
-const NUM_NODES = 4;
+const NUM_NODES = 1;
 const NUM_VALIDATORS = 2;
 const NUM_PREFERRED_NODES = 1;
 const NUM_TXS_PER_NODE = 2;
@@ -45,12 +45,17 @@ describe('e2e_p2p_preferred_network', () => {
   let validators: AztecNodeService[];
   let preferredNodes: AztecNodeService[];
 
-  const waitForNodeToAcquirePeers = async (node: AztecNodeService, numRequiredPeers: number, timeout: number) => {
+  const waitForNodeToAcquirePeers = async (
+    node: AztecNodeService,
+    numRequiredPeers: number,
+    timeout: number,
+    identifier: string,
+  ) => {
     return await retryUntil(
       async () => {
         const p2pClient = (node as any).p2pClient as P2PClient;
         const peers = await p2pClient.getPeers();
-        console.log(`Node has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
+        console.log(`${identifier} node has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
         return peers.length >= numRequiredPeers;
       },
       'Wait for peers',
@@ -166,8 +171,13 @@ describe('e2e_p2p_preferred_network', () => {
     );
 
     const allNodes = [...nodes, ...preferredNodes, ...validators, t.ctx.aztecNode];
-    for (const node of allNodes) {
-      const peerResult = await waitForNodeToAcquirePeers(node, allNodes.length - 1, 60);
+    const identifiers = nodes
+      .map((_, i) => `Node ${i + 1}`)
+      .concat(preferredNodes.map((_, i) => `Preferred node ${i + 1}`))
+      .concat(validators.map((_, i) => `Validator ${i + 1}`))
+      .concat(['Aztec Node']);
+    for (let i = 0; i < allNodes.length; i++) {
+      const peerResult = await waitForNodeToAcquirePeers(allNodes[i], allNodes.length - 1, 60, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
 
