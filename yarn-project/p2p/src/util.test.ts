@@ -1,3 +1,4 @@
+import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -49,7 +50,7 @@ describe('p2p utils', () => {
     it('If no peer id is stored and a peer id private key file path is provided, it should create a new peer id private key and persist it to the file path', async () => {
       const peerIdPrivateKeyPath = path.join(tempDir, 'private-key');
       const config = { peerIdPrivateKeyPath } as P2PConfig;
-      const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
+      const peerIdPrivateKey = (await getPeerIdPrivateKey(config, store, logger)).getValue();
 
       expect(peerIdPrivateKey).toBeDefined();
 
@@ -67,7 +68,7 @@ describe('p2p utils', () => {
 
     it('If no peer id is stored and a peer id private key file path is not provided, it should create a new peer id private key and persist it to the data directory', async () => {
       const config = { dataDirectory: tempDir } as DataStoreConfig;
-      const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
+      const peerIdPrivateKey = (await getPeerIdPrivateKey(config, store, logger)).getValue();
 
       expect(peerIdPrivateKey).toBeDefined();
 
@@ -85,7 +86,7 @@ describe('p2p utils', () => {
 
     it(`If no peer id is stored and the peer id private key file path and data dir are both empty, it should create a new peer id private key and persist it to the node's store`, async () => {
       const config = {} as P2PConfig;
-      const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
+      const peerIdPrivateKey = (await getPeerIdPrivateKey(config, store, logger)).getValue();
 
       expect(peerIdPrivateKey).toBeDefined();
 
@@ -103,7 +104,7 @@ describe('p2p utils', () => {
 
     it(`If a private key is provided in the config and the peer id private key file path is populated, it should use and persist that value to the file`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyString = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
       const peerIdPrivateKeyPath = path.join(tempDir, 'private-key');
       const config = {
         peerIdPrivateKeyPath,
@@ -121,52 +122,52 @@ describe('p2p utils', () => {
       expect(peerIdPrivateKey2).toBe(privateKeyString);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2);
+      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
 
     it(`If a private key is provided in the config and a peer id private key file path is not provided, it should use and persist that value to the data directory`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyForConfig = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
       const config = {
         dataDirectory: tempDir,
-        peerIdPrivateKey: privateKeyString,
+        peerIdPrivateKey: privateKeyForConfig,
       } as P2PConfig & DataStoreConfig;
       const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
 
-      expect(peerIdPrivateKey).toBe(privateKeyString);
+      expect(peerIdPrivateKey).toBe(privateKeyForConfig);
 
       const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'p2p-private-key'), 'utf8');
-      expect(storedPeerIdPrivateKey).toBe(privateKeyString);
+      expect(storedPeerIdPrivateKey).toBe(privateKeyForConfig);
 
       // Now when given an empty private key, it should read the value from the file in the data directory
       const peerIdPrivateKey2 = await getPeerIdPrivateKey({ dataDirectory: tempDir } as DataStoreConfig, store, logger);
-      expect(peerIdPrivateKey2).toBe(privateKeyString);
+      expect(peerIdPrivateKey2).toBe(privateKeyForConfig);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2);
+      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
 
     it(`If a private key is provided in the config and the peer id private key file path and data dir are both empty, it should use and persist that value to the node's store`, async () => {
       const newPeerIdPrivateKey = await generateKeyPair('secp256k1');
-      const privateKeyString = Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex');
+      const privateKeyForConfig = new SecretValue(Buffer.from(marshalPrivateKey(newPeerIdPrivateKey)).toString('hex'));
       const config = {
-        peerIdPrivateKey: privateKeyString,
+        peerIdPrivateKey: privateKeyForConfig,
       } as P2PConfig;
       const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
 
-      expect(peerIdPrivateKey).toBe(privateKeyString);
+      expect(peerIdPrivateKey).toBe(privateKeyForConfig);
 
       const storedPeerIdPrivateKey = await readFromSingleton(store);
-      expect(storedPeerIdPrivateKey).toBe(privateKeyString);
+      expect(storedPeerIdPrivateKey).toBe(privateKeyForConfig);
 
       // Now when given an empty config, it should read the value from the store
       const peerIdPrivateKey2 = await getPeerIdPrivateKey({} as P2PConfig, store, logger);
-      expect(peerIdPrivateKey2).toBe(privateKeyString);
+      expect(peerIdPrivateKey2).toBe(privateKeyForConfig);
 
       // Can recover a peer id from the private key
-      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2);
+      const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey2.getValue());
       expect(peerId).toBeDefined();
     });
   });
