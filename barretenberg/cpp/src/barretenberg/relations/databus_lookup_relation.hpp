@@ -65,8 +65,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT = 0;
     static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3; // the number of subrelations per bus column
 
-    // Note: Inverse correctness subrelations are actually {SUBRELTYPE}_LENGTH-1; taking advantage would require
-    // additional work
     static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> SUBRELATION_PARTIAL_LENGTHS{
         INVERSE_SUBREL_LENGTH,                // inverse polynomial correctness subrelation (bus_idx 0)
         LOOKUP_SUBREL_LENGTH,                 // log-derivative lookup argument subrelation (bus_idx 0)
