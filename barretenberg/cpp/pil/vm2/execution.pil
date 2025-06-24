@@ -253,6 +253,7 @@ pol commit sel_ecc_add;
 pol commit sel_data_copy;
 pol commit sel_execution;
 
+// Embedded execution opcode selectors
 pol commit sel_set;
 pol commit sel_mov;
 pol commit sel_jump;
@@ -265,9 +266,8 @@ pol commit sel_return;
 pol commit sel_revert;
 pol commit sel_success_copy;
 
-
 #[EXEC_OP_ID_DECOMPOSITION]
-subtrace_operation_id = sel_execution * (
+sel_execution * (
    sel_set * constants.AVM_EXEC_OP_ID_SET +
    sel_mov * constants.AVM_EXEC_OP_ID_MOV +
    sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
@@ -279,29 +279,20 @@ subtrace_operation_id = sel_execution * (
    sel_return * constants.AVM_EXEC_OP_ID_RETURN +
    sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
    sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY
-);
+   - subtrace_operation_id
+) = 0;
 
-#[SEL_SET_BOOLEAN]
+// Boolean relations for the embedded execution opcode selectors.
 sel_set * (1 - sel_set) = 0;
-#[SEL_MOV_BOOLEAN]
 sel_mov * (1 - sel_mov) = 0;
-#[SEL_JUMP_BOOLEAN]
 sel_jump * (1 - sel_jump) = 0;
-#[SEL_JUMPI_BOOLEAN]
 sel_jumpi * (1 - sel_jumpi) = 0;
-#[SEL_CALL_BOOLEAN]
 sel_call * (1 - sel_call) = 0;
-#[SEL_STATIC_CALL_BOOLEAN]
 sel_static_call * (1 - sel_static_call) = 0;
-#[SEL_INTERNAL_CALL_BOOLEAN]
 sel_internal_call * (1 - sel_internal_call) = 0;
-#[SEL_INTERNAL_RETURN_BOOLEAN]
 sel_internal_return * (1 - sel_internal_return) = 0;
-#[SEL_RETURN_BOOLEAN]
 sel_return * (1 - sel_return) = 0;
-#[SEL_REVERT_BOOLEAN]
 sel_revert * (1 - sel_revert) = 0;
-#[SEL_SUCCESS_COPY_BOOLEAN]
 sel_success_copy * (1 - sel_success_copy) = 0;
 
 // This is used in context.pil

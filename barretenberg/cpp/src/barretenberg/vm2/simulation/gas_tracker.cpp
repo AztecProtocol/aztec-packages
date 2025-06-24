@@ -22,10 +22,7 @@ void GasTracker::set_instruction(const Instruction& instruction)
     exec_opcode = instruction_info_db.get(instruction.opcode).exec_opcode;
     indirect = instruction.indirect;
 
-    const ExecInstructionSpec& spec = instruction_info_db.get(exec_opcode);
     gas_event.addressing_gas = compute_addressing_gas(indirect);
-
-    gas_event.base_l2_gas = spec.gas_cost.opcode_gas + gas_event.addressing_gas;
 }
 
 void GasTracker::consume_base_gas()
@@ -34,7 +31,10 @@ void GasTracker::consume_base_gas()
     const uint32_t base_da_gas = instruction_info_db.get(exec_opcode).gas_cost.base_da;
 
     // Previous gas used can be up to 2**32 - 1
-    actual_gas_used = to_intermediate_gas(prev_gas_used) + to_intermediate_gas({ gas_event.base_l2_gas, base_da_gas });
+    actual_gas_used =
+        to_intermediate_gas(prev_gas_used) +
+        to_intermediate_gas(
+            { gas_event.addressing_gas + instruction_info_db.get(exec_opcode).gas_cost.opcode_gas, base_da_gas });
 
     IntermediateGas gas_limit = to_intermediate_gas(context.get_gas_limit());
 

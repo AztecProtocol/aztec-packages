@@ -107,83 +107,83 @@ template <typename FF_> class executionImpl {
         }
         { // EXEC_OP_ID_DECOMPOSITION
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::execution_subtrace_operation_id) -
-                        in.get(C::execution_sel_execution) *
-                            (in.get(C::execution_sel_set) * constants_AVM_EXEC_OP_ID_SET +
-                             in.get(C::execution_sel_mov) * constants_AVM_EXEC_OP_ID_MOV +
-                             in.get(C::execution_sel_jump) * constants_AVM_EXEC_OP_ID_JUMP +
-                             in.get(C::execution_sel_jumpi) * constants_AVM_EXEC_OP_ID_JUMPI +
-                             in.get(C::execution_sel_call) * constants_AVM_EXEC_OP_ID_CALL +
-                             in.get(C::execution_sel_static_call) * constants_AVM_EXEC_OP_ID_STATICCALL +
-                             in.get(C::execution_sel_internal_call) * constants_AVM_EXEC_OP_ID_INTERNALCALL +
-                             in.get(C::execution_sel_internal_return) * constants_AVM_EXEC_OP_ID_INTERNALRETURN +
-                             in.get(C::execution_sel_return) * constants_AVM_EXEC_OP_ID_RETURN +
-                             in.get(C::execution_sel_revert) * constants_AVM_EXEC_OP_ID_REVERT +
-                             in.get(C::execution_sel_success_copy) * constants_AVM_EXEC_OP_ID_SUCCESSCOPY));
+            auto tmp = in.get(C::execution_sel_execution) *
+                       ((in.get(C::execution_sel_set) * constants_AVM_EXEC_OP_ID_SET +
+                         in.get(C::execution_sel_mov) * constants_AVM_EXEC_OP_ID_MOV +
+                         in.get(C::execution_sel_jump) * constants_AVM_EXEC_OP_ID_JUMP +
+                         in.get(C::execution_sel_jumpi) * constants_AVM_EXEC_OP_ID_JUMPI +
+                         in.get(C::execution_sel_call) * constants_AVM_EXEC_OP_ID_CALL +
+                         in.get(C::execution_sel_static_call) * constants_AVM_EXEC_OP_ID_STATICCALL +
+                         in.get(C::execution_sel_internal_call) * constants_AVM_EXEC_OP_ID_INTERNALCALL +
+                         in.get(C::execution_sel_internal_return) * constants_AVM_EXEC_OP_ID_INTERNALRETURN +
+                         in.get(C::execution_sel_return) * constants_AVM_EXEC_OP_ID_RETURN +
+                         in.get(C::execution_sel_revert) * constants_AVM_EXEC_OP_ID_REVERT +
+                         in.get(C::execution_sel_success_copy) * constants_AVM_EXEC_OP_ID_SUCCESSCOPY) -
+                        in.get(C::execution_subtrace_operation_id));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_SET_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_set) * (FF(1) - in.get(C::execution_sel_set));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_MOV_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_mov) * (FF(1) - in.get(C::execution_sel_mov));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_JUMP_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_jump) * (FF(1) - in.get(C::execution_sel_jump));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_JUMPI_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_jumpi) * (FF(1) - in.get(C::execution_sel_jumpi));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_CALL_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_call) * (FF(1) - in.get(C::execution_sel_call));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_STATIC_CALL_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_static_call) * (FF(1) - in.get(C::execution_sel_static_call));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_INTERNAL_CALL_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_internal_call) * (FF(1) - in.get(C::execution_sel_internal_call));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_INTERNAL_RETURN_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_internal_return) * (FF(1) - in.get(C::execution_sel_internal_return));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_RETURN_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_return) * (FF(1) - in.get(C::execution_sel_return));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_REVERT_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_revert) * (FF(1) - in.get(C::execution_sel_revert));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
-        { // SEL_SUCCESS_COPY_BOOLEAN
+        {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_success_copy) * (FF(1) - in.get(C::execution_sel_success_copy));
             tmp *= scaling_factor;
@@ -221,28 +221,6 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "OPCODE_ERROR_BOOLEAN";
         case 9:
             return "EXEC_OP_ID_DECOMPOSITION";
-        case 10:
-            return "SEL_SET_BOOLEAN";
-        case 11:
-            return "SEL_MOV_BOOLEAN";
-        case 12:
-            return "SEL_JUMP_BOOLEAN";
-        case 13:
-            return "SEL_JUMPI_BOOLEAN";
-        case 14:
-            return "SEL_CALL_BOOLEAN";
-        case 15:
-            return "SEL_STATIC_CALL_BOOLEAN";
-        case 16:
-            return "SEL_INTERNAL_CALL_BOOLEAN";
-        case 17:
-            return "SEL_INTERNAL_RETURN_BOOLEAN";
-        case 18:
-            return "SEL_RETURN_BOOLEAN";
-        case 19:
-            return "SEL_REVERT_BOOLEAN";
-        case 20:
-            return "SEL_SUCCESS_COPY_BOOLEAN";
         case 21:
             return "PC_NEXT_ROW_INT_CALL_JUMP";
         }
@@ -254,17 +232,6 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_LAST_IS_LAST = 3;
     static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
     static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 9;
-    static constexpr size_t SR_SEL_SET_BOOLEAN = 10;
-    static constexpr size_t SR_SEL_MOV_BOOLEAN = 11;
-    static constexpr size_t SR_SEL_JUMP_BOOLEAN = 12;
-    static constexpr size_t SR_SEL_JUMPI_BOOLEAN = 13;
-    static constexpr size_t SR_SEL_CALL_BOOLEAN = 14;
-    static constexpr size_t SR_SEL_STATIC_CALL_BOOLEAN = 15;
-    static constexpr size_t SR_SEL_INTERNAL_CALL_BOOLEAN = 16;
-    static constexpr size_t SR_SEL_INTERNAL_RETURN_BOOLEAN = 17;
-    static constexpr size_t SR_SEL_RETURN_BOOLEAN = 18;
-    static constexpr size_t SR_SEL_REVERT_BOOLEAN = 19;
-    static constexpr size_t SR_SEL_SUCCESS_COPY_BOOLEAN = 20;
     static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 21;
 };
 

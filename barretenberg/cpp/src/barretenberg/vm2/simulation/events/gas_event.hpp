@@ -61,7 +61,6 @@ struct OutOfGasException : public std::runtime_error {
 
 struct GasEvent {
     uint32_t addressing_gas = 0;
-    uint32_t base_l2_gas = 0;
 
     Gas dynamic_gas_factor = { 0, 0 };
 

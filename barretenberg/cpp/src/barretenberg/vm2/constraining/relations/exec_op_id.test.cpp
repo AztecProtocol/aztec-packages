@@ -20,6 +20,11 @@
 namespace bb::avm2::constraining {
 namespace {
 
+using simulation::ExecutionEvent;
+using testing::InstructionBuilder;
+using tracegen::ExecutionTraceBuilder;
+using tracegen::PrecomputedTraceBuilder;
+
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -77,9 +82,7 @@ TEST(ExecOpIdConstrainingTest, Decomposition)
 // Show also that execution relations are satisfied.
 TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
 {
-    using simulation::ExecutionEvent;
-    using testing::InstructionBuilder;
-    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    PrecomputedTraceBuilder precomputed_builder;
 
     std::vector<ExecutionEvent> events;
     events.reserve(WIRE_OPCODES.size());
@@ -90,7 +93,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
     }
 
     TestTraceContainer trace;
-    tracegen::ExecutionTraceBuilder exec_builder;
+    ExecutionTraceBuilder exec_builder;
     uint32_t row = 1;
 
     for (const auto& event : events) {
@@ -121,7 +124,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
     precomputed_builder.process_exec_instruction_spec(trace);
 
     check_relation<execution>(trace, execution::SR_EXEC_OP_ID_DECOMPOSITION);
-    check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(trace);
 
     // Negative test: copy a wrong operation id
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
@@ -130,8 +133,7 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
                           static_cast<uint32_t>(i + 1),
                           OPERATION_IDS.at((i + 1) % WIRE_OPCODES.size()));
         EXPECT_THROW_WITH_MESSAGE(
-            (check_interaction<tracegen::ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(
-                mutated_trace)),
+            (check_interaction<ExecutionTraceBuilder, lookup_execution_exec_spec_read_settings>(mutated_trace)),
             "Failed.*LOOKUP_EXECUTION_EXEC_SPEC_READ.*Could not find tuple in destination.");
     }
 }

@@ -117,6 +117,75 @@ constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
 };
 
 /**
+ * @brief Get the column selector for a given subtrace selector.
+ *
+ * @param subtrace_sel The subtrace selector.
+ * @return The corresponding column selector.
+ */
+Column get_subtrace_selector(SubtraceSel subtrace_sel)
+{
+    switch (subtrace_sel) {
+    case SubtraceSel::ALU:
+        return C::execution_sel_alu;
+    case SubtraceSel::BITWISE:
+        return C::execution_sel_bitwise;
+    case SubtraceSel::TORADIXBE:
+        return C::execution_sel_to_radix;
+    case SubtraceSel::POSEIDON2PERM:
+        return C::execution_sel_poseidon2_perm;
+    case SubtraceSel::ECC:
+        return C::execution_sel_ecc_add;
+    case SubtraceSel::DATACOPY:
+        return C::execution_sel_data_copy;
+    case SubtraceSel::EXECUTION:
+        return C::execution_sel_execution;
+    case SubtraceSel::KECCAKF1600:
+        return C::execution_sel_keccakf1600;
+
+        // clangd will complain if we miss a case.
+        // This is just to please gcc.
+        __builtin_unreachable();
+    }
+}
+
+/**
+ * @brief Get the column selector for a given execution opcode.
+ *
+ * @param exec_opcode The execution opcode.
+ * @return The corresponding column selector.
+ * @throws std::runtime_error if the opcode doesn't have a corresponding selector.
+ */
+Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
+{
+    switch (exec_opcode) {
+    case ExecutionOpCode::SET:
+        return C::execution_sel_set;
+    case ExecutionOpCode::MOV:
+        return C::execution_sel_mov;
+    case ExecutionOpCode::JUMP:
+        return C::execution_sel_jump;
+    case ExecutionOpCode::JUMPI:
+        return C::execution_sel_jumpi;
+    case ExecutionOpCode::CALL:
+        return C::execution_sel_call;
+    case ExecutionOpCode::STATICCALL:
+        return C::execution_sel_static_call;
+    case ExecutionOpCode::INTERNALCALL:
+        return C::execution_sel_internal_call;
+    case ExecutionOpCode::INTERNALRETURN:
+        return C::execution_sel_internal_return;
+    case ExecutionOpCode::RETURN:
+        return C::execution_sel_return;
+    case ExecutionOpCode::REVERT:
+        return C::execution_sel_revert;
+    case ExecutionOpCode::SUCCESSCOPY:
+        return C::execution_sel_success_copy;
+    default:
+        throw std::runtime_error("Execution opcode does not have a corresponding selector");
+    }
+}
+
+/**
  * @brief Helper struct to track info after "discard" preprocessing.
  */
 struct FailingContexts {
@@ -574,39 +643,20 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
     const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
 
     // Subtrace dispatching.
-    trace.set(
-        row,
-        { {
-            // Selector Id
-            { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-            // Selectors
-            { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
-            { C::execution_sel_bitwise, dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
-            { C::execution_sel_poseidon2_perm,
-              dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
-            { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
-            { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
-            { C::execution_sel_keccakf1600,
-              dispatch_to_subtrace.subtrace_selector == SubtraceSel::KECCAKF1600 ? 1 : 0 },
-            { C::execution_sel_data_copy, dispatch_to_subtrace.subtrace_selector == SubtraceSel::DATACOPY ? 1 : 0 },
-            { C::execution_sel_execution, dispatch_to_subtrace.subtrace_selector == SubtraceSel::EXECUTION ? 1 : 0 },
-        } });
-
-    // Execution Trace opcodes - separating for clarity
     trace.set(row,
               { {
-                  { C::execution_sel_set, exec_opcode == ExecutionOpCode::SET ? 1 : 0 },
-                  { C::execution_sel_mov, exec_opcode == ExecutionOpCode::MOV ? 1 : 0 },
-                  { C::execution_sel_jump, exec_opcode == ExecutionOpCode::JUMP ? 1 : 0 },
-                  { C::execution_sel_jumpi, exec_opcode == ExecutionOpCode::JUMPI ? 1 : 0 },
-                  { C::execution_sel_call, exec_opcode == ExecutionOpCode::CALL ? 1 : 0 },
-                  { C::execution_sel_static_call, exec_opcode == ExecutionOpCode::STATICCALL ? 1 : 0 },
-                  { C::execution_sel_internal_call, exec_opcode == ExecutionOpCode::INTERNALCALL ? 1 : 0 },
-                  { C::execution_sel_internal_return, exec_opcode == ExecutionOpCode::INTERNALRETURN ? 1 : 0 },
-                  { C::execution_sel_return, exec_opcode == ExecutionOpCode::RETURN ? 1 : 0 },
-                  { C::execution_sel_revert, exec_opcode == ExecutionOpCode::REVERT ? 1 : 0 },
-                  { C::execution_sel_success_copy, exec_opcode == ExecutionOpCode::SUCCESSCOPY ? 1 : 0 },
+                  // Selector Id
+                  { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                  // Selectors
+                  { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
               } });
+
+    // Execution Trace opcodes - separating for clarity
+    try {
+        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+    } catch (const std::runtime_error&) {
+        // Execution opcode doesn't have a corresponding selector, do nothing
+    }
 }
 
 void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,

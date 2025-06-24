@@ -296,7 +296,6 @@ TEST(ExecutionTraceGenTest, Gas)
 
     const uint32_t addressing_gas = 50;
     const uint32_t opcode_gas = exec_instruction_spec.gas_cost.opcode_gas;
-    const uint32_t base_l2_gas = opcode_gas + addressing_gas;
     const uint32_t dynamic_l2_gas = exec_instruction_spec.gas_cost.dyn_l2;
     const uint32_t dynamic_da_gas = exec_instruction_spec.gas_cost.dyn_da;
     const uint32_t base_da_gas = exec_instruction_spec.gas_cost.base_da;
@@ -306,7 +305,6 @@ TEST(ExecutionTraceGenTest, Gas)
 
     ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
     ex_event.before_context_event.gas_used = prev_gas_used;
-    ex_event.gas_event.base_l2_gas = base_l2_gas;
     ex_event.gas_event.addressing_gas = addressing_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
     ex_event.gas_event.oog_base_l2 = false;
