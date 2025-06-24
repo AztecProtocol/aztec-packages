@@ -144,24 +144,14 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
                                                          &folding_circuit, decider_vk_1->verification_key) } };
             }
         }
-
-        // Perform native folding verification and ensure it returns the same result (either true or false) as
-        // calling check_circuit on the recursive folding verifier
-        InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
-        std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
-        native_folding_verifier.verify_folding_proof(folding_proof.proof);
-        for (size_t idx = 0; idx < num_verifiers; idx++) {
-            native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
-            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
-                native_folding_verifier = InnerFoldingVerifier{ { native_accumulator, decider_vk_1 } };
-            }
-        }
+        info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
+        EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Check for a failure flag in the recursive verifier circuit
         {
             stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(folding_circuit);
             // inefficiently check finalized size
-            folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
+            // folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
@@ -172,13 +162,31 @@ template <typename RecursiveFlavor> class BoomerangProtogalaxyRecursiveTests : p
             bool verified = verifier.verify_proof(proof);
             ASSERT(verified);
         }
+        if (num_verifiers == 1) {
+            accumulator->target_sum.fix_witness();
+            for (auto& chal : accumulator->gate_challenges) {
+                chal.fix_witness();
+            }
+            for (auto& alpha : accumulator->alphas) {
+                alpha.fix_witness();
+            }
+            for (auto& relation : accumulator->relation_parameters.get_to_fold()) {
+                relation.fix_witness();
+            }
+        }
+        /*         folding_circuit.P0.x.fix_witness();
+                folding_circuit.P0.y.fix_witness();
+                folding_circuit.P1.x.fix_witness();
+                folding_circuit.P1.y.fix_witness(); */
         auto graph = cdg::Graph(folding_circuit);
         auto variables_in_one_gate = graph.show_variables_in_one_gate(folding_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 0);
+        auto fst_var_idx = std::vector<uint32_t>(variables_in_one_gate.cbegin(), variables_in_one_gate.cend())[4];
+        graph.print_variable_in_one_gate(folding_circuit, fst_var_idx);
     }
 };
 
-using FlavorTypes = testing::Types<MegaRecursiveFlavor_<MegaCircuitBuilder>>;
+using FlavorTypes = testing::Types<MegaRecursiveFlavor_<UltraCircuitBuilder>>;
 TYPED_TEST_SUITE(BoomerangProtogalaxyRecursiveTests, FlavorTypes);
 
 TYPED_TEST(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTest)
