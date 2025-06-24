@@ -54,7 +54,11 @@ fn assert_correctly_siloed_note_hash(
         // Padded note hashes have a counter of MAX_U32_VALUE and won't be siloed with a nonce either.
         siloed_note_hash
     };
-    assert_eq(out_note_hash, computed_note_hash, "incorrect transformed value");
+    assert_eq(
+        out_note_hash,
+        computed_note_hash,
+        "Output note hash does not match correctly-siloed note hash",
+    );
 }
 
 // Verifies that the first field of a private log is siloed with the contract address.
@@ -168,10 +172,6 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
 
     fn validate_transient_data(self) {
         if self.transient_data_squashing_amount == 0 {
-            // let kept = self.hints.kept_nullifiers;
-            // let prev = self.previous_kernel.end.nullifiers;
-            // println(f"KEPT: {kept}");
-            // println(f"PREV: {prev}");
             assert_eq(
                 self.hints.kept_note_hashes,
                 self.previous_kernel.end.note_hashes,

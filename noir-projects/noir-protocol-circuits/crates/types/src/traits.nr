@@ -19,17 +19,17 @@ pub trait Empty: Eq {
         self.eq(Self::empty())
     }
 
-    fn assert_not_empty(self) {
-        // , msg: str<U>) { // This msg version was failing with weird compiler errors.
-        // We provide a default impl but it's likely inefficient.
-        // The reason we include this function is because there's a lot of
-        // opportunity for optimisation on a per-struct basis.
-        // You only need to show one element is not empty to know that the whole thing
-        // is not empty.
-        // If you know an element of your struct which should always be nonempty,
-        // you can write an impl that solely checks that that element is nonempty.
-        assert(!self.is_empty(), "");
-    }
+    // Requires this Noir fix: https://github.com/noir-lang/noir/issues/9002
+    // fn assert_not_empty<let U: u32>(self, msg: str<U>) { // This msg version was failing with weird compiler errors.
+    //     // We provide a default impl but it's likely inefficient.
+    //     // The reason we include this function is because there's a lot of
+    //     // opportunity for optimisation on a per-struct basis.
+    //     // You only need to show one element is not empty to know that the whole thing
+    //     // is not empty.
+    //     // If you know an element of your struct which should always be nonempty,
+    //     // you can write an impl that solely checks that that element is nonempty.
+    //     assert(!self.is_empty(), msg);
+    // }
 
     // This default impl is overwritten by types like arrays, because there's a much
     // more efficient approach.

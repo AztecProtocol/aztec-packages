@@ -44,7 +44,7 @@ fn validate_sorted_siloed_nullifiers_repeatedly_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "Output nullifier does not match correctly-siloed nullifier")]
 fn validate_sorted_siloed_nullifiers_mismatch_sorted_hash_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_nullifier_siloing();
 
@@ -63,7 +63,7 @@ fn validate_sorted_siloed_nullifiers_mismatch_sorted_hash_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "Output nullifier does not match correctly-siloed nullifier")]
 fn validate_sorted_siloed_nullifiers_extra_item_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_nullifier_siloing();
 

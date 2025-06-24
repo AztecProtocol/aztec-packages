@@ -40,12 +40,12 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
 ) {
     // - Validate that the hinted-to-be-squashable (note, nullifier) pairs are allowed to be squashed.
     // - Ensure the hinted arrays of to-be-propagated notes leave empty space for later padding.
-    //    - TODO(MC): is this needed?
+    //    - TODO: is this needed?
     // - Ensure consistency between `is_squashed...hints` and transient_data_index_hints
     let mut squashed_counter = 0;
     for i in 0..NUM_INDEX_HINTS {
         let hint = transient_data_index_hints[i];
-        // TODO(MC): avoid overloading the index as a bool flag meaning "not squashed"; it's confusing.
+        // TODO: avoid overloading the index as a bool flag meaning "not squashed".
         if hint.nullifier_index == NUM_NULLIFIERS {
             assert_eq(hint.note_hash_index, NUM_NOTE_HASHES, "Invalid transient data index hint");
         } else {
@@ -82,6 +82,17 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let to_be_padded_note_hash =
                 expected_kept_note_hashes.array[NUM_NOTE_HASHES - squashed_counter];
 
+            // Validate consistency of the `is_squashed...hints`, relative to the
+            // transient_data_index_hints, so they can be used next.
+            assert(
+                is_squashed_note_hash_hints[hint.note_hash_index],
+                "Wrong squashed note hash hint",
+            );
+            assert(
+                is_squashed_nullifier_hints[hint.nullifier_index],
+                "Wrong squashed nullifier hint",
+            );
+
             // TODO: might not need to do this, given how we track lengths.
             // TODO: check that the index hints are less than the length,
             // because the arrays are not guaranteed to be padded with empty items beyond length.
@@ -94,17 +105,6 @@ pub fn verify_squashed_transient_data_with_hint_indexes<let NUM_NOTE_HASHES: u32
             let to_be_padded_nullifier =
                 expected_kept_nullifiers.array[NUM_NULLIFIERS - squashed_counter];
             to_be_padded_nullifier.assert_empty("Empty nullifier must be padded to the right");
-
-            // Validate consistency of the `is_squashed...hints`, relative to the
-            // transient_data_index_hints, so they can be used next.
-            assert(
-                is_squashed_note_hash_hints[hint.note_hash_index],
-                "Wrong squashed note hash hint",
-            );
-            assert(
-                is_squashed_nullifier_hints[hint.nullifier_index],
-                "Wrong squashed nullifier hint",
-            );
         }
     }
 
@@ -402,6 +402,7 @@ mod tests {
     }
 
     impl TestDataBuilder<3, 3, 4, 3> {
+        // Create a test case where all notes are nullified, and therefore squashed.
         pub fn new_clear_all() -> Self {
             let note_hashes = ClaimedLengthArray {
                 array: [
@@ -605,16 +606,18 @@ mod tests {
         // Update the hint to skip squashing.
         builder.transient_data_index_hints[0] = builder.get_nada_index_hint();
         // Propagate the values.
-        builder.expected_kept_note_hashes.array[0] =
-            builder.note_hashes.array[removed_hint.note_hash_index];
-        builder.expected_kept_nullifiers.array[0] =
-            builder.nullifiers.array[removed_hint.nullifier_index];
+        builder.expected_kept_note_hashes.push(
+            builder.note_hashes.array[removed_hint.note_hash_index],
+        );
+        builder.expected_kept_nullifiers.push(
+            builder.nullifiers.array[removed_hint.nullifier_index],
+        );
 
         // Keep the logs for note hash at index 0.
-        builder.transient_or_propagated_note_hash_index_for_each_log[1] = 0; // Point it to the expected not hash at index 0.
-        builder.transient_or_propagated_note_hash_index_for_each_log[3] = 0; // Point it to the expected not hash at index 0.
-        builder.expected_kept_logs.array[0] = builder.logs.array[1];
-        builder.expected_kept_logs.array[1] = builder.logs.array[3];
+        builder.transient_or_propagated_note_hash_index_for_each_log[1] = 0; // Point it to the expected note hash at index 0.
+        builder.transient_or_propagated_note_hash_index_for_each_log[3] = 0; // Point it to the expected note hash at index 0.
+        builder.expected_kept_logs.push(builder.logs.array[1]);
+        builder.expected_kept_logs.push(builder.logs.array[3]);
 
         builder.verify();
     }

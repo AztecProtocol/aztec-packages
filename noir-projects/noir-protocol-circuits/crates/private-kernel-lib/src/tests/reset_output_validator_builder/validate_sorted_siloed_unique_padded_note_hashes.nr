@@ -31,7 +31,7 @@ fn validate_sorted_siloed_note_hashes_unordered_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
 fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 
@@ -50,7 +50,7 @@ fn validate_sorted_siloed_note_hashes_mismatch_sorted_hash_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "incorrect transformed value")]
+#[test(should_fail_with = "Output note hash does not match correctly-siloed note hash")]
 fn validate_sorted_siloed_note_hashes_extra_item_fails() {
     let mut builder = ResetOutputValidatorBuilder::new_with_note_hash_siloing();
 

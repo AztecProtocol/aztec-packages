@@ -226,7 +226,7 @@ mod tests {
     global NUM_TEST_ITEMS: u32 = 8;
 
     fn assert_transformed(from: TestValue, to: Field) -> () {
-        assert_eq(from.value, to);
+        assert_eq(from.value, to, "invalid transformed value");
     }
 
     struct TestBuilder {

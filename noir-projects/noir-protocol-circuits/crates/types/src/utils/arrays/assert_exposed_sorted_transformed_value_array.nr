@@ -113,7 +113,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_exposed_sorted_transformed_value_array_mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -192,7 +192,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_exposed_sorted_transformed_value_array_missing_item_fails() {
         let mut builder = TestDataBuilder::new();
 

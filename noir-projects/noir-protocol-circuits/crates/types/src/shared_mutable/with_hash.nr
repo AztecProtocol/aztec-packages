@@ -227,7 +227,7 @@ mod tests {
         );
     }
 
-    #[test(should_fail_with = "Public data tree index doesn't match witness")]
+    #[test(should_fail_with = "The provided public data tree leaf preimage is not the correct leaf for the provided contract_address and storage slot")]
     fn test_validate_with_hash_hints_different_leaf_fails() {
         let with_hash_storage_slot = 27;
         let contract_address = AztecAddress::from_field(42);

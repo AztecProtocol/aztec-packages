@@ -414,7 +414,9 @@ where
             self.length,
             self.array.len(),
             |i| {
-                self.array[i].assert_not_empty(); // LHS of input array is not dense.
+                assert(!self.array[i].is_empty(), "LHS of input array is not dense")
+                // Requires Noir #9002:
+                // self.array[i].assert_not_empty("LHS of input array is not dense"); // LHS of input array is not dense.
             },
             |i| self.array[i].assert_empty("RHS of input array is not empty"),
             false,
@@ -497,15 +499,27 @@ where
         // field is after `storage` struct field.
         let len = fields[T_N * N] as u32;
 
-        for i in 0..len {
-            let mut nested_fields = [0; T_N];
-            for j in 0..T_N {
-                nested_fields[j] = fields[i * T_N + j];
+        let mut within_length = true;
+        for i in 0..N {
+            if i == len {
+                within_length = false;
             }
 
-            let item = T::deserialize(nested_fields);
-            new_arr.push(item);
+            if within_length {
+                let mut nested_fields = [0; T_N];
+                for j in 0..T_N {
+                    let x = i * T_N + j;
+                    println(x);
+                    nested_fields[j] = fields[i * T_N + j];
+                }
+
+                let item = T::deserialize(nested_fields);
+
+                new_arr.push(item);
+            }
         }
+
+        assert(len == new_arr.length);
 
         new_arr
     }
@@ -527,9 +541,10 @@ where
             }
         }
 
-        // Length is stored in the last field as we need to match intrinsic Noir serialization and the `len` struct
-        // field is after `storage` struct field (see `bounded_vec.nr` in noir-stdlib)
-        fields[T_N * N] = self.array.len() as Field;
+        // Length is stored in the last field.
+        fields[T_N * N] = self.length as Field;
+
+        let l = fields[T_N * N];
 
         fields
     }
@@ -655,7 +670,7 @@ unconstrained fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
     let maybe_index = find_index_hint(values, |v: Field| min.lt(v));
-    assert_eq(maybe_index.unwrap_unchecked(), 4);
+    assert_eq(maybe_index.is_none(), true);
 }
 
 #[test]

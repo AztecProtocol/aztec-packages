@@ -94,7 +94,13 @@ impl PreviousKernelValidator {
     }
 
     fn validate_fee_payer(self) {
-        self.previous_kernel.public_inputs.fee_payer.assert_not_empty(); // "Fee payer can't be empty");
+        // TODO: use assert_not_empty after Noir #9002.
+
+        assert(
+            !self.previous_kernel.public_inputs.fee_payer.is_empty(),
+            "Fee payer can't be empty",
+        );
+        // self.previous_kernel.public_inputs.fee_payer.assert_not_empty("Fee payer can't be empty");
     }
 
     fn validate_empty_private_call_stack(self) {
@@ -130,7 +136,11 @@ impl PreviousKernelValidator {
 
     fn validate_non_empty_data(self) {
         if self.previous_kernel.public_inputs.end.public_call_requests.length == 0 {
-            self.previous_kernel.public_inputs.public_teardown_call_request.assert_not_empty(); // "Must have public calls when exporting public kernel data from the tail circuit");
+            assert(
+                !self.previous_kernel.public_inputs.public_teardown_call_request.is_empty(),
+                "Must have public calls when exporting public kernel data from the tail circuit",
+            );
+            // self.previous_kernel.public_inputs.public_teardown_call_request.assert_not_empty("Must have public calls when exporting public kernel data from the tail circuit");
         }
 
         assert(

@@ -174,8 +174,6 @@ impl PrivateKernelCircuitPublicInputsComposer {
         self.propagate_public_teardown_call_request(private_call.public_inputs);
         self.propagate_fee_payer(private_call.public_inputs);
         self.propagate_min_revertible_side_effect_counter(private_call.public_inputs);
-
-        print(self.public_inputs_builder.end.private_call_stack);
     }
 
     unconstrained fn propagate_min_revertible_side_effect_counter(

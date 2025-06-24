@@ -73,6 +73,7 @@ impl RootRollupInputs {
         // - final_gamma == injected.challenge_gamma
         // => Validated public inputs from acc are: FinalBlobAccumulatorPublicInputs { blob_commitments_hash, z, y, C } (gamma is not required)
 
+        // There seems to be a Noir bug that isn't propagating this message through the underlying `assert()` call.
         left.blob_public_inputs.start_blob_accumulator.assert_empty(
             "Epoch did not start with empty blob state.",
         );

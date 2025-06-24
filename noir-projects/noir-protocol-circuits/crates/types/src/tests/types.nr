@@ -91,5 +91,5 @@ pub(crate) fn combine_two_values(from: TestTwoValues) -> TestCombinedValue {
 }
 
 pub(crate) fn assert_combined_from_two_values(from: TestTwoValues, to: TestCombinedValue) -> () {
-    assert(from.value_1 + from.value_2 == to.value);
+    assert(from.value_1 + from.value_2 == to.value, "Bad sum");
 }

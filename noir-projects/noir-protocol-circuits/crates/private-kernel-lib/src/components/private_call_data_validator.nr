@@ -107,7 +107,6 @@ impl PrivateCallDataValidator {
         // Validate that the vk exists within the called contract address:
         validate_contract_address(self.data, protocol_contract_tree_root);
 
-        // Restrict the side effects that may be emitted by the call (Consider renaming):
         self.restrict_side_effects();
 
         self.validate_private_call_requests();

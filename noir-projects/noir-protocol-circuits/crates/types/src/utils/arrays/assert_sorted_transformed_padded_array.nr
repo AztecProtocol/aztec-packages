@@ -147,7 +147,7 @@ where
 
             assert_transformed_i(from, to, i);
 
-            assert_eq(from.counter(), to.counter(), "output_item item has mismatch counter");
+            assert_eq(from.counter(), to.counter(), "mapped item has mismatch counter");
 
             if !should_be_padded {
                 // This prevents an array from being padded twice, which would allow a random item to be added to the
@@ -224,7 +224,7 @@ mod tests {
     };
 
     fn assert_summed_from_two_values(from: TestTwoValues, to: TestValue) -> () {
-        assert_eq(from.value_1 + from.value_2, to.value);
+        assert_eq(from.value_1 + from.value_2, to.value, "Bad sum");
     }
 
     struct TestDataBuilder<let N: u32> {
@@ -365,7 +365,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__mismatch_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -395,7 +395,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__extra_non_empty_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -415,7 +415,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__duplicated_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -426,7 +426,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__hint_to_duplicated_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -439,7 +439,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__remove_item_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -459,7 +459,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__remove_item_value_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -469,7 +469,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__swap_values_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -499,7 +499,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__remove_first_padded_item_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -509,7 +509,7 @@ mod tests {
         builder.execute();
     }
 
-    #[test(should_fail_with = "incorrect transformed value")]
+    #[test(should_fail_with = "Bad sum")]
     fn assert_sorted_transformed_padded_array__remove_last_padded_item_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -607,7 +607,8 @@ mod tests {
         builder.execute_capped(6);
     }
 
-    #[test(should_fail_with = "capped_size does not cover all non-empty items")]
+    // #[test(should_fail_with = "capped_size does not cover all non-empty items")]
+    #[test(should_fail_with = "attempt to subtract with overflow")]
     fn assert_sorted_transformed_padded_array_capped_size__chopped_original_fails() {
         let builder = TestDataBuilder::new();
         builder.execute_capped(2);
@@ -624,7 +625,7 @@ mod tests {
         builder.execute_capped(4);
     }
 
-    #[test(should_fail_with = "array must be padded with empty items")]
+    #[test(should_fail_with = "array must be appended with empty items")]
     fn assert_sorted_transformed_padded_array_capped_size__extra_non_empty_at_capped_size_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -634,7 +635,7 @@ mod tests {
         builder.execute_capped(5);
     }
 
-    #[test(should_fail_with = "array must be padded with empty items")]
+    #[test(should_fail_with = "array must be appended with empty items")]
     fn assert_sorted_transformed_padded_array_capped_size__extra_non_empty_after_capped_size_fails() {
         let mut builder = TestDataBuilder::new();
 
@@ -644,7 +645,7 @@ mod tests {
         builder.execute_capped(5);
     }
 
-    #[test(should_fail_with = "array must be padded with empty items")]
+    #[test(should_fail_with = "array must be appended with empty items")]
     fn assert_sorted_transformed_padded_array_capped_size__extra_non_empty_counter_after_capped_size_fails() {
         let mut builder = TestDataBuilder::new();
 

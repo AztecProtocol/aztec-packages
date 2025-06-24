@@ -115,7 +115,7 @@ impl TailOutputValidator {
             self.previous_kernel.end.l2_to_l1_msgs,
             self.output.end.l2_to_l1_msgs,
             |prev: Scoped<Counted<L2ToL1Message>>, out: Scoped<L2ToL1Message>| {
-                assert_eq(out, prev.expose_to_public(), "incorrect transformed value")
+                assert_eq(out, prev.expose_to_public(), "mismatch l2_to_l1_msgs")
             },
             self.hints.sorted_l2_to_l1_msg_hints,
         );
@@ -124,7 +124,7 @@ impl TailOutputValidator {
             self.previous_kernel.end.contract_class_logs_hashes,
             self.output.end.contract_class_logs_hashes,
             |prev: Scoped<Counted<LogHash>>, out: Scoped<LogHash>| {
-                assert_eq(out, prev.expose_to_public(), "incorrect transformed value")
+                assert_eq(out, prev.expose_to_public(), "mismatch contract_class_logs_hashes")
             },
             self.hints.sorted_contract_class_log_hash_hints,
         );

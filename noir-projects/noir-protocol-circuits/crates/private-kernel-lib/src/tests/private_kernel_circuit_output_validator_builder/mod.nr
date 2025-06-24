@@ -83,12 +83,11 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
 
     pub fn validate_as_inner_call(self) {
         let mut previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
+
         // Append one private call request for the current call.
-        let num_private_call_requests = self.previous_kernel.private_call_requests.len();
-        previous_kernel.end.private_call_stack.array[num_private_call_requests] =
-            PrivateCallRequest::empty();
-        previous_kernel.end.private_call_stack.array[num_private_call_requests].args_hash =
-            98765432;
+        let mut new_private_call = PrivateCallRequest::empty();
+        new_private_call.args_hash = 98765432;
+        previous_kernel.end.private_call_stack.push(new_private_call);
 
         let private_call = self.private_call.to_private_call_data();
         let output = self.output.to_private_kernel_circuit_public_inputs();

@@ -71,46 +71,18 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
 
         fields.extend_from_array(self.max_block_number.serialize());
 
-        for i in 0..self.note_hash_read_requests.array.len() {
-            fields.extend_from_array(self.note_hash_read_requests.array[i].serialize());
-        }
-        fields.push(self.note_hash_read_requests.length as Field);
-        for i in 0..self.nullifier_read_requests.array.len() {
-            fields.extend_from_array(self.nullifier_read_requests.array[i].serialize());
-        }
-        fields.push(self.nullifier_read_requests.length as Field);
-        for i in 0..self.key_validation_requests_and_generators.array.len() {
-            fields.extend_from_array(self.key_validation_requests_and_generators.array[i].serialize());
-        }
-        fields.push(self.key_validation_requests_and_generators.length as Field);
-        for i in 0..self.note_hashes.array.len() {
-            fields.extend_from_array(self.note_hashes.array[i].serialize());
-        }
-        fields.push(self.note_hashes.length as Field);
-        for i in 0..self.nullifiers.array.len() {
-            fields.extend_from_array(self.nullifiers.array[i].serialize());
-        }
-        fields.push(self.nullifiers.length as Field);
-        for i in 0..self.private_call_requests.array.len() {
-            fields.extend_from_array(self.private_call_requests.array[i].serialize());
-        }
-        fields.push(self.private_call_requests.length as Field);
-        for i in 0..self.public_call_requests.array.len() {
-            fields.extend_from_array(self.public_call_requests.array[i].serialize());
-        }
-        fields.push(self.public_call_requests.length as Field);
+        fields.extend_from_array(self.note_hash_read_requests.serialize());
+        fields.extend_from_array(self.nullifier_read_requests.serialize());
+        fields.extend_from_array(self.key_validation_requests_and_generators.serialize());
+        fields.extend_from_array(self.note_hashes.serialize());
+        fields.extend_from_array(self.nullifiers.serialize());
+        fields.extend_from_array(self.private_call_requests.serialize());
+        fields.extend_from_array(self.public_call_requests.serialize());
         fields.extend_from_array(self.public_teardown_call_request.serialize());
-        for i in 0..self.l2_to_l1_msgs.array.len() {
-            fields.extend_from_array(self.l2_to_l1_msgs.array[i].serialize());
-        }
-        for i in 0..self.private_logs.array.len() {
-            fields.extend_from_array(self.private_logs.array[i].serialize());
-        }
-        fields.push(self.private_logs.length as Field);
-        for i in 0..self.contract_class_logs_hashes.array.len() {
-            fields.extend_from_array(self.contract_class_logs_hashes.array[i].serialize());
-        }
-        fields.push(self.contract_class_logs_hashes.length as Field);
+        fields.extend_from_array(self.l2_to_l1_msgs.serialize());
+        fields.extend_from_array(self.private_logs.serialize());
+        fields.extend_from_array(self.contract_class_logs_hashes.serialize());
+
         fields.push(self.start_side_effect_counter as Field);
         fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.historical_header.serialize());

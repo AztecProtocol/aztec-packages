@@ -333,7 +333,7 @@ impl PrivateKernelCircuitOutputValidator {
         assert_array_appended_reversed_up_to_some_length(
             self.output.end.private_call_stack,
             private_call.public_inputs.private_call_requests,
-            previous_kernel_public_inputs.end.private_call_stack.length,
+            previous_kernel_public_inputs.end.private_call_stack.length - 1, // - 1 because we popped a call off this stack, so that item won't have been prepended to `dest`.
         );
     }
 

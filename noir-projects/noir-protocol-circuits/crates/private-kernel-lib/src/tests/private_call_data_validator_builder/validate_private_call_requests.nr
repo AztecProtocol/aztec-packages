@@ -138,7 +138,7 @@ fn validate_private_call_requests_split_private_calls_less_than_last_non_reverti
     builder.validate();
 }
 
-#[test(should_fail_with = "min_revertible_side_effect_counter must be greater than the end counter of the last non revertible item")]
+#[test(should_fail_with = "expected min_revertible_side_effect_counter to be greater than the counters of all calls")]
 fn validate_private_call_requests_split_private_calls_equal_last_non_revertible_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_first_call();
 

@@ -68,6 +68,12 @@ where
     // Safety: The value is constrained by `assert_split_transformed_value_arrays_with_hint`.
     let num_non_revertibles =
         unsafe { find_index_hint(sorted_array, |n: T| n.counter() >= split_counter) };
+    // Just setting it to N for now, because I don't want to refactor assert_split_transformed_value_arrays_with_hint.
+    let num_non_revertibles = if num_non_revertibles.is_none() {
+        N
+    } else {
+        num_non_revertibles.unwrap_unchecked()
+    };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,
@@ -75,7 +81,7 @@ where
         transformed_value_array_gte,
         is_transformed,
         split_counter,
-        num_non_revertibles.unwrap(),
+        num_non_revertibles,
     );
 }
 
