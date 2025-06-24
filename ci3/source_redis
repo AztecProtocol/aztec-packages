@@ -35,7 +35,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
 fi
 
 # If redis isn't available, neither is the test cache.
-if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+if [ "$CI_REDIS_AVAILABLE" -eq 0 ] && [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   echo_stderr -e "${yellow}Redis unavailable. Disabling test cache.${reset}"
   export USE_TEST_CACHE=0
 fi

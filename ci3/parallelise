@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # For running test cmds that are pathed relative to the repo root.
 # Commands are read from stdin.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $ci3/source
 
 [ "${STRICT_SCHEDULING:-0}" -eq 1 ] && exec parallelise_strict "$@"
 

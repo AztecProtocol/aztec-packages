@@ -2,7 +2,7 @@
 # Runs the given command.
 # If a redis cache is available, redirect input into a cache log.
 # If DUP=1 then we duplicate input also to stdout.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $ci3/source
 source $ci3/source_redis
 
 name=$1

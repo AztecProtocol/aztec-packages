@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Called by 'parallelise' to execute a given test cmd.
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+NO_CD=1 source $ci3/source
 source $ci3/source_redis
 source $ci3/source_refname
 
@@ -52,9 +52,6 @@ if [ "${USE_TEST_CACHE:-0}" -eq 1 ]; then
   fi
 fi
 
-# If the test has a verbose mode, we want it enabled.
-export VERBOSE=1
-
 function cleanup {
   if [ -n "${publish_pid:-}" ]; then
     kill $publish_pid &>/dev/null
@@ -79,6 +76,8 @@ trap sig_handler SIGTERM SIGINT
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 tmp_file=/tmp/$key
+
+if [ "${NO_HEADER:-0}" -eq 0 ]; then
 # Print test metadata header.
 cat <<EOF >$tmp_file
 Parent Log: ${PARENT_LOG_URL:-none}
@@ -91,6 +90,7 @@ Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
 History: http://ci.aztec-labs.com/list/$test_hash
 
 EOF
+fi
 
 function publish_log {
   cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
@@ -134,10 +134,10 @@ fi
 SECONDS=0
 set +e
 if [ "${ISOLATE:-0}" -eq 1 ]; then
-  docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(cat | add_timestamps >> $tmp_file) &
+  VERBOSE=1 docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(cat | add_timestamps >> $tmp_file) &
 else
   [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
-  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
+  VERBOSE=1 taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(cat | add_timestamps >> $tmp_file) &
 fi
 test_pid=$!
 # echo "RTC waiting on $test_pid" >/dev/tty
@@ -184,6 +184,9 @@ function track_test {
 function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   track_test $test_hash "$line"
+  if [ "${VERBOSE:-0}" -eq 1 ]; then
+    cat $tmp_file
+  fi
   echo -e "$line"
   exit
 }

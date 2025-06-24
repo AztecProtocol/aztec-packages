@@ -2,12 +2,12 @@
 # This is a basis for shell scripts that use the ci3 framework.
 # This can be sourced multiple by scripts calling scripts, so it makes sense to only do certain sets through first pass.
 
-# Enter our script directory, allowing usage of scripts from any directory.
+# Enter our callers script directory, allowing usage of scripts from any directory.
 [ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
 
 # We export so we can use from exported functions.
 export root=${root:-$(git rev-parse --show-toplevel)}
-export ci3="$root/ci3"
+export ci3=${ci3:-$root/ci3}
 [[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
 
 [ -z "${CI:-}" ] && export CI=0
