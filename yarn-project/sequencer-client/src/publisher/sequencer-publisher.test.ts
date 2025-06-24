@@ -3,6 +3,7 @@ import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
+  FormattedViemError,
   type GasPrice,
   type GovernanceProposerContract,
   type L1ContractsConfig,
@@ -303,7 +304,12 @@ describe('SequencerPublisher', () => {
     expect(enqueued).toEqual(true);
     const result = await publisher.sendRequests();
 
-    expect(result?.result?.errorMsg).toEqual('Test error');
+    expect(result).not.toBeInstanceOf(FormattedViemError);
+    if (result instanceof FormattedViemError) {
+      fail('Not Expected result to be a FormattedViemError');
+    } else {
+      expect((result as any).result.errorMsg).toEqual('Test error');
+    }
   });
 
   it('does not send requests if interrupted', async () => {
