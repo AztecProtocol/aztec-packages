@@ -1372,8 +1372,8 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
         }
     }
 
-    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions,
-    // etc
+    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions.
+    ASSERT(ctx != nullptr);
 
     // Compute the constant term we're adding
     const auto [_, constant_part_remainder_1024] = (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
@@ -2324,11 +2324,15 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     ASSERT(input_left.size() == input_right.size() && input_left.size() < 1024);
     // Sanity checks
+    bool is_left_constant = true;
     for (auto& el : input_left) {
         el.sanity_check();
+        is_left_constant &= el.is_constant();
     }
+    bool is_right_constant = true;
     for (auto& el : input_right) {
         el.sanity_check();
+        is_right_constant &= el.is_constant();
     }
     for (auto& el : to_add) {
         el.sanity_check();
@@ -2337,13 +2341,33 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     for (auto& el : input_remainders) {
         el.sanity_check();
     }
+
+    // We must have at least one left or right multiplicand as witnesses.
+    ASSERT(!is_left_constant || !is_right_constant);
+
     std::vector<bigfield> remainders(input_remainders);
     std::vector<bigfield> left(input_left);
     std::vector<bigfield> right(input_right);
     bigfield quotient = input_quotient;
     const size_t num_multiplications = input_left.size();
 
-    Builder* ctx = input_left[0].context ? input_left[0].context : input_right[0].context;
+    // Fetch the context
+    Builder* ctx = nullptr;
+    for (const auto& el : input_left) {
+        if (el.context) {
+            ctx = el.context;
+            break;
+        }
+    }
+    if (ctx == nullptr) {
+        for (const auto& el : input_right) {
+            if (el.context) {
+                ctx = el.context;
+                break;
+            }
+        }
+    }
+    ASSERT(ctx != nullptr);
 
     const auto get_product_maximum = [](const bigfield& left, const bigfield& right) {
         uint512_t max_b0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[0].maximum_value);
