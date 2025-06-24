@@ -170,7 +170,7 @@ impl TestEnvironment {
 
     /// Instantiates a private context at a specific historical timestamp.
     pub unconstrained fn private_at_timestamp(
-        &mut self,
+        _self: &mut Self,
         historical_timestamp: u64,
     ) -> PrivateContext {
         let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
