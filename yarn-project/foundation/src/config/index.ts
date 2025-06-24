@@ -207,7 +207,7 @@ export function secretStringConfigHelper(defaultValue?: string): Required<
   return {
     parseEnv: parse,
     parseVal: parse,
-    defaultValue: typeof defaultValue !== 'undefined' ? new SecretValue(defaultValue) : undefined,
+    defaultValue: defaultValue !== undefined ? new SecretValue(defaultValue) : undefined,
     isBoolean: true,
   };
 }

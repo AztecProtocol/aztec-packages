@@ -73,7 +73,7 @@ export const createP2PClient = async <T extends P2PClientType>(
 
   // Create peer discovery service
   const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
-  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey);
+  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
 
   const p2pService = await (deps.p2pServiceFactory ?? LibP2PService.new<T>)(clientType, config, peerId, {
     packageVersion,
