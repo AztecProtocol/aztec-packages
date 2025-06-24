@@ -23,7 +23,7 @@ serverFiles:
   prometheus.yml:
     scrape_configs:
       - job_name: public_telemetry
-        kubernetes_sd_config:
+        kubernetes_sd_configs:
           - role: pod
             namespaces:
               own_namespace: true
@@ -31,9 +31,9 @@ serverFiles:
 
 alertmanager:
   enabled: false
-nodeExporter:
+prometheus-node-exporter:
   enabled: false
-pushgateway:
+prometheus-pushgateway:
   enabled: false
 kube-state-metrics:
   enabled: false

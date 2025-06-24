@@ -120,9 +120,10 @@ grafana:
   service:
     type: LoadBalancer
   persistence:
-    type: pvc
+    type: statefulset
+    storageClassName: standard-rwo
     enabled: true
-    size: "128Gi"
+    size: "10Gi"
   datasources:
     datasources.yaml:
       apiVersion: 1
