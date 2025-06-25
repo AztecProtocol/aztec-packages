@@ -39,7 +39,7 @@ class ECCVMVerifier {
     std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
     std::map<std::string, Commitment> commitments;
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Transcript> ipa_transcript;
+    std::shared_ptr<Transcript> ipa_transcript = std::make_shared<Transcript>();
 
     TranslationEvaluations_<FF> translation_evaluations;
 

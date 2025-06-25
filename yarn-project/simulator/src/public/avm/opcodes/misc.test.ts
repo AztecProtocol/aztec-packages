@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { DebugLog } from './misc.js';
 

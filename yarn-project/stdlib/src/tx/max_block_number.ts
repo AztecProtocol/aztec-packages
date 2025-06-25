@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import type { UInt32 } from '../types/index.js';
+
 /**
  * Maximum block number.
  */
@@ -15,7 +17,7 @@ export class MaxBlockNumber {
     /**
      * The requested max block number, if isSome is true.
      */
-    public value: Fr,
+    public value: UInt32,
   ) {}
 
   /**
@@ -43,20 +45,20 @@ export class MaxBlockNumber {
    */
   static fromBuffer(buffer: Buffer | BufferReader): MaxBlockNumber {
     const reader = BufferReader.asReader(buffer);
-    return new MaxBlockNumber(reader.readBoolean(), Fr.fromBuffer(reader));
+    return new MaxBlockNumber(reader.readBoolean(), reader.readNumber());
   }
 
   static fromFields(fields: Fr[] | FieldReader): MaxBlockNumber {
     const reader = FieldReader.asReader(fields);
-    return new MaxBlockNumber(reader.readBoolean(), reader.readField());
+    return new MaxBlockNumber(reader.readBoolean(), reader.readU32());
   }
 
   static empty() {
-    return new MaxBlockNumber(false, Fr.ZERO);
+    return new MaxBlockNumber(false, 0);
   }
 
   isEmpty(): boolean {
-    return !this.isSome && this.value.isZero();
+    return !this.isSome && this.value === 0;
   }
 
   /**

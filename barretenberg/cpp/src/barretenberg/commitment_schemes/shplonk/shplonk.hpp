@@ -263,7 +263,7 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+    static ProverOpeningClaim<Curve> prove(const CommitmentKey<Curve>& commitment_key,
                                            std::span<ProverOpeningClaim<Curve>> opening_claims,
                                            const std::shared_ptr<Transcript>& transcript,
                                            std::span<ProverOpeningClaim<Curve>> libra_opening_claims = {},
@@ -281,7 +281,7 @@ template <typename Curve> class ShplonkProver_ {
                                                          gemini_fold_pos_evaluations,
                                                          libra_opening_claims,
                                                          sumcheck_round_claims);
-        auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
+        auto batched_quotient_commitment = commitment_key.commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
 

@@ -1,12 +1,12 @@
 use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 pub struct GasFees {
-    pub fee_per_da_gas: Field,
-    pub fee_per_l2_gas: Field,
+    pub fee_per_da_gas: u128,
+    pub fee_per_l2_gas: u128,
 }
 
 impl GasFees {
-    pub fn new(fee_per_da_gas: Field, fee_per_l2_gas: Field) -> Self {
+    pub fn new(fee_per_da_gas: u128, fee_per_l2_gas: u128) -> Self {
         Self { fee_per_da_gas, fee_per_l2_gas }
     }
 
@@ -17,13 +17,13 @@ impl GasFees {
 
 impl Serialize<GAS_FEES_LENGTH> for GasFees {
     fn serialize(self) -> [Field; GAS_FEES_LENGTH] {
-        [self.fee_per_da_gas, self.fee_per_l2_gas]
+        [self.fee_per_da_gas as Field, self.fee_per_l2_gas as Field]
     }
 }
 
 impl Deserialize<GAS_FEES_LENGTH> for GasFees {
     fn deserialize(serialized: [Field; GAS_FEES_LENGTH]) -> GasFees {
-        GasFees::new(serialized[0], serialized[1])
+        GasFees::new(serialized[0] as u128, serialized[1] as u128)
     }
 }
 

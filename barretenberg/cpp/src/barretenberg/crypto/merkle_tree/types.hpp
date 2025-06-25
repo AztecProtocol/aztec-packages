@@ -16,7 +16,7 @@ namespace bb::crypto::merkle_tree {
 using namespace bb::lmdblib;
 
 using index_t = uint64_t;
-using block_number_t = uint64_t;
+using block_number_t = uint32_t;
 using LeafIndexKeyType = uint64_t;
 using BlockMetaKeyType = uint64_t;
 using FrKeyType = uint256_t;

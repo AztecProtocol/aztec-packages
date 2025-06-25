@@ -108,7 +108,7 @@ export class PublicTxContext {
       trace,
       doMerkleOperations,
       firstNullifier,
-      globalVariables.blockNumber.toNumber(),
+      globalVariables.blockNumber,
     );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;

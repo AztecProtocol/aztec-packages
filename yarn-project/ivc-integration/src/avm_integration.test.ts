@@ -1,5 +1,9 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import {
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
@@ -19,7 +23,6 @@ import {
   MockRollupBasePublicCircuit,
   generate3FunctionTestingIVCStack,
   mapAvmProofToNoir,
-  mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
   witnessGenMockPublicBaseCircuit,
@@ -58,7 +61,7 @@ async function proveMockPublicBaseRollup(
         ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
       ),
     },
-    verification_key: mapAvmVerificationKeyToNoir(vk),
+    verification_key: mapVerificationKeyToNoir(vk, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
     proof: mapAvmProofToNoir(proof),
     public_inputs: mapAvmCircuitPublicInputsToNoir(publicInputs),
   });

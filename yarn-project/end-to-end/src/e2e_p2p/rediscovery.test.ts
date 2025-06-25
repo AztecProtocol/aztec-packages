@@ -33,15 +33,12 @@ describe('e2e_p2p_rediscovery', () => {
         listenAddress: '127.0.0.1',
       },
     });
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-
-    // We remove the initial node such that it will no longer attempt to build blocks / be in the sequencing set
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
+    t.logger.info('Stopping nodes and cleaning up data directories');
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
@@ -64,7 +61,12 @@ describe('e2e_p2p_rediscovery', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(3000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     // stop bootstrap node
     await t.bootstrapNode?.stop();
@@ -102,14 +104,24 @@ describe('e2e_p2p_rediscovery', () => {
     }
 
     // now ensure that all txs were successfully mined
-
     await Promise.all(
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          return tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          const txHash = await tx.getTxHash();
+          t.logger.info(`Waiting for tx ${i}-${j} ${txHash} to be mined`, { txHash });
+          return tx
+            .wait({ timeout: WAIT_FOR_TX_TIMEOUT })
+            .then(() => {
+              t.logger.info(`Tx ${i}-${j} mined successfully`, { txHash });
+            })
+            .catch(err => {
+              t.logger.error(`Tx ${i}-${j} failed to mine: ${err}`, { txHash });
+              throw err;
+            });
         }),
       ),
     );
+
+    t.logger.info('All transactions mined successfully');
   });
 });

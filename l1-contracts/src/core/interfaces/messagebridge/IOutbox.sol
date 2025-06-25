@@ -11,7 +11,7 @@ import {DataStructures} from "../../libraries/DataStructures.sol";
  * and will be consumed by the portal contracts.
  */
 interface IOutbox {
-  event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root, uint256 minHeight);
+  event RootAdded(uint256 indexed l2BlockNumber, bytes32 indexed root);
   event MessageConsumed(
     uint256 indexed l2BlockNumber,
     bytes32 indexed root,
@@ -27,9 +27,8 @@ interface IOutbox {
    * @dev Emits `RootAdded` upon inserting the root successfully
    * @param _l2BlockNumber - The L2 Block Number in which the L2 to L1 messages reside
    * @param _root - The merkle root of the tree where all the L2 to L1 messages are leaves
-   * @param _minHeight - The min height of the merkle tree that the root corresponds to
    */
-  function insert(uint256 _l2BlockNumber, bytes32 _root, uint256 _minHeight) external;
+  function insert(uint256 _l2BlockNumber, bytes32 _root) external;
   // docs:end:outbox_insert
 
   // docs:start:outbox_consume
@@ -71,11 +70,7 @@ interface IOutbox {
    *
    * @param _l2BlockNumber - The block number to fetch the root data for
    *
-   * @return root - The root of the merkle tree containing the L2 to L1 messages
-   * @return minHeight - The min height for the merkle tree that the root corresponds to
+   * @return bytes32 - The root of the merkle tree containing the L2 to L1 messages
    */
-  function getRootData(uint256 _l2BlockNumber)
-    external
-    view
-    returns (bytes32 root, uint256 minHeight);
+  function getRootData(uint256 _l2BlockNumber) external view returns (bytes32);
 }

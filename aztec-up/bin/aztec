@@ -109,9 +109,10 @@ case ${1:-} in
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
 
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --version
         anvil --host 0.0.0.0 --silent &
-        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
-      "
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js \"\$@\"
+      " bash "$@"
     else
 
       export P2P_PORT="${P2P_PORT:-40400}"
@@ -140,8 +141,8 @@ case ${1:-} in
         export PORTS_TO_EXPOSE=""
       fi
 
-      DOCKER_RESTART_POLICY="no"
-      DOCKER_PULL_POLICY="always"
+      export DOCKER_RESTART_POLICY="${DOCKER_RESTART_POLICY:-no}"
+      export DOCKER_PULL_POLICY="${DOCKER_PULL_POLICY:-always}"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"

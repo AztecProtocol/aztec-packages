@@ -41,6 +41,7 @@ sum_of_kept_times_ms = sum(float(time) for _, time in bench_components.items()) 
 
 max_label_length = max(len(label) for label in to_keep)
 column = {"function": "function", "ms": "ms", "%": "% sum"}
+print("\nClientIVC Benchmark Analysis: \n")
 print(f"{column['function']:<{max_label_length}}{column['ms']:>8}  {column['%']:>8}")
 
 for key in to_keep:

@@ -263,7 +263,7 @@ describe('world-state integration', () => {
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
   // Skip validation for the sake of this test
-  protected override verifyMessagesHashToInHash(_l1ToL2Messages: Fr[], _inHash: Buffer): Promise<void> {
+  protected override verifyMessagesHashToInHash(_l1ToL2Messages: Fr[], _inHash: Fr): Promise<void> {
     return Promise.resolve();
   }
 

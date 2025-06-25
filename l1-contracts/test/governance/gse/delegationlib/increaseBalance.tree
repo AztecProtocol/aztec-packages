@@ -1,0 +1,13 @@
+IncreaseBalanceTest
+├── when amount eq 0
+│   └── it alters no state
+└── when amount gt 0
+    ├── given no delegatee
+    │   ├── it increase balance by amount
+    │   ├── it increase instance supply by amount
+    │   └── it increase supply by amount
+    └── given a delegatee
+        ├── it increase balance by amount
+        ├── it increase the voting power of the delegatee by amount
+        ├── it increase instance supply by amount
+        └── it increase supply by amount

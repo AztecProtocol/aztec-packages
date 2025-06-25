@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { allSameExcept, initContext } from './fixtures/index.js';
+import { initContext } from './fixtures/initializers.js';
+import { allSameExcept } from './fixtures/utils.js';
 
 describe('Avm Context', () => {
   it('New call should fork context correctly', async () => {

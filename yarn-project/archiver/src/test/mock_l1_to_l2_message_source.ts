@@ -18,8 +18,8 @@ export class MockL1ToL2MessageSource implements L1ToL2MessageSource {
     this.blockNumber = blockNumber;
   }
 
-  getL1ToL2Messages(blockNumber: bigint): Promise<Fr[]> {
-    return Promise.resolve(this.messagesPerBlock.get(Number(blockNumber)) ?? []);
+  getL1ToL2Messages(blockNumber: number): Promise<Fr[]> {
+    return Promise.resolve(this.messagesPerBlock.get(blockNumber) ?? []);
   }
 
   getL1ToL2MessageIndex(_l1ToL2Message: Fr): Promise<bigint | undefined> {

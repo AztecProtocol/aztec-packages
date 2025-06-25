@@ -1,7 +1,7 @@
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/honk/utils/testing.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include <gtest/gtest.h>
 

@@ -14,27 +14,28 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <class DeciderProvingKeys>
-void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> keys,
-                                                                                   const std::string& domain_separator)
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
+void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> key,
+                                                                                 std::shared_ptr<DeciderVK> vk,
+                                                                                 const std::string& domain_separator)
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
-
-    OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
+    OinkProver<typename DeciderProvingKeys::Flavor> oink_prover(
+        key, vk->verification_key, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
-template <class DeciderProvingKeys>
-void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_key()
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
+void ProtogalaxyProver_<Flavor, NUM_KEYS>::run_oink_prover_on_each_incomplete_key()
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
     size_t idx = 0;
     auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
-
+    auto& vk = vks_to_fold[0];
     if (!key->is_accumulator) {
-        run_oink_prover_on_one_incomplete_key(key, domain_separator);
+        run_oink_prover_on_one_incomplete_key(key, vk, domain_separator);
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
@@ -44,16 +45,15 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_
     for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, idx++) {
         auto key = *it;
         auto domain_separator = std::to_string(idx);
-        run_oink_prover_on_one_incomplete_key(key, domain_separator);
+        run_oink_prover_on_one_incomplete_key(key, vks_to_fold[idx], domain_separator);
     }
 
     accumulator = keys_to_fold[0];
 };
 
-template <class DeciderProvingKeys>
-std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<typename DeciderProvingKeys::Flavor::FF>>
-ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
-    const std::shared_ptr<const typename DeciderProvingKeys::DeciderPK>& accumulator)
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
+std::tuple<std::vector<typename Flavor::FF>, Polynomial<typename Flavor::FF>> ProtogalaxyProver_<Flavor, NUM_KEYS>::
+    perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator)
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::perturbator_round");
 
@@ -74,15 +74,15 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     return std::make_tuple(deltas, perturbator);
 };
 
-template <class DeciderProvingKeys>
-std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>,
-           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationSeparator,
-           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationParameters,
-           typename DeciderProvingKeys::Flavor::FF,
-           typename ProtogalaxyProver_<DeciderProvingKeys>::CombinerQuotient>
-ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
-                                                                const std::vector<FF>& deltas,
-                                                                const DeciderProvingKeys& keys)
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
+std::tuple<std::vector<typename Flavor::FF>,
+           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::UnivariateRelationParameters,
+           typename Flavor::FF,
+           typename ProtogalaxyProver_<Flavor, NUM_KEYS>::CombinerQuotient>
+ProtogalaxyProver_<Flavor, NUM_KEYS>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                                                              const std::vector<FF>& deltas,
+                                                              const DeciderProvingKeys& keys)
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
@@ -101,7 +101,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = PGInternal::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-    for (size_t idx = DeciderProvingKeys::NUM; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
+    for (size_t idx = NUM_KEYS; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
 
@@ -112,8 +112,8 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  */
-template <class DeciderProvingKeys>
-void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS>
+void ProtogalaxyProver_<Flavor, NUM_KEYS>::update_target_sum_and_fold(
     const DeciderProvingKeys& keys,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
@@ -122,8 +122,8 @@ void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
 {
     PROFILE_THIS_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
 
-    std::shared_ptr<DeciderProvingKey> accumulator = keys[0];
-    std::shared_ptr<DeciderProvingKey> incoming = keys[1];
+    std::shared_ptr<DeciderPK> accumulator = keys[0];
+    std::shared_ptr<DeciderPK> incoming = keys[1];
     accumulator->is_accumulator = true;
 
     // At this point the virtual sizes of the polynomials should already agree
@@ -174,18 +174,17 @@ void ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
     }
 }
 
-template <class DeciderProvingKeys>
-FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
+template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS> FoldingResult<Flavor> ProtogalaxyProver_<Flavor, NUM_KEYS>::prove()
 {
 
     PROFILE_THIS_NAME("ProtogalaxyProver::prove");
 
     // Ensure keys are all of the same size
     size_t max_circuit_size = 0;
-    for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
+    for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
         max_circuit_size = std::max(max_circuit_size, keys_to_fold[idx]->proving_key.circuit_size);
     }
-    for (size_t idx = 0; idx < DeciderProvingKeys::NUM; ++idx) {
+    for (size_t idx = 0; idx < NUM_KEYS; ++idx) {
         if (keys_to_fold[idx]->proving_key.circuit_size != max_circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch - increasing virtual size of key ",
                  idx,
@@ -210,6 +209,6 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     update_target_sum_and_fold(keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
     vinfo("folded");
 
-    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = std::move(transcript->proof_data) };
+    return FoldingResult<Flavor>{ .accumulator = keys_to_fold[0], .proof = transcript->export_proof() };
 }
 } // namespace bb

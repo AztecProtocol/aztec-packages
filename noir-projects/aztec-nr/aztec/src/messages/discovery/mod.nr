@@ -1,16 +1,20 @@
-use protocol_types::{address::AztecAddress, debug_log::debug_log};
+use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
 pub mod private_events;
-pub mod private_logs;
 pub mod private_notes;
+pub mod process_message;
 
-use crate::messages::{
-    discovery::{private_logs::process_private_log, private_notes::MAX_NOTE_PACKED_LEN},
-    processing::{
-        get_private_logs, pending_tagged_log::PendingTaggedLog, validate_enqueued_notes_and_events,
+use crate::{
+    messages::{
+        discovery::{private_notes::MAX_NOTE_PACKED_LEN, process_message::do_process_message},
+        processing::{
+            get_private_logs, pending_tagged_log::PendingTaggedLog,
+            validate_enqueued_notes_and_events,
+        },
     },
+    utils::array,
 };
 
 pub struct NoteHashAndNullifier {
@@ -72,14 +76,27 @@ pub unconstrained fn discover_new_messages<Env>(
     // First we process all private logs, which can contain different kinds of messages e.g. private notes, partial
     // notes, private events, etc.
     let mut logs = get_private_logs(contract_address);
-    logs.for_each(|i, log: PendingTaggedLog| {
-        process_private_log(contract_address, compute_note_hash_and_nullifier, log);
+    logs.for_each(|i, pending_tagged_log: PendingTaggedLog| {
+        debug_log_format(
+            "Processing log with tag {0}",
+            [pending_tagged_log.log.get(0)],
+        );
+
+        // We remove the tag from the pending tagged log and process the message ciphertext contained in it.
+        let message_ciphertext = array::subbvec(pending_tagged_log.log, 1);
+
+        do_process_message(
+            contract_address,
+            compute_note_hash_and_nullifier,
+            message_ciphertext,
+            pending_tagged_log.context,
+        );
         logs.remove(i);
     });
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_public_partial_note_completion_logs(
+    partial_notes::fetch_and_process_partial_note_completion_logs(
         contract_address,
         compute_note_hash_and_nullifier,
     );

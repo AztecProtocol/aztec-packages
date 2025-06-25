@@ -33,7 +33,7 @@ export class LightweightBlockFactory implements IBlockFactory {
 
   private txs: ProcessedTx[] | undefined;
 
-  private readonly logger = createLogger('prover-client:block_builder');
+  private readonly logger = createLogger('lightweight-block-factory');
 
   constructor(
     private db: MerkleTreeWriteOperations,
@@ -81,6 +81,7 @@ export class LightweightBlockFactory implements IBlockFactory {
       globalVariables: this.globalVariables?.toInspect(),
       archiveRoot: newArchive.root.toString(),
       blockHash: (await block.hash()).toString(),
+      txs: block.body.txEffects.map(tx => tx.txHash.toString()),
     });
 
     return block;
@@ -99,8 +100,9 @@ export async function buildBlockWithCleanDB(
   telemetry: TelemetryClient = getTelemetryClient(),
 ) {
   const spongeBlobState = SpongeBlob.init(toNumBlobFields(txs));
+  const l1ToL2MessageTree = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
   for (const tx of txs) {
-    await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, db, spongeBlobState);
+    await insertSideEffectsAndBuildBaseRollupHints(tx, globalVariables, l1ToL2MessageTree, db, spongeBlobState);
   }
   const builder = new LightweightBlockFactory(db, telemetry);
   await builder.startNewBlock(globalVariables, l1ToL2Messages);

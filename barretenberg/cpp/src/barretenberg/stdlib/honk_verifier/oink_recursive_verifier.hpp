@@ -63,7 +63,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
 
     std::shared_ptr<RecursiveDeciderVK> verification_key;
     Builder* builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::string domain_separator; // used in PG to distinguish between verification_keys in transcript
 };
 

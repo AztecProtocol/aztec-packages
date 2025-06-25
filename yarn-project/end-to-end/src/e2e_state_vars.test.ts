@@ -1,4 +1,4 @@
-import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { BatchCall, type PXE, type Wallet } from '@aztec/aztec.js';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
 
@@ -245,7 +245,7 @@ describe('e2e_state_vars', () => {
 
       // The validity of our SharedMutable read request should be limited to 2 blocks
       expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(expectedModifiedMaxBlockNumber));
+      expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(expectedModifiedMaxBlockNumber);
     });
   });
 });

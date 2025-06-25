@@ -19,9 +19,11 @@ contract GSEBase is TestBase {
   address internal constant WITHDRAWER = address(bytes20("WITHDRAWER"));
   address internal constant RECIPIENT = address(bytes20("RECIPIENT"));
 
+  uint256 internal EPOCH_DURATION_SECONDS;
+
   function setUp() public virtual {
-    RollupBuilder builder =
-      new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
+    RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1)
+      .setSlashingRoundSize(1).setEpochDuration(1).setSlotDuration(1);
     builder.deploy();
 
     registry = builder.getConfig().registry;
@@ -29,16 +31,27 @@ contract GSEBase is TestBase {
     stakingAsset = builder.getConfig().testERC20;
     gse = builder.getConfig().gse;
     governance = builder.getConfig().governance;
+
+    EPOCH_DURATION_SECONDS = builder.getConfig().rollupConfigInput.aztecEpochDuration
+      * builder.getConfig().rollupConfigInput.aztecSlotDuration;
+
+    vm.label(address(governance), "governance");
+    vm.label(address(governance.governanceProposer()), "governance proposer");
+    vm.label(address(gse), "gse");
+    vm.label(address(stakingAsset), "staking asset");
+    vm.label(address(ROLLUP), "rollup");
+    vm.label(address(registry), "registry");
   }
 
   function help__deposit(address _attester, address _withdrawer, bool _onCanonical) internal {
-    uint256 depositAmount = ROLLUP.getMinimumStake();
+    uint256 depositAmount = ROLLUP.getDepositAmount();
     stakingAsset.mint(address(this), depositAmount);
     stakingAsset.approve(address(ROLLUP), depositAmount);
 
     uint256 balance = stakingAsset.balanceOf(address(governance));
 
     ROLLUP.deposit({_attester: _attester, _withdrawer: _withdrawer, _onCanonical: _onCanonical});
+    ROLLUP.flushEntryQueue();
 
     assertEq(
       stakingAsset.balanceOf(address(governance)), balance + depositAmount, "invalid gov balance"

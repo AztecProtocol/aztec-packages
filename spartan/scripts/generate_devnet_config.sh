@@ -6,7 +6,9 @@ value_yamls="../aztec-network/values/$values_file ../aztec-network/values.yaml"
 
 export NUMBER_OF_DEFAULT_ACCOUNTS=$(./read_value.sh "aztec.numberOfDefaultAccounts" $value_yamls)
 
-export NUMBER_OF_VALIDATOR_KEYS=$(./read_value.sh "validator.replicas" $value_yamls)
+export VALIDATOR_REPLICAS=$(./read_value.sh "validator.replicas" $value_yamls)
+export VALIDATOR_KEYS_PER_NODE=$(./read_value.sh "validator.keysPerNode" $value_yamls)
+export NUMBER_OF_VALIDATOR_KEYS=$((VALIDATOR_REPLICAS * VALIDATOR_KEYS_PER_NODE))
 export VALIDATOR_KEY_START_INDEX=$(./read_value.sh "aztec.validatorKeyIndexStart" $value_yamls)
 
 export EXTRA_ACCOUNTS=$(./read_value.sh "aztec.extraAccounts" $value_yamls)
@@ -34,6 +36,9 @@ BOT_KEY_INDICES=$(seq $BOT_KEY_START_INDEX $((BOT_KEY_START_INDEX + NUMBER_OF_BO
 export PREFUNDED_MNEMONIC_INDICES=$(echo "$DEFAULT_ACCOUNTS_INDICES $VALIDATOR_KEY_INDICES $EXTRA_ACCOUNTS_INDICES $PROVER_KEY_INDICES $BOT_KEY_INDICES" | tr ' ' '\n' | grep -v '^$' | sort -u | tr '\n' ',' | sed 's/,$//')
 
 echo "Generating eth devnet config..."
+echo "VALIDATOR_REPLICAS: $VALIDATOR_REPLICAS"
+echo "VALIDATOR_KEYS_PER_NODE: $VALIDATOR_KEYS_PER_NODE"
+echo "TOTAL_VALIDATOR_KEYS: $NUMBER_OF_VALIDATOR_KEYS"
 echo "PREFUNDED_MNEMONIC_INDICES: $PREFUNDED_MNEMONIC_INDICES"
 echo "MNEMONIC: $(echo $MNEMONIC | cut -d' ' -f1-2)..."
 echo "BLOCK_TIME: $BLOCK_TIME"

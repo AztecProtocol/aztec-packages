@@ -1,4 +1,4 @@
-import { RollupContract, createEthereumChain } from '@aztec/ethereum';
+import { NoCommitteeError, RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -9,6 +9,7 @@ import {
   getEpochNumberAtTimestamp,
   getSlotAtTimestamp,
   getSlotRangeForEpoch,
+  getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
@@ -23,7 +24,7 @@ type EpochAndSlot = {
 };
 
 export type EpochCommitteeInfo = {
-  committee: EthAddress[];
+  committee: EthAddress[] | undefined;
   seed: bigint;
   epoch: bigint;
 };
@@ -34,8 +35,8 @@ export interface EpochCacheInterface {
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
     currentSlot: bigint;
     nextSlot: bigint;
   }>;
@@ -58,14 +59,14 @@ export class EpochCache implements EpochCacheInterface {
   constructor(
     private rollup: RollupContract,
     initialEpoch: bigint = 0n,
-    initialValidators: EthAddress[] = [],
+    initialValidators: EthAddress[] | undefined = undefined,
     initialSampleSeed: bigint = 0n,
     private readonly l1constants: L1RollupConstants = EmptyL1RollupConstants,
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly config = { cacheSize: 12 },
   ) {
     this.cache.set(initialEpoch, { epoch: initialEpoch, committee: initialValidators, seed: initialSampleSeed });
-    this.log.debug(`Initialized EpochCache with ${initialValidators.length} validators`, {
+    this.log.debug(`Initialized EpochCache with ${initialValidators?.length ?? 'no'} validators`, {
       l1constants,
       initialValidators,
       initialSampleSeed,
@@ -88,18 +89,20 @@ export class EpochCache implements EpochCacheInterface {
     });
 
     const rollup = new RollupContract(publicClient, rollupAddress.toString());
-    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber] = await Promise.all([
-      rollup.getL1StartBlock(),
-      rollup.getL1GenesisTime(),
-      rollup.getCurrentEpochCommittee(),
-      rollup.getCurrentSampleSeed(),
-      rollup.getEpochNumber(),
-    ] as const);
+    const [l1StartBlock, l1GenesisTime, initialValidators, sampleSeed, epochNumber, proofSubmissionEpochs] =
+      await Promise.all([
+        rollup.getL1StartBlock(),
+        rollup.getL1GenesisTime(),
+        rollup.getCurrentEpochCommittee(),
+        rollup.getCurrentSampleSeed(),
+        rollup.getEpochNumber(),
+        rollup.getProofSubmissionEpochs(),
+      ] as const);
 
     const l1RollupConstants: L1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
-      proofSubmissionWindow: config.aztecProofSubmissionWindow,
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
       slotDuration: config.aztecSlotDuration,
       epochDuration: config.aztecEpochDuration,
       ethereumSlotDuration: config.ethereumSlotDuration,
@@ -108,7 +111,7 @@ export class EpochCache implements EpochCacheInterface {
     return new EpochCache(
       rollup,
       epochNumber,
-      initialValidators.map(v => EthAddress.fromString(v)),
+      initialValidators?.map(v => EthAddress.fromString(v)),
       sampleSeed,
       l1RollupConstants,
       deps.dateProvider,
@@ -119,11 +122,12 @@ export class EpochCache implements EpochCacheInterface {
     return this.l1constants;
   }
 
-  public getEpochAndSlotNow(): EpochAndSlot {
-    return this.getEpochAndSlotAtTimestamp(this.nowInSeconds());
+  public getEpochAndSlotNow(): EpochAndSlot & { now: bigint } {
+    const now = this.nowInSeconds();
+    return { ...this.getEpochAndSlotAtTimestamp(now), now };
   }
 
-  private nowInSeconds(): bigint {
+  public nowInSeconds(): bigint {
     return BigInt(Math.floor(this.dateProvider.now() / 1000));
   }
 
@@ -133,16 +137,18 @@ export class EpochCache implements EpochCacheInterface {
     return { epoch, ts, slot };
   }
 
-  public getEpochAndSlotInNextSlot(): EpochAndSlot {
-    const nextSlotTs = this.nowInSeconds() + BigInt(this.l1constants.ethereumSlotDuration);
-    return this.getEpochAndSlotAtTimestamp(nextSlotTs);
+  public getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint } {
+    const now = this.nowInSeconds();
+    const nextSlotTs = now + BigInt(this.l1constants.ethereumSlotDuration);
+    return { ...this.getEpochAndSlotAtTimestamp(nextSlotTs), now };
   }
 
   private getEpochAndSlotAtTimestamp(ts: bigint): EpochAndSlot {
+    const slot = getSlotAtTimestamp(ts, this.l1constants);
     return {
       epoch: getEpochNumberAtTimestamp(ts, this.l1constants),
-      slot: getSlotAtTimestamp(ts, this.l1constants),
-      ts,
+      ts: getTimestampForSlot(slot, this.l1constants),
+      slot,
     };
   }
 
@@ -164,8 +170,8 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     const epochData = await this.computeCommittee({ epoch, ts });
-    // If the committee size is 0, then do not cache
-    if (epochData.committee.length == 0) {
+    // If the committee size is 0 or undefined, then do not cache
+    if (!epochData.committee || epochData.committee.length === 0) {
       return epochData;
     }
     this.cache.set(epoch, epochData);
@@ -182,7 +188,7 @@ export class EpochCache implements EpochCacheInterface {
     if (slot === 'now') {
       return this.getEpochAndSlotNow();
     } else if (slot === 'next') {
-      return this.getEpochAndSlotInNextSlot();
+      return this.getEpochAndSlotInNextL1Slot();
     } else {
       return this.getEpochAndSlotAtSlot(slot);
     }
@@ -191,7 +197,7 @@ export class EpochCache implements EpochCacheInterface {
   private async computeCommittee(when: { epoch: bigint; ts: bigint }): Promise<EpochCommitteeInfo> {
     const { ts, epoch } = when;
     const [committeeHex, seed] = await Promise.all([this.rollup.getCommitteeAt(ts), this.rollup.getSampleSeedAt(ts)]);
-    const committee = committeeHex.map((v: `0x${string}`) => EthAddress.fromString(v));
+    const committee = committeeHex?.map((v: `0x${string}`) => EthAddress.fromString(v));
     return { committee, seed, epoch };
   }
 
@@ -226,11 +232,11 @@ export class EpochCache implements EpochCacheInterface {
   async getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{
     currentSlot: bigint;
     nextSlot: bigint;
-    currentProposer: EthAddress;
-    nextProposer: EthAddress;
+    currentProposer: EthAddress | undefined;
+    nextProposer: EthAddress | undefined;
   }> {
     const current = this.getEpochAndSlotNow();
-    const next = this.getEpochAndSlotInNextSlot();
+    const next = this.getEpochAndSlotInNextL1Slot();
 
     return {
       currentProposer: await this.getProposerAttesterAddressAt(current),
@@ -240,15 +246,31 @@ export class EpochCache implements EpochCacheInterface {
     };
   }
 
-  getProposerAttesterAddressInNextSlot(): Promise<EthAddress> {
-    const epochAndSlot = this.getEpochAndSlotInNextSlot();
+  /**
+   * Get the proposer attester address in the next slot
+   * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
+   * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
+   */
+  getProposerAttesterAddressInNextSlot(): Promise<EthAddress | undefined> {
+    const epochAndSlot = this.getEpochAndSlotInNextL1Slot();
 
     return this.getProposerAttesterAddressAt(epochAndSlot);
   }
 
+  /**
+   * Get the proposer attester address at a given epoch and slot
+   * @param when - The epoch and slot to get the proposer attester address at
+   * @returns The proposer attester address. If the committee does not exist, we throw a NoCommitteeError.
+   * If the committee is empty (i.e. target committee size is 0, and anyone can propose), we return undefined.
+   */
   private async getProposerAttesterAddressAt(when: EpochAndSlot) {
     const { epoch, slot } = when;
-    const { seed, committee } = await this.getCommittee(slot);
+    const { committee, seed } = await this.getCommittee(slot);
+    if (!committee) {
+      throw new NoCommitteeError();
+    } else if (committee.length === 0) {
+      return undefined;
+    }
 
     const proposerIndex = this.computeProposerIndex(slot, epoch, seed, BigInt(committee.length));
     return committee[Number(proposerIndex)];
@@ -259,11 +281,17 @@ export class EpochCache implements EpochCacheInterface {
    */
   async isInCommittee(validator: EthAddress): Promise<boolean> {
     const { committee } = await this.getCommittee();
+    if (!committee) {
+      return false;
+    }
     return committee.some(v => v.equals(validator));
   }
 
   async filterInCommittee(validators: EthAddress[]): Promise<EthAddress[]> {
     const { committee } = await this.getCommittee();
+    if (!committee) {
+      return [];
+    }
     const committeeSet = new Set(committee.map(v => v.toString()));
     return validators.filter(v => committeeSet.has(v.toString()));
   }

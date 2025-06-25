@@ -13,7 +13,7 @@ import {
 import { MetadataTxValidator } from './metadata_validator.js';
 
 describe('MetadataTxValidator', () => {
-  let blockNumber: Fr;
+  let blockNumber: number;
   let chainId: Fr;
   let rollupVersion: Fr;
   let vkTreeRoot: Fr;
@@ -24,7 +24,7 @@ describe('MetadataTxValidator', () => {
 
   beforeEach(() => {
     chainId = new Fr(1);
-    blockNumber = new Fr(42);
+    blockNumber = 42;
     rollupVersion = new Fr(2);
     vkTreeRoot = new Fr(3);
     protocolContractTreeRoot = new Fr(4);
@@ -96,21 +96,21 @@ describe('MetadataTxValidator', () => {
 
   it.each([42, 43])('allows txs with valid max block number', async maxBlockNumber => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, new Fr(maxBlockNumber));
+    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, maxBlockNumber);
 
     await expectValid(goodTx);
   });
 
   it('allows txs with unset max block number', async () => {
     const [goodTx] = await makeTxs();
-    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, Fr.ZERO);
+    goodTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(false, 0);
 
     await expectValid(goodTx);
   });
 
   it('rejects txs with lower max block number', async () => {
     const [badTx] = await makeTxs();
-    badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber.sub(new Fr(1)));
+    badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber - 1);
 
     await expectInvalid(badTx, TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
   });

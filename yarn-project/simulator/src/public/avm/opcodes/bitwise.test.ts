@@ -3,7 +3,7 @@ import { AVM_AND_BASE_L2_GAS, AVM_BITWISE_DYN_L2_GAS, AVM_OR_BASE_L2_GAS, AVM_XO
 import type { AvmContext } from '../avm_context.js';
 import { getBitwiseDynamicGasMultiplier } from '../avm_gas.js';
 import { TypeTag, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { And, Not, Or, Shl, Shr, Xor } from './bitwise.js';
 

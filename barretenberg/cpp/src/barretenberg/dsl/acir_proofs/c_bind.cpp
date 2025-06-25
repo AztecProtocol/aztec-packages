@@ -47,10 +47,11 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-    UltraProver prover{ builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
+    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+    UltraProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.proving_key->proving_key);
     UltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -68,10 +69,11 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
 
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
-    MegaProver prover{ builder };
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+    MegaProver prover{ proving_key, verification_key };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     MegaVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -117,7 +119,10 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     *result = ClientIVC::verify(proof, vk);
 }
 
-WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
+                                       uint8_t const* witness_vec,
+                                       uint8_t const* vk_buf,
+                                       uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraProver prover = [&] {
@@ -127,15 +132,21 @@ WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* w
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(builder);
+        auto verification_key =
+            std::make_shared<UltraFlavor::VerificationKey>(from_buffer<UltraFlavor::VerificationKey>(vk_buf));
 
-        return UltraProver(builder);
+        return UltraProver(proving_key, verification_key);
     }();
 
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
 }
 
-WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
+                                              uint8_t const* witness_vec,
+                                              uint8_t const* vk_buf,
+                                              uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakProver prover = [&] {
@@ -146,13 +157,19 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t c
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-        return UltraKeccakProver(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakFlavor>>(builder);
+        auto verification_key = std::make_shared<UltraKeccakFlavor::VerificationKey>(
+            from_buffer<UltraKeccakFlavor::VerificationKey>(vk_buf));
+        return UltraKeccakProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
 }
 
-WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
+WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec,
+                                                 uint8_t const* witness_vec,
+                                                 uint8_t const* vk_buf,
+                                                 uint8_t** out)
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakZKProver prover = [&] {
@@ -163,7 +180,10 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_
         };
         auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
 
-        return UltraKeccakZKProver(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<UltraKeccakZKFlavor>>(builder);
+        auto verification_key = std::make_shared<UltraKeccakZKFlavor::VerificationKey>(
+            from_buffer<UltraKeccakZKFlavor::VerificationKey>(vk_buf));
+        return UltraKeccakZKProver(proving_key, verification_key);
     }();
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer(proof));
@@ -171,6 +191,7 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec, uint8_
 
 WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                 [[maybe_unused]] uint8_t const* witness_vec,
+                                                [[maybe_unused]] uint8_t const* vk_buf,
                                                 [[maybe_unused]] uint8_t** out)
 {
 #ifdef STARKNET_GARAGA_FLAVORS
@@ -194,6 +215,7 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
 
 WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t const* acir_vec,
                                                    [[maybe_unused]] uint8_t const* witness_vec,
+                                                   [[maybe_unused]] uint8_t const* vk_buf,
                                                    [[maybe_unused]] uint8_t** out)
 {
 #ifdef STARKNET_GARAGA_FLAVORS

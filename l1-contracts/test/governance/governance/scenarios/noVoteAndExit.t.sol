@@ -2,14 +2,14 @@
 pragma solidity >=0.8.27;
 
 import {GovernanceBase} from "../base.t.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Proposal, ProposalState, Withdrawal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 
 contract NoVoteAndExitTest is GovernanceBase {
-  using ProposalLib for DataStructures.Proposal;
+  using ProposalLib for Proposal;
   // Ensure that it is not possible to BOTH vote on proposal AND withdraw the funds before
   // it can be executed
 
@@ -43,7 +43,7 @@ contract NoVoteAndExitTest is GovernanceBase {
     // Jump up to the point where the proposal becomes active
     vm.warp(Timestamp.unwrap(proposal.pendingThrough()) + 1);
 
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Active);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Active);
 
     vm.prank(_voter);
     governance.vote(proposalId, yeas, true);
@@ -55,12 +55,12 @@ contract NoVoteAndExitTest is GovernanceBase {
 
     // Jump to the block just before we become executable.
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()));
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Queued);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
 
     vm.warp(Timestamp.unwrap(proposal.queuedThrough()) + 1);
-    assertEq(governance.getProposalState(proposalId), DataStructures.ProposalState.Executable);
+    assertEq(governance.getProposalState(proposalId), ProposalState.Executable);
 
-    DataStructures.Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
+    Withdrawal memory withdrawal = governance.getWithdrawal(withdrawalId);
 
     vm.expectRevert(
       abi.encodeWithSelector(

@@ -13,7 +13,7 @@ contract PowerNowTest is UserLibBase {
 
   Timestamp internal time;
 
-  function test_GivenNoCheckpoints(uint256 _time) external {
+  function test_GivenNoCheckpoints(uint64 _time) external {
     // it return 0
     vm.warp(_time);
     assertEq(user.powerNow(), 0);

@@ -376,7 +376,7 @@ pub contract Token {
         context: PrivateContext,
         account: AztecAddress,
         remaining: u128,
-    ) -> PrivateCallInterface<25, u128> {
+    ) -> PrivateCallInterface<25, u128, 1> {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 

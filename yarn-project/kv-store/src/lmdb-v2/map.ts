@@ -27,6 +27,18 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
   }
 
   /**
+   * Sets the values at the given keys.
+   * @param entries - The entries to set
+   */
+  async setMany(entries: { key: K; value: V }[]): Promise<void> {
+    await execInWriteTx(this.store, async tx => {
+      for (const { key, value } of entries) {
+        await tx.set(serializeKey(this.prefix, key), this.encoder.pack(value));
+      }
+    });
+  }
+
+  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set
@@ -60,6 +72,10 @@ export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K,
 
   hasAsync(key: K): Promise<boolean> {
     return execInReadTx(this.store, async tx => !!(await tx.get(serializeKey(this.prefix, key))));
+  }
+
+  sizeAsync(): Promise<number> {
+    return execInReadTx(this.store, tx => tx.countEntries(minKey(this.prefix), maxKey(this.prefix), false));
   }
 
   /**

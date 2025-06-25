@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {Slot, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 /**
  * @title Errors Library
@@ -67,4 +67,20 @@ library Errors {
   error Registry__NoRollupsRegistered();
 
   error RewardDistributor__InvalidCaller(address caller, address canonical); // 0xb95e39f6
+
+  error GSE__NotRollup(address);
+  error GSE__GovernanceAlreadySet();
+  error GSE__InvalidRollupAddress(address);
+  error GSE__RollupAlreadyRegistered(address);
+  error GSE__NotCanonical(address);
+  error GSE__AlreadyRegistered(address, address);
+  error GSE__NothingToExit(address);
+  error GSE__InsufficientStake(uint256, uint256);
+  error GSE__FailedToRemove(address);
+  error GSE__InstanceDoesNotExist(address);
+  error GSE__NotWithdrawer(address, address);
+  error GSE__OutOfBounds(uint256, uint256);
+  error GSE__FatalError(string);
+
+  error Delegation__InsufficientPower(address, uint256, uint256);
 }

@@ -9,7 +9,7 @@ import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.j
 import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
-import { initContext, initPersistableStateManager } from '../fixtures/index.js';
+import { initContext, initPersistableStateManager } from '../fixtures/initializers.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {

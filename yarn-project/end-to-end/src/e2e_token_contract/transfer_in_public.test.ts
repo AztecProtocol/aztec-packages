@@ -223,7 +223,7 @@ describe('e2e_token_contract transfer public', () => {
           .withWallet(wallets[1])
           .methods.transfer_in_public(accounts[0].address, accounts[1].address, amount, authwitNonce)
           .simulate(),
-      ).rejects.toThrowError(/unauthorized/);
+      ).rejects.toThrow(/unauthorized/);
     });
 
     it('transfer on behalf of other, cancelled authwit, flow 2', async () => {

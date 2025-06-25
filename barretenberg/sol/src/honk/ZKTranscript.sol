@@ -9,8 +9,7 @@ import {
     PAIRING_POINTS_SIZE
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
-
-import {bytesToG1ProofPoint, bytesToFr, logFr, logG} from "./utils.sol";
+import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
 // ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
 struct ZKTranscript {

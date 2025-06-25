@@ -3,8 +3,7 @@
 #include <memory>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -18,6 +17,7 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
         trace.set(row,
                   { {
                       { C::memory_sel, 1 },
+                      { C::memory_clk, event.execution_clk },
                       { C::memory_address, event.addr },
                       { C::memory_value, event.value },
                       { C::memory_tag, static_cast<uint8_t>(event.value.get_tag()) },
@@ -28,9 +28,6 @@ void MemoryTraceBuilder::process(const simulation::EventEmitterInterface<simulat
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> MemoryTraceBuilder::lookup_jobs()
-{
-    return {};
-}
+const InteractionDefinition MemoryTraceBuilder::interactions = InteractionDefinition();
 
 } // namespace bb::avm2::tracegen

@@ -7,6 +7,7 @@
 namespace bb::avm2::simulation {
 
 struct Sha256CompressionEvent {
+    uint32_t execution_clk;
     MemoryAddress state_addr;
     MemoryAddress input_addr;
     MemoryAddress output_addr;

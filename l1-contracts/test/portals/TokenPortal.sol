@@ -45,7 +45,7 @@ contract TokenPortal {
     underlying = IERC20(_underlying);
     l2Bridge = _l2Bridge;
 
-    rollup = IRollup(registry.getCanonicalRollup());
+    rollup = IRollup(address(registry.getCanonicalRollup()));
     outbox = rollup.getOutbox();
     inbox = rollup.getInbox();
     rollupVersion = rollup.getVersion();

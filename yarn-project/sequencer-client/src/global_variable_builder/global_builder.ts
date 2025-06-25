@@ -20,7 +20,7 @@ import { createPublicClient, fallback, http } from 'viem';
  */
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
-  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(Fr.ZERO, Fr.ZERO));
+  private currentBaseFees: Promise<GasFees> = Promise.resolve(new GasFees(0, 0));
   private currentL1BlockNumber: bigint | undefined = undefined;
 
   private readonly rollupContract: RollupContract;
@@ -60,7 +60,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    return new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
   }
 
   public async getCurrentBaseFees(): Promise<GasFees> {
@@ -94,7 +94,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
    * @returns The global variables for the given block number.
    */
   public async buildGlobalVariables(
-    blockNumber: Fr,
+    blockNumber: number,
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
@@ -109,17 +109,16 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     const timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
 
     const slotFr = new Fr(slotNumber);
-    const timestampFr = new Fr(timestamp);
 
     // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
-    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
+    const gasFees = new GasFees(0, await this.rollupContract.getManaBaseFeeAt(timestamp, true));
 
     const globalVariables = new GlobalVariables(
       chainId,
       version,
       blockNumber,
       slotFr,
-      timestampFr,
+      timestamp,
       coinbase,
       feeRecipient,
       gasFees,

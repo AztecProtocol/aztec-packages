@@ -11,9 +11,12 @@ import {
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+
+import { addLeadingHex } from '../../utils/aztec.js';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -54,9 +57,12 @@ export async function addL1Validator({
   mnemonic,
   attesterAddress,
   stakingAssetHandlerAddress,
+  merkleProof,
+  proofParams,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress }) {
+}: StakingAssetHandlerCommandArgs &
+  LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer; merkleProof: string[] }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -69,16 +75,18 @@ export async function addL1Validator({
   });
 
   const rollup = await stakingAssetHandler.read.getRollup();
-  dualLog(`Adding validator (${attesterAddress} to rollup ${rollup.toString()}`);
+  dualLog(`Adding validator ${attesterAddress} to rollup ${rollup.toString()}`);
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
+  const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
+  const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
       functionName: 'addValidator',
-      args: [attesterAddress.toString()],
+      args: [attesterAddress.toString(), merkleProofArray, proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -197,7 +205,7 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.getCurrentEpochCommittee();
-  log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+  log(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.archive();
   log(`Archive: ${archive}`);
   const epochNum = await rollup.getEpochNumber();

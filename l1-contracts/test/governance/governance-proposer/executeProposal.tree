@@ -19,8 +19,6 @@ ExecuteProposalTest
                     └── given sufficient yea
                         ├── given new canonical instance
                         │   └── it revert
-                        ├── given governance call return false
-                        │   └── it revert
                         ├── given governance call fails
                         │   └── it revert
                         └── given governance call succeeds

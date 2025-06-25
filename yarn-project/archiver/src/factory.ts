@@ -81,7 +81,7 @@ async function registerProtocolContracts(store: KVArchiverDataStore) {
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await store.registerContractFunctionSignatures(contract.address, publicFunctionSignatures);
+    await store.registerContractFunctionSignatures(publicFunctionSignatures);
     const bytecodeCommitment = await computePublicBytecodeCommitment(contractClassPublic.packedBytecode);
     await store.addContractClasses([contractClassPublic], [bytecodeCommitment], blockNumber);
     await store.addContractInstances([contract.instance], blockNumber);

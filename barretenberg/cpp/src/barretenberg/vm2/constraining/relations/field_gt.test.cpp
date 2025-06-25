@@ -13,7 +13,6 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,7 +23,8 @@ namespace {
 using ::testing::NiceMock;
 using ::testing::TestWithParam;
 
-using tracegen::LookupIntoDynamicTableGeneric;
+using tracegen::FieldGreaterThanTraceBuilder;
+using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
 using simulation::EventEmitter;
@@ -37,9 +37,6 @@ using simulation::RangeCheckEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using ff_gt = bb::avm2::ff_gt<FF>;
-
-using lookup_a_hi_range = bb::avm2::lookup_ff_gt_a_hi_range_relation<FF>;
-using lookup_a_lo_range = bb::avm2::lookup_ff_gt_a_lo_range_relation<FF>;
 
 const uint256_t TWO_POW_128 = uint256_t{ 1 } << 128;
 
@@ -85,7 +82,7 @@ TEST_P(FieldGreaterThanBasicTest, BasicComparison)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + 5);
     check_relation<ff_gt>(trace);
@@ -112,14 +109,15 @@ TEST_P(FieldGreaterThanInteractionsTests, InteractionsWithRangeCheck)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
-    tracegen::RangeCheckTraceBuilder range_check_builder;
+    FieldGreaterThanTraceBuilder builder;
+    RangeCheckTraceBuilder range_check_builder;
 
     builder.process(event_emitter.dump_events(), trace);
     range_check_builder.process(range_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableGeneric<lookup_a_hi_range::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<lookup_a_lo_range::Settings>().process(trace);
+    check_interaction<FieldGreaterThanTraceBuilder, //
+                      lookup_ff_gt_a_hi_range_settings,
+                      lookup_ff_gt_a_lo_range_settings>(trace);
 
     check_relation<ff_gt>(trace);
 }
@@ -140,7 +138,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
     trace.set(Column::ff_gt_a_lo, 1, 1);
@@ -162,7 +160,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
     auto p_limbs = simulation::decompose(FF::modulus);
@@ -198,7 +196,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
     trace.set(Column::ff_gt_cmp_rng_ctr, 1, 3);
@@ -220,7 +218,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
     // Disable the selector after the first row
@@ -241,7 +239,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
         { .precomputed_first_row = 1 },
     });
 
-    tracegen::FieldGreaterThanTraceBuilder builder;
+    FieldGreaterThanTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
 
     trace.set(Column::ff_gt_a_lo, 2, 0);

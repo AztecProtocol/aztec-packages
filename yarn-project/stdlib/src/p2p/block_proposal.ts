@@ -6,6 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { Tx } from '../tx/tx.js';
+import type { UInt32 } from '../types/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import {
@@ -38,7 +39,7 @@ export class BlockProposal extends Gossipable {
 
   constructor(
     /** The number of the block */
-    public readonly blockNumber: Fr,
+    public readonly blockNumber: UInt32,
 
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
@@ -66,7 +67,7 @@ export class BlockProposal extends Gossipable {
   }
 
   static async createProposalFromSigner(
-    blockNumber: Fr,
+    blockNumber: UInt32,
     payload: ConsensusPayload,
     // Note(md): Provided separately to tx hashes such that this function can be optional
     txs: Tx[] | undefined,
@@ -107,7 +108,7 @@ export class BlockProposal extends Gossipable {
   static fromBuffer(buf: Buffer | BufferReader): BlockProposal {
     const reader = BufferReader.asReader(buf);
 
-    const blockNumber = reader.readObject(Fr);
+    const blockNumber = reader.readNumber();
     const payload = reader.readObject(ConsensusPayload);
     const sig = reader.readObject(Signature);
 
@@ -121,7 +122,7 @@ export class BlockProposal extends Gossipable {
 
   getSize(): number {
     return (
-      this.blockNumber.size +
+      4 /* blockNumber */ +
       this.payload.getSize() +
       this.signature.getSize() +
       (this.txs ? this.txs.reduce((acc, tx) => acc + tx.getSize(), 0) : 0)

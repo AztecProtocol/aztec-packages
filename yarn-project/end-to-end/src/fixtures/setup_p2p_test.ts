@@ -3,6 +3,7 @@
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { SentTx } from '@aztec/aztec.js';
+import { SecretValue } from '@aztec/foundation/config';
 import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { PXEService } from '@aztec/pxe/server';
@@ -69,6 +70,13 @@ export async function createNodes(
     nodePromises.push(nodePromise);
   }
   const nodes = await Promise.all(nodePromises);
+
+  // Sanity check that we have a sequencer
+  const seqClient = nodes[0].getSequencer();
+  if (!seqClient) {
+    throw new Error('Sequencer not found');
+  }
+
   removeLogNameHandler(logNameHandler);
   return nodes;
 }
@@ -106,8 +114,8 @@ export async function createValidatorConfig(
     ATTESTER_PRIVATE_KEYS_START_INDEX + addressIndex,
   )!.toString('hex')}`;
 
-  config.validatorPrivateKeys = [attesterPrivateKey];
-  config.publisherPrivateKey = attesterPrivateKey;
+  config.validatorPrivateKeys = new SecretValue([attesterPrivateKey]);
+  config.publisherPrivateKey = new SecretValue(attesterPrivateKey);
 
   const nodeConfig: AztecNodeConfig = {
     ...config,

@@ -21,7 +21,7 @@ class AvmProver {
     using Transcript = Flavor::Transcript;
     using Proof = HonkProof;
 
-    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit AvmProver(std::shared_ptr<ProvingKey> input_key, const PCSCommitmentKey& commitment_key);
     AvmProver(AvmProver&& prover) = default;
     virtual ~AvmProver() = default;
 
@@ -54,10 +54,7 @@ class AvmProver {
 
     SumcheckOutput<Flavor> sumcheck_output;
 
-    std::shared_ptr<PCSCommitmentKey> commitment_key;
-
-  protected:
-    HonkProof proof;
+    PCSCommitmentKey commitment_key;
 };
 
 } // namespace bb::avm2

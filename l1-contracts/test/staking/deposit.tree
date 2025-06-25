@@ -14,7 +14,6 @@ DepositTest
                 ├── given attester is already active
                 │   └── it reverts
                 └── given attester is not active
-                    ├── it transfer funds from the caller
-                    ├── it adds attester to the set
-                    ├── it updates the operator info
-                    └── it emits a {Deposit} event
+                    ├── it transfers funds from the caller
+                    ├── it adds attester to the entry queue
+                    └── it emits a {ValidatorQueued} event

@@ -149,9 +149,9 @@ TEST_F(LMDBTreeStoreTest, can_read_data_from_multiple_threads)
 TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
 {
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
-    uint64_t start_block = 647810461952355;
-    uint64_t num_blocks = 1000;
-    for (size_t i = 0; i < num_blocks; i++) {
+    block_number_t start_block = 647810461;
+    block_number_t num_blocks = 1000;
+    for (block_number_t i = 0; i < num_blocks; i++) {
         BlockPayload blockData;
         blockData.blockNumber = i + start_block;
         blockData.root = VALUES[i];
@@ -171,7 +171,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_multiple_blocks_with_meta)
     }
 
     BlockPayload blockData;
-    for (size_t i = 0; i < num_blocks; i++) {
+    for (block_number_t i = 0; i < num_blocks; i++) {
         LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
         BlockPayload readBack;
         bool success = store.read_block_data(i + start_block, readBack, *transaction);
@@ -595,7 +595,7 @@ TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
     for (size_t i = 0; i < 3; i++) {
         {
             BlockPayload blockData;
-            blockData.blockNumber = i;
+            blockData.blockNumber = static_cast<block_number_t>(i);
             blockData.root = VALUES[i];
             blockData.size = 45 + (i * 97);
 
@@ -604,13 +604,13 @@ TEST_F(LMDBTreeStoreTest, reports_physical_file_size)
             metaData.size = blockData.size;
             metaData.root = blockData.root;
             metaData.depth = 32;
-            metaData.unfinalisedBlockHeight = i;
+            metaData.unfinalisedBlockHeight = static_cast<block_number_t>(i);
             metaData.name = "NullifierTree";
 
             // Write metadata and block data with different values each iteration
             LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
             store.write_meta_data(metaData, *transaction);
-            store.write_block_data(i, blockData, *transaction);
+            store.write_block_data(blockData.blockNumber, blockData, *transaction);
             transaction->commit();
         }
 

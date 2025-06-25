@@ -3,15 +3,16 @@ import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
-import type {
-  ActualProverConfig,
-  EpochProver,
-  EpochProverManager,
-  ForkMerkleTreeOperations,
-  ProvingJobBroker,
-  ProvingJobConsumer,
-  ProvingJobProducer,
-  ServerCircuitProver,
+import {
+  type ActualProverConfig,
+  type EpochProver,
+  type EpochProverManager,
+  type ForkMerkleTreeOperations,
+  type ProvingJobBroker,
+  type ProvingJobConsumer,
+  type ProvingJobProducer,
+  type ServerCircuitProver,
+  tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -87,6 +88,7 @@ export class ProverClient implements EpochProverManager {
     }
     this.running = false;
     await this.stopAgents();
+    await tryStop(this.orchestratorClient);
   }
 
   /**

@@ -462,9 +462,9 @@ void pippenger(State& state)
             pol.at(i).self_reduce_once();
         }
 
-        auto ck = std::make_shared<CommitmentKey<curve::BN254>>(num_cycles);
+        CommitmentKey<curve::BN254> ck(num_cycles);
         state.ResumeTiming();
-        benchmark::DoNotOptimize(ck->commit(pol));
+        benchmark::DoNotOptimize(ck.commit(pol));
     }
 }
 

@@ -1,5 +1,9 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import {
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
@@ -8,6 +12,7 @@ import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
+import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 import path from 'path';
@@ -20,7 +25,6 @@ import {
   MockRollupMergeCircuit,
   generate3FunctionTestingIVCStack,
   mapAvmProofToNoir,
-  mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
   witnessGenMockPublicBaseCircuit,
@@ -41,7 +45,7 @@ describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
 
   let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
-  let avmVK: Fr[];
+  let avmVK: VerificationKeyAsFields;
   let avmProof: Fr[];
   let avmPublicInputs: AvmCircuitPublicInputs;
 
@@ -145,7 +149,7 @@ describe('Rollup IVC Integration', () => {
           ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
         ),
       },
-      verification_key: mapAvmVerificationKeyToNoir(avmVK),
+      verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
       proof: mapAvmProofToNoir(avmProof),
       public_inputs: mapAvmCircuitPublicInputsToNoir(avmPublicInputs),
     });

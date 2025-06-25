@@ -137,6 +137,8 @@ describe('aztec node', () => {
       worldState,
       undefined,
       undefined,
+      undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
@@ -210,11 +212,11 @@ describe('aztec node', () => {
       const validMaxBlockNumberMetadata = txs[2];
 
       invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(1)),
+        new MaxBlockNumber(true, 1),
       );
 
       validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(5)),
+        new MaxBlockNumber(true, 5),
       );
 
       lastBlockNumber = 3;
@@ -250,9 +252,9 @@ describe('aztec node', () => {
       let header2: BlockHeader;
 
       beforeEach(() => {
-        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(0) }) });
-        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(1) }) });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(2) }) });
+        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 0 }) });
+        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1 }) });
+        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 2 }) });
 
         merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
         l2BlockSource.getBlockNumber.mockResolvedValue(2);

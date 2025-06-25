@@ -20,7 +20,7 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
     };
 
   public:
-    template <class CK> inline std::shared_ptr<CK> create_commitment_key(size_t num_points);
+    template <class CK> CK create_commitment_key(size_t num_points);
 
     // Construct a random poly with the prescribed block structure; complement is zero/constant if non_zero_complement =
     // false/true (to mimic wire/z_perm)
@@ -74,20 +74,20 @@ template <typename Curve> class CommitmentKeyTest : public ::testing::Test {
 
 template <>
 template <>
-std::shared_ptr<CommitmentKey<curve::BN254>> CommitmentKeyTest<curve::BN254>::create_commitment_key<
-    CommitmentKey<curve::BN254>>(const size_t num_points)
+CommitmentKey<curve::BN254> CommitmentKeyTest<curve::BN254>::create_commitment_key<CommitmentKey<curve::BN254>>(
+    const size_t num_points)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    return std::make_shared<CommitmentKey<curve::BN254>>(num_points);
+    return CommitmentKey<curve::BN254>(num_points);
 }
 
 template <>
 template <>
-std::shared_ptr<CommitmentKey<curve::Grumpkin>> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
+CommitmentKey<curve::Grumpkin> CommitmentKeyTest<curve::Grumpkin>::create_commitment_key<
     CommitmentKey<curve::Grumpkin>>(const size_t num_points)
 {
     srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    return std::make_shared<CommitmentKey<curve::Grumpkin>>(num_points);
+    return CommitmentKey<curve::Grumpkin>(num_points);
 }
 
 using Curves = ::testing::Types<curve::BN254, curve::Grumpkin>;
@@ -115,9 +115,9 @@ TYPED_TEST(CommitmentKeyTest, CommitFull)
 
     // Commit to the polynomial and the same polynomial but full
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
+    G1 commit_result = key.commit(poly);
     auto full_poly = poly.full();
-    G1 full_commit_result = key->commit(full_poly);
+    G1 full_commit_result = key.commit(full_poly);
 
     EXPECT_EQ(commit_result, full_commit_result);
 }
@@ -143,9 +143,9 @@ TYPED_TEST(CommitmentKeyTest, CommitFullMedium)
 
     // Commit to the polynomial and the same polynomial but full
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
+    G1 commit_result = key.commit(poly);
     auto full_poly = poly.full();
-    G1 full_commit_result = key->commit(full_poly);
+    G1 full_commit_result = key.commit(full_poly);
 
     EXPECT_EQ(commit_result, full_commit_result);
 }
@@ -171,128 +171,11 @@ TYPED_TEST(CommitmentKeyTest, CommitSRSCheck)
 
     // Commit to the polynomial and the same polynomial but full
     auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
+    G1 commit_result = key.commit(poly);
     auto full_poly = poly.full();
-    G1 full_commit_result = key->commit(full_poly);
+    G1 full_commit_result = key.commit(full_poly);
 
     EXPECT_EQ(commit_result, full_commit_result);
-}
-
-// Check that commit and commit_sparse return the same result for a random sparse polynomial
-TYPED_TEST(CommitmentKeyTest, CommitSparse)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
-    const size_t num_nonzero = 7;
-
-    // Construct a sparse random polynomial
-    Polynomial poly{ num_points };
-    for (size_t i = 0; i < num_nonzero; ++i) {
-        size_t idx = (i + 1) * (i + 1) % num_points;
-        poly.at(idx) = Fr::random_element();
-    }
-
-    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
-    auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
-
-    EXPECT_EQ(sparse_commit_result, commit_result);
-}
-
-/**
- * @brief Test commit_sparse on polynomial with zero start index.
- *
- */
-TYPED_TEST(CommitmentKeyTest, CommitSparseSmallSize)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
-    const size_t num_nonzero = 7;
-
-    // Construct a sparse random polynomial
-    Polynomial poly(num_nonzero, num_points, 0);
-    for (size_t i = 0; i < num_nonzero; ++i) {
-        poly.at(i) = Fr::random_element();
-    }
-
-    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
-    auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
-
-    EXPECT_EQ(sparse_commit_result, commit_result);
-}
-
-/**
- * @brief Test commit_sparse on polynomial with nonzero start index.
- *
- */
-TYPED_TEST(CommitmentKeyTest, CommitSparseNonZeroStartIndex)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
-    const size_t num_nonzero = 7;
-    const size_t offset = 1 << 11;
-
-    // Construct a sparse random polynomial
-    Polynomial poly(num_nonzero, num_points, offset);
-    for (size_t i = offset; i < offset + num_nonzero; ++i) {
-        poly.at(i) = Fr::random_element();
-    }
-
-    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
-    auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
-
-    EXPECT_EQ(sparse_commit_result, commit_result);
-}
-
-/**
- * @brief Test commit_sparse on polynomial with medium size and nonzero start index.
- * @details This was used to catch a bug in commit_sparse where the number of threads was > 1 and the size was not a
- * power of 2.
- */
-TYPED_TEST(CommitmentKeyTest, CommitSparseMediumNonZeroStartIndex)
-{
-    using Curve = TypeParam;
-    using CK = CommitmentKey<Curve>;
-    using G1 = Curve::AffineElement;
-    using Fr = Curve::ScalarField;
-    using Polynomial = bb::Polynomial<Fr>;
-
-    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
-    const size_t num_nonzero = (1 << 9) + 1;
-    const size_t offset = 1 << 11;
-
-    // Construct a sparse random polynomial
-    Polynomial poly(num_nonzero, num_points, offset);
-    for (size_t i = offset; i < offset + num_nonzero; ++i) {
-        poly.at(i) = Fr::random_element();
-    }
-
-    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
-    auto key = TestFixture::template create_commitment_key<CK>(num_points);
-    G1 commit_result = key->commit(poly);
-    G1 sparse_commit_result = key->commit_sparse(poly);
-
-    EXPECT_EQ(sparse_commit_result, commit_result);
 }
 
 /**
@@ -322,9 +205,9 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
 
     auto full_poly = polynomial.full();
-    G1 actual_expected_result = key->commit(full_poly);
-    G1 expected_result = key->commit(polynomial);
-    G1 result = key->commit_structured(polynomial, active_range_endpoints);
+    G1 actual_expected_result = key.commit(full_poly);
+    G1 expected_result = key.commit(polynomial);
+    G1 result = key.commit_structured(polynomial, active_range_endpoints);
     EXPECT_EQ(actual_expected_result, expected_result);
     EXPECT_EQ(result, expected_result);
 }
@@ -358,9 +241,9 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredMaskedWire)
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
 
     auto full_poly = polynomial.full();
-    G1 actual_expected_result = key->commit(full_poly);
-    G1 expected_result = key->commit(polynomial);
-    G1 result = key->commit_structured(polynomial, active_range_endpoints);
+    G1 actual_expected_result = key.commit(full_poly);
+    G1 expected_result = key.commit(polynomial);
+    G1 result = key.commit_structured(polynomial, active_range_endpoints);
     EXPECT_EQ(actual_expected_result, expected_result);
     EXPECT_EQ(result, expected_result);
 }
@@ -392,8 +275,8 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
     auto key = TestFixture::template create_commitment_key<CK>(polynomial.virtual_size());
 
-    G1 expected_result = key->commit(polynomial);
-    G1 result = key->commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
+    G1 expected_result = key.commit(polynomial);
+    G1 result = key.commit_structured_with_nonzero_complement(polynomial, active_range_endpoints);
 
     EXPECT_EQ(result, expected_result);
 }

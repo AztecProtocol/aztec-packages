@@ -11,8 +11,7 @@ import type { DataProvider } from '../data_provider.js';
 interface PrivateEventEntry {
   msgContent: Buffer;
   blockNumber: number;
-  logIndexInTx: number;
-  txIndexInBlock: number;
+  eventCommitmentIndex: number;
 }
 
 /**
@@ -24,11 +23,8 @@ export class PrivateEventDataProvider implements DataProvider {
   #eventLogs: AztecAsyncArray<PrivateEventEntry>;
   /** Map from contract_address_recipient_eventSelector to array of indices into #eventLogs for efficient lookup */
   #eventLogIndex: AztecAsyncMap<string, number[]>;
-  /**
-   * Map from txHash_logIndexInTx to boolean indicating if log has been seen.
-   * @dev A single transaction can have multiple logs.
-   */
-  #seenLogs: AztecAsyncMap<string, boolean>;
+  /** Map from eventCommitmentIndex to boolean indicating if log has been seen. */
+  #seenLogs: AztecAsyncMap<number, boolean>;
 
   logger = createLogger('private_event_data_provider');
 
@@ -46,8 +42,7 @@ export class PrivateEventDataProvider implements DataProvider {
    * @param eventSelector - The event selector of the event.
    * @param msgContent - The content of the event.
    * @param txHash - The transaction hash of the event log.
-   * @param logIndexInTx - The index of the log within the transaction.
-   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
+   * @param eventCommitmentIndex - The index of the event commitment in the nullifier tree.
    * @param blockNumber - The block number in which the event was emitted.
    */
   storePrivateEventLog(
@@ -56,20 +51,16 @@ export class PrivateEventDataProvider implements DataProvider {
     eventSelector: EventSelector,
     msgContent: Fr[],
     txHash: TxHash,
-    logIndexInTx: number,
-    txIndexInBlock: number,
+    eventCommitmentIndex: number,
     blockNumber: number,
   ): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
 
-      // We identify a unique log by its transaction hash and index within that transaction
-      const txKey = `${txHash.toString()}_${logIndexInTx}`;
-
-      // Check if this exact log has already been stored
-      const hasBeenSeen = await this.#seenLogs.getAsync(txKey);
+      // Check if this exact log has already been stored using eventCommitmentIndex as unique identifier
+      const hasBeenSeen = await this.#seenLogs.getAsync(eventCommitmentIndex);
       if (hasBeenSeen) {
-        this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), logIndexInTx });
+        this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), eventCommitmentIndex });
         return;
       }
 
@@ -79,15 +70,14 @@ export class PrivateEventDataProvider implements DataProvider {
       await this.#eventLogs.push({
         msgContent: serializeToBuffer(msgContent),
         blockNumber,
-        logIndexInTx,
-        txIndexInBlock,
+        eventCommitmentIndex,
       });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
 
-      // Mark this log as seen
-      await this.#seenLogs.set(txKey, true);
+      // Mark this log as seen using eventCommitmentIndex
+      await this.#seenLogs.set(eventCommitmentIndex, true);
     });
   }
 
@@ -107,7 +97,7 @@ export class PrivateEventDataProvider implements DataProvider {
     recipients: AztecAddress[],
     eventSelector: EventSelector,
   ): Promise<Fr[][]> {
-    const events: Array<{ msgContent: Fr[]; blockNumber: number; logIndexInTx: number; txIndexInBlock: number }> = [];
+    const events: Array<{ msgContent: Fr[]; blockNumber: number; eventCommitmentIndex: number }> = [];
 
     for (const recipient of recipients) {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
@@ -127,22 +117,13 @@ export class PrivateEventDataProvider implements DataProvider {
         events.push({
           msgContent,
           blockNumber: entry.blockNumber,
-          logIndexInTx: entry.logIndexInTx,
-          txIndexInBlock: entry.txIndexInBlock,
+          eventCommitmentIndex: entry.eventCommitmentIndex,
         });
       }
     }
 
-    // Sort by block number first, then by txIndexInBlock, then by logIndexInTx
-    events.sort((a, b) => {
-      if (a.blockNumber !== b.blockNumber) {
-        return a.blockNumber - b.blockNumber;
-      }
-      if (a.txIndexInBlock !== b.txIndexInBlock) {
-        return a.txIndexInBlock - b.txIndexInBlock;
-      }
-      return a.logIndexInTx - b.logIndexInTx;
-    });
+    // Sort by eventCommitmentIndex only
+    events.sort((a, b) => a.eventCommitmentIndex - b.eventCommitmentIndex);
 
     return events.map(e => e.msgContent);
   }

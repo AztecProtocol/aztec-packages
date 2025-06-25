@@ -2,7 +2,7 @@ import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-// Importing directly from 'c-kzg' does not work, ignoring import/no-named-as-default-member err:
+// Importing directly from 'c-kzg' does not work:
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer } from 'c-kzg';
 
@@ -24,14 +24,10 @@ export class Blob {
     public readonly data: BlobBuffer,
     /** The hash of all tx effects inside the blob. Used in generating the challenge z and proving that we have included all required effects. */
     public readonly fieldsHash: Fr,
-    /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y. */
+    /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y for a single blob, used as z_i in batching (see ./blob_batching.ts). */
     public readonly challengeZ: Fr,
-    /** Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts. */
-    public readonly evaluationY: Buffer,
     /** Commitment to the blob C. Used in compressed BLS12 point format (48 bytes). */
     public readonly commitment: Buffer,
-    /** KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes). */
-    public readonly proof: Buffer,
   ) {}
 
   /**
@@ -78,14 +74,8 @@ export class Blob {
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
     const commitment = Buffer.from(blobToKzgCommitment(data));
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
-    const res = computeKzgProof(data, challengeZ.toBuffer());
-    if (!verifyKzgProof(commitment, challengeZ.toBuffer(), res[1], res[0])) {
-      throw new Error(`KZG proof did not verify.`);
-    }
-    const proof = Buffer.from(res[0]);
-    const evaluationY = Buffer.from(res[1]);
 
-    return new Blob(data, fieldsHash, challengeZ, evaluationY, commitment, proof);
+    return new Blob(data, fieldsHash, challengeZ, commitment);
   }
 
   /**
@@ -128,8 +118,6 @@ export class Blob {
       index: index.toString(),
       // eslint-disable-next-line camelcase
       kzg_commitment: `0x${this.commitment.toString('hex')}`,
-      // eslint-disable-next-line camelcase
-      kzg_proof: `0x${this.proof.toString('hex')}`,
     };
   }
 
@@ -210,6 +198,26 @@ export class Blob {
   }
 
   /**
+   * Evaluate the blob at a given challenge and return the evaluation and KZG proof.
+   *
+   * @param challengeZ - The challenge z at which to evaluate the blob. If not given, assume we want to evaluate at the individual blob's z.
+   *
+   * @returns -
+   *  y: Buffer -  Evaluation y = p(z), where p() is the blob polynomial. BLS12 field element, rep. as BigNum in nr, bigint in ts
+   *  proof: Buffer - KZG opening proof for y = p(z). The commitment to quotient polynomial Q, used in compressed BLS12 point format (48 bytes).
+   */
+  evaluate(challengeZ?: Fr) {
+    const z = challengeZ || this.challengeZ;
+    const res = computeKzgProof(this.data, z.toBuffer());
+    if (!verifyKzgProof(this.commitment, z.toBuffer(), res[1], res[0])) {
+      throw new Error(`KZG proof did not verify.`);
+    }
+    const proof = Buffer.from(res[0]);
+    const y = Buffer.from(res[1]);
+    return { y, proof };
+  }
+
+  /**
    * Get the buffer representation of the ENTIRE blob.
    *
    * @dev WARNING: this buffer contains all metadata aswell as the data itself
@@ -223,12 +231,8 @@ export class Blob {
         this.data,
         this.fieldsHash,
         this.challengeZ,
-        this.evaluationY.length,
-        this.evaluationY,
         this.commitment.length,
         this.commitment,
-        this.proof.length,
-        this.proof,
       ),
     );
   }
@@ -243,14 +247,7 @@ export class Blob {
    */
   static fromBuffer(buf: Buffer | BufferReader): Blob {
     const reader = BufferReader.asReader(buf);
-    return new Blob(
-      reader.readUint8Array(),
-      reader.readObject(Fr),
-      reader.readObject(Fr),
-      reader.readBuffer(),
-      reader.readBuffer(),
-      reader.readBuffer(),
-    );
+    return new Blob(reader.readUint8Array(), reader.readObject(Fr), reader.readObject(Fr), reader.readBuffer());
   }
 
   /**
@@ -261,40 +258,17 @@ export class Blob {
   }
 
   /**
-   * Returns a proof of opening of the blob to verify on L1 using the point evaluation precompile:
-   *
-   * input[:32]     - versioned_hash
-   * input[32:64]   - z
-   * input[64:96]   - y
-   * input[96:144]  - commitment C
-   * input[144:192] - proof (a commitment to the quotient polynomial q(X))
-   *
-   * See https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+   * @param blobs - The blobs to emit
+   * @returns The blobs' compressed commitments in hex prefixed by the number of blobs
+   * @dev Used for proposing blocks to validate injected blob commitments match real broadcast blobs:
+   * One byte for the number blobs + 48 bytes per blob commitment
    */
-  getEthBlobEvaluationInputs(): `0x${string}` {
-    const buf = Buffer.concat([
-      this.getEthVersionedBlobHash(),
-      this.challengeZ.toBuffer(),
-      this.evaluationY,
-      this.commitment,
-      this.proof,
-    ]);
-    return `0x${buf.toString('hex')}`;
-  }
-
-  static getEthBlobEvaluationInputs(blobs: Blob[]): `0x${string}` {
+  static getPrefixedEthBlobCommitments(blobs: Blob[]): `0x${string}` {
     let buf = Buffer.alloc(0);
     blobs.forEach(blob => {
-      buf = Buffer.concat([
-        buf,
-        blob.getEthVersionedBlobHash(),
-        blob.challengeZ.toBuffer(),
-        blob.evaluationY,
-        blob.commitment,
-        blob.proof,
-      ]);
+      buf = Buffer.concat([buf, blob.commitment]);
     });
-    // For multiple blobs, we prefix the number of blobs:
+    // We prefix the number of blobs:
     const lenBuf = Buffer.alloc(1);
     lenBuf.writeUint8(blobs.length);
     buf = Buffer.concat([lenBuf, buf]);
@@ -308,9 +282,12 @@ export class Blob {
     };
   }
 
-  // Returns as many blobs as we require to broadcast the given fields
-  // Assumes we share the fields hash between all blobs
-  static async getBlobs(fields: Fr[]): Promise<Blob[]> {
+  /**
+   * @param fields - Fields to broadcast in the blob(s)
+   * @returns As many blobs as we require to broadcast the given fields for a block
+   * @dev Assumes we share the fields hash between all blobs which can only be done for ONE BLOCK because the hash is calculated in block root.
+   */
+  static async getBlobsPerBlock(fields: Fr[]): Promise<Blob[]> {
     const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
     const multiBlobFieldsHash = await poseidon2Hash(fields);
     const res = [];

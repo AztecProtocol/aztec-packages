@@ -303,7 +303,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 10000
+                            - 12000
                         type: gt
                       operator:
                         type: and

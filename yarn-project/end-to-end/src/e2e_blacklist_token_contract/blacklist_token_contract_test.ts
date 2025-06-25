@@ -10,7 +10,6 @@ import {
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
-import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
@@ -162,10 +161,6 @@ export class BlacklistTokenContractTest {
     await this.snapshotManager.teardown();
   }
 
-  #toBoundedVec(arr: Fr[], maxLen: number) {
-    return { len: arr.length, storage: arr.concat(new Array(maxLen - arr.length).fill(new Fr(0))) };
-  }
-
   async addPendingShieldNoteToPXE(
     contract: TokenBlacklistContract,
     recipient: AztecAddress,
@@ -180,7 +175,7 @@ export class BlacklistTokenContractTest {
         amount,
         secretHash,
         txHash.hash,
-        this.#toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
+        txEffects!.data.noteHashes,
         txEffects!.data.nullifiers[0],
         recipient,
       )

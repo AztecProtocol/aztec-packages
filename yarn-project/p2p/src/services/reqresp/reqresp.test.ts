@@ -11,7 +11,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { CollectiveReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   MOCK_SUB_PROTOCOL_VALIDATORS,
@@ -247,13 +247,8 @@ describe('ReqResp', () => {
       // Make sure the error message is logged
       const peerId = nodes[1].p2p.peerId.toString();
       expect(loggerSpy).toHaveBeenCalledWith(
-        `Timeout error: ${new IndividualReqRespTimeoutError().message} | peerId: ${peerId} | subProtocol: ${
-          ReqRespSubProtocol.TX
-        }`,
-        expect.objectContaining({
-          peerId: peerId,
-          subProtocol: ReqRespSubProtocol.TX,
-        }),
+        expect.stringContaining('Request to peer timed out'),
+        expect.objectContaining({ peerId, subProtocol: ReqRespSubProtocol.TX }),
       );
 
       // Expect the peer to be penalized for timing out
@@ -364,7 +359,7 @@ describe('ReqResp', () => {
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
     });
 
-    it('should not close stream when handling a goodbye message received from peer', async () => {
+    it('should not yield any warnings when handling a goodbye message received from peer', async () => {
       nodes = await createNodes(peerScoring, 2);
       const sendingNode = nodes[0];
       const receivingNode = nodes[1];
@@ -372,27 +367,6 @@ describe('ReqResp', () => {
       const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
       // Req Goodbye Handler is defined in the reqresp.ts file
       protocolHandlers[ReqRespSubProtocol.GOODBYE] = reqGoodbyeHandler(peerManager);
-
-      // Track stream.close() calls
-      let streamCloseCallCount = 0;
-      let capturedStream: any = null;
-
-      // Spy on streamHandler to intercept the stream
-      const originalStreamHandler = (receivingNode.req as any).streamHandler.bind(receivingNode.req);
-      //eslint-disable-next-line require-await
-      (receivingNode.req as any).streamHandler = async function (protocol: ReqRespSubProtocol, data: any) {
-        capturedStream = data.stream;
-        const originalClose = data.stream.close;
-
-        //eslint-disable-next-line require-await
-        data.stream.close = jest.fn(async () => {
-          streamCloseCallCount++;
-          return originalClose.call(data.stream);
-        });
-
-        return originalStreamHandler.call(this, protocol, data);
-      };
-
       const warnSpy = jest.spyOn((receivingNode.req as any).logger, 'warn');
 
       await startNodes(nodes, protocolHandlers);
@@ -416,12 +390,6 @@ describe('ReqResp', () => {
 
       // Expect no response to be sent - we categorize as unknown
       expect(response?.status).toEqual(ReqRespStatus.UNKNOWN);
-
-      // Make sure when handling Goodbye we don't call stream close
-      // because it has been implicitly closed by the peer manager
-      expect(streamCloseCallCount).toBe(0);
-      expect(capturedStream).not.toBeNull();
-      expect(capturedStream.close).toHaveBeenCalledTimes(0);
 
       // make sure warn was NOT called
       expect(warnSpy).not.toHaveBeenCalled();

@@ -7,16 +7,10 @@ import {
   fromUintArray,
   fromUintBoundedVec,
   toACVMField,
-  toACVMFieldSingleOrArray,
 } from '@aztec/simulator/client';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  ContractClassLog,
-  ContractClassLogFields,
-  PrivateLogWithTxData,
-  PublicLogWithTxData,
-} from '@aztec/stdlib/logs';
+import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { TypedOracle } from './typed_oracle.js';
@@ -60,6 +54,10 @@ export class Oracle {
 
   async getBlockNumber(): Promise<ACVMField[]> {
     return [toACVMField(await this.typedOracle.getBlockNumber())];
+  }
+
+  async getTimestamp(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.getTimestamp())];
   }
 
   async getContractAddress(): Promise<ACVMField[]> {
@@ -419,24 +417,17 @@ export class Oracle {
     return [];
   }
 
-  async getPublicLogByTag([tag]: ACVMField[], [contractAddress]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const log = await this.typedOracle.getPublicLogByTag(Fr.fromString(tag), AztecAddress.fromString(contractAddress));
-
-    if (log == null) {
-      return [toACVMField(0), ...PublicLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
-    } else {
-      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
-    }
-  }
-
-  async getPrivateLogByTag([siloedTag]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const log = await this.typedOracle.getPrivateLogByTag(Fr.fromString(siloedTag));
-
-    if (log == null) {
-      return [toACVMField(0), ...PrivateLogWithTxData.noirSerializationOfEmpty().map(toACVMFieldSingleOrArray)];
-    } else {
-      return [toACVMField(1), ...log.toNoirSerialization().map(toACVMFieldSingleOrArray)];
-    }
+  async bulkRetrieveLogs(
+    [contractAddress]: ACVMField[],
+    [logRetrievalRequestsArrayBaseSlot]: ACVMField[],
+    [logRetrievalResponsesArrayBaseSlot]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.typedOracle.bulkRetrieveLogs(
+      AztecAddress.fromString(contractAddress),
+      Fr.fromString(logRetrievalRequestsArrayBaseSlot),
+      Fr.fromString(logRetrievalResponsesArrayBaseSlot),
+    );
+    return [];
   }
 
   async storeCapsule([contractAddress]: ACVMField[], [slot]: ACVMField[], capsule: ACVMField[]): Promise<ACVMField[]> {
@@ -514,5 +505,10 @@ export class Oracle {
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
+  }
+
+  async emitOffchainEffect(data: ACVMField[]) {
+    await this.typedOracle.emitOffchainEffect(data.map(Fr.fromString));
+    return [];
   }
 }

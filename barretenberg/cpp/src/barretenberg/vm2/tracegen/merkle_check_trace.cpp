@@ -5,9 +5,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 
 namespace bb::avm2::tracegen {
@@ -94,11 +92,9 @@ void MerkleCheckTraceBuilder::process(
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> MerkleCheckTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>());
-}
+const InteractionDefinition MerkleCheckTraceBuilder::interactions =
+    InteractionDefinition()
+        .add<lookup_merkle_check_merkle_poseidon2_read_settings, InteractionType::LookupSequential>()
+        .add<lookup_merkle_check_merkle_poseidon2_write_settings, InteractionType::LookupSequential>();
 
 } // namespace bb::avm2::tracegen

@@ -1,7 +1,7 @@
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
   Attributes,
-  type Gauge,
+  type Histogram,
   Metrics,
   type TelemetryClient,
   type UpDownCounter,
@@ -9,10 +9,13 @@ import {
 } from '@aztec/telemetry-client';
 
 export class ValidatorMetrics {
-  private reExecutionTime: Gauge;
   private failedReexecutionCounter: UpDownCounter;
   private attestationsCount: UpDownCounter;
   private failedAttestationsCount: UpDownCounter;
+
+  private reexMana: Histogram;
+  private reexTx: Histogram;
+  private reexDuration: Histogram;
 
   constructor(telemetryClient: TelemetryClient) {
     const meter = telemetryClient.getMeter('Validator');
@@ -21,12 +24,6 @@ export class ValidatorMetrics {
       description: 'The number of failed re-executions',
       unit: 'count',
       valueType: ValueType.INT,
-    });
-
-    this.reExecutionTime = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME, {
-      description: 'The time taken to re-execute a transaction',
-      unit: 'ms',
-      valueType: ValueType.DOUBLE,
     });
 
     this.attestationsCount = meter.createUpDownCounter(Metrics.VALIDATOR_ATTESTATION_COUNT, {
@@ -38,18 +35,30 @@ export class ValidatorMetrics {
       description: 'The number of failed attestations',
       valueType: ValueType.INT,
     });
+
+    this.reexMana = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_MANA, {
+      description: 'The mana consumed by blocks',
+      valueType: ValueType.DOUBLE,
+      unit: 'Mmana',
+    });
+
+    this.reexTx = meter.createHistogram(Metrics.VALIDATOR_RE_EXECUTION_TX_COUNT, {
+      description: 'The number of txs in a block proposal',
+      valueType: ValueType.INT,
+      unit: 'tx',
+    });
+
+    this.reexDuration = meter.createGauge(Metrics.VALIDATOR_RE_EXECUTION_TIME, {
+      description: 'The time taken to re-execute a transaction',
+      unit: 'ms',
+      valueType: ValueType.INT,
+    });
   }
 
-  public reExecutionTimer(): () => void {
-    const start = performance.now();
-    return () => {
-      const end = performance.now();
-      this.recordReExecutionTime(end - start);
-    };
-  }
-
-  public recordReExecutionTime(time: number) {
-    this.reExecutionTime.record(time);
+  public recordReex(time: number, txs: number, mManaTotal: number) {
+    this.reexDuration.record(Math.ceil(time));
+    this.reexTx.record(txs);
+    this.reexMana.record(mManaTotal);
   }
 
   public recordFailedReexecution(proposal: BlockProposal) {

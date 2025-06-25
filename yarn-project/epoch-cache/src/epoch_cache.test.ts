@@ -45,7 +45,7 @@ describe('EpochCache', () => {
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
-      proofSubmissionWindow: EPOCH_DURATION * 2,
+      proofSubmissionEpochs: 1,
     };
 
     epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);

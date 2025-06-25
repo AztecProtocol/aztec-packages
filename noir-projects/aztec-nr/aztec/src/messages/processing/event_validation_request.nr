@@ -11,8 +11,6 @@ pub(crate) struct EventValidationRequest {
     pub event_commitment: Field,
     pub tx_hash: Field,
     pub recipient: AztecAddress,
-    pub log_index_in_tx: Field,
-    pub tx_index_in_block: Field,
 }
 
 mod test {
@@ -32,8 +30,6 @@ mod test {
             event_commitment: 5,
             tx_hash: 6,
             recipient: AztecAddress::from_field(7),
-            log_index_in_tx: 8,
-            tx_index_in_block: 9,
         };
 
         // We define the serialization in Noir and the deserialization in TS. If the deserialization changes from the
@@ -50,8 +46,6 @@ mod test {
             5, // event_commitment
             6, // tx_hash
             7, // recipient
-            8, // log_index_in_tx
-            9, // tx_index_in_block
         ];
 
         assert_eq(request.serialize(), expected_serialization);

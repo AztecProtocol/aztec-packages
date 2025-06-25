@@ -29,4 +29,5 @@ export * from './capsule.js';
 export * from './global_variable_builder.js';
 export * from './hashed_values.js';
 export * from './indexed_tx_effect.js';
+export * from './offchain_effect.js';
 export * from './profiling.js';

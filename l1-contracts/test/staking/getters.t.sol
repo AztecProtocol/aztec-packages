@@ -7,9 +7,10 @@ contract GettersTest is StakingBase {
   function setUp() public override {
     super.setUp();
 
-    stakingAsset.mint(address(this), MINIMUM_STAKE);
-    stakingAsset.approve(address(staking), MINIMUM_STAKE);
+    stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
+    stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
   }
 
   function test_getAttesterAtIndex() external view {

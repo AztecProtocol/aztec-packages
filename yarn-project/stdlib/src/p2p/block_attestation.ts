@@ -7,7 +7,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import type { ZodFor } from '../schemas/index.js';
+import { type ZodFor, schemas } from '../schemas/index.js';
+import type { UInt32 } from '../types/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
@@ -32,7 +33,7 @@ export class BlockAttestation extends Gossipable {
 
   constructor(
     /** The block number of the attestation. */
-    public readonly blockNumber: Fr,
+    public readonly blockNumber: UInt32,
 
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
@@ -46,7 +47,7 @@ export class BlockAttestation extends Gossipable {
   static get schema(): ZodFor<BlockAttestation> {
     return z
       .object({
-        blockNumber: Fr.schema,
+        blockNumber: schemas.UInt32,
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
       })
@@ -91,18 +92,14 @@ export class BlockAttestation extends Gossipable {
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(
-      reader.readObject(Fr),
-      reader.readObject(ConsensusPayload),
-      reader.readObject(Signature),
-    );
+    return new BlockAttestation(reader.readNumber(), reader.readObject(ConsensusPayload), reader.readObject(Signature));
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Fr.ZERO, ConsensusPayload.empty(), Signature.empty());
+    return new BlockAttestation(0, ConsensusPayload.empty(), Signature.empty());
   }
 
   getSize(): number {
-    return this.blockNumber.size + this.payload.getSize() + this.signature.getSize();
+    return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize();
   }
 }

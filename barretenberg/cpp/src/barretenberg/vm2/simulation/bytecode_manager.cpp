@@ -15,20 +15,35 @@ namespace bb::avm2::simulation {
 
 BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 {
+    // If the address is already resolved, we can return the bytecode id.
     auto it = resolved_addresses.find(address);
     if (it != resolved_addresses.end()) {
-        return it->second;
+        const auto& resolved_address = it->second;
+        if (resolved_address.not_found) {
+            throw BytecodeNotFoundError(resolved_address.bytecode_id,
+                                        "Contract " + field_to_string(address) + " is not deployed");
+        }
+        return resolved_address.bytecode_id;
     }
 
-    // TODO: catch errors etc.
+    // If the instance is found, the address derivation will be proven.
+    // If it is not found, we have to prove that the nullifier does NOT exist.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
     auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
-
+    auto bytecode_id = next_bytecode_id++;
     if (!merkle_db.nullifier_exists(siloed_address)) {
-        throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
+        retrieval_events.emit({
+            .bytecode_id = bytecode_id,
+            .address = address,
+            .siloed_address = siloed_address,
+            .error = true,
+        });
+        resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = true };
+        vinfo("Contract ", field_to_string(address), " is not deployed!");
+        throw BytecodeNotFoundError(bytecode_id, "Contract " + field_to_string(address) + " is not deployed");
     }
 
-    auto& instance = maybe_instance.value();
+    const ContractInstance& instance = maybe_instance.value();
     update_check.check_current_class_id(address, instance);
 
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.current_class_id);
@@ -36,7 +51,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
     auto& klass = maybe_klass.value();
-    auto bytecode_id = next_bytecode_id++;
     info("Bytecode for ", address, " successfully retrieved!");
 
     FF bytecode_commitment = bytecode_hasher.compute_public_bytecode_commitment(bytecode_id, klass.packed_bytecode);
@@ -47,7 +61,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     decomposition_events.emit({ .bytecode_id = bytecode_id, .bytecode = shared_bytecode });
 
     // We now save the bytecode so that we don't repeat this process.
-    resolved_addresses[address] = bytecode_id;
+    resolved_addresses[address] = { .bytecode_id = bytecode_id, .not_found = false };
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
     auto tree_snapshots = merkle_db.get_tree_roots();
@@ -72,9 +86,8 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     InstructionFetchingEvent instr_fetching_event;
 
     auto it = bytecodes.find(bytecode_id);
-    if (it == bytecodes.end()) {
-        throw std::runtime_error("Bytecode not found");
-    }
+    // This should never happen. It is supposed to be checked in execution.
+    assert(it != bytecodes.end());
 
     instr_fetching_event.bytecode_id = bytecode_id;
     instr_fetching_event.pc = pc;
@@ -98,7 +111,7 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     // FIXME: remove this once all execution opcodes are supported.
     if (!instr_fetching_event.error.has_value() &&
         !EXEC_INSTRUCTION_SPEC.contains(instr_fetching_event.instruction.get_exec_opcode())) {
-        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode());
+        vinfo("Invalid execution opcode: ", instr_fetching_event.instruction.get_exec_opcode(), " at pc: ", pc);
         instr_fetching_event.error = InstrDeserializationError::INVALID_EXECUTION_OPCODE;
     }
 

@@ -182,7 +182,7 @@ describe('e2e_token_contract transfer private', () => {
         .withWallet(wallets[1])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, authwitNonce)
         .send({ authWitnesses: [witness] });
-      await expect(txCancelledAuthwit.wait()).rejects.toThrowError(DUPLICATE_NULLIFIER_ERROR);
+      await expect(txCancelledAuthwit.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
     it('transfer on behalf of other, invalid verify_private_authwit on "from"', async () => {

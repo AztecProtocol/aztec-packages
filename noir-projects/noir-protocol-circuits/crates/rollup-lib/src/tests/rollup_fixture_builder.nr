@@ -3,12 +3,14 @@ use crate::abis::{
     block_root_rollup_data::{BlockRootRollupBlobData, BlockRootRollupData},
     previous_rollup_data::PreviousRollupData,
 };
-use blob::blob_public_inputs::{BlobCommitment, BlockBlobPublicInputs};
+use blob::blob_batching_public_inputs::{
+    BatchingBlobCommitment, BlobAccumulatorPublicInputs, BLSPoint, FinalBlobBatchingChallenges,
+};
 use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
 use std::test::OracleMock;
 use types::{
     abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot, constant_rollup_data::ConstantRollupData,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, block_constant_data::BlockConstantData,
         global_variables::GlobalVariables, sponge_blob::SpongeBlob,
     },
     address::EthAddress,
@@ -22,7 +24,7 @@ use types::{
     partial_state_reference::PartialStateReference,
     proof::vk_data::VkData,
     tests::{fixtures, merkle_tree_utils::{compute_zero_hashes, NonEmptyMerkleTree}},
-    traits::{Empty, Hash},
+    traits::{Empty, Hash, Serialize},
 };
 
 pub struct RollupFixtureBuilder {
@@ -35,8 +37,10 @@ pub struct RollupFixtureBuilder {
     pub last_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     pub new_archive: AppendOnlyTreeSnapshot,
     pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+    pub start_blob_accumulator: BlobAccumulatorPublicInputs,
+    pub final_blob_challenges: FinalBlobBatchingChallenges,
     pub blobs_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-    pub blob_commitments: [BlobCommitment; BLOBS_PER_BLOCK],
+    pub blob_commitments: [BLSPoint; BLOBS_PER_BLOCK],
     pub blobs_hash: Field,
     pub vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH>,
     pub vk_tree_root: Field,
@@ -57,14 +61,16 @@ impl RollupFixtureBuilder {
             previous_rollup_data: [PreviousRollupData::empty(); 2],
             previous_block_header: BlockHeader::empty(),
             previous_block_hash: 0,
-            last_l1_to_l2: AppendOnlyTreeSnapshot::zero(),
+            last_l1_to_l2: AppendOnlyTreeSnapshot::empty(),
             last_l1_to_l2_subtree_sibling_path: [0; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
-            last_archive: AppendOnlyTreeSnapshot::zero(),
+            last_archive: AppendOnlyTreeSnapshot::empty(),
             last_archive_sibling_path: [0; ARCHIVE_HEIGHT],
-            new_archive: AppendOnlyTreeSnapshot::zero(),
+            new_archive: AppendOnlyTreeSnapshot::empty(),
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
+            start_blob_accumulator: BlobAccumulatorPublicInputs::empty(),
+            final_blob_challenges: FinalBlobBatchingChallenges::empty(),
             blobs_fields: [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK],
-            blob_commitments: [BlobCommitment::empty(); BLOBS_PER_BLOCK],
+            blob_commitments: [BatchingBlobCommitment::empty().point; BLOBS_PER_BLOCK],
             blobs_hash: 0,
             vk_tree,
             vk_tree_root,
@@ -88,8 +94,8 @@ impl RollupFixtureBuilder {
         let mut rollup_0 = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let mut rollup_1 = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
-        rollup_0.constants = self.to_constant_rollup_data();
-        rollup_1.constants = self.to_constant_rollup_data();
+        rollup_0.constants = self.to_block_constant_data();
+        rollup_1.constants = self.to_block_constant_data();
 
         let vk_index = if rollup_type == BASE_ROLLUP_TYPE {
             PUBLIC_BASE_ROLLUP_VK_INDEX
@@ -169,7 +175,8 @@ impl RollupFixtureBuilder {
             self.blobs_fields[N + i] = blob_fields_1[i];
         }
 
-        self.blob_commitments[0] = BlobCommitment { inner: [31, 75] };
+        self.blob_commitments[0] =
+            BatchingBlobCommitment::from_limbs([31, 0, 0, 0], [75, 0, 0, 0]).point;
 
         self.blobs_hash = 8901;
 
@@ -239,9 +246,10 @@ impl RollupFixtureBuilder {
         *self
     }
 
-    pub fn to_constant_rollup_data(self) -> ConstantRollupData {
-        ConstantRollupData {
+    pub fn to_block_constant_data(self) -> BlockConstantData {
+        BlockConstantData {
             last_archive: self.last_archive,
+            last_l1_to_l2: self.last_l1_to_l2,
             vk_tree_root: self.vk_tree_root,
             protocol_contract_tree_root: self.protocol_contract_tree_root,
             global_variables: self.global_variables,
@@ -266,6 +274,8 @@ impl RollupFixtureBuilder {
             previous_archive_sibling_path: self.last_archive_sibling_path,
             new_archive_sibling_path: self.new_archive_sibling_path,
             previous_block_header: self.previous_block_header,
+            start_blob_accumulator: self.start_blob_accumulator,
+            final_blob_challenges: self.final_blob_challenges,
             prover_id: self.prover_id,
         }
     }
@@ -278,10 +288,11 @@ impl RollupFixtureBuilder {
         }
     }
 
-    pub fn mock_evaluate_blobs(_self: Self) {
+    pub fn mock_evaluate_blobs_and_batch(_self: Self) {
         // Safety: Mock the oracle call when the blob data is not relevant to the test.
         unsafe {
-            let _ = OracleMock::mock("evaluateBlobs").returns(BlockBlobPublicInputs::empty());
+            let _ = OracleMock::mock("evaluateBlobs").returns(BlobAccumulatorPublicInputs::empty()
+                .serialize());
         }
     }
 }

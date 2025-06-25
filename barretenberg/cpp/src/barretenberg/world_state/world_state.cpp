@@ -192,7 +192,7 @@ Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
     }
     return it->second;
 }
-uint64_t WorldState::create_fork(const std::optional<index_t>& blockNumber)
+uint64_t WorldState::create_fork(const std::optional<block_number_t>& blockNumber)
 {
     block_number_t blockNumberForFork = 0;
     if (!blockNumber.has_value()) {
@@ -716,7 +716,7 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
     return low_leaf_info.inner;
 }
 
-WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockNumber)
+WorldStateStatusSummary WorldState::set_finalised_blocks(const block_number_t& toBlockNumber)
 {
     // This will throw if it fails
     set_finalised_block(toBlockNumber);
@@ -724,7 +724,7 @@ WorldStateStatusSummary WorldState::set_finalised_blocks(const index_t& toBlockN
     get_status_summary(status);
     return status;
 }
-WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
+WorldStateStatusFull WorldState::unwind_blocks(const block_number_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
@@ -758,7 +758,7 @@ WorldStateStatusFull WorldState::unwind_blocks(const index_t& toBlockNumber)
     return status;
 }
 
-WorldStateStatusFull WorldState::remove_historical_blocks(const index_t& toBlockNumber)
+WorldStateStatusFull WorldState::remove_historical_blocks(const block_number_t& toBlockNumber)
 {
     WorldStateRevision revision{ .forkId = CANONICAL_FORK_ID, .blockNumber = 0, .includeUncommitted = false };
     std::array<TreeMeta, NUM_TREES> responses;
@@ -953,13 +953,12 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
     // noir-project/noir-protocol-circuits/crates/types/src/block_header.nr
     return HashPolicy::hash({ generator_point,
                               // last archive - which, at genesis, is all 0s
-                              0,
-                              0,
+                              0, // root
+                              0, // next_available_leaf_index
                               // content commitment - all 0s
-                              0,
-                              0,
-                              0,
-                              0,
+                              0, // blobs_hash
+                              0, // in_hash
+                              0, // out_hash
                               // state reference - the initial state for all the trees (accept the archive tree)
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).first,
                               initial_state_ref.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE).second,
@@ -970,15 +969,15 @@ bb::fr WorldState::compute_initial_block_header_hash(const StateReference& initi
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).first,
                               initial_state_ref.at(MerkleTreeId::PUBLIC_DATA_TREE).second,
                               // global variables
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
+                              0, // chain_id
+                              0, // version
+                              0, // block_number
+                              0, // slot_number
+                              0, // timestamp
+                              0, // coinbase
+                              0, // fee_recipient
+                              0, // gas_fee.fee_per_da_gas
+                              0, // gas_fee.fee_per_l2_gas
                               // total fees
                               0,
                               // total mana used

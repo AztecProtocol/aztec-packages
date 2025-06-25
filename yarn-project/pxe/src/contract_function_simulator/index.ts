@@ -7,3 +7,4 @@ export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 export { Oracle } from './oracle/oracle.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
+export { generateSimulatedProvingResult } from './contract_function_simulator.js';

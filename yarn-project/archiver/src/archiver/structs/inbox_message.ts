@@ -2,11 +2,12 @@ import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, bigintToUInt64BE, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { UInt32 } from '@aztec/stdlib/types';
 
 export type InboxMessage = {
   index: bigint;
   leaf: Fr;
-  l2BlockNumber: bigint;
+  l2BlockNumber: UInt32;
   l1BlockNumber: bigint;
   l1BlockHash: Buffer32;
   rollingHash: Buffer16;
@@ -23,7 +24,7 @@ export function serializeInboxMessage(message: InboxMessage): Buffer {
     message.leaf,
     message.l1BlockHash,
     numToUInt32BE(Number(message.l1BlockNumber)),
-    numToUInt32BE(Number(message.l2BlockNumber)),
+    numToUInt32BE(message.l2BlockNumber),
     message.rollingHash,
   ]);
 }
@@ -34,7 +35,7 @@ export function deserializeInboxMessage(buffer: Buffer): InboxMessage {
   const leaf = reader.readObject(Fr);
   const l1BlockHash = reader.readObject(Buffer32);
   const l1BlockNumber = BigInt(reader.readNumber());
-  const l2BlockNumber = BigInt(reader.readNumber());
+  const l2BlockNumber = reader.readNumber();
   const rollingHash = reader.readObject(Buffer16);
   return { index, leaf, l1BlockHash, l1BlockNumber, l2BlockNumber, rollingHash };
 }

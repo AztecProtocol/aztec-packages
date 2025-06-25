@@ -81,6 +81,7 @@ export async function executePrivateFunction(
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
+  const offchainEffects = privateExecutionOracle.getOffchainEffects();
   const nestedExecutions = privateExecutionOracle.getNestedExecutions();
 
   let timerSubtractionList = nestedExecutions;
@@ -103,6 +104,7 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
+    offchainEffects,
     nestedExecutions,
     contractClassLogs,
     {

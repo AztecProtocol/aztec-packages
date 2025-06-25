@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 std::unique_ptr<AddressingInterface> ExecutionComponentsProvider::make_addressing(AddressingEvent& event)
 {
     auto event_emitter = std::make_unique<OneShotEventEmitter<AddressingEvent>>(event);
-    auto addressing = std::make_unique<Addressing>(instruction_info_db, *event_emitter);
+    auto addressing = std::make_unique<Addressing>(instruction_info_db, range_check, *event_emitter);
     addressing_event_emitters.push_back(std::move(event_emitter));
     return addressing;
 }

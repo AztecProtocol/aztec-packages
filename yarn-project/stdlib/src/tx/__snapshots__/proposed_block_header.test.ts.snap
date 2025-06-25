@@ -1,5 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`ProposedBlockHeader computes empty hash 1`] = `Fr<0x002e384af86a480f952aa16443fd29646a9063865e62d7c403fc7ed697bb7712>`;
+exports[`ProposedBlockHeader computes empty hash 1`] = `Fr<0x00d72511e843bf5a2e44e8bd1da20c2626311d1d6679424f717807a1db731d62>`;
 
-exports[`ProposedBlockHeader computes hash 1`] = `Fr<0x00f99d951c77fcee0f9806913dfbcc004ba7db1181ff74c5727b22b341b016ea>`;
+exports[`ProposedBlockHeader computes hash 1`] = `Fr<0x003888ac42e120b5dd98c36f913ee614b0fe9d6daba79d83d510762ceafbb0d4>`;

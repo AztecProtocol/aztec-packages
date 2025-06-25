@@ -24,10 +24,7 @@ impl ProveNullifierNonInclusion for BlockHeader {
         // 1) Get the membership witness of a low nullifier of the nullifier
         // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
-            get_low_nullifier_membership_witness(
-                self.global_variables.block_number as u32,
-                nullifier,
-            )
+            get_low_nullifier_membership_witness(self.global_variables.block_number, nullifier)
         };
 
         // 2) First we prove that the tree leaf in the witness is present in the nullifier tree. This is expected to be

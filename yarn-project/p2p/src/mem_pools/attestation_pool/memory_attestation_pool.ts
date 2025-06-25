@@ -2,7 +2,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { PoolInstrumentation, PoolName } from '../instrumentation.js';
+import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import type { AttestationPool } from './attestation_pool.js';
 
 export class InMemoryAttestationPool implements AttestationPool {
@@ -15,8 +15,14 @@ export class InMemoryAttestationPool implements AttestationPool {
     private log = createLogger('p2p:attestation_pool'),
   ) {
     this.attestations = new Map();
-    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
+    this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL, this.poolStats);
   }
+
+  private poolStats: PoolStatsCallback = () => {
+    return Promise.resolve({
+      itemCount: this.attestations.size,
+    });
+  };
 
   public isEmpty(): Promise<boolean> {
     return Promise.resolve(this.attestations.size === 0);
@@ -61,8 +67,6 @@ export class InMemoryAttestationPool implements AttestationPool {
       });
     }
 
-    // TODO: set these to pending or something ????
-    this.metrics.recordAddedObjects(attestations.length);
     return Promise.resolve();
   }
 
@@ -106,7 +110,6 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.attestations.delete(slot);
     this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot}`);
 
-    this.metrics.recordRemovedObjects(numberOfAttestations);
     return Promise.resolve();
   }
 
@@ -119,7 +122,6 @@ export class InMemoryAttestationPool implements AttestationPool {
         slotAttestationMap.delete(proposalId);
 
         this.log.verbose(`Removed ${numberOfAttestations} attestations for slot ${slot} and proposal ${proposalId}`);
-        this.metrics.recordRemovedObjects(numberOfAttestations);
       }
     }
     return Promise.resolve();
@@ -139,7 +141,6 @@ export class InMemoryAttestationPool implements AttestationPool {
         }
       }
     }
-    this.metrics.recordRemovedObjects(attestations.length);
     return Promise.resolve();
   }
 }

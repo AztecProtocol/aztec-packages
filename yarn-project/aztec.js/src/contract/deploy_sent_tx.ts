@@ -30,12 +30,12 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
 
   constructor(
     wallet: Wallet,
-    txHashPromise: Promise<TxHash>,
+    sendTx: () => Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
     /** A getter for the deployed contract instance */
     public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
-    super(wallet, txHashPromise);
+    super(wallet, sendTx);
   }
 
   /**

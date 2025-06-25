@@ -37,10 +37,7 @@ export type SequencerClientConfig = PublisherConfig &
   L1ReaderConfig &
   ChainConfig &
   Pick<P2PConfig, 'txPublicSetupAllowList'> &
-  Pick<
-    L1ContractsConfig,
-    'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration' | 'aztecProofSubmissionWindow'
-  >;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -123,12 +120,7 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, [
-    'ethereumSlotDuration',
-    'aztecSlotDuration',
-    'aztecEpochDuration',
-    'aztecProofSubmissionWindow',
-  ]),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**

@@ -8,8 +8,9 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { PublicDataHint } from '../avm/public_data_hint.js';
 import { ContractClassLogFields } from '../logs/index.js';
+import { AppendOnlyTreeSnapshot } from '../trees/index.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
-import { ConstantRollupData } from './constant_rollup_data.js';
+import { BlockConstantData } from './block_constant_data.js';
 import { PrivateBaseStateDiffHints } from './state_diff_hints.js';
 
 export type BaseRollupHints = PrivateBaseRollupHints | PublicBaseRollupHints;
@@ -43,7 +44,7 @@ export class PrivateBaseRollupHints {
     /**
      * Data which is not modified by the base rollup circuit.
      */
-    public constants: ConstantRollupData,
+    public constants: BlockConstantData,
   ) {}
 
   static from(fields: FieldsOf<PrivateBaseRollupHints>): PrivateBaseRollupHints {
@@ -87,7 +88,7 @@ export class PrivateBaseRollupHints {
       reader.readObject(PublicDataHint),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
-      reader.readObject(ConstantRollupData),
+      reader.readObject(BlockConstantData),
     );
   }
 
@@ -103,7 +104,7 @@ export class PrivateBaseRollupHints {
       PublicDataHint.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
-      ConstantRollupData.empty(),
+      BlockConstantData.empty(),
     );
   }
 }
@@ -115,6 +116,10 @@ export class PublicBaseRollupHints {
      */
     public startSpongeBlob: SpongeBlob,
     /**
+     * Archive tree snapshot at the very beginning of the block containing this base rollup.
+     */
+    public lastArchive: AppendOnlyTreeSnapshot,
+    /**
      * Membership witnesses of blocks referred by each of the 2 kernels.
      */
     public archiveRootMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>,
@@ -122,10 +127,6 @@ export class PublicBaseRollupHints {
      * Preimages to the kernel's contractClassLogsHashes.
      */
     public contractClassLogsFields: Tuple<ContractClassLogFields, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
-    /**
-     * Data which is not modified by the base rollup circuit.
-     */
-    public constants: ConstantRollupData,
   ) {}
 
   static from(fields: FieldsOf<PublicBaseRollupHints>): PublicBaseRollupHints {
@@ -135,9 +136,9 @@ export class PublicBaseRollupHints {
   static getFields(fields: FieldsOf<PublicBaseRollupHints>) {
     return [
       fields.startSpongeBlob,
+      fields.lastArchive,
       fields.archiveRootMembershipWitness,
       fields.contractClassLogsFields,
-      fields.constants,
     ] as const;
   }
 
@@ -161,9 +162,9 @@ export class PublicBaseRollupHints {
     const reader = BufferReader.asReader(buffer);
     return new PublicBaseRollupHints(
       reader.readObject(SpongeBlob),
+      reader.readObject(AppendOnlyTreeSnapshot),
       MembershipWitness.fromBuffer(reader, ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, () => reader.readObject(ContractClassLogFields)),
-      reader.readObject(ConstantRollupData),
     );
   }
 
@@ -174,9 +175,9 @@ export class PublicBaseRollupHints {
   static empty() {
     return new PublicBaseRollupHints(
       SpongeBlob.empty(),
+      AppendOnlyTreeSnapshot.empty(),
       MembershipWitness.empty(ARCHIVE_HEIGHT),
       makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLogFields.empty),
-      ConstantRollupData.empty(),
     );
   }
 }

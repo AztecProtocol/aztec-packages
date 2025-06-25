@@ -1,4 +1,6 @@
+import type { Logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex } from '@aztec/foundation/string';
 import type { WorldStateSyncStatus, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 
 import type { PeerId } from '@libp2p/interface';
@@ -83,12 +85,16 @@ export class StatusMessage {
 export function reqRespStatusHandler(
   compressedComponentsVersion: string,
   worldStateSynchronizer: WorldStateSynchronizer,
+  logger?: Logger,
 ) {
-  return async (_peerId: PeerId, _msg: Buffer) => {
+  return async (peerId: PeerId, _msg: Buffer) => {
+    logger?.trace(`Received status handshake request from ${peerId}`);
     const status = StatusMessage.fromWorldStateSyncStatus(
       compressedComponentsVersion,
       (await worldStateSynchronizer.status()).syncSummary,
     );
-    return Promise.resolve(status.toBuffer());
+    const response = status.toBuffer();
+    logger?.trace(`Responding status handshake from ${peerId}`, { data: bufferToHex(response) });
+    return response;
   };
 }

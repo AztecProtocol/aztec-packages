@@ -18,31 +18,33 @@ case ${SYS:-} in
         -k <($BIN write_vk$SYS -o - $FLAGS $BFLAG) \
         -p <($BIN prove$SYS -o - $FLAGS $BFLAG)
   ;;
-  "ultra_plonk_deprecated")
-    # This used to be the default but now it's on its way out.
-    $BIN OLD_API verify $FLAGS \
-        -k <($BIN OLD_API write_vk -o - $FLAGS $BFLAG) \
-        -p <($BIN OLD_API prove -o - $FLAGS $BFLAG)
-  ;;
   "ultra_honk")
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
+    # DISABLE_ZK controls whether the zero-knowledge property is disabled.
+    # the flag is by default false, and when true, --disable_zk is added to the flags.
+    [ "${DISABLE_ZK:-false}" = "true" ] && FLAGS+=" --disable_zk"
 
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT
-    $BIN prove $FLAGS $BFLAG -o $OUTDIR
+    $BIN write_vk $FLAGS $BFLAG -o $OUTDIR
+    $BIN prove $FLAGS $BFLAG -k $OUTDIR/vk -o $OUTDIR
     $BIN verify $FLAGS \
-        -k <($BIN write_vk $FLAGS $BFLAG -o - ) \
+        -k $OUTDIR/vk \
         -p $OUTDIR/proof \
         -i $OUTDIR/public_inputs
   ;;
   "ultra_honk_deprecated")
-    # deprecated flow is necessary until we finish C++ api refactor and then align ts api
+    # TODO(https://github.com/AztecProtocol/barretenberg/issues/1434) deprecated flow is necessary until we finish C++ api refactor and then align ts api
     SYS_DEP=_ultra_honk
+    OUTDIR=$(mktemp -d)
+    trap "rm -rf $OUTDIR" EXIT
+    $BIN write_vk$SYS_DEP $FLAGS $BFLAG -o $OUTDIR/vk
+    $BIN prove$SYS_DEP -o $OUTDIR/proof $FLAGS $BFLAG -k $OUTDIR/vk
     $BIN verify$SYS_DEP $FLAGS \
-        -k <($BIN write_vk$SYS_DEP -o - $FLAGS $BFLAG) \
-        -p <($BIN prove$SYS_DEP -o - $FLAGS $BFLAG)
+        -k $OUTDIR/vk \
+        -p $OUTDIR/proof
     ;;
   *)
     [ -n "${SYS:-}" ] && SYS="_$SYS" || SYS=""

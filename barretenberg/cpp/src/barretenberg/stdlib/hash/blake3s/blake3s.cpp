@@ -246,6 +246,8 @@ using namespace blake3_internal;
 
 template <typename Builder> byte_array<Builder> blake3s(const byte_array<Builder>& input)
 {
+    ASSERT(input.size() <= 1024, "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
+
     if constexpr (HasPlookup<Builder>) {
         return blake3s_plookup::blake3s<Builder>(input);
     }

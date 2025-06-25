@@ -282,7 +282,7 @@ export class ServerWorldStateSynchronizer
   private async handleL2Blocks(l2Blocks: L2Block[]) {
     this.log.trace(`Handling L2 blocks ${l2Blocks[0].number} to ${l2Blocks.at(-1)!.number}`);
 
-    const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(BigInt(block.number)));
+    const messagePromises = l2Blocks.map(block => this.l2BlockSource.getL1ToL2Messages(block.number));
     const l1ToL2Messages: Fr[][] = await Promise.all(messagePromises);
     let updateStatus: WorldStateStatusFull | undefined = undefined;
 
@@ -377,7 +377,7 @@ export class ServerWorldStateSynchronizer
    * @param inHash - The inHash of the block.
    * @throws If the L1 to L2 messages do not hash to the block inHash.
    */
-  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Buffer) {
+  protected async verifyMessagesHashToInHash(l1ToL2Messages: Fr[], inHash: Fr) {
     const treeCalculator = await MerkleTreeCalculator.create(
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
       Buffer.alloc(32),
@@ -386,7 +386,7 @@ export class ServerWorldStateSynchronizer
 
     const root = await treeCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer()));
 
-    if (!root.equals(inHash)) {
+    if (!root.equals(inHash.toBuffer())) {
       throw new Error('Obtained L1 to L2 messages failed to be hashed to the block inHash');
     }
   }

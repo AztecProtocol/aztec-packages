@@ -1,7 +1,9 @@
 #pragma once
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
+#include "barretenberg/vm2/simulation/events/calldata_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
@@ -17,10 +19,12 @@ class TxExecution final {
     TxExecution(ExecutionInterface& call_execution,
                 ContextProviderInterface& context_provider,
                 HighLevelMerkleDBInterface& merkle_db,
+                FieldGreaterThanInterface& field_gt,
                 EventEmitterInterface<TxEvent>& event_emitter)
         : call_execution(call_execution)
         , context_provider(context_provider)
         , merkle_db(merkle_db)
+        , field_gt(field_gt)
         , events(event_emitter)
     {}
 
@@ -31,11 +35,12 @@ class TxExecution final {
     ContextProviderInterface& context_provider;
     // More things need to be lifted into the tx execution??
     HighLevelMerkleDBInterface& merkle_db;
+    FieldGreaterThanInterface& field_gt;
     EventEmitterInterface<TxEvent>& events;
 
     void insert_non_revertibles(const Tx& tx);
     void insert_revertibles(const Tx& tx);
-    void emit_public_call_request(const EnqueuedCallHint& call,
+    void emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                   TransactionPhase phase,
                                   const ExecutionResult& result,
                                   TreeStates&& prev_tree_state,

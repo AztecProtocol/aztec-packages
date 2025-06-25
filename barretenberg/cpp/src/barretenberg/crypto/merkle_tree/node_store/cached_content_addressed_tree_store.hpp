@@ -54,7 +54,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     ContentAddressedCachedTreeStore(std::string name, uint32_t levels, PersistedStoreType::SharedPtr dataStore);
     ContentAddressedCachedTreeStore(std::string name,
                                     uint32_t levels,
-                                    const index_t& referenceBlockNumber,
+                                    const block_number_t& referenceBlockNumber,
                                     PersistedStoreType::SharedPtr dataStore);
     ~ContentAddressedCachedTreeStore() = default;
 
@@ -260,10 +260,11 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
 }
 
 template <typename LeafValueType>
-ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
-                                                                                uint32_t levels,
-                                                                                const index_t& referenceBlockNumber,
-                                                                                PersistedStoreType::SharedPtr dataStore)
+ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
+    std::string name,
+    uint32_t levels,
+    const block_number_t& referenceBlockNumber,
+    PersistedStoreType::SharedPtr dataStore)
     : forkConstantData_{ .name_ = (std::move(name)), .depth_ = levels }
     , dataStore_(dataStore)
     , cache_(levels)

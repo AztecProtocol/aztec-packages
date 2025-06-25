@@ -1,5 +1,5 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
+import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -57,11 +57,18 @@ import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';
+import { DiscV5Service } from '../discv5/discV5_service.js';
 import { SnappyTransform, fastMsgIdFn, getMsgIdFn, msgIdToStrFn } from '../encoding.js';
 import { gossipScoreThresholds } from '../gossipsub/scoring.js';
+import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
-import { DEFAULT_SUB_PROTOCOL_VALIDATORS, ReqRespSubProtocol, type SubProtocolMap } from '../reqresp/interface.js';
+import {
+  DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  type ReqRespInterface,
+  ReqRespSubProtocol,
+  type SubProtocolMap,
+} from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
   pingHandler,
@@ -86,7 +93,6 @@ type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: Vali
  */
 export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends WithTracer implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
-  private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
@@ -96,12 +102,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
-
-  // Request and response sub service
-  public reqresp: ReqResp;
-
-  // Trusted peers ids
-  private trustedPeersIds: PeerId[] = [];
 
   private feesCache: { blockNumber: number; gasFees: GasFees } | undefined;
 
@@ -121,6 +121,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     private config: P2PConfig,
     protected node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
+    private reqresp: ReqRespInterface,
+    private peerManager: PeerManagerInterface,
     protected mempools: MemPools<T>,
     private archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
@@ -148,27 +150,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       this.protocolVersion,
     );
 
-    const peerScoring = new PeerScoring(config);
-    this.reqresp = new ReqResp(config, node, peerScoring);
-
-    this.peerManager = new PeerManager(
-      node,
-      peerDiscoveryService,
-      config,
-      telemetry,
-      createLogger(`${logger.module}:peer_manager`),
-      peerScoring,
-      this.reqresp,
-      this.worldStateSynchronizer,
-      this.protocolVersion,
-    );
-
-    // Update gossipsub score params
-    this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
-      return this.peerManager.getPeerScore(peerId);
-    };
-    this.node.services.pubsub.score.params.appSpecificWeight = 10;
-
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
 
@@ -192,23 +173,44 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   public static async new<T extends P2PClientType>(
     clientType: T,
     config: P2PConfig,
-    peerDiscoveryService: PeerDiscoveryService,
     peerId: PeerId,
-    mempools: MemPools<T>,
-    l2BlockSource: L2BlockSource & ContractDataSource,
-    epochCache: EpochCacheInterface,
-    proofVerifier: ClientProtocolCircuitVerifier,
-    worldStateSynchronizer: WorldStateSynchronizer,
-    store: AztecAsyncKVStore,
-    telemetry: TelemetryClient,
-    logger = createLogger('p2p:libp2p_service'),
+    deps: {
+      mempools: MemPools<T>;
+      l2BlockSource: L2BlockSource & ContractDataSource;
+      epochCache: EpochCacheInterface;
+      proofVerifier: ClientProtocolCircuitVerifier;
+      worldStateSynchronizer: WorldStateSynchronizer;
+      peerStore: AztecAsyncKVStore;
+      telemetry: TelemetryClient;
+      logger: Logger;
+      packageVersion: string;
+    },
   ) {
+    const {
+      worldStateSynchronizer,
+      epochCache,
+      l2BlockSource,
+      mempools,
+      proofVerifier,
+      peerStore,
+      telemetry,
+      logger,
+      packageVersion,
+    } = deps;
     const { p2pPort, maxPeerCount, listenAddress } = config;
     const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
-    const datastore = new AztecDatastore(store);
+    const datastore = new AztecDatastore(peerStore);
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
+
+    const peerDiscoveryService = new DiscV5Service(
+      peerId,
+      config,
+      packageVersion,
+      telemetry,
+      createLogger(`${logger.module}:discv5_service`),
+    );
 
     const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
 
@@ -250,11 +252,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [mplex(), yamux()],
+      streamMuxers: [yamux(), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0,
-
         maxParallelDials: 100,
         dialTimeout: 30_000,
         maxPeerAddrsToDial: 5,
@@ -314,11 +315,32 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       logger: createLibp2pComponentLogger(logger.module),
     });
 
+    const peerScoring = new PeerScoring(config);
+    const reqresp = new ReqResp(config, node, peerScoring, createLogger(`${logger.module}:reqresp`));
+
+    const peerManager = new PeerManager(
+      node,
+      peerDiscoveryService,
+      config,
+      telemetry,
+      createLogger(`${logger.module}:peer_manager`),
+      peerScoring,
+      reqresp,
+      worldStateSynchronizer,
+      protocolVersion,
+    );
+
+    // Update gossipsub score params
+    node.services.pubsub.score.params.appSpecificWeight = 10;
+    node.services.pubsub.score.params.appSpecificScore = (peerId: string) => peerManager.getPeerScore(peerId);
+
     return new LibP2PService(
       clientType,
       config,
       node,
       peerDiscoveryService,
+      reqresp,
+      peerManager,
       mempools,
       l2BlockSource,
       epochCache,
@@ -362,7 +384,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const txHandler = reqRespTxHandler(this.mempools);
     const goodbyeHandler = reqGoodbyeHandler(this.peerManager);
     const blockHandler = reqRespBlockHandler(this.archiver);
-    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer);
+    const statusHandler = reqRespStatusHandler(this.protocolVersion, this.worldStateSynchronizer, this.logger);
 
     const requestResponseHandlers = {
       [ReqRespSubProtocol.PING]: pingHandler,
@@ -650,12 +672,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
     this.logger.debug(
-      `Received attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
+      `Received attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
         archive: attestation.archive.toString(),
-        block: attestation.blockNumber.toNumber(),
+        block: attestation.blockNumber,
         source: source.toString(),
       },
     );
@@ -688,7 +710,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
-    [Attributes.BLOCK_NUMBER]: block.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: block.blockNumber,
     [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
@@ -698,12 +720,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const previousSlot = slot - 1n;
     const epoch = slot / 32n;
     this.logger.verbose(
-      `Received block ${block.blockNumber.toNumber()} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
+      `Received block ${block.blockNumber} for slot ${slot} epoch ${epoch} from external peer ${sender.toString()}.`,
       {
         p2pMessageIdentifier: await block.p2pMessageIdentifier(),
         slot: block.slotNumber.toNumber(),
         archive: block.archive.toString(),
-        block: block.blockNumber.toNumber(),
+        block: block.blockNumber,
         source: sender.toString(),
       },
     );
@@ -721,12 +743,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (attestations?.length) {
       for (const attestation of attestations) {
         this.logger.verbose(
-          `Broadcasting attestation for block ${attestation.blockNumber.toNumber()} slot ${attestation.slotNumber.toNumber()}`,
+          `Broadcasting attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()}`,
           {
             p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
             slot: attestation.slotNumber.toNumber(),
             archive: attestation.archive.toString(),
-            block: attestation.blockNumber.toNumber(),
+            block: attestation.blockNumber,
           },
         );
         await this.broadcastAttestation(attestation);
@@ -739,7 +761,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
@@ -956,7 +978,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),

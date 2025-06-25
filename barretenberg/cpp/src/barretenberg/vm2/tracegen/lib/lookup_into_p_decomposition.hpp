@@ -8,8 +8,8 @@
 
 namespace bb::avm2::tracegen {
 
-template <typename LookupSettings> class LookupIntoPDecomposition : public BaseLookupTraceBuilder<LookupSettings> {
-  private:
+template <typename LookupSettings> class LookupIntoPDecomposition : public IndexedLookupTraceBuilder<LookupSettings> {
+  protected:
     uint32_t find_in_dst(const std::array<FF, LookupSettings::LOOKUP_TUPLE_SIZE>& tup) const override
     {
         const auto& [radix, limb_index, _] = tup;

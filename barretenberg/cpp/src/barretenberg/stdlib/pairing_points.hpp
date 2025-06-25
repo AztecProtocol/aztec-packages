@@ -18,6 +18,7 @@ namespace bb::stdlib::recursion {
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
  * multiple sets of pairing points.
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
  * @tparam Builder_
  */
 template <typename Builder_> struct PairingPoints {
@@ -58,11 +59,17 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
+        ASSERT(other.has_data && "Cannot aggregate null pairing points.");
+
+        // If LHS is empty, simply set it equal to the incoming pairing points
+        if (!this->has_data && other.has_data) {
+            *this = other;
+            return;
+        }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-        ASSERT(this->has_data && "Cannot aggregate when accumulator is not set.");
-        ASSERT(other.has_data && "Cannot aggregate with null pairing points.");
+
         transcript.send_to_verifier("Accumulator_P0", P0);
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);

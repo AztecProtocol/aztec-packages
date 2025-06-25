@@ -34,6 +34,7 @@ export interface ContractDataSource {
 
   /** Returns a function's name. It's only available if provided by calling `registerContractFunctionSignatures`. */
   getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
   /** Registers a function names. Useful for debugging. */
-  registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
+  registerContractFunctionSignatures(signatures: string[]): Promise<void>;
 }

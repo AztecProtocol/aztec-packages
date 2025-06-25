@@ -33,7 +33,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
                                                                const TraceSettings& trace_settings,
                                                                const bool is_kernel);
 
-ClientIVC::MergeProof create_dummy_merge_proof();
+Goblin::MergeProof create_dummy_merge_proof();
 
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,

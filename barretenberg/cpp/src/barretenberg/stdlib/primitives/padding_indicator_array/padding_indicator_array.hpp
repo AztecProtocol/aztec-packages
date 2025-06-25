@@ -7,6 +7,7 @@
 #pragma once
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../witness/witness.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 
 namespace bb::stdlib {
 

@@ -3,10 +3,10 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -57,7 +57,7 @@ template <class Flavor, size_t LENGTH> auto generate_mock_proof_data(auto prover
     prover_transcript.send_to_verifier("univariate", univariate);
     prover_transcript.template get_challenges<FF>("gamma", "delta");
 
-    return prover_transcript.proof_data;
+    return prover_transcript.export_proof();
 }
 
 /**
@@ -105,7 +105,8 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     auto proof_data = generate_mock_proof_data<UltraFlavor, LENGTH>(prover_transcript);
 
     // Instantiate a (native) Verifier Transcript with the proof data and perform some mock transcript operations
-    NativeTranscript native_transcript(proof_data);
+    NativeTranscript native_transcript;
+    native_transcript.load_proof(proof_data);
     perform_mock_verifier_transcript_operations<UltraFlavor, LENGTH>(native_transcript);
 
     // Confirm that Prover and Verifier transcripts have generated the same manifest via the operations performed
@@ -113,7 +114,8 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
 
     // Instantiate a stdlib Transcript and perform the same operations
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
-    StdlibTranscript transcript{ stdlib_proof };
+    StdlibTranscript transcript;
+    transcript.load_proof(stdlib_proof);
     perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
 
     // Confirm that the native and stdlib verifier transcripts have generated the same manifest
@@ -155,10 +157,11 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.send_to_verifier("evaluations", evaluations);
     prover_transcript.template get_challenges<FF>("alpha, beta");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
     // Perform the corresponding operations with the native verifier transcript
-    NativeTranscript native_transcript(proof_data);
+    NativeTranscript native_transcript;
+    native_transcript.load_proof(proof_data);
     auto native_scalar = native_transcript.template receive_from_prover<FF>("scalar");
     auto native_commitment = native_transcript.template receive_from_prover<Commitment>("commitment");
     auto native_evaluations = native_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
@@ -166,7 +169,8 @@ TEST(RecursiveHonkTranscript, ReturnValuesMatch)
 
     // Perform the same operations with the stdlib verifier transcript
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
-    StdlibTranscript stdlib_transcript{ stdlib_proof };
+    StdlibTranscript stdlib_transcript;
+    stdlib_transcript.load_proof(stdlib_proof);
     auto stdlib_scalar = stdlib_transcript.template receive_from_prover<field_ct>("scalar");
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<element_ct>("commitment");
     auto stdlib_evaluations =
@@ -205,14 +209,16 @@ TEST(RecursiveTranscript, InfinityConsistencyGrumpkin)
     NativeTranscript prover_transcript;
     prover_transcript.send_to_verifier("infinity", infinity);
     NativeFF challenge = prover_transcript.get_challenge<NativeFF>("challenge");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
-    NativeTranscript verifier_transcript(proof_data);
+    NativeTranscript verifier_transcript;
+    verifier_transcript.load_proof(proof_data);
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
     auto verifier_challenge = verifier_transcript.get_challenge<NativeFF>("challenge");
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
-    StdlibTranscript stdlib_transcript{ stdlib_proof };
+    StdlibTranscript stdlib_transcript;
+    stdlib_transcript.load_proof(stdlib_proof);
     auto stdlib_infinity = stdlib_transcript.receive_from_prover<Commitment>("infinity");
     EXPECT_TRUE(stdlib_infinity.is_point_at_infinity().get_value());
     auto stdlib_challenge = stdlib_transcript.get_challenge<FF>("challenge");
@@ -243,14 +249,16 @@ TEST(RecursiveTranscript, InfinityConsistencyBN254)
     NativeTranscript prover_transcript;
     prover_transcript.send_to_verifier("infinity", infinity);
     NativeFF challenge = prover_transcript.get_challenge<NativeFF>("challenge");
-    auto proof_data = prover_transcript.proof_data;
+    auto proof_data = prover_transcript.export_proof();
 
-    NativeTranscript verifier_transcript(proof_data);
+    NativeTranscript verifier_transcript;
+    verifier_transcript.load_proof(proof_data);
     verifier_transcript.receive_from_prover<NativeCommitment>("infinity");
     auto verifier_challenge = verifier_transcript.get_challenge<NativeFF>("challenge");
 
     StdlibProof<Builder> stdlib_proof = bb::convert_native_proof_to_stdlib(&builder, proof_data);
-    StdlibTranscript stdlib_transcript{ stdlib_proof };
+    StdlibTranscript stdlib_transcript;
+    stdlib_transcript.load_proof(stdlib_proof);
     auto stdlib_commitment = stdlib_transcript.receive_from_prover<Commitment>("infinity");
     EXPECT_TRUE(stdlib_commitment.is_point_at_infinity().get_value());
     auto stdlib_challenge = stdlib_transcript.get_challenge<FF>("challenge");

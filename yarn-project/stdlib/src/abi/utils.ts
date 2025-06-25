@@ -50,6 +50,21 @@ export function isWrappedFieldStruct(abiType: AbiType) {
 }
 
 /**
+ * Returns whether the ABI type is a BoundedVec struct from Noir's std::collections::bounded_vec.
+ * @param abiType - Type to check.
+ * @returns A boolean indicating whether the ABI type is a BoundedVec struct.
+ */
+export function isBoundedVecStruct(abiType: AbiType) {
+  return (
+    abiType.kind === 'struct' &&
+    abiType.path === 'std::collections::bounded_vec::BoundedVec' &&
+    abiType.fields.length === 2 &&
+    abiType.fields[0].name === 'storage' &&
+    abiType.fields[1].name === 'len'
+  );
+}
+
+/**
  * Returns a bigint by parsing a serialized 2's complement signed int.
  * @param b - The signed int as a buffer
  * @returns - a deserialized bigint

@@ -354,8 +354,13 @@ interface FindLeafIndicesResponse {
 }
 
 interface FindSiblingPathsRequest extends WithTreeId, WithLeafValues, WithWorldStateRevision {}
+
+interface SiblingPathAndIndex {
+  index: bigint;
+  path: Buffer[];
+}
 interface FindSiblingPathsResponse {
-  paths: Buffer[][];
+  paths: (SiblingPathAndIndex | undefined)[];
 }
 
 interface FindLowLeafRequest extends WithTreeId, WithWorldStateRevision {

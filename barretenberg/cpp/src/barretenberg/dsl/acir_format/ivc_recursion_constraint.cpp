@@ -6,13 +6,13 @@
 
 #include "ivc_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_recursive_flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/honk/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/pairing_points.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "proof_surgeon.hpp"
 #include "recursion_constraint.hpp"
 
@@ -83,6 +83,7 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ClientIVC::VerifierInputs entry =
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
+    ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc->initialized = true;
 }
 
@@ -128,9 +129,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
-    std::vector<FF> merge_proof = create_dummy_merge_proof();
-
-    return ClientIVC::VerifierInputs{ proof, merge_proof, verification_key, verification_type };
+    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
 }
 
 /**
@@ -254,9 +253,9 @@ std::shared_ptr<ClientIVC::DeciderVerificationKey> create_mock_decider_vk()
 /**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
- * @return ClientIVC::MergeProof
+ * @return Goblin::MergeProof
  */
-ClientIVC::MergeProof create_dummy_merge_proof()
+Goblin::MergeProof create_dummy_merge_proof()
 {
     using FF = ClientIVC::FF;
 

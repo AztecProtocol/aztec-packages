@@ -48,7 +48,7 @@ describe('e2e_pruned_blocks', () => {
       worldStateBlockHistory: WORLD_STATE_BLOCK_HISTORY,
       worldStateBlockCheckIntervalMS: WORLD_STATE_CHECK_INTERVAL_MS,
       archiverPollingIntervalMS: ARCHIVER_POLLING_INTERVAL_MS,
-      aztecProofSubmissionWindow: 1000, // No reorgs please
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
     }));
 
     [adminWallet, senderWallet] = wallets;

@@ -48,6 +48,7 @@ describe('Registry', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
+      realVerifier: false,
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(
@@ -55,6 +56,7 @@ describe('Registry', () => {
       'slashFactoryAddress',
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
+      'zkPassportVerifierAddress',
     );
     registry = new RegistryContract(l1Client, deployedAddresses.registryAddress);
 
@@ -120,6 +122,7 @@ describe('Registry', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot: Fr.random(),
+        realVerifier: false,
       },
       deployedAddresses,
       logger,

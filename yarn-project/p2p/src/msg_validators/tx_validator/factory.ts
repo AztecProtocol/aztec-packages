@@ -51,7 +51,7 @@ export function createTxMessageValidators(
         validator: new MetadataTxValidator({
           l1ChainId: new Fr(l1ChainId),
           rollupVersion: new Fr(rollupVersion),
-          blockNumber: new Fr(blockNumber),
+          blockNumber,
           protocolContractTreeRoot,
           vkTreeRoot: getVKTreeRoot(),
         }),

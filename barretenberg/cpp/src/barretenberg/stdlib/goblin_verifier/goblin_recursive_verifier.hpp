@@ -7,7 +7,7 @@
 #pragma once
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
-#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -20,7 +20,7 @@ struct GoblinRecursiveVerifierOutput {
     using PairingAccumulator = PairingPoints<Builder>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
-    std::shared_ptr<Transcript> ipa_transcript;
+    StdlibProof<Builder> ipa_proof;
 };
 
 class GoblinRecursiveVerifier {

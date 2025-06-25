@@ -52,7 +52,7 @@ describe('e2e_fees fee settings', () => {
             baseFeesBefore: before.toInspect(),
             baseFeesAfter: after.toInspect(),
           });
-          return after.feePerL2Gas.toBigInt() > before.feePerL2Gas.toBigInt();
+          return after.feePerL2Gas > before.feePerL2Gas;
         },
         'L2 base fee increase',
         5,

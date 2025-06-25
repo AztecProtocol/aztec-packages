@@ -302,6 +302,10 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:deliver_note_contract_method
+    // We cannot replace this function with the standard `process_message` function because the transparent note
+    // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
+    // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
+    // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
     #[utility]
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,

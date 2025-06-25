@@ -1,0 +1,295 @@
+include "bc_decomposition.pil";
+
+include "../range_check.pil";
+include "../constants_gen.pil";
+
+// Explanations
+// *****************************************************************************
+// The role of this subtrace is to fetch an instruction from the bytecode at a
+// position specified by pc. This subtrace copies the relevant bytecode portion
+// from subtrace specified in bc_decomposition.pil.
+// Note that instruction fetching will only be performed for the instructions
+// which are executed by the execution trace and only once, i.e., even if
+// the AVM executes several times a given instruction, the current sub-trace
+// will only produce one row per static instruction.
+// The main work performed by the current sub-trace consists in transforming
+// bytes into the operands of the corresponding instruction. This part is
+// expressed by the relations #[INDIRECT_BYTES_DECOMPOSITION] and
+// #[OPXXX_BYTES_DECOMPOSITION]. They encode each operand based on relevant bytes
+// of the relative position to PC depending on each opcode. Each wire opcode has
+// a static specification in precomputed.pil (see WIRE INSTRUCTION SPEC table)
+// corresponding to the operand decomposition (sel_op_dc_XXX).
+// All the other relations deal with error handling (except lookups/interactions).
+// We handle 4 possible different errors and consolidate into a single one: sel_parsing_err.
+// Only sel_parsing_err is propagated to the execution trace.
+// List of errors:
+// 1) pc_out_of_range: pc is out-of-range if pc >= bytecode_size.
+//    - bytecode_size is retrieved from bc_decomposition.pil at pc == 0.
+// 2) opcode_out_of_range:
+//    - opcode is out-of-range if the byte at pc is not a valid wire opcode.
+//    - this information is retrieved from precomputed.pil.
+// 3) instr_out_of_range: remaing bytes in bytecode are less than instruction size.
+//    - instruction size (in bytes) is retrieved from precomputed.pil.
+//    - bytes_to_read (remaining bytes in bytecode) is retrieved from bc_decomposition.pil.
+// 4) tag_out_of_range:
+//    - tag is out-of-range if a tag operand is not a valid memory tag.
+//    - this information is retrieved from precomputed.pil.
+//
+// There is a hierarchy among these errors, in the sense that if any of them is encountered
+// the next ones are irrelevant. If pc is out of range, there is no instruction to consider.
+// If the opcode is invalid, we cannot consider any instruction. If the instruction is not
+// complete then there is no point to validate tag operands.
+// Thus, our witness generation will never toggle more than a single error. We will
+// enforce this constraint as it will help reducing the degrees of some relations.
+// Assuming disjoint erros, the consolidated error is simply the sum of the 4 errors.
+
+namespace instr_fetching;
+
+pol commit sel;
+sel * (1 - sel) = 0;
+// No relations will be checked if this identity is satisfied.
+#[skippable_if]
+sel = 0;
+
+// This pair identifies uniquely a given instruction among the bytecodes.
+pol commit pc;
+pol commit bytecode_id;
+
+
+// ****************************************************************************
+//                List of errors
+// ****************************************************************************
+
+// pc out-of-range error boolean
+pol commit pc_out_of_range;
+pc_out_of_range * (1 - pc_out_of_range) = 0;
+
+// Instruction out-of-range error boolean (happens iff instr_size > bytes_to_read)
+pol commit instr_out_of_range;
+instr_out_of_range * (1 - instr_out_of_range) = 0;
+
+// opcode is out-of-range error boolean
+pol commit opcode_out_of_range; // copied from precomputed.pil
+
+// memory tag is out-of-range error boolean
+pol commit tag_out_of_range; // copied from precomputed.pil
+
+pol PARSING_ERROR_EXCEPT_TAG_ERROR = pc_out_of_range + opcode_out_of_range + instr_out_of_range;
+
+// If any error occurs, we toggle the following boolean:
+pol commit sel_parsing_err;
+// FIXME: constrain this again once all execution opcodes are supported.
+// See InstrDeserializationError::INVALID_EXECUTION_OPCODE.
+// sel_parsing_err = PARSING_ERROR_EXCEPT_TAG_ERROR + tag_out_of_range;
+sel_parsing_err * (1 - sel_parsing_err) = 0; // enforces disjoint errors
+
+
+// ****************************************************************************
+//                Handling pc_out_of_range error
+// ****************************************************************************
+
+// Retrieved from bc_decomposition.pil based on bytecode_id with pc == 0
+pol commit bytecode_size;
+
+// We have to enforce that: pc < bytecode_size <==> pc_out_of_range == 0
+// We use a specific absolute difference value to distinguish pc < bytecode_size
+// from pc >= bytecode_size.
+
+// pc - bytecode_size       if bytecode_size <= pc
+// bytecode_size - pc - 1   if bytecode_size > pc
+pol commit pc_abs_diff;
+#[PC_OUT_OF_RANGE_TOGGLE]
+pc_abs_diff = sel * ((2 * pc_out_of_range - 1) * (pc - bytecode_size) - 1 + pc_out_of_range);
+
+// TODO: Remove this one once we support constant in lookup tuples
+// A column with the value 32 at each row.
+pol commit pc_size_in_bits;
+sel * (pc_size_in_bits - constants.AVM_PC_SIZE_IN_BITS) = 0;
+
+// pc_abs_diff is 32-bit long (pc is uint32_t)
+// Use constant AVM_PC_SIZE_IN_BITS once we support constants in lookup tuples.
+#[PC_ABS_DIFF_POSITIVE]
+sel { pc_abs_diff, pc_size_in_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+// ****************************************************************************
+//                Handling instr_out_of_range error
+// ****************************************************************************
+
+// Number of bytes which were read at a given pc. Retrieved from bc_decomposition.pil
+pol commit bytes_to_read;
+
+// Instruction size in bytes. Copied from precomputed.pil
+pol commit instr_size;
+
+// Absolute difference variant where we compute:
+// bytes_to_read - instr_size      if instr_size <= bytes_to_read
+// instr_size - bytes_to_read - 1  if instr_size > bytes_to_read (instr_out_of_range == 1)
+pol commit instr_abs_diff;
+
+// From the following relation, we have: instr_abs_diff >= 0 ==> [instr_size > bytes_to_read <==> instr_out_of_range == 1]
+#[INSTR_OUT_OF_RANGE_TOGGLE]
+instr_abs_diff = (2 * instr_out_of_range - 1) * (instr_size - bytes_to_read) - instr_out_of_range;
+
+#[INSTR_ABS_DIFF_POSITIVE]
+sel { instr_abs_diff } in precomputed.sel_range_8 { precomputed.clk };
+
+
+// ****************************************************************************
+//                Handling tag_out_of_range error
+// ****************************************************************************
+
+// Retrieved from precomputed.pil (instruction specification)
+pol commit sel_has_tag; // With current instruction specs, tag can appear at op2 (SET_XXX) or op3 (CAST_8, CAST_16)
+pol commit sel_tag_is_op2; // (sel_tag_is_op2 == 0 && sel_has_tag == 1) ==> op3 is a tag
+
+// Value to validate as tag. According to our instruction specifications, there is a maximum of one tag per instruction
+// and it appears only at op2 or op3.
+pol commit tag_value;
+#[TAG_VALUE]
+tag_value = (sel_has_tag - sel_tag_is_op2) * op3 + sel_tag_is_op2 * op2;
+
+// TODO: Investigate whether enforcing the tag checking in execution trace or in CAST/SET gadgets might be a better option.
+#[TAG_VALUE_VALIDATION]
+sel_has_tag { tag_value, tag_out_of_range } in precomputed.sel_range_8 { precomputed.clk, precomputed.sel_mem_tag_out_of_range };
+
+
+// ****************************************************************************
+//                Retrieval of information from other traces
+// ****************************************************************************
+
+// The size of the bytecode is bytes_remaining at pc == 0.
+#[BYTECODE_SIZE_FROM_BC_DEC]
+sel { bytecode_id, precomputed.zero, bytecode_size } in
+bc_decomposition.sel { bc_decomposition.id, bc_decomposition.pc, bc_decomposition.bytes_remaining };
+
+// bytecode[pc] to bytecode[pc + 36]
+pol commit bd0, bd1, bd2, bd3, bd4,
+           bd5, bd6, bd7, bd8, bd9, bd10,
+           bd11, bd12, bd13, bd14, bd15,
+           bd16, bd17, bd18, bd19, bd20,
+           bd21, bd22, bd23, bd24, bd25,
+           bd26, bd27, bd28, bd29, bd30,
+           bd31, bd32, bd33, bd34, bd35,
+           bd36;
+
+// Source selector for lookups to bc_decomposition.pil and instruction specifications in precomputed.pil.
+// When the pc is in range, we can at least fetch the byte of the wire opcode which allows to proceed to
+// the next errors checking.
+pol commit sel_pc_in_range;
+// Toggled except when pc is out of range.
+sel_pc_in_range = sel * (1 - pc_out_of_range);
+
+// Bring in the bytes from the bytecode columns.
+#[BYTES_FROM_BC_DEC]
+sel_pc_in_range {
+     bytecode_id,
+     pc,
+     bytes_to_read,
+     bd0,  bd1,  bd2,  bd3,  bd4,
+     bd5,  bd6,  bd7,  bd8,  bd9,
+     bd10, bd11, bd12, bd13, bd14,
+     bd15, bd16, bd17, bd18, bd19,
+     bd20, bd21, bd22, bd23, bd24,
+     bd25, bd26, bd27, bd28, bd29,
+     bd30, bd31, bd32, bd33, bd34,
+     bd35, bd36
+} in
+bc_decomposition.sel {
+     bc_decomposition.id,
+     bc_decomposition.pc,
+     bc_decomposition.bytes_to_read,
+     bc_decomposition.bytes,            bc_decomposition.bytes_pc_plus_1, bc_decomposition.bytes_pc_plus_2, bc_decomposition.bytes_pc_plus_3, bc_decomposition.bytes_pc_plus_4,
+     bc_decomposition.bytes_pc_plus_5,  bc_decomposition.bytes_pc_plus_6, bc_decomposition.bytes_pc_plus_7, bc_decomposition.bytes_pc_plus_8, bc_decomposition.bytes_pc_plus_9,
+     bc_decomposition.bytes_pc_plus_10, bc_decomposition.bytes_pc_plus_11, bc_decomposition.bytes_pc_plus_12, bc_decomposition.bytes_pc_plus_13, bc_decomposition.bytes_pc_plus_14,
+     bc_decomposition.bytes_pc_plus_15, bc_decomposition.bytes_pc_plus_16, bc_decomposition.bytes_pc_plus_17, bc_decomposition.bytes_pc_plus_18, bc_decomposition.bytes_pc_plus_19,
+     bc_decomposition.bytes_pc_plus_20, bc_decomposition.bytes_pc_plus_21, bc_decomposition.bytes_pc_plus_22, bc_decomposition.bytes_pc_plus_23, bc_decomposition.bytes_pc_plus_24,
+     bc_decomposition.bytes_pc_plus_25, bc_decomposition.bytes_pc_plus_26, bc_decomposition.bytes_pc_plus_27, bc_decomposition.bytes_pc_plus_28, bc_decomposition.bytes_pc_plus_29,
+     bc_decomposition.bytes_pc_plus_30, bc_decomposition.bytes_pc_plus_31, bc_decomposition.bytes_pc_plus_32, bc_decomposition.bytes_pc_plus_33, bc_decomposition.bytes_pc_plus_34,
+     bc_decomposition.bytes_pc_plus_35, bc_decomposition.bytes_pc_plus_36
+};
+
+// Wire to execution opcodes translation.
+pol commit exec_opcode;
+
+// Selectors for operands decomposition into bytes (copied from precomputed.pil)
+// This table is populated by a map generated by a cpp test in op_decomposition.test.cpp.
+pol commit sel_op_dc_0;
+pol commit sel_op_dc_1;
+pol commit sel_op_dc_2;
+pol commit sel_op_dc_3;
+pol commit sel_op_dc_4;
+pol commit sel_op_dc_5;
+pol commit sel_op_dc_6;
+pol commit sel_op_dc_7;
+pol commit sel_op_dc_8;
+pol commit sel_op_dc_9;
+pol commit sel_op_dc_10;
+pol commit sel_op_dc_11;
+pol commit sel_op_dc_12;
+pol commit sel_op_dc_13;
+pol commit sel_op_dc_14;
+pol commit sel_op_dc_15;
+pol commit sel_op_dc_16;
+
+#[WIRE_INSTRUCTION_INFO]
+sel_pc_in_range {
+     bd0,
+     opcode_out_of_range,
+     exec_opcode,
+     instr_size,
+     sel_has_tag,
+     sel_tag_is_op2,
+     sel_op_dc_0,  sel_op_dc_1,  sel_op_dc_2,  sel_op_dc_3,
+     sel_op_dc_4,  sel_op_dc_5,  sel_op_dc_6,  sel_op_dc_7,
+     sel_op_dc_8,  sel_op_dc_9,  sel_op_dc_10, sel_op_dc_11,
+     sel_op_dc_12, sel_op_dc_13, sel_op_dc_14, sel_op_dc_15,
+     sel_op_dc_16
+} in
+precomputed.sel_range_8 {
+    precomputed.clk,
+    precomputed.opcode_out_of_range,
+    precomputed.exec_opcode,
+    precomputed.instr_size,
+    precomputed.sel_has_tag,
+    precomputed.sel_tag_is_op2,
+    precomputed.sel_op_dc_0,  precomputed.sel_op_dc_1,  precomputed.sel_op_dc_2,  precomputed.sel_op_dc_3,
+    precomputed.sel_op_dc_4,  precomputed.sel_op_dc_5,  precomputed.sel_op_dc_6,  precomputed.sel_op_dc_7,
+    precomputed.sel_op_dc_8,  precomputed.sel_op_dc_9,  precomputed.sel_op_dc_10, precomputed.sel_op_dc_11,
+    precomputed.sel_op_dc_12, precomputed.sel_op_dc_13, precomputed.sel_op_dc_14, precomputed.sel_op_dc_15,
+    precomputed.sel_op_dc_16
+};
+
+
+// ****************************************************************************
+//                Decomposition of the operands
+// ****************************************************************************
+
+pol commit indirect;
+
+// Operands.
+pol commit op1, op2, op3, op4, op5, op6, op7;
+
+// We derive the operands only when no parsing error (except possibly tag out-of-range) occurs. One might remove
+// this gating but at a cost of some ugliness in the code (witgen would need a partially parsed instruction when
+// the error instr_out_of_range is toggled).
+// The following relations decomposing operands (indirect, op1, ...) into bytes were code-generated by
+// a cpp test in op_decomposition.test.cpp.
+// Remark: Upper-casing the alias needs to be edited manually (not code-generated)!
+pol SEL_OP_DC_17 = sel_op_dc_2 + sel_op_dc_6;
+
+#[INDIRECT_BYTES_DECOMPOSITION]
+indirect = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd1 * 2**8 + bd2 * 2**0) + SEL_OP_DC_17 * (bd1 * 2**0));
+#[OP1_BYTES_DECOMPOSITION]
+op1 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd3 * 2**8 + bd4 * 2**0) + sel_op_dc_2 * (bd2 * 2**8 + bd3 * 2**0) + sel_op_dc_6 * (bd2 * 2**0) + sel_op_dc_15 * (bd1 * 2**24 + bd2 * 2**16 + bd3 * 2**8 + bd4 * 2**0));
+#[OP2_BYTES_DECOMPOSITION]
+op2 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd5 * 2**8 + bd6 * 2**0) + sel_op_dc_3 * (bd4 * 2**8 + bd5 * 2**0) + sel_op_dc_6 * (bd3 * 2**0) + sel_op_dc_8 * (bd4 * 2**0) + sel_op_dc_16 * (bd4 * 2**24 + bd5 * 2**16 + bd6 * 2**8 + bd7 * 2**0));
+#[OP3_BYTES_DECOMPOSITION]
+op3 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd7 * 2**8 + bd8 * 2**0) + sel_op_dc_4 * (bd6 * 2**8 + bd7 * 2**0) + sel_op_dc_7 * (bd6 * 2**0) + sel_op_dc_9 * (bd5 * 2**248 + bd6 * 2**240 + bd7 * 2**232 + bd8 * 2**224 + bd9 * 2**216 + bd10 * 2**208 + bd11 * 2**200 + bd12 * 2**192 + bd13 * 2**184 + bd14 * 2**176 + bd15 * 2**168 + bd16 * 2**160 + bd17 * 2**152 + bd18 * 2**144 + bd19 * 2**136 + bd20 * 2**128 + bd21 * 2**120 + bd22 * 2**112 + bd23 * 2**104 + bd24 * 2**96 + bd25 * 2**88 + bd26 * 2**80 + bd27 * 2**72 + bd28 * 2**64 + bd29 * 2**56 + bd30 * 2**48 + bd31 * 2**40 + bd32 * 2**32 + bd33 * 2**24 + bd34 * 2**16 + bd35 * 2**8 + bd36 * 2**0) + sel_op_dc_10 * (bd5 * 2**120 + bd6 * 2**112 + bd7 * 2**104 + bd8 * 2**96 + bd9 * 2**88 + bd10 * 2**80 + bd11 * 2**72 + bd12 * 2**64 + bd13 * 2**56 + bd14 * 2**48 + bd15 * 2**40 + bd16 * 2**32 + bd17 * 2**24 + bd18 * 2**16 + bd19 * 2**8 + bd20 * 2**0) + sel_op_dc_11 * (bd5 * 2**56 + bd6 * 2**48 + bd7 * 2**40 + bd8 * 2**32 + bd9 * 2**24 + bd10 * 2**16 + bd11 * 2**8 + bd12 * 2**0) + sel_op_dc_12 * (bd5 * 2**24 + bd6 * 2**16 + bd7 * 2**8 + bd8 * 2**0) + sel_op_dc_13 * (bd5 * 2**8 + bd6 * 2**0) + sel_op_dc_14 * (bd4 * 2**0));
+#[OP4_BYTES_DECOMPOSITION]
+op4 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd9 * 2**8 + bd10 * 2**0) + sel_op_dc_5 * (bd8 * 2**8 + bd9 * 2**0));
+#[OP5_BYTES_DECOMPOSITION]
+op5 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_0 * (bd11 * 2**8 + bd12 * 2**0));
+#[OP6_BYTES_DECOMPOSITION]
+op6 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_1 * (bd13 * 2**8 + bd14 * 2**0));
+#[OP7_BYTES_DECOMPOSITION]
+op7 = (1 - PARSING_ERROR_EXCEPT_TAG_ERROR) * (sel_op_dc_1 * (bd15 * 2**8 + bd16 * 2**0));

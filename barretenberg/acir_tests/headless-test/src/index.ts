@@ -4,8 +4,13 @@ import { Command } from "commander";
 import chalk from "chalk";
 import os from "os";
 import type { ProofData } from "@aztec/bb.js";
-
 const { BROWSER, PORT = "8080" } = process.env;
+
+if (!["chrome", "firefox", "webkit"].includes(BROWSER || "")) {
+  throw new Error(
+    "BROWSER environment variable is not set. Set it to 'chrome', 'firefox', or 'webkit'."
+  );
+}
 
 function formatAndPrintLog(message: string): void {
   const parts = message.split("%c");
@@ -43,6 +48,11 @@ const readBytecodeFile = (path: string): string => {
 };
 
 const readWitnessFile = (path: string): Uint8Array => {
+  const buffer = fs.readFileSync(path);
+  return buffer;
+};
+
+const readIvcInputsFile = (path: string): Uint8Array => {
   const buffer = fs.readFileSync(path);
   return buffer;
 };
@@ -153,6 +163,57 @@ program
       if (!verificationResult) {
         process.exit(1);
       }
+    }
+  });
+
+program
+  .command("prove_client_ivc")
+  .description(
+    "Generate a ClientIVC proof. Process exits with success or failure code."
+  )
+  .option(
+    "-i, --ivc-inputs-path <path>",
+    "Specify the path to the IVC inputs msgpack file",
+    "./target/ivc-inputs.msgpack"
+  )
+  .action(async ({ ivcInputsPath }) => {
+    const ivcInputs = readIvcInputsFile(ivcInputsPath);
+    const threads = Math.min(os.cpus().length, 16);
+
+    const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
+
+    for (const [name, browserType] of Object.entries(browsers)) {
+      if (BROWSER && !BROWSER.split(",").includes(name)) {
+        continue;
+      }
+      console.log(
+        chalk.blue(`Testing ClientIVC ${ivcInputsPath} in ${name}...`)
+      );
+      const browser = await browserType.launch();
+
+      const context = await browser.newContext();
+      const provingPage = await context.newPage();
+
+      if (program.opts().verbose) {
+        provingPage.on("console", (msg) => formatAndPrintLog(msg.text()));
+      }
+
+      await provingPage.goto(`http://localhost:${PORT}`);
+      const verificationResult: boolean = await provingPage.evaluate(
+        async ([ivcInputsData, threads]: [number[], number]) => {
+          const ivcInputsUint8Array = new Uint8Array(ivcInputsData);
+          return await (
+            window as any
+          ).proveClientIvc(ivcInputsUint8Array, threads);
+        },
+        [Array.from(ivcInputs), threads]
+      );
+
+      await browser.close();
+      if (!verificationResult) {
+        process.exit(1);
+      }
+      console.log(chalk.green(`ClientIVC proof generated and self-verified successfully in ${name}.`));
     }
   });
 

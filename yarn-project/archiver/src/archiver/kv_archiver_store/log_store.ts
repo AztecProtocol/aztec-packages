@@ -195,9 +195,14 @@ export class LogStore {
    * @returns For each received tag, an array of matching logs is returned. An empty array implies no logs match
    * that tag.
    */
-  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[], limitPerTag?: number): Promise<TxScopedL2Log[][]> {
+    if (limitPerTag !== undefined && limitPerTag <= 0) {
+      throw new TypeError('limitPerTag needs to be greater than 0');
+    }
     const logs = await Promise.all(tags.map(tag => this.#logsByTag.getAsync(tag.toString())));
-    return logs.map(logBuffers => logBuffers?.map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? []);
+    return logs.map(
+      logBuffers => logBuffers?.slice(0, limitPerTag).map(logBuffer => TxScopedL2Log.fromBuffer(logBuffer)) ?? [],
+    );
   }
 
   /**

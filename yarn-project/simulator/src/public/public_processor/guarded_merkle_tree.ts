@@ -7,6 +7,7 @@ import type {
   MerkleTreeLeafType,
   MerkleTreeWriteOperations,
   SequentialInsertionResult,
+  TreeHeights,
   TreeInfo,
 } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference } from '@aztec/stdlib/tx';
@@ -87,7 +88,7 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   getInitialHeader(): BlockHeader {
     return this.target.getInitialHeader();
   }
-  getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
+  getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {
     return this.guardAndPush(() => this.target.getSiblingPath(treeId, index));
   }
   getPreviousValueIndex<ID extends IndexedTreeId>(
@@ -139,10 +140,10 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   revertAllCheckpoints(): Promise<void> {
     return this.guardAndPush(() => this.target.revertAllCheckpoints());
   }
-  findSiblingPaths<ID extends MerkleTreeId, N extends number>(
+  findSiblingPaths<ID extends MerkleTreeId>(
     treeId: ID,
     values: MerkleTreeLeafType<ID>[],
-  ): Promise<(SiblingPath<N> | undefined)[]> {
+  ): Promise<({ path: SiblingPath<TreeHeights[ID]>; index: bigint } | undefined)[]> {
     return this.guardAndPush(() => this.target.findSiblingPaths(treeId, values));
   }
 }

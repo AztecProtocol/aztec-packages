@@ -6,7 +6,7 @@ import { getOtelJsonRpcPropagationMiddleware } from '../otel_propagation.js';
 export function createTracedJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: Partial<SafeJsonRpcServerOptions> = {},
+  options: SafeJsonRpcServerOptions = {},
 ) {
   return createSafeJsonRpcServer(handler, schema, {
     ...options,

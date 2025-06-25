@@ -57,7 +57,7 @@ TEST_F(TranslatorTests, Basic)
 
     auto prover_transcript = std::make_shared<Transcript>();
     prover_transcript->send_to_verifier("init", Fq::random_element());
-    prover_transcript->export_proof();
+    auto initial_transcript = prover_transcript->export_proof();
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
@@ -69,7 +69,8 @@ TEST_F(TranslatorTests, Basic)
     TranslatorProver prover{ proving_key, prover_transcript };
     auto proof = prover.construct_proof();
 
-    auto verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<Transcript>();
+    verifier_transcript->load_proof(initial_transcript);
     verifier_transcript->template receive_from_prover<Fq>("init");
     auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
     TranslatorVerifier verifier(verification_key, verifier_transcript);

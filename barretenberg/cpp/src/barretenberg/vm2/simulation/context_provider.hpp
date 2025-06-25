@@ -5,9 +5,11 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
+#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -37,11 +39,13 @@ class ContextProviderInterface {
 class ContextProvider : public ContextProviderInterface {
   public:
     ContextProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
-                    RangeCheckInterface& range_check,
-                    EventEmitterInterface<MemoryEvent>& memory_events)
+                    MemoryProviderInterface& memory_provider,
+                    CalldataHashingProviderInterface& cd_hash_provider,
+                    InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider)
         : tx_bytecode_manager(tx_bytecode_manager)
-        , range_check(range_check)
-        , memory_events(memory_events)
+        , memory_provider(memory_provider)
+        , cd_hash_provider(cd_hash_provider)
+        , internal_call_stack_manager_provider(internal_call_stack_manager_provider)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
@@ -62,8 +66,9 @@ class ContextProvider : public ContextProviderInterface {
     uint32_t next_context_id = 1; // 0 is reserved to denote the parent of a top level context
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
-    RangeCheckInterface& range_check;
-    EventEmitterInterface<MemoryEvent>& memory_events;
+    MemoryProviderInterface& memory_provider;
+    CalldataHashingProviderInterface& cd_hash_provider;
+    InternalCallStackManagerProviderInterface& internal_call_stack_manager_provider;
 };
 
 } // namespace bb::avm2::simulation

@@ -40,7 +40,7 @@ pub contract Child {
         let return_value = base_value
             + context.chain_id()
             + context.version()
-            + context.block_number()
+            + context.block_number() as Field
             + context.timestamp() as Field;
 
         return_value

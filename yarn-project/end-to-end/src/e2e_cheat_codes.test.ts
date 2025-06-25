@@ -161,12 +161,12 @@ describe('e2e_cheat_codes', () => {
     afterAll(() => teardown());
 
     it('load public', async () => {
-      expect(await cc.aztec.loadPublic(token.address, 1n)).toEqual(admin.toField());
+      expect(admin.toField().equals(await cc.aztec.loadPublic(token.address, 1n))).toBeTrue();
     });
 
     it('load public returns 0 for non existent value', async () => {
       const storageSlot = Fr.random();
-      expect(await cc.aztec.loadPublic(token.address, storageSlot)).toEqual(new Fr(0n));
+      expect(Fr.ZERO.equals(await cc.aztec.loadPublic(token.address, storageSlot))).toBeTrue();
     });
 
     it('load private works as expected for no notes', async () => {

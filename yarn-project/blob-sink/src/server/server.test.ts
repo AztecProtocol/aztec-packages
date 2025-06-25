@@ -86,11 +86,11 @@ describe('BlobSinkService', () => {
 
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
 
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob2.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve specific indicies', async () => {
@@ -107,11 +107,11 @@ describe('BlobSinkService', () => {
       const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
 
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob2.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve a single index', async () => {
@@ -124,7 +124,7 @@ describe('BlobSinkService', () => {
       const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
+      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
   });
 

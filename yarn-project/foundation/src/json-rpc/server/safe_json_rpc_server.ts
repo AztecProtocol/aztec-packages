@@ -23,6 +23,21 @@ export type DiagnosticsData = {
 
 export type DiagnosticsMiddleware = (ctx: DiagnosticsData, next: () => Promise<void>) => Promise<void>;
 
+export type SafeJsonRpcServerConfig = {
+  /** Maximum batch size for batched rpc requests */
+  maxBatchSize: number;
+  /** Return an HTTP 200 status code on errors, but include an error object as per the JSON RPC spec */
+  http200OnError: boolean;
+  /** The maximum body size the server will accept */
+  maxBodySizeBytes: string;
+};
+
+const defaultServerConfig: SafeJsonRpcServerConfig = {
+  http200OnError: false,
+  maxBatchSize: 100,
+  maxBodySizeBytes: '50mb',
+};
+
 export class SafeJsonRpcServer {
   /**
    * The HTTP server accepting remote requests.
@@ -30,21 +45,26 @@ export class SafeJsonRpcServer {
    */
   private httpServer?: http.Server;
 
+  private config: SafeJsonRpcServerConfig;
+
   constructor(
-    /** The proxy object to delegate requests to. */
+    /** The proxy object to delegate requests to */
     private readonly proxy: Proxy,
-    /**
-     *  Return an HTTP 200 status code on errors, but include an error object
-     *  as per the JSON RPC spec
-     */
-    private http200OnError = false,
+    config: Partial<SafeJsonRpcServerConfig> = {},
     /** Health check function */
     private readonly healthCheck: StatusCheckFn = () => true,
     /** Additional middlewares */
     private extraMiddlewares: Application.Middleware[] = [],
     /** Logger */
     private log = createLogger('json-rpc:server'),
-  ) {}
+  ) {
+    this.config = { ...defaultServerConfig, ...config };
+
+    // handle empty string
+    if (!this.config.maxBodySizeBytes) {
+      this.config.maxBodySizeBytes = defaultServerConfig.maxBodySizeBytes;
+    }
+  }
 
   public isHealthy(): boolean | Promise<boolean> {
     return this.healthCheck();
@@ -100,7 +120,7 @@ export class SafeJsonRpcServer {
       app.use(middleware);
     }
     app.use(exceptionHandler);
-    app.use(bodyParser({ jsonLimit: '50mb', enableTypes: ['json'], detectJSON: () => true }));
+    app.use(bodyParser({ jsonLimit: this.config.maxBodySizeBytes, enableTypes: ['json'], detectJSON: () => true }));
     app.use(cors());
     app.use(router.routes());
     app.use(router.allowedMethods());
@@ -118,18 +138,30 @@ export class SafeJsonRpcServer {
     // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
     router.post('/', async (ctx: Koa.Context) => {
       if (Array.isArray(ctx.request.body)) {
+        if (ctx.request.body.length > this.config.maxBatchSize) {
+          ctx.status = this.config.http200OnError ? 200 : 400;
+          ctx.body = {
+            jsonrpc: '2.0',
+            error: {
+              code: -32600,
+              message: `Batch request exceeds maximum allowed size of ${this.config.maxBatchSize}`,
+            },
+            id: null,
+          };
+          return;
+        }
         const resp = await this.processBatch(ctx.request.body);
         if (Array.isArray(resp)) {
           ctx.status = 200;
           ctx.body = resp;
         } else {
-          ctx.status = this.http200OnError ? 200 : 400;
+          ctx.status = this.config.http200OnError ? 200 : 400;
           ctx.body = resp;
         }
       } else {
         const resp = await this.processRequest(ctx.request.body);
         if ('error' in resp) {
-          ctx.status = this.http200OnError ? 200 : 400;
+          ctx.status = this.config.http200OnError ? 200 : 400;
         }
 
         ctx.body = resp;
@@ -333,12 +365,13 @@ function makeAggregateHealthcheck(namedHandlers: NamespacedApiHandlers, log?: Lo
   };
 }
 
-export type SafeJsonRpcServerOptions = {
-  http200OnError: boolean;
-  healthCheck?: StatusCheckFn;
-  log?: Logger;
-  middlewares?: Application.Middleware[];
-};
+export type SafeJsonRpcServerOptions = Partial<
+  SafeJsonRpcServerConfig & {
+    healthCheck: StatusCheckFn;
+    log: Logger;
+    middlewares: Application.Middleware[];
+  }
+>;
 
 /**
  * Creates a single SafeJsonRpcServer from multiple handlers.
@@ -347,24 +380,22 @@ export type SafeJsonRpcServerOptions = {
  */
 export function createNamespacedSafeJsonRpcServer(
   handlers: NamespacedApiHandlers,
-  options: Partial<Omit<SafeJsonRpcServerOptions, 'healthcheck'>> = {
-    log: createLogger('json-rpc:server'),
-  },
+  options: Omit<SafeJsonRpcServerOptions, 'healthcheck'> = {},
 ): SafeJsonRpcServer {
-  const { middlewares, http200OnError, log } = options;
+  const { middlewares, log } = options;
   const proxy = new NamespacedSafeJsonProxy(handlers);
   const healthCheck = makeAggregateHealthcheck(handlers, log);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, middlewares, log);
+  return new SafeJsonRpcServer(proxy, options, healthCheck, middlewares, log);
 }
 
 export function createSafeJsonRpcServer<T extends object = any>(
   handler: T,
   schema: ApiSchemaFor<T>,
-  options: Partial<SafeJsonRpcServerOptions> = {},
+  options: SafeJsonRpcServerOptions = {},
 ) {
-  const { http200OnError, log, healthCheck, middlewares: extraMiddlewares } = options;
+  const { log, healthCheck, middlewares: extraMiddlewares } = options;
   const proxy = new SafeJsonProxy(handler, schema);
-  return new SafeJsonRpcServer(proxy, http200OnError, healthCheck, extraMiddlewares, log);
+  return new SafeJsonRpcServer(proxy, options, healthCheck, extraMiddlewares, log);
 }
 
 /**

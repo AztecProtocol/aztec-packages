@@ -65,6 +65,10 @@ template <class Params_> struct alignas(32) field {
         self_to_montgomery_form();
     }
 
+    constexpr field(const uint128_t& input) noexcept
+        : field(uint256_t::from_uint128(input))
+    {}
+
     // NOLINTNEXTLINE (unsigned long is platform dependent, which we want in this case)
     constexpr field(const unsigned long input) noexcept
         : data{ input, 0, 0, 0 }

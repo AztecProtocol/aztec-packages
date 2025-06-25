@@ -35,7 +35,7 @@ template <typename Curve> class ShpleminiProver_ {
     static OpeningClaim prove(const FF circuit_size,
                               PolynomialBatcher& polynomial_batcher,
                               std::span<FF> multilinear_challenge,
-                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const CommitmentKey<Curve>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
                               const std::array<Polynomial, NUM_SMALL_IPA_EVALUATIONS>& libra_polynomials = {},
                               const std::vector<Polynomial>& sumcheck_round_univariates = {},

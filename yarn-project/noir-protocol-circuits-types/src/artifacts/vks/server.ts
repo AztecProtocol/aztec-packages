@@ -10,7 +10,9 @@ import {
   PRIVATE_KERNEL_INNER_INDEX,
   PRIVATE_KERNEL_TAIL_INDEX,
   PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+  PRIVATE_TUBE_VK_INDEX,
   PUBLIC_BASE_ROLLUP_VK_INDEX,
+  PUBLIC_TUBE_VK_INDEX,
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
 } from '@aztec/constants';
@@ -18,6 +20,8 @@ import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import BaseParityVkJson from '../../../artifacts/keys/parity_base.vk.data.json' with { type: 'json' };
 import RootParityVkJson from '../../../artifacts/keys/parity_root.vk.data.json' with { type: 'json' };
+import PrivateTubeVkJson from '../../../artifacts/keys/private_tube.vk.data.json' with { type: 'json' };
+import PublicTubeVkJson from '../../../artifacts/keys/public_tube.vk.data.json' with { type: 'json' };
 import PrivateBaseRollupVkJson from '../../../artifacts/keys/rollup_base_private.vk.data.json' with { type: 'json' };
 import PublicBaseRollupVkJson from '../../../artifacts/keys/rollup_base_public.vk.data.json' with { type: 'json' };
 import BlockMergeRollupVkJson from '../../../artifacts/keys/rollup_block_merge.vk.data.json' with { type: 'json' };
@@ -26,15 +30,11 @@ import EmptyBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_roo
 import SingleTxBlockRootRollupVkJson from '../../../artifacts/keys/rollup_block_root_single_tx.vk.data.json' with { type: 'json' };
 import MergeRollupVkJson from '../../../artifacts/keys/rollup_merge.vk.data.json' with { type: 'json' };
 import RootRollupVkJson from '../../../artifacts/keys/rollup_root.vk.data.json' with { type: 'json' };
-import TubeVkJson from '../../../artifacts/keys/tube.vk.data.json' with { type: 'json' };
 import { PrivateKernelResetVkIndexes } from '../../private_kernel_reset_vks.js';
 import { keyJsonToVKData } from '../../utils/vk_json.js';
-import type { ProtocolArtifact, ServerProtocolArtifact } from '../types.js';
+import type { ProtocolCircuitName, ServerProtocolCircuitName } from '../types.js';
 
-// TODO Include this in the normal maps when the tube is implemented in noir
-export const TubeVk = keyJsonToVKData(TubeVkJson);
-
-export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
+export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKeyData> = {
   BaseParityArtifact: keyJsonToVKData(BaseParityVkJson),
   RootParityArtifact: keyJsonToVKData(RootParityVkJson),
   PrivateBaseRollupArtifact: keyJsonToVKData(PrivateBaseRollupVkJson),
@@ -45,9 +45,11 @@ export const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyDat
   EmptyBlockRootRollupArtifact: keyJsonToVKData(EmptyBlockRootRollupVkJson),
   BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
+  PrivateTube: keyJsonToVKData(PrivateTubeVkJson),
+  PublicTube: keyJsonToVKData(PublicTubeVkJson),
 };
 
-export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
+export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_INDEX,
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_INDEX,
   PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_INDEX,
@@ -62,5 +64,7 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
+  PrivateTube: PRIVATE_TUBE_VK_INDEX,
+  PublicTube: PUBLIC_TUBE_VK_INDEX,
   ...PrivateKernelResetVkIndexes,
 };

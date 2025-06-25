@@ -8,7 +8,8 @@ export class TxProofValidator implements TxValidator<Tx> {
   constructor(private verifier: ClientProtocolCircuitVerifier) {}
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    if (!(await this.verifier.verifyProof(tx))) {
+    const result = await this.verifier.verifyProof(tx);
+    if (!result.valid) {
       this.#log.verbose(`Rejecting tx ${await Tx.getHash(tx)} for invalid proof`);
       return { result: 'invalid', reason: [TX_ERROR_INVALID_PROOF] };
     }

@@ -1,4 +1,5 @@
 import { PARTIAL_STATE_REFERENCE_LENGTH } from '@aztec/constants';
+import type { ViemPartialStateReference } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -55,11 +56,35 @@ export class PartialStateReference {
     return new PartialStateReference(noteHashTree, nullifierTree, publicDataTree);
   }
 
+  static fromViem(stateReference: ViemPartialStateReference) {
+    return new PartialStateReference(
+      AppendOnlyTreeSnapshot.fromViem(stateReference.noteHashTree),
+      AppendOnlyTreeSnapshot.fromViem(stateReference.nullifierTree),
+      AppendOnlyTreeSnapshot.fromViem(stateReference.publicDataTree),
+    );
+  }
+
+  toViem(): ViemPartialStateReference {
+    return {
+      noteHashTree: this.noteHashTree.toViem(),
+      nullifierTree: this.nullifierTree.toViem(),
+      publicDataTree: this.publicDataTree.toViem(),
+    };
+  }
+
+  toAbi(): [
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+    ReturnType<AppendOnlyTreeSnapshot['toAbi']>,
+  ] {
+    return [this.noteHashTree.toAbi(), this.nullifierTree.toAbi(), this.publicDataTree.toAbi()];
+  }
+
   static empty(): PartialStateReference {
     return new PartialStateReference(
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
-      AppendOnlyTreeSnapshot.zero(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
+      AppendOnlyTreeSnapshot.empty(),
     );
   }
 
@@ -82,7 +107,7 @@ export class PartialStateReference {
   }
 
   isEmpty(): boolean {
-    return this.noteHashTree.isZero() && this.nullifierTree.isZero() && this.publicDataTree.isZero();
+    return this.noteHashTree.isEmpty() && this.nullifierTree.isEmpty() && this.publicDataTree.isEmpty();
   }
 
   public equals(other: this): boolean {

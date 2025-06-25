@@ -1,4 +1,4 @@
-# Decoder test
+# Decoders
 
 To generate test data (also used in rollup test), run the `integration_l1_publisher.test.ts` in end-to-end, it will generate the test data in the fixtures folder.
 

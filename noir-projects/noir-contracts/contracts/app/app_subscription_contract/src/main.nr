@@ -25,8 +25,8 @@ pub contract AppSubscription {
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
     }
 
-    global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
-    global SUBSCRIPTION_TXS: Field = 5;
+    global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
+    global SUBSCRIPTION_TXS: u32 = 5;
 
     #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
@@ -35,7 +35,7 @@ pub contract AppSubscription {
         assert_current_call_valid_authwit(&mut context, user_address);
 
         let mut note = storage.subscriptions.at(user_address).get_note().note;
-        assert(note.remaining_txs as u64 > 0, "you're out of txs");
+        assert(note.remaining_txs > 0, "you're out of txs");
 
         note.remaining_txs -= 1;
 
@@ -85,10 +85,10 @@ pub contract AppSubscription {
     fn subscribe(
         subscriber: AztecAddress,
         authwit_nonce: Field,
-        expiry_block_number: Field,
-        tx_count: Field,
+        expiry_block_number: u32,
+        tx_count: u32,
     ) {
-        assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
+        assert(tx_count <= SUBSCRIPTION_TXS);
 
         let config = storage.config.read();
 

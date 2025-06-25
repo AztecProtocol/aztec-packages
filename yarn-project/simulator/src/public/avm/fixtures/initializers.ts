@@ -82,9 +82,9 @@ export function initGlobalVariables(overrides?: Partial<GlobalVariables>): Globa
   return new GlobalVariables(
     overrides?.chainId ?? Fr.zero(),
     overrides?.version ?? Fr.zero(),
-    overrides?.blockNumber ?? Fr.zero(),
+    overrides?.blockNumber ?? 0,
     overrides?.slotNumber ?? Fr.zero(),
-    overrides?.timestamp ?? Fr.zero(),
+    overrides?.timestamp ?? 0n,
     overrides?.coinbase ?? EthAddress.ZERO,
     overrides?.feeRecipient ?? AztecAddress.zero(),
     overrides?.gasFees ?? GasFees.empty(),

@@ -16,7 +16,13 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');
 
   constructor(
-    private values: { l1ChainId: Fr; rollupVersion: Fr; blockNumber: Fr; vkTreeRoot: Fr; protocolContractTreeRoot: Fr },
+    private values: {
+      l1ChainId: Fr;
+      rollupVersion: Fr;
+      blockNumber: number;
+      vkTreeRoot: Fr;
+      protocolContractTreeRoot: Fr;
+    },
   ) {}
 
   async validateTx(tx: T): Promise<TxValidationResult> {

@@ -30,7 +30,7 @@ std::shared_ptr<AvmProver::ProvingKey> create_proving_key(AvmProver::ProverPolyn
         key_poly = std::move(prover_poly);
     }
 
-    proving_key->commitment_key = std::make_shared<AvmProver::PCSCommitmentKey>(CIRCUIT_SUBGROUP_SIZE);
+    proving_key->commitment_key = AvmProver::PCSCommitmentKey(CIRCUIT_SUBGROUP_SIZE);
 
     return proving_key;
 }

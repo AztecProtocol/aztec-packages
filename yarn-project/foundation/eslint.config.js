@@ -17,7 +17,7 @@ export default [
     '**/scripts/**',
     'eslint.config.js',
     'eslint.config.*.js',
-    'src/jest/setup.mjs',
+    'src/jest/*.mjs',
   ]),
   ...tseslint.config({
     extends: [

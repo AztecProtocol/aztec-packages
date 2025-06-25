@@ -4,7 +4,9 @@
   "license": "Apache-2.0",
   "description": "Aztec contracts for the Ethereum mainnet and testnets",
   "devDependencies": {
-    "solhint": "https://github.com/LHerskind/solhint#master"
+    "@openzeppelin/merkle-tree": "^1.0.8",
+    "ox": "^0.8.3",
+    "solhint": "5.1.0"
   },
   "scripts": {
     "format": "forge fmt",
@@ -12,5 +14,6 @@
     "lint:fix": "solhint --config ./.solhint.json --fix --noPrompt \"src/**/*.sol\"; forge fmt",
     "slither": "forge clean && forge build --build-info --skip '*/test/**' --force && slither . --checklist --ignore-compile --show-ignored-findings --config-file ./slither.config.json | tee slither_output.md",
     "slither-has-diff": "./slither_has_diff.sh"
-  }
+  },
+  "packageManager": "yarn@4.5.2"
 }

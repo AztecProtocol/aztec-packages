@@ -852,8 +852,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_pat
                     }
                     OptionalSiblingPath optional_path =
                         get_subtree_sibling_path_internal(leaf_index.value(), 0, requestContext, *tx);
-                    fr_sibling_path leaf_path = optional_sibling_path_to_full_sibling_path(optional_path);
-                    response.inner.leaf_paths.emplace_back(leaf_path);
+                    SiblingPathAndIndex sibling_path_and_index;
+                    sibling_path_and_index.path = optional_sibling_path_to_full_sibling_path(optional_path);
+                    sibling_path_and_index.index = leaf_index.value();
+                    response.inner.leaf_paths.emplace_back(sibling_path_and_index);
                 }
             },
             on_completion);
@@ -896,8 +898,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_pat
                     }
                     OptionalSiblingPath optional_path =
                         get_subtree_sibling_path_internal(leaf_index.value(), 0, requestContext, *tx);
-                    fr_sibling_path leaf_path = optional_sibling_path_to_full_sibling_path(optional_path);
-                    response.inner.leaf_paths.emplace_back(leaf_path);
+                    SiblingPathAndIndex sibling_path_and_index;
+                    sibling_path_and_index.path = optional_sibling_path_to_full_sibling_path(optional_path);
+                    sibling_path_and_index.index = leaf_index.value();
+                    response.inner.leaf_paths.emplace_back(sibling_path_and_index);
                 }
             },
             on_completion);

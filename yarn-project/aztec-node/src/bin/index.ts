@@ -1,9 +1,11 @@
 #!/usr/bin/env -S node --no-warnings
 import { createLogger } from '@aztec/foundation/log';
+import { AztecNodeApiSchema } from '@aztec/stdlib/interfaces/client';
+import { createTracedJsonRpcServer } from '@aztec/telemetry-client';
 
 import http from 'http';
 
-import { type AztecNodeConfig, AztecNodeService, createAztecNodeRpcServer, getConfigEnvVars } from '../index.js';
+import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '../index.js';
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
@@ -37,7 +39,7 @@ async function main() {
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   process.once('SIGTERM', shutdown);
 
-  const rpcServer = createAztecNodeRpcServer(aztecNode);
+  const rpcServer = createTracedJsonRpcServer(aztecNode, AztecNodeApiSchema);
   const app = rpcServer.getApp(API_PREFIX);
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises

@@ -1,7 +1,7 @@
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
-import { initContext } from '../fixtures/index.js';
+import { initContext } from '../fixtures/initializers.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Eq, Lt, Lte } from './comparators.js';
 

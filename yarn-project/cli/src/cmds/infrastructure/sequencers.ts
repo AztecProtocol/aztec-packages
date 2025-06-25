@@ -7,7 +7,7 @@ import { createPublicClient, createWalletClient, fallback, getContract, http } f
 import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
-  command: 'list' | 'add' | 'remove' | 'who-next';
+  command: 'list' | 'add' | 'remove' | 'who-next' | 'flush';
   who?: string;
   mnemonic?: string;
   rpcUrl: string;
@@ -74,14 +74,22 @@ export async function sequencers(opts: {
 
     await Promise.all(
       [
-        await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
-        await stakingAsset.write.approve([rollup.address, config.minimumStake], {} as any),
+        await stakingAsset.write.mint([walletClient.account.address, config.depositAmount], {} as any),
+        await stakingAsset.write.approve([rollup.address, config.depositAmount], {} as any),
       ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
     );
 
     const hash = await writeableRollup.write.deposit([who, who, true]);
     await publicClient.waitForTransactionReceipt({ hash });
     log(`Added in tx ${hash}`);
+  } else if (command === 'flush') {
+    if (!writeableRollup) {
+      throw new Error(`Missing sequencer address`);
+    }
+    log(`Flushing staking entry queue`);
+    const hash = await writeableRollup.write.flushEntryQueue();
+    await publicClient.waitForTransactionReceipt({ hash });
+    log(`Flushed staking entry queue in tx ${hash}`);
   } else if (command === 'remove') {
     if (!who || !writeableRollup) {
       throw new Error(`Missing sequencer address`);

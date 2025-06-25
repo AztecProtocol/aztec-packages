@@ -2,11 +2,11 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract EasyPrivateVoting {
-    use dep::aztec:: macros::{
-        functions::{initializer, internal, private, public, utility}, 
-        storage::storage
-    };
     use dep::aztec::keys::getters::get_public_keys;
+    use dep::aztec::macros::{
+        functions::{initializer, internal, private, public, utility},
+        storage::storage,
+    };
     use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
     use dep::aztec::protocol_types::traits::{Hash, ToField};
 
@@ -23,7 +23,7 @@ pub contract EasyPrivateVoting {
     fn constructor(admin: AztecAddress) {
         storage.admin.write(admin);
         storage.vote_ended.write(false);
-        storage.active_at_block.initialize(context.block_number() as u32);
+        storage.active_at_block.initialize(context.block_number());
     }
 
     #[private]

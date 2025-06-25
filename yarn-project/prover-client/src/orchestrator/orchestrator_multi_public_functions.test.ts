@@ -1,3 +1,4 @@
+import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -59,7 +60,11 @@ describe('prover/orchestrator/public-functions', () => {
         ],
         /*teardownCall=*/ undefined,
         /*feePayer=*/ admin,
-        /*firstNullifier=*/ contractAddressNullifier, // as if it was deployed during private portion
+        /*firstNullifier=*/ {
+          nonRevertible: {
+            nullifiers: [contractAddressNullifier],
+          },
+        }, // as if it was deployed during private portion
       );
     });
 
@@ -86,12 +91,14 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
         }
 
-        context.orchestrator.startNewEpoch(1, 1, 1);
-        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
-
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions);
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
+
+        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
+        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
         await context.orchestrator.addTxs(processed);
 

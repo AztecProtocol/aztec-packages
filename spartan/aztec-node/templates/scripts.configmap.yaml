@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chart.fullname" . }}-scripts
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  {{ range $path, $_ :=  .Files.Glob  "scripts/*.sh" }}
+  {{- base $path | nindent 2 }}: |
+    {{ $.Files.Get $path | nindent 4}}
+  {{ end }}
+

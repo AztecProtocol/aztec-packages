@@ -1,10 +1,11 @@
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AVM_VK_INDEX,
+  PRIVATE_TUBE_VK_INDEX,
+  PUBLIC_TUBE_VK_INDEX,
   type TUBE_PROOF_LENGTH,
-  TUBE_VK_INDEX,
 } from '@aztec/constants';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import {
@@ -21,7 +22,7 @@ import {
 import type { CircuitName } from '@aztec/stdlib/stats';
 import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx } from '@aztec/stdlib/tx';
-import { VkData } from '@aztec/stdlib/vks';
+import { VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -81,7 +82,7 @@ export class TxProvingState {
       throw new Error('Tx not ready for proving base rollup.');
     }
 
-    const vkData = this.#getTubeVkData();
+    const vkData = this.#getVkData(this.tube!.verificationKey, PRIVATE_TUBE_VK_INDEX);
     const tubeData = new PrivateTubeData(
       this.processedTx.data.toPrivateToRollupKernelCircuitPublicInputs(),
       this.tube.proof,
@@ -108,13 +109,13 @@ export class TxProvingState {
     const tubeData = new PublicTubeData(
       this.processedTx.data.toPrivateToPublicKernelCircuitPublicInputs(),
       this.tube.proof,
-      this.#getTubeVkData(),
+      this.#getVkData(this.tube!.verificationKey, PUBLIC_TUBE_VK_INDEX),
     );
 
     const avmProofData = new AvmProofData(
       this.processedTx.avmProvingRequest.inputs.publicInputs,
       this.avm.proof,
-      this.#getAvmVkData(),
+      this.#getVkData(this.avm!.verificationKey, AVM_VK_INDEX),
     );
 
     if (!(this.baseRollupHints instanceof PublicBaseRollupHints)) {
@@ -124,21 +125,8 @@ export class TxProvingState {
     return new PublicBaseRollupInputs(tubeData, avmProofData, this.baseRollupHints);
   }
 
-  #getTubeVkData() {
-    let vkIndex = TUBE_VK_INDEX;
-    try {
-      vkIndex = getVKIndex(this.tube!.verificationKey);
-    } catch {
-      // TODO(#7410) The VK for the tube won't be in the tree for now, so we manually set it to the tube vk index
-    }
+  #getVkData(verificationKey: VerificationKeyData, vkIndex: number) {
     const vkPath = getVKSiblingPath(vkIndex);
-
-    return new VkData(this.tube!.verificationKey, vkIndex, vkPath);
-  }
-
-  #getAvmVkData() {
-    const vkIndex = AVM_VK_INDEX;
-    const vkPath = getVKSiblingPath(vkIndex);
-    return new VkData(this.avm!.verificationKey, vkIndex, vkPath);
+    return new VkData(verificationKey, vkIndex, vkPath);
   }
 }

@@ -2,13 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SignedMath} from "@oz/utils/math/SignedMath.sol";
-
-import {Errors} from "../Errors.sol";
-
-import {Slot, Timestamp, TimeLib} from "../TimeLib.sol";
+import {Errors} from "./../Errors.sol";
+import {Slot, Timestamp, TimeLib} from "./../TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 
 // The lowest number of fee asset per eth is 10 with a precision of 1e9.
@@ -58,7 +57,7 @@ struct L1FeeData {
 struct L1GasOracleValues {
   L1FeeData pre;
   L1FeeData post;
-  Slot slotOfChange;
+  CompressedSlot slotOfChange;
 }
 
 type EthValue is uint256;
@@ -189,6 +188,8 @@ library FeeLib {
 
   using FeeHeaderLib for FeeHeader;
   using FeeHeaderLib for CompressedFeeHeader;
+  using CompressedTimeMath for CompressedSlot;
+  using CompressedTimeMath for Slot;
 
   Slot internal constant LIFETIME = Slot.wrap(5);
   Slot internal constant LAG = Slot.wrap(2);
@@ -214,7 +215,7 @@ library FeeLib {
     feeStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
       post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}),
-      slotOfChange: LIFETIME
+      slotOfChange: LIFETIME.compress()
     });
   }
 
@@ -254,7 +255,7 @@ library FeeLib {
     // The slot where we find a new queued value acceptable
     FeeStore storage feeStore = getStorage();
 
-    Slot acceptableSlot = feeStore.l1GasOracleValues.slotOfChange + (LIFETIME - LAG);
+    Slot acceptableSlot = feeStore.l1GasOracleValues.slotOfChange.decompress() + (LIFETIME - LAG);
 
     if (slot < acceptableSlot) {
       return;
@@ -263,12 +264,12 @@ library FeeLib {
     feeStore.l1GasOracleValues.pre = feeStore.l1GasOracleValues.post;
     feeStore.l1GasOracleValues.post =
       L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()});
-    feeStore.l1GasOracleValues.slotOfChange = slot + LAG;
+    feeStore.l1GasOracleValues.slotOfChange = (slot + LAG).compress();
   }
 
   function getL1FeesAt(Timestamp _timestamp) internal view returns (L1FeeData memory) {
     FeeStore storage feeStore = getStorage();
-    return _timestamp.slotFromTimestamp() < feeStore.l1GasOracleValues.slotOfChange
+    return _timestamp.slotFromTimestamp() < feeStore.l1GasOracleValues.slotOfChange.decompress()
       ? feeStore.l1GasOracleValues.pre
       : feeStore.l1GasOracleValues.post;
   }
