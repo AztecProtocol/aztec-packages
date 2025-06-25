@@ -267,6 +267,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           ? undefined
           : await retryUntil(
               async () => {
+                const block = await this.blockSource.getBlock(blockNumber - 1);
+                if (block) {
+                  return block;
+                }
+                await this.blockSource.syncImmediate();
                 return await this.blockSource.getBlock(blockNumber - 1);
               },
               'Force Archiver Sync',
