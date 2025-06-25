@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { type IntegralValue, TypeTag } from '../avm_memory_types.js';
+import { TypeTag, type Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
@@ -54,13 +54,13 @@ export class JumpI extends Instruction {
       this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
     );
 
-    memory.checkTag(TypeTag.UINT1, this.condOffset);
-
     const operands = [this.condOffset];
-    const [condOffset] = addressing.resolve(operands, memory);
-    const condition = memory.getAs<IntegralValue>(condOffset);
+    const [resolvedCondOffset] = addressing.resolve(operands, memory);
 
-    if (condition.toBigInt() == 0n) {
+    memory.checkTag(TypeTag.UINT1, resolvedCondOffset);
+    const condition = memory.getAs<Uint1>(resolvedCondOffset);
+
+    if (condition.toNumber() == 0) {
       context.machineState.pc = context.machineState.nextPc;
     } else {
       context.machineState.pc = this.loc;
