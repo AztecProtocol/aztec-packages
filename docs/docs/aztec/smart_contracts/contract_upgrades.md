@@ -47,7 +47,7 @@ So the `update_to` function above allows anyone to update the contract that impl
 :::
 
 Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
-This means that they have a delay before entering into effect. The default delay is `86400` seconds but can be configured by the contract:
+This means that they have a delay before entering into effect. The default delay is `86400` seconds (one day) but can be configured by the contract:
 
 ```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
