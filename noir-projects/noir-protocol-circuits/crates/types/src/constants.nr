@@ -468,7 +468,6 @@ pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
     + SPONGE_BLOB_LENGTH /* start_sponge_blob */
     + SPONGE_BLOB_LENGTH /* end_sponge_blob */
-    + 1 /* rollup_type */
     + 1 /* num_txs */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */

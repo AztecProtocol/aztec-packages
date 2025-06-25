@@ -418,7 +418,6 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
 ): BaseOrMergeRollupPublicInputsNoir {
   return {
-    rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
     num_txs: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.numTxs)),
     constants: mapBlockConstantDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
@@ -801,8 +800,7 @@ export function mapPaddingBlockRootRollupInputsToNoir(
   inputs: PaddingBlockRootRollupInputs,
 ): PaddingBlockRootRollupInputsNoir {
   return {
-    constants: mapBlockConstantDataToNoir(inputs.constants),
-    prover_id: mapFieldToNoir(inputs.proverId),
+    constants: mapEpochConstantDataToNoir(inputs.constants),
   };
 }
 
@@ -826,7 +824,6 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
     mapBlockConstantDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),

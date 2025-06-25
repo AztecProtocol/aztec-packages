@@ -1,6 +1,3 @@
-use crate::abis::block_root_or_block_merge_public_inputs::{
-    BlockRootOrBlockMergePublicInputs, FeeRecipient,
-};
 use super::abis::tx_effect::TxEffect;
 use dep::types::{
     abis::{
@@ -9,81 +6,19 @@ use dep::types::{
         sponge_blob::SpongeBlob,
     },
     constants::{
-        AZTEC_MAX_EPOCH_DURATION, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX,
-        L2_L1_MSGS_PREFIX, MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        MAX_PUBLIC_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX,
-        NULLIFIERS_PREFIX, PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX,
-        PUBLIC_DATA_UPDATE_REQUESTS_PREFIX, PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX,
-        REVERT_CODE_PREFIX, TX_FEE_PREFIX, TX_START_PREFIX,
+        CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, CONTRACT_CLASS_LOGS_PREFIX, L2_L1_MSGS_PREFIX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX, MAX_PUBLIC_LOGS_PER_TX,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTES_PREFIX, NULLIFIERS_PREFIX,
+        PRIVATE_LOG_SIZE_IN_FIELDS, PRIVATE_LOGS_PREFIX, PUBLIC_DATA_UPDATE_REQUESTS_PREFIX,
+        PUBLIC_LOG_SIZE_IN_FIELDS, PUBLIC_LOGS_PREFIX, REVERT_CODE_PREFIX, TX_FEE_PREFIX,
+        TX_START_PREFIX,
     },
     hash::compute_contract_class_log_hash,
     merkle_tree::VariableMerkleTree,
     traits::ToField,
-    utils::arrays::{array_length, array_length_until, array_merge, array_padded_with},
+    utils::arrays::{array_length, array_length_until, array_padded_with},
 };
-
-pub fn assert_prev_block_rollups_follow_on_from_each_other(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) {
-    assert_eq(left.constants, right.constants, "input blocks have different constants");
-    assert(
-        left.new_archive.eq(right.previous_archive),
-        "input blocks have different archive tree snapshots",
-    );
-    assert(
-        left.end_global_variables.chain_id == right.start_global_variables.chain_id,
-        "input blocks have different chain id",
-    );
-    assert(
-        left.end_global_variables.version == right.start_global_variables.version,
-        "input blocks have different chain version",
-    );
-
-    if !right.is_padding() {
-        assert(
-            left.blob_public_inputs.end_blob_accumulator.eq(
-                right.blob_public_inputs.start_blob_accumulator,
-            ),
-            "input block blob accumulators do not follow on from each other",
-        );
-        assert(
-            left.blob_public_inputs.final_blob_challenges.eq(
-                right.blob_public_inputs.final_blob_challenges,
-            ),
-            "input blocks have different epoch blob challenges",
-        );
-        assert(
-            left.end_global_variables.block_number + 1 == right.start_global_variables.block_number,
-            "input block numbers do not follow on from each other",
-        );
-        assert(
-            left.end_global_variables.timestamp < right.start_global_variables.timestamp,
-            "input block timestamps do not follow on from each other",
-        );
-    }
-}
-
-pub fn accumulate_proposed_block_header_hashes(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [Field; AZTEC_MAX_EPOCH_DURATION] {
-    array_merge(
-        left.proposed_block_header_hashes,
-        right.proposed_block_header_hashes,
-    )
-}
-
-pub fn accumulate_blocks_fees(
-    left: BlockRootOrBlockMergePublicInputs,
-    right: BlockRootOrBlockMergePublicInputs,
-) -> [FeeRecipient; AZTEC_MAX_EPOCH_DURATION] {
-    // TODO(Miranda): combine fees with same recipient depending on rollup structure
-    // Assuming that the final rollup tree (block root -> block merge -> root) has max 32 leaves (TODO: constrain in root), then
-    // in the worst case, we would be checking the left 16 values (left_len = 16) against the right 16 (right_len = 16).
-    array_merge(left.fees, right.fees)
-}
 
 pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]) -> Field {
     let non_empty_items = array_length(l2_to_l1_msgs);

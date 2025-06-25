@@ -178,6 +178,7 @@ export class ProvingOrchestrator implements EpochProver {
       lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
+      this.proverId,
     );
 
     // Enqueue base parity circuits for the block
@@ -681,7 +682,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.blockRootRollupStarted = true;
 
-    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs(this.proverId);
+    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs();
 
     logger.debug(
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
@@ -845,7 +846,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug('Padding epoch proof with a padding block root proof.');
 
-    const inputs = provingState.getPaddingBlockRootInputs(this.proverId);
+    const inputs = provingState.getPaddingBlockRootInputs();
 
     this.deferredProving(
       provingState,

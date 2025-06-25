@@ -25,6 +25,7 @@ import {
   BlockRootRollupData,
   BlockRootRollupInputs,
   EmptyBlockRootRollupInputs,
+  EpochConstantData,
   MergeRollupInputs,
   PaddingBlockRootRollupInputs,
   PreviousRollupData,
@@ -80,6 +81,7 @@ export class BlockProvingState {
     private readonly lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly newArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     private readonly previousBlockHeader: BlockHeader,
+    private readonly proverId: Fr,
     private readonly parentEpoch: EpochProvingState,
   ) {
     this.baseParityProvingOutputs = Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(_ => undefined);
@@ -205,7 +207,7 @@ export class BlockProvingState {
     return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public async getBlockRootRollupTypeAndInputs(proverId: Fr) {
+  public async getBlockRootRollupTypeAndInputs() {
     if (!this.rootParityProvingOutput) {
       throw new Error('Root parity is not ready.');
     }
@@ -216,7 +218,7 @@ export class BlockProvingState {
       throw new Error('At lease one child is not ready for the block root.');
     }
 
-    const data = this.#getBlockRootRollupData(proverId);
+    const data = this.#getBlockRootRollupData();
 
     if (this.totalNumTxs === 0) {
       const constants = BlockConstantData.from({
@@ -259,29 +261,15 @@ export class BlockProvingState {
     }
   }
 
-  public getPaddingBlockRootInputs(proverId: Fr) {
-    if (!this.blockRootProvingOutput) {
-      throw new Error('Block root not ready for padding.');
-    }
-
-    // Use the new archive of the current block as the previous archive of the padding block.
-    const lastArchive = this.blockRootProvingOutput!.inputs.newArchive;
-
-    // Set an empty lastL1ToL2 as it's not used in the padding block root rollup.
-    // It's not outputted from the circuit either.
-    const lastL1ToL2 = AppendOnlyTreeSnapshot.empty();
-
-    const constants = BlockConstantData.from({
-      lastArchive,
-      lastL1ToL2,
-      globalVariables: this.globalVariables,
+  public getPaddingBlockRootInputs() {
+    const constants = EpochConstantData.from({
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
+      proverId: this.proverId,
     });
 
     return PaddingBlockRootRollupInputs.from({
       constants,
-      proverId,
     });
   }
 
@@ -361,7 +349,7 @@ export class BlockProvingState {
     this.parentEpoch.reject(reason);
   }
 
-  #getBlockRootRollupData(proverId: Fr) {
+  #getBlockRootRollupData() {
     return BlockRootRollupData.from({
       l1ToL2Roots: this.#getRootParityData(this.rootParityProvingOutput!),
       l1ToL2MessageSubtreeSiblingPath: this.l1ToL2MessageSubtreeSiblingPath,
@@ -370,7 +358,7 @@ export class BlockProvingState {
       previousBlockHeader: this.previousBlockHeader,
       startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.startBlobAccumulator!),
       finalBlobChallenges: this.startBlobAccumulator!.finalBlobChallenges,
-      proverId,
+      proverId: this.proverId,
     });
   }
 

@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        tx_effect::TxEffect,
-    },
+    abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
     base::components::PublicTubeDataValidator,
     components::{append_tx_effects_for_blob, compute_kernel_out_hash, validate_contract_class_log},
 };
@@ -124,7 +121,6 @@ impl PublicBaseRollupInputs {
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         BaseOrMergeRollupPublicInputs {
-            rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants,
             start: self

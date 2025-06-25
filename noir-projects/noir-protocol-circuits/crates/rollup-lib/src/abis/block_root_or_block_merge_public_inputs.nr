@@ -56,8 +56,8 @@ pub struct BlockRootOrBlockMergePublicInputs {
 }
 
 impl BlockRootOrBlockMergePublicInputs {
-    pub fn is_padding(self) -> bool {
-        self.previous_archive == self.new_archive
+    pub fn num_blocks(self) -> u32 {
+        self.end_global_variables.block_number - self.start_global_variables.block_number + 1
     }
 }
 
