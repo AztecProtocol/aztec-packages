@@ -178,7 +178,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator&(const boo
             result.witness_index = IS_CONSTANT;
         }
     } else {
-        result.witness_bool = left & right;
+        result.witness_bool = left && right;
         result.witness_index = IS_CONSTANT;
         result.witness_inverted = false;
     }
@@ -247,49 +247,38 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 
     if (!is_constant() && !other.is_constant()) {
         result.witness_index = context->add_variable(value);
-        // norm a, norm b: a + b - 2ab
-        // inv  a, norm b: (1 - a) + b - 2(1 - a)b = 1 - a - b + 2ab
-        // norm a, inv  b: a + (1 - b) - 2(a)(1 - b) = 1 - a - b + 2ab
-        // inv  a, inv  b: (1 - a) + (1 - b) - 2(1 - a)(1 - b) = a + b - 2ab
-        bb::fr multiplicative_coefficient;
-        bb::fr left_coefficient;
-        bb::fr right_coefficient;
-        bb::fr constant_coefficient;
-        if ((witness_inverted && other.witness_inverted) || (!witness_inverted && !other.witness_inverted)) {
-            multiplicative_coefficient = (bb::fr::neg_one() + bb::fr::neg_one());
-            left_coefficient = bb::fr::one();
-            right_coefficient = bb::fr::one();
-            constant_coefficient = bb::fr::zero();
-        } else {
-            multiplicative_coefficient = bb::fr::one() + bb::fr::one();
-            left_coefficient = bb::fr::neg_one();
-            right_coefficient = bb::fr::neg_one();
-            constant_coefficient = bb::fr::one();
-        }
-        context->create_poly_gate({ witness_index,
-                                    other.witness_index,
-                                    result.witness_index,
-                                    multiplicative_coefficient,
-                                    left_coefficient,
-                                    right_coefficient,
-                                    bb::fr::neg_one(),
-                                    constant_coefficient });
+        // Let
+        //      a := lhs = *this;
+        //      b := rhs = other;
+        // The result is given by
+        //      a + b - 2 * a * b =    [-2 *(1 - 2*i_a) * (1 - 2*i_b)] * w_a w_b +
+        //                          [(1 - 2 * i_a) * (1 - 2 * i_b)] * w_a
+        //                          [(1 - 2 * i_b) * (1 - 2 * i_a)] * w_b
+        //                              [i_a + i_b - 2 * i_a * i_b] * 1]
+        const int rhs_inverted = static_cast<int>(other.witness_inverted);
+        const int lhs_inverted = static_cast<int>(witness_inverted);
+        // Compute the value that's being used in several selectors
+        const int aux_prod = (1 - 2 * rhs_inverted) * (1 - 2 * lhs_inverted);
+
+        bb::fr q_m{ -2 * aux_prod };
+        bb::fr q_l{ aux_prod };
+        bb::fr q_r{ aux_prod };
+        bb::fr q_o{ bb::fr::neg_one() };
+        bb::fr q_c{ lhs_inverted + rhs_inverted - 2 * rhs_inverted * lhs_inverted };
+
+        // Let r := a ^ b;
+        // Constrain
+        //      q_m * w_a * w_b + q_l * w_a + q_r * w_b + q_o * r + q_c = 0
+        context->create_poly_gate(
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
     } else if (!is_constant() && other.is_constant()) {
         // witness ^ 1 = !witness
-        if (other.witness_bool ^ other.witness_inverted) {
-            result = !bool_t<Builder>(*this);
-        } else {
-            result = bool_t<Builder>(*this);
-        }
+        ASSERT(other.witness_inverted == false);
+        result = other.witness_bool ? !*this : *this;
+
     } else if (is_constant() && !other.is_constant()) {
-        if (witness_bool ^ witness_inverted) {
-            result = !bool_t<Builder>(other);
-        } else {
-            result = bool_t<Builder>(other);
-        }
-    } else {
-        result.witness_inverted = false;
-        result.witness_index = IS_CONSTANT;
+        ASSERT(witness_inverted == false);
+        result = witness_bool ? !other : other;
     }
     result.tag = OriginTag(tag, other.tag);
     return result;
