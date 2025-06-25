@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -13,6 +14,7 @@ import { inspect } from 'util';
 import type { P2PConfig } from '../../config.js';
 import { PeerEvent } from '../../types/index.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
+import { AuthRequest, AuthResponse } from '../reqresp/protocols/auth.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
@@ -181,8 +183,13 @@ export class PeerManager implements PeerManagerInterface {
     } else {
       this.logger.verbose(`Connected to transaction peer ${peerId.toString()}`);
     }
-    if (!this.config.p2pDisableStatusHandshake) {
+    if (this.config.p2pDisableStatusHandshake) {
+      return;
+    }
+    if (!this.config.p2pAllowOnlyValidators) {
       void this.exchangeStatusHandshake(peerId);
+    } else {
+      void this.exchangeAuthHandshake(peerId);
     }
   }
 
@@ -720,6 +727,52 @@ export class PeerManager implements PeerManagerInterface {
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
+        peerId,
+      });
+      await this.disconnectPeer(peerId);
+    }
+  }
+
+  /**
+   * Performs auth Handshake with the Peer
+   * A superset of the status handshake. Also includes a challenge that needs to be signed by the peer's validator key.
+   * @param: peerId The Id of the peer to request the Status from.
+   * */
+  private async exchangeAuthHandshake(peerId: PeerId) {
+    try {
+      const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+      const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+      const authRequest = new AuthRequest(ourStatus, Fr.random().toBuffer());
+
+      //Note: Technically we don't have to send our status to peer as well, but we do.
+      //It will be easier to update protocol in the future this way if need be.
+      this.logger.info(`Initiating auth handshake with peer ${peerId}`);
+      const { status, data } = await this.reqresp.sendRequestToPeer(
+        peerId,
+        ReqRespSubProtocol.AUTH,
+        authRequest.toBuffer(),
+      );
+      const logData = { peerId, status: ReqRespStatus[status], data: data ? bufferToHex(data) : undefined };
+      if (status !== ReqRespStatus.SUCCESS) {
+        //TODO: maybe hard ban these peers in the future.
+        //We could allow this to happen up to N times, and then hard ban?
+        //Hard ban: Disallow connection via e.g. libp2p's Gater
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+
+      const peerAuthResponse = AuthResponse.fromBuffer(data);
+      const peerStatusMessage = peerAuthResponse.status;
+      if (!ourStatus.validate(peerStatusMessage)) {
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
+        await this.disconnectPeer(peerId);
+        return;
+      }
+      this.logger.debug(`Successfully completed auth handshake with peer ${peerId}`, logData);
+    } catch (err: any) {
+      //TODO: maybe hard ban these peers in the future
+      this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
         peerId,
       });
       await this.disconnectPeer(peerId);

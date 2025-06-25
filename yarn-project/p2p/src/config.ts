@@ -142,6 +142,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
+
+  /** True to only permit validators to connect */
+  p2pAllowOnlyValidators?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -360,6 +363,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pDisableStatusHandshake: {
     env: 'P2P_DISABLE_STATUS_HANDSHAKE',
     description: 'True to disable the status handshake on peer connected.',
+    ...booleanConfigHelper(false),
+  },
+  p2pAllowOnlyValidators: {
+    env: 'P2P_ALLOW_ONLY_VALIDATORS',
+    description: 'True to only permit validators to connect.',
     ...booleanConfigHelper(false),
   },
   ...p2pReqRespConfigMappings,

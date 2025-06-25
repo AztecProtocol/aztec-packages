@@ -128,6 +128,7 @@ export class ReqResp implements ReqRespInterface {
   ): Promise<void> {
     this.subProtocolHandlers[subProtocol] = handler;
     this.subProtocolValidators[subProtocol] = validator;
+    this.logger.info(`Adding sub protocol ${subProtocol} to reqresp service`);
     await this.libp2p.handle(
       subProtocol,
       (data: IncomingStreamData) =>
