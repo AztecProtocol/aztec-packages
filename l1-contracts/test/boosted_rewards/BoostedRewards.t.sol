@@ -14,9 +14,11 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {
   RewardBooster,
   RewardBoostConfig,
-  ActivityScore
+  ActivityScore,
+  CompressedActivityScore
 } from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {BoostedHelper} from "./BoostRewardHelper.sol";
 
 struct TestDataActivityConfig {
   uint256 h;
@@ -41,19 +43,6 @@ struct TestDataShares {
   uint256[] activity_scores;
   TestDataSharesConfig config;
   uint256[] shares;
-}
-
-contract BoostedHelper is RewardBooster {
-  using SafeCast for uint256;
-
-  constructor(IValidatorSelection _rollup, RewardBoostConfig memory _config)
-    RewardBooster(_rollup, _config)
-  {}
-
-  function setActivityScore(address _prover, uint256 _value) public {
-    activityScores[_prover] =
-      ActivityScore({value: _value.toUint32(), time: ROLLUP.getCurrentEpoch()});
-  }
 }
 
 contract BoostedRewardsTest is TestBase {
