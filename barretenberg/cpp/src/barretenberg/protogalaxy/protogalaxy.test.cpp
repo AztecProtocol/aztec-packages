@@ -86,8 +86,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         const std::vector<std::shared_ptr<DeciderVerificationKey>>& verification_keys,
         ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
     {
-        FoldingProver folding_prover(proving_keys, verification_keys, trace_usage_tracker);
-        FoldingVerifier folding_verifier(verification_keys);
+        FoldingProver folding_prover(proving_keys,
+                                     verification_keys,
+                                     std::make_shared<typename FoldingProver::Transcript>(),
+                                     trace_usage_tracker);
+        FoldingVerifier folding_verifier(verification_keys, std::make_shared<typename FoldingVerifier::Transcript>());
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
@@ -579,8 +582,10 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfKeys insts = construct_keys(total_insts);
 
-        ProtogalaxyProver_<Flavor, total_insts> folding_prover(get<0>(insts), get<1>(insts));
-        ProtogalaxyVerifier_<DeciderVerificationKeys_<Flavor, total_insts>> folding_verifier(get<1>(insts));
+        ProtogalaxyProver_<Flavor, total_insts> folding_prover(
+            get<0>(insts), get<1>(insts), std::make_shared<NativeTranscript>());
+        ProtogalaxyVerifier_<DeciderVerificationKeys_<Flavor, total_insts>> folding_verifier(
+            get<1>(insts), std::make_shared<NativeTranscript>());
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);
