@@ -98,14 +98,14 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active ranges must also include the rows where the actual databus and lookup table data are stored.
-        size_t databus_data_start = 0; // Databus column data starts at idx 0
-        size_t databus_data_end = databus_data_start + max_databus_size;
-        active_ranges.push_back(Range{ databus_data_start, databus_data_end }); // region where databus contains data
+        size_t databus_start = 0; // Databus column data starts at idx 0
+        size_t databus_end = databus_start + max_databus_size;
+        active_ranges.push_back(Range{ databus_start, databus_end }); // region where databus contains data
 
-        // Note: lookup table data is stored in the table polynomials at the idx where lookup gates block begins
-        size_t lookup_tables_start = fixed_sizes.lookup.trace_offset;
-        size_t lookup_tables_end = lookup_tables_start + max_tables_size;
-        active_ranges.emplace_back(Range{ lookup_tables_start, lookup_tables_end }); // region of actual table data
+        // Note: start of table data is aligned with start of the lookup gates block
+        size_t tables_start = fixed_sizes.lookup.trace_offset;
+        size_t tables_end = tables_start + max_tables_size;
+        active_ranges.emplace_back(Range{ tables_start, tables_end }); // region where table data is stored
     }
 
     // Check whether an index is contained within the active ranges (or previous active ranges; needed for perturbator)
