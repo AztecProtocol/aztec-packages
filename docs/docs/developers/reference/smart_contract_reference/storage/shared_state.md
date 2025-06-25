@@ -82,8 +82,6 @@ Returns the current value in a public, private or utility execution context. Onc
 
 #include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
-Calling this function in a private execution context will have a delay equal to 1 slot, as compared to calling in the public context. This is because calling `get_current_value` in private constructs a historical state proof, using the latest proven block, for the public value, so the "current value" in private execution will be delayed by 1 slot when compared to what the public value is.
-
 Also, calling in private will set the `include_by_timestamp` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a timestamp larger than `include_by_timestamp`. This could [potentially leak some privacy](#privacy-considerations).
 
 #include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
