@@ -1,5 +1,98 @@
 use crate::traits::{Deserialize, Serialize};
 
+comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
+    let mut slice = &[];
+    for i in 0 .. length {
+        slice = slice.push_back(f(i));
+    }
+    slice
+}
+
+comptime fn map2<Env, T, U, R>(slice1: [T], slice2: [U], f: fn[Env](T, U) -> R) -> [R] {
+    assert_eq(slice1.len(), slice2.len());
+    let mut result = &[];
+    for i in 0 .. slice1.len() {
+        result = result.push_back(f(slice1[i], slice2[i]));
+    }
+    result
+}
+
+// Implements Serialize and Deserialize for an arbitrary tuple type
+comptime fn impl_serialize_for_tuple(_m: Module, length: u32) -> Quoted {
+    // `T0`, `T1`, `T2`
+    let type_names = make_slice(length, |i| f"T{i}".quoted_contents());
+
+    // `N0`, `N1`, `N2`
+    let size_names = make_slice(length, |i| f"N{i}".quoted_contents());
+
+    // `result0`, `result1`, `result2`
+    let result_names = make_slice(length, |i| f"result{i}".quoted_contents());
+
+    // `T0, T1, T2`
+    let field_generics = type_names.join(quote[,]);
+
+    // `let N0: u32, let N1: u32, let N2: u32`
+    let size_generics = size_names.map(|size| quote[let $size: u32]).join(quote[,]);
+
+    // `N0 + N1 + N2`
+    let full_size = size_names.join(quote[+]);
+
+    // `T0: Serialize<N0>, T1: Serialize<N1>, T2: Serialize<N2>,`
+    let serialize_constraints = map2(type_names, size_names, |field_name, size_name| quote {
+        $field_name: Serialize<$size_name>,
+    }).join(quote[]);
+
+    // `T0: Deserialize<N0>, T1: Deserialize<N1>, T2: Deserialize<N2>,`
+    let deserialize_constraints = map2(type_names, size_names, |field_name, size_name| quote {
+        $field_name: Deserialize<$size_name>,
+    }).join(quote[]);
+
+    // Statements to serialize each field
+    let serialized_fields = size_names.mapi(|i, size| quote {
+        let serialized = self.$i.serialize();
+        for i in 0 .. $size {
+            result[offset + i] = serialized[i];
+        }
+        offset += $size;
+    }).join(quote[]);
+
+    // Statements to deserialize each field
+    let deserialized_fields = size_names.mapi(|i, size| {
+        let type_name = type_names[i];
+        let result_name = result_names[i];
+        quote {
+            let mut element_fields: [Field; $size] = std::mem::zeroed();
+            for i in 0 .. $size {
+                element_fields[i] = fields[i + offset];
+            }
+            offset += $size;
+            let $result_name = $type_name::deserialize(element_fields);
+        }
+    }).join(quote[]);
+    let deserialize_results = result_names.join(quote[,]);
+
+    quote {
+        impl<$field_generics, $size_generics> Serialize<$full_size> for ($field_generics) where $serialize_constraints {
+            fn serialize(self) -> [Field; $full_size] {
+                let mut result: [Field; $full_size] = std::mem::zeroed();
+                let mut offset = 0;
+                $serialized_fields
+                result
+            }
+        }
+
+        impl<$field_generics, $size_generics> Deserialize<$full_size> for ($field_generics) where $deserialize_constraints {
+            fn deserialize(fields: [Field; $full_size]) -> Self {
+                let mut offset = 0;
+                $deserialized_fields
+                ($deserialize_results)
+            }
+        }
+    }
+}
+
+// Keeping these manual impls. They are more efficient since they do not
+// require copying sub-arrays from any serialized arrays.
 impl<T1, let N1: u32> Serialize<N1> for (T1,)
 where
     T1: Serialize<N1>,
@@ -18,311 +111,11 @@ where
     }
 }
 
-impl<T1, T2, let N1: u32, let N2: u32> Serialize<N1 + N2> for (T1, T2)
-where
-    T1: Serialize<N1>,
-    T2: Serialize<N2>,
-{
-    fn serialize(self) -> [Field; N1 + N2] {
-        let mut result: [Field; N1 + N2] = std::mem::zeroed();
-        let t1_serialized = self.0.serialize();
-        let t2_serialized = self.1.serialize();
-
-        for i in 0..N1 {
-            result[i] = t1_serialized[i];
-        }
-        for i in 0..N2 {
-            result[N1 + i] = t2_serialized[i];
-        }
-        result
-    }
-}
-
-impl<T1, T2, let N1: u32, let N2: u32> Deserialize<N1 + N2> for (T1, T2)
-where
-    T1: Deserialize<N1>,
-    T2: Deserialize<N2>,
-{
-    fn deserialize(fields: [Field; N1 + N2]) -> Self {
-        let mut t1_fields: [Field; N1] = std::mem::zeroed();
-        let mut t2_fields: [Field; N2] = std::mem::zeroed();
-
-        for i in 0..N1 {
-            t1_fields[i] = fields[i];
-        }
-        for i in 0..N2 {
-            t2_fields[i] = fields[N1 + i];
-        }
-
-        (T1::deserialize(t1_fields), T2::deserialize(t2_fields))
-    }
-}
-
-impl<T1, T2, T3, let N1: u32, let N2: u32, let N3: u32> Serialize<N1 + N2 + N3> for (T1, T2, T3)
-where
-    T1: Serialize<N1>,
-    T2: Serialize<N2>,
-    T3: Serialize<N3>,
-{
-    fn serialize(self) -> [Field; N1 + N2 + N3] {
-        let mut result: [Field; N1 + N2 + N3] = std::mem::zeroed();
-        let t1_serialized = self.0.serialize();
-        let t2_serialized = self.1.serialize();
-        let t3_serialized = self.2.serialize();
-
-        for i in 0..N1 {
-            result[i] = t1_serialized[i];
-        }
-        for i in 0..N2 {
-            result[N1 + i] = t2_serialized[i];
-        }
-        for i in 0..N3 {
-            result[N1 + N2 + i] = t3_serialized[i];
-        }
-        result
-    }
-}
-
-impl<T1, T2, T3, let N1: u32, let N2: u32, let N3: u32> Deserialize<N1 + N2 + N3> for (T1, T2, T3)
-where
-    T1: Deserialize<N1>,
-    T2: Deserialize<N2>,
-    T3: Deserialize<N3>,
-{
-    fn deserialize(fields: [Field; N1 + N2 + N3]) -> Self {
-        let mut t1_fields: [Field; N1] = std::mem::zeroed();
-        let mut t2_fields: [Field; N2] = std::mem::zeroed();
-        let mut t3_fields: [Field; N3] = std::mem::zeroed();
-
-        for i in 0..N1 {
-            t1_fields[i] = fields[i];
-        }
-        for i in 0..N2 {
-            t2_fields[i] = fields[N1 + i];
-        }
-        for i in 0..N3 {
-            t3_fields[i] = fields[N1 + N2 + i];
-        }
-
-        (T1::deserialize(t1_fields), T2::deserialize(t2_fields), T3::deserialize(t3_fields))
-    }
-}
-
-impl<T1, T2, T3, T4, let N1: u32, let N2: u32, let N3: u32, let N4: u32> Serialize<N1 + N2 + N3 + N4> for (T1, T2, T3, T4)
-where
-    T1: Serialize<N1>,
-    T2: Serialize<N2>,
-    T3: Serialize<N3>,
-    T4: Serialize<N4>,
-{
-    fn serialize(self) -> [Field; N1 + N2 + N3 + N4] {
-        let mut result: [Field; N1 + N2 + N3 + N4] = std::mem::zeroed();
-        let t1_serialized = self.0.serialize();
-        let t2_serialized = self.1.serialize();
-        let t3_serialized = self.2.serialize();
-        let t4_serialized = self.3.serialize();
-
-        for i in 0..N1 {
-            result[i] = t1_serialized[i];
-        }
-        for i in 0..N2 {
-            result[N1 + i] = t2_serialized[i];
-        }
-        for i in 0..N3 {
-            result[N1 + N2 + i] = t3_serialized[i];
-        }
-        for i in 0..N4 {
-            result[N1 + N2 + N3 + i] = t4_serialized[i];
-        }
-        result
-    }
-}
-
-impl<T1, T2, T3, T4, let N1: u32, let N2: u32, let N3: u32, let N4: u32> Deserialize<N1 + N2 + N3 + N4> for (T1, T2, T3, T4)
-where
-    T1: Deserialize<N1>,
-    T2: Deserialize<N2>,
-    T3: Deserialize<N3>,
-    T4: Deserialize<N4>,
-{
-    fn deserialize(fields: [Field; N1 + N2 + N3 + N4]) -> Self {
-        let mut t1_fields: [Field; N1] = std::mem::zeroed();
-        let mut t2_fields: [Field; N2] = std::mem::zeroed();
-        let mut t3_fields: [Field; N3] = std::mem::zeroed();
-        let mut t4_fields: [Field; N4] = std::mem::zeroed();
-
-        for i in 0..N1 {
-            t1_fields[i] = fields[i];
-        }
-        for i in 0..N2 {
-            t2_fields[i] = fields[N1 + i];
-        }
-        for i in 0..N3 {
-            t3_fields[i] = fields[N1 + N2 + i];
-        }
-        for i in 0..N4 {
-            t4_fields[i] = fields[N1 + N2 + N3 + i];
-        }
-
-        (
-            T1::deserialize(t1_fields), T2::deserialize(t2_fields), T3::deserialize(t3_fields),
-            T4::deserialize(t4_fields),
-        )
-    }
-}
-
-impl<T1, T2, T3, T4, T5, let N1: u32, let N2: u32, let N3: u32, let N4: u32, let N5: u32> Serialize<N1 + N2 + N3 + N4 + N5> for (T1, T2, T3, T4, T5)
-where
-    T1: Serialize<N1>,
-    T2: Serialize<N2>,
-    T3: Serialize<N3>,
-    T4: Serialize<N4>,
-    T5: Serialize<N5>,
-{
-    fn serialize(self) -> [Field; N1 + N2 + N3 + N4 + N5] {
-        let mut result: [Field; N1 + N2 + N3 + N4 + N5] = std::mem::zeroed();
-        let t1_serialized = self.0.serialize();
-        let t2_serialized = self.1.serialize();
-        let t3_serialized = self.2.serialize();
-        let t4_serialized = self.3.serialize();
-        let t5_serialized = self.4.serialize();
-
-        for i in 0..N1 {
-            result[i] = t1_serialized[i];
-        }
-        for i in 0..N2 {
-            result[N1 + i] = t2_serialized[i];
-        }
-        for i in 0..N3 {
-            result[N1 + N2 + i] = t3_serialized[i];
-        }
-        for i in 0..N4 {
-            result[N1 + N2 + N3 + i] = t4_serialized[i];
-        }
-        for i in 0..N5 {
-            result[N1 + N2 + N3 + N4 + i] = t5_serialized[i];
-        }
-        result
-    }
-}
-
-impl<T1, T2, T3, T4, T5, let N1: u32, let N2: u32, let N3: u32, let N4: u32, let N5: u32> Deserialize<N1 + N2 + N3 + N4 + N5> for (T1, T2, T3, T4, T5)
-where
-    T1: Deserialize<N1>,
-    T2: Deserialize<N2>,
-    T3: Deserialize<N3>,
-    T4: Deserialize<N4>,
-    T5: Deserialize<N5>,
-{
-    fn deserialize(fields: [Field; N1 + N2 + N3 + N4 + N5]) -> Self {
-        let mut t1_fields: [Field; N1] = std::mem::zeroed();
-        let mut t2_fields: [Field; N2] = std::mem::zeroed();
-        let mut t3_fields: [Field; N3] = std::mem::zeroed();
-        let mut t4_fields: [Field; N4] = std::mem::zeroed();
-        let mut t5_fields: [Field; N5] = std::mem::zeroed();
-
-        for i in 0..N1 {
-            t1_fields[i] = fields[i];
-        }
-        for i in 0..N2 {
-            t2_fields[i] = fields[N1 + i];
-        }
-        for i in 0..N3 {
-            t3_fields[i] = fields[N1 + N2 + i];
-        }
-        for i in 0..N4 {
-            t4_fields[i] = fields[N1 + N2 + N3 + i];
-        }
-        for i in 0..N5 {
-            t5_fields[i] = fields[N1 + N2 + N3 + N4 + i];
-        }
-
-        (
-            T1::deserialize(t1_fields), T2::deserialize(t2_fields), T3::deserialize(t3_fields),
-            T4::deserialize(t4_fields), T5::deserialize(t5_fields),
-        )
-    }
-}
-
-impl<T1, T2, T3, T4, T5, T6, let N1: u32, let N2: u32, let N3: u32, let N4: u32, let N5: u32, let N6: u32> Serialize<N1 + N2 + N3 + N4 + N5 + N6> for (T1, T2, T3, T4, T5, T6)
-where
-    T1: Serialize<N1>,
-    T2: Serialize<N2>,
-    T3: Serialize<N3>,
-    T4: Serialize<N4>,
-    T5: Serialize<N5>,
-    T6: Serialize<N6>,
-{
-    fn serialize(self) -> [Field; N1 + N2 + N3 + N4 + N5 + N6] {
-        let mut result: [Field; N1 + N2 + N3 + N4 + N5 + N6] = std::mem::zeroed();
-        let t1_serialized = self.0.serialize();
-        let t2_serialized = self.1.serialize();
-        let t3_serialized = self.2.serialize();
-        let t4_serialized = self.3.serialize();
-        let t5_serialized = self.4.serialize();
-        let t6_serialized = self.5.serialize();
-
-        for i in 0..N1 {
-            result[i] = t1_serialized[i];
-        }
-        for i in 0..N2 {
-            result[N1 + i] = t2_serialized[i];
-        }
-        for i in 0..N3 {
-            result[N1 + N2 + i] = t3_serialized[i];
-        }
-        for i in 0..N4 {
-            result[N1 + N2 + N3 + i] = t4_serialized[i];
-        }
-        for i in 0..N5 {
-            result[N1 + N2 + N3 + N4 + i] = t5_serialized[i];
-        }
-        for i in 0..N6 {
-            result[N1 + N2 + N3 + N4 + N5 + i] = t6_serialized[i];
-        }
-        result
-    }
-}
-
-impl<T1, T2, T3, T4, T5, T6, let N1: u32, let N2: u32, let N3: u32, let N4: u32, let N5: u32, let N6: u32> Deserialize<N1 + N2 + N3 + N4 + N5 + N6> for (T1, T2, T3, T4, T5, T6)
-where
-    T1: Deserialize<N1>,
-    T2: Deserialize<N2>,
-    T3: Deserialize<N3>,
-    T4: Deserialize<N4>,
-    T5: Deserialize<N5>,
-    T6: Deserialize<N6>,
-{
-    fn deserialize(fields: [Field; N1 + N2 + N3 + N4 + N5 + N6]) -> Self {
-        let mut t1_fields: [Field; N1] = std::mem::zeroed();
-        let mut t2_fields: [Field; N2] = std::mem::zeroed();
-        let mut t3_fields: [Field; N3] = std::mem::zeroed();
-        let mut t4_fields: [Field; N4] = std::mem::zeroed();
-        let mut t5_fields: [Field; N5] = std::mem::zeroed();
-        let mut t6_fields: [Field; N6] = std::mem::zeroed();
-
-        for i in 0..N1 {
-            t1_fields[i] = fields[i];
-        }
-        for i in 0..N2 {
-            t2_fields[i] = fields[N1 + i];
-        }
-        for i in 0..N3 {
-            t3_fields[i] = fields[N1 + N2 + i];
-        }
-        for i in 0..N4 {
-            t4_fields[i] = fields[N1 + N2 + N3 + i];
-        }
-        for i in 0..N5 {
-            t5_fields[i] = fields[N1 + N2 + N3 + N4 + i];
-        }
-        for i in 0..N6 {
-            t6_fields[i] = fields[N1 + N2 + N3 + N4 + N5 + i];
-        }
-
-        (
-            T1::deserialize(t1_fields), T2::deserialize(t2_fields), T3::deserialize(t3_fields),
-            T4::deserialize(t4_fields), T5::deserialize(t5_fields), T6::deserialize(t6_fields),
-        )
-    }
+#[impl_serialize_for_tuple(2)]
+#[impl_serialize_for_tuple(3)]
+#[impl_serialize_for_tuple(4)]
+#[impl_serialize_for_tuple(5)]
+#[impl_serialize_for_tuple(6)]
+mod impls {
+    use crate::traits::{Deserialize, Serialize};
 }
