@@ -18,6 +18,8 @@
 namespace bb::avm2::tracegen {
 namespace {
 
+using simulation::ExecutionEvent;
+
 using ::bb::avm2::testing::InstructionBuilder;
 using enum ::bb::avm2::WireOpCode;
 
@@ -27,12 +29,12 @@ using ::testing::ElementsAre;
 // Helper functions for creating common execution events
 
 // Base helper to set up common event fields
-simulation::ExecutionEvent create_base_event(const simulation::Instruction& instruction,
-                                             uint32_t context_id,
-                                             uint32_t parent_id,
-                                             TransactionPhase phase)
+ExecutionEvent create_base_event(const simulation::Instruction& instruction,
+                                 uint32_t context_id,
+                                 uint32_t parent_id,
+                                 TransactionPhase phase)
 {
-    simulation::ExecutionEvent ex_event;
+    ExecutionEvent ex_event;
     ex_event.addressing_event.instruction = instruction;
     ex_event.wire_instruction = instruction;
     ex_event.after_context_event.id = context_id;
@@ -42,7 +44,7 @@ simulation::ExecutionEvent create_base_event(const simulation::Instruction& inst
     return ex_event;
 }
 
-simulation::ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
+ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
 {
     const auto add_instr =
         InstructionBuilder(WireOpCode::ADD_8).operand<uint8_t>(0).operand<uint8_t>(0).operand<uint8_t>(0).build();
@@ -52,10 +54,10 @@ simulation::ExecutionEvent create_add_event(uint32_t context_id, uint32_t parent
     return ex_event;
 }
 
-simulation::ExecutionEvent create_call_event(uint32_t context_id,
-                                             uint32_t parent_id,
-                                             TransactionPhase phase,
-                                             uint32_t next_context_id)
+ExecutionEvent create_call_event(uint32_t context_id,
+                                 uint32_t parent_id,
+                                 TransactionPhase phase,
+                                 uint32_t next_context_id)
 {
     const auto call_instr = InstructionBuilder(WireOpCode::CALL)
                                 .operand<uint8_t>(2)
@@ -72,7 +74,7 @@ simulation::ExecutionEvent create_call_event(uint32_t context_id,
     return ex_event;
 }
 
-simulation::ExecutionEvent create_return_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
+ExecutionEvent create_return_event(uint32_t context_id, uint32_t parent_id, TransactionPhase phase)
 {
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(0).operand<uint8_t>(0).build();
     auto ex_event = create_base_event(return_instr, context_id, parent_id, phase);
@@ -80,10 +82,10 @@ simulation::ExecutionEvent create_return_event(uint32_t context_id, uint32_t par
     return ex_event;
 }
 
-simulation::ExecutionEvent create_error_event(uint32_t context_id,
-                                              uint32_t parent_id,
-                                              TransactionPhase phase,
-                                              uint32_t next_context_id)
+ExecutionEvent create_error_event(uint32_t context_id,
+                                  uint32_t parent_id,
+                                  TransactionPhase phase,
+                                  uint32_t next_context_id)
 {
     // Actually an ADD instruction with exception=true
     const auto add_instr =
@@ -112,7 +114,7 @@ TEST(ExecutionTraceGenTest, RegisterAllocation)
                            .operand<uint8_t>(0)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
         .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
@@ -162,7 +164,7 @@ TEST(ExecutionTraceGenTest, Call)
     Gas gas_used = { .l2Gas = 500, .daGas = 1900 };
     Gas gas_left = gas_limit - gas_used;
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = call_instr,
         .inputs = { /*allocated_l2_gas_read=*/MemoryValue::from<uint32_t>(allocated_gas.l2Gas),
                     /*allocated_da_gas_read=*/MemoryValue ::from<uint32_t>(allocated_gas.daGas),
@@ -233,7 +235,7 @@ TEST(ExecutionTraceGenTest, Return)
     // Inputs
     const auto return_instr = InstructionBuilder(WireOpCode::RETURN).operand<uint8_t>(4).operand<uint8_t>(20).build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = return_instr,
         .inputs = { /*rd_size=*/MemoryValue::from<uint32_t>(2) },
         .next_context_id = 2,
@@ -285,7 +287,7 @@ TEST(ExecutionTraceGenTest, Gas)
                            .operand<uint8_t>(0)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .inputs = { TaggedValue::from_tag(ValueTag::U16, 5), TaggedValue::from_tag(ValueTag::U16, 3) },
         .output = { TaggedValue::from_tag(ValueTag::U16, 8) },
@@ -350,7 +352,7 @@ TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
     ExecutionTraceBuilder builder;
 
     // Create a sequence: parent context calls child context, child does some work then fails
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // Event 1: Parent context does ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
 
@@ -415,7 +417,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToTeardownError)
     ExecutionTraceBuilder builder;
 
     // Create a sequence that has app logic success but teardown failure, which should discard app logic too
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // Event 1: App logic phase - successful ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
 
@@ -465,7 +467,7 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
 
     // Create a sequence with two enqueued calls where the second one errors
     // This should cause the app logic from the first call to be discarded
-    std::vector<simulation::ExecutionEvent> events = {
+    std::vector<ExecutionEvent> events = {
         // First enqueued call
         // Event 1: First call's app logic - successful ADD
         create_add_event(1, 0, TransactionPhase::APP_LOGIC),
@@ -518,7 +520,7 @@ TEST(ExecutionTraceGenTest, InternalCallRet)
                            .operand<uint32_t>(10)
                            .build();
 
-    simulation::ExecutionEvent ex_event = {
+    ExecutionEvent ex_event = {
         .wire_instruction = instr,
         .addressing_event = {
             .instruction = instr,
@@ -558,7 +560,7 @@ TEST(ExecutionTraceGenTest, Jump)
                            .operand<uint32_t>(120) // Immediate operand
                            .build();
 
-    simulation::ExecutionEvent ex_event_jump = {
+    ExecutionEvent ex_event_jump = {
         .wire_instruction = instr,
         .addressing_event = { .instruction = instr,
                               .resolution_info = { {
@@ -575,7 +577,45 @@ TEST(ExecutionTraceGenTest, Jump)
                     // Second row is the jump
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
                           ROW_FIELD_EQ(execution_sel_jump, 1),
-                          ROW_FIELD_EQ(execution_rop_0_, 120))));
+                          ROW_FIELD_EQ(execution_rop_0_, 120),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMP))));
+}
+
+TEST(ExecutionTraceGenTest, JumpI)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMPI_32)
+                           .operand<uint16_t>(654)  // Condition Offset
+                           .operand<uint32_t>(9876) // Immediate operand
+                           .build();
+
+    ExecutionEvent ex_event_jumpi = {
+        .wire_instruction = instr,
+        .inputs = { TaggedValue::from_tag(ValueTag::U1, 1), }, // Conditional value
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = { {
+                .resolved_operand = MemoryValue::from<uint32_t>(654),
+            }, {
+                .resolved_operand = MemoryValue::from<uint32_t>(9876),
+            } } },
+    };
+
+    builder.process({ ex_event_jumpi }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jumpi
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jumpi, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 654),
+                          ROW_FIELD_EQ(execution_rop_1_, 9876),
+                          ROW_FIELD_EQ(execution_register_0_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
 
 } // namespace
