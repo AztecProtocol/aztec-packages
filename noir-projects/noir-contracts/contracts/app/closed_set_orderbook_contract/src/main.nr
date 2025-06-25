@@ -92,9 +92,6 @@ pub contract ClosedSetOrderbook {
         //
         // Note that when fulfilling the order takers will need to add maker to their PXE as they will need to send
         // them `ask_token` note.
-        //
-        // TODO: If we constrained tagging could we use maker address here and drop maker field from the note itself?
-        // This would save some DA costs.
         let order_note_sender = context.this_address();
 
         // Safety: If the order ID is not unique then the order will fail to be stored in PrivateImmutable due to
