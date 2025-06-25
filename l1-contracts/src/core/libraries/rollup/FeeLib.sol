@@ -137,17 +137,6 @@ library FeeLib {
       _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
     feeStore.provingCostPerMana = _provingCostPerMana;
 
-    setFeeHeader(
-      0,
-      FeeHeader({
-        excessMana: 0,
-        feeAssetPriceNumerator: 0,
-        manaUsed: 0,
-        congestionCost: 0,
-        proverCost: 0
-      }).compress()
-    );
-
     feeStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}).compress(),
       post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress(),
@@ -206,11 +195,24 @@ library FeeLib {
   }
 
   function setFeeHeader(uint256 _blockNumber, CompressedFeeHeader _feeHeader) internal {
-    getStorage().feeHeaders[_blockNumber] = _feeHeader;
+    // We only ever need the parent. However, because of the pruning, we cannot just drop it all.
+    // We can however keep just enought to handle prunes, e.g., prunable + 1 so we have the parent
+    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
+    getStorage().feeHeaders[_blockNumber % roundabout] = _feeHeader;
+  }
+
+  function preheatHeaders() internal {
+    require(!getStorage().feeHeaders[0].isPreheated(), Errors.FeeLib__AlreadyPreheated());
+
+    uint256 count = TimeLib.maxPrunableBlocks() + 1;
+    for (uint256 i = 0; i < count; i++) {
+      setFeeHeader(i, FeeHeaderLib.preheat(getFeeHeader(i)));
+    }
   }
 
   function getFeeHeader(uint256 _blockNumber) internal view returns (CompressedFeeHeader) {
-    return getStorage().feeHeaders[_blockNumber];
+    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
+    return getStorage().feeHeaders[_blockNumber % roundabout];
   }
 
   function getL1FeesAt(Timestamp _timestamp) internal view returns (L1FeeData memory) {

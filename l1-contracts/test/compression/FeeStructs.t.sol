@@ -28,7 +28,11 @@ contract FeeStructsTest is Test {
       proverCost: bound(_proverCost, 0, 2 ** 63 - 1)
     });
 
+    assertEq(CompressedFeeHeader.wrap(0).isPreheated(), false, "Compressed fee header is preheated");
+
     CompressedFeeHeader compressedFeeHeader = feeHeader.compress();
+    assertEq(compressedFeeHeader.isPreheated(), true, "Compressed fee header is not preheated");
+
     FeeHeader memory decompressedFeeHeader = compressedFeeHeader.decompress();
 
     // Check the getters
