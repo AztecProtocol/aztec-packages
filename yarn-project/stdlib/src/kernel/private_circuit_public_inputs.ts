@@ -32,6 +32,7 @@ import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
 import { MaxBlockNumber } from '../tx/max_block_number.js';
 import { TxContext } from '../tx/tx_context.js';
+import { ClaimedLengthArray } from './claimed_length_array.js';
 import { ReadRequest } from './hints/read_request.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
@@ -70,34 +71,34 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public noteHashReadRequests: Tuple<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests created by the corresponding function call.
      */
-    public nullifierReadRequests: Tuple<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    public nullifierReadRequests: ClaimedLengthArray<ReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     /**
      * Key validation requests and generators created by the corresponding function call.
      */
-    public keyValidationRequestsAndGenerators: Tuple<
+    public keyValidationRequestsAndGenerators: ClaimedLengthArray<
       KeyValidationRequestAndGenerator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_CALL
     >,
     /**
      * New note hashes created by the corresponding function call.
      */
-    public noteHashes: Tuple<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
+    public noteHashes: ClaimedLengthArray<NoteHash, typeof MAX_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public nullifiers: Tuple<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
+    public nullifiers: ClaimedLengthArray<Nullifier, typeof MAX_NULLIFIERS_PER_CALL>,
     /**
      * Private call requests made within the current kernel iteration.
      */
-    public privateCallRequests: Tuple<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallRequests: ClaimedLengthArray<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallRequests: Tuple<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_CALL>,
+    public publicCallRequests: ClaimedLengthArray<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_CALL>,
     /**
      * Hash of the public teardown function.
      */
@@ -105,15 +106,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public l2ToL1Msgs: Tuple<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
+    public l2ToL1Msgs: ClaimedLengthArray<CountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Logs emitted in this function call.
      */
-    public privateLogs: Tuple<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
+    public privateLogs: ClaimedLengthArray<PrivateLogData, typeof MAX_PRIVATE_LOGS_PER_CALL>,
     /**
      * Hash of the contract class logs emitted in this function call.
      */
-    public contractClassLogsHashes: Tuple<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
      * The side effect counter at the start of this call.
      */
@@ -159,17 +160,45 @@ export class PrivateCircuitPublicInputs {
       reader.readObject(Fr),
       reader.readBoolean(),
       reader.readObject(MaxBlockNumber),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) => ClaimedLengthArray.fromBuffer(reader, MAX_NOTE_HASHES_PER_CALL, NoteHash),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) => ClaimedLengthArray.fromBuffer(reader, MAX_NULLIFIERS_PER_CALL, Nullifier),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      }),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      }),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(BlockHeader),
@@ -186,17 +215,45 @@ export class PrivateCircuitPublicInputs {
       reader.readField(),
       reader.readBoolean(),
       reader.readObject(MaxBlockNumber),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
-      reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) => ClaimedLengthArray.fromFields(reader, MAX_NOTE_HASHES_PER_CALL, NoteHash),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) => ClaimedLengthArray.fromFields(reader, MAX_NULLIFIERS_PER_CALL, Nullifier),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest),
+      }),
       reader.readObject(PublicCallRequest),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash),
+      }),
       reader.readField(),
       reader.readField(),
       reader.readObject(BlockHeader),
@@ -216,17 +273,17 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       false,
       MaxBlockNumber.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
-      makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
-      makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
-      makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
+      ClaimedLengthArray.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
+      ClaimedLengthArray.empty(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
+      ClaimedLengthArray.empty(MAX_KEY_VALIDATION_REQUESTS_PER_CALL, KeyValidationRequestAndGenerator.empty),
+      ClaimedLengthArray.empty(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
+      ClaimedLengthArray.empty(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
+      ClaimedLengthArray.empty(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
+      ClaimedLengthArray.empty(MAX_ENQUEUED_CALLS_PER_CALL, CountedPublicCallRequest.empty),
       PublicCallRequest.empty(),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message.empty),
-      makeTuple(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
+      ClaimedLengthArray.empty(MAX_L2_TO_L1_MSGS_PER_CALL, CountedL2ToL1Message.empty),
+      ClaimedLengthArray.empty(MAX_PRIVATE_LOGS_PER_CALL, PrivateLogData.empty),
+      ClaimedLengthArray.empty(MAX_CONTRACT_CLASS_LOGS_PER_CALL, CountedLogHash.empty),
       Fr.ZERO,
       Fr.ZERO,
       BlockHeader.empty(),
@@ -242,17 +299,17 @@ export class PrivateCircuitPublicInputs {
       this.minRevertibleSideEffectCounter.isZero() &&
       !this.isFeePayer &&
       this.maxBlockNumber.isEmpty() &&
-      isEmptyArray(this.noteHashReadRequests) &&
-      isEmptyArray(this.nullifierReadRequests) &&
-      isEmptyArray(this.keyValidationRequestsAndGenerators) &&
-      isEmptyArray(this.noteHashes) &&
-      isEmptyArray(this.nullifiers) &&
-      isEmptyArray(this.privateCallRequests) &&
-      isEmptyArray(this.publicCallRequests) &&
+      this.noteHashReadRequests.isEmpty() &&
+      this.nullifierReadRequests.isEmpty() &&
+      this.keyValidationRequestsAndGenerators.isEmpty() &&
+      this.noteHashes.isEmpty() &&
+      this.nullifiers.isEmpty() &&
+      this.privateCallRequests.isEmpty() &&
+      this.publicCallRequests.isEmpty() &&
       this.publicTeardownCallRequest.isEmpty() &&
-      isEmptyArray(this.l2ToL1Msgs) &&
-      isEmptyArray(this.privateLogs) &&
-      isEmptyArray(this.contractClassLogsHashes) &&
+      this.l2ToL1Msgs.isEmpty() &&
+      this.privateLogs.isEmpty() &&
+      this.contractClassLogsHashes.isEmpty() &&
       this.startSideEffectCounter.isZero() &&
       this.endSideEffectCounter.isZero() &&
       this.historicalHeader.isEmpty() &&

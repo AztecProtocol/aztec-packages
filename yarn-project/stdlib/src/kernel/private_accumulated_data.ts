@@ -12,6 +12,7 @@ import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/s
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { ScopedCountedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
+import { ClaimedLengthArray } from './claimed_length_array.js';
 import { ScopedCountedLogHash } from './log_hash.js';
 import { ScopedNoteHash } from './note_hash.js';
 import { ScopedNullifier } from './nullifier.js';
@@ -28,32 +29,32 @@ export class PrivateAccumulatedData {
     /**
      * The new note hashes made in this transaction.
      */
-    public noteHashes: Tuple<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
+    public noteHashes: ClaimedLengthArray<ScopedNoteHash, typeof MAX_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public nullifiers: Tuple<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
+    public nullifiers: ClaimedLengthArray<ScopedNullifier, typeof MAX_NULLIFIERS_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public l2ToL1Msgs: Tuple<ScopedCountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
+    public l2ToL1Msgs: ClaimedLengthArray<ScopedCountedL2ToL1Message, typeof MAX_L2_TO_L1_MSGS_PER_TX>,
     /**
      * Accumulated logs from all the previous kernel iterations.
      */
-    public privateLogs: Tuple<ScopedPrivateLogData, typeof MAX_PRIVATE_LOGS_PER_TX>,
+    public privateLogs: ClaimedLengthArray<ScopedPrivateLogData, typeof MAX_PRIVATE_LOGS_PER_TX>,
     /**
      * Accumulated contract class logs from all the previous kernel iterations.
      * Note: Truncated to 31 bytes to fit in Fr.
      */
-    public contractClassLogsHashes: Tuple<ScopedCountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    public contractClassLogsHashes: ClaimedLengthArray<ScopedCountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     /**
      * Accumulated public call requests from all the previous kernel iterations.
      */
-    public publicCallRequests: Tuple<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
+    public publicCallRequests: ClaimedLengthArray<CountedPublicCallRequest, typeof MAX_ENQUEUED_CALLS_PER_TX>,
     /**
      * Current private call stack.
      */
-    public privateCallStack: Tuple<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    public privateCallStack: ClaimedLengthArray<PrivateCallRequest, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
   ) {}
 
   toBuffer() {
@@ -80,13 +81,34 @@ export class PrivateAccumulatedData {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new PrivateAccumulatedData(
-      reader.readArray(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
-      reader.readArray(MAX_NULLIFIERS_PER_TX, ScopedNullifier),
-      reader.readArray(MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message),
-      reader.readArray(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData),
-      reader.readArray(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash),
-      reader.readArray(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NOTE_HASHES_PER_TX, ScopedNoteHash),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NULLIFIERS_PER_TX, ScopedNullifier),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest),
+      }),
     );
   }
 
@@ -101,13 +123,13 @@ export class PrivateAccumulatedData {
 
   static empty() {
     return new PrivateAccumulatedData(
-      makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
-      makeTuple(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
-      makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message.empty),
-      makeTuple(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData.empty),
-      makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash.empty),
-      makeTuple(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),
+      ClaimedLengthArray.empty(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty),
+      ClaimedLengthArray.empty(MAX_NULLIFIERS_PER_TX, ScopedNullifier.empty),
+      ClaimedLengthArray.empty(MAX_L2_TO_L1_MSGS_PER_TX, ScopedCountedL2ToL1Message.empty),
+      ClaimedLengthArray.empty(MAX_PRIVATE_LOGS_PER_TX, ScopedPrivateLogData.empty),
+      ClaimedLengthArray.empty(MAX_CONTRACT_CLASS_LOGS_PER_TX, ScopedCountedLogHash.empty),
+      ClaimedLengthArray.empty(MAX_ENQUEUED_CALLS_PER_TX, CountedPublicCallRequest.empty),
+      ClaimedLengthArray.empty(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, PrivateCallRequest.empty),
     );
   }
 }

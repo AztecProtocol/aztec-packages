@@ -12,6 +12,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { inspect } from 'util';
 
 import { ScopedKeyValidationRequestAndGenerator } from '../kernel/hints/scoped_key_validation_request_and_generator.js';
+import { ClaimedLengthArray } from './claimed_length_array.js';
 import { ScopedReadRequest } from './hints/read_request.js';
 import { RollupValidationRequests } from './hints/rollup_validation_requests.js';
 import { OptionalNumber } from './utils/optional_number.js';
@@ -29,15 +30,15 @@ export class PrivateValidationRequests {
     /**
      * All the read requests made in this transaction.
      */
-    public noteHashReadRequests: Tuple<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    public noteHashReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     /**
      * All the nullifier read requests made in this transaction.
      */
-    public nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
+    public nullifierReadRequests: ClaimedLengthArray<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     /**
      * All the key validation requests made in this transaction.
      */
-    public scopedKeyValidationRequestsAndGenerators: Tuple<
+    public scopedKeyValidationRequestsAndGenerators: ClaimedLengthArray<
       ScopedKeyValidationRequestAndGenerator,
       typeof MAX_KEY_VALIDATION_REQUESTS_PER_TX
     >,
@@ -52,9 +53,9 @@ export class PrivateValidationRequests {
   getSize() {
     return (
       this.forRollup.getSize() +
-      arraySerializedSizeOfNonEmpty(this.noteHashReadRequests) +
-      arraySerializedSizeOfNonEmpty(this.nullifierReadRequests) +
-      arraySerializedSizeOfNonEmpty(this.scopedKeyValidationRequestsAndGenerators) +
+      this.noteHashReadRequests.length +
+      this.nullifierReadRequests.length +
+      this.scopedKeyValidationRequestsAndGenerators.length +
       this.splitCounter.getSize()
     );
   }
@@ -77,9 +78,22 @@ export class PrivateValidationRequests {
     const reader = FieldReader.asReader(fields);
     return new PrivateValidationRequests(
       reader.readObject(RollupValidationRequests),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(reader, MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      }),
+      reader.readObject({
+        fromFields: (reader: FieldReader) =>
+          ClaimedLengthArray.fromFields(
+            reader,
+            MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+            ScopedKeyValidationRequestAndGenerator,
+          ),
+      }),
       reader.readObject(OptionalNumber),
     );
   }
@@ -93,9 +107,22 @@ export class PrivateValidationRequests {
     const reader = BufferReader.asReader(buffer);
     return new PrivateValidationRequests(
       reader.readObject(RollupValidationRequests),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
-      reader.readArray(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(reader, MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest),
+      }),
+      reader.readObject({
+        fromBuffer: (reader: BufferReader) =>
+          ClaimedLengthArray.fromBuffer(
+            reader,
+            MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+            ScopedKeyValidationRequestAndGenerator,
+          ),
+      }),
       reader.readObject(OptionalNumber),
     );
   }
@@ -112,9 +139,9 @@ export class PrivateValidationRequests {
   static empty() {
     return new PrivateValidationRequests(
       RollupValidationRequests.empty(),
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
-      makeTuple(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator.empty),
+      ClaimedLengthArray.empty(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
+      ClaimedLengthArray.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ScopedReadRequest.empty),
+      ClaimedLengthArray.empty(MAX_KEY_VALIDATION_REQUESTS_PER_TX, ScopedKeyValidationRequestAndGenerator.empty),
       OptionalNumber.empty(),
     );
   }
@@ -122,18 +149,27 @@ export class PrivateValidationRequests {
   [inspect.custom]() {
     return `PrivateValidationRequests {
   forRollup: ${inspect(this.forRollup)},
-  noteHashReadRequests: [${this.noteHashReadRequests
-    .filter(x => !x.isEmpty())
-    .map(h => inspect(h))
-    .join(', ')}],
-  nullifierReadRequests: [${this.nullifierReadRequests
-    .filter(x => !x.isEmpty())
-    .map(h => inspect(h))
-    .join(', ')}],
-  scopedKeyValidationRequestsAndGenerators: [${this.scopedKeyValidationRequestsAndGenerators
-    .filter(x => !x.isEmpty())
-    .map(h => inspect(h))
-    .join(', ')}],
+  noteHashReadRequests: {
+    array: [${this.noteHashReadRequests.array
+      .filter(x => !x.isEmpty())
+      .map(h => inspect(h))
+      .join(', ')}],
+    length: ${this.noteHashReadRequests.length},
+  },
+  nullifierReadRequests: {
+    array: [${this.nullifierReadRequests.array
+      .filter(x => !x.isEmpty())
+      .map(h => inspect(h))
+      .join(', ')}],
+    length: ${this.nullifierReadRequests.length},
+  },
+  scopedKeyValidationRequestsAndGenerators: {
+    array: [${this.scopedKeyValidationRequestsAndGenerators.array
+      .filter(x => !x.isEmpty())
+      .map(h => inspect(h))
+      .join(', ')}],
+    length: ${this.scopedKeyValidationRequestsAndGenerators.length},
+  }
   splitCounter: ${this.splitCounter.getSize()}
   `;
   }

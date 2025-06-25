@@ -94,6 +94,7 @@ import {
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
 import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
+import { ClaimedLengthArray } from '../kernel/claimed_length_array.js';
 import { KeyValidationRequest } from '../kernel/hints/key_validation_request.js';
 import { KeyValidationRequestAndGenerator } from '../kernel/hints/key_validation_request_and_generator.js';
 import { ReadRequest } from '../kernel/hints/read_request.js';
@@ -572,21 +573,29 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
     minRevertibleSideEffectCounter: fr(0),
-    noteHashReadRequests: makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
-    nullifierReadRequests: makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
-    keyValidationRequestsAndGenerators: makeTuple(
+    noteHashReadRequests: ClaimedLengthArray.make(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300),
+    nullifierReadRequests: ClaimedLengthArray.make(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x310),
+    keyValidationRequestsAndGenerators: ClaimedLengthArray.make(
       MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
       makeKeyValidationRequestAndGenerators,
       seed + 0x320,
     ),
-    noteHashes: makeTuple(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
-    nullifiers: makeTuple(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
-    privateCallRequests: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallRequest, seed + 0x600),
-    publicCallRequests: makeTuple(MAX_ENQUEUED_CALLS_PER_CALL, makeCountedPublicCallRequest, seed + 0x700),
+    noteHashes: ClaimedLengthArray.make(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x400),
+    nullifiers: ClaimedLengthArray.make(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x500),
+    privateCallRequests: ClaimedLengthArray.make(
+      MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+      makePrivateCallRequest,
+      seed + 0x600,
+    ),
+    publicCallRequests: ClaimedLengthArray.make(
+      MAX_ENQUEUED_CALLS_PER_CALL,
+      makeCountedPublicCallRequest,
+      seed + 0x700,
+    ),
     publicTeardownCallRequest: makePublicCallRequest(seed + 0x800),
-    l2ToL1Msgs: makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
-    privateLogs: makeTuple(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
-    contractClassLogsHashes: makeTuple(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
+    l2ToL1Msgs: ClaimedLengthArray.make(MAX_L2_TO_L1_MSGS_PER_CALL, makeCountedL2ToL1Message, seed + 0x800),
+    privateLogs: ClaimedLengthArray.make(MAX_PRIVATE_LOGS_PER_CALL, makePrivateLogData, seed + 0x875),
+    contractClassLogsHashes: ClaimedLengthArray.make(MAX_CONTRACT_CLASS_LOGS_PER_TX, makeCountedLogHash, seed + 0xa00),
     startSideEffectCounter: fr(seed + 0x849),
     endSideEffectCounter: fr(seed + 0x850),
     historicalHeader: makeHeader(seed + 0xd00, undefined),
