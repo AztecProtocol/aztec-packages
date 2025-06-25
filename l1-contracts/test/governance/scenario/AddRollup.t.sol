@@ -96,7 +96,6 @@ contract AddRollupTest is TestBase {
     token.mint(address(multiAdder), rollup.getDepositAmount() * VALIDATOR_COUNT);
     multiAdder.addValidators(initialValidators);
 
-    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 

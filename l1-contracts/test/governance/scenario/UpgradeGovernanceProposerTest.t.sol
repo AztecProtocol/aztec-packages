@@ -73,7 +73,6 @@ contract UpgradeGovernanceProposerTest is TestBase {
     governanceProposer = GovernanceProposer(governance.governanceProposer());
     gse = IGSE(address(rollup.getGSE()));
 
-    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
 
     timeCheater = new TimeCheater(

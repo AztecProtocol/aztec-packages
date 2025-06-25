@@ -406,7 +406,7 @@ export const deploySharedContracts = async (
     to: registryAddress.toString(),
     data: encodeFunctionData({
       abi: l1Artifacts.registry.contractAbi,
-      functionName: 'updateGovernance',
+      functionName: 'transferOwnership',
       args: [governanceAddress.toString()],
     }),
   });

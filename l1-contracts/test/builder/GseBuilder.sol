@@ -101,7 +101,6 @@ contract GSEBuilder is TestBase {
     }
 
     vm.startPrank(config.registry.owner());
-    config.registry.updateGovernance(address(config.governance));
     config.registry.transferOwnership(address(config.governance));
     vm.stopPrank();
 
