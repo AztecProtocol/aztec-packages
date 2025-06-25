@@ -37,6 +37,7 @@ export class BenchmarkTelemetryClient implements TelemetryClient {
   }
 
   setExportedPublicTelemetry(_prefixes: string[]): void {}
+  setPublicTelemetryCollectFrom(_roles: string[]): void {}
 
   getMeter(name: string): Meter {
     const meter = new InMemoryPlainMeter(name);
