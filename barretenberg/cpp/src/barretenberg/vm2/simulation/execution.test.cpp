@@ -155,6 +155,15 @@ TEST_F(ExecutionSimulationTest, InternalCall)
     execution.internal_return(context);
 }
 
+// Trivial test at the moment.
+// TODO: Attempt to have infra to call execution.execute() with a JUMP and a second instruction
+// and check the pc value for the second instruction is correct.
+TEST_F(ExecutionSimulationTest, Jump)
+{
+    EXPECT_CALL(context, set_next_pc(120));
+    execution.jump(context, 120);
+}
+
 } // namespace
 
 } // namespace bb::avm2::simulation
