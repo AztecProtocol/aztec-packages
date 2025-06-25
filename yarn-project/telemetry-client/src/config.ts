@@ -1,9 +1,10 @@
-import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   publicMetricsCollectorUrl?: URL;
   publicIncludeMetrics: string[];
+  publicMetricsOptOut: boolean;
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
   otelCollectIntervalMs: number;
@@ -67,6 +68,11 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
             .filter(s => s.length > 0)
         : [],
     defaultValue: [],
+  },
+  publicMetricsOptOut: {
+    env: 'PUBLIC_OTEL_OPT_OUT',
+    description: 'Whether to opt out of sharing optional telemetry',
+    ...booleanConfigHelper(false),
   },
 };
 

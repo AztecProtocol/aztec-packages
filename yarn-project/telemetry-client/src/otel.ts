@@ -291,7 +291,7 @@ export class OpenTelemetryClient implements TelemetryClient {
       }
 
       let publicExporter: OtelFilterMetricExporter | undefined;
-      if (config.publicMetricsCollectorUrl && config.publicIncludeMetrics.length > 0) {
+      if (config.publicMetricsCollectorUrl && !config.publicMetricsOptOut) {
         log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
           publicMetrics: config.publicIncludeMetrics,
           collectorUrl: config.publicMetricsCollectorUrl,

@@ -226,6 +226,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
+    // Check that I have any address in current committee before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    if (inCommittee.length === 0) {
+      this.log.verbose(`No validator in the committee, skipping attestation`);
+      return undefined;
+    }
+
     const proposalInfo = {
       slotNumber,
       blockNumber,
@@ -270,13 +277,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Collect txs from the proposal
     const { missing, txs } = await this.txCollector.collectForBlockProposal(proposal, proposalSender);
-
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
-    if (inCommittee.length === 0) {
-      this.log.verbose(`No validator in the committee, skipping attestation`);
-      return undefined;
-    }
 
     // Check that all of the transactions in the proposal are available in the tx pool before attesting
     if (missing && missing.length > 0) {

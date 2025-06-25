@@ -26,6 +26,8 @@ export type L2ChainConfig = {
   autoUpdate: SharedNodeConfig['autoUpdate'];
   autoUpdateUrl?: string;
   maxTxPoolSize: number;
+  publicIncludeMetrics?: string[];
+  publicMetricsCollectorUrl?: string;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -70,6 +72,8 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
   maxTxPoolSize: 2 * 1024 * 1024 * 1024, // 2GB
+  publicIncludeMetrics: ['aztec.validator', 'aztec.tx_collector'],
+  publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -143,6 +147,14 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
 
   if (config.autoUpdateUrl) {
     enrichVar('AUTO_UPDATE_URL', config.autoUpdateUrl);
+  }
+
+  if (config.publicIncludeMetrics) {
+    enrichVar('PUBLIC_OTEL_INCLUDE_METRICS', config.publicIncludeMetrics.join(','));
+  }
+
+  if (config.publicMetricsCollectorUrl) {
+    enrichVar('PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT', config.publicMetricsCollectorUrl);
   }
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
