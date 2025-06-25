@@ -51,7 +51,7 @@ for artifact in $artifacts_to_process; do
     fi
 
     fn_artifact_path="$artifact.function_artifact_$fn_artifact_hash.json"
-    echo "$fn_artifact" >"$fn_artifact_path"
+    echo "$fn_artifact" > "$fn_artifact_path"
 
     # Construct the command:
     # The BB call is wrapped by GNU parallel's memsuspend (active memory-based suspension)
@@ -70,7 +70,7 @@ for artifact in $artifacts_to_process; do
     vk_tmp="$artifact.verification_key_$fn_artifact_hash.tmp"
     verification_key=$(cat "$vk_tmp")
     # Update the artifact with the new verification key.
-    jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" >"$artifact.tmp"
+    jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" > "$artifact.tmp"
     mv "$artifact.tmp" "$artifact"
   done
 done
