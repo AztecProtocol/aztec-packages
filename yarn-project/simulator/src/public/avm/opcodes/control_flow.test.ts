@@ -1,6 +1,6 @@
 import type { AvmContext } from '../avm_context.js';
-import { Uint16 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
+import { Field, Uint1, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
+import { InstructionExecutionError, TagCheckError } from '../errors.js';
 import { initContext } from '../fixtures/initializers.js';
 import { InternalCall, InternalReturn, Jump, JumpI } from './control_flow.js';
 
@@ -50,21 +50,14 @@ describe('Control Flow Opcodes', () => {
 
     it('Should implement JUMPI - truthy', async () => {
       const jumpLocation = 22;
-      const jumpLocation1 = 69;
 
       expect(context.machineState.pc).toBe(0);
 
-      context.machineState.memory.set(0, new Uint16(1n));
-      context.machineState.memory.set(1, new Uint16(2n));
+      context.machineState.memory.set(0, new Uint1(1n));
 
       const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(jumpLocation);
-
-      // Truthy can be greater than 1
-      const instruction1 = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 1, jumpLocation1);
-      await instruction1.execute(context);
-      expect(context.machineState.pc).toBe(jumpLocation1);
     });
 
     it('Should implement JUMPI - falsy', async () => {
@@ -73,11 +66,47 @@ describe('Control Flow Opcodes', () => {
       context.machineState.nextPc = 30;
       expect(context.machineState.pc).toBe(0);
 
-      context.machineState.memory.set(0, new Uint16(0n));
+      context.machineState.memory.set(0, new Uint1(0n));
 
       const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, jumpLocation);
       await instruction.execute(context);
       expect(context.machineState.pc).toBe(30);
+    });
+
+    it('Should error if the condition is Uint8', async () => {
+      context.machineState.memory.set(0, new Uint8(1n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
+    });
+
+    it('Should error if the condition is Uint16', async () => {
+      context.machineState.memory.set(0, new Uint16(1n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
+    });
+
+    it('Should error if the condition is Uint32', async () => {
+      context.machineState.memory.set(0, new Uint32(0n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
+    });
+
+    it('Should error if the condition is Uint64', async () => {
+      context.machineState.memory.set(0, new Uint64(0n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
+    });
+
+    it('Should error if the condition is Uint128', async () => {
+      context.machineState.memory.set(0, new Uint128(0n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
+    });
+
+    it('Should error if the condition is Field', async () => {
+      context.machineState.memory.set(0, new Field(0n));
+      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
+      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
     });
   });
 

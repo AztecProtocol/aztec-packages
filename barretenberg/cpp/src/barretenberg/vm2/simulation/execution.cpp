@@ -7,6 +7,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -140,13 +141,14 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
+// TODO(JEAMON): #15278 - Enforce U1 tag checking on conditional memory value.
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
     auto& memory = context.get_memory();
 
     auto resolved_cond = memory.get(cond_addr);
     set_inputs({ resolved_cond });
-    if (!resolved_cond.as_ff().is_zero()) {
+    if (resolved_cond.as<uint1_t>().value() == 1) {
         context.set_next_pc(loc);
     }
 }

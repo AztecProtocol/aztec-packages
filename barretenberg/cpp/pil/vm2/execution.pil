@@ -314,6 +314,10 @@ keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr,
 #[PC_NEXT_ROW_INT_CALL_JUMP]
 NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
 
+// For JUMPI opcode, the conditional value is U1 and stored in register[0].
+#[PC_NEXT_ROW_JUMPI]
+NOT_LAST_EXEC * sel_jumpi * ((1 - register[0]) * next_pc + register[0] * rop[1] - pc') = 0;
+
 /**************************************************************************************************
  *  Temporality group N: Dynamic gas
  **************************************************************************************************/
