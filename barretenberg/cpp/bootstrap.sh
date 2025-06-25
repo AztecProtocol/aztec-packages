@@ -10,6 +10,9 @@ export hash=$(cache_content_hash .rebuild_patterns)
 
 if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
   export DISABLE_AZTEC_VM=1
+fi
+
+if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   # Make sure the different envs don't read from each other's caches.
   export hash="$hash-no-avm"
 fi

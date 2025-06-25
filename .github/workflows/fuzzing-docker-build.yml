@@ -2,7 +2,9 @@ name: Build Fuzzing Container
 
 on:
   push:
-    branches: [next]
+    branches:
+      - next
+      - merge-train/barretenberg
   workflow_dispatch:
 
 jobs:

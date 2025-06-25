@@ -1,6 +1,5 @@
 name: release-please
 
-# Trigger on merges to 'master' branch and 'next' branch
 on:
   push:
     branches:
