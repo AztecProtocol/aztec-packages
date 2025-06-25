@@ -73,38 +73,15 @@ describe('Control Flow Opcodes', () => {
       expect(context.machineState.pc).toBe(30);
     });
 
-    it('Should error if the condition is Uint8', async () => {
-      context.machineState.memory.set(0, new Uint8(1n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
-      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
-    });
-
-    it('Should error if the condition is Uint16', async () => {
-      context.machineState.memory.set(0, new Uint16(1n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
-      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
-    });
-
-    it('Should error if the condition is Uint32', async () => {
-      context.machineState.memory.set(0, new Uint32(0n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
-      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
-    });
-
-    it('Should error if the condition is Uint64', async () => {
-      context.machineState.memory.set(0, new Uint64(0n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
-      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
-    });
-
-    it('Should error if the condition is Uint128', async () => {
-      context.machineState.memory.set(0, new Uint128(0n));
-      const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
-      await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
-    });
-
-    it('Should error if the condition is Field', async () => {
-      context.machineState.memory.set(0, new Field(0n));
+    it.each([
+      { type: Uint8, name: 'Uint8' },
+      { type: Uint16, name: 'Uint16' },
+      { type: Uint32, name: 'Uint32' },
+      { type: Uint64, name: 'Uint64' },
+      { type: Uint128, name: 'Uint128' },
+      { type: Field, name: 'Field' },
+    ])('Should error if the condition has tag $name', async ({ type }) => {
+      context.machineState.memory.set(0, new type(1n));
       const instruction = new JumpI(/*indirect=*/ 0, /*condOffset=*/ 0, 1);
       await expect(instruction.execute(context)).rejects.toThrow(TagCheckError);
     });

@@ -199,10 +199,11 @@ template <typename FF_> class executionImpl {
         }
         { // PC_NEXT_ROW_JUMPI
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_jumpi) *
-                       (((FF(1) - in.get(C::execution_register_0_)) * in.get(C::execution_next_pc) +
-                         in.get(C::execution_register_0_) * in.get(C::execution_rop_1_)) -
-                        in.get(C::execution_pc_shift));
+            auto tmp =
+                execution_NOT_LAST_EXEC * in.get(C::execution_sel_jumpi) *
+                ((in.get(C::execution_register_0_) * (in.get(C::execution_rop_1_) - in.get(C::execution_next_pc)) +
+                  in.get(C::execution_next_pc)) -
+                 in.get(C::execution_pc_shift));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }

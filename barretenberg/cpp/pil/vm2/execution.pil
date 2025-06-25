@@ -316,7 +316,7 @@ NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
 
 // For JUMPI opcode, the conditional value is U1 and stored in register[0].
 #[PC_NEXT_ROW_JUMPI]
-NOT_LAST_EXEC * sel_jumpi * ((1 - register[0]) * next_pc + register[0] * rop[1] - pc') = 0;
+NOT_LAST_EXEC * sel_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
 
 /**************************************************************************************************
  *  Temporality group N: Dynamic gas
