@@ -34,14 +34,13 @@ export function createPXEService(
   aztecNode: AztecNode,
   config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
-  useLogSuffix: string | boolean | undefined = undefined,
 ) {
   const simulator = new WASMSimulator();
   const recorder = process.env.CIRCUIT_RECORD_DIR
     ? new FileCircuitRecorder(process.env.CIRCUIT_RECORD_DIR)
     : new MemoryCircuitRecorder();
   const simulatorWithRecorder = new SimulatorRecorderWrapper(simulator, recorder);
-  return createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, config, options, useLogSuffix);
+  return createPXEServiceWithSimulator(aztecNode, simulatorWithRecorder, config, options);
 }
 
 /**
@@ -58,7 +57,6 @@ export async function createPXEServiceWithSimulator(
   simulator: CircuitSimulator,
   config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
-  useLogSuffix: string | boolean | undefined = undefined,
 ) {
   const logSuffix =
     typeof options.useLogSuffix === 'boolean'
