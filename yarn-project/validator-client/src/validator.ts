@@ -226,6 +226,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
+    // Check that I have any address in current committee before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    const partOfCommittee = inCommittee.length > 0;
+
     const proposalInfo = {
       slotNumber,
       blockNumber,
@@ -241,7 +245,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const invalidProposal = await this.blockProposalValidator.validate(proposal);
     if (invalidProposal) {
       this.log.warn(`Proposal is not valid, skipping attestation`);
-      this.metrics.incFailedAttestations(1, 'invalid_proposal');
+      if (partOfCommittee) {
+        this.metrics.incFailedAttestations(1, 'invalid_proposal');
+      }
       return undefined;
     }
 
@@ -254,7 +260,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
       if (parentBlock === undefined) {
         this.log.warn(`Parent block for ${blockNumber} not found, skipping attestation`);
-        this.metrics.incFailedAttestations(1, 'parent_block_not_found');
+
+        if (partOfCommittee) {
+          this.metrics.incFailedAttestations(1, 'parent_block_not_found');
+        }
+
         return undefined;
       }
       if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
@@ -263,7 +273,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           parentBlockArchiveRoot: parentBlock.archive.root.toString(),
           ...proposalInfo,
         });
-        this.metrics.incFailedAttestations(1, 'parent_block_does_not_match');
+        if (partOfCommittee) {
+          this.metrics.incFailedAttestations(1, 'parent_block_does_not_match');
+        }
         return undefined;
       }
     }
@@ -277,7 +289,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         ...proposalInfo,
         missing,
       });
-      this.metrics.incFailedAttestations(1, 'tx_not_available');
+      if (partOfCommittee) {
+        this.metrics.incFailedAttestations(1, 'tx_not_available');
+      }
       return undefined;
     }
 
@@ -291,15 +305,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         computedInHash: computedInHash.toString(),
         ...proposalInfo,
       });
-      this.metrics.incFailedAttestations(1, 'in_hash_mismatch');
+      if (partOfCommittee) {
+        this.metrics.incFailedAttestations(1, 'in_hash_mismatch');
+      }
       return undefined;
     }
 
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
-    if (inCommittee.length === 0) {
+    if (!partOfCommittee) {
       this.log.verbose(`No validator in the committee, skipping attestation`);
-      this.metrics.incFailedAttestations(1, 'not_on_committee');
       return undefined;
     }
 
