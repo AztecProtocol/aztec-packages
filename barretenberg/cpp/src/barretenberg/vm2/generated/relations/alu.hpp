@@ -13,7 +13,7 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 2, 5, 5, 2, 3, 4 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 5, 2, 3, 4 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -23,8 +23,11 @@ template <typename FF_> class aluImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto alu_TAG_MINUS_1 = (in.get(C::alu_ia_tag) - FF(1));
-        const auto alu_POS_MAX_BITS = in.get(C::alu_sel) * (in.get(C::alu_ia_tag) - FF(1)) * FF(8);
+        const auto alu_CHECK_C_TAG_EQUAL = in.get(C::alu_sel_op_add);
+        const auto alu_BATCHED_TAGS_DIFF =
+            FF(1) * (in.get(C::alu_ia_tag) - in.get(C::alu_ib_tag)) +
+            alu_CHECK_C_TAG_EQUAL * FF(8) * (in.get(C::alu_ia_tag) - in.get(C::alu_ic_tag));
+        const auto alu_BATCHED_TAGS_DIFF_IS_ZERO = (FF(1) - in.get(C::alu_tag_err));
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -38,59 +41,34 @@ template <typename FF_> class aluImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // BATCHED_TAGS_DIFF_CHECK
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_is_u1) * (in.get(C::alu_is_u1) - FF(1));
+            auto tmp = ((alu_BATCHED_TAGS_DIFF *
+                             (alu_BATCHED_TAGS_DIFF_IS_ZERO * (FF(1) - in.get(C::alu_batched_tags_diff_inv)) +
+                              in.get(C::alu_batched_tags_diff_inv)) -
+                         FF(1)) +
+                        alu_BATCHED_TAGS_DIFF_IS_ZERO);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // AB_TAG_EQUAL
+        { // OP_ID_CHECK
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_ia_tag) - in.get(C::alu_ib_tag));
+            auto tmp = (in.get(C::alu_sel_op_add) - in.get(C::alu_op_id));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // AC_TAG_EQUAL
+        {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_ia_tag) - in.get(C::alu_ic_tag));
+            auto tmp = in.get(C::alu_sel_op_add) * (FF(1) - in.get(C::alu_sel_op_add));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        { // TAG_IS_U1_CHECK
+        { // ALU_ADD
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel) *
-                       ((alu_TAG_MINUS_1 * (in.get(C::alu_is_u1) * (FF(1) - in.get(C::alu_tag_minus_1_inv)) +
-                                            in.get(C::alu_tag_minus_1_inv)) +
-                         in.get(C::alu_is_u1)) -
-                        FF(1));
+            auto tmp = in.get(C::alu_sel_op_add) * (((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_ic)) -
+                                                    in.get(C::alu_cf) * (in.get(C::alu_max_value) + FF(1)));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
-        }
-        { // TAG_BITS_CHECK
-            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel) * (((FF(1) - alu_POS_MAX_BITS) * in.get(C::alu_is_u1) + alu_POS_MAX_BITS) -
-                                             in.get(C::alu_max_bits));
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        { // OP_ID_CHECK
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (in.get(C::alu_sel_op_add) - in.get(C::alu_op_id));
-            tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_add) * (FF(1) - in.get(C::alu_sel_op_add));
-            tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
-        }
-        { // ALU_ADD
-            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = in.get(C::alu_sel_op_add) * (((in.get(C::alu_ia) + in.get(C::alu_ib)) - in.get(C::alu_ic)) -
-                                                    in.get(C::alu_cf) * in.get(C::alu_max_value));
-            tmp *= scaling_factor;
-            std::get<9>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -102,29 +80,20 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case 2:
+            return "BATCHED_TAGS_DIFF_CHECK";
         case 3:
-            return "AB_TAG_EQUAL";
-        case 4:
-            return "AC_TAG_EQUAL";
-        case 5:
-            return "TAG_IS_U1_CHECK";
-        case 6:
-            return "TAG_BITS_CHECK";
-        case 7:
             return "OP_ID_CHECK";
-        case 9:
+        case 5:
             return "ALU_ADD";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_AB_TAG_EQUAL = 3;
-    static constexpr size_t SR_AC_TAG_EQUAL = 4;
-    static constexpr size_t SR_TAG_IS_U1_CHECK = 5;
-    static constexpr size_t SR_TAG_BITS_CHECK = 6;
-    static constexpr size_t SR_OP_ID_CHECK = 7;
-    static constexpr size_t SR_ALU_ADD = 9;
+    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 2;
+    static constexpr size_t SR_OP_ID_CHECK = 3;
+    static constexpr size_t SR_ALU_ADD = 5;
 };
 
 } // namespace bb::avm2

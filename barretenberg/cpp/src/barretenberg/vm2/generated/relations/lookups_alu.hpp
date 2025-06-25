@@ -11,72 +11,51 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_alu_value_tag_lookup ///////////////////
+/////////////////// lookup_alu_register_tag_value ///////////////////
 
-struct lookup_alu_value_tag_lookup_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_VALUE_TAG_LOOKUP";
+struct lookup_alu_register_tag_value_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_REGISTER_TAG_VALUE";
     static constexpr std::string_view RELATION_NAME = "alu";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_alu;
     static constexpr Column DST_SELECTOR = Column::alu_sel;
-    static constexpr Column COUNTS = Column::lookup_alu_value_tag_lookup_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_value_tag_lookup_inv;
+    static constexpr Column COUNTS = Column::lookup_alu_register_tag_value_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_register_tag_value_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::execution_register_0_,          ColumnAndShifts::execution_mem_tag_0_,
-        ColumnAndShifts::execution_register_1_,          ColumnAndShifts::execution_mem_tag_1_,
-        ColumnAndShifts::execution_register_2_,          ColumnAndShifts::execution_mem_tag_2_,
-        ColumnAndShifts::execution_subtrace_operation_id
+        ColumnAndShifts::execution_register_0_,           ColumnAndShifts::execution_mem_tag_0_,
+        ColumnAndShifts::execution_register_1_,           ColumnAndShifts::execution_mem_tag_1_,
+        ColumnAndShifts::execution_register_2_,           ColumnAndShifts::execution_mem_tag_2_,
+        ColumnAndShifts::execution_subtrace_operation_id, ColumnAndShifts::execution_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::alu_ia, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_ib,   ColumnAndShifts::alu_ib_tag,
-        ColumnAndShifts::alu_ic, ColumnAndShifts::alu_ic_tag, ColumnAndShifts::alu_op_id
+        ColumnAndShifts::alu_ia, ColumnAndShifts::alu_ia_tag, ColumnAndShifts::alu_ib,    ColumnAndShifts::alu_ib_tag,
+        ColumnAndShifts::alu_ic, ColumnAndShifts::alu_ic_tag, ColumnAndShifts::alu_op_id, ColumnAndShifts::alu_tag_err
     };
 };
 
-using lookup_alu_value_tag_lookup_settings = lookup_settings<lookup_alu_value_tag_lookup_settings_>;
+using lookup_alu_register_tag_value_settings = lookup_settings<lookup_alu_register_tag_value_settings_>;
 template <typename FF_>
-using lookup_alu_value_tag_lookup_relation = lookup_relation_base<FF_, lookup_alu_value_tag_lookup_settings>;
+using lookup_alu_register_tag_value_relation = lookup_relation_base<FF_, lookup_alu_register_tag_value_settings>;
 
-/////////////////// lookup_alu_c_range_check ///////////////////
+/////////////////// lookup_alu_tag_max_value ///////////////////
 
-struct lookup_alu_c_range_check_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_C_RANGE_CHECK";
+struct lookup_alu_tag_max_value_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_TAG_MAX_VALUE";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::alu_sel;
-    static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_alu_c_range_check_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_c_range_check_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ic,
-                                                                                    ColumnAndShifts::alu_max_bits };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
-    };
-};
-
-using lookup_alu_c_range_check_settings = lookup_settings<lookup_alu_c_range_check_settings_>;
-template <typename FF_>
-using lookup_alu_c_range_check_relation = lookup_relation_base<FF_, lookup_alu_c_range_check_settings>;
-
-/////////////////// lookup_alu_tag_bits_lookup ///////////////////
-
-struct lookup_alu_tag_bits_lookup_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_TAG_BITS_LOOKUP";
-    static constexpr std::string_view RELATION_NAME = "alu";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_cf;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::lookup_alu_tag_bits_lookup_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_tag_bits_lookup_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_max_bits,
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_tag_parameters;
+    static constexpr Column COUNTS = Column::lookup_alu_tag_max_value_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_tag_max_value_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ia_tag,
                                                                                     ColumnAndShifts::alu_max_value };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_power_of_2
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::precomputed_tag_max_value
     };
 };
 
-using lookup_alu_tag_bits_lookup_settings = lookup_settings<lookup_alu_tag_bits_lookup_settings_>;
+using lookup_alu_tag_max_value_settings = lookup_settings<lookup_alu_tag_max_value_settings_>;
 template <typename FF_>
-using lookup_alu_tag_bits_lookup_relation = lookup_relation_base<FF_, lookup_alu_tag_bits_lookup_settings>;
+using lookup_alu_tag_max_value_relation = lookup_relation_base<FF_, lookup_alu_tag_max_value_settings>;
 
 } // namespace bb::avm2

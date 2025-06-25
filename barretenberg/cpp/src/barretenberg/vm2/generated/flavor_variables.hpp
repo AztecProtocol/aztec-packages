@@ -77,11 +77,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 97;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2100;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 99;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2097;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 238;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2435;
+    static constexpr size_t NUM_ALL_ENTITIES = 2434;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -155,9 +155,8 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_range_4_relation<FF_>,
         lookup_addressing_relative_overflow_range_5_relation<FF_>,
         lookup_addressing_relative_overflow_range_6_relation<FF_>,
-        lookup_alu_c_range_check_relation<FF_>,
-        lookup_alu_tag_bits_lookup_relation<FF_>,
-        lookup_alu_value_tag_lookup_relation<FF_>,
+        lookup_alu_register_tag_value_relation<FF_>,
+        lookup_alu_tag_max_value_relation<FF_>,
         lookup_bc_decomposition_abs_diff_is_u16_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
         lookup_bc_hashing_get_packed_field_relation<FF_>,

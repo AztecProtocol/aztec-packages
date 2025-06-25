@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/common/gas.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -156,19 +157,22 @@ void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& tra
     }
 }
 
-void PrecomputedTraceBuilder::process_integral_tag_length(TraceContainer& trace)
+void PrecomputedTraceBuilder::process_tag_parameters(TraceContainer& trace)
 {
     using C = Column;
     using bb::avm2::MemoryTag;
 
     // Column number corresponds to MemoryTag enum value.
-    const auto integral_tags = { MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
-                                 MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
+    // TODO(MW): Q: is there a better way to iterate over all values in an enum?
+    const auto tags = { MemoryTag::FF,  MemoryTag::U1,  MemoryTag::U8,  MemoryTag::U16,
+                        MemoryTag::U32, MemoryTag::U64, MemoryTag::U128 };
 
-    for (const auto& tag : integral_tags) {
+    for (const auto& tag : tags) {
         trace.set(static_cast<uint32_t>(tag),
-                  { { { C::precomputed_sel_integral_tag, 1 },
-                      { C::precomputed_integral_tag_length, integral_tag_length(tag) } } });
+                  { { { C::precomputed_sel_tag_parameters, 1 },
+                      { C::precomputed_tag_byte_length, get_tag_bytes(tag) },
+                      { C::precomputed_tag_max_bits, get_tag_bits(tag) },
+                      { C::precomputed_tag_max_value, get_tag_max_value(tag) } } });
     }
 }
 
