@@ -32,9 +32,13 @@ pub contract ClosedSetOrderbook {
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
+        note::{
+            lifecycle::destroy_note_unsafe, note_getter::get_note, retrieved_note::RetrievedNote,
+        },
         oracle::{notes::check_nullifier_exists, random::random},
         prelude::{AztecAddress, Map, PrivateImmutable, SharedMutable},
         protocol_types::traits::{FromField, ToField},
+        state_vars::storage::Storage as StorageTrait,
     };
 
     use token::Token;
@@ -56,9 +60,9 @@ pub contract ClosedSetOrderbook {
         fee: u16,
     ) {
         // TODO: Why don't we have a way to directly initialize SharedMutable when it's created? If this is done
-        // in the constructor then it's safe. Waiting for delay to pass here is quite annoying. Or are we unable
-        // to detect we are in a constructor? It should be possible to do via nullifier non-inclusion and inclusion
-        // proofs.
+        // in the constructor then it's safe as we cannot interact with an undeployed contract that has initializer.
+        // Waiting for delay to pass here is quite annoying. Or are we unable to detect we are in a constructor? It
+        // should be possible to do via nullifier non-inclusion and inclusion proofs.
         storage.config.schedule_value_change(Config::new(token0, token1, fee_collector, fee));
     }
 
@@ -128,8 +132,22 @@ pub contract ClosedSetOrderbook {
     #[private]
     fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = storage.config.get_current_value();
-        let order = storage.orders.at(order_id).get_note();
         let taker = context.msg_sender();
+
+        // We get and nullify the order. We are working around PrivateImmutable here because the PrivateImmutable
+        // getter does not allow us to then destroy the note. This is of course intentional as the note is supposed
+        // to be immutable. But we want to nullify the note as it's valuable to communicate order fulfillment that way.
+        // TODO: Rework this. An option is to not use any state variable and instead manually handle the notes.
+        let order_note_storage_slot = storage.orders.at(order_id).get_storage_slot();
+        let (order_retrieved_note, note_hash_for_read_request): (RetrievedNote<OrderNote>, Field) =
+            get_note(&mut context, order_note_storage_slot);
+        destroy_note_unsafe(
+            &mut context,
+            order_retrieved_note,
+            note_hash_for_read_request,
+        );
+
+        let order = order_retrieved_note.note;
 
         // Determine which tokens are being exchanged based on bid_token_is_zero flag
         let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
