@@ -1,5 +1,6 @@
 import { MockL2BlockSource } from '@aztec/archiver/test';
 import type { EpochCache } from '@aztec/epoch-cache';
+import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
@@ -78,7 +79,7 @@ export async function makeTestP2PClient(
   const config: P2PConfig & DataStoreConfig = {
     ...p2pBaseConfig,
     p2pEnabled: true,
-    peerIdPrivateKey,
+    peerIdPrivateKey: new SecretValue(peerIdPrivateKey),
     p2pIp: `127.0.0.1`,
     listenAddress: `127.0.0.1`,
     p2pPort: port,
