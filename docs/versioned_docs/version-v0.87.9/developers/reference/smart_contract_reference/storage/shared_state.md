@@ -116,7 +116,7 @@ let authorized = storage.authorized.get_current_value();
 Returns the last scheduled value change, along with the block number at which the scheduled value becomes the current value. This may either be a pending change, if the block number is in the future, or the last executed scheduled change if the block number is in the past (in which case there are no pending changes).
 
 ```rust title="shared_mutable_get_scheduled_public" showLineNumbers
-let (scheduled_value, _timestamp_of_change): (AztecAddress, u32) =
+let (scheduled_value, _timestamp_of_change): (AztecAddress, u64) =
     storage.authorized.get_scheduled_value();
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr#L55-L58</a></sub></sup>
