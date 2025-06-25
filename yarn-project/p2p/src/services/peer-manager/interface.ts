@@ -15,6 +15,7 @@ export interface PeerManagerInterface {
   addPreferredPeer(peerId: PeerId): void;
   goodbyeReceived(peerId: PeerId, reason: GoodByeReason): void;
   penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity): void;
+  shouldTrustWithIdentity(peerId: PeerId): boolean;
 
   getPeerScore(peerId: string): number;
   stop(): Promise<void>;

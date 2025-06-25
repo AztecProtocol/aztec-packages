@@ -26,7 +26,7 @@ import { Tx, type TxHash, type TxValidationResult } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { Attributes, OtelMetricsAdapter, type TelemetryClient, WithTracer, trackSpan } from '@aztec/telemetry-client';
 
-import type { ENR } from '@chainsafe/enr';
+import { ENR } from '@chainsafe/enr';
 import {
   type GossipSub,
   type GossipSubComponents,
@@ -34,7 +34,7 @@ import {
   gossipsub,
 } from '@chainsafe/libp2p-gossipsub';
 import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
-import { SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
+import { type AddrInfo, SignaturePolicy } from '@chainsafe/libp2p-gossipsub/types';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -232,6 +232,17 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const blockProposalTopic = createTopicString(TopicType.block_proposal, protocolVersion);
     const blockAttestationTopic = createTopicString(TopicType.block_attestation, protocolVersion);
 
+    const preferredPeersEnrs: ENR[] = config.preferredPeers.map(enr => ENR.decodeTxt(enr));
+    const directPeers = await Promise.all(
+      preferredPeersEnrs.map(async enr => {
+        const peerId = await enr.peerId();
+        return {
+          id: peerId,
+          addrs: [enr.getLocationMultiaddr('tcp')],
+        } as AddrInfo;
+      }),
+    );
+
     const node = await createLibp2p({
       start: false,
       peerId,
@@ -268,6 +279,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
           protocolPrefix: 'aztec',
         }),
         pubsub: gossipsub({
+          directPeers,
           debugName: 'gossipsub',
           globalSignaturePolicy: SignaturePolicy.StrictNoSign,
           allowPublishToZeroTopicPeers: true,
@@ -1025,6 +1037,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public getPeerScore(peerId: PeerId): number {
     return this.node.services.pubsub.score.score(peerId.toString());
+  }
+
+  public shouldTrustWithIdentity(peerId: PeerId): boolean {
+    return this.peerManager.shouldTrustWithIdentity(peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

@@ -742,6 +742,10 @@ export class PeerManager implements PeerManagerInterface {
     this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handlers.handleConnectedPeerEvent);
     this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
   }
+
+  public shouldTrustWithIdentity(peerId: PeerId): boolean {
+    return this.isPreferredPeer(peerId) || this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+  }
 }
 
 /**

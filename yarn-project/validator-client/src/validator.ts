@@ -521,7 +521,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   private handleAuthRequest(_peer: PeerId, _msg: Buffer): Promise<Buffer> {
-    throw new Error(`ValidatorClient does not support auth requests`);
+    if (this.p2pClient.shouldTrustWithIdentity(_peer)) {
+      this.log.debug(`Received auth request from trusted peer ${_peer.toString()}`);
+      return Promise.resolve(Buffer.from('trusted'));
+    }
+    return Promise.reject();
   }
 }
 

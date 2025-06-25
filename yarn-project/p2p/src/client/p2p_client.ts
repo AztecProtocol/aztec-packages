@@ -873,4 +873,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   public markTxsAsNonEvictable(txHashes: TxHash[]): Promise<void> {
     return this.txPool.markTxsAsNonEvictable(txHashes);
   }
+
+  public shouldTrustWithIdentity(peerId: PeerId): boolean {
+    return this.p2pService.shouldTrustWithIdentity(peerId);
+  }
 }
