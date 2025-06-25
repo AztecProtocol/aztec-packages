@@ -3,15 +3,14 @@
 pragma solidity >=0.8.27;
 
 import {
-  RollupStore,
-  IRollupCore,
-  BlockLog,
-  BlockHeaderValidationFlags
+  RollupStore, IRollupCore, BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
+import {BlockLog, BlockLogLib} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {
   SignatureDomainSeparator, CommitteeAttestation
 } from "@aztec/shared/libraries/SignatureLib.sol";
@@ -68,6 +67,8 @@ library ProposeLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
+  using BlockLogLib for BlockLog;
+  using CompressedTimeMath for CompressedSlot;
 
   /**
    * @notice  Publishes the body and propose the block
@@ -144,7 +145,7 @@ library ProposeLib {
       headerHash: v.headerHash,
       blobCommitmentsHash: blobCommitmentsHash,
       slotNumber: header.slotNumber
-    });
+    }).compress();
 
     FeeLib.writeFeeHeader(
       blockNumber,
@@ -183,7 +184,7 @@ library ProposeLib {
     );
 
     Slot slot = _args.header.slotNumber;
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber.decompress();
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Slot currentSlot = currentTime.slotFromTimestamp();

@@ -12,6 +12,7 @@ import {SlashPayload, IPayload} from "@aztec/periphery/SlashPayload.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract Test15050 is StakingBase {
   using stdStorage for StdStorage;
@@ -45,8 +46,8 @@ contract Test15050 is StakingBase {
     SlashingProposer caller = Slasher(SLASHER).PROPOSER();
 
     stdstore.clear();
-    stdstore.target(address(caller)).sig("rounds(address,uint256)").with_key(address(staking))
-      .with_key(uint256(0)).depth(1).checked_write(address(payload));
+    stdstore.enable_packed_slots().target(address(caller)).sig("getRoundData(address,uint256)")
+      .with_key(address(staking)).with_key(uint256(0)).depth(1).checked_write(address(payload));
 
     stdstore.clear();
     stdstore.target(address(caller)).sig("yeaCount(address,uint256,address)").with_key(
@@ -61,8 +62,8 @@ contract Test15050 is StakingBase {
 
     assertEq(caller.getCurrentRound(), 1);
 
-    (,, bool executed) = caller.rounds(address(staking), 0);
-    assertFalse(executed);
+    RoundAccounting memory r = caller.getRoundData(address(staking), 0);
+    assertFalse(r.executed);
 
     address target = payload.getActions()[0].target;
     bytes memory data = payload.getActions()[0].data;
@@ -76,8 +77,8 @@ contract Test15050 is StakingBase {
     // It can require a bit of fiddling here to get the correct one going gas-wise.
     caller.executeProposal{gas: 200000}(0);
 
-    (,, executed) = caller.rounds(address(staking), 0);
-    assertFalse(executed);
+    r = caller.getRoundData(address(staking), 0);
+    assertFalse(r.executed);
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.VALIDATING);
@@ -90,8 +91,8 @@ contract Test15050 is StakingBase {
 
     caller.executeProposal(0);
 
-    (,, executed) = caller.rounds(address(staking), 0);
-    assertTrue(executed);
+    r = caller.getRoundData(address(staking), 0);
+    assertTrue(r.executed);
 
     attesterView = staking.getAttesterView(ATTESTER);
     assertTrue(attesterView.status == Status.NONE, "attester status");

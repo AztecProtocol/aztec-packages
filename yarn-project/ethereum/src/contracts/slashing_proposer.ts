@@ -57,12 +57,7 @@ export class SlashingProposerContract extends EventEmitter implements IEmpireBas
     rollupAddress: Hex,
     round: bigint,
   ): Promise<{ lastVote: bigint; leader: Hex; executed: boolean }> {
-    const roundInfo = await this.proposer.read.rounds([rollupAddress, round]);
-    return {
-      lastVote: roundInfo[0],
-      leader: roundInfo[1],
-      executed: roundInfo[2],
-    };
+    return await this.proposer.read.getRoundData([rollupAddress, round]);
   }
 
   public getProposalVotes(rollupAddress: Hex, round: bigint, proposal: Hex): Promise<bigint> {
