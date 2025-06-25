@@ -15,7 +15,7 @@ class MockNullifierTreeCheck : public NullifierTreeCheckInterface {
 
     MOCK_METHOD(void,
                 assert_read,
-                (FF nullifier,
+                (const FF& nullifier,
                  std::optional<AztecAddress> contract_address,
                  bool exists,
                  const NullifierTreeLeafPreimage& low_leaf_preimage,
@@ -26,7 +26,7 @@ class MockNullifierTreeCheck : public NullifierTreeCheckInterface {
 
     MOCK_METHOD(AppendOnlyTreeSnapshot,
                 write,
-                (FF nullifier,
+                (const FF& nullifier,
                  std::optional<AztecAddress> contract_address,
                  uint64_t nullifier_counter,
                  const NullifierTreeLeafPreimage& low_leaf_preimage,

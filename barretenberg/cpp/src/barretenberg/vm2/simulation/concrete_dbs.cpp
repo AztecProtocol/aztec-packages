@@ -88,7 +88,7 @@ void MerkleDB::storage_write(const FF& leaf_slot, const FF& value)
     }
 }
 
-bool MerkleDB::nullifier_exists(AztecAddress contract_address, const FF& nullifier) const
+bool MerkleDB::nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const
 {
     return nullifier_exists_internal(contract_address, nullifier);
 }

@@ -65,7 +65,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     FF storage_read(const FF& leaf_slot) const override;
     void storage_write(const FF& leaf_slot, const FF& value) override;
 
-    bool nullifier_exists(AztecAddress contract_address, const FF& nullifier) const override;
+    bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const override;
     bool siloed_nullifier_exists(const FF& nullifier) const override;
     // Returns false if the nullifier already exists, performing a membership proof instead.
     bool nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;

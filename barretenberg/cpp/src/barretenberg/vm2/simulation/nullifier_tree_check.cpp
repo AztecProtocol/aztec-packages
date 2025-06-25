@@ -32,7 +32,7 @@ void NullifierTreeCheck::validate_low_leaf(FF nullifier,
     }
 }
 
-void NullifierTreeCheck::assert_read(FF nullifier,
+void NullifierTreeCheck::assert_read(const FF& source_nullifier,
                                      std::optional<AztecAddress> contract_address,
                                      bool exists,
                                      const NullifierTreeLeafPreimage& low_leaf_preimage,
@@ -40,7 +40,7 @@ void NullifierTreeCheck::assert_read(FF nullifier,
                                      std::span<const FF> sibling_path,
                                      const AppendOnlyTreeSnapshot& snapshot)
 {
-    FF source_nullifier = nullifier;
+    FF nullifier = source_nullifier;
     std::optional<NullifierSiloingData> siloing_data = std::nullopt;
     if (contract_address.has_value()) {
         nullifier = silo_nullifier(nullifier, contract_address.value());
@@ -64,7 +64,7 @@ void NullifierTreeCheck::assert_read(FF nullifier,
     });
 }
 
-AppendOnlyTreeSnapshot NullifierTreeCheck::write(FF nullifier,
+AppendOnlyTreeSnapshot NullifierTreeCheck::write(const FF& source_nullifier,
                                                  std::optional<AztecAddress> contract_address,
                                                  uint64_t nullifier_counter,
                                                  const NullifierTreeLeafPreimage& low_leaf_preimage,
@@ -73,7 +73,7 @@ AppendOnlyTreeSnapshot NullifierTreeCheck::write(FF nullifier,
                                                  const AppendOnlyTreeSnapshot& prev_snapshot,
                                                  std::optional<std::span<const FF>> insertion_sibling_path)
 {
-    FF source_nullifier = nullifier;
+    FF nullifier = source_nullifier;
     std::optional<NullifierSiloingData> siloing_data = std::nullopt;
     if (contract_address.has_value()) {
         nullifier = silo_nullifier(nullifier, contract_address.value());
