@@ -37,7 +37,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static constexpr std::array<size_t, 3> TOTAL_LENGTH_ADJUSTMENTS{
         2, // inverse construction sub-relation
         2, // log derivative lookup argument sub-relation
-        2,
+        2, // read_tag boolean sub-relation check
     };
 
     static constexpr std::array<bool, 3> SUBRELATION_LINEARLY_INDEPENDENT = { true, false, true };
@@ -75,6 +75,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         const auto row_has_write = CoefficientAccumulator(in.lookup_read_tags);
         const auto row_has_read = CoefficientAccumulator(in.q_lookup);
+        // degree                1(1)               1(1)           1              1       = 2(2)
         return Accumulator(-(row_has_write * row_has_read) + row_has_write + row_has_read);
     }
 
@@ -106,6 +107,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         auto table_3 = CoefficientAccumulator(in.table_3);
         auto table_4 = CoefficientAccumulator(in.table_4);
 
+        // degree          1     0(1)      1         0(1)          1         0(1) =   1(2)
         auto result = (table_2 * eta) + (table_3 * eta_two) + (table_4 * eta_three);
         result += table_1;
         result += gamma;
@@ -141,13 +143,18 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // The wire values for lookup gates are accumulators structured in such a way that the differences w_i -
         // step_size*w_i_shift result in values present in column i of a corresponding table. See the documentation in
         // method get_lookup_accumulators() in  for a detailed explanation.
+        // degree                                      1                 1         1       0(1) = 2
         auto derived_table_entry_1 = (negative_column_1_step_size * w_1_shift) + (w_1 + gamma);
+        // degree                                        1             1          1 =    2
         auto derived_table_entry_2 = (negative_column_2_step_size * w_2_shift) + w_2;
+        // degree                                         1              1          1 = 2
         auto derived_table_entry_3 = (negative_column_3_step_size * w_3_shift) + w_3;
+        //                              1           0 (1)    = 1 (2)
         auto table_index_entry = table_index * eta_three;
 
         // (w_1 + \gamma q_2*w_1_shift) + η(w_2 + q_m*w_2_shift) + η₂(w_3 + q_c*w_3_shift) + η₃q_index.
         // deg 2 or 3
+        // degree                            2              0(1)                        2                  0(1)  = 2 (3)
         auto result = Accumulator(derived_table_entry_2) * eta + Accumulator(derived_table_entry_3) * eta_two;
         result += Accumulator(derived_table_entry_1 + table_index_entry);
         return result;
@@ -265,19 +272,19 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
         const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
 
-        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2 (2)
         const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2 (3)
         const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1 (2)
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
-        // Degrees:                     2 (3)       1 (2)        1              1
+        // Degrees:    5(7)                          2 (3)     1(2)           1                          0(1)
         const Accumulator logderiv_first_term = (read_term * write_term * inverses - inverse_exists) * scaling_factor;
-        std::get<0>(accumulator) += ShortView(logderiv_first_term); // Deg 4 (6)
+        std::get<0>(accumulator) += ShortView(logderiv_first_term); // Deg 5(7)
 
         // Establish validity of the read. Note: no scaling factor here since this constraint is 'linearly dependent,
         // i.e. enforced across the entire trace, not on a per-row basis.
-        // Degrees:                       1            2 (3)            1            3 (4)
+        // Degrees:                       1            2 (3)     =       3 (4)
         Accumulator tmp = Accumulator(read_selector_m) * write_term;
         tmp -= (Accumulator(read_counts_m) * read_term);
         tmp *= inverses;                 // degree 4(5)
@@ -286,6 +293,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         // we should make sure that the read_tag is a boolean value
         const auto read_tag_m = CoefficientAccumulator(in.lookup_read_tags);
         const auto read_tag = BooleanCheckerAccumulator(read_tag_m);
+        // degree                          1         1                       0(1) =  2(3)
         std::get<2>(accumulator) += (read_tag * read_tag - read_tag) * scaling_factor;
     }
 };
