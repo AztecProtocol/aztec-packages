@@ -69,7 +69,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/alpha-testnet.json',
-  maxTxPoolSize: 2 * 1024 * 1024 * 1024, // 2GB
+  maxTxPoolSize: 100_000_000, // 100MB
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
