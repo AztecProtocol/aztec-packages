@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-        call_context::CallContext, log_hash::LogHash, max_block_number::MaxBlockNumber,
+        call_context::CallContext, include_by_timestamp::IncludeByTimestamp, log_hash::LogHash,
         note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
         private_log::PrivateLogData, public_call_request::PublicCallRequest,
         read_request::ReadRequest, side_effect::Counted,
@@ -63,7 +63,7 @@ pub struct PrivateCircuitPublicInputs {
     pub min_revertible_side_effect_counter: u32,
     pub is_fee_payer: bool,
 
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
 
     pub note_hash_read_requests: [ReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     pub nullifier_read_requests: [ReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
@@ -97,7 +97,7 @@ impl Eq for PrivateCircuitPublicInputs {
             & (self.returns_hash == other.returns_hash)
             & (self.min_revertible_side_effect_counter == other.min_revertible_side_effect_counter)
             & (self.is_fee_payer == other.is_fee_payer)
-            & (self.max_block_number == other.max_block_number)
+            & (self.include_by_timestamp == other.include_by_timestamp)
             & (self.note_hash_read_requests == other.note_hash_read_requests)
             & (self.nullifier_read_requests == other.nullifier_read_requests)
             & (
@@ -128,7 +128,7 @@ impl Serialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicInp
         fields.push(self.min_revertible_side_effect_counter as Field);
         fields.push(if self.is_fee_payer { 1 } else { 0 } as Field);
 
-        fields.extend_from_array(self.max_block_number.serialize());
+        fields.extend_from_array(self.include_by_timestamp.serialize());
 
         for i in 0..self.note_hash_read_requests.len() {
             fields.extend_from_array(self.note_hash_read_requests[i].serialize());
@@ -182,7 +182,7 @@ impl Deserialize<PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PrivateCircuitPublicI
             returns_hash: reader.read(),
             min_revertible_side_effect_counter: reader.read() as u32,
             is_fee_payer: reader.read() == 1,
-            max_block_number: reader.read_struct(MaxBlockNumber::deserialize),
+            include_by_timestamp: reader.read_struct(IncludeByTimestamp::deserialize),
             note_hash_read_requests: reader.read_struct_array(
                 ReadRequest::deserialize,
                 [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
@@ -243,7 +243,7 @@ impl Empty for PrivateCircuitPublicInputs {
             returns_hash: 0,
             min_revertible_side_effect_counter: 0 as u32,
             is_fee_payer: false,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: [ReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
             nullifier_read_requests: [ReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_CALL],
             key_validation_requests_and_generators: [

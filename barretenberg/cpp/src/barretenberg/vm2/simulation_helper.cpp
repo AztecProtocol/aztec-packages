@@ -105,7 +105,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
     typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
 
-    uint32_t current_block_number = hints.tx.globalVariables.blockNumber;
+    uint64_t current_timestamp = hints.tx.globalVariables.timestamp;
 
     ExecutionIdManager execution_id_manager(1);
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
@@ -130,7 +130,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
     MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check, note_hash_tree_check);
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, update_check_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
@@ -141,7 +141,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_hasher,
                                        range_check,
                                        update_check,
-                                       current_block_number,
+                                       current_timestamp,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);

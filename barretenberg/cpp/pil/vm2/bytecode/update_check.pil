@@ -13,17 +13,17 @@ include "../trees/public_data_check.pil";
 // | value | metadata            | pre                   | post                  | hash(metadata,pre,post) |
 // +-------+---------------------+-----------------------+-----------------------+-------------------------+
 // The metadata field includes some information about the delay that we don't care about in the AVM,
-// but the block of change is the last 32 bits of the metadata.
+// but the timestamp of change is the last 32 bits of the metadata.
 //
 // This gadget reads the shared mutable hash, and requires the metadata, pre and post to be passed as hints.
 // NOTE: if hash is zero, then the shared mutable has never been written to. In that case no update applies (current_class_id = original_class_id)
-// Once we constrain the read, we truncate the metadata to 32 bits and compare it with the block number.
-// If the block number is less than the block of change, then the update is a future update.
+// Once we constrain the read, we truncate the metadata to 32 bits and compare it with the timestamp.
+// If the timestamp is less than the timestamp of change, then the update is a future update.
 // NOTE: zeroes can appear in pre and post. In those cases, zero means original_class_id.
 //
 // Usage:
-// sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
-// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
+// sel { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
+// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
 //
 namespace update_check;
     pol commit sel;
@@ -37,7 +37,7 @@ namespace update_check;
     pol commit current_class_id;
     pol commit original_class_id;
     pol commit public_data_tree_root;
-    pol commit block_number;
+    pol commit timestamp;
 
     // ======== SHARED MUTABLE HASH READ ========
 
@@ -97,45 +97,45 @@ namespace update_check;
     hash_not_zero { update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
-    // ======== BLOCK OF CHANGE READ ========
+    // ======== TIMESTAMP OF CHANGE READ ========
 
-    // Block of change is the last 32 bits of the update metadata
-    // update_metadata = (update_hi_metadata: u112 << 32) + update_block_of_change: u32
-    pol commit update_block_of_change;
+    // Timestamp of change is the last 32 bits of the update metadata
+    // update_metadata = (update_hi_metadata: u112 << 32) + timestamp_of_change: u32
+    pol commit timestamp_of_change;
     pol commit update_hi_metadata;
     pol TWO_POW_32 = 2**32;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit update_hi_metadata_bit_size;
-    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.BLOCK_NUMBER_BIT_SIZE - update_hi_metadata_bit_size) = 0;
+    hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - update_hi_metadata_bit_size) = 0;
     // TODO: Remove this as a column when we can lookup with constants
-    pol commit block_number_bit_size; // 32
-    hash_not_zero * (constants.BLOCK_NUMBER_BIT_SIZE - block_number_bit_size) = 0;
+    pol commit timestamp_of_change_bit_size; // 32
+    hash_not_zero * (constants.TIMESTAMP_OF_CHANGE_BIT_SIZE - timestamp_of_change_bit_size) = 0;
 
     #[UPDATE_HI_METADATA_RANGE]
     hash_not_zero { update_hi_metadata, update_hi_metadata_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     #[UPDATE_LO_METADATA_RANGE]
-    hash_not_zero { update_block_of_change, block_number_bit_size }
+    hash_not_zero { timestamp_of_change, timestamp_of_change_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-    // Overflow safe since update_hi_metadata_bit_size + block_number_bit_size < field bit size (254)
+    // Overflow safe since update_hi_metadata_bit_size + timestamp_of_change_bit_size < field bit size (254)
     #[UPDATE_METADATA_DECOMPOSITION]
-    update_hi_metadata * TWO_POW_32 + update_block_of_change - update_preimage_metadata = 0;
+    update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata = 0;
 
     // ======== CLASS ID CHECK ========
     // We are going to use the standard way to compare integers.
     // We request the boolean as a hint, and then we constrain it by subtracting in one direction or the other depending on it.
     // If the boolean hint is incorrect, then the subtraction will overflow the field and the range constraint will fail.
-    pol commit block_number_is_lt_block_of_change;
-    block_number_is_lt_block_of_change * (1 - block_number_is_lt_block_of_change) = 0;
-    pol commit block_of_change_subtraction;
-    pol BLOCKNUMBER_LT_BLOCK_OF_CHANGE = update_block_of_change - 1 - block_number;
-    pol BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =  block_number - update_block_of_change;
-    (BLOCKNUMBER_LT_BLOCK_OF_CHANGE - BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) * block_number_is_lt_block_of_change + BLOCKNUMBER_GTE_BLOCK_OF_CHANGE - block_of_change_subtraction = 0;
+    pol commit timestamp_is_lt_timestamp_of_change;
+    timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
+    pol commit timestamp_of_change_subtraction;
+    pol TIMESTAMP_LT_TIMESTAMP_OF_CHANGE = timestamp_of_change - 1 - timestamp;
+    pol TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE =  timestamp - timestamp_of_change;
+    (TIMESTAMP_LT_TIMESTAMP_OF_CHANGE - TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE) * timestamp_is_lt_timestamp_of_change + TIMESTAMP_GTE_TIMESTAMP_OF_CHANGE - timestamp_of_change_subtraction = 0;
 
-    #[BLOCK_OF_CHANGE_CMP_RANGE]
-    hash_not_zero { block_of_change_subtraction, block_number_bit_size }
+    #[TIMESTAMP_OF_CHANGE_CMP_RANGE]
+    hash_not_zero { timestamp_of_change_subtraction, timestamp_of_change_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     pol commit update_pre_class_id_is_zero;
@@ -152,8 +152,8 @@ namespace update_check;
 
     // If update hasn't applied yet, then the class id should be the pre_class_id == 0 ? original_class_id : pre_class_id
     #[FUTURE_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * block_number_is_lt_block_of_change * (original_class_id * update_pre_class_id_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
+    hash_not_zero * timestamp_is_lt_timestamp_of_change * (original_class_id * update_pre_class_id_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
 
     // Else, the post_class_id == 0 ? original_class_id : post_class_id
     #[PAST_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * (1 - block_number_is_lt_block_of_change) * (original_class_id * update_post_class_id_is_zero + update_preimage_post_class_id - current_class_id) = 0;
+    hash_not_zero * (1 - timestamp_is_lt_timestamp_of_change) * (original_class_id * update_post_class_id_is_zero + update_preimage_post_class_id - current_class_id) = 0;

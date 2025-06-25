@@ -9,6 +9,7 @@ import {
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
+  AccountManager,
   type AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
@@ -21,6 +22,7 @@ import {
   createLogger,
   createPXEClient,
   makeFetch,
+  sleep,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
@@ -569,10 +571,10 @@ export async function setup(
       { dateProvider, blobSinkClient, telemetry, p2pClientDeps, logger: createLogger('node:MAIN-aztec-node') },
       { prefilledPublicData },
     );
-    const sequencer = aztecNode.getSequencer();
+    const sequencerClient = aztecNode.getSequencer();
 
-    if (sequencer) {
-      const publisher = (sequencer as TestSequencerClient).sequencer.publisher;
+    if (sequencerClient) {
+      const publisher = (sequencerClient as TestSequencerClient).sequencer.publisher;
       publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
     }
 
@@ -608,7 +610,34 @@ export async function setup(
       await cheatCodes.rollup.debugRollup();
     }
 
-    const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+    const sequencer = sequencerClient!.getSequencer();
+    const minTxsPerBlock = config.minTxsPerBlock;
+
+    if (minTxsPerBlock === undefined) {
+      throw new Error('minTxsPerBlock is undefined in e2e test setup');
+    }
+
+    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
+    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
+    // For account deployments, we set minTxsPerBlock=1 and deploy accounts sequentially for guaranteed success.
+    // If no accounts need deployment, we await an empty block to confirm network progression. After either path
+    // completes, we restore the original minTxsPerBlock setting.
+    // For more details on why the tx would be dropped see `validate_include_by_timestamp` function in
+    // `noir-projects/noir-protocol-circuits/crates/rollup-lib/src/base/components/validation_requests.nr`.
+    let accountManagers: AccountManager[] = [];
+    if (numberOfAccounts === 0) {
+      // We wait until block 1 is mined to ensure that the network has progressed past genesis.
+      sequencer.updateConfig({ minTxsPerBlock: 0 });
+      while ((await pxe.getBlockNumber()) === 0) {
+        await sleep(2000);
+      }
+    } else {
+      sequencer.updateConfig({ minTxsPerBlock: 1 });
+      accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+    }
+
+    sequencer.updateConfig({ minTxsPerBlock });
+
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
     if (initialFundedAccounts.length < numberOfAccounts) {
       // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
@@ -655,7 +684,7 @@ export async function setup(
       prefilledPublicData,
       proverNode,
       pxe,
-      sequencer,
+      sequencer: sequencerClient,
       teardown,
       telemetryClient: telemetry,
       wallet: wallets[0],

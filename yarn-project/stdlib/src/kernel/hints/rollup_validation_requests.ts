@@ -4,17 +4,15 @@ import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from 
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import type { FieldsOf } from '@aztec/foundation/types';
 
-import { MaxBlockNumber } from '../../tx/max_block_number.js';
+import { IncludeByTimestamp } from '../../tx/include_by_timestamp.js';
 
 /**
  * Validation requests directed at the rollup, accumulated during the execution of the transaction.
  */
 export class RollupValidationRequests {
   constructor(
-    /**
-     * The largest block number in which this transaction can be included.
-     */
-    public maxBlockNumber: MaxBlockNumber,
+    /** The highest timestamp of a block in which this transaction can still be included. */
+    public includeByTimestamp: IncludeByTimestamp,
   ) {}
 
   getSize() {
@@ -22,7 +20,7 @@ export class RollupValidationRequests {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.maxBlockNumber);
+    return serializeToBuffer(this.includeByTimestamp);
   }
 
   toString() {
@@ -30,12 +28,12 @@ export class RollupValidationRequests {
   }
 
   static getFields(fields: FieldsOf<RollupValidationRequests>) {
-    return [fields.maxBlockNumber] as const;
+    return [fields.includeByTimestamp] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new RollupValidationRequests(MaxBlockNumber.fromFields(reader));
+    return new RollupValidationRequests(IncludeByTimestamp.fromFields(reader));
   }
 
   toFields(): Fr[] {
@@ -55,7 +53,7 @@ export class RollupValidationRequests {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new RollupValidationRequests(reader.readObject(MaxBlockNumber));
+    return new RollupValidationRequests(reader.readObject(IncludeByTimestamp));
   }
 
   /**
@@ -68,6 +66,6 @@ export class RollupValidationRequests {
   }
 
   static empty() {
-    return new RollupValidationRequests(MaxBlockNumber.empty());
+    return new RollupValidationRequests(IncludeByTimestamp.empty());
   }
 }

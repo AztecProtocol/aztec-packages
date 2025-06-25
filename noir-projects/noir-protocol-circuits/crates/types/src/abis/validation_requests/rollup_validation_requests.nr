@@ -1,5 +1,5 @@
 use crate::{
-    abis::max_block_number::MaxBlockNumber,
+    abis::include_by_timestamp::IncludeByTimestamp,
     constants::ROLLUP_VALIDATION_REQUESTS_LENGTH,
     traits::{Deserialize, Empty, Serialize},
     utils::reader::Reader,
@@ -8,25 +8,26 @@ use crate::{
 // These are validation requests that cannot be fulfilled in the current context (private or public), and must be
 // instead forwarded to the rollup for it to take care of them.
 pub struct RollupValidationRequests {
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
 }
 
 impl Empty for RollupValidationRequests {
     fn empty() -> Self {
-        RollupValidationRequests { max_block_number: MaxBlockNumber::empty() }
+        RollupValidationRequests { include_by_timestamp: IncludeByTimestamp::empty() }
     }
 }
 
 impl Serialize<ROLLUP_VALIDATION_REQUESTS_LENGTH> for RollupValidationRequests {
     fn serialize(self) -> [Field; ROLLUP_VALIDATION_REQUESTS_LENGTH] {
-        MaxBlockNumber::serialize(self.max_block_number)
+        IncludeByTimestamp::serialize(self.include_by_timestamp)
     }
 }
 
 impl Deserialize<ROLLUP_VALIDATION_REQUESTS_LENGTH> for RollupValidationRequests {
     fn deserialize(fields: [Field; ROLLUP_VALIDATION_REQUESTS_LENGTH]) -> RollupValidationRequests {
         let mut reader = Reader::new(fields);
-        let item = Self { max_block_number: reader.read_struct(MaxBlockNumber::deserialize) };
+        let item =
+            Self { include_by_timestamp: reader.read_struct(IncludeByTimestamp::deserialize) };
         reader.finish();
         item
     }
@@ -34,7 +35,7 @@ impl Deserialize<ROLLUP_VALIDATION_REQUESTS_LENGTH> for RollupValidationRequests
 
 impl Eq for RollupValidationRequests {
     fn eq(self, other: Self) -> bool {
-        self.max_block_number.eq(other.max_block_number)
+        self.include_by_timestamp.eq(other.include_by_timestamp)
     }
 }
 

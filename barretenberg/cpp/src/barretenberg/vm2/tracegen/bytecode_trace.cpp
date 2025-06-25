@@ -191,7 +191,7 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
                 { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
                 // State.
-                { C::bc_retrieval_block_number, event.current_block_number },
+                { C::bc_retrieval_timestamp, event.current_timestamp },
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
                 { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.

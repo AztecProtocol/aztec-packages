@@ -82,6 +82,7 @@ function mockEpochCache(): EpochCacheInterface {
         currentSlot: 0n,
         nextSlot: 0n,
       }),
+    getEpochAndSlotInNextL1Slot: () => ({ epoch: 0n, slot: 0n, ts: 0n, now: 0n }),
     isInCommittee: () => Promise.resolve(false),
   };
 }

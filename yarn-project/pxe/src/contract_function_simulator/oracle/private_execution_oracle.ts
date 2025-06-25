@@ -380,11 +380,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
 
     isStaticCall = isStaticCall || this.callContext.isStaticCall;
 
-    await verifyCurrentClassId(
-      targetContractAddress,
-      this.executionDataProvider,
-      this.historicalHeader.globalVariables.blockNumber,
-    );
+    await verifyCurrentClassId(targetContractAddress, this.executionDataProvider, this.historicalHeader);
 
     const targetArtifact = await this.executionDataProvider.getFunctionArtifact(
       targetContractAddress,
