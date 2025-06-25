@@ -7,6 +7,7 @@
  * - Raw cryptography functions exposed by WASM BB
  */
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "bbrpc_common.hpp"
 #include <map>
@@ -95,35 +96,6 @@ struct ProofSystemSettings {
      * @brief Flag to indicate if this circuit will be recursively verified.
      */
     bool recursive = false;
-
-    /**
-     * @brief Rollup configuration flag.
-     * For UltraRollupFlavor vs UltraFlavor.
-     */
-    bool is_rollup = false;
-
-    /**
-     * @brief Accumulator initialization.
-     * Initialize pairing point accumulator.
-     */
-    bool init_kzg_accumulator = false;
-
-    /**
-     * @brief Solver configuration (for ACIR).
-     * Use new solver implementation.
-     */
-    bool use_new_solver = false;
-
-    /**
-     * @brief Additional proving options.
-     * Skip public inputs check during proving.
-     */
-    bool skip_public_inputs_check = false;
-
-    /**
-     * @brief Enable profiling during proving.
-     */
-    bool enable_profiling = false;
 };
 
 /**
@@ -137,12 +109,16 @@ struct ProofSystemSettings {
  * process.
  */
 struct CircuitProve {
+    static constexpr const char* NAME = "CircuitProve";
+
     /**
      * @brief Contains proof and public inputs.
      * Both are given as vectors of fields. To be used for verification.
      * Example uses of this Response would be verification in native BB, WASM BB, solidity or recursively through Noir.
      */
     struct Response {
+        static constexpr const char* NAME = "CircuitProveResponse";
+
         PublicInputsVector public_inputs;
         HonkProof proof;
         // Empty if successful.
@@ -154,8 +130,12 @@ struct CircuitProve {
     ProofSystemSettings settings;
 };
 
-struct CircuitDeriveVk {
+struct CircuitComputeVk {
+    static constexpr const char* NAME = "CircuitComputeVk";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitComputeVkResponse";
+
         /**
          * @brief Serialized verification key.
          */
@@ -168,8 +148,32 @@ struct CircuitDeriveVk {
     ProofSystemSettings settings;
 };
 
-struct ClientIvcDeriveVk {
+/** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
+ * or a common final circuit used to verify all of IVC. */
+struct CircuitComputeIvcVk {
+    static constexpr const char* NAME = "CircuitComputeIvcVk";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitComputeIvcVkResponse";
+
+        /**
+         * @brief Serialized verification key.
+         */
+        std::vector<uint8_t> verification_key;
+        // Empty if successful.
+        std::string error_message;
+    };
+    bool standalone;
+};
+
+/** Compute verification key, Treat the previously loaded circuit as either a standalone circuit
+ * or a common final circuit used to verify all of IVC. */
+struct ClientIvcComputeVk {
+    static constexpr const char* NAME = "ClientIvcComputeVk";
+
+    struct Response {
+        static constexpr const char* NAME = "ClientIvcComputeVkResponse";
+
         /**
          * @brief Serialized verification key.
          */
@@ -187,14 +191,22 @@ struct ClientIvcDeriveVk {
  * Note, only one IVC request can be made at a time for each batch_request.
  */
 struct ClientIvcStart {
+    static constexpr const char* NAME = "ClientIvcStart";
+
     struct Response {
+        static constexpr const char* NAME = "ClientIvcStartResponse";
+
         // Empty if successful.
         std::string error_message;
     };
 };
 
 struct ClientIvcLoad {
+    static constexpr const char* NAME = "ClientIvcLoad";
+
     struct Response {
+        static constexpr const char* NAME = "ClientIvcLoadResponse";
+
         // Empty if successful.
         std::string error_message;
     };
@@ -203,7 +215,11 @@ struct ClientIvcLoad {
 };
 
 struct ClientIvcAccumulate {
+    static constexpr const char* NAME = "ClientIvcAccumulate";
+
     struct Response {
+        static constexpr const char* NAME = "ClientIvcAccumulateResponse";
+
         // Empty if successful.
         std::string error_message;
     };
@@ -213,7 +229,11 @@ struct ClientIvcAccumulate {
 };
 
 struct ClientIvcProve {
+    static constexpr const char* NAME = "ClientIvcProve";
+
     struct Response {
+        static constexpr const char* NAME = "ClientIvcProveResponse";
+
         ClientIVC::Proof proof;
         // Empty if successful.
         std::string error_message;
@@ -226,7 +246,11 @@ struct ClientIvcProve {
  * Combines gate count, circuit size, and other metadata into a single command.
  */
 struct CircuitInfo {
+    static constexpr const char* NAME = "CircuitInfo";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitInfoResponse";
+
         uint32_t total_gates;
         uint32_t subgroup_size;
         // Optional: gate counts per opcode
@@ -246,7 +270,11 @@ struct CircuitInfo {
  * For debugging and validation purposes.
  */
 struct CircuitCheck {
+    static constexpr const char* NAME = "CircuitCheck";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitCheckResponse";
+
         bool satisfied;
         // Empty if successful, contains constraint failure details if not satisfied.
         std::string error_message;
@@ -262,7 +290,11 @@ struct CircuitCheck {
  * @brief Verify a proof against a verification key and public inputs.
  */
 struct CircuitVerify {
+    static constexpr const char* NAME = "CircuitVerify";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitVerifyResponse";
+
         bool verified;
         // Empty if successful.
         std::string error_message;
@@ -279,7 +311,11 @@ struct CircuitVerify {
  * @brief Convert a proof to field elements representation.
  */
 struct ProofAsFields {
+    static constexpr const char* NAME = "ProofAsFields";
+
     struct Response {
+        static constexpr const char* NAME = "ProofAsFieldsResponse";
+
         std::vector<bb::fr> fields;
         // Empty if successful.
         std::string error_message;
@@ -293,7 +329,11 @@ struct ProofAsFields {
  * @brief Convert a verification key to field elements representation.
  */
 struct VkAsFields {
+    static constexpr const char* NAME = "VkAsFields";
+
     struct Response {
+        static constexpr const char* NAME = "VkAsFieldsResponse";
+
         std::vector<bb::fr> fields;
         // Empty if successful.
         std::string error_message;
@@ -307,7 +347,11 @@ struct VkAsFields {
  * @brief Command to generate Solidity verifier contract
  */
 struct CircuitWriteSolidityVerifier {
+    static constexpr const char* NAME = "CircuitWriteSolidityVerifier";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitWriteSolidityVerifierResponse";
+
         std::string solidity_code;
         std::string error_message;
     };
@@ -320,7 +364,11 @@ struct CircuitWriteSolidityVerifier {
  * @brief Command to prove and verify in one step
  */
 struct CircuitProveAndVerify {
+    static constexpr const char* NAME = "CircuitProveAndVerify";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitProveAndVerifyResponse";
+
         bool verified;
         std::vector<bb::fr> proof;         // The generated proof
         std::vector<bb::fr> public_inputs; // Extracted public inputs
@@ -336,7 +384,11 @@ struct CircuitProveAndVerify {
  * @brief Command to write circuit bytecode in various formats
  */
 struct CircuitWriteBytecode {
+    static constexpr const char* NAME = "CircuitWriteBytecode";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitWriteBytecodeResponse";
+
         std::vector<uint8_t> bytecode;
         std::string formatted_output; // For hex/base64
         std::string error_message;
@@ -350,7 +402,11 @@ struct CircuitWriteBytecode {
  * @brief Command to validate circuit structure
  */
 struct CircuitValidate {
+    static constexpr const char* NAME = "CircuitValidate";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitValidateResponse";
+
         bool is_valid;
         std::vector<std::string> validation_errors;
         std::string error_message;
@@ -365,7 +421,11 @@ struct CircuitValidate {
  * @brief Command to benchmark circuit operations
  */
 struct CircuitBenchmark {
+    static constexpr const char* NAME = "CircuitBenchmark";
+
     struct Response {
+        static constexpr const char* NAME = "CircuitBenchmarkResponse";
+
         double witness_generation_time_ms;
         double proving_time_ms;
         double verification_time_ms;
@@ -381,41 +441,61 @@ struct CircuitBenchmark {
     bool benchmark_proving = true;
 };
 
-using Command = std::variant<CircuitProve,
-                             CircuitDeriveVk,
-                             CircuitInfo,
-                             CircuitCheck,
-                             CircuitVerify,
-                             ClientIvcDeriveVk,
-                             ClientIvcStart,
-                             ClientIvcLoad,
-                             ClientIvcAccumulate,
-                             ClientIvcProve,
-                             ProofAsFields,
-                             VkAsFields,
-                             CircuitWriteSolidityVerifier,
-                             CircuitProveAndVerify,
-                             CircuitWriteBytecode,
-                             CircuitValidate,
-                             CircuitBenchmark>;
+/**
+ * @brief Command to check if a precomputed VK matches the circuit
+ */
+struct ClientIvcCheckPrecomputedVk {
+    static constexpr const char* NAME = "ClientIvcCheckPrecomputedVk";
 
-using CommandResponse = std::variant<CircuitProve::Response,
-                                     CircuitDeriveVk::Response,
-                                     CircuitInfo::Response,
-                                     CircuitCheck::Response,
-                                     CircuitVerify::Response,
-                                     ClientIvcDeriveVk::Response,
-                                     ClientIvcStart::Response,
-                                     ClientIvcLoad::Response,
-                                     ClientIvcAccumulate::Response,
-                                     ClientIvcProve::Response,
-                                     ProofAsFields::Response,
-                                     VkAsFields::Response,
-                                     CircuitWriteSolidityVerifier::Response,
-                                     CircuitProveAndVerify::Response,
-                                     CircuitWriteBytecode::Response,
-                                     CircuitValidate::Response,
-                                     CircuitBenchmark::Response>;
+    struct Response {
+        static constexpr const char* NAME = "ClientIvcCheckPrecomputedVkResponse";
+
+        bool valid;
+        std::string error_message;
+    };
+
+    // Circuit with its precomputed VK
+    CircuitInput circuit;
+    std::string function_name;
+};
+
+using Command = NamedUnion<CircuitProve,
+                           CircuitComputeVk,
+                           CircuitInfo,
+                           CircuitCheck,
+                           CircuitVerify,
+                           ClientIvcComputeVk,
+                           ClientIvcStart,
+                           ClientIvcLoad,
+                           ClientIvcAccumulate,
+                           ClientIvcProve,
+                           ProofAsFields,
+                           VkAsFields,
+                           CircuitWriteSolidityVerifier,
+                           CircuitProveAndVerify,
+                           CircuitWriteBytecode,
+                           CircuitValidate,
+                           CircuitBenchmark,
+                           ClientIvcCheckPrecomputedVk>;
+
+using CommandResponse = NamedUnion<CircuitProve::Response,
+                                   CircuitComputeVk::Response,
+                                   CircuitInfo::Response,
+                                   CircuitCheck::Response,
+                                   CircuitVerify::Response,
+                                   ClientIvcComputeVk::Response,
+                                   ClientIvcStart::Response,
+                                   ClientIvcLoad::Response,
+                                   ClientIvcAccumulate::Response,
+                                   ClientIvcProve::Response,
+                                   ProofAsFields::Response,
+                                   VkAsFields::Response,
+                                   CircuitWriteSolidityVerifier::Response,
+                                   CircuitProveAndVerify::Response,
+                                   CircuitWriteBytecode::Response,
+                                   CircuitValidate::Response,
+                                   CircuitBenchmark::Response,
+                                   ClientIvcCheckPrecomputedVk::Response>;
 
 /**
  * @brief Convert oracle hash type string to enum for internal use
@@ -424,10 +504,12 @@ enum class OracleHashType { POSEIDON2, KECCAK, STARKNET };
 
 inline OracleHashType parse_oracle_hash_type(const std::string& type)
 {
-    if (type == "keccak")
+    if (type == "keccak") {
         return OracleHashType::KECCAK;
-    if (type == "starknet")
+    }
+    if (type == "starknet") {
         return OracleHashType::STARKNET;
+    }
     return OracleHashType::POSEIDON2; // default
 }
 

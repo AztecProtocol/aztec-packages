@@ -21,9 +21,7 @@ const size_t BIT_COUNT = 254;
 
 BBRpcRequest create_test_bbrpc_request()
 {
-    BBRpcRequest request(RequestId{ 1 });
-    request.trace_settings = TraceSettings{ SMALL_TEST_STRUCTURE };
-    return request;
+    return { .trace_settings = TraceSettings{ SMALL_TEST_STRUCTURE } };
 }
 
 // Helper function to create a minimal circuit bytecode and witness for testing
@@ -125,7 +123,7 @@ class BBRpcTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-TEST_F(BBRpcTests, CircuitDeriveVkDirect)
+TEST_F(BBRpcTests, CircuitComputeVkDirect)
 {
     // Create a minimal circuit
     auto [bytecode, witness_data] = create_simple_circuit_bytecode();
@@ -144,7 +142,7 @@ TEST_F(BBRpcTests, CircuitDeriveVkDirect)
     BBRpcRequest request = create_test_bbrpc_request();
 
     // Call execute directly
-    auto response = execute(request, CircuitDeriveVk{ circuit, settings });
+    auto response = execute(request, CircuitComputeVk{ circuit, settings });
 
     // Check that the command succeeded
     EXPECT_TRUE(response.error_message.empty());
@@ -167,7 +165,7 @@ TEST_F(BBRpcTests, ProveAndVerifyCircuit)
 
     // Derive VK
     BBRpcRequest request = create_test_bbrpc_request();
-    auto vk_response = execute(request, CircuitDeriveVk{ circuit_for_vk, settings });
+    auto vk_response = execute(request, CircuitComputeVk{ circuit_for_vk, settings });
 
     EXPECT_TRUE(vk_response.error_message.empty());
     EXPECT_FALSE(vk_response.verification_key.empty());
@@ -309,7 +307,7 @@ TEST_F(BBRpcTests, VkAsFields)
                                   .recursive = false };
 
     BBRpcRequest vk_request = create_test_bbrpc_request();
-    auto vk_response = execute(vk_request, CircuitDeriveVk{ circuit, settings });
+    auto vk_response = execute(vk_request, CircuitComputeVk{ circuit, settings });
 
     EXPECT_TRUE(vk_response.error_message.empty());
 
@@ -336,7 +334,7 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
     // Get our minimal circuit and witness
     auto [circuit_bytecode, witness_data] = create_simple_circuit_bytecode();
     auto app_vk_result =
-        execute(request, ClientIvcDeriveVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
+        execute(request, ClientIvcComputeVk{ CircuitInputNoVK{ "ivc_vk_circuit", circuit_bytecode }, true });
     const MegaFlavor::VerificationKey& app_vk =
         from_buffer<MegaFlavor::VerificationKey>(app_vk_result.verification_key);
     auto app_vk_fields = app_vk.to_field_elements();
@@ -363,27 +361,27 @@ TEST_F(BBRpcTests, ClientIvcWithMockKernels)
     EXPECT_GT(prove_response.proof.goblin_proof.eccvm_proof.pre_ipa_proof.size(), 0);
 }
 
-TEST_F(BBRpcTests, ClientIvcDeriveVkStandalone)
+TEST_F(BBRpcTests, ClientIvcComputeVkStandalone)
 {
     auto [bytecode, witness_data] = create_simple_circuit_bytecode();
     CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test standalone VK derivation (just the circuit VK, not full IVC VK)
     BBRpcRequest request = create_test_bbrpc_request();
-    auto response = execute(request, ClientIvcDeriveVk{ .circuit = circuit, .standalone = true });
+    auto response = execute(request, ClientIvcComputeVk{ .circuit = circuit, .standalone = true });
 
     EXPECT_TRUE(response.error_message.empty());
     EXPECT_FALSE(response.verification_key.empty());
 }
 
-TEST_F(BBRpcTests, ClientIvcDeriveVkFullIvc)
+TEST_F(BBRpcTests, ClientIvcComputeVkFullIvc)
 {
     auto [bytecode, witness_data] = create_simple_circuit_bytecode();
     CircuitInputNoVK circuit{ .name = "ivc_vk_circuit", .bytecode = bytecode };
 
     // Test non-standalone (full IVC) VK derivation
     BBRpcRequest request = create_test_bbrpc_request();
-    auto response = execute(request, ClientIvcDeriveVk{ circuit, false });
+    auto response = execute(request, ClientIvcComputeVk{ circuit, false });
 
     // Full IVC VK derivation is now implemented
     EXPECT_TRUE(response.error_message.empty());
@@ -407,6 +405,107 @@ TEST_F(BBRpcTests, ClientIvcErrorNoStart)
 
     EXPECT_FALSE(response.error_message.empty());
     EXPECT_TRUE(response.error_message.find("No IVC in progress") != std::string::npos);
+}
+
+// Test for ClientIvcCheckPrecomputedVk (singular)
+TEST_F(BBRpcTests, ClientIvcCheckPrecomputedVk)
+{
+    auto request = create_test_bbrpc_request();
+
+    // Create a simple circuit
+    auto [bytecode, witness] = create_simple_circuit_bytecode();
+
+    // First derive the VK for our test circuit
+    ClientIvcComputeVk derive_cmd{ .circuit = CircuitInputNoVK{ .name = "test_circuit", .bytecode = bytecode },
+                                   .standalone = true };
+
+    auto derive_response = execute(request, std::move(derive_cmd));
+    ASSERT_TRUE(derive_response.error_message.empty());
+    ASSERT_FALSE(derive_response.verification_key.empty());
+
+    // Test 1: Valid VK should match
+    {
+        ClientIvcCheckPrecomputedVk check_cmd{ .circuit =
+                                                   CircuitInput{ .name = "test_circuit",
+                                                                 .bytecode = bytecode,
+                                                                 .verification_key = derive_response.verification_key },
+                                               .function_name = "test_function" };
+
+        auto response = execute(request, std::move(check_cmd));
+        EXPECT_TRUE(response.error_message.empty());
+        EXPECT_TRUE(response.valid);
+    }
+
+    // Test 2: Modified VK should not match
+    {
+        auto bad_vk = derive_response.verification_key;
+        bad_vk[0] ^= 1; // Flip one bit
+
+        ClientIvcCheckPrecomputedVk check_cmd{
+            .circuit = CircuitInput{ .name = "test_circuit", .bytecode = bytecode, .verification_key = bad_vk },
+            .function_name = "test_function"
+        };
+
+        auto response = execute(request, std::move(check_cmd));
+        EXPECT_FALSE(response.error_message.empty());
+        EXPECT_FALSE(response.valid);
+        EXPECT_TRUE(response.error_message.find("does not match") != std::string::npos);
+    }
+
+    // Test 3: Missing VK
+    {
+        ClientIvcCheckPrecomputedVk check_cmd{
+            .circuit =
+                CircuitInput{
+                    .name = "test_circuit", .bytecode = bytecode, .verification_key = {} // Empty VK
+                },
+            .function_name = "test_function"
+        };
+
+        auto response = execute(request, std::move(check_cmd));
+        EXPECT_FALSE(response.error_message.empty());
+        EXPECT_FALSE(response.valid);
+        EXPECT_TRUE(response.error_message.find("No precomputed VK provided") != std::string::npos);
+    }
+
+    // Test 4: Demonstrate batch checking pattern
+    {
+        // In a real batch scenario, you would call the command multiple times
+        std::vector<std::string> function_names = { "func1", "func2", "func3" };
+        std::vector<bool> results;
+
+        // Check func1 with good VK
+        ClientIvcCheckPrecomputedVk check1{ .circuit =
+                                                CircuitInput{ .name = "circuit1",
+                                                              .bytecode = bytecode,
+                                                              .verification_key = derive_response.verification_key },
+                                            .function_name = function_names[0] };
+        auto response1 = execute(request, std::move(check1));
+        results.push_back(response1.valid);
+
+        // Check func2 with bad VK
+        auto bad_vk = derive_response.verification_key;
+        bad_vk[0] ^= 1;
+        ClientIvcCheckPrecomputedVk check2{
+            .circuit = CircuitInput{ .name = "circuit2", .bytecode = bytecode, .verification_key = bad_vk },
+            .function_name = function_names[1]
+        };
+        auto response2 = execute(request, std::move(check2));
+        results.push_back(response2.valid);
+
+        // Check func3 with missing VK
+        ClientIvcCheckPrecomputedVk check3{
+            .circuit = CircuitInput{ .name = "circuit3", .bytecode = bytecode, .verification_key = {} },
+            .function_name = function_names[2]
+        };
+        auto response3 = execute(request, std::move(check3));
+        results.push_back(response3.valid);
+
+        // Verify batch results
+        EXPECT_TRUE(results[0]);  // func1 should be valid
+        EXPECT_FALSE(results[1]); // func2 should be invalid
+        EXPECT_FALSE(results[2]); // func3 should be invalid
+    }
 }
 
 } // namespace bb::bbrpc

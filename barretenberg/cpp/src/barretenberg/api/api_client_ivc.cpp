@@ -26,7 +26,7 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
 {
     acir_format::WitnessVector wv;
     size_t index = 0;
-    for (auto& e : witness_map) {
+    for (const auto& e : witness_map) {
         uint64_t value = stoull(e.first);
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
@@ -41,33 +41,10 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
     return wv;
 }
 
-void write_vk_for_ivc(const std::string& output_format,
-                      size_t num_public_inputs_in_final_circuit,
-                      const std::filesystem::path& output_dir)
-{
-    if (output_format != "bytes") {
-        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
-    }
-    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 =
-        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
-    ivc.accumulate(circuit_1);
-
-    // Construct the hiding circuit and its VK (stored internally in the IVC)
-    ivc.construct_hiding_circuit_key();
-
-    auto vk = ivc.get_vk();
-    write_file(output_dir / "vk", to_buffer(vk));
-}
+// Forward declaration
+static void write_vk_for_ivc(const std::string& output_format,
+                             size_t num_public_inputs_in_final_circuit,
+                             const std::filesystem::path& output_dir);
 
 /**
  * @brief Prove method implementation
@@ -117,6 +94,35 @@ void ClientIVCAPI::prove(const Flags& flags,
     }
 }
 
+// Implementation of write_vk_for_ivc
+static void write_vk_for_ivc(const std::string& output_format,
+                             size_t num_public_inputs_in_final_circuit,
+                             const std::filesystem::path& output_dir)
+{
+    if (output_format != "bytes") {
+        throw_or_abort("Unsupported output format for ClientIVC vk: " + output_format);
+    }
+    ClientIVC ivc{ TraceSettings{ AZTEC_TRACE_STRUCTURE } };
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    // We segfault if we only call accumulate once
+    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    MegaCircuitBuilder circuit_1 =
+        circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit);
+    ivc.accumulate(circuit_1);
+
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
+    ivc.construct_hiding_circuit_key();
+
+    auto vk = ivc.get_vk();
+    write_file(output_dir / "vk", to_buffer(vk));
+}
+
 /**
  * @brief Refactored verify method using BBRPC commands
  */
@@ -144,7 +150,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
 {
     using namespace bbrpc;
 
-    BBRpcRequest request(RequestId{ 1 });
+    BBRpcRequest request;
     request.trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE };
 
     if (flags.verifier_type == "standalone") {
@@ -153,7 +159,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
 
         CircuitInputNoVK circuit{ .name = bytecode_path.filename().string(), .bytecode = bytecode };
 
-        ClientIvcDeriveVk derive_vk_cmd{ .circuit = circuit, .standalone = true };
+        ClientIvcComputeVk derive_vk_cmd{ .circuit = circuit, .standalone = true };
 
         auto response = execute(request, std::move(derive_vk_cmd));
 
@@ -189,7 +195,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
         // Use empty circuit to trigger IVC VK generation
         CircuitInputNoVK circuit{ .name = "ivc_hiding", .bytecode = {} };
 
-        ClientIvcDeriveVk derive_vk_cmd{ .circuit = circuit, .standalone = false };
+        ClientIvcComputeVk derive_vk_cmd{ .circuit = circuit, .standalone = false };
 
         auto response = execute(request, std::move(derive_vk_cmd));
 
@@ -319,6 +325,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     std::cout << format(functions_string, "\n]}");
 }
 
+// TODO(https:// github.com/AztecProtocol/barretenberg/issues/1252): deprecate in favor of normal proving flow
 void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
     ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };

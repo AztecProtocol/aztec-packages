@@ -13,6 +13,7 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <queue>
@@ -22,7 +23,6 @@ namespace bb::bbrpc {
 
 struct BBRpcRequest {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    RequestId request_id;
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<ClientIVC> ivc_in_progress;
@@ -32,18 +32,14 @@ struct BBRpcRequest {
     std::optional<acir_format::AcirFormat> last_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> last_circuit_vk;
-
-    BBRpcRequest(RequestId request_id)
-        : request_id(request_id)
-    {}
 };
 
 inline const std::string& get_error_message(const CommandResponse& response)
 {
-    return std::visit([](const auto& resp) -> const std::string& { return resp.error_message; }, response);
+    return response.visit([](const auto& resp) -> const std::string& { return resp.error_message; });
 }
 
-inline CircuitProve::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitProve&& command)
+inline CircuitProve::Response execute(BB_UNUSED BBRpcRequest& request, CircuitProve&& command)
 {
     info("CircuitProve - generating proof for circuit '", command.circuit.name, "'");
 
@@ -62,26 +58,26 @@ inline CircuitProve::Response execute(BB_UNUSED const BBRpcRequest& request, Cir
                                    .error_message = "" };
 }
 
-inline CircuitDeriveVk::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitDeriveVk&& command)
+inline CircuitComputeVk::Response execute(BB_UNUSED BBRpcRequest& request, CircuitComputeVk&& command)
 {
-    info("CircuitDeriveVk - deriving verification key for circuit '", command.circuit.name, "'");
+    info("CircuitComputeVk - deriving verification key for circuit '", command.circuit.name, "'");
 
     // Use the proving helpers to compute verification key
     auto result = compute_vk_from_bytecode<UltraFlavor>(std::move(command.circuit.bytecode));
 
     if (result.is_error()) {
-        info("CircuitDeriveVk - VK derivation failed: ", result.error_message);
-        return CircuitDeriveVk::Response{ .verification_key = {}, .error_message = result.error_message };
+        info("CircuitComputeVk - VK derivation failed: ", result.error_message);
+        return CircuitComputeVk::Response{ .verification_key = {}, .error_message = result.error_message };
     }
 
     // Serialize the verification key
     auto vk_data = to_buffer(*(result.value));
 
-    info("CircuitDeriveVk - VK derived successfully, size: ", vk_data.size(), " bytes");
-    return CircuitDeriveVk::Response{ .verification_key = vk_data, .error_message = "" };
+    info("CircuitComputeVk - VK derived successfully, size: ", vk_data.size(), " bytes");
+    return CircuitComputeVk::Response{ .verification_key = vk_data, .error_message = "" };
 }
 
-inline CircuitVerify::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitVerify&& command)
+inline CircuitVerify::Response execute(BB_UNUSED BBRpcRequest& request, CircuitVerify&& command)
 {
     info("CircuitVerify - verifying proof with ", command.public_inputs.size(), " public inputs");
 
@@ -102,7 +98,7 @@ inline CircuitVerify::Response execute(BB_UNUSED const BBRpcRequest& request, Ci
     return CircuitVerify::Response{ .verified = result.value, .error_message = "" };
 }
 
-inline CircuitInfo::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitInfo&& command)
+inline CircuitInfo::Response execute(BB_UNUSED BBRpcRequest& request, CircuitInfo&& command)
 {
     info("CircuitInfo - analyzing circuit '", command.circuit.name, "'");
 
@@ -127,7 +123,7 @@ inline CircuitInfo::Response execute(BB_UNUSED const BBRpcRequest& request, Circ
     return response;
 }
 
-inline CircuitCheck::Response execute(BB_UNUSED const BBRpcRequest& request, CircuitCheck&& command)
+inline CircuitCheck::Response execute(BB_UNUSED BBRpcRequest& request, CircuitCheck&& command)
 {
     info("CircuitCheck - checking circuit '", command.circuit.name, "' constraints");
 
@@ -175,7 +171,7 @@ inline CircuitCheck::Response execute(BB_UNUSED const BBRpcRequest& request, Cir
     return CircuitCheck::Response{ .satisfied = true, .error_message = "" };
 }
 
-inline ProofAsFields::Response execute(BB_UNUSED const BBRpcRequest& request, ProofAsFields&& command)
+inline ProofAsFields::Response execute(BB_UNUSED BBRpcRequest& request, ProofAsFields&& command)
 {
     info("ProofAsFields - converting proof to field elements, input size: ", command.proof.size());
 
@@ -183,7 +179,7 @@ inline ProofAsFields::Response execute(BB_UNUSED const BBRpcRequest& request, Pr
     return ProofAsFields::Response{ .fields = command.proof, .error_message = "" };
 }
 
-inline VkAsFields::Response execute(BB_UNUSED const BBRpcRequest& request, VkAsFields&& command)
+inline VkAsFields::Response execute(BB_UNUSED BBRpcRequest& request, VkAsFields&& command)
 {
     info("VkAsFields - converting VK to field elements, is_mega_honk: ", command.is_mega_honk);
 
@@ -335,9 +331,9 @@ inline ClientIVC::VerificationKey compute_vk_for_ivc(const BBRpcRequest& request
     return ivc.get_vk();
 }
 
-inline ClientIvcDeriveVk::Response execute(const BBRpcRequest& request, ClientIvcDeriveVk&& command)
+inline ClientIvcComputeVk::Response execute(BBRpcRequest& request, ClientIvcComputeVk&& command)
 {
-    info("ClientIvcDeriveVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
+    info("ClientIvcComputeVk - deriving VK for circuit '", command.circuit.name, "', standalone: ", command.standalone);
 
     // Parse the circuit
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(command.circuit.bytecode));
@@ -351,13 +347,58 @@ inline ClientIvcDeriveVk::Response execute(const BBRpcRequest& request, ClientIv
             get_acir_program_decider_proving_key(request, program);
         auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
         vk_data = to_buffer(*verification_key);
-        info("ClientIvcDeriveVk - standalone VK derived, size: ", vk_data.size(), " bytes");
+        info("ClientIvcComputeVk - standalone VK derived, size: ", vk_data.size(), " bytes");
     } else {
         vk_data = to_buffer(compute_vk_for_ivc(request, constraint_system.public_inputs.size()));
-        info("ClientIvcDeriveVk - full IVC VK derived, size: ", vk_data.size(), " bytes");
+        info("ClientIvcComputeVk - full IVC VK derived, size: ", vk_data.size(), " bytes");
     }
 
-    return ClientIvcDeriveVk::Response{ .verification_key = vk_data, .error_message = "" };
+    return ClientIvcComputeVk::Response{ .verification_key = vk_data, .error_message = "" };
+}
+
+inline ClientIvcCheckPrecomputedVk::Response execute(BBRpcRequest& request, ClientIvcCheckPrecomputedVk&& command)
+{
+    info("ClientIvcCheckPrecomputedVk - checking VK for function '", command.function_name, "'");
+
+    ClientIvcCheckPrecomputedVk::Response response;
+    response.valid = false;
+    response.error_message = "";
+
+    // Check if precomputed VK was provided
+    if (command.circuit.verification_key.empty()) {
+        info("ClientIvcCheckPrecomputedVk - no precomputed VK for function ", command.function_name);
+        response.error_message = "No precomputed VK provided for function " + command.function_name;
+        return response;
+    }
+
+    // Parse the circuit (need to copy because circuit_buf_to_acir_format takes non-const)
+    std::vector<uint8_t> bytecode_copy = command.circuit.bytecode;
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(bytecode_copy));
+
+    // Create AcirProgram with empty witness for VK derivation
+    acir_format::AcirProgram acir_program{ constraint_system, /*witness=*/{} };
+
+    // Get proving key and derive VK
+    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(acir_program);
+    auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
+    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->proving_key);
+
+    // Deserialize the precomputed VK
+    auto precomputed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(
+        from_buffer<ClientIVC::MegaVerificationKey>(command.circuit.verification_key));
+
+    // Compare VKs
+    std::string check_error_message = "Precomputed vk does not match computed vk for function " + command.function_name;
+    if (!msgpack::msgpack_check_eq(*computed_vk, *precomputed_vk, check_error_message)) {
+        info("ClientIvcCheckPrecomputedVk - FAIL: ", check_error_message);
+        response.error_message = check_error_message;
+        response.valid = false;
+    } else {
+        info("ClientIvcCheckPrecomputedVk - OK: ", command.function_name);
+        response.valid = true;
+    }
+
+    return response;
 }
 
 /**
@@ -369,9 +410,17 @@ inline ClientIvcDeriveVk::Response execute(const BBRpcRequest& request, ClientIv
  */
 inline CommandResponse execute(BBRpcRequest& request, Command&& command)
 {
-    return std::visit(
-        [&request](auto&& cmd) -> CommandResponse { return execute(request, std::forward<decltype(cmd)>(cmd)); },
-        std::move(command));
+    return std::move(command).visit(
+        [&request](auto&& cmd) -> CommandResponse { return execute(request, std::forward<decltype(cmd)>(cmd)); });
+}
+
+template <typename T> typename T::Response execute_or_throw(BBRpcRequest& request, T&& command)
+{
+    auto response = execute(request, std::forward<T>(command));
+    if (!response.error_message.empty()) {
+        throw_or_abort(response.error_message);
+    }
+    return response;
 }
 
 // Can only be called from the execution thread (the same as the main thread, except in threaded WASM).

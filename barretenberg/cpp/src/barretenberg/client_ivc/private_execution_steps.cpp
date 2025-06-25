@@ -53,11 +53,25 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 }
 
 // TODO(#7371) we should not have so many levels of serialization here.
+std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load(const std::filesystem::path& input_path)
+{
+    PROFILE_THIS();
+    return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+}
+
+// TODO(#7371) we should not have so many levels of serialization here.
+void PrivateExecutionStepRaw::self_decompress()
+{
+    bytecode = decompress(bytecode.data(), bytecode.size());
+    witness = decompress(witness.data(), witness.size());
+}
+
+// TODO(#7371) we should not have so many levels of serialization here.
 std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::load_and_decompress(
     const std::filesystem::path& input_path)
 {
     PROFILE_THIS();
-    auto raw_steps = unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
+    auto raw_steps = load(input_path);
     for (PrivateExecutionStepRaw& step : raw_steps) {
         step.bytecode = decompress(step.bytecode.data(), step.bytecode.size());
         step.witness = decompress(step.witness.data(), step.witness.size());
