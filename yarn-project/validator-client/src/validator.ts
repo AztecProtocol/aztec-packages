@@ -226,13 +226,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
-    // Check that I have any address in current committee before attesting
-    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
-    if (inCommittee.length === 0) {
-      this.log.verbose(`No validator in the committee, skipping attestation`);
-      return undefined;
-    }
-
     const proposalInfo = {
       slotNumber,
       blockNumber,
@@ -284,7 +277,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         ...proposalInfo,
         missing,
       });
-      this.metrics.incFailedAttestations(1, 'TransactionsNotAvailableError');
+      this.metrics.incFailedAttestations(1, 'tx_not_available');
       return undefined;
     }
 
@@ -299,6 +292,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         ...proposalInfo,
       });
       this.metrics.incFailedAttestations(1, 'in_hash_mismatch');
+      return undefined;
+    }
+
+    // Check that I have any address in current committee before attesting
+    const inCommittee = await this.epochCache.filterInCommittee(this.keyStore.getAddresses());
+    if (inCommittee.length === 0) {
+      this.log.verbose(`No validator in the committee, skipping attestation`);
+      this.metrics.incFailedAttestations(1, 'not_on_committee');
       return undefined;
     }
 
