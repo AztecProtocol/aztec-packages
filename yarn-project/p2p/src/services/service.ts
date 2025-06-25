@@ -78,6 +78,8 @@ export interface P2PService {
     handler: ReqRespSubProtocolHandler,
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void>;
+
+  shouldTrustWithIdentity(peerId: PeerId): boolean;
 }
 
 /**

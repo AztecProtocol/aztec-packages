@@ -186,4 +186,6 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
     handler: ReqRespSubProtocolHandler,
     validator?: ReqRespSubProtocolValidators[ReqRespSubProtocol],
   ): Promise<void>;
+
+  shouldTrustWithIdentity(peerId: PeerId): boolean;
 };
