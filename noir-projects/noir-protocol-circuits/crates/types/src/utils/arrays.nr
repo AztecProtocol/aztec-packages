@@ -508,8 +508,6 @@ where
             if within_length {
                 let mut nested_fields = [0; T_N];
                 for j in 0..T_N {
-                    let x = i * T_N + j;
-                    println(x);
                     nested_fields[j] = fields[i * T_N + j];
                 }
 
