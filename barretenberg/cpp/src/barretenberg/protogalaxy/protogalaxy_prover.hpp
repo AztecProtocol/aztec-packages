@@ -56,10 +56,12 @@ template <IsUltraOrMegaHonk Flavor, size_t NUM_KEYS = 2> class ProtogalaxyProver
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys,
                        const std::vector<std::shared_ptr<DeciderVK>>& vks,
+                       const std::shared_ptr<Transcript>& transcript,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
         , vks_to_fold(DeciderVerificationKeys_(vks))
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
+        , transcript(transcript)
         , pg_internal(trace_usage_tracker)
     {
         BB_ASSERT_EQ(keys.size(), NUM_KEYS, "Number of prover keys does not match the number of keys to fold");
