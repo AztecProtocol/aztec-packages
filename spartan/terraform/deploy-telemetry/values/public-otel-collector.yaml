@@ -5,7 +5,8 @@ nodeSelector:
   node-type: infra
 
 image:
-  repository: "otel/opentelemetry-collector-contrib"
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.128.0"
 
 resources:
   requests:

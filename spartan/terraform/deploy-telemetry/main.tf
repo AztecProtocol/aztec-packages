@@ -89,10 +89,6 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
       }
     }
   }
-
-  lifecycle {
-    replace_triggered_by = [helm_release.otel_collector]
-  }
 }
 
 resource "helm_release" "otel_collector" {
@@ -101,13 +97,14 @@ resource "helm_release" "otel_collector" {
   namespace         = kubernetes_namespace.ns.metadata[0].name
   repository        = "https://open-telemetry.github.io/opentelemetry-helm-charts"
   chart             = "opentelemetry-collector"
-  version           = "0.104.0"
+  version           = "0.127.2"
   create_namespace  = false
   upgrade_install   = true
   dependency_update = true
   force_update      = true
   reuse_values      = false
   reset_values      = true
+  depends_on        = [kubernetes_manifest.otel_ingress_backend]
 
   # base values file
   values = [file("./values/public-otel-collector.yaml")]
