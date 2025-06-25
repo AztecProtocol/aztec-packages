@@ -1,15 +1,17 @@
 use crate::config::Config;
 use aztec::{macros::notes::note, prelude::AztecAddress};
 
-// TODO: We do not necessarily need full 128 bits for the amounts so we could try to pack the whole order into 1 Field
-// and save DA costs.
+// TODO: Current macros would not pack this efficiently. Add manual Packable impl. or optimize the macros.
 #[note]
 pub struct OrderNote {
     // The following is the "nullificator" of the order note meaning that nullificator's nullifier key will be used
     // to compute the nullifier. Using the name "owner" here as `#[note]` macro requires "owner" field to be present
     // in the note struct.
     pub owner: AztecAddress,
-    // The order maker (who submitted the order)
+    // The order maker (who submitted the order). Used to send the `ask_token` note to the maker when the order is
+    // fulfilled.
+    // TODO: With constrained tagging could we drop this field and save DA costs? (I am currently ignorant about
+    // how constrained tagging is supposed to work as I have not yet managed to catch up on Mike's hackmd.)
     pub maker: AztecAddress,
     // Amount of bid tokens
     pub bid_amount: u128,
