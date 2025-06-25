@@ -29,7 +29,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 
 import type { TelemetryClientConfig } from './config.js';
 import { NodejsMetricsMonitor } from './nodejs_metrics_monitor.js';
-import { OtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
+import { OtelFilterMetricExporter, PublicOtelFilterMetricExporter } from './otel_filter_metric_exporter.js';
 import { registerOtelLoggerProvider } from './otel_logger_provider.js';
 import { getOtelResource } from './otel_resource.js';
 import type { TelemetryClient } from './telemetry.js';
@@ -47,12 +47,16 @@ export class OpenTelemetryClient implements TelemetryClient {
     private meterProvider: MeterProvider,
     private traceProvider: TracerProvider,
     private loggerProvider: LoggerProvider | undefined,
-    private publicMetricExporter: OtelFilterMetricExporter | undefined,
+    private publicMetricExporter: PublicOtelFilterMetricExporter | undefined,
     private log: Logger,
   ) {}
 
   setExportedPublicTelemetry(metrics: string[]): void {
     this.publicMetricExporter?.setMetricPrefixes(metrics);
+  }
+
+  setPublicTelemetryCollectFrom(roles: string[]): void {
+    this.publicMetricExporter?.setAllowedRoles(roles);
   }
 
   getMeter(name: string): Meter {
@@ -290,16 +294,16 @@ export class OpenTelemetryClient implements TelemetryClient {
         });
       }
 
-      let publicExporter: OtelFilterMetricExporter | undefined;
-      if (config.publicMetricsCollectorUrl && config.publicIncludeMetrics.length > 0) {
+      let publicExporter: PublicOtelFilterMetricExporter | undefined;
+      if (config.publicMetricsCollectorUrl && !config.publicMetricsOptOut) {
         log.info(`Exporting public metrics: ${config.publicIncludeMetrics}`, {
           publicMetrics: config.publicIncludeMetrics,
           collectorUrl: config.publicMetricsCollectorUrl,
         });
-        publicExporter = new OtelFilterMetricExporter(
+        publicExporter = new PublicOtelFilterMetricExporter(
+          config.publicMetricsCollectFrom,
           new OTLPMetricExporter({ url: config.publicMetricsCollectorUrl.href }),
           config.publicIncludeMetrics,
-          'allow',
         );
         exporters.push({
           exporter: publicExporter,

@@ -155,6 +155,11 @@ export interface TelemetryClient {
    * Updates what telemetry is exported to the public collector
    */
   setExportedPublicTelemetry(prefixes: string[]): void;
+
+  /**
+   * Updates the roles that would share telemetry (if enabled)
+   */
+  setPublicTelemetryCollectFrom(roles: string[]): void;
 }
 
 /** Objects that adhere to this interface can use @trackSpan */
