@@ -6,16 +6,18 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
-import {CommitteeAttestation} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
+import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 struct PublicInputArgs {
@@ -72,16 +74,19 @@ struct RollupConfigInput {
   uint256 aztecSlotDuration;
   uint256 aztecEpochDuration;
   uint256 targetCommitteeSize;
-  uint256 aztecProofSubmissionWindow;
+  uint256 aztecProofSubmissionEpochs;
   uint256 slashingQuorum;
   uint256 slashingRoundSize;
   uint256 manaTarget;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
+  RewardBoostConfig rewardBoostConfig;
 }
 
 struct RollupConfig {
-  uint256 proofSubmissionWindow;
+  uint256 aztecProofSubmissionEpochs;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
   IRewardDistributor rewardDistributor;
@@ -91,6 +96,8 @@ struct RollupConfig {
   IInbox inbox;
   IOutbox outbox;
   uint256 version;
+  uint256 entryQueueFlushSizeMin;
+  uint256 entryQueueFlushSizeQuotient;
 }
 
 struct RollupStore {
@@ -135,12 +142,11 @@ interface IRollupCore {
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 }
 
-interface IRollup is IRollupCore {
+interface IRollup is IRollupCore, IHaveVersion {
   function validateHeader(
     ProposedHeader calldata _header,
     CommitteeAttestation[] memory _attestations,
     bytes32 _digest,
-    Timestamp _currentTime,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
   ) external;
@@ -194,7 +200,6 @@ interface IRollup is IRollupCore {
   function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
-  function getActivityScore(address _prover) external view returns (ActivityScore memory);
   function getSharesFor(address _prover) external view returns (uint256);
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);
@@ -208,7 +213,7 @@ interface IRollup is IRollupCore {
     returns (bool);
   function getHasClaimed(address _prover, Epoch _epoch) external view returns (bool);
 
-  function getProofSubmissionWindow() external view returns (uint256);
+  function getProofSubmissionEpochs() external view returns (uint256);
   function getManaTarget() external view returns (uint256);
   function getManaLimit() external view returns (uint256);
   function getProvingCostPerManaInEth() external view returns (EthValue);
@@ -222,7 +227,6 @@ interface IRollup is IRollupCore {
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
-  function getVersion() external view returns (uint256);
 
   function getRewardConfig() external view returns (RewardConfig memory);
 }

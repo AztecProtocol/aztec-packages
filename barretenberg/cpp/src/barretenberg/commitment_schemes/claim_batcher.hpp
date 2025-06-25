@@ -52,9 +52,12 @@ template <typename Curve> struct ClaimBatcher_ {
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
     Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
     InterleavedBatch get_interleaved() { return (interleaved) ? *interleaved : InterleavedBatch{}; }
-    size_t get_groups_to_be_interleaved_size() { return (interleaved) ? interleaved->commitments_groups[0].size() : 0; }
+    uint32_t get_groups_to_be_interleaved_size()
+    {
+        return (interleaved) ? static_cast<uint32_t>(interleaved->commitments_groups[0].size()) : 0;
+    }
 
-    size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
+    uint32_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
@@ -118,8 +121,11 @@ template <typename Curve> struct ClaimBatcher_ {
             for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);
-                r_shift_pos *= r_challenge;
-                r_shift_neg *= (-r_challenge);
+                if (i < get_groups_to_be_interleaved_size() - 1) {
+                    // to avoid unnecessary multiplication gates in a circuit
+                    r_shift_pos *= r_challenge;
+                    r_shift_neg *= (-r_challenge);
+                }
             }
         }
     }
@@ -175,18 +181,20 @@ template <typename Curve> struct ClaimBatcher_ {
             }
 
             size_t group_idx = 0;
-            for (auto group : interleaved->commitments_groups) {
+            for (size_t j = 0; j < interleaved->commitments_groups.size(); j++) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                     // The j-th commitment in group i is multiplied by ρ^{k+m+i} and ν^{n+1} \cdot r^j + ν^{n+2} ⋅(-r)^j
                     //  where k is the number of unshifted, m is number of shifted and n is the log_circuit_size
                     //  (assuming to right-shifted-by-k commitments in this example)
-                    commitments.emplace_back(std::move(group[i]));
+                    commitments.emplace_back(std::move(interleaved->commitments_groups[j][i]));
                     scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
                                          (shplonk_batching_pos * interleaved->scalars_pos[i] +
                                           shplonk_batching_neg * interleaved->scalars_neg[i]));
                 }
                 batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
-                rho_power *= rho;
+                if (j != interleaved->commitments_groups.size() - 1) {
+                    rho_power *= rho;
+                }
                 group_idx++;
             }
         }

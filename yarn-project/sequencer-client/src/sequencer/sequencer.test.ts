@@ -166,9 +166,8 @@ describe('sequencer', () => {
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
     publisher.getSenderAddress.mockImplementation(() => EthAddress.random());
-    publisher.getForwarderAddress.mockImplementation(() => EthAddress.random());
     publisher.getCurrentEpochCommittee.mockResolvedValue(committee);
-    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.validateBlockHeader.mockResolvedValue();
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
     publisher.canProposeAtNextEthBlock.mockResolvedValue({
@@ -306,7 +305,7 @@ describe('sequencer', () => {
 
     // Not your turn!
     publisher.canProposeAtNextEthBlock.mockReturnValue(Promise.resolve(undefined));
-    publisher.validateBlockForSubmission.mockRejectedValue(new Error());
+    publisher.validateBlockHeader.mockRejectedValue(new Error());
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
@@ -322,11 +321,16 @@ describe('sequencer', () => {
     expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
     // Now it is!
-    publisher.validateBlockForSubmission.mockClear();
-    publisher.validateBlockForSubmission.mockResolvedValue(1n);
+    publisher.validateBlockHeader.mockClear();
+    publisher.validateBlockHeader.mockResolvedValue();
 
     await sequencer.doRealWork();
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
     expectPublisherProposeL2Block([txHash]);
   });
 
@@ -352,7 +356,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
 
     expectPublisherProposeL2Block(await Promise.all(neededTxs.map(tx => tx.getTxHash())));
   });
@@ -381,7 +390,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
 
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
     expectPublisherProposeL2Block([]);
   });
 
@@ -411,7 +425,12 @@ describe('sequencer', () => {
 
     await sequencer.doRealWork();
     expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(1);
-    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(expect.anything(), globalVariables, expect.anything());
+    expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      globalVariables,
+      expect.anything(),
+    );
 
     expectPublisherProposeL2Block(postFlushTxHashes);
   });
@@ -484,7 +503,7 @@ describe('sequencer', () => {
     block = await makeBlock([tx]);
 
     // This could practically be for any reason, e.g., could also be that we have entered a new slot.
-    publisher.validateBlockForSubmission.mockResolvedValueOnce(1n).mockRejectedValueOnce(new Error('No block for you'));
+    publisher.validateBlockHeader.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
 
     await sequencer.doRealWork();
 

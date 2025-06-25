@@ -15,10 +15,13 @@
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/context_provider.hpp"
+#include "barretenberg/vm2/simulation/data_copy.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
+#include "barretenberg/vm2/simulation/internal_call_stack_manager.hpp"
+#include "barretenberg/vm2/simulation/keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
@@ -44,17 +47,21 @@ class ExecutionInterface {
 class Execution : public ExecutionInterface {
   public:
     Execution(AluInterface& alu,
+              DataCopyInterface& data_copy,
               ExecutionComponentsProviderInterface& execution_components,
               ContextProviderInterface& context_provider,
               const InstructionInfoDBInterface& instruction_info_db,
               ExecutionIdManagerInterface& execution_id_manager,
               EventEmitterInterface<ExecutionEvent>& event_emitter,
-              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
+              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter,
+              KeccakF1600Interface& keccakf1600)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , context_provider(context_provider)
         , execution_id_manager(execution_id_manager)
+        , data_copy(data_copy)
+        , keccakf1600(keccakf1600)
         , events(event_emitter)
         , ctx_stack_events(ctx_stack_emitter)
     {}
@@ -71,17 +78,25 @@ class Execution : public ExecutionInterface {
               MemoryAddress l2_gas_offset,
               MemoryAddress da_gas_offset,
               MemoryAddress addr,
-              MemoryAddress cd_offset,
-              MemoryAddress cd_size);
+              MemoryAddress cd_size_offset,
+              MemoryAddress cd_offset);
     void ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset);
     void revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset);
-    void calldata_copy(ContextInterface& context,
-                       MemoryAddress copy_size_offset,
-                       MemoryAddress cd_start_offset,
-                       MemoryAddress dst_offset);
+    void cd_copy(ContextInterface& context,
+                 MemoryAddress cd_size_offset,
+                 MemoryAddress cd_offset,
+                 MemoryAddress dst_addr);
+    void rd_copy(ContextInterface& context,
+                 MemoryAddress rd_size_offset,
+                 MemoryAddress rd_offset,
+                 MemoryAddress dst_addr);
+    void internal_call(ContextInterface& context, uint32_t loc);
+    void internal_return(ContextInterface& context);
 
     void init_gas_tracker(ContextInterface& context);
     GasEvent finish_gas_tracker();
+
+    void keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr);
 
   private:
     void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
@@ -113,6 +128,9 @@ class Execution : public ExecutionInterface {
     AluInterface& alu;
     ContextProviderInterface& context_provider;
     ExecutionIdManagerInterface& execution_id_manager;
+    DataCopyInterface& data_copy;
+    KeccakF1600Interface& keccakf1600;
+
     EventEmitterInterface<ExecutionEvent>& events;
     EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
 

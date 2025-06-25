@@ -19,6 +19,7 @@ template <typename FF_> class update_checkImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::update_check_sel)).is_zero();
     }
 

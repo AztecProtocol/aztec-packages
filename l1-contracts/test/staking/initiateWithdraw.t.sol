@@ -19,6 +19,7 @@ contract InitiateWithdrawTest is StakingBase {
     stakingAsset.mint(address(this), DEPOSIT_AMOUNT);
     stakingAsset.approve(address(staking), DEPOSIT_AMOUNT);
     staking.deposit({_attester: ATTESTER, _withdrawer: WITHDRAWER, _onCanonical: true});
+    staking.flushEntryQueue();
     _;
   }
 
@@ -139,7 +140,7 @@ contract InitiateWithdrawTest is StakingBase {
     assertEq(stakingAsset.balanceOf(RECIPIENT), 0);
 
     AttesterView memory attesterView = staking.getAttesterView(ATTESTER);
-    assertTrue(attesterView.status == Status.LIVING);
+    assertTrue(attesterView.status == Status.ZOMBIE);
     assertEq(attesterView.exit.exitableAt, Timestamp.wrap(block.timestamp) + staking.getExitDelay());
     assertEq(attesterView.exit.exists, true);
     assertEq(attesterView.exit.isRecipient, false);

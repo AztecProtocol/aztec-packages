@@ -16,17 +16,17 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_addressing.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_call_opcode.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
+#include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
-#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
+#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 using C = bb::avm2::Column;
 using bb::avm2::simulation::AddressingEventError;
@@ -115,6 +115,75 @@ constexpr std::array<Column, NUM_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
     C::execution_mem_op_0_, C::execution_mem_op_1_, C::execution_mem_op_2_, C::execution_mem_op_3_,
     C::execution_mem_op_4_, C::execution_mem_op_5_, C::execution_mem_op_6_,
 };
+
+/**
+ * @brief Get the column selector for a given subtrace selector.
+ *
+ * @param subtrace_sel The subtrace selector.
+ * @return The corresponding column selector.
+ */
+Column get_subtrace_selector(SubtraceSel subtrace_sel)
+{
+    switch (subtrace_sel) {
+    case SubtraceSel::ALU:
+        return C::execution_sel_alu;
+    case SubtraceSel::BITWISE:
+        return C::execution_sel_bitwise;
+    case SubtraceSel::TORADIXBE:
+        return C::execution_sel_to_radix;
+    case SubtraceSel::POSEIDON2PERM:
+        return C::execution_sel_poseidon2_perm;
+    case SubtraceSel::ECC:
+        return C::execution_sel_ecc_add;
+    case SubtraceSel::DATACOPY:
+        return C::execution_sel_data_copy;
+    case SubtraceSel::EXECUTION:
+        return C::execution_sel_execution;
+    case SubtraceSel::KECCAKF1600:
+        return C::execution_sel_keccakf1600;
+
+        // clangd will complain if we miss a case.
+        // This is just to please gcc.
+        __builtin_unreachable();
+    }
+}
+
+/**
+ * @brief Get the column selector for a given execution opcode.
+ *
+ * @param exec_opcode The execution opcode.
+ * @return The corresponding column selector.
+ * @throws std::runtime_error if the opcode doesn't have a corresponding selector.
+ */
+Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
+{
+    switch (exec_opcode) {
+    case ExecutionOpCode::SET:
+        return C::execution_sel_set;
+    case ExecutionOpCode::MOV:
+        return C::execution_sel_mov;
+    case ExecutionOpCode::JUMP:
+        return C::execution_sel_jump;
+    case ExecutionOpCode::JUMPI:
+        return C::execution_sel_jumpi;
+    case ExecutionOpCode::CALL:
+        return C::execution_sel_call;
+    case ExecutionOpCode::STATICCALL:
+        return C::execution_sel_static_call;
+    case ExecutionOpCode::INTERNALCALL:
+        return C::execution_sel_internal_call;
+    case ExecutionOpCode::INTERNALRETURN:
+        return C::execution_sel_internal_return;
+    case ExecutionOpCode::RETURN:
+        return C::execution_sel_return;
+    case ExecutionOpCode::REVERT:
+        return C::execution_sel_revert;
+    case ExecutionOpCode::SUCCESSCOPY:
+        return C::execution_sel_success_copy;
+    default:
+        throw std::runtime_error("Execution opcode does not have a corresponding selector");
+    }
+}
 
 /**
  * @brief Helper struct to track info after "discard" preprocessing.
@@ -206,7 +275,7 @@ uint32_t dying_context_for_phase(TransactionPhase phase, const FailingContexts& 
     case TransactionPhase::TEARDOWN:
         return failures.teardown_failure ? failures.teardown_exit_context_id : 0;
     default:
-        __builtin_unreachable(); // tell the compiler “we never reach here”
+        __builtin_unreachable(); // tell the compiler "we never reach here"
     }
 }
 
@@ -244,57 +313,81 @@ void ExecutionTraceBuilder::process(
          *  Setup.
          **************************************************************************************************/
 
-        trace.set(
-            row,
-            { {
-                // Context
-                { C::execution_context_id, ex_event.after_context_event.id },
-                { C::execution_parent_id, ex_event.after_context_event.parent_id },
-                { C::execution_pc, ex_event.before_context_event.pc },
-                { C::execution_next_pc, ex_event.after_context_event.pc },
-                { C::execution_is_static, ex_event.after_context_event.is_static },
-                { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
-                { C::execution_contract_address, ex_event.after_context_event.contract_addr },
-                { C::execution_parent_calldata_offset_addr, ex_event.after_context_event.parent_cd_addr },
-                { C::execution_parent_calldata_size_addr, ex_event.after_context_event.parent_cd_size_addr },
-                { C::execution_last_child_returndata_offset_addr, ex_event.after_context_event.last_child_rd_addr },
-                { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
-                { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
-                { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
-                { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
-                { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
-                { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
-                { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
-                { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
-                { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
-                { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
-                { C::execution_next_context_id, ex_event.next_context_id },
-                // Context - gas.
-                { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
-                { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
-                // Other.
-                { C::execution_bytecode_id, ex_event.bytecode_id },
-            } });
+        trace.set(row,
+                  { {
+                      // Context
+                      { C::execution_context_id, ex_event.after_context_event.id },
+                      { C::execution_parent_id, ex_event.after_context_event.parent_id },
+                      { C::execution_pc, ex_event.before_context_event.pc },
+                      { C::execution_is_static, ex_event.after_context_event.is_static },
+                      { C::execution_msg_sender, ex_event.after_context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.after_context_event.contract_addr },
+                      { C::execution_parent_calldata_addr, ex_event.after_context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size, ex_event.after_context_event.parent_cd_size_addr },
+                      { C::execution_last_child_returndata_addr, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_returndata_size, ex_event.after_context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_success, ex_event.after_context_event.last_child_success },
+                      { C::execution_l2_gas_limit, ex_event.after_context_event.gas_limit.l2Gas },
+                      { C::execution_da_gas_limit, ex_event.after_context_event.gas_limit.daGas },
+                      { C::execution_l2_gas_used, ex_event.after_context_event.gas_used.l2Gas },
+                      { C::execution_da_gas_used, ex_event.after_context_event.gas_used.daGas },
+                      { C::execution_parent_l2_gas_limit, ex_event.after_context_event.parent_gas_limit.l2Gas },
+                      { C::execution_parent_da_gas_limit, ex_event.after_context_event.parent_gas_limit.daGas },
+                      { C::execution_parent_l2_gas_used, ex_event.after_context_event.parent_gas_used.l2Gas },
+                      { C::execution_parent_da_gas_used, ex_event.after_context_event.parent_gas_used.daGas },
+                      { C::execution_next_context_id, ex_event.next_context_id },
+                      // Context - gas.
+                      { C::execution_prev_l2_gas_used, ex_event.before_context_event.gas_used.l2Gas },
+                      { C::execution_prev_da_gas_used, ex_event.before_context_event.gas_used.daGas },
+                      // Other.
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        // Internal stack
+        trace.set(row,
+                  { {
+                      { C::execution_internal_call_id, ex_event.before_context_event.internal_call_id },
+                      { C::execution_internal_call_return_id, ex_event.before_context_event.internal_call_return_id },
+                      { C::execution_next_internal_call_id, ex_event.before_context_event.next_internal_call_id },
+                  } });
 
         /**************************************************************************************************
-         *  Temporality group 1: Instruction fetching.
+         *  Temporality group 1: Bytecode retrieval.
+         **************************************************************************************************/
+
+        bool bytecode_retrieval_failed = ex_event.error == ExecutionError::BYTECODE_NOT_FOUND;
+        trace.set(row,
+                  { {
+                      { C::execution_sel_bytecode_retrieval_failure, bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_sel_bytecode_retrieval_success, !bytecode_retrieval_failed ? 1 : 0 },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
+                  } });
+
+        /**************************************************************************************************
+         *  Temporality group 2: Instruction fetching.
          **************************************************************************************************/
 
         // This will only have a value if instruction fetching succeeded.
         std::optional<ExecutionOpCode> exec_opcode;
+        bool process_instruction_fetching = !bytecode_retrieval_failed;
         bool instruction_fetching_failed = ex_event.error == ExecutionError::INSTRUCTION_FETCHING;
         trace.set(C::execution_sel_instruction_fetching_failure, row, instruction_fetching_failed ? 1 : 0);
-        if (!instruction_fetching_failed) {
+        if (process_instruction_fetching && !instruction_fetching_failed) {
             exec_opcode = ex_event.wire_instruction.get_exec_opcode();
             process_instr_fetching(ex_event.wire_instruction, trace, row);
+            // If we fetched an instruction successfully, we can set the next PC.
+            trace.set(row,
+                      { {
+                          { C::execution_next_pc,
+                            ex_event.before_context_event.pc + ex_event.wire_instruction.size_in_bytes() },
+                      } });
         }
 
         /**************************************************************************************************
-         *  Temporality group 2: Mapping from wire to execution and Base gas.
+         *  Temporality group 3: Mapping from wire to execution and Base gas.
          **************************************************************************************************/
 
         // Along this function we need to set the info we get from the EXEC_SPEC_READ lookup.
-        // However, we will not do it all in the same place. We do it by temporality groups, but always unconditionally.
         bool should_read_exec_spec = !instruction_fetching_failed;
         if (should_read_exec_spec) {
             process_execution_spec(ex_event, trace, row);
@@ -308,7 +401,7 @@ void ExecutionTraceBuilder::process(
         }
 
         /**************************************************************************************************
-         *  Temporality group 3: Addressing.
+         *  Temporality group 4: Addressing.
          **************************************************************************************************/
 
         bool should_resolve_address = should_check_gas && !oog_base;
@@ -352,6 +445,7 @@ void ExecutionTraceBuilder::process(
         bool is_static_call = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::STATICCALL;
         bool is_return = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::RETURN;
         bool is_revert = exec_opcode.has_value() && *exec_opcode == ExecutionOpCode::REVERT;
+        bool is_opcode_error = ex_event.error == ExecutionError::DISPATCHING;
         bool is_err = ex_event.error != ExecutionError::NONE;
         bool is_failure = is_revert || is_err;
         bool has_parent = ex_event.after_context_event.parent_id != 0;
@@ -412,6 +506,10 @@ void ExecutionTraceBuilder::process(
                               { C::execution_call_is_da_gas_allocated_lt_left, is_da_gas_allocated_lt_left },
                               { C::execution_call_allocated_left_da_cmp_diff, allocated_left_da_cmp_diff },
                           } });
+            }
+
+            if (is_opcode_error) {
+                trace.set(C::execution_opcode_error, row, 1);
             }
         }
 
@@ -515,17 +613,19 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
                                                    TraceContainer& trace,
                                                    uint32_t row)
 {
-    trace.set(row,
-              { {
-                  // Gas.
-                  { C::execution_opcode_gas, ex_event.gas_event.opcode_gas },
-                  { C::execution_base_da_gas, ex_event.gas_event.base_gas.daGas },
-                  { C::execution_dynamic_l2_gas, ex_event.gas_event.dynamic_gas.l2Gas },
-                  { C::execution_dynamic_da_gas, ex_event.gas_event.dynamic_gas.daGas },
-              } });
-
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     ExecutionOpCode exec_opcode = ex_event.wire_instruction.get_exec_opcode();
+    const auto& gas_cost = EXEC_INSTRUCTION_SPEC.at(exec_opcode).gas_cost;
+
+    // Gas.
+    trace.set(row,
+              { {
+                  { C::execution_opcode_gas, gas_cost.opcode_gas },
+                  { C::execution_base_da_gas, gas_cost.base_da },
+                  { C::execution_dynamic_l2_gas, gas_cost.dyn_l2 },
+                  { C::execution_dynamic_da_gas, gas_cost.dyn_da },
+              } });
+
     const auto& register_info = REGISTER_INFO_MAP.at(exec_opcode);
 
     for (size_t i = 0; i < NUM_REGISTERS; i++) {
@@ -533,23 +633,30 @@ void ExecutionTraceBuilder::process_execution_spec(const simulation::ExecutionEv
         trace.set(REGISTER_MEM_OP_COLUMNS[i], row, register_info.is_active(static_cast<uint8_t>(i)) ? 1 : 0);
     }
 
+    // Set is_address columns
+    const auto& num_addresses = EXEC_INSTRUCTION_SPEC.at(exec_opcode).num_addresses;
+    for (size_t i = 0; i < num_addresses; i++) {
+        trace.set(OPERAND_IS_ADDRESS_COLUMNS[i], row, 1);
+    }
+
     // At this point we can assume instruction fetching succeeded, so this should never fail.
     const auto& dispatch_to_subtrace = SUBTRACE_INFO_MAP.at(exec_opcode);
 
     // Subtrace dispatching.
-    trace.set(
-        row,
-        { {
-            // Selector Id
-            { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
-            // Selectors
-            { C::execution_sel_alu, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ALU ? 1 : 0 },
-            { C::execution_sel_bitwise, dispatch_to_subtrace.subtrace_selector == SubtraceSel::BITWISE ? 1 : 0 },
-            { C::execution_sel_poseidon2_perm,
-              dispatch_to_subtrace.subtrace_selector == SubtraceSel::POSEIDON2PERM ? 1 : 0 },
-            { C::execution_sel_to_radix, dispatch_to_subtrace.subtrace_selector == SubtraceSel::TORADIXBE ? 1 : 0 },
-            { C::execution_sel_ecc_add, dispatch_to_subtrace.subtrace_selector == SubtraceSel::ECC ? 1 : 0 },
-        } });
+    trace.set(row,
+              { {
+                  // Selector Id
+                  { C::execution_subtrace_operation_id, dispatch_to_subtrace.subtrace_operation_id },
+                  // Selectors
+                  { get_subtrace_selector(dispatch_to_subtrace.subtrace_selector), 1 },
+              } });
+
+    // Execution Trace opcodes - separating for clarity
+    try {
+        trace.set(row, { { { get_execution_opcode_selector(exec_opcode), 1 } } });
+    } catch (const std::runtime_error&) {
+        // Execution opcode doesn't have a corresponding selector, do nothing
+    }
 }
 
 void ExecutionTraceBuilder::process_dynamic_gas(const simulation::GasEvent& gas_event,
@@ -593,7 +700,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
     assert(resolution_info_vec.size() <= NUM_OPERANDS);
     resolution_info_vec.resize(NUM_OPERANDS);
 
-    std::array<bool, NUM_OPERANDS> is_address{};
     std::array<bool, NUM_OPERANDS> should_apply_indirection{};
     std::array<bool, NUM_OPERANDS> is_relative_effective{};
     std::array<bool, NUM_OPERANDS> is_indirect_effective{};
@@ -611,7 +717,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
                           *resolution_info.error == AddressingEventError::RELATIVE_COMPUTATION_OOB;
         is_indirect_effective[i] = op_is_address && is_operand_indirect(instruction.indirect, i);
         is_relative_effective[i] = op_is_address && is_operand_relative(instruction.indirect, i);
-        is_address[i] = op_is_address;
         should_apply_indirection[i] = is_indirect_effective[i] && !relative_oob[i];
         resolved_operand_tag[i] = static_cast<uint8_t>(resolution_info.resolved_operand.get_tag());
         after_relative[i] = resolution_info.after_relative;
@@ -630,7 +735,6 @@ void ExecutionTraceBuilder::process_addressing(const simulation::AddressingEvent
         }
         trace.set(row,
                   { {
-                      { OPERAND_IS_ADDRESS_COLUMNS[i], is_address[i] ? 1 : 0 },
                       { OPERAND_RELATIVE_OVERFLOW_COLUMNS[i], relative_oob[i] ? 1 : 0 },
                       { OPERAND_AFTER_RELATIVE_COLUMNS[i], after_relative[i] },
                       { OPERAND_SHOULD_APPLY_INDIRECTION_COLUMNS[i], should_apply_indirection[i] ? 1 : 0 },
@@ -752,37 +856,42 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
     }
 }
 
-std::vector<std::unique_ptr<InteractionBuilderInterface>> ExecutionTraceBuilder::lookup_jobs()
-{
-    return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
+const InteractionDefinition ExecutionTraceBuilder::interactions =
+    InteractionDefinition()
         // Execution
-        std::make_unique<LookupIntoIndexedByClk<lookup_execution_exec_spec_read_settings>>(),
+        .add<lookup_execution_exec_spec_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Bytecode retrieval
+        .add<lookup_execution_bytecode_retrieval_result_settings, InteractionType::LookupGeneric>()
         // Instruction fetching
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_result_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_execution_instruction_fetching_body_settings>>(),
+        .add<lookup_execution_instruction_fetching_result_settings, InteractionType::LookupGeneric>()
+        .add<lookup_execution_instruction_fetching_body_settings, InteractionType::LookupGeneric>()
         // Addressing
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_base_address_from_memory_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_4_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_5_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_indirect_from_memory_6_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_0_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_3_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_4_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_5_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_addressing_relative_overflow_range_6_settings>>(),
+        .add<lookup_addressing_base_address_from_memory_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_indirect_from_memory_6_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_0_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_1_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_2_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_3_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_4_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_5_settings, InteractionType::LookupGeneric>()
+        .add<lookup_addressing_relative_overflow_range_6_settings, InteractionType::LookupGeneric>()
+        // Internal Call Stack
+        .add<lookup_internal_call_push_call_stack_settings_, InteractionType::LookupSequential>()
+        .add<lookup_internal_call_unwind_call_stack_settings_, InteractionType::LookupGeneric>()
         // Gas
-        std::make_unique<LookupIntoIndexedByClk<lookup_gas_addressing_gas_read_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_l2_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_gas_limit_used_da_range_settings>>(),
-        // Call opcode
-        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_l2_range_settings>>(),
-        std::make_unique<LookupIntoIndexedByClk<lookup_call_opcode_call_allocated_left_da_range_settings>>());
-}
+        .add<lookup_gas_addressing_gas_read_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_gas_limit_used_l2_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_gas_limit_used_da_range_settings, InteractionType::LookupGeneric>()
+        // External Call
+        .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
+        // Dispatch to gadget sub-traces
+        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>();
 
 } // namespace bb::avm2::tracegen

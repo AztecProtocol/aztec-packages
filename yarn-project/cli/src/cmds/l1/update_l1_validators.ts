@@ -16,6 +16,8 @@ import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { encodeFunctionData, formatEther, getContract } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
+import { addLeadingHex } from '../../utils/aztec.js';
+
 export interface RollupCommandArgs {
   rpcUrls: string[];
   chainId: number;
@@ -48,17 +50,19 @@ export function generateL1Account() {
   };
 }
 
-export async function addL1ValidatorToQueue({
+export async function addL1Validator({
   rpcUrls,
   chainId,
   privateKey,
   mnemonic,
   attesterAddress,
   stakingAssetHandlerAddress,
+  merkleProof,
   proofParams,
   log,
   debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer }) {
+}: StakingAssetHandlerCommandArgs &
+  LoggerArgs & { attesterAddress: EthAddress; proofParams: Buffer; merkleProof: string[] }) {
   const dualLog = makeDualLog(log, debugLogger);
   const account = getAccount(privateKey, mnemonic);
   const chain = createEthereumChain(rpcUrls, chainId);
@@ -75,13 +79,14 @@ export async function addL1ValidatorToQueue({
 
   const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
   const proofParamsObj = ZkPassportProofParams.fromBuffer(proofParams);
+  const merkleProofArray = merkleProof.map(proof => addLeadingHex(proof));
 
   const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
     to: stakingAssetHandlerAddress.toString(),
     data: encodeFunctionData({
       abi: StakingAssetHandlerAbi,
-      functionName: 'addValidatorToQueue',
-      args: [attesterAddress.toString(), proofParamsObj.toViem()],
+      functionName: 'addValidator',
+      args: [attesterAddress.toString(), merkleProofArray, proofParamsObj.toViem()],
     }),
     abi: StakingAssetHandlerAbi,
   });
@@ -97,42 +102,6 @@ export async function addL1ValidatorToQueue({
     if (balance === 0n) {
       dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }
-  }
-}
-
-export async function dripQueue({
-  rpcUrls,
-  chainId,
-  privateKey,
-  mnemonic,
-  stakingAssetHandlerAddress,
-  log,
-  debugLogger,
-}: StakingAssetHandlerCommandArgs & LoggerArgs) {
-  const dualLog = makeDualLog(log, debugLogger);
-  const account = getAccount(privateKey, mnemonic);
-  const chain = createEthereumChain(rpcUrls, chainId);
-  const l1Client = createExtendedL1Client(rpcUrls, account, chain.chainInfo);
-
-  dualLog('Dripping Queue');
-
-  const l1TxUtils = new L1TxUtils(l1Client, debugLogger);
-
-  const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-    to: stakingAssetHandlerAddress.toString(),
-    data: encodeFunctionData({
-      abi: StakingAssetHandlerAbi,
-      functionName: 'dripQueue',
-      args: [],
-    }),
-    abi: StakingAssetHandlerAbi,
-  });
-  dualLog(`Receipt: ${receipt.transactionHash}`);
-
-  if (receipt.status === 'success') {
-    dualLog('Queue dripped successfully');
-  } else {
-    dualLog('Queue drip failed');
   }
 }
 
@@ -236,7 +205,7 @@ export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: Roll
   const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.getCurrentEpochCommittee();
-  log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
+  log(`Committee: ${committee?.map(v => v.toString()).join(', ')}`);
   const archive = await rollup.archive();
   log(`Archive: ${archive}`);
   const epochNum = await rollup.getEpochNumber();

@@ -5,14 +5,13 @@ pragma solidity >=0.8.27;
 import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {Multicall3} from "./Multicall3.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib,
-  Signature,
-  CommitteeAttestation
-} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+  SignatureLib, Signature, CommitteeAttestation
+} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
@@ -61,13 +60,15 @@ import {
   ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
-import {
-  Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
-} from "@aztec/core/libraries/TimeLib.sol";
-import {Forwarder} from "@aztec/periphery/Forwarder.sol";
+import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {SlashingProposer} from "@aztec/core/slashing/SlashingProposer.sol";
+import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {Slasher} from "@aztec/core/slashing/Slasher.sol";
+import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -108,9 +109,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
-
-  using SlotLib for Slot;
-  using EpochLib for Epoch;
   using FeeLib for uint256;
   using FeeLib for ManaBaseFeeComponents;
   // We need to build a block that we can submit. We will be using some values from
@@ -126,6 +124,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
   uint256 internal constant SLOT_DURATION = 36;
   uint256 internal constant EPOCH_DURATION = 32;
+  uint256 internal constant VOTING_ROUND_SIZE = 500;
 
   Rollup internal rollup;
 
@@ -136,26 +135,15 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   CommitteeAttestation internal emptyAttestation;
   mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
 
-  Forwarder internal baseForwarder = new Forwarder();
+  Multicall3 internal multicall = new Multicall3();
 
-  modifier prepare(uint256 _validatorCount) {
+  SlashingProposer internal slashingProposer;
+  IPayload internal slashPayload;
+
+  modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
-      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
-      .setProofSubmissionWindow(EPOCH_DURATION * 2 - 1).setMintFeeAmount(1e30);
-    builder.deploy();
-
-    asset = builder.getConfig().testERC20;
-    rollup = builder.getConfig().rollup;
-
-    vm.label(coinbase, "coinbase");
-    vm.label(address(rollup), "ROLLUP");
-    vm.label(address(asset), "ASSET");
-    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
-
-    // We are going to set up all of the validators
     CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](_validatorCount);
 
     for (uint256 i = 1; i < _validatorCount + 1; i++) {
@@ -166,9 +154,28 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
-    MultiAdder multiAdder = new MultiAdder(address(rollup), address(this));
-    asset.mint(address(multiAdder), rollup.getDepositAmount() * _validatorCount);
-    multiAdder.addValidators(initialValidators);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
+      .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
+      _targetCommitteeSize
+    ).setEntryQueueFlushSizeMin(_validatorCount).setSlashingQuorum(VOTING_ROUND_SIZE)
+      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+    builder.deploy();
+
+    asset = builder.getConfig().testERC20;
+    rollup = builder.getConfig().rollup;
+    slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
+
+    SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
+    address[] memory toSlash = new address[](0);
+    uint96[] memory amounts = new uint96[](0);
+    uint256[] memory offenses = new uint256[](0);
+    slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
+
+    vm.label(coinbase, "coinbase");
+    vm.label(address(rollup), "ROLLUP");
+    vm.label(address(asset), "ASSET");
+    vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
 
     _;
   }
@@ -182,18 +189,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.warp(l1Metadata[index].timestamp);
   }
 
-  function test_no_validators() public prepare(0) {
-    benchmark();
+  function test_no_validators() public prepare(0, 0) {
+    benchmark(false);
   }
 
-  /// forge-config: default.isolate = true
-  function test_48_validators() public prepare(48) {
-    benchmark();
+  function test_48_validators() public prepare(48, 48) {
+    benchmark(false);
   }
 
-  /// forge-config: default.isolate = true
-  function test_100_validators() public prepare(100) {
-    benchmark();
+  function test_100_validators() public prepare(100, 48) {
+    benchmark(false);
+  }
+
+  function test_100_slashing_validators() public prepare(100, 48) {
+    benchmark(true);
   }
 
   /**
@@ -209,7 +218,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     ProposedHeader memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
-    TestPoint memory point = points[slotNumber.unwrap() - 1];
+    TestPoint memory point = points[Slot.unwrap(slotNumber) - 1];
 
     Timestamp ts = rollup.getTimestampForSlot(slotNumber);
 
@@ -256,9 +265,22 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
       bytes32 digest = ProposeLib.digest(proposePayload);
 
+      // loop through to make sure we create an attestation for the proposer
       for (uint256 i = 0; i < validators.length; i++) {
-        if (i < needed) {
+        if (validators[i] == proposer) {
           attestations[i] = createAttestation(validators[i], digest);
+        }
+      }
+
+      // loop through again to get to the required number of attestations.
+      // yes, inefficient, but it's simple, clear, and is a test.
+      uint256 sigCount = 1;
+      for (uint256 i = 0; i < validators.length; i++) {
+        if (validators[i] == proposer) {
+          continue;
+        } else if (sigCount < needed) {
+          attestations[i] = createAttestation(validators[i], digest);
+          sigCount++;
         } else {
           attestations[i] = createEmptyAttestation(validators[i]);
         }
@@ -297,11 +319,31 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
   }
 
-  function benchmark() public {
-    // Do nothing for the first epoch
-    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 2 + 1);
-    Epoch nextEpoch = Epoch.wrap(3);
+  /**
+   * @notice Creates an EIP-712 signature for voteWithSig
+   * @param _signer The address that should sign (must match a proposer)
+   * @param _proposal The proposal to vote on
+   * @return The EIP-712 signature
+   */
+  function createVoteSignature(address _signer, IPayload _proposal)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+    require(privateKey != 0, "Private key not found for signer");
+    bytes32 digest = slashingProposer.getVoteSignatureDigest(_proposal, _signer);
 
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    return Signature({v: v, r: r, s: s});
+  }
+
+  function benchmark(bool _slashing) public {
+    // Do nothing for the first epoch
+    Slot nextSlot = Slot.wrap(EPOCH_DURATION * 3 + 1);
+    Epoch nextEpoch = Epoch.wrap(4);
+    bool warmedUp = false;
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
       if (rollup.getPendingBlockNumber() >= 100) {
@@ -309,6 +351,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
 
       _loadL1Metadata(i);
+
+      if (_slashing && !warmedUp && rollup.getCurrentSlot() == Slot.wrap(EPOCH_DURATION * 2)) {
+        address proposer = rollup.getCurrentProposer();
+        Signature memory sig = createVoteSignature(proposer, slashPayload);
+        slashingProposer.voteWithSig(slashPayload, sig);
+        warmedUp = true;
+      }
 
       // For every "new" slot we encounter, we construct a block using current L1 Data
       // and part of the `empty_block_1.json` file. The block cannot be proven, but it
@@ -321,10 +370,24 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
-        // @note This is checking the happy path, if there are additional voting it would need to
-        // be using a forwarder.
-        vm.prank(proposer);
-        rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
+        if (_slashing) {
+          Signature memory sig = createVoteSignature(proposer, slashPayload);
+          Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
+          calls[0] = Multicall3.Call3({
+            target: address(rollup),
+            callData: abi.encodeCall(rollup.propose, (b.proposeArgs, b.attestations, b.blobInputs)),
+            allowFailure: false
+          });
+          calls[1] = Multicall3.Call3({
+            target: address(slashingProposer),
+            callData: abi.encodeCall(slashingProposer.voteWithSig, (slashPayload, sig)),
+            allowFailure: false
+          });
+          multicall.aggregate3(calls);
+        } else {
+          vm.prank(proposer);
+          rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
+        }
 
         nextSlot = nextSlot + Slot.wrap(1);
       }

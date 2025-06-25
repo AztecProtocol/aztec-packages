@@ -28,7 +28,7 @@ class IPATest : public CommitmentTest<Curve> {
     using ClaimBatch = ClaimBatcher::Batch;
 
     static CK ck;
-    static std::shared_ptr<VK> vk;
+    static VK vk;
 
     // Default polynomial size
     static constexpr size_t n = 128;
@@ -62,8 +62,8 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * p[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * p[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
@@ -87,7 +87,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -110,7 +111,8 @@ TEST_F(IPATest, OpenAtZero)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     bool result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -214,8 +216,8 @@ TEST_F(IPATest, Commit)
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * poly[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * poly[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
@@ -234,7 +236,8 @@ TEST_F(IPATest, Open)
     PCS::compute_opening_proof(ck, { poly, opening_pair }, prover_transcript);
 
     // initialize verifier transcript from proof data
-    auto verifier_transcript = std::make_shared<NativeTranscript>(prover_transcript->proof_data);
+    auto verifier_transcript = std::make_shared<NativeTranscript>();
+    verifier_transcript->load_proof(prover_transcript->export_proof());
 
     auto result = PCS::reduce_verify(vk, opening_claim, verifier_transcript);
     EXPECT_TRUE(result);
@@ -273,7 +276,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
         GeminiVerifier::reduce_verification(mle_opening_point, mock_claims.claim_batcher, verifier_transcript);
 
     const auto shplonk_verifier_claim =
-        ShplonkVerifier::reduce_verification(vk->get_g1_identity(), gemini_verifier_claim, verifier_transcript);
+        ShplonkVerifier::reduce_verification(vk.get_g1_identity(), gemini_verifier_claim, verifier_transcript);
     auto result = PCS::reduce_verify(vk, shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);
@@ -309,7 +312,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript);
 
     auto result = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, vk, verifier_transcript);
@@ -367,7 +370,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
-                                                                                    vk->get_g1_identity(),
+                                                                                    vk.get_g1_identity(),
                                                                                     verifier_transcript,
                                                                                     repeated_commitments);
 
@@ -375,4 +378,4 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     EXPECT_EQ(result, true);
 }
 typename IPATest::CK IPATest::ck;
-std::shared_ptr<typename IPATest::VK> IPATest::vk = nullptr;
+typename IPATest::VK IPATest::vk;

@@ -1,6 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, type Logger } from '@aztec/aztec.js';
-import type { CheatCodes } from '@aztec/aztec.js/testing';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
@@ -26,7 +25,6 @@ const TX_COUNT = 3;
 describe('e2e_epochs/epochs_monitor_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
-  let cheatCodes: CheatCodes;
 
   let test: EpochsTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
@@ -44,14 +42,13 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       initialValidators: validators,
-      aztecProofSubmissionWindow: 1024,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
+      aztecProofSubmissionEpochs: 1024,
       startProverNode: false,
     });
 
     ({ context, logger } = test);
-    ({ cheatCodes } = context);
 
     // Halt block building in initial aztec node, which was not set up as a validator.
     logger.warn(`Stopping sequencer in initial aztec node.`);
@@ -80,17 +77,6 @@ describe('e2e_epochs/epochs_monitor_block_building', () => {
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {
       txs: await Promise.all(sentTxs.map(tx => tx.getTxHash())),
-    });
-
-    // Warp forward to epoch 2
-    const ts = await cheatCodes.rollup.advanceToEpoch(2n, {
-      updateDateProvider: context.dateProvider,
-      resetBlockInterval: true,
-    });
-    logger.warn(`Warped to epoch 2`, {
-      epochTs: ts,
-      dateProvider: context.dateProvider!.nowInSeconds(),
-      chainTs: await cheatCodes.eth.timestamp(),
     });
 
     // Listen to all failure related events of the sequencers.

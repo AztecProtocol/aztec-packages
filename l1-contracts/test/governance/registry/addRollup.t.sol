@@ -7,7 +7,6 @@ import {Ownable} from "@oz/access/Ownable.sol";
 
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
@@ -47,6 +46,9 @@ contract UpgradeTest is RegistryBase {
     IRollup newRollup = IRollup(address(new FakeRollup()));
     uint256 version = newRollup.getVersion();
 
+    vm.expectRevert(abi.encodeWithSelector(Errors.Registry__RollupNotRegistered.selector, version));
+    registry.getRollup(version);
+
     vm.expectEmit(true, true, false, false, address(registry));
     emit IRegistry.InstanceAdded(address(newRollup), version);
     registry.addRollup(newRollup);
@@ -54,5 +56,6 @@ contract UpgradeTest is RegistryBase {
     assertEq(registry.numberOfVersions(), 1);
 
     assertEq(address(registry.getRollup(version)), address(newRollup));
+    assertEq(registry.getVersion(0), version);
   }
 }

@@ -1,7 +1,6 @@
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import {
-  ForwarderContract,
   GovernanceProposerContract,
   RollupContract,
   SlashingProposerContract,
@@ -79,21 +78,13 @@ export class SequencerClient {
     const { l1RpcUrls: rpcUrls, l1ChainId: chainId, publisherPrivateKey } = config;
     const chain = createEthereumChain(rpcUrls, chainId);
     const log = createLogger('sequencer-client');
-    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey, chain.chainInfo);
+    const l1Client = createExtendedL1Client(rpcUrls, publisherPrivateKey.getValue(), chain.chainInfo);
     const l1TxUtils = deps.l1TxUtils ?? new L1TxUtilsWithBlobs(l1Client, log, config);
     const rollupContract = new RollupContract(l1Client, config.l1Contracts.rollupAddress.toString());
     const [l1GenesisTime, slotDuration] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
     ] as const);
-    const forwarderContract =
-      config.customForwarderContractAddress && config.customForwarderContractAddress !== EthAddress.ZERO
-        ? new ForwarderContract(
-            l1Client,
-            config.customForwarderContractAddress.toString(),
-            config.l1Contracts.rollupAddress.toString(),
-          )
-        : await ForwarderContract.create(l1Client, log, config.l1Contracts.rollupAddress.toString());
 
     const governanceProposerContract = new GovernanceProposerContract(
       l1Client,
@@ -112,7 +103,6 @@ export class SequencerClient {
           aztecSlotDuration: config.aztecSlotDuration,
           ethereumSlotDuration: config.ethereumSlotDuration,
           aztecEpochDuration: config.aztecEpochDuration,
-          aztecProofSubmissionWindow: config.aztecProofSubmissionWindow,
         },
         { dateProvider: deps.dateProvider },
       ));
@@ -125,7 +115,6 @@ export class SequencerClient {
         blobSinkClient: deps.blobSinkClient,
         rollupContract,
         epochCache,
-        forwarderContract,
         governanceProposerContract,
         slashingProposerContract,
       });
@@ -218,10 +207,6 @@ export class SequencerClient {
 
   get feeRecipient(): AztecAddress {
     return this.sequencer.feeRecipient;
-  }
-
-  get forwarderAddress(): EthAddress {
-    return this.sequencer.getForwarderAddress();
   }
 
   get validatorAddresses(): EthAddress[] | undefined {

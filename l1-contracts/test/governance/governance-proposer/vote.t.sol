@@ -5,15 +5,13 @@ import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {IEmpire} from "@aztec/governance/interfaces/IEmpire.sol";
 import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
-import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract VoteTest is GovernanceProposerBase {
-  using SlotLib for Slot;
-
   IPayload internal proposal = IPayload(address(0xdeadbeef));
-  address internal proposer = address(0);
+  address internal proposer = address(0x1234567890);
   Fakerollup internal validatorSelection;
 
   // Skipping this test since the it matches the for now skipped check in `EmpireBase::vote`
@@ -47,6 +45,8 @@ contract VoteTest is GovernanceProposerBase {
 
   modifier givenCanonicalRollupHoldCode() {
     validatorSelection = new Fakerollup();
+    validatorSelection.setProposer(proposer);
+
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(validatorSelection)));
 
@@ -63,7 +63,7 @@ contract VoteTest is GovernanceProposerBase {
     // it revert
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
-    assertEq(currentSlot.unwrap(), 1);
+    assertEq(Slot.unwrap(currentSlot), 1);
     vm.prank(proposer);
     governanceProposer.vote(proposal);
 
@@ -121,7 +121,7 @@ contract VoteTest is GovernanceProposerBase {
     );
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
-    assertEq(currentSlot.unwrap(), lastVote.unwrap());
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
 
     vm.warp(
       Timestamp.unwrap(
@@ -151,6 +151,7 @@ contract VoteTest is GovernanceProposerBase {
       governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal);
 
     Fakerollup freshInstance = new Fakerollup();
+    freshInstance.setProposer(proposer);
     vm.prank(registry.getGovernance());
     registry.addRollup(IRollup(address(freshInstance)));
 
@@ -175,7 +176,7 @@ contract VoteTest is GovernanceProposerBase {
       );
       assertFalse(executed);
       assertEq(address(leader), address(proposal));
-      assertEq(freshSlot.unwrap(), lastVote.unwrap(), "invalid slot [FRESH]");
+      assertEq(Slot.unwrap(freshSlot), Slot.unwrap(lastVote), "invalid slot [FRESH]");
     }
 
     // The old instance
@@ -190,7 +191,9 @@ contract VoteTest is GovernanceProposerBase {
       assertFalse(executed);
       assertEq(address(leader), address(proposal));
       assertEq(
-        validatorSelectionSlot.unwrap(), lastVote.unwrap() + 1, "invalid slot [ValidatorSelection]"
+        Slot.unwrap(validatorSelectionSlot),
+        Slot.unwrap(lastVote) + 1,
+        "invalid slot [ValidatorSelection]"
       );
     }
   }
@@ -244,7 +247,7 @@ contract VoteTest is GovernanceProposerBase {
     );
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
-    assertEq(currentSlot.unwrap(), lastVote.unwrap());
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
   }
 
   function test_GivenProposalHaveFeverVotesThanLeader()
@@ -286,7 +289,7 @@ contract VoteTest is GovernanceProposerBase {
     );
     assertFalse(executed);
     assertEq(address(leader), address(proposal));
-    assertEq(currentSlot.unwrap(), lastVote.unwrap());
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
   }
 
   function test_GivenProposalHaveMoreVotesThanLeader()
@@ -338,7 +341,7 @@ contract VoteTest is GovernanceProposerBase {
         leaderYeaBefore,
         "invalid number of votes"
       );
-      assertEq(lastVote.unwrap(), currentSlot.unwrap() + leaderYeaBefore);
+      assertEq(Slot.unwrap(lastVote), Slot.unwrap(currentSlot) + leaderYeaBefore);
     }
   }
 }

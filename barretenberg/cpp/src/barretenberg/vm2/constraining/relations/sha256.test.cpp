@@ -12,7 +12,6 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 // Temporary imports, see comment in test.
@@ -35,14 +34,13 @@ using simulation::MockExecutionIdManager;
 using simulation::Sha256;
 using simulation::Sha256CompressionEvent;
 
+using tracegen::PrecomputedTraceBuilder;
+using tracegen::Sha256TraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using sha256 = bb::avm2::sha256<FF>;
-using tracegen::LookupIntoIndexedByClk;
-
-using lookup_sha256_round_relation = bb::avm2::lookup_sha256_round_constant_relation<FF>;
 
 TEST(Sha256ConstrainingTest, EmptyRow)
 {
@@ -116,14 +114,14 @@ TEST(Sha256ConstrainingTest, Interaction)
     sha256_gadget.compression(context, state_addr, input_addr, dst_addr);
 
     TestTraceContainer trace;
-    tracegen::Sha256TraceBuilder builder;
-    tracegen::PrecomputedTraceBuilder precomputed_builder;
+    Sha256TraceBuilder builder;
+    PrecomputedTraceBuilder precomputed_builder;
     // Build just enough clk rows for the lookup
     precomputed_builder.process_misc(trace, 65);
     precomputed_builder.process_sha256_round_constants(trace);
 
     builder.process(sha256_event_emitter.get_events(), trace);
-    LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
+    check_interaction<Sha256TraceBuilder, lookup_sha256_round_constant_settings>(trace);
 
     check_relation<sha256>(trace);
 }

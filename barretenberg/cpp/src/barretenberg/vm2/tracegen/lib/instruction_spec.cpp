@@ -22,7 +22,7 @@ RegisterMemInfo& RegisterMemInfo::has_inputs(uint16_t num_inputs)
     for (uint16_t i = 0; i < num_inputs; ++i) {
         encoded_register_info |= (read_encoding << (i * 2));
     }
-    write_index = num_inputs != 0 ? num_inputs : 2; // Hack in case of no inputs
+    write_index = num_inputs;
     return *this;
 }
 
@@ -69,18 +69,30 @@ const std::unordered_map<ExecutionOpCode, SubtraceInfo> SUBTRACE_INFO_MAP = {
     // Poseidon2Perm
     { ExecutionOpCode::POSEIDON2PERM, { .subtrace_selector = SubtraceSel::POSEIDON2PERM, .subtrace_operation_id = 0 } },
     // Execution
-    { ExecutionOpCode::SET, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 1 } },
-    { ExecutionOpCode::MOV, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 2 } },
-    { ExecutionOpCode::JUMP, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 3 } },
-    { ExecutionOpCode::JUMPI, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 4 } },
-    { ExecutionOpCode::CALL, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 5 } },
-    { ExecutionOpCode::STATICCALL, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 6 } },
-    { ExecutionOpCode::INTERNALCALL, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 7 } },
-    { ExecutionOpCode::INTERNALRETURN, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 8 } },
-    { ExecutionOpCode::RETURN, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 9 } },
-    { ExecutionOpCode::REVERT, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 10 } },
-    { ExecutionOpCode::SUCCESSCOPY, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 11 } },
-    { ExecutionOpCode::RETURNDATASIZE, { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = 12 } },
+    { ExecutionOpCode::SET,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SET } },
+    { ExecutionOpCode::MOV,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_MOV } },
+    { ExecutionOpCode::JUMP,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_JUMP } },
+    { ExecutionOpCode::JUMPI,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_JUMPI } },
+    { ExecutionOpCode::CALL,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_CALL } },
+    { ExecutionOpCode::STATICCALL,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_STATICCALL } },
+    { ExecutionOpCode::INTERNALCALL,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_INTERNALCALL } },
+    { ExecutionOpCode::INTERNALRETURN,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_INTERNALRETURN } },
+    { ExecutionOpCode::RETURN,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_RETURN } },
+    { ExecutionOpCode::REVERT,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_REVERT } },
+    { ExecutionOpCode::SUCCESSCOPY,
+      { .subtrace_selector = SubtraceSel::EXECUTION, .subtrace_operation_id = AVM_EXEC_OP_ID_SUCCESSCOPY } },
+    // KeccakF1600
+    { ExecutionOpCode::KECCAKF1600, { .subtrace_selector = SubtraceSel::KECCAKF1600, .subtrace_operation_id = 0 } },
 };
 
 // Maps Execution opcodes to their register + memory accesses
@@ -89,12 +101,16 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::ADD, RegisterMemInfo().has_inputs(2).has_outputs(1) },
     { ExecutionOpCode::SET, RegisterMemInfo().has_inputs(0).has_outputs(1) },
     { ExecutionOpCode::MOV, RegisterMemInfo().has_inputs(1).has_outputs(1) },
-    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(3) },
+    { ExecutionOpCode::CALL, RegisterMemInfo().has_inputs(4) },
     { ExecutionOpCode::RETURN, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::REVERT, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::JUMP, RegisterMemInfo() },
     { ExecutionOpCode::JUMPI, RegisterMemInfo().has_inputs(1) },
     { ExecutionOpCode::CALLDATACOPY, RegisterMemInfo().has_inputs(2) },
+    { ExecutionOpCode::RETURNDATACOPY, RegisterMemInfo().has_inputs(2) },
+    { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
+    { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
+    { ExecutionOpCode::KECCAKF1600, RegisterMemInfo() },
 } };
 
 } // namespace bb::avm2::tracegen

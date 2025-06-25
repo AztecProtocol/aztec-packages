@@ -1,4 +1,5 @@
 import { GeneratorIndex } from '@aztec/constants';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, poseidon2HashWithSeparator, sha256ToField } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -7,11 +8,14 @@ import type { AztecAddress } from '../aztec-address/index.js';
 
 /**
  * Computes a hash of a given verification key.
- * @param vkBuf - The verification key as fields.
+ * @param keyAsFields - The verification key as fields.
  * @returns The hash of the verification key.
  */
-export function hashVK(keyAsFields: Fr[]): Promise<Fr> {
-  return poseidon2Hash(keyAsFields);
+export async function hashVK(keyAsFields: Fr[]): Promise<Fr> {
+  // Should match the implementation in barretenberg/cpp/src/barretenberg/flavor/flavor.hpp > hash()
+  const hash = (await poseidon2Hash(keyAsFields)).toBuffer();
+  // Taking the last 16 bytes (128 bits) of the hash.
+  return new Fr(toBigIntBE(hash.subarray(Fr.SIZE_IN_BYTES - 16)));
 }
 
 /**
@@ -54,6 +58,17 @@ export function computeUniqueNoteHash(noteNonce: Fr, siloedNoteHash: Fr): Promis
  */
 export function siloNullifier(contract: AztecAddress, innerNullifier: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([contract, innerNullifier], GeneratorIndex.OUTER_NULLIFIER);
+}
+
+/**
+ * Computes a siloed private log tag, given the contract address and the unsiloed tag.
+ * A siloed private log tag effectively namespaces a log to a specific contract.
+ * @param contract - The contract address.
+ * @param unsiloedTag - The unsiloed tag.
+ * @returns A siloed private log tag.
+ */
+export function siloPrivateLog(contract: AztecAddress, unsiloedTag: Fr): Promise<Fr> {
+  return poseidon2Hash([contract, unsiloedTag]);
 }
 
 /**

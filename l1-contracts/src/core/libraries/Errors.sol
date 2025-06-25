@@ -74,8 +74,8 @@ library Errors {
   error Rollup__StartIsNotBuildingOnProven(); // 0x4a59f42e
   error Rollup__TooManyBlocksInEpoch(uint256 expected, uint256 actual); // 0x7d5b1408
   error Rollup__AlreadyClaimed(address prover, Epoch epoch);
-  error Rollup__NotPastDeadline(Slot deadline, Slot currentSlot);
-  error Rollup__PastDeadline(Slot deadline, Slot currentSlot);
+  error Rollup__NotPastDeadline(Epoch deadline, Epoch currentEpoch);
+  error Rollup__PastDeadline(Epoch deadline, Epoch currentEpoch);
   error Rollup__ProverHaveAlreadySubmitted(address prover, Epoch epoch);
   error Rollup__InvalidManaTarget(uint256 minimum, uint256 provided);
   error Rollup__ManaLimitExceeded();
@@ -90,10 +90,6 @@ library Errors {
   // MerkleLib
   error MerkleLib__InvalidRoot(bytes32 expected, bytes32 actual, bytes32 leaf, uint256 leafIndex); // 0x5f216bf1
 
-  // SignatureLib
-  error SignatureLib__CannotVerifyEmpty(); // 0xc7690a37
-  error SignatureLib__InvalidSignature(address expected, address recovered); // 0xd9cbae6c
-
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
   error SampleLib__SampleLargerThanIndex(uint256 sample, uint256 index); // 0xa11b0f79
@@ -105,9 +101,14 @@ library Errors {
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
   error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
+  error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
 
   // Staking
+  error Staking__AlreadyQueued(address _attester);
+  error Staking__QueueEmpty();
+  error Staking__DepositOutOfGas();
   error Staking__AlreadyActive(address attester); // 0x5e206fa4
+  error Staking__QueueAlreadyFlushed(Epoch epoch); // 0x21148c78
   error Staking__AlreadyRegistered(address instance, address attester);
   error Staking__CannotSlashExitedStake(address); // 0x45bf4940
   error Staking__FailedToRemove(address); // 0xa7d7baab
@@ -134,9 +135,6 @@ library Errors {
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
 
-  // GSE
-  error GSE__EmptyVoter();
-
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
   error FeeJuicePortal__InvalidInitialization(); // 0xfd9b3208
@@ -150,6 +148,6 @@ library Errors {
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
 
-  // AddressSnapshotLib
-  error AddressSnapshotLib__IndexOutOfBounds(uint256 index, uint256 size); // 0xd789b71a
+  // RewardBooster
+  error RewardBooster__OnlyRollup(address caller);
 }

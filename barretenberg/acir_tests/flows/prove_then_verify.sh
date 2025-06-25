@@ -22,6 +22,9 @@ case ${SYS:-} in
     FLAGS+=" --scheme $SYS --oracle_hash ${HASH:-poseidon2}"
     [ "${ROLLUP:-false}" = "true" ] && FLAGS+=" --ipa_accumulation"
     [ "${RECURSIVE}" = "true" ] && FLAGS+=" --init_kzg_accumulator"
+    # DISABLE_ZK controls whether the zero-knowledge property is disabled.
+    # the flag is by default false, and when true, --disable_zk is added to the flags.
+    [ "${DISABLE_ZK:-false}" = "true" ] && FLAGS+=" --disable_zk"
 
     OUTDIR=$(mktemp -d)
     trap "rm -rf $OUTDIR" EXIT

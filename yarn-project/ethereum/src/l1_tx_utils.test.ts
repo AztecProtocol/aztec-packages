@@ -4,6 +4,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
+import { jest } from '@jest/globals';
 import type { Anvil } from '@viem/anvil';
 import { type Abi, createPublicClient, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -630,6 +631,72 @@ describe('GasUtils', () => {
     // Verify the original transaction is no longer present
     await expect(l1Client.getTransaction({ hash: txHash })).rejects.toThrow();
   }, 10_000);
+
+  it('ensures block gas limit is set when using LARGE_GAS_LIMIT', async () => {
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    let capturedBlockOverrides: any = {};
+    const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
+
+    const spy = jest
+      .spyOn(gasUtils as any, '_simulate')
+      .mockImplementation((call: any, blockOverrides: any, stateOverrides: any, gasConfig: any, abi: any) => {
+        capturedBlockOverrides = blockOverrides;
+        return originalSimulate(call, blockOverrides, stateOverrides, gasConfig, abi);
+      });
+
+    try {
+      // Test with ensureBlockGasLimit: true (default)
+      await gasUtils.simulate(request, {}, [], undefined, { ignoreBlockGasLimit: false });
+      expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n);
+
+      // Test with ensureBlockGasLimit: false
+      capturedBlockOverrides = {};
+      await gasUtils.simulate(request, {}, [], undefined, { ignoreBlockGasLimit: true });
+      expect(capturedBlockOverrides.gasLimit).toBeUndefined();
+
+      // Test with explicit gas in request
+      capturedBlockOverrides = {};
+      await gasUtils.simulate({ ...request, gas: 1_000_000n }, {}, [], undefined, { ignoreBlockGasLimit: false });
+      expect(capturedBlockOverrides.gasLimit).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('ensures block gas limit is set when using LARGE_GAS_LIMIT with custom block overrides', async () => {
+    const request = {
+      to: '0x1234567890123456789012345678901234567890' as `0x${string}`,
+      data: '0x' as `0x${string}`,
+      value: 0n,
+    };
+
+    let capturedBlockOverrides: any = {};
+    const originalSimulate = gasUtils['_simulate'].bind(gasUtils);
+
+    const spy = jest
+      .spyOn(gasUtils as any, '_simulate')
+      .mockImplementation((call: any, blockOverrides: any, stateOverrides: any, gasConfig: any, abi: any) => {
+        capturedBlockOverrides = blockOverrides;
+        return originalSimulate(call, blockOverrides, stateOverrides, gasConfig, abi);
+      });
+
+    try {
+      // Test with custom block overrides and ensureBlockGasLimit: true
+      const myCustomBlockOverrides = { baseFeePerGas: 1000000000n };
+      await gasUtils.simulate(request, myCustomBlockOverrides, [], undefined, { ignoreBlockGasLimit: false });
+
+      // Verify that block gas limit is set while preserving custom overrides
+      expect(capturedBlockOverrides.gasLimit).toBe(24_000_000n); // 12_000_000 * 2
+      expect(capturedBlockOverrides.baseFeePerGas).toBe(1000000000n);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
@@ -686,7 +753,7 @@ describe('L1TxUtils vs ReadOnlyL1TxUtils', () => {
     expect(l1TxUtils.getGasPrice).toBeDefined();
     expect(l1TxUtils.estimateGas).toBeDefined();
     expect(l1TxUtils.getTransactionStats).toBeDefined();
-    expect(l1TxUtils.simulateGasUsed).toBeDefined();
+    expect(l1TxUtils.simulate).toBeDefined();
     expect(l1TxUtils.bumpGasLimit).toBeDefined();
   });
 

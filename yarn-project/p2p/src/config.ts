@@ -1,11 +1,13 @@
 import {
   type ConfigMappingsType,
+  SecretValue,
   booleanConfigHelper,
   floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
+  secretStringConfigHelper,
 } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
@@ -50,7 +52,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   listenAddress: string;
 
   /** An optional peer id private key. If blank, will generate a random key. */
-  peerIdPrivateKey?: string;
+  peerIdPrivateKey?: SecretValue<string>;
 
   /** An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory. */
   peerIdPrivateKeyPath?: string;
@@ -189,6 +191,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
     description: 'An optional peer id private key. If blank, will generate a random key.',
+    ...secretStringConfigHelper(),
   },
   peerIdPrivateKeyPath: {
     env: 'PEER_ID_PRIVATE_KEY_PATH',

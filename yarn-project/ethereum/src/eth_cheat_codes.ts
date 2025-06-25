@@ -349,16 +349,47 @@ export class EthCheatCodes {
   }
 
   /**
+   * Get the trace for a given transaction hash
+   * @param txHash - The transaction hash
+   * @returns The trace
+   */
+  public async debugTraceTransaction(txHash: Hex): Promise<any> {
+    const res = await this.rpcCall('debug_traceTransaction', [txHash]);
+    return res;
+  }
+
+  /**
    * Triggers a reorg of the given depth, removing those blocks from the chain.
    * @param depth - The depth of the reorg
    */
-  public async reorg(depth: number): Promise<void> {
-    try {
-      await this.rpcCall('anvil_rollback', [depth]);
-    } catch (err) {
-      throw new Error(`Error rolling back: ${err}`);
+  public reorg(depth: number): Promise<void> {
+    return this.execWithPausedAnvil(() => {
+      return this.rpcCall('anvil_rollback', [depth]);
+    });
+  }
+
+  /**
+   * Causes Anvil to reorg until the given block number is the new tip
+   * @param blockNumber - The block number that's going to be the new tip
+   */
+  public reorgTo(blockNumber: number): Promise<void> {
+    this.logger.info('reorgTo', { blockNumber });
+    if (blockNumber <= 0) {
+      throw new Error(`Can't reorg to block before genesis: ${blockNumber}`);
     }
-    this.logger.warn(`Rolled back L1 chain with depth ${depth}`);
+
+    return this.execWithPausedAnvil(async () => {
+      const currentTip = await this.publicClient.getBlockNumber();
+      if (currentTip < BigInt(blockNumber)) {
+        this.logger.warn(
+          `Can't call anvil_rollback, chain tip is behind target block: ${currentTip} < ${BigInt(blockNumber)}`,
+        );
+        return;
+      }
+
+      const depth = Number(currentTip - BigInt(blockNumber) + 1n);
+      await this.rpcCall('anvil_rollback', [depth]);
+    });
   }
 
   /**
@@ -385,5 +416,38 @@ export class EthCheatCodes {
 
   public traceTransaction(txHash: Hex): Promise<any> {
     return this.rpcCall('trace_transaction', [txHash]);
+  }
+
+  private async execWithPausedAnvil(fn: () => Promise<void>): Promise<void> {
+    const [blockInterval, wasAutoMining] = await Promise.all([this.getIntervalMining(), this.isAutoMining()]);
+    try {
+      if (blockInterval !== null) {
+        await this.setIntervalMining(0);
+      }
+
+      if (wasAutoMining) {
+        await this.setAutomine(false);
+      }
+
+      await fn();
+    } finally {
+      try {
+        // restore automine if necessary
+        if (wasAutoMining) {
+          await this.setAutomine(true);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable automining: ${err}`);
+      }
+
+      try {
+        // restore automine if necessary
+        if (blockInterval !== null) {
+          await this.setIntervalMining(blockInterval);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to reenable interval mining: ${err}`);
+      }
+    }
   }
 }

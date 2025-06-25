@@ -105,7 +105,6 @@ pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
 pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
 pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
-pub comptime global TUBE_VK_INDEX: u32 = 4;
 pub comptime global AVM_VK_INDEX: u32 = 5;
 pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
 pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
@@ -117,6 +116,8 @@ pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
 pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
 pub comptime global BASE_PARITY_INDEX: u32 = 14;
 pub comptime global ROOT_PARITY_INDEX: u32 = 15;
+pub comptime global PRIVATE_TUBE_VK_INDEX: u32 = 16;
+pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 17;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -584,6 +585,10 @@ pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
 pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
+// Misc generators
+// TODO(8974): this likely belongs in the middle of the list, but was placed
+// here to avoid changing all of the key generators.
+pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -594,10 +599,34 @@ pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
-// AvmCircuitPublicInputs - row indices
-// TODO(dbanks12): could we somehow use Noir macros to generate these?
-// TODO(dbanks12): could we somehow generate these from the actual struct? Or no, because codegen can't use that?
+// AVM memory related constants
+pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
+pub global AVM_MEMORY_NUM_BITS: u8 = 32;
 
+// AVM bitwise operation IDs
+pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+
+// AVM Keccakf1600 specific constants
+pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
+pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
+// Execution Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_SET: u32 = 1;
+pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
+pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
+pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
+pub global AVM_EXEC_OP_ID_CALL: u32 = 2 * AVM_EXEC_OP_ID_JUMPI;
+pub global AVM_EXEC_OP_ID_STATICCALL: u32 = 2 * AVM_EXEC_OP_ID_CALL;
+pub global AVM_EXEC_OP_ID_INTERNALCALL: u32 = 2 * AVM_EXEC_OP_ID_STATICCALL;
+pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
+pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
+pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
+pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
+
+// AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias
 pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_ROW_IDX: u32 = 0;

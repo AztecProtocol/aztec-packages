@@ -4,8 +4,8 @@
 pragma solidity >=0.8.27;
 
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {StakingLib} from "./../staking/StakingLib.sol";
-import {ValidatorSelectionLib} from "./../validator-selection/ValidatorSelectionLib.sol";
+import {StakingLib} from "./StakingLib.sol";
+import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
@@ -20,6 +20,10 @@ library ExtRollupLib2 {
 
   function deposit(address _attester, address _withdrawer, bool _onCanonical) external {
     StakingLib.deposit(_attester, _withdrawer, _onCanonical);
+  }
+
+  function flushEntryQueue(uint256 _maxAddableValidators) external {
+    StakingLib.flushEntryQueue(_maxAddableValidators);
   }
 
   function initiateWithdraw(address _attester, address _recipient) external returns (bool) {

@@ -42,14 +42,23 @@ export const DB_USED_SIZE = 'aztec.db.used_size';
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 
-export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
-export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
 export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
-export const ARCHIVER_TX_COUNT = 'aztec.archiver.tx_count';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
 export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
+
+export const ARCHIVER_MANA_PER_BLOCK = 'aztec.archiver.block.mana_count';
+export const ARCHIVER_TXS_PER_BLOCK = 'aztec.archiver.block.tx_count';
+export const ARCHIVER_SYNC_PER_BLOCK = 'aztec.archiver.block.sync_per_item_duration';
+export const ARCHIVER_SYNC_BLOCK_COUNT = 'aztec.archiver.block.sync_count';
+
+export const ARCHIVER_SYNC_PER_MESSAGE = 'aztec.archiver.message.sync_per_item_duration';
+export const ARCHIVER_SYNC_MESSAGE_COUNT = 'aztec.archiver.message.sync_count';
+
+export const ARCHIVER_PRUNE_DURATION = 'aztec.archiver.prune_duration';
 export const ARCHIVER_PRUNE_COUNT = 'aztec.archiver.prune_count';
+
+export const ARCHIVER_TOTAL_TXS = 'aztec.archiver.tx_count';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
@@ -61,12 +70,16 @@ export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
 export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
 export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
-export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
 export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
 export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
 export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
 export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
+
+export const SEQUENCER_COLLECTED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.collected_count';
+export const SEQUENCER_REQUIRED_ATTESTATIONS_COUNT = 'aztec.sequencer.attestations.required_count';
+export const SEQUENCER_COLLECT_ATTESTATIONS_DURATION = 'aztec.sequencer.attestations.collect_duration';
+export const SEQUENCER_COLLECT_ATTESTATIONS_TIME_ALLOWANCE = 'aztec.sequencer.attestations.collect_allowance';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -167,6 +180,9 @@ export const WORLD_STATE_CRITICAL_ERROR_COUNT = 'aztec.world_state.critical_erro
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
+export const VALIDATOR_RE_EXECUTION_MANA = 'aztec.validator.re_execution_mana';
+export const VALIDATOR_RE_EXECUTION_TX_COUNT = 'aztec.validator.re_execution_tx_count';
+
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
 export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
 export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
