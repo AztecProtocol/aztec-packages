@@ -125,6 +125,7 @@ impl TestEnvironment {
 
     /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
     /// block advanced, and we are able to fetch historical data from warped over blocks.
+    // TODO(benesjan): Fix naming inconsistency between advance_block_by and advance_blockS_by.
     pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }
@@ -169,13 +170,9 @@ impl TestEnvironment {
 
     /// Instantiates a private context at a specific historical timestamp.
     pub unconstrained fn private_at_timestamp(
-        &mut self,
+        _self: &mut Self,
         historical_timestamp: u64,
     ) -> PrivateContext {
-        if historical_timestamp > get_timestamp() {
-            self.advance_timestamp_to(historical_timestamp);
-        }
-
         let mut inputs = cheatcodes::get_private_context_inputs_at_timestamp(historical_timestamp);
 
         PrivateContext::new(inputs, 0)

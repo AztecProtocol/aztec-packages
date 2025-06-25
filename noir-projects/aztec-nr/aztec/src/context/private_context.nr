@@ -20,8 +20,8 @@ use dep::protocol_types::{
         call_context::CallContext,
         function_selector::FunctionSelector,
         gas_settings::GasSettings,
+        include_by_timestamp::IncludeByTimestamp,
         log_hash::LogHash,
-        max_block_number::MaxBlockNumber,
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_call_request::PrivateCallRequest,
@@ -59,7 +59,7 @@ pub struct PrivateContext {
     pub args_hash: Field,
     pub return_hash: Field,
 
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
 
     pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
@@ -95,7 +95,7 @@ impl PrivateContext {
             is_fee_payer: false,
             args_hash,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),
@@ -187,7 +187,7 @@ impl PrivateContext {
             returns_hash: self.return_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            max_block_number: self.max_block_number,
+            include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: self.note_hash_read_requests.storage(),
             nullifier_read_requests: self.nullifier_read_requests.storage(),
             key_validation_requests_and_generators: self
@@ -225,11 +225,11 @@ impl PrivateContext {
         notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
-    // docs:start:max-block-number
-    pub fn set_tx_max_block_number(&mut self, max_block_number: u32) {
-        // docs:end:max-block-number
-        self.max_block_number =
-            MaxBlockNumber::min_with_u32(self.max_block_number, max_block_number);
+    // docs:start:include-by-timestamp
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
+        // docs:end:include-by-timestamp
+        self.include_by_timestamp =
+            IncludeByTimestamp::min_with_u64(self.include_by_timestamp, include_by_timestamp);
     }
 
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
@@ -559,7 +559,7 @@ impl Empty for PrivateContext {
             is_fee_payer: false,
             args_hash: 0,
             return_hash: 0,
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             key_validation_requests_and_generators: BoundedVec::new(),

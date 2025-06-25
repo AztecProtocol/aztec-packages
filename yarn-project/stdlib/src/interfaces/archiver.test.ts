@@ -219,7 +219,7 @@ describe('ArchiverApiSchema', () => {
 
   it('getContract', async () => {
     const address = await AztecAddress.random();
-    const result = await context.client.getContract(address, 27);
+    const result = await context.client.getContract(address, 27n);
     expect(result).toEqual({
       address,
       currentContractClassId: expect.any(Fr),
@@ -364,8 +364,8 @@ class MockArchiver implements ArchiverApi {
     );
     return functionsAndSelectors.find(f => f.selector.equals(selector))?.name;
   }
-  async getContract(address: AztecAddress, blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
-    expect(blockNumber).toEqual(27);
+  async getContract(address: AztecAddress, timestamp?: bigint): Promise<ContractInstanceWithAddress | undefined> {
+    expect(timestamp).toEqual(27n);
     return {
       address,
       currentContractClassId: Fr.random(),

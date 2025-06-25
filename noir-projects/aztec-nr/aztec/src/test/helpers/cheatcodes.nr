@@ -68,20 +68,23 @@ pub unconstrained fn get_private_context_inputs_at_timestamp(
 ) -> PrivateContextInputs {
     let current_timestamp = get_timestamp();
 
+    // If the historical timestamp is not at most AZTEC_SLOT_DURATION before the current timestamp, we need to advance.
+    if historical_timestamp > current_timestamp - AZTEC_SLOT_DURATION {
+        advance_timestamp_by(
+            historical_timestamp + AZTEC_SLOT_DURATION - current_timestamp,
+        );
+        advance_blocks_by(1);
+    }
+
+    let inputs =
+        oracle_get_private_context_inputs(Option::none(), Option::some(historical_timestamp));
+
     assert(
-        historical_timestamp <= current_timestamp,
-        "Cannot request private context inputs for timestamp greater than current timestamp",
+        inputs.historical_header.global_variables.timestamp == historical_timestamp,
+        "Historical timestamp mismatch",
     );
 
-    // If equal to current timestamp, clamp to current timestamp - AZTEC_SLOT_DURATION
-    let timestamp = if historical_timestamp == current_timestamp {
-        // TODO: Auto-modifying the timestamp here seems wrong. Would just throw instead.
-        current_timestamp - AZTEC_SLOT_DURATION
-    } else {
-        historical_timestamp
-    };
-
-    oracle_get_private_context_inputs(Option::none(), Option::some(timestamp))
+    inputs
 }
 
 pub unconstrained fn deploy<let N: u32, let M: u32, let P: u32>(

@@ -2,21 +2,22 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { FieldsOf } from '@aztec/foundation/types';
 
+import type { UInt64 } from '../types/shared.js';
 import type { ContractInstanceUpdate } from './interfaces/contract_instance_update.js';
 
 export class SerializableContractInstanceUpdate {
   prevContractClassId: Fr;
   newContractClassId: Fr;
-  blockOfChange: number;
+  timestampOfChange: UInt64;
 
   constructor(instance: ContractInstanceUpdate) {
     this.prevContractClassId = instance.prevContractClassId;
     this.newContractClassId = instance.newContractClassId;
-    this.blockOfChange = instance.blockOfChange;
+    this.timestampOfChange = instance.timestampOfChange;
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.prevContractClassId, this.newContractClassId, this.blockOfChange);
+    return serializeToBuffer(this.prevContractClassId, this.newContractClassId, this.timestampOfChange);
   }
 
   static fromBuffer(bufferOrReader: Buffer | BufferReader) {
@@ -24,7 +25,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: reader.readObject(Fr),
       newContractClassId: reader.readObject(Fr),
-      blockOfChange: reader.readNumber(),
+      timestampOfChange: reader.readObject(Fr).toBigInt(),
     });
   }
 
@@ -32,7 +33,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: Fr.random(),
       newContractClassId: Fr.random(),
-      blockOfChange: Math.floor(Math.random() * 1000),
+      timestampOfChange: BigInt(Math.floor(Math.random() * 1000)),
       ...opts,
     });
   }
@@ -41,7 +42,7 @@ export class SerializableContractInstanceUpdate {
     return new SerializableContractInstanceUpdate({
       prevContractClassId: Fr.zero(),
       newContractClassId: Fr.zero(),
-      blockOfChange: 0,
+      timestampOfChange: 0n,
     });
   }
 }

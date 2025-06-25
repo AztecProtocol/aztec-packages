@@ -134,10 +134,11 @@ describe('state_manager', () => {
       await persistableState.getContractInstance(address);
 
       expect(contractsDB.getContractInstance).toHaveBeenCalledTimes(1);
-      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*blockNumber=*/ expect.any(Number));
+      expect(contractsDB.getContractInstance).toHaveBeenCalledWith(address, /*timestamp=*/ expect.any(BigInt));
       expect(treesDB.checkNullifierExists).toHaveBeenCalledTimes(1);
       expect(treesDB.checkNullifierExists).toHaveBeenCalledWith(siloedNullifier);
     });
+
     it('Can get undefined contract instance', async () => {
       await persistableState.getContractInstance(address);
     });

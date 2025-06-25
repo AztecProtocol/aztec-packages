@@ -94,42 +94,42 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 }
 
 /**
- * max_block_number
+ * include_by_timestamp
  */
 #[test]
-fn validate_initial_values_max_block_number_succeeds() {
+fn validate_initial_values_include_by_timestamp_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(3);
-    builder.output.set_max_block_number(3);
+    builder.private_call.set_include_by_timestamp(3);
+    builder.output.set_include_by_timestamp(3);
 
     builder.validate_as_first_call(false);
 }
 
-#[test(should_fail_with = "incorrect initial max_block_number")]
-fn validate_initial_values_max_block_number_mismatch_fails() {
+#[test(should_fail_with = "incorrect initial include_by_timestamp")]
+fn validate_initial_values_include_by_timestamp_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4);
-    builder.output.set_max_block_number(3);
+    builder.private_call.set_include_by_timestamp(4);
+    builder.output.set_include_by_timestamp(3);
 
     builder.validate_as_first_call(false);
 }
 
-#[test(should_fail_with = "incorrect initial max_block_number")]
-fn validate_initial_values_max_block_number_empty_output_fails() {
+#[test(should_fail_with = "incorrect initial include_by_timestamp")]
+fn validate_initial_values_include_by_timestamp_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4);
+    builder.private_call.set_include_by_timestamp(4);
 
     builder.validate_as_first_call(false);
 }
 
-#[test(should_fail_with = "incorrect initial max_block_number")]
-fn validate_initial_values_max_block_number_random_output_fails() {
+#[test(should_fail_with = "incorrect initial include_by_timestamp")]
+fn validate_initial_values_include_by_timestamp_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_max_block_number(3);
+    builder.output.set_include_by_timestamp(3);
 
     builder.validate_as_first_call(false);
 }

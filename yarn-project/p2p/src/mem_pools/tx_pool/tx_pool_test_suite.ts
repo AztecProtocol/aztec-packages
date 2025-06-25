@@ -1,7 +1,7 @@
 import { unfreeze } from '@aztec/foundation/types';
 import { GasFees } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 
 import type { TxPool } from './tx_pool.js';
 
@@ -11,6 +11,10 @@ import type { TxPool } from './tx_pool.js';
  */
 export function describeTxPool(getTxPool: () => TxPool) {
   let pool: TxPool;
+
+  const minedBlockHeader = BlockHeader.empty({
+    globalVariables: GlobalVariables.empty({ blockNumber: 1, timestamp: 0n }),
+  });
 
   beforeEach(() => {
     pool = getTxPool();
@@ -43,7 +47,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx2 = await mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
-    await pool.markAsMined([await tx1.getTxHash()], 1);
+    await pool.markAsMined([await tx1.getTxHash()], minedBlockHeader);
 
     await expect(pool.getTxByHash(await tx1.getTxHash())).resolves.toEqual(tx1);
     await expect(pool.getTxStatus(await tx1.getTxHash())).resolves.toEqual('mined');
@@ -57,7 +61,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx2 = await mockTx(2);
 
     await pool.addTxs([tx1, tx2]);
-    await pool.markAsMined([await tx1.getTxHash()], 1);
+    await pool.markAsMined([await tx1.getTxHash()], minedBlockHeader);
 
     await pool.markMinedAsPending([await tx1.getTxHash()]);
     await expect(pool.getMinedTxHashes()).resolves.toEqual([]);
@@ -74,7 +78,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const someTxHashThatThisPeerDidNotSee = await tx2.getTxHash();
     await pool.addTxs([tx1]);
     // this peer knows that tx2 was mined, but it does not have the tx object
-    await pool.markAsMined([await tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], 1);
+    await pool.markAsMined([await tx1.getTxHash(), someTxHashThatThisPeerDidNotSee], minedBlockHeader);
     expect(await pool.getMinedTxHashes()).toEqual(
       expect.arrayContaining([
         [await tx1.getTxHash(), 1],

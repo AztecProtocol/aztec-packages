@@ -8,7 +8,7 @@ import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/st
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
@@ -129,8 +129,14 @@ export class AztecKVTxPool implements TxPool {
     }
     return true;
   }
-
-  public async markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
+  /**
+   * Marks transactions as mined in a block and updates the pool state accordingly.
+   * Removes the transactions from the pending set and adds them to the mined set.
+   * Also evicts any transactions that become invalid after the block is mined.
+   * @param txHashes - Array of transaction hashes that were mined
+   * @param blockHeader - The header of the block the transactions were mined in
+   */
+  public async markAsMined(txHashes: TxHash[], blockHeader: BlockHeader): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
@@ -142,7 +148,7 @@ export class AztecKVTxPool implements TxPool {
       let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
       for (const hash of txHashes) {
         const key = hash.toString();
-        await this.#minedTxHashToBlock.set(key, blockNumber);
+        await this.#minedTxHashToBlock.set(key, blockHeader.globalVariables.blockNumber);
 
         const tx = await this.getPendingTxByHash(hash);
         if (tx) {
@@ -155,7 +161,7 @@ export class AztecKVTxPool implements TxPool {
       }
       await this.#pendingTxSize.set(pendingTxSize);
 
-      await this.evictInvalidTxsAfterMining(txHashes, blockNumber, minedNullifiers, minedFeePayers);
+      await this.evictInvalidTxsAfterMining(txHashes, blockHeader, minedNullifiers, minedFeePayers);
     });
     // We update this after the transaction above. This ensures that the non-evictable transactions are not evicted
     // until any that have been mined are marked as such.
@@ -535,21 +541,23 @@ export class AztecKVTxPool implements TxPool {
    * Eviction criteria includes:
    *   - txs with nullifiers that are already included in the mined block
    *   - txs with an insufficient fee payer balance
-   *   - txs with a max block number lower than the mined block
+   *   - txs with an expiration timestamp lower than that of the mined block
    *
    * @param minedTxHashes - The tx hashes of the txs mined in the block.
-   * @param blockNumber - The block number of the mined block.
+   * @param blockHeader - The header of the mined block.
    * @returns The total number of txs evicted from the pool.
    */
   private async evictInvalidTxsAfterMining(
     minedTxHashes: TxHash[],
-    blockNumber: number,
+    blockHeader: BlockHeader,
     minedNullifiers: Set<string>,
     minedFeePayers: Set<string>,
   ): Promise<number> {
     if (minedTxHashes.length === 0) {
       return 0;
     }
+
+    const { blockNumber, timestamp } = blockHeader.globalVariables;
 
     // Wait for world state to be synced to at least the mined block number
     await this.#worldStateSynchronizer.syncImmediate(blockNumber);
@@ -582,10 +590,12 @@ export class AztecKVTxPool implements TxPool {
         continue;
       }
 
-      // Evict pending txs with a max block number less than or equal to the mined block
-      const maxBlockNumber = tx.data.rollupValidationRequests.maxBlockNumber;
-      if (maxBlockNumber.isSome && maxBlockNumber.value <= blockNumber) {
-        this.#log.verbose(`Evicting tx ${txHash} from pool due to an invalid max block number`);
+      // Evict pending txs with an expiration timestamp less than or equal to the mined block timestamp
+      const includeByTimestamp = tx.data.rollupValidationRequests.includeByTimestamp;
+      if (includeByTimestamp.isSome && includeByTimestamp.value <= timestamp) {
+        this.#log.verbose(
+          `Evicting tx ${txHash} from pool due to the tx being expired (includeByTimestamp: ${includeByTimestamp.value}, mined block timestamp: ${timestamp})`,
+        );
         txsToEvict.push(TxHash.fromString(txHash));
         continue;
       }

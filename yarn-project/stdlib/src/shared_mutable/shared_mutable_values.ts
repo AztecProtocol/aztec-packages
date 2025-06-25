@@ -22,20 +22,20 @@ export class SharedMutableValues {
     // Extract fields for ScheduledValueChange
     const svcPre = reader.readFieldArray(UPDATES_VALUE_SIZE);
     const svcPost = reader.readFieldArray(UPDATES_VALUE_SIZE);
-    const svcBlockOfChange = firstField & 0xffffffffn;
-    const svc = new ScheduledValueChange(svcPre, svcPost, Number(svcBlockOfChange));
+    const svcTimestampOfChange = firstField & 0xffffffffn;
+    const svc = new ScheduledValueChange(svcPre, svcPost, svcTimestampOfChange);
 
     // Extract fields for ScheduledDelayChange from first field
-    const sdcBlockOfChange = (firstField >> 32n) & 0xffffffffn;
+    const sdcTimestampOfChange = (firstField >> 32n) & 0xffffffffn;
     const sdcIsPostSome = (firstField >> 64n) & 1n;
     const sdcPost = (firstField >> 72n) & 0xffffffffn;
     const sdcIsPreSome = (firstField >> 104n) & 1n;
     const sdcPre = (firstField >> 112n) & 0xffffffffn;
 
     const sdc = new ScheduledDelayChange(
-      sdcIsPreSome ? Number(sdcPre) : undefined,
-      sdcIsPostSome ? Number(sdcPost) : undefined,
-      Number(sdcBlockOfChange),
+      sdcIsPreSome ? sdcPre : undefined,
+      sdcIsPostSome ? sdcPost : undefined,
+      sdcTimestampOfChange,
     );
 
     return new this(svc, sdc);
@@ -43,9 +43,9 @@ export class SharedMutableValues {
 
   toFields(): Fr[] {
     // Pack format matches Noir implementation:
-    // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.block_of_change: u32 | svc.block_of_change: u32 ]
-    let firstField = BigInt(this.svc.blockOfChange);
-    firstField |= BigInt(this.sdc.blockOfChange) << 32n;
+    // [ sdc.pre_inner: u32 | sdc.pre_is_some: u8 | sdc.post_inner: u32 | sdc.post_is_some: u8 | sdc.timestamp_of_change: u32 | svc.timestamp_of_change: u32 ]
+    let firstField = this.svc.timestampOfChange;
+    firstField |= this.sdc.timestampOfChange << 32n;
     firstField |= (this.sdc.post === undefined ? 0n : 1n) << 64n;
     firstField |= BigInt(this.sdc.post || 0) << 72n;
     firstField |= (this.sdc.pre === undefined ? 0n : 1n) << 104n;

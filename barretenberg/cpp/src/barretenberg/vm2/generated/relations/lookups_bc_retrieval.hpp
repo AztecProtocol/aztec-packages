@@ -132,14 +132,14 @@ struct lookup_bc_retrieval_update_check_settings_ {
         ColumnAndShifts::bc_retrieval_current_class_id,
         ColumnAndShifts::bc_retrieval_original_class_id,
         ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_block_number
+        ColumnAndShifts::bc_retrieval_timestamp
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::update_check_address,
         ColumnAndShifts::update_check_current_class_id,
         ColumnAndShifts::update_check_original_class_id,
         ColumnAndShifts::update_check_public_data_tree_root,
-        ColumnAndShifts::update_check_block_number
+        ColumnAndShifts::update_check_timestamp
     };
 };
 

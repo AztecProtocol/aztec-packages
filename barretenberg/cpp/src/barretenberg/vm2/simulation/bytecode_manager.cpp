@@ -74,7 +74,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .contract_class = klass, // WARNING: this class has the whole bytecode.
         .nullifier_root = tree_snapshots.nullifierTree.root,
         .public_data_tree_root = tree_snapshots.publicDataTree.root,
-        .current_block_number = current_block_number,
+        .current_timestamp = current_timestamp,
     });
 
     return bytecode_id;
