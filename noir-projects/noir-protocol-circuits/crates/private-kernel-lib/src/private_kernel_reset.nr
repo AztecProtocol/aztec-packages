@@ -222,12 +222,12 @@ mod tests {
                     TransientDataIndexHint::nada(MAX_NULLIFIERS_PER_TX, MAX_NOTE_HASHES_PER_TX);
                          TRANSIENT_DATA_SQUASHING_HINTS_LEN
                     ],
-                    note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
-                    nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
-                    key_validation_hints: BoundedVec::new(),
-                    validation_requests_split_counter: 0,
-                    dimensions,
-                    padded_side_effects: PaddedSideEffects::empty(),
+                note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder::new(),
+                nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
+                key_validation_hints: BoundedVec::new(),
+                validation_requests_split_counter: 0,
+                dimensions,
+                padded_side_effects: PaddedSideEffects::empty(),
                 }
             }
 
