@@ -10,6 +10,7 @@ import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import { pickNotes } from '../pick_notes.js';
@@ -33,6 +34,10 @@ export class UtilityExecutionOracle extends TypedOracle {
 
   public override getBlockNumber(): Promise<number> {
     return this.executionDataProvider.getBlockNumber();
+  }
+
+  public override getTimestamp(): Promise<UInt64> {
+    return this.executionDataProvider.getTimestamp();
   }
 
   public override getContractAddress(): Promise<AztecAddress> {
@@ -364,7 +369,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
 
-  public override emitOffchainMessage(_message: Fr[], _recipient: AztecAddress): Promise<void> {
-    return Promise.reject(new Error('Cannot emit offchain message from a utility function'));
+  public override emitOffchainEffect(_data: Fr[]): Promise<void> {
+    return Promise.reject(new Error('Cannot emit offchain effects from a utility function'));
   }
 }

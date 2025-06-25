@@ -51,7 +51,7 @@ jobs:
             optional: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ inputs.tag || github.sha }}
 
@@ -83,7 +83,7 @@ jobs:
           7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-${{ matrix.label }}.tar.gz
 
       - name: Upload artifact (${{ matrix.label }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         continue-on-error: ${{ matrix.optional }}
         with:
           name: barretenberg-${{ matrix.label }}.tar.gz
@@ -109,7 +109,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         if: ${{ failure() }}
         with:
           ref: ${{ inputs.tag || github.sha }}
@@ -131,29 +131,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifact (amd64-darwin)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: barretenberg-amd64-darwin.tar.gz
 
       - name: Download artifact (arm64-darwin)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: barretenberg-arm64-darwin.tar.gz
 
       - name: Download artifact (amd64-darwin-starknet)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
           name: barretenberg-amd64-darwin-starknet.tar.gz
 
       - name: Download artifact (arm64-darwin-starknet)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         continue-on-error: true
         with:
           name: barretenberg-arm64-darwin-starknet.tar.gz
 
       - name: Publish to GitHub
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
@@ -163,7 +163,7 @@ jobs:
             barretenberg-arm64-darwin.tar.gz
 
       - name: Publish to GitHub (starknet variants)
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@26994186c0ac3ef5cae75ac16aa32e8153525f77
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         continue-on-error: true
         with:

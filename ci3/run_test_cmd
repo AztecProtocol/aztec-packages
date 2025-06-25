@@ -186,30 +186,34 @@ function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
   echo -e "$line"
 
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   exit
 }
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
-
-  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
-  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
   if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
     cat $tmp_file
     echo -e "$line"
   fi
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
   exit $code
 }
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code) (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
 
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
 

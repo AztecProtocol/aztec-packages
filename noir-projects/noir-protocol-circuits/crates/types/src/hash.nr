@@ -225,10 +225,6 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     sha256_to_field(hash_input_flattened)
 }
 
-pub fn verification_key_hash<let N: u32>(key: [Field; N]) -> Field {
-    crate::hash::poseidon2_hash(key)
-}
-
 #[inline_always]
 pub fn pedersen_hash<let N: u32>(inputs: [Field; N], hash_index: u32) -> Field {
     std::hash::pedersen_hash_with_separator(inputs, hash_index)

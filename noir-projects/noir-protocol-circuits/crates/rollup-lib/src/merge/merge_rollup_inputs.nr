@@ -28,10 +28,10 @@ impl MergeRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify();
-            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify();
-            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;

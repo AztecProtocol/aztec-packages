@@ -86,8 +86,8 @@ export async function executePrivateFunction(
   const noteHashLeafIndexMap = privateExecutionOracle.getNoteHashLeafIndexMap();
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
-  const offchainMessages = privateExecutionOracle.getOffchainMessages();
-  const nestedExecutionResults = privateExecutionOracle.getNestedExecutionResults();
+  const offchainEffects = privateExecutionOracle.getOffchainEffects();
+  const nestedExecutionResults = privateExecutionOracle.getNestedExecutions();
 
   let timerSubtractionList = nestedExecutionResults;
   let witgenTime = duration;
@@ -109,7 +109,7 @@ export async function executePrivateFunction(
     newNotes,
     noteHashNullifierCounterMap,
     rawReturnValues,
-    offchainMessages,
+    offchainEffects,
     nestedExecutionResults,
     contractClassLogs,
     {

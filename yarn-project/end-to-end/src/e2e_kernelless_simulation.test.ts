@@ -23,7 +23,7 @@ import { setup } from './fixtures/utils.js';
  * An AccountWallet that copies the address of another account, and then
  * uses the simulation overrides feature to execute different contract code under
  * the copied address. This is used to bypass authwit verification entirely
- * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain messages
+ * (`is_valid` always returns `true`). It also emits the required authwit hashes as offchain effects
  * so they can later be compared to the ones that would actually be verified by the real
  * account contract.
  */
@@ -166,24 +166,21 @@ describe('Kernelless simulation', () => {
         .withWallet(copyCat)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits);
 
-      const { offchainMessages } = await addLiquidityInteraction.simulate({ includeMetadata: true });
+      const { offchainEffects } = await addLiquidityInteraction.simulate({ includeMetadata: true });
 
-      expect(offchainMessages.length).toBe(2);
+      expect(offchainEffects.length).toBe(2);
 
-      const [token0AuthwitRequest, token1AuthwitRequest] = offchainMessages;
+      const [token0AuthwitRequest, token1AuthwitRequest] = offchainEffects;
 
-      // We reuse the offchain message's recipient to also emit the address of the contract that requires the authwit
-      expect(token0AuthwitRequest.recipient).toEqual(token0.address);
-      expect(token1AuthwitRequest.recipient).toEqual(token1.address);
       // The account contract that generates the authwit request
       expect(token0AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
       expect(token1AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
 
-      expect(token0AuthwitRequest.message).toHaveLength(1);
-      expect(token1AuthwitRequest.message).toHaveLength(1);
+      expect(token0AuthwitRequest.data).toHaveLength(1);
+      expect(token1AuthwitRequest.data).toHaveLength(1);
 
-      const [token0AuthwitHash] = token0AuthwitRequest.message;
-      const [token1AuthwitHash] = token1AuthwitRequest.message;
+      const [token0AuthwitHash] = token0AuthwitRequest.data;
+      const [token1AuthwitHash] = token1AuthwitRequest.data;
 
       // Compute the real authwitness
       const token0Authwit = await liquidityProvider.createAuthWit({

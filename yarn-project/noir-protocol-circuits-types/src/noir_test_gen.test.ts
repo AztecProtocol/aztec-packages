@@ -1,6 +1,6 @@
-import { CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { setupCustomSnapshotSerializers } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -14,7 +14,6 @@ import {
   computePrivateFunctionsTree,
   computeSaltedInitializationHash,
 } from '@aztec/stdlib/contract';
-import { hashVK } from '@aztec/stdlib/hash';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
 describe('Data generation for noir tests', () => {
@@ -30,8 +29,8 @@ describe('Data generation for noir tests', () => {
     publicKeys: PublicKeys.default(),
     salt: new Fr(56789),
     privateFunctions: [
-      { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(0) },
-      { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(0) },
+      { selector: FunctionSelector.fromField(new Fr(1010101)), vkHash: new Fr(123123) },
+      { selector: FunctionSelector.fromField(new Fr(2020202)), vkHash: new Fr(456456) },
     ],
     toString: () => 'defaultContract',
   };
@@ -41,19 +40,23 @@ describe('Data generation for noir tests', () => {
     packedBytecode: Buffer.from([3, 4, 3, 4]),
     publicKeys: PublicKeys.default(),
     salt: new Fr(5656),
-    privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(0) }],
+    privateFunctions: [{ selector: FunctionSelector.fromField(new Fr(334455)), vkHash: new Fr(789789) }],
     toString: () => 'parentContract',
   };
 
   const constructorSelector = new FunctionSelector(999);
 
-  const contracts = [[defaultContract], [parentContract]];
+  const contracts: [FixtureContractData, string][] = [
+    [defaultContract, 'default'],
+    [parentContract, 'parent'],
+  ];
 
-  const format = (obj: object) => JSON.stringify(obj, null, 2).replaceAll('"', '');
+  const format = (obj: Record<string, string>, indent = 4) =>
+    `{\n${Object.entries(obj)
+      .map(([key, value]) => `${' '.repeat(indent)}${key}: ${value}`)
+      .join(',\n')}\n}`;
 
-  test.each(contracts)('Computes contract info for %s', async contract => {
-    const defaultVkHash = await hashVK(new Array(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS).fill(Fr.ZERO));
-    contract.privateFunctions.forEach(p => (p.vkHash = defaultVkHash));
+  test.each(contracts)('Computes contract info for %s', async (contract, namePrefix) => {
     const contractClass: ContractClass = { ...contract, version: 1 };
     const contractClassId = await computeContractClassId(contractClass);
     const initializationHash = await computeInitializationHashFromEncodedArgs(constructorSelector, []);
@@ -72,32 +75,60 @@ describe('Data generation for noir tests', () => {
     const saltedInitializationHash = await computeSaltedInitializationHash(instance);
     const partialAddress = await computePartialAddress(instance);
 
-    /* eslint-disable camelcase */
-    expect(
-      format({
-        contract_address_salt: contract.salt.toString(),
-        artifact_hash: artifactHash.toString(),
-        public_bytecode_commitment: publicBytecodeCommitment.toString(),
-        private_functions_root: privateFunctionsRoot.toString(),
-        address: `AztecAddress { inner: ${address.toString()} }`,
-        partial_address: `PartialAddress { inner: ${partialAddress.toString()} }`,
-        contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
-        public_keys: `PublicKeys { inner: ${contract.publicKeys.toString()} }`,
-        salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
-        deployer: `AztecAddress { inner: ${deployer.toString()} }`,
-      }),
-    ).toMatchSnapshot();
-    /* eslint-enable camelcase */
+    const contractData = {
+      /* eslint-disable camelcase */
+      contract_address_salt: contract.salt.toString(),
+      artifact_hash: artifactHash.toString(),
+      public_bytecode_commitment: publicBytecodeCommitment.toString(),
+      private_functions_root: privateFunctionsRoot.toString(),
+      address: `AztecAddress { inner: ${address.toString()} }`,
+      partial_address: `PartialAddress { inner: ${partialAddress.toString()} }`,
+      contract_class_id: `ContractClassId { inner: ${contractClassId.toString()} }`,
+      public_keys: `PublicKeys { inner: ${contract.publicKeys.toString()} }`,
+      salted_initialization_hash: `SaltedInitializationHash { inner: ${saltedInitializationHash.toString()} }`,
+      deployer: `AztecAddress { inner: ${deployer.toString()} }`,
+      /* eslint-enable camelcase */
+    };
+
+    expect(contractData).toMatchSnapshot();
+
+    // Use the default PublicKeys defined in noir. It should be the same as the default value defined in ts.
+    // eslint-disable-next-line camelcase
+    contractData.public_keys = 'PublicKeys::default()';
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/tests/fixtures/contracts.nr',
+      `${namePrefix}_contract`,
+      `ContractData ${format(contractData)}`,
+    );
   });
 
-  test.each(contracts)('Computes function tree for %s', async contract => {
+  it('Computes function tree for the private functions', async () => {
+    const [contract, namePrefix] = contracts[0];
     const tree = await computePrivateFunctionsTree(contract.privateFunctions);
-    expect(
-      tree.leaves.map((leaf, index) => ({
-        index,
-        leaf: leaf.toString('hex'),
-        siblingPath: tree.getSiblingPath(index).map(b => b.toString('hex')),
-      })),
-    ).toMatchSnapshot();
+
+    const index = 0;
+    const targetFunction = contract.privateFunctions[index];
+    const siblingPath = tree.getSiblingPath(index);
+    const functionData = {
+      /* eslint-disable camelcase */
+      data: `FunctionData { selector: FunctionSelector { inner: ${targetFunction.selector} }, is_private: true }`,
+      vk_hash: targetFunction.vkHash.toString(),
+      membership_witness: `MembershipWitness {
+        leaf_index: ${index},
+        sibling_path: [\n${siblingPath.map(b => `0x${b.toString('hex')}`).join(',\n')}\n],
+    }`,
+      /* eslint-enable camelcase */
+    };
+
+    expect(functionData).toMatchSnapshot();
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/types/src/tests/fixtures/contract_functions.nr',
+      `${namePrefix}_private_function`,
+      `ContractFunction ${format(functionData)}`,
+    );
   });
 });

@@ -6,7 +6,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { z } from 'zod';
 
 import { NoteSelector } from '../abi/note_selector.js';
-import { AztecAddress } from '../aztec-address/index.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import type { IsEmpty } from '../kernel/utils/interfaces.js';
 import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
@@ -15,7 +14,7 @@ import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
 import type { UInt32 } from '../types/index.js';
 import { HashedValues } from './hashed_values.js';
-import type { OffchainMessage } from './offchain_message.js';
+import type { OffchainEffect } from './offchain_effect.js';
 
 /**
  * The contents of a new note.
@@ -134,8 +133,8 @@ export class PrivateCallExecutionResult {
     public noteHashNullifierCounterMap: Map<number, number>,
     /** The raw return values of the executed function. */
     public returnValues: Fr[],
-    /** The offchain messages emitted during execution of this function call via the `emit_offchain_message` oracle. */
-    public offchainMessages: { message: Fr[]; recipient: AztecAddress }[],
+    /** The offchain effects emitted during execution of this function call via the `emit_offchain_effect` oracle. */
+    public offchainEffects: { data: Fr[] }[],
     /** The nested executions. */
     public nestedExecutionResults: PrivateCallExecutionResult[],
     /**
@@ -158,7 +157,7 @@ export class PrivateCallExecutionResult {
         newNotes: z.array(NoteAndSlot.schema),
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
-        offchainMessages: z.array(z.object({ message: z.array(schemas.Fr), recipient: AztecAddress.schema })),
+        offchainEffects: z.array(z.object({ data: z.array(schemas.Fr) })),
         nestedExecutionResults: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
@@ -175,7 +174,7 @@ export class PrivateCallExecutionResult {
       fields.newNotes,
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
-      fields.offchainMessages,
+      fields.offchainEffects,
       fields.nestedExecutionResults,
       fields.contractClassLogs,
     );
@@ -193,8 +192,7 @@ export class PrivateCallExecutionResult {
       [Fr.random()],
       [
         {
-          message: [Fr.random()],
-          recipient: await AztecAddress.random(),
+          data: [Fr.random()],
         },
       ],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
@@ -247,21 +245,21 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
 }
 
 /**
- * Collect all offchain messages emitted across all nested executions.
- * @param execResult - The execution result to collect messages from.
- * @returns Array of offchain messages.
+ * Collect all offchain effects emitted across all nested executions.
+ * @param execResult - The execution result to collect offchain effects from.
+ * @returns Array of offchain effects.
  */
-export function collectOffchainMessages(execResult: PrivateExecutionResult): OffchainMessage[] {
-  const collectMessagesRecursive = (callResult: PrivateCallExecutionResult): OffchainMessage[] => {
+export function collectOffchainEffects(execResult: PrivateExecutionResult): OffchainEffect[] {
+  const collectEffectsRecursive = (callResult: PrivateCallExecutionResult): OffchainEffect[] => {
     return [
-      ...callResult.offchainMessages.map(msg => ({
+      ...callResult.offchainEffects.map(msg => ({
         ...msg,
-        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the message
+        contractAddress: callResult.publicInputs.callContext.contractAddress, // contract that emitted the effect
       })),
-      ...callResult.nestedExecutionResults.flatMap(nested => collectMessagesRecursive(nested)),
+      ...callResult.nestedExecutionResults.flatMap(nested => collectEffectsRecursive(nested)),
     ];
   };
-  return collectMessagesRecursive(execResult.entrypoint);
+  return collectEffectsRecursive(execResult.entrypoint);
 }
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {
