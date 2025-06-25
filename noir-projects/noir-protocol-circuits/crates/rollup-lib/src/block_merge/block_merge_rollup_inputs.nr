@@ -97,10 +97,12 @@ mod tests {
     #[test(should_fail_with = "input block numbers do not follow on from each other")]
     fn previous_rollups_dont_follow_block_number() {
         let mut inputs = default_block_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
-            2;
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
-            1;
+            3;
+        // Need to change the end block number to match the start block number so that the number of blocks is 1.
+        // This is to form a balanced tree with previous_rollup_data[0], whose number of blocks is 1.
+        inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
+            3;
         let _output = inputs.block_merge_rollup_circuit();
     }
 
