@@ -10,6 +10,7 @@ import {Slot, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract ExecuteProposalTest is GovernanceProposerBase {
   Fakerollup internal validatorSelection;
@@ -229,9 +230,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     registry.addRollup(IRollup(address(freshInstance)));
 
     // The old is still there, just not executable.
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
-    assertFalse(executed);
-    assertEq(address(leader), address(proposal));
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
+    assertFalse(r.executed);
+    assertEq(address(r.leader), address(proposal));
 
     // As time is perceived differently, round 1 is currently in the future
     vm.expectRevert(
@@ -285,9 +286,9 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     vm.expectEmit(true, true, true, true, address(governanceProposer));
     emit IEmpire.ProposalExecuted(proposal, 1);
     assertTrue(governanceProposer.executeProposal(1));
-    (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);
-    assertTrue(executed);
-    assertEq(address(leader), address(proposal));
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), 1);
+    assertTrue(r.executed);
+    assertEq(address(r.leader), address(proposal));
     assertEq(governanceProposer.getProposalProposer(0), address(validatorSelection));
   }
 }

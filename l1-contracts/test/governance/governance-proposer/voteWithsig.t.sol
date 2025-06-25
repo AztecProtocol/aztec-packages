@@ -10,6 +10,7 @@ import {Fakerollup} from "./mocks/Fakerollup.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {Signature, SignatureLib__InvalidSignature} from "@aztec/shared/libraries/SignatureLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {RoundAccounting} from "@aztec/governance/proposer/EmpireBase.sol";
 
 contract VoteWithSigTest is GovernanceProposerBase {
   using MessageHashUtils for bytes32;
@@ -128,16 +129,15 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     Slot currentSlot = validatorSelection.getCurrentSlot();
     uint256 round = governanceProposer.computeRound(currentSlot);
-    (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(validatorSelection), round);
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
       votesOnProposal,
       "invalid number of votes"
     );
-    assertFalse(executed);
-    assertEq(address(leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
+    assertFalse(r.executed);
+    assertEq(address(r.leader), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
 
     vm.warp(
       Timestamp.unwrap(
@@ -185,32 +185,31 @@ contract VoteWithSigTest is GovernanceProposerBase {
 
     // Check the new instance
     {
-      (Slot lastVote, IPayload leader, bool executed) =
-        governanceProposer.rounds(address(freshInstance), freshRound);
+      RoundAccounting memory r = governanceProposer.getRoundData(address(freshInstance), freshRound);
       assertEq(
-        governanceProposer.yeaCount(address(freshInstance), freshRound, leader),
+        governanceProposer.yeaCount(address(freshInstance), freshRound, r.leader),
         1,
         "invalid number of votes"
       );
-      assertFalse(executed);
-      assertEq(address(leader), address(proposal));
-      assertEq(Slot.unwrap(freshSlot), Slot.unwrap(lastVote), "invalid slot [FRESH]");
+      assertFalse(r.executed);
+      assertEq(address(r.leader), address(proposal));
+      assertEq(Slot.unwrap(freshSlot), Slot.unwrap(r.lastVote), "invalid slot [FRESH]");
     }
 
     // The old instance
     {
-      (Slot lastVote, IPayload leader, bool executed) =
-        governanceProposer.rounds(address(validatorSelection), validatorSelectionRound);
+      RoundAccounting memory r =
+        governanceProposer.getRoundData(address(validatorSelection), validatorSelectionRound);
       assertEq(
         governanceProposer.yeaCount(address(validatorSelection), validatorSelectionRound, proposal),
         yeaBefore,
         "invalid number of votes"
       );
-      assertFalse(executed);
-      assertEq(address(leader), address(proposal));
+      assertFalse(r.executed);
+      assertEq(address(r.leader), address(proposal));
       assertEq(
         Slot.unwrap(validatorSelectionSlot),
-        Slot.unwrap(lastVote) + 1,
+        Slot.unwrap(r.lastVote) + 1,
         "invalid slot [ValidatorSelection]"
       );
     }
@@ -257,16 +256,15 @@ contract VoteWithSigTest is GovernanceProposerBase {
     emit IEmpire.VoteCast(proposal, round, proposer);
     assertTrue(governanceProposer.voteWithSig(proposal, signature));
 
-    (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(validatorSelection), round);
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
       yeaBefore + 1,
       "invalid number of votes"
     );
-    assertFalse(executed);
-    assertEq(address(leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
+    assertFalse(r.executed);
+    assertEq(address(r.leader), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
   }
 
   function test_GivenProposalHaveFeverVotesThanLeader()
@@ -293,10 +291,9 @@ contract VoteWithSigTest is GovernanceProposerBase {
     emit IEmpire.VoteCast(IPayload(address(validatorSelection)), round, proposer);
     assertTrue(governanceProposer.voteWithSig(IPayload(address(validatorSelection)), signature));
 
-    (Slot lastVote, IPayload leader, bool executed) =
-      governanceProposer.rounds(address(validatorSelection), round);
+    RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
     assertEq(
-      governanceProposer.yeaCount(address(validatorSelection), round, leader),
+      governanceProposer.yeaCount(address(validatorSelection), round, r.leader),
       leaderYeaBefore,
       "invalid number of votes"
     );
@@ -307,9 +304,9 @@ contract VoteWithSigTest is GovernanceProposerBase {
       1,
       "invalid number of votes"
     );
-    assertFalse(executed);
-    assertEq(address(leader), address(proposal));
-    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(lastVote));
+    assertFalse(r.executed);
+    assertEq(address(r.leader), address(proposal));
+    assertEq(Slot.unwrap(currentSlot), Slot.unwrap(r.lastVote));
   }
 
   function test_GivenProposalHaveMoreVotesThanLeader()
@@ -346,8 +343,7 @@ contract VoteWithSigTest is GovernanceProposerBase {
     }
 
     {
-      (Slot lastVote, IPayload leader, bool executed) =
-        governanceProposer.rounds(address(validatorSelection), round);
+      RoundAccounting memory r = governanceProposer.getRoundData(address(validatorSelection), round);
       assertEq(
         governanceProposer.yeaCount(
           address(validatorSelection), round, IPayload(address(validatorSelection))
@@ -355,14 +351,14 @@ contract VoteWithSigTest is GovernanceProposerBase {
         leaderYeaBefore + 1,
         "invalid number of votes"
       );
-      assertFalse(executed);
-      assertEq(address(leader), address(validatorSelection));
+      assertFalse(r.executed);
+      assertEq(address(r.leader), address(validatorSelection));
       assertEq(
         governanceProposer.yeaCount(address(validatorSelection), round, proposal),
         leaderYeaBefore,
         "invalid number of votes"
       );
-      assertEq(Slot.unwrap(lastVote), Slot.unwrap(currentSlot) + leaderYeaBefore);
+      assertEq(Slot.unwrap(r.lastVote), Slot.unwrap(currentSlot) + leaderYeaBefore);
     }
   }
 

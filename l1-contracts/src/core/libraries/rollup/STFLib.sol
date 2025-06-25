@@ -2,16 +2,18 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {
-  RollupStore, IRollupCore, BlockLog, GenesisState
-} from "@aztec/core/interfaces/IRollup.sol";
+import {RollupStore, IRollupCore, GenesisState} from "@aztec/core/interfaces/IRollup.sol";
+import {BlockLogLib, BlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 
 library STFLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
+  using BlockLogLib for BlockLog;
+  using CompressedTimeMath for CompressedSlot;
 
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
@@ -27,7 +29,7 @@ library STFLib {
       headerHash: 0,
       blobCommitmentsHash: 0,
       slotNumber: Slot.wrap(0)
-    });
+    }).compress();
   }
 
   function prune() internal {
@@ -56,7 +58,7 @@ library STFLib {
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
     );
-    return rollupStore.blocks[_blockNumber].slotNumber.epochFromSlot();
+    return rollupStore.blocks[_blockNumber].slotNumber.decompress().epochFromSlot();
   }
 
   function canPruneAtTime(Timestamp _ts) internal view returns (bool) {
