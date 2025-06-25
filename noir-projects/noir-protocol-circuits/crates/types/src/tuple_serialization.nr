@@ -1,5 +1,6 @@
 use crate::traits::{Deserialize, Serialize};
 
+// Create a slice of the given length with each element made from `f(i)` where `i` is the current index
 comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
     let mut slice = &[];
     for i in 0..length {
@@ -8,6 +9,7 @@ comptime fn make_slice<Env, T>(length: u32, f: fn[Env](u32) -> T) -> [T] {
     slice
 }
 
+// Map a function over two arrays of equal length, producing a new array
 comptime fn map2<Env, T, U, R>(slice1: [T], slice2: [U], f: fn[Env](T, U) -> R) -> [R] {
     assert_eq(slice1.len(), slice2.len());
     let mut result = &[];
