@@ -45,10 +45,6 @@ library TimeLib {
     return Slot.wrap((Timestamp.unwrap(_a) - store.genesisTime) / store.slotDuration);
   }
 
-  function positionInEpoch(Slot _a) internal view returns (uint256) {
-    return Slot.unwrap(_a) % getStorage().epochDuration;
-  }
-
   function toSlots(Epoch _a) internal view returns (Slot) {
     return Slot.wrap(Epoch.unwrap(_a) * getStorage().epochDuration);
   }
