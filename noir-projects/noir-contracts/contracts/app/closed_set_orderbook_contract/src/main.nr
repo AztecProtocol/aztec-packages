@@ -100,6 +100,7 @@ pub contract ClosedSetOrderbook {
 
         // Create the order (this validates the input tokens and amounts).
         let order = OrderNote::new(
+            order_id,
             config,
             order_nullificator,
             maker,
@@ -120,5 +121,31 @@ pub contract ClosedSetOrderbook {
         // (and the nullifier key) and hence will see when the order note is emitted.
 
         order_id
+    }
+
+    /// Privately fulfills an existing order in the orderbook
+    /// The taker provides the order ID they want to fulfill
+    #[private]
+    fn fulfill_order(order_id: Field, authwit_nonce: Field) {
+        let config = storage.config.get_current_value();
+        let order = storage.orders.at(order_id).get_note();
+        let taker = context.msg_sender();
+
+        // Determine which tokens are being exchanged based on bid_token_is_zero flag
+        let (bid_token, ask_token) = config.get_tokens(order.bid_token_is_zero);
+
+        // TODO: Transfer the fee denominated in bid_token to the fee collector here.
+
+        // Transfer the ask_amount from taker directly to the maker
+        Token::at(ask_token)
+            .transfer_in_private(taker, order.maker, order.ask_amount, authwit_nonce)
+            .call(&mut context);
+
+        // Transfer the bid_amount from this contract's private balance to the taker
+        // Note that we cannot use the hyper-optimized `Token::transfer` function here because we need constrained
+        // delivery.
+        Token::at(bid_token)
+            .transfer_in_private(context.this_address(), taker, order.bid_amount, authwit_nonce)
+            .call(&mut context);
     }
 }

@@ -4,9 +4,14 @@ use aztec::{macros::notes::note, prelude::AztecAddress};
 // TODO: Current macros would not pack this efficiently. Add manual Packable impl. or optimize the macros.
 #[note]
 pub struct OrderNote {
-    // The following is the "nullificator" of the order note meaning that nullificator's nullifier key will be used
-    // to compute the nullifier. Using the name "owner" here as `#[note]` macro requires "owner" field to be present
-    // in the note struct.
+    // A unique identifier for this order, stored within the note itself as it's needed to fulfill the order.
+    // This field could potentially be removed if we opt to communicate the order ID through event emission instead.
+    pub order_id: Field,
+    // The "nullificator" address whose nullifier key will be used to compute this note's nullifier.
+    // This field is named "owner" to satisfy the `#[note]` macro's requirement of having an "owner" field.
+    // The term 'nullificator' more precisely describes this field's role, as it represents an entity that can only
+    // nullify the note. This differs from an 'owner' which traditionally has both nullification and viewing
+    // privileges. Hence using 'owner' here is a bit misleading.
     pub owner: AztecAddress,
     // The order maker (who submitted the order). Used to send the `ask_token` note to the maker when the order is
     // fulfilled.
@@ -23,6 +28,7 @@ pub struct OrderNote {
 
 impl OrderNote {
     pub fn new(
+        order_id: Field,
         config: Config,
         owner: AztecAddress,
         maker: AztecAddress,
@@ -36,7 +42,7 @@ impl OrderNote {
 
         let bid_token_is_zero =
             config.validate_input_tokens_and_get_direction(bid_token, ask_token);
-        Self { owner, maker, bid_amount, ask_amount, bid_token_is_zero }
+        Self { order_id, owner, maker, bid_amount, ask_amount, bid_token_is_zero }
     }
 }
 
