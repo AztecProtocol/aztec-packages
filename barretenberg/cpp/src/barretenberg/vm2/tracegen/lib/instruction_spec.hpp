@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::tracegen {
@@ -20,7 +21,7 @@ enum class SubtraceSel : uint8_t {
 
 struct SubtraceInfo {
     SubtraceSel subtrace_selector;
-    uint8_t subtrace_operation_id;
+    uint128_t subtrace_operation_id;
 };
 
 // This builder is used to generate the register information based on the number of inputs and outputs.

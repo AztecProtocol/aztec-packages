@@ -57,14 +57,14 @@ struct KeyEquals {
  * variable wasn't constrained properly. If the number of connected components > 1, it means that there were some missed
  * connections between variables.
  */
-template <typename FF> class Graph_ {
+template <typename FF> class StaticAnalyzer_ {
   public:
-    Graph_() = default;
-    Graph_(const Graph_& other) = delete;
-    Graph_(Graph_&& other) = delete;
-    Graph_& operator=(const Graph_& other) = delete;
-    Graph_&& operator=(Graph_&& other) = delete;
-    Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
+    StaticAnalyzer_() = default;
+    StaticAnalyzer_(const StaticAnalyzer_& other) = delete;
+    StaticAnalyzer_(StaticAnalyzer_&& other) = delete;
+    StaticAnalyzer_& operator=(const StaticAnalyzer_& other) = delete;
+    StaticAnalyzer_&& operator=(StaticAnalyzer_&& other) = delete;
+    StaticAnalyzer_(bb::UltraCircuitBuilder& ultra_circuit_constructor, bool connect_variables = true);
 
     /**
      * @brief Convert a vector of variable indices to their real indices
@@ -88,10 +88,7 @@ template <typename FF> class Graph_ {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
     size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
-    void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
-                                std::vector<uint32_t>& gate_variables,
-                                size_t gate_index,
-                                size_t blk_idx);
+    void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
     std::unordered_map<uint32_t, size_t> get_variables_gate_counts() { return this->variables_gate_counts; };
 
     std::vector<std::vector<uint32_t>> get_arithmetic_gate_connected_component(
@@ -180,7 +177,7 @@ template <typename FF> class Graph_ {
     void print_variables_gate_counts();
     void print_variables_edge_counts();
     void print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx);
-    ~Graph_() = default;
+    ~StaticAnalyzer_() = default;
 
   private:
     std::unordered_map<uint32_t, std::vector<uint32_t>>
@@ -197,6 +194,6 @@ template <typename FF> class Graph_ {
     std::unordered_set<uint32_t> fixed_variables;
 };
 
-using Graph = Graph_<bb::fr>;
+using StaticAnalyzer = StaticAnalyzer_<bb::fr>;
 
 } // namespace cdg
