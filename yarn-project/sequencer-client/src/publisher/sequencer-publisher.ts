@@ -16,7 +16,7 @@ import {
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
-  type ViemCommitteeAttestation,
+  type ViemCommitteeAttestations,
   type ViemHeader,
   type ViemStateReference,
   formatViemError,
@@ -306,7 +306,7 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      [] as ViemCommitteeAttestation[],
+      RollupContract.packAttestations([]),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -383,7 +383,7 @@ export class SequencerPublisher {
           feeAssetPriceModifier: 0n,
         },
       },
-      formattedAttestations,
+      RollupContract.packAttestations(formattedAttestations),
       blobInput,
     ] as const;
 
@@ -593,7 +593,7 @@ export class SequencerPublisher {
         },
         txHashes,
       },
-      attestations,
+      RollupContract.packAttestations(attestations),
       blobInput,
     ] as const;
 
@@ -619,7 +619,7 @@ export class SequencerPublisher {
           readonly feeAssetPriceModifier: 0n;
         };
       },
-      ViemCommitteeAttestation[],
+      ViemCommitteeAttestations,
       `0x${string}`,
     ],
     timestamp: bigint,

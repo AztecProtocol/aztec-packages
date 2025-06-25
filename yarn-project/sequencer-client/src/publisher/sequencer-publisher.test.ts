@@ -9,7 +9,7 @@ import {
   type L1ContractsConfig,
   type L1TxUtilsConfig,
   Multicall3,
-  type RollupContract,
+  RollupContract,
   type SlashingProposerContract,
   defaultL1TxUtilsConfig,
   getL1ContractsConfigEnvVars,
@@ -238,7 +238,7 @@ describe('SequencerPublisher', () => {
         },
         txHashes: [],
       },
-      [],
+      RollupContract.packAttestations([]),
       blobInput,
     ] as const;
     expect(forwardSpy).toHaveBeenCalledWith(

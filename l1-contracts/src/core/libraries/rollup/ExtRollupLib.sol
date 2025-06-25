@@ -7,7 +7,9 @@ import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/
 import {Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
-import {ProposeLib, ProposeArgs, CommitteeAttestation, ValidateHeaderArgs} from "./ProposeLib.sol";
+import {
+  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs
+} from "./ProposeLib.sol";
 
 // We are using this library such that we can more easily "link" just a larger external library
 // instead of a few smaller ones.
@@ -24,7 +26,7 @@ library ExtRollupLib {
 
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
