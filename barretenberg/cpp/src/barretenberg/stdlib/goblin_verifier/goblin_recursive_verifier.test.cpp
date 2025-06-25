@@ -19,7 +19,6 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
     using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
-    using OuterDeciderVerificationkey = DeciderVerificationKey_<OuterFlavor>;
 
     using Commitment = MergeVerifier::Commitment;
     using RecursiveCommitment = GoblinRecursiveVerifier::MergeVerifier::Commitment;

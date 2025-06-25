@@ -81,8 +81,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         honk_proof = proof;
     }
     transcript->load_proof(honk_proof);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1364): Improve VKs. Clarify the usage of
-    // RecursiveDeciderVK here. Seems unnecessary.
     OinkVerifier oink_verifier{ builder, key, transcript };
     oink_verifier.verify();
 

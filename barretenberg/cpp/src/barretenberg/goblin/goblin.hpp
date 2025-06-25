@@ -96,8 +96,8 @@ class Goblin {
      */
     PairingPoints recursively_verify_merge(
         MegaBuilder& builder,
-        RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES> t_commitments,
-        std::shared_ptr<Goblin::RecursiveTranscript>& transcript);
+        const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+        const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -110,7 +110,7 @@ class Goblin {
      * @return false
      */
     static bool verify(const GoblinProof& proof,
-                       const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES> t_commitments,
+                       const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
                        const std::shared_ptr<Transcript>& transcript);
 };
 

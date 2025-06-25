@@ -47,7 +47,7 @@ class UltraCircuitChecker {
     using LookupHashTable = std::unordered_set<Key, HashFunction>;
 
     /**
-     * @brief Copy the builder and finalizes it before checking its validity
+     * @brief Copy the builder and finalize it before checking its validity
      *
      * @tparam Builder
      * @param builder

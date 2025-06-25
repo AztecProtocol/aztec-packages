@@ -28,7 +28,7 @@ MergeVerifier::MergeVerifier(const std::shared_ptr<Transcript>& transcript)
  * shares a transcript
  * @return bool Verification result
  */
-bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES> t_commitments)
+bool MergeVerifier::verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments)
 {
     transcript->load_proof(proof);
 

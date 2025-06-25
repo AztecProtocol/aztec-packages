@@ -28,7 +28,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using DeciderVK = DeciderVerificationKey_<typename Flavor::NativeFlavor>;
     using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;

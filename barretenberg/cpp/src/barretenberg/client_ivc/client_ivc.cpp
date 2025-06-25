@@ -8,11 +8,8 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
-#include "barretenberg/protogalaxy/folding_test_utils.hpp" /// DEBUGGING
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/ultra_honk/merge_verifier.hpp" /// DEBUGGING
 #include "barretenberg/ultra_honk/oink_prover.hpp"
-#include "barretenberg/ultra_honk/oink_verifier.hpp" /// DEBUGGING
 
 namespace bb {
 
@@ -403,9 +400,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega,
-                            /*ipa_verification_key=*/{},
-                            civc_verifier_transcript };
+    MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)

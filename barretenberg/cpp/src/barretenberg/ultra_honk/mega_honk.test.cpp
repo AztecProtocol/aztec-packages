@@ -38,8 +38,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      * @brief Construct and a verify a Honk proof
      *
      */
-    bool construct_and_verify_honk_proof(std::shared_ptr<DeciderProvingKey>& proving_key,
-                                         std::shared_ptr<DeciderVerificationKey>& verification_key)
+    bool construct_and_verify_honk_proof(auto& proving_key, auto& verification_key)
     {
         Prover prover(proving_key, verification_key->verification_key);
         Verifier verifier(verification_key->verification_key);

@@ -74,8 +74,8 @@ GoblinProof Goblin::prove()
 
 Goblin::PairingPoints Goblin::recursively_verify_merge(
     MegaBuilder& builder,
-    RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES> t_commitments,
-    std::shared_ptr<Goblin::RecursiveTranscript>& transcript)
+    const RefArray<MergeRecursiveVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
+    const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     ASSERT(!merge_verification_queue.empty());
     // Recursively verify the next merge proof in the verification queue in a FIFO manner
@@ -91,7 +91,7 @@ Goblin::PairingPoints Goblin::recursively_verify_merge(
 }
 
 bool Goblin::verify(const GoblinProof& proof,
-                    const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES> t_commitments,
+                    const RefArray<MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments,
                     const std::shared_ptr<Transcript>& transcript)
 {
     MergeVerifier merge_verifier(transcript);

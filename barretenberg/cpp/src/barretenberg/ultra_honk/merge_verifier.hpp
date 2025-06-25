@@ -38,7 +38,7 @@ class MergeVerifier {
     std::array<Commitment, NUM_WIRES> T_commitments;
 
     explicit MergeVerifier(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES> t_commitments);
+    bool verify_proof(const HonkProof& proof, const RefArray<Commitment, NUM_WIRES>& t_commitments);
 };
 
 } // namespace bb
