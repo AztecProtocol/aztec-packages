@@ -36,6 +36,8 @@ struct PrivateExecutionStepRaw {
     static std::vector<PrivateExecutionStepRaw> load_and_decompress(const std::filesystem::path& input_path);
     static std::vector<PrivateExecutionStepRaw> load(const std::filesystem::path& input_path);
     static std::vector<PrivateExecutionStepRaw> parse_uncompressed(const std::vector<uint8_t>& buf);
+    static void compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,
+                                  const std::filesystem::path& output_path);
 };
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a common code path with
