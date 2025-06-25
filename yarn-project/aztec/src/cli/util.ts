@@ -14,13 +14,54 @@ import type { Command } from 'commander';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
+export const enum ExitCode {
+  SUCCESS = 0,
+  ERROR = 1,
+  ROLLUP_UPGRADE = 78, // EX_CONFIG from FreeBSD (https://man.freebsd.org/cgi/man.cgi?query=sysexits)
+  VERSION_UPGRADE = 79, // prev + 1 because there's nothing better
+  // 128 + int(SIGNAL)
+  SIGHUP = 129,
+  SIGINT = 130,
+  SIGQUIT = 131,
+  SIGTERM = 143,
+}
+
+let shutdownPromise: Promise<never> | undefined;
+export function shutdown(logFn: LogFn, exitCode: ExitCode, cb?: Array<() => Promise<void>>): Promise<never> {
+  if (shutdownPromise) {
+    logFn('Already shutting down.');
+    return shutdownPromise;
+  }
+
+  logFn('Shutting down...', { exitCode });
+  if (cb) {
+    shutdownPromise = Promise.allSettled(cb).then(() => process.exit(exitCode));
+  } else {
+    // synchronously shuts down the process
+    // no need to set shutdownPromise on this branch of the if statement because no more code will be executed
+    process.exit(exitCode);
+  }
+
+  return shutdownPromise;
+}
+
+export function isShuttingDown(): boolean {
+  return shutdownPromise !== undefined;
+}
+
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  process.removeAllListeners('SIGINT');
-  process.removeAllListeners('SIGTERM');
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGINT', () => shutdown(logFn, cb));
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGTERM', () => shutdown(logFn, cb));
+  const signals = [
+    ['SIGINT', ExitCode.SIGINT],
+    ['SIGTERM', ExitCode.SIGTERM],
+    ['SIGHUP', ExitCode.SIGHUP],
+    ['SIQUIT', ExitCode.SIGQUIT],
+  ] as const;
+
+  for (const [signal, exitCode] of signals) {
+    process.removeAllListeners(signal);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    process.once(signal, () => shutdown(logFn, exitCode, cb));
+  }
 };
 
 /**
@@ -262,6 +303,10 @@ export async function setupUpdateMonitor(
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('newRollupVersion', async ({ latestVersion, currentVersion }) => {
+    if (isShuttingDown()) {
+      return;
+    }
+
     // if node follows canonical rollup then this is equivalent to a config update
     if (!followsCanonicalRollup) {
       return;
@@ -269,7 +314,7 @@ export async function setupUpdateMonitor(
 
     if (autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') {
       logger.info(`New rollup version detected. Please restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, signalHandlers);
+      await shutdown(logger.info, ExitCode.ROLLUP_UPGRADE, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.warn(`New rollup detected. Please restart the node`, { latestVersion, currentVersion });
     }
@@ -277,9 +322,12 @@ export async function setupUpdateMonitor(
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('newNodeVersion', async ({ latestVersion, currentVersion }) => {
+    if (isShuttingDown()) {
+      return;
+    }
     if (autoUpdateMode === 'config-and-version') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
-      await shutdown(logger.info, signalHandlers);
+      await shutdown(logger.info, ExitCode.VERSION_UPGRADE, signalHandlers);
     } else if (autoUpdateMode === 'notify') {
       logger.info(`New node version detected. Please update and restart the node`, { latestVersion, currentVersion });
     }
@@ -287,6 +335,10 @@ export async function setupUpdateMonitor(
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   checker.on('updateNodeConfig', async config => {
+    if (isShuttingDown()) {
+      return;
+    }
+
     if ((autoUpdateMode === 'config' || autoUpdateMode === 'config-and-version') && updateNodeConfig) {
       logger.warn(`Config change detected. Updating node`, config);
       try {
@@ -318,12 +370,4 @@ export async function setupUpdateMonitor(
   });
 
   checker.start();
-}
-
-export async function shutdown(logFn: LogFn, cb?: Array<() => Promise<void>>) {
-  logFn('Shutting down...');
-  if (cb) {
-    await Promise.all(cb);
-  }
-  process.exit(0);
 }
