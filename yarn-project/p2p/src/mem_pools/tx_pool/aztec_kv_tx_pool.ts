@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -12,17 +13,18 @@ import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
+import EventEmitter from 'node:events';
 
 import { ArchiveCache } from '../../msg_validators/tx_validator/archive_cache.js';
 import { GasTxValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
-import type { TxPool, TxPoolOptions } from './tx_pool.js';
+import type { TxPool, TxPoolEvents, TxPoolOptions } from './tx_pool.js';
 
 /**
  * KV implementation of the Transaction Pool.
  */
-export class AztecKVTxPool implements TxPool {
+export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<TxPoolEvents>) implements TxPool {
   #store: AztecAsyncKVStore;
 
   /** Our tx pool, stored as a Map, with K: tx hash and V: the transaction. */
@@ -90,6 +92,8 @@ export class AztecKVTxPool implements TxPool {
     config: TxPoolOptions = {},
     log = createLogger('p2p:tx_pool'),
   ) {
+    super();
+
     this.#log = log;
     this.updateConfig(config);
 
@@ -276,8 +280,8 @@ export class AztecKVTxPool implements TxPool {
    * @param txs - An array of txs to be added to the pool.
    * @returns Empty promise.
    */
-  public async addTxs(txs: Tx[]): Promise<number> {
-    let addedCount = 0;
+  public async addTxs(txs: Tx[], opts: { source?: string } = {}): Promise<number> {
+    const addedTxs: Tx[] = [];
     const hashesAndStats = await Promise.all(
       txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
     );
@@ -298,9 +302,9 @@ export class AztecKVTxPool implements TxPool {
           } satisfies TxAddedToPoolStats);
 
           await this.#txs.set(key, tx.toBuffer());
+          addedTxs.push(tx);
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
-            addedCount++;
             pendingTxSize += tx.getSize();
             await this.addPendingTxIndices(tx, key);
             this.#metrics.recordSize(tx);
@@ -312,7 +316,10 @@ export class AztecKVTxPool implements TxPool {
       await this.evictLowPriorityTxs(hashesAndStats.map(({ txHash }) => txHash));
     });
 
-    return addedCount;
+    if (addedTxs.length > 0) {
+      this.emit('txs-added', { ...opts, txs: addedTxs });
+    }
+    return addedTxs.length;
   }
 
   /**

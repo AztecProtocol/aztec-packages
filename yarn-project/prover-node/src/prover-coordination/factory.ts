@@ -2,6 +2,7 @@ import type { ArchiveSource, Archiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
+import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { createP2PClient } from '@aztec/p2p';
@@ -78,6 +79,7 @@ export async function createProverCoordination(
     deps.worldStateSynchronizer,
     deps.epochCache,
     getPackageVersion() ?? '',
+    new DateProvider(),
     deps.telemetry,
   );
   await p2pClient.start();

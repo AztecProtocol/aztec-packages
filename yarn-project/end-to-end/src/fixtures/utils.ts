@@ -904,6 +904,7 @@ export function createAndSyncProverNode(
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 10,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
       ...proverNodeConfig,
     };

@@ -1,3 +1,4 @@
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
@@ -6,16 +7,20 @@ export type TxPoolOptions = {
   archivedTxLimit?: number;
 };
 
+export type TxPoolEvents = {
+  ['txs-added']: (args: { txs: Tx[]; source?: string }) => void | Promise<void>;
+};
+
 /**
  * Interface of a transaction pool. The pool includes tx requests and is kept up-to-date by a P2P client.
  */
-export interface TxPool {
+export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
   /**
    * Adds a list of transactions to the pool. Duplicates are ignored.
    * @param txs - An array of txs to be added to the pool.
    * @returns The number of txs added to the pool. Note if the transaction already exists, it will not be added again.
    */
-  addTxs(txs: Tx[]): Promise<number>;
+  addTxs(txs: Tx[], opts?: { source?: string }): Promise<number>;
 
   /**
    * Checks if a transaction exists in the pool and returns it.

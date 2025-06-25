@@ -45,6 +45,7 @@ export type SpecificProverNodeConfig = {
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
   proverNodeFailedEpochStore: string | undefined;
+  txGatheringTimeoutMs: number;
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
@@ -85,6 +86,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeCon
     env: 'PROVER_NODE_TX_GATHERING_MAX_PARALLEL_REQUESTS_PER_NODE',
     description: 'How many tx requests to make in parallel to each node',
     ...numberConfigHelper(100),
+  },
+  txGatheringTimeoutMs: {
+    env: 'PROVER_NODE_TX_GATHERING_TIMEOUT_MS',
+    description: 'How long to wait for tx data to be available before giving up',
+    ...numberConfigHelper(120_000),
   },
 };
 

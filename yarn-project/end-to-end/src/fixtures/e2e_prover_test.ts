@@ -303,6 +303,7 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringBatchSize: 10,
       txGatheringMaxParallelRequestsPerNode: 100,
+      txGatheringTimeoutMs: 24_000,
       proverNodeFailedEpochStore: undefined,
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();

@@ -216,10 +216,13 @@ export const NODEJS_MEMORY_HEAP_TOTAL = 'nodejs.memory.v8_heap.total';
 export const NODEJS_MEMORY_NATIVE_USAGE = 'nodejs.memory.native.usage';
 export const NODEJS_MEMORY_BUFFER_USAGE = 'nodejs.memory.array_buffer.usage';
 
-export const TX_COLLECTOR_TXS_FROM_PROPOSALS_COUNT = 'aztec.tx_collector.txs_from_proposal_count';
-export const TX_COLLECTOR_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_mempool_count';
-export const TX_COLLECTOR_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
-export const TX_COLLECTOR_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';
+export const TX_PROVIDER_TXS_FROM_PROPOSALS_COUNT = 'aztec.tx_collector.txs_from_proposal_count';
+export const TX_PROVIDER_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_mempool_count';
+export const TX_PROVIDER_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
+export const TX_PROVIDER_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';
+
+export const TX_COLLECTOR_COUNT = 'aztec.tx_collection.tx_count';
+export const TX_COLLECTOR_DURATION = 'aztec.tx_collection.duration_ms';
 
 export const IVC_VERIFIER_TIME = 'aztec.ivc_verifier.time';
 export const IVC_VERIFIER_TOTAL_TIME = 'aztec.ivc_verifier.total_time';
