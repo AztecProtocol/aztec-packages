@@ -229,7 +229,7 @@ mod tests {
                 dimensions,
                 padded_side_effects: PaddedSideEffects::empty(),
                 }
-            }
+        }
 
         pub fn with_siloing(&mut self) -> Self {
             self.dimensions.note_hash_siloing = NOTE_HASH_SILOING_AMOUNT;
