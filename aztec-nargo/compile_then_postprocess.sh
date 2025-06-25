@@ -39,11 +39,19 @@ for artifact in $artifacts_to_process; do
   for fn_index in $private_fn_indices; do
     fn_name=$(jq -r ".functions[$fn_index].name" "$artifact")
     fn_artifact=$(jq -r ".functions[$fn_index]" "$artifact")
-    fn_artifact_path="$artifact.function_artifact_$fn_index.json"
-    echo "$fn_artifact" > "$fn_artifact_path"
+    fn_artifact_hash=$(echo "$fn_artifact" | sha256sum | cut -d' ' -f1)
 
     # Temporary file to capture the base64 encoded verification key.
-    vk_tmp="$artifact.verification_key_$fn_index.tmp"
+    vk_tmp="$artifact.verification_key_$fn_artifact_hash.tmp"
+
+    # Don't regenerate if vk_tmp exists
+    if [ -f "$vk_tmp" ]; then
+      echo "Verification key for function $fn_name already exists"
+      continue
+    fi
+
+    fn_artifact_path="$artifact.function_artifact_$fn_artifact_hash.json"
+    echo "$fn_artifact" >"$fn_artifact_path"
 
     # Construct the command:
     # The BB call is wrapped by GNU parallel's memsuspend (active memory-based suspension)
@@ -57,11 +65,12 @@ for artifact in $artifacts_to_process; do
 
   # Now, update the artifact sequentially with each generated verification key.
   for fn_index in $private_fn_indices; do
-    vk_tmp="$artifact.verification_key_$fn_index.tmp"
+    fn_artifact=$(jq -r ".functions[$fn_index]" "$artifact")
+    fn_artifact_hash=$(echo "$fn_artifact" | sha256sum | cut -d' ' -f1)
+    vk_tmp="$artifact.verification_key_$fn_artifact_hash.tmp"
     verification_key=$(cat "$vk_tmp")
     # Update the artifact with the new verification key.
-    jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" > "$artifact.tmp"
+    jq ".functions[$fn_index].verification_key = \"$verification_key\"" "$artifact" >"$artifact.tmp"
     mv "$artifact.tmp" "$artifact"
-    rm "$vk_tmp"
   done
 done
