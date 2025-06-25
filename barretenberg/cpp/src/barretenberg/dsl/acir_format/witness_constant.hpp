@@ -50,7 +50,7 @@ template <typename Builder, typename FF> FF get_value(const WitnessOrConstant<FF
     if (input.is_constant) {
         return input.value;
     }
-    return builder.variables[input.index];
+    return builder.get_variable(input.index);
 }
 
 } // namespace acir_format
