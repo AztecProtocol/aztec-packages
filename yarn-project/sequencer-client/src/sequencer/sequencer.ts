@@ -140,7 +140,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Updates sequencer config.
+   * Updates sequencer config by the defined values in the config on input.
    * @param config - New parameters.
    */
   public updateConfig(config: SequencerConfig) {
@@ -158,9 +158,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (config.minTxsPerBlock !== undefined) {
       this.minTxsPerBlock = config.minTxsPerBlock;
     }
-    if (config.publishTxsWithProposals !== undefined) {
-      this.config.publishTxsWithProposals = config.publishTxsWithProposals;
-    }
     if (config.maxDABlockGas !== undefined) {
       this.maxBlockGas = new Gas(config.maxDABlockGas, this.maxBlockGas.l2Gas);
     }
@@ -173,15 +170,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
-    }
-    if (config.acvmWorkingDirectory !== undefined) {
-      this.config.acvmWorkingDirectory = config.acvmWorkingDirectory;
-    }
-    if (config.acvmBinaryPath !== undefined) {
-      this.config.acvmBinaryPath = config.acvmBinaryPath;
-    }
-    if (config.txPublicSetupAllowList !== undefined) {
-      this.config.txPublicSetupAllowList = config.txPublicSetupAllowList;
     }
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
@@ -197,6 +185,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.setTimeTable();
+
+    // TODO: Just read everything from the config object as needed instead of copying everything into local vars.
+
+    // Update all values on this.config that are populated in the config object.
+    Object.assign(this.config, config);
   }
 
   private setTimeTable() {
