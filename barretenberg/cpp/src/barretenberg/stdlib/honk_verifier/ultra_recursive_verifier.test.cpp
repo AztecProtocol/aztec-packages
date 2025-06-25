@@ -206,6 +206,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        verifier.transcript->enable_manifest();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         output.points_accumulator.set_public();
@@ -221,6 +222,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // verifier and check that the result agrees.
         bool native_result;
         InnerVerifier native_verifier(verification_key);
+        native_verifier.transcript->enable_manifest();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
             native_result = native_verifier.verify_proof(inner_proof, convert_stdlib_proof_to_native(output.ipa_proof));

@@ -600,47 +600,54 @@ template <typename TranscriptParams> class BaseTranscript {
      * state. In this way, computations that are not part of the prover's transcript (e.g., computations that can be
      * used to perform calculations more efficiently) will not affect the verifier's transcript.
      *
+     * If `transcript = (.., previous_challenge)`, then for soundness it is enough that `branched_transcript =
+     * (previous_challenge, ...)` However, there are a few implementation details we need to take into account:
+     *  1. `branched_transcript` will interact with witnesses that come from `transcript`. To prevent the tool that
+     *      detects FS bugs from raising an error, we must ensure that `branched_transcript.transcript_index =
+     *      transcript.transcript_index`.
+     *  2. To aid debugging, we set `branched_transcript.round_index = transcript.round_index`, so that it is clear that
+     *      `branched_transcript` builds on the current state of `transcript`.
+     *  3. To aid debugging, we increase `transcript.round_index` by `BRANCHING_JUMP`, so that there is a gap between
+     *      what happens before and after the transcript is branched.
+     *  4. To ensure soundness:
+     *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
+     *      b. We enforce ASSERT(current_round_data.empty())
+     *
+     * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
+     * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
+     * round in `transcript` is not finished yet). There seems to be no reason why the branching cannot happen after the
+     * round is concluded, so we choose this implementation.
+     *
      * The relation between the transcript and the branched transcript is the following:
      *
-     * round_index      transcript      branched_transcript
-     *      0               *
-     *      1               |
-     *      |               |
-     *      |               |
-     *      n               * ================= *
-     *      |                                   |
-     *      |                                   |
-     *      |                                   |
-     *     n+5              *                   |
-     *     n+6              |                   |
-     *      |               |                   |
-     *     ...             ...                 ...
+     *   round_index      transcript      branched_transcript
+     *        0               *
+     *        1               |
+     *        |               |
+     *        |               |
+     *        n               * ================= *
+     *        |                                   |
+     *        |                                   |
+     *        |                                   |
+     * n+BRANCHING_JUMP       *                   |
+     *       n+6              |                   |
+     *        |               |                   |
+     *       ...             ...                 ...
      *
      *
-     * In this way, we can distinguish between operations that happen in the transcript before/after branching.
      * @return BaseTranscript
      */
     BaseTranscript branch_transcript()
     {
-        // This is an implementation choice that simplifies tracking which operations happen before/after branching.
-        ASSERT(current_round_data.size() == 0, "Branching a transcript with non empty round data");
+        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
 
-        /*
-         * Create the branched transcript. The requirements are:
-         *  - branched_transcript.unique_transcript_index = unique_transcript_index, so that we don't get false errors
-         * of witnesses from different transcripts interacting
-         *  - branched_transcript.round_index = round_index, so that it is clear that branched_transcript builds on the
-         * status of the original transcript at this round_index
-         *  - branched_transcript.current_round_data = { previous_challenge }, so that the branched transcripts builds
-         * on the previous one
-         *  - round_index += 5, so that it is clear what is done in the original transcript after branching
-         */
         BaseTranscript branched_transcript;
 
+        // Need to fetch_sub because the constructor automatically increases unique_transcript_index by 1
         branched_transcript.transcript_index = unique_transcript_index.fetch_sub(1);
         branched_transcript.round_index = round_index;
         branched_transcript.add_to_hash_buffer("init", previous_challenge);
-        round_index += 5;
+        round_index += BRANCHING_JUMP;
 
         return branched_transcript;
     }
