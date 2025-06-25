@@ -133,7 +133,7 @@ describe('mempool limiter test', () => {
     const proventx = await token.methods
       .transfer_in_public(wallet.getAddress(), await AztecAddress.random(), 1, 0)
       .prove({ fee });
-    sampleTx = proventx.getPlainDataTx();
+    sampleTx = proventx;
     const sampleTxSize = sampleTx.getSize();
     const maxTxPoolSize = TX_MEMPOOL_LIMIT * sampleTxSize;
 
