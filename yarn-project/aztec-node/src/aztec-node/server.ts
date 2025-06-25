@@ -13,6 +13,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import {
   type ExtendedViemWalletClient,
   type L1ContractAddresses,
+  NULL_KEY,
   RegistryContract,
   RollupContract,
   createEthereumChain,
@@ -335,7 +336,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let l1TxUtils: L1TxUtilsWithBlobs | undefined;
     let l1Client: ExtendedViemWalletClient | undefined;
 
-    if (config.publisherPrivateKey) {
+    if (config.publisherPrivateKey?.getValue() && config.publisherPrivateKey.getValue() !== NULL_KEY) {
       // we can still run a slasher client if a private key is provided
       l1Client = createExtendedL1Client(
         config.l1RpcUrls,
@@ -350,7 +351,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // Validator enabled, create/start relevant service
     if (!config.disableValidator) {
       // This shouldn't happen, validators need a publisher private key.
-      if (!config.publisherPrivateKey) {
+      if (!config.publisherPrivateKey?.getValue() || config.publisherPrivateKey?.getValue() === NULL_KEY) {
         throw new Error('A publisher private key is required to run a validator');
       }
 
