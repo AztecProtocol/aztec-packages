@@ -9,6 +9,8 @@
 
 namespace bb::avm2::simulation {
 
+constexpr uint32_t MAX_MEM_ADDR = AVM_HIGHEST_MEM_ADDRESS;
+
 namespace {
 
 DataCopyEvent create_cd_event(ContextInterface& context,
@@ -77,6 +79,15 @@ uint64_t DataCopy::min(uint64_t a, uint64_t b)
 }
 
 /**
+ * Notes on DataCopy:
+ * The simulation for DataCopy has a lot of subtle complexity due to the requirements of the circuit constraints.
+ * The main complexity comes from the need to have the following 32-bit range checks
+ * (1) Computing the max_read_index via min, which is used to determine the final index in the cd/rd to read up to.
+ * (2) In error handling to check that reads and writes are within bounds of the memory.
+ * (3) In computing the actual number of elements from calldata/returndata to read (i.e. from [offset, max_read_index])
+ **/
+
+/**
  * @brief Writes calldata into dst_addr. There is slight difference in how enqueued and nested contexts, this is mostly
  *        encapsulated in context.get_calldata()
  * @param cd_copy_size The size of calldata to copy, must be a u32.
@@ -107,15 +118,15 @@ void DataCopy::cd_copy(ContextInterface& context,
 
         // Operations are performed over uint64_t in case the addition overflows, but the result in guaranteed to
         // fit in 32 bits since get_parent_cd_size() returns a u32 (constrained by a CALL or 0 if an enqueued call).
-        uint32_t read_size = static_cast<uint32_t>(
+        uint32_t max_read_index = static_cast<uint32_t>(
             min(static_cast<uint64_t>(offset) + copy_size, static_cast<uint64_t>(context.get_parent_cd_size())));
 
         // Check that we will not access out of bounds memory.
         // todo(ilyas): think of a way to not need to leak enqueued/nested context information here.
-        uint64_t max_read_addr = context.has_parent() ? read_size + context.get_parent_cd_addr() + offset : 0;
+        uint64_t max_read_addr = context.has_parent() ? max_read_index + context.get_parent_cd_addr() : 0;
         uint64_t max_write_addr = static_cast<uint64_t>(dst_addr) + copy_size;
 
-        // Need both of this to happen regardless
+        // Need all of this to happen regardless
         bool read_in_range = is_lte(max_read_addr, MAX_MEM_ADDR);
         bool write_in_range = is_lte(max_write_addr, MAX_MEM_ADDR);
 
@@ -124,7 +135,13 @@ void DataCopy::cd_copy(ContextInterface& context,
         }
 
         // If we get to this point, we know we will be error free
-        std::vector<FF> padded_calldata = context.get_calldata(offset, copy_size);
+        std::vector<FF> padded_calldata(copy_size, 0); // Initialize with zeros
+        // This is handled by the loop within get_calldata(), but we need to emit a range check in circuit
+        // Calldata is retrieved from [offset, max_read_index]
+        // if offset > max_read_index, we will read nothing
+        if (is_lte(offset, max_read_index)) {
+            padded_calldata = context.get_calldata(offset, copy_size);
+        }
 
         for (uint32_t i = 0; i < copy_size; i++) {
             memory.set(dst_addr + i, MemoryValue::from<FF>(padded_calldata[i]));
@@ -164,10 +181,10 @@ void DataCopy::rd_copy(ContextInterface& context,
         MemoryAddress offset = rd_offset.as<MemoryAddress>();
 
         // Check cd_copy for why we do this here even though it is in get_returndata()
-        uint32_t read_size = static_cast<uint32_t>(
+        uint32_t max_read_index = static_cast<uint32_t>(
             min(static_cast<uint64_t>(offset) + copy_size, static_cast<uint64_t>(context.get_last_rd_size())));
 
-        uint64_t max_read_addr = read_size + context.get_last_rd_addr() + offset;
+        uint64_t max_read_addr = max_read_index + context.get_last_rd_addr();
         uint64_t max_write_addr = static_cast<uint64_t>(dst_addr) + copy_size;
 
         // Need both of this to happen regardless
@@ -178,7 +195,15 @@ void DataCopy::rd_copy(ContextInterface& context,
             throw std::runtime_error("Attempting to access out of bounds memory");
         }
 
-        auto padded_returndata = context.get_returndata(offset, copy_size);
+        // If we get to this point, we know we will be error free
+
+        // This is typically handled by the loop within get_returndata(), but we need to emit a range check in circuit
+        // so we need to be explicit about it.
+        // Returndata is retrieved from [offset, max_read_index], if offset > max_read_index, we will read nothing.
+        std::vector<FF> padded_returndata(copy_size, 0); // Initialize with zeros
+        if (is_lte(offset, max_read_index)) {
+            padded_returndata = context.get_returndata(offset, copy_size);
+        }
 
         for (uint32_t i = 0; i < copy_size; i++) {
             memory.set(dst_addr + i, MemoryValue::from<FF>(padded_returndata[i]));

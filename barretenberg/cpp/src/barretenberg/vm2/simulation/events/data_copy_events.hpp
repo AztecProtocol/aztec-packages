@@ -25,8 +25,8 @@ struct DataCopyEvent {
     uint32_t write_context_id = 0; // For mem aware subtraces, they need the context id when referencing memory
     uint32_t read_context_id = 0;  // Refers to the parent/child context id
     // Loaded from X_data_copy opcode
-    MemoryValue data_copy_size;
-    MemoryValue data_offset;
+    MemoryValue data_copy_size = MemoryValue::from_tag(ValueTag::U32, 0);
+    MemoryValue data_offset = MemoryValue::from_tag(ValueTag::U32, 0);
     // This is a direct address from the parent/child context for calldata/returndata
     MemoryAddress data_addr = 0;
     uint32_t data_size = 0;

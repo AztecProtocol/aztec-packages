@@ -106,7 +106,11 @@ using lookup_execution_instruction_fetching_body_relation =
 struct lookup_execution_exec_spec_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_EXECUTION_EXEC_SPEC_READ";
     static constexpr std::string_view RELATION_NAME = "execution";
+<<<<<<< HEAD
     static constexpr size_t LOOKUP_TUPLE_SIZE = 48;
+=======
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 35;
+>>>>>>> ec23dbc4f6 (better error handling)
     static constexpr Column SRC_SELECTOR = Column::execution_sel_instruction_fetching_success;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_exec_spec;
     static constexpr Column COUNTS = Column::lookup_execution_exec_spec_read_counts;

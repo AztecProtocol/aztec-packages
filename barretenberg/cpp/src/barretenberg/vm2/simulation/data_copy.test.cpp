@@ -34,7 +34,7 @@ class DataCopySimulationTest : public ::testing::Test {
         EXPECT_CALL(context, get_context_id());
 
         // Range check calls
-        EXPECT_CALL(range_check, assert_range(_, 32)).Times(3);
+        EXPECT_CALL(range_check, assert_range(_, 32)).Times(4);
     }
 
     MemoryStore mem;

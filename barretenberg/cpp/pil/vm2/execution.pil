@@ -300,11 +300,8 @@ pol commit sel_bitwise;
 pol commit sel_to_radix;
 pol commit sel_poseidon2_perm;
 pol commit sel_ecc_add;
-pol commit sel_data_copy;
 pol commit sel_execution;
 pol commit sel_data_copy;
-pol commit sel_internal_call;
-pol commit sel_internal_return;
 
 // Embedded execution opcode selectors
 pol commit sel_get_env_var;
