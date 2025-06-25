@@ -6,13 +6,15 @@ import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {BlockLog, CompressedBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig, ActivityScore} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
@@ -32,20 +34,6 @@ struct SubmitEpochRootProofArgs {
   bytes32[] fees;
   bytes blobInputs;
   bytes proof;
-}
-
-/**
- * @notice Struct for storing block data, set in proposal.
- * @param archive - Archive tree root of the block
- * @param headerHash - Hash of the proposed block header
- * @param blobCommitmentsHash - H(...H(H(commitment_0), commitment_1).... commitment_n) - used to validate we are using the same blob commitments on L1 and in the rollup circuit
- * @param slotNumber - This block's slot
- */
-struct BlockLog {
-  bytes32 archive;
-  bytes32 headerHash;
-  bytes32 blobCommitmentsHash; // TODO(#14646): Keep a running hash we iteratively overwrite, instead of per block.
-  Slot slotNumber;
 }
 
 struct ChainTips {
@@ -81,6 +69,7 @@ struct RollupConfigInput {
   uint256 entryQueueFlushSizeQuotient;
   EthValue provingCostPerMana;
   RewardConfig rewardConfig;
+  RewardBoostConfig rewardBoostConfig;
 }
 
 struct RollupConfig {
@@ -100,7 +89,7 @@ struct RollupConfig {
 
 struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
-  mapping(uint256 blockNumber => BlockLog log) blocks;
+  mapping(uint256 blockNumber => CompressedBlockLog log) blocks;
   RollupConfig config;
 }
 
@@ -198,7 +187,6 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getBlobCommitmentsHash(uint256 _blockNumber) external view returns (bytes32);
   function getCurrentBlobCommitmentsHash() external view returns (bytes32);
 
-  function getActivityScore(address _prover) external view returns (ActivityScore memory);
   function getSharesFor(address _prover) external view returns (uint256);
   function getSequencerRewards(address _sequencer) external view returns (uint256);
   function getCollectiveProverRewardsForEpoch(Epoch _epoch) external view returns (uint256);

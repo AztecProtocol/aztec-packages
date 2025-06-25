@@ -203,6 +203,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        verifier.transcript->enable_manifest();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         output.points_accumulator.set_public();
@@ -218,6 +219,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         // verifier and check that the result agrees.
         bool native_result;
         InnerVerifier native_verifier(verification_key);
+        native_verifier.transcript->enable_manifest();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             native_verifier.ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(1 << CONST_ECCVM_LOG_N);
             native_result = native_verifier.verify_proof(inner_proof, convert_stdlib_proof_to_native(output.ipa_proof));
@@ -258,7 +260,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
         // Check the size of the recursive verifier
         if constexpr (std::same_as<RecursiveFlavor, MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
-            uint32_t NUM_GATES_EXPECTED = 874952;
+            uint32_t NUM_GATES_EXPECTED = 875529;
             BB_ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()),
                          NUM_GATES_EXPECTED,
                          "MegaZKHonk Recursive verifier changed in Ultra gate count! Update this value if you "

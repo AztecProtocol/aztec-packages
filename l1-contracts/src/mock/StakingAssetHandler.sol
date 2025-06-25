@@ -5,16 +5,15 @@ import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
 import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
-import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
 
 /**
  * @title StakingAssetHandler
  * @notice This contract is used as a faucet for creating validators.
  *
  * It allows anyone to join the queue to be a validator to the rollup.
- * Validators get added to the queue, then each day `dripQueue` can be called including
- * up to `depositsPerMint` validators per day.
+ * Validators get added to the rollups deposit Queue up to `depositsPerMint` validators per day.
  * With the caveat that the contract can mint itself funds to cover adding `depositsPerMint`
  * validators per `mintInterval` unit of time.
  *
@@ -31,7 +30,6 @@ import {QueueLib, Queue} from "./staking_asset_handler/Queue.sol";
  */
 interface IStakingAssetHandler {
   event ToppedUp(uint256 _amount);
-  event AddedToQueue(address indexed _attester, uint256 _position);
   event ValidatorAdded(address indexed _rollup, address indexed _attester, address _withdrawer);
   event IntervalUpdated(uint256 _interval);
   event DepositsPerMintUpdated(uint256 _depositsPerMint);
@@ -40,6 +38,8 @@ interface IStakingAssetHandler {
   event ScopeUpdated(string newScope);
   event SubScopeUpdated(string newSubScope);
   event SkipBindCheckUpdated(bool _skipBindCheck);
+  event SkipMerkleCheckUpdated(bool _skipMerkleCheck);
+  event DepositMerkleRootUpdated(bytes32 _root);
 
   event UnhingedAdded(address indexed _address);
   event UnhingedRemoved(address indexed _address);
@@ -50,14 +50,17 @@ interface IStakingAssetHandler {
   error InvalidScope();
   error ProofNotBoundToAddress(address _expected, address _received);
   error SybilDetected(bytes32 _nullifier);
-  error InDepositQueue();
   error AttesterDoesNotExist(address _attester);
   error NoNullifier();
+  error MerkleProofInvalid();
 
   // Add validator methods
-  function addValidatorToQueue(address _attester, ProofVerificationParams memory _params) external;
+  function addValidator(
+    address _attester,
+    bytes32[] memory merkleProof,
+    ProofVerificationParams memory _params
+  ) external;
   function reenterExitedValidator(address _attester) external;
-  function dripQueue() external;
 
   // Admin methods
   function setMintInterval(uint256 _interval) external;
@@ -69,16 +72,29 @@ interface IStakingAssetHandler {
   function setScope(string memory _scope) external;
   function setSubscope(string memory _subscope) external;
   function setSkipBindCheck(bool _skipBindCheck) external;
+  function setSkipMerkleCheck(bool _skipMerkleCheck) external;
+  function setDepositMerkleRoot(bytes32 _root) external;
 
   // View
-  function getQueueLength() external view returns (uint256);
-  function getFrontOfQueue() external view returns (uint256);
-  function getEndOfQueue() external view returns (uint256);
   function getRollup() external view returns (address);
 }
 
 contract StakingAssetHandler is IStakingAssetHandler, Ownable {
-  using QueueLib for Queue;
+  struct StakingAssetHandlerArgs {
+    address owner;
+    address stakingAsset;
+    IRegistry registry;
+    address withdrawer;
+    uint256 mintInterval;
+    uint256 depositsPerMint;
+    bytes32 depositMerkleRoot;
+    ZKPassportVerifier zkPassportVerifier;
+    address[] unhinged;
+    string scope;
+    string subscope;
+    bool skipBindCheck;
+    bool skipMerkleCheck;
+  }
 
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
@@ -86,6 +102,8 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   ZKPassportVerifier public zkPassportVerifier;
 
   bool internal skipBindCheck;
+  bool internal skipMerkleCheck;
+
   mapping(address attester => bool isUnhinged) public isUnhinged;
   mapping(bytes32 nullifier => bool exists) public nullifiers;
   mapping(address attester => bytes32 nullifier) public attesterToNullifier;
@@ -93,79 +111,76 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   uint256 public lastMintTimestamp;
   uint256 public mintInterval;
   uint256 public depositsPerMint;
+  bytes32 public depositMerkleRoot;
 
   address public withdrawer;
-
-  Queue private entryQueue;
 
   string public validScope;
   string public validSubscope;
 
-  constructor(
-    address _owner,
-    address _stakingAsset,
-    IRegistry _registry,
-    address _withdrawer,
-    uint256 _mintInterval,
-    uint256 _depositsPerMint,
-    ZKPassportVerifier _zkPassportVerifier,
-    address[] memory _unhinged,
-    string memory _scope,
-    string memory _subscope,
-    bool _skipBindCheck
-  ) Ownable(_owner) {
-    require(_depositsPerMint > 0, CannotMintZeroAmount());
+  constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
+    require(_args.depositsPerMint > 0, CannotMintZeroAmount());
 
-    STAKING_ASSET = IMintableERC20(_stakingAsset);
-    REGISTRY = _registry;
+    STAKING_ASSET = IMintableERC20(_args.stakingAsset);
+    REGISTRY = _args.registry;
 
-    withdrawer = _withdrawer;
-    emit WithdrawerUpdated(_withdrawer);
+    withdrawer = _args.withdrawer;
+    emit WithdrawerUpdated(_args.withdrawer);
 
-    mintInterval = _mintInterval;
-    emit IntervalUpdated(_mintInterval);
+    mintInterval = _args.mintInterval;
+    emit IntervalUpdated(_args.mintInterval);
 
-    depositsPerMint = _depositsPerMint;
-    emit DepositsPerMintUpdated(_depositsPerMint);
+    depositsPerMint = _args.depositsPerMint;
+    emit DepositsPerMintUpdated(_args.depositsPerMint);
 
-    for (uint256 i = 0; i < _unhinged.length; i++) {
-      isUnhinged[_unhinged[i]] = true;
-      emit UnhingedAdded(_unhinged[i]);
+    for (uint256 i = 0; i < _args.unhinged.length; i++) {
+      isUnhinged[_args.unhinged[i]] = true;
+      emit UnhingedAdded(_args.unhinged[i]);
     }
-    isUnhinged[_owner] = true;
-    emit UnhingedAdded(_owner);
+    isUnhinged[_args.owner] = true;
+    emit UnhingedAdded(_args.owner);
 
-    zkPassportVerifier = _zkPassportVerifier;
-    emit ZKPassportVerifierUpdated(address(_zkPassportVerifier));
+    zkPassportVerifier = _args.zkPassportVerifier;
+    emit ZKPassportVerifierUpdated(address(_args.zkPassportVerifier));
 
-    validScope = _scope;
-    validSubscope = _subscope;
+    depositMerkleRoot = _args.depositMerkleRoot;
+    emit DepositMerkleRootUpdated(_args.depositMerkleRoot);
 
-    skipBindCheck = _skipBindCheck;
+    validScope = _args.scope;
+    validSubscope = _args.subscope;
 
-    entryQueue.init();
+    skipBindCheck = _args.skipBindCheck;
+    skipMerkleCheck = _args.skipMerkleCheck;
   }
 
   /**
-   * Add a validator attester proposer pair into the deposit queue
+   * Add a validator attester
    *
    * @param _attester - the validator's attester address
    */
-  function addValidatorToQueue(address _attester, ProofVerificationParams calldata _params)
-    external
-    override(IStakingAssetHandler)
-  {
+  function addValidator(
+    address _attester,
+    bytes32[] memory _merkleProof,
+    ProofVerificationParams calldata _params
+  ) external override(IStakingAssetHandler) {
+    IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
+    uint256 depositAmount = rollup.getDepositAmount();
+
     // If the sender is unhinged, will mint the required amount (to not impact other users).
     // Otherwise we add them to the deposit queue.
     if (isUnhinged[msg.sender]) {
-      IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
-      uint256 depositAmount = rollup.getDepositAmount();
-
       STAKING_ASSET.mint(address(this), depositAmount);
 
       _triggerDeposit(rollup, depositAmount, _attester);
     } else {
+      _topUpIfRequired(depositAmount);
+
+      // Check attester has the guardian role (included in merkle tree)
+      _validateMerkleProof(_attester, _merkleProof);
       _validatePassportProof(_attester, _params);
+
+      // If the attester is currently exiting, we finalize the exit for him.
+      _triggerDeposit(rollup, depositAmount, _attester);
     }
   }
 
@@ -176,46 +191,16 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
    * @param _attester - the validator's attester address
    */
   function reenterExitedValidator(address _attester) external override(IStakingAssetHandler) {
-    // Validator must not be in the queue
-    require(!entryQueue.isInQueue(_attester), InDepositQueue());
-
     // Check that the validator has an associated nullifier
     bytes32 nullifier = attesterToNullifier[_attester];
     require(nullifier != bytes32(0), AttesterDoesNotExist(_attester));
     require(nullifiers[nullifier] != false, NoNullifier());
 
-    _addToQueue(_attester);
-  }
-
-  function dripQueue() external override(IStakingAssetHandler) {
     IStaking rollup = IStaking(address(REGISTRY.getCanonicalRollup()));
     uint256 depositAmount = rollup.getDepositAmount();
-    uint256 balance = STAKING_ASSET.balanceOf(address(this));
 
-    // If we do not have enough balance, check if we can refill the quota
-    if (balance < depositAmount) {
-      require(
-        block.timestamp - lastMintTimestamp >= mintInterval,
-        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
-      );
-      STAKING_ASSET.mint(address(this), depositAmount * depositsPerMint);
-      lastMintTimestamp = block.timestamp;
-      emit ToppedUp(depositAmount * depositsPerMint);
-    }
-
-    // Now that we have balance on the staking asset, for as many deposits that we have, we will empty the queue
-    uint256 updatedBalance = STAKING_ASSET.balanceOf(address(this));
-    uint256 mintsAvailable = updatedBalance / depositAmount; // (integer division)
-
-    uint256 queueLength = entryQueue.length();
-
-    // if the queue is smaller then lets empty the queue, otherwise drip as many deposits as we have balance for
-    uint256 depositsToMake = (queueLength < mintsAvailable) ? queueLength : mintsAvailable;
-
-    for (uint256 i = 0; i < depositsToMake; ++i) {
-      address attester = entryQueue.dequeue();
-      _triggerDeposit(rollup, depositAmount, attester);
-    }
+    _topUpIfRequired(depositAmount);
+    _triggerDeposit(rollup, depositAmount, _attester);
   }
 
   function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
@@ -272,20 +257,22 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit SkipBindCheckUpdated(_skipBindCheck);
   }
 
+  function setSkipMerkleCheck(bool _skipMerkleCheck)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
+    skipMerkleCheck = _skipMerkleCheck;
+    emit SkipMerkleCheckUpdated(_skipMerkleCheck);
+  }
+
+  function setDepositMerkleRoot(bytes32 _root) external override(IStakingAssetHandler) onlyOwner {
+    depositMerkleRoot = _root;
+    emit DepositMerkleRootUpdated(_root);
+  }
+
   function getRollup() external view override(IStakingAssetHandler) returns (address) {
     return address(REGISTRY.getCanonicalRollup());
-  }
-
-  function getQueueLength() external view override(IStakingAssetHandler) returns (uint256) {
-    return entryQueue.length();
-  }
-
-  function getFrontOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
-    return entryQueue.getFirst();
-  }
-
-  function getEndOfQueue() external view override(IStakingAssetHandler) returns (uint256) {
-    return entryQueue.getLast();
   }
 
   /**
@@ -325,19 +312,18 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // Set nullifier to consumed
     nullifiers[nullifier] = true;
     attesterToNullifier[_attester] = nullifier;
-
-    _addToQueue(_attester);
   }
 
-  /**
-   * Add To Queue Entry Queue
-   *
-   * @param _attester - the validator attester address to add to the queue
-   */
-  function _addToQueue(address _attester) internal {
-    // Add validator into the entry queue
-    uint256 queueLocation = entryQueue.enqueue(_attester);
-    emit AddedToQueue(_attester, queueLocation);
+  function _topUpIfRequired(uint256 _depositAmount) internal {
+    if (STAKING_ASSET.balanceOf(address(this)) < _depositAmount) {
+      require(
+        block.timestamp - lastMintTimestamp >= mintInterval,
+        ValidatorQuotaFilledUntil(lastMintTimestamp + mintInterval)
+      );
+      STAKING_ASSET.mint(address(this), _depositAmount * depositsPerMint);
+      lastMintTimestamp = block.timestamp;
+      emit ToppedUp(_depositAmount * depositsPerMint);
+    }
   }
 
   /**
@@ -356,10 +342,22 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     }
 
     STAKING_ASSET.approve(address(_rollup), _depositAmount);
-    try _rollup.deposit(_attester, withdrawer, true) {
-      emit ValidatorAdded(address(_rollup), _attester, withdrawer);
-    } catch {
-      // Allow the deposit call to fail silently e.g. when the attester has already been added
+    _rollup.deposit(_attester, withdrawer, true);
+    emit ValidatorAdded(address(_rollup), _attester, withdrawer);
+  }
+
+  /**
+   * Validate Merkle Proof
+   *
+   * Check the provided merkle proof is correct for the given address
+   *
+   * @param _attester - the attester
+   * @param _merkleProof - a merkle proof for the attester
+   */
+  function _validateMerkleProof(address _attester, bytes32[] memory _merkleProof) internal view {
+    if (!skipMerkleCheck) {
+      bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_attester))));
+      require(MerkleProof.verify(_merkleProof, depositMerkleRoot, leaf), MerkleProofInvalid());
     }
   }
 }

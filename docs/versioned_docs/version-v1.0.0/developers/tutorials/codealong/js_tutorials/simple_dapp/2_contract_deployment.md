@@ -19,10 +19,10 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.0.0", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.0.0", directory="noir-projects/aztec-nr/authwit"}
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.0.0", directory="noir-projects/aztec-nr/uint-note" }
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v1.0.0", directory="noir-projects/aztec-nr/compressed-string"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.9", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.9", directory="noir-projects/aztec-nr/authwit"}
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.9", directory="noir-projects/aztec-nr/uint-note" }
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.87.9", directory="noir-projects/aztec-nr/compressed-string"}
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
@@ -672,7 +672,7 @@ pub contract Token {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L728" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L728</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L647" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L1-L647</a></sub></sup>
 
 
 ### Helper files
@@ -681,7 +681,7 @@ pub contract Token {
 Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using TXE tests in this tutorial.
 :::
 
-The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v1.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
+The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.87.9/noir-projects/noir-contracts/contracts/app/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 Add this `balance_set.nr` file at `token/src/types/balance_set.nr`.
 
@@ -817,7 +817,7 @@ pub fn preprocess_notes_min_sum(
     selected
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/types/balance_set.nr#L1-L136</a></sub></sup>
 
 
 ## Compile your contract

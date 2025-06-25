@@ -18,7 +18,7 @@ The environment variable `BB_WASM_PATH` allows you to replace the WASM that gets
 // Files can be compressed or uncompressed, but must be gzipped if compressed.
 BB_WASM_PATH: env.BB_WASM_PATH,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/playground/vite.config.ts#L71-L77" target="_blank" rel="noopener noreferrer">Source code: playground/vite.config.ts#L71-L77</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/playground/vite.config.ts#L70-L76" target="_blank" rel="noopener noreferrer">Source code: playground/vite.config.ts#L70-L76</a></sub></sup>
 
 
 ### Transaction Profiling

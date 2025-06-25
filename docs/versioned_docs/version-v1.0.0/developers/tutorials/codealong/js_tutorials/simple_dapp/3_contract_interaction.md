@@ -14,7 +14,7 @@ pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L720-L725" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L720-L725</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L639-L644</a></sub></sup>
 
 
 :::info
@@ -64,7 +64,7 @@ async function showPrivateBalances(pxe) {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L19-L32</a></sub></sup>
 
 
 Call the function in `main` and run this with `node src/index.mjs` and you should now see the following output:
@@ -94,7 +94,7 @@ async function mintPrivateFunds(pxe) {
   await showPrivateBalances(pxe);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L34-L48</a></sub></sup>
 
 
 Call the function in `main`, run the script and after printing the balances of each account it will then privately mint tokens. After that completes, you should then see 20 tokens in the balance of the first account.
@@ -130,7 +130,7 @@ async function transferPrivateFunds(pxe) {
   await showPrivateBalances(pxe);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L50-L62</a></sub></sup>
 
 
 Let's go step-by-step on this snippet. We first get wallets for two of the Sandbox accounts, and name them `owner` and `recipient`. Then, we initialize the private token `Contract` instance using the `owner` wallet, meaning that any transactions sent through it will have the `owner` as sender.
@@ -176,7 +176,7 @@ async function showPublicBalances(pxe) {
   }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L64-L77</a></sub></sup>
 
 
 :::info
@@ -205,7 +205,7 @@ async function mintPublicFunds(pxe) {
   for (const log of textLogs) console.log(`Log emitted: ${log}`);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.mjs#L79-L99</a></sub></sup>
 
 
 And get the expected results:

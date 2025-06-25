@@ -50,7 +50,7 @@ beforeAll(async () => {
   await token.methods.mint_to_private(owner.getAddress(), owner.getAddress(), initialBalance).send().wait();
 }, 120_000);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L13-L25</a></sub></sup>
 
 
 :::tip
@@ -70,7 +70,7 @@ it('increases recipient funds on transfer', async () => {
   );
 }, 30_000);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v1.0.0/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.87.9/yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/index.test.mjs#L27-L35</a></sub></sup>
 
 
 In this example, we assert that the `recipient`'s balance is increased by the amount transferred. We could also test that the `owner`'s funds are decremented by the same amount, or that a transaction that attempts to send more funds than those available would fail.

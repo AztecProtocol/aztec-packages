@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Run Release Please
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@7d28262f14160787a44a6be36146a18e6f575a3f
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           config-file: .github/release-please-${{ github.ref_name }}.json
@@ -38,7 +38,7 @@ jobs:
 
     steps:
       - name: Checkout release branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

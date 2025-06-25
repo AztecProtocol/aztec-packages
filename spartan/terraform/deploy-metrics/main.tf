@@ -23,7 +23,7 @@ provider "google" {
 
 resource "google_compute_address" "grafana_ip" {
   provider     = google
-  name         = "grafana-ip-${var.RELEASE_NAME}"
+  name         = "grafana-ip"
   address_type = "EXTERNAL"
   region       = var.region
 
@@ -34,18 +34,7 @@ resource "google_compute_address" "grafana_ip" {
 
 resource "google_compute_address" "otel_collector_ip" {
   provider     = google
-  name         = "otel-ip-${var.RELEASE_NAME}"
-  address_type = "EXTERNAL"
-  region       = var.region
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "google_compute_address" "public_otel_collector_ip" {
-  provider     = google
-  name         = "public-otel-ip-${var.RELEASE_NAME}"
+  name         = "otel-ip"
   address_type = "EXTERNAL"
   region       = var.region
 
@@ -69,11 +58,13 @@ provider "helm" {
 }
 
 data "google_secret_manager_secret_version" "grafana_password" {
-  secret = var.GRAFANA_PASSWORD_SECRET_NAME
+  secret  = var.GRAFANA_PASSWORD_SECRET_NAME
+  project = var.project
 }
 
 data "google_secret_manager_secret_version" "slack_webhook" {
-  secret = var.SLACK_WEBHOOK_SECRET_NAME
+  secret  = var.SLACK_WEBHOOK_SECRET_NAME
+  project = var.project
 }
 
 # Aztec Helm release for gke-cluster
@@ -90,7 +81,10 @@ resource "helm_release" "aztec-gke-cluster" {
   reuse_values      = true
 
   # base values file
-  values = [file("../../metrics/values/${var.VALUES_FILE}")]
+  values = [
+    file("../../metrics/values.yaml"),
+    file("../../metrics/values/${var.VALUES_FILE}")
+  ]
 
   set {
     name  = "grafana.service.loadBalancerIP"
@@ -98,7 +92,7 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   set {
-    name  = "grafana.grafana\\.ini.server.domain"
+    name  = "grafana.grafana\\.ini.server.root_url"
     value = "http://${google_compute_address.grafana_ip.address}"
   }
 
@@ -151,81 +145,4 @@ resource "helm_release" "aztec-gke-cluster" {
   wait          = true
   wait_for_jobs = true
 
-}
-
-locals {
-  public_otel_ingress_host = "telemetry.alpha-testnet.aztec.network"
-}
-
-resource "kubernetes_manifest" "public_otel_ingress_certificate" {
-  provider = kubernetes.gke-cluster
-  manifest = {
-    "apiVersion" = "networking.gke.io/v1"
-    "kind"       = "ManagedCertificate"
-    "metadata" = {
-      "name"      = "${var.RELEASE_NAME}-public-otelcol-ingres-cert"
-      "namespace" = "${var.RELEASE_NAME}-public"
-    }
-    "spec" = {
-      "domains" = [
-        local.public_otel_ingress_host
-      ]
-    }
-  }
-}
-
-resource "helm_release" "public_otel_collector" {
-  provider          = helm.gke-cluster
-  name              = "${var.RELEASE_NAME}-public-otelcol"
-  namespace         = "${var.RELEASE_NAME}-public"
-  repository        = "https://open-telemetry.github.io/opentelemetry-helm-charts"
-  chart             = "opentelemetry-collector"
-  version           = "0.104.0"
-  create_namespace  = true
-  upgrade_install   = true
-  dependency_update = true
-  force_update      = true
-  reuse_values      = true
-
-  # base values file
-  values = [file("./values/public-otel-collector.yaml")]
-
-  set {
-    name  = "ingress.annotations.kubernetes\\.io/ingress\\.global-static-ip-name\""
-    value = google_compute_address.public_otel_collector_ip.address
-  }
-
-  set {
-    name  = "ingress.annotations.networking\\.gke\\.io/managed-certificates"
-    value = "${var.RELEASE_NAME}-public-otelcol-ingres-cert"
-  }
-
-  set {
-    name  = "ingress.hosts[0].host"
-    value = local.public_otel_ingress_host
-  }
-
-  timeout       = 600
-  wait          = true
-  wait_for_jobs = true
-}
-
-resource "helm_release" "public_prometheus" {
-  provider          = helm.gke-cluster
-  name              = "${var.RELEASE_NAME}-public-prometheus"
-  namespace         = "${var.RELEASE_NAME}-public"
-  repository        = "https://prometheus-community.github.io/helm-charts"
-  chart             = "prometheus"
-  version           = "25.27.0"
-  create_namespace  = true
-  upgrade_install   = true
-  dependency_update = true
-  force_update      = true
-  reuse_values      = true
-
-  values = [file("./values/public-prometheus.yaml")]
-
-  timeout       = 600
-  wait          = true
-  wait_for_jobs = true
 }
