@@ -31,7 +31,7 @@ TEST(GetEnvVarTracegenTest, AddressEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup
@@ -54,7 +54,7 @@ TEST(GetEnvVarTracegenTest, SenderEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup
@@ -77,7 +77,7 @@ TEST(GetEnvVarTracegenTest, TransactionFeeEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup
@@ -104,7 +104,7 @@ TEST(GetEnvVarTracegenTest, ChainIdEnvironmentVariable)
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
-                    ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                    ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 1), // PI lookup required
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                     ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX),
@@ -132,7 +132,7 @@ TEST(GetEnvVarTracegenTest, VersionEnvironmentVariable)
 
     EXPECT_THAT(
         trace.as_rows(),
-        ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+        ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                           ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 1), // PI lookup required
                           ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                           ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX),
@@ -159,7 +159,7 @@ TEST(GetEnvVarTracegenTest, BlockNumberEnvironmentVariable)
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
-                    ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                    ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 1), // PI lookup required
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                     ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX),
@@ -186,7 +186,7 @@ TEST(GetEnvVarTracegenTest, TimestampEnvironmentVariable)
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
-                    ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                    ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 1), // PI lookup required
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                     ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX),
@@ -213,7 +213,7 @@ TEST(GetEnvVarTracegenTest, FeePerL2GasEnvironmentVariable)
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
-                    ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                    ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 1), // PI lookup required
                     ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX),
@@ -240,7 +240,7 @@ TEST(GetEnvVarTracegenTest, FeePerDaGasEnvironmentVariable)
 
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(AllOf(
-                    ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                    ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 1), // No PI lookup
                     ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // PI lookup required
                     ROW_FIELD_EQ(execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX),
@@ -264,7 +264,7 @@ TEST(GetEnvVarTracegenTest, IsStaticCallEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup
@@ -288,7 +288,7 @@ TEST(GetEnvVarTracegenTest, L2GasLeftEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup
@@ -312,7 +312,7 @@ TEST(GetEnvVarTracegenTest, DaGasLeftEnvironmentVariable)
     builder.process_get_env_var_opcode(envvar_enum, default_output, trace, 0);
 
     EXPECT_THAT(trace.as_rows(),
-                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_should_get_env_var, 1),    // Should be set
+                ElementsAre(AllOf(ROW_FIELD_EQ(execution_sel_dispatch_get_env_var, 1),  // Should be set
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col0, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_sel_envvar_pi_lookup_col1, 0), // No PI lookup
                                   ROW_FIELD_EQ(execution_envvar_pi_row_idx, 0),         // No PI lookup

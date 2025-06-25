@@ -4,10 +4,11 @@ include "../public_inputs.pil";
  * This virtual gadget is used to retrieve environment variables from the current execution/context/gas row
  * or from public inputs.
  *
- * The opcode is gated by the `sel_should_get_env_var` selector, which is set to 1 if the GetEnvVar opcode
+ * The opcode is gated by the `sel_dispatch_get_env_var` selector, which is set to 1 if the GetEnvVar opcode
  * has reached dispatch (there are no earlier errors).
  *
  * This opcode uses:
+ * - sel_dispatch_get_env_var to gate the opcode.
  * - register[0] as the output register.
  * - rop[1] as the enum value.
  * - opcode_error to indicate if the enum value is invalid.
@@ -67,15 +68,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
 
     // No relations will be checked if this identity is satisfied.
     #[skippable_if]
-    sel_get_env_var = 0; // from execution.pil.
-
-    // Selector for when we should get environment variable (gated by earlier errors)
-    pol commit sel_should_get_env_var;
-    // Should only do env var retrieval if the GetEnvVar opcode has reached dispatch (there are no earlier errors).
-    // TODO(dbanks12): use `sel_dispatch_opcode` in execution instead of this pol.
-    pol DISPATCH_OPCODE = execution.sel_should_resolve_address * (1 - execution.sel_addressing_error);
-    #[SHOULD_GET_ENV_VAR]
-    sel_should_get_env_var = sel_get_env_var * DISPATCH_OPCODE;
+    sel_dispatch_get_env_var = 0; // from execution.pil.
 
     ////////////////////////////////////////////////////////////////////////////
     // from precomputed.pil's GETENVVAR opcode precomputed columns
@@ -92,7 +85,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // to allow error handling for any invalid enum that fits in a u8 immediate.
     // So, use the `precomputed.sel_range_8` as selector into the precomputed table.
     #[PRECOMPUTED_INFO]
-    sel_should_get_env_var {
+    sel_dispatch_get_env_var {
         rop[1], // enum_value from opcode input operand
         opcode_error, // invalid envvar enum - trigger an "opcode error"
         sel_envvar_pi_lookup_col0, sel_envvar_pi_lookup_col1, envvar_pi_row_idx,
@@ -136,23 +129,23 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     // Set output register to the value from public inputs
     #[FROM_PUBLIC_INPUTS]
     // if sel_envvar_pi_lookup_col0 == 1 or sel_envvar_pi_lookup_col1 == 1, then value_from_pi must match the value from public inputs
-    sel_should_get_env_var * (sel_envvar_pi_lookup_col0 + sel_envvar_pi_lookup_col1) * (register[0] - value_from_pi) = 0;
+    sel_dispatch_get_env_var * (sel_envvar_pi_lookup_col0 + sel_envvar_pi_lookup_col1) * (register[0] - value_from_pi) = 0;
 
     // Context variables are read from columns within the execution row
     // from the `context.pil` virtual trace.
     #[ADDRESS_FROM_CONTEXT]
-    sel_should_get_env_var * is_address * (register[0] - contract_address) = 0;
+    sel_dispatch_get_env_var * is_address * (register[0] - contract_address) = 0;
     #[SENDER_FROM_CONTEXT]
-    sel_should_get_env_var * is_sender * (register[0] - msg_sender) = 0;
+    sel_dispatch_get_env_var * is_sender * (register[0] - msg_sender) = 0;
     #[TRANSACTION_FEE_FROM_CONTEXT]
-    sel_should_get_env_var * is_transactionfee * (register[0] - transaction_fee) = 0;
+    sel_dispatch_get_env_var * is_transactionfee * (register[0] - transaction_fee) = 0;
     #[ISSTATICCALL_FROM_CONTEXT]
-    sel_should_get_env_var * is_isstaticcall * (register[0] - is_static) = 0;
+    sel_dispatch_get_env_var * is_isstaticcall * (register[0] - is_static) = 0;
 
     // GasLeft are also read from the columns within the execution row,
     // but from the `gas.pil` virtual trace.
     // These require a computation: left = limit - used
     #[L2GASLEFT_FROM_GAS]
-    sel_should_get_env_var * is_l2gasleft * (register[0] - (l2_gas_limit - l2_gas_used)) = 0;
+    sel_dispatch_get_env_var * is_l2gasleft * (register[0] - (l2_gas_limit - l2_gas_used)) = 0;
     #[DAGASLEFT_FROM_GAS]
-    sel_should_get_env_var * is_dagasleft * (register[0] - (da_gas_limit - da_gas_used)) = 0;
+    sel_dispatch_get_env_var * is_dagasleft * (register[0] - (da_gas_limit - da_gas_used)) = 0;

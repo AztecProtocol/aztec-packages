@@ -13,8 +13,9 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 27> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3 };
+    static constexpr std::array<size_t, 32> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 6, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -212,29 +213,65 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
-        { // PC_NEXT_ROW_INT_CALL_JUMP
+        {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = execution_NOT_LAST_EXEC *
-                       (in.get(C::execution_sel_internal_call) + in.get(C::execution_sel_jump)) *
-                       (in.get(C::execution_pc_shift) - in.get(C::execution_rop_0_));
+            auto tmp =
+                (in.get(C::execution_sel_should_dispatch_opcode) -
+                 in.get(C::execution_sel_should_resolve_address) * (FF(1) - in.get(C::execution_sel_addressing_error)));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
-        { // PC_NEXT_ROW_JUMPI
+        { // SEL_DISPATCH_GET_ENV_VAR
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_dispatch_get_env_var) -
+                        in.get(C::execution_sel_get_env_var) * in.get(C::execution_sel_should_dispatch_opcode));
+            tmp *= scaling_factor;
+            std::get<25>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_DISPATCH_INTERNAL_CALL
+            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_dispatch_internal_call) -
+                        in.get(C::execution_sel_internal_call) * in.get(C::execution_sel_should_dispatch_opcode));
+            tmp *= scaling_factor;
+            std::get<26>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_DISPATCH_INTERNAL_RETURN
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_dispatch_internal_return) -
+                        in.get(C::execution_sel_internal_return) * in.get(C::execution_sel_should_dispatch_opcode));
+            tmp *= scaling_factor;
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        { // SEL_DISPATCH_KECCAKF1600
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp = (in.get(C::execution_sel_dispatch_keccakf1600) -
+                        in.get(C::execution_sel_keccakf1600) * in.get(C::execution_sel_should_dispatch_opcode));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PC_NEXT_ROW_INT_CALL_JUMP
+            using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC * in.get(C::execution_sel_should_dispatch_opcode) *
+                       (in.get(C::execution_sel_internal_call) + in.get(C::execution_sel_jump)) *
+                       (in.get(C::execution_pc_shift) - in.get(C::execution_rop_0_));
+            tmp *= scaling_factor;
+            std::get<29>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PC_NEXT_ROW_JUMPI
+            using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
             auto tmp =
                 execution_NOT_LAST_EXEC * in.get(C::execution_sel_jumpi) *
                 ((in.get(C::execution_register_0_) * (in.get(C::execution_rop_1_) - in.get(C::execution_next_pc)) +
                   in.get(C::execution_next_pc)) -
                  in.get(C::execution_pc_shift));
             tmp *= scaling_factor;
-            std::get<25>(evals) += typename Accumulator::View(tmp);
+            std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         {
-            using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
             auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
             tmp *= scaling_factor;
-            std::get<26>(evals) += typename Accumulator::View(tmp);
+            std::get<31>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -256,9 +293,17 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "LAST_IS_LAST";
         case 11:
             return "EXEC_OP_ID_DECOMPOSITION";
-        case 24:
-            return "PC_NEXT_ROW_INT_CALL_JUMP";
         case 25:
+            return "SEL_DISPATCH_GET_ENV_VAR";
+        case 26:
+            return "SEL_DISPATCH_INTERNAL_CALL";
+        case 27:
+            return "SEL_DISPATCH_INTERNAL_RETURN";
+        case 28:
+            return "SEL_DISPATCH_KECCAKF1600";
+        case 29:
+            return "PC_NEXT_ROW_INT_CALL_JUMP";
+        case 30:
             return "PC_NEXT_ROW_JUMPI";
         }
         return std::to_string(index);
@@ -270,8 +315,12 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_TRACE_CONTINUITY = 4;
     static constexpr size_t SR_LAST_IS_LAST = 5;
     static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 11;
-    static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 24;
-    static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 25;
+    static constexpr size_t SR_SEL_DISPATCH_GET_ENV_VAR = 25;
+    static constexpr size_t SR_SEL_DISPATCH_INTERNAL_CALL = 26;
+    static constexpr size_t SR_SEL_DISPATCH_INTERNAL_RETURN = 27;
+    static constexpr size_t SR_SEL_DISPATCH_KECCAKF1600 = 28;
+    static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 29;
+    static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 30;
 };
 
 } // namespace bb::avm2

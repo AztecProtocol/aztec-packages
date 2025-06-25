@@ -310,24 +310,45 @@ sel_return * (1 - sel_return) = 0;
 sel_revert * (1 - sel_revert) = 0;
 sel_success_copy * (1 - sel_success_copy) = 0;
 
-// This is used in context.pil
-pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+// From precomputed.pil
 pol commit sel_keccakf1600;
 
 /**************************************************************************************************
 * Dispatch permutations to the gadget subtraces
  **************************************************************************************************/
 
+pol commit sel_should_dispatch_opcode;
+sel_should_dispatch_opcode = sel_should_resolve_address * (1 - sel_addressing_error);
+
+pol commit sel_dispatch_get_env_var;
+#[SEL_DISPATCH_GET_ENV_VAR]
+sel_dispatch_get_env_var = sel_get_env_var * sel_should_dispatch_opcode;
+
+pol commit sel_dispatch_internal_call;
+#[SEL_DISPATCH_INTERNAL_CALL]
+sel_dispatch_internal_call = sel_internal_call * sel_should_dispatch_opcode;
+
+pol commit sel_dispatch_internal_return;
+#[SEL_DISPATCH_INTERNAL_RETURN]
+sel_dispatch_internal_return = sel_internal_return * sel_should_dispatch_opcode;
+
+pol commit sel_dispatch_keccakf1600;
+#[SEL_DISPATCH_KECCAKF1600]
+sel_dispatch_keccakf1600 = sel_keccakf1600 * sel_should_dispatch_opcode;
 #[DISPATCH_KECCAKF1600]
-sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, opcode_error }
+sel_dispatch_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, opcode_error }
 is
 keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
 
 /**************************************************************************************************
  *  Opcode specific constraints
  **************************************************************************************************/
+
+// This is used in context.pil
+pol PC_JUMP = sel_should_dispatch_opcode * (sel_internal_call + sel_internal_return + sel_jump + sel_jumpi);
+
 #[PC_NEXT_ROW_INT_CALL_JUMP]
-NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
+NOT_LAST_EXEC * sel_should_dispatch_opcode * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
 
 // For JUMPI opcode, the conditional value is U1 and stored in register[0].
 #[PC_NEXT_ROW_JUMPI]
@@ -340,7 +361,7 @@ NOT_LAST_EXEC * sel_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') =
 // TODO: gate this group. This is actually interleaved with the previous group.
 
 /**************************************************************************************************
- *  Error collection
+  *  Error collection
  **************************************************************************************************/
 
 // sel_error is 1 iff any kind of error happens at the execution level.

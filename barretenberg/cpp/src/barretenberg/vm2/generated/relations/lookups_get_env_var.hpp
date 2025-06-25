@@ -17,7 +17,7 @@ struct lookup_get_env_var_precomputed_info_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_GET_ENV_VAR_PRECOMPUTED_INFO";
     static constexpr std::string_view RELATION_NAME = "get_env_var";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 11;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_should_get_env_var;
+    static constexpr Column SRC_SELECTOR = Column::execution_sel_dispatch_get_env_var;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
     static constexpr Column COUNTS = Column::lookup_get_env_var_precomputed_info_counts;
     static constexpr Column INVERSES = Column::lookup_get_env_var_precomputed_info_inv;

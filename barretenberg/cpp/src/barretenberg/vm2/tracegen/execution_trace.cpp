@@ -443,6 +443,9 @@ void ExecutionTraceBuilder::process(
          *  Temporality group...: Dispatching.
          **************************************************************************************************/
 
+        bool should_dispatch_opcode = should_resolve_address && !addressing_failed;
+        trace.set(C::execution_sel_should_dispatch_opcode, row, should_dispatch_opcode ? 1 : 0);
+
         // TODO(ilyas): This can possibly be gated with some boolean but I'm not sure what is going on.
 
         // Overly verbose but maximising readibility here
@@ -879,7 +882,7 @@ void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
 
     trace.set(row,
               { {
-                  { C::execution_sel_should_get_env_var, 1 },
+                  { C::execution_sel_dispatch_get_env_var, 1 },
                   { C::execution_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 ? 1 : 0 },
                   { C::execution_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 ? 1 : 0 },
                   { C::execution_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },

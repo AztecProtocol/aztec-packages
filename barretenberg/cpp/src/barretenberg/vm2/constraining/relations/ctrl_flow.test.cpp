@@ -24,6 +24,7 @@ TEST(CtrlFlowConstrainingTest, Jump)
         {
             { C::execution_sel, 1 },
             { C::execution_sel_jump, 1 },
+            { C::execution_sel_should_dispatch_opcode, 1 },
             { C::execution_rop_0_, 120 },
         },
         { { C::execution_sel, 1 }, { C::execution_last, 1 }, { C::execution_pc, 120 } },

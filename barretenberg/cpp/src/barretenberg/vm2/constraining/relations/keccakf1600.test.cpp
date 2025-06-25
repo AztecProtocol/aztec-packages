@@ -8,6 +8,7 @@
 #include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/keccakf1600_fixture.test.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -16,13 +17,51 @@ namespace {
 
 using tracegen::KeccakF1600TraceBuilder;
 using tracegen::TestTraceContainer;
-
-using keccakf1600_relation = bb::avm2::keccakf1600<AvmFlavorSettings::FF>;
-using keccak_memory_relation = bb::avm2::keccak_memory<AvmFlavorSettings::FF>;
+using FF = AvmFlavorSettings::FF;
+using C = Column;
+using execution = bb::avm2::execution<FF>;
+using keccakf1600_relation = bb::avm2::keccakf1600<FF>;
+using keccak_memory_relation = bb::avm2::keccak_memory<FF>;
 
 TEST(KeccakF1600ConstrainingTest, EmptyRow)
 {
     check_relation<keccakf1600_relation>(testing::empty_trace());
+}
+
+TEST(KeccakF1600ConstrainingTest, DispatchKeccakF1600)
+{
+    // Test the sel_dispatch_get_env_var gating logic
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+        // No earlier errors, should get env var
+        { { C::execution_sel, 1 },
+          { C::execution_sel_keccakf1600, 1 },
+          { C::execution_sel_should_dispatch_opcode, 1 },
+          { C::execution_sel_dispatch_keccakf1600, 1 } },
+        // Earlier error, should not get env var
+        { { C::execution_sel, 1 },
+          { C::execution_sel_keccakf1600, 1 },
+          { C::execution_sel_should_dispatch_opcode, 0 },
+          { C::execution_sel_dispatch_keccakf1600, 0 } },
+        { { C::execution_sel, 1 }, { C::execution_last, 1 } },
+        { { C::execution_sel, 0 } },
+    });
+
+    check_relation<execution>(trace, execution::SR_SEL_DISPATCH_KECCAKF1600);
+
+    // Negative test: opcode was dispatched and there are no prior errors, but sel_dispatch_get_env_var = 0
+    trace.set(C::execution_sel_dispatch_keccakf1600, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SEL_DISPATCH_KECCAKF1600),
+                              "SEL_DISPATCH_KECCAKF1600");
+    // Reset sel_dispatch_get_env_var to 1
+    trace.set(C::execution_sel_dispatch_keccakf1600, 1, 1);
+
+    // Test opposite case: there are prior errors, but sel_dispatch_get_env_var = 1
+    trace.set(C::execution_sel_dispatch_keccakf1600, 2, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_SEL_DISPATCH_KECCAKF1600),
+                              "SEL_DISPATCH_KECCAKF1600");
+    // Reset sel_dispatch_get_env_var to 0
+    trace.set(C::execution_sel_dispatch_keccakf1600, 2, 0);
 }
 
 // Positive test of a single permutation with simulation and trace generation and checking interactions.
