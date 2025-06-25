@@ -18,6 +18,7 @@ pub mod poseidon2;
 pub mod traits;
 pub mod type_serialization;
 pub mod type_packing;
+pub mod tuple_serialization;
 
 pub mod shared_mutable;
 pub mod content_commitment;
