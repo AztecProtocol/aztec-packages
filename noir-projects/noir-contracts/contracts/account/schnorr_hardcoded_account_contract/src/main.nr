@@ -4,14 +4,12 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrHardcodedAccount {
-    use dep::authwit::{
-        account::AccountActions,
-        auth_witness::get_auth_witness,
-        entrypoint::{app::AppPayload, fee::FeePayload},
+    use dep::aztec::{
+        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        macros::functions::{private, view},
+        oracle::auth_witness::get_auth_witness,
+        prelude::PrivateContext,
     };
-    use dep::aztec::prelude::PrivateContext;
-
-    use dep::aztec::macros::functions::{private, view};
     use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     global public_key: EmbeddedCurvePoint = EmbeddedCurvePoint {

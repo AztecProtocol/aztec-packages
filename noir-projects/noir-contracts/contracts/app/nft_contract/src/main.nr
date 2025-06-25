@@ -9,11 +9,11 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
-    use authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
     use aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+            compute_authwit_nullifier,
+        },
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},

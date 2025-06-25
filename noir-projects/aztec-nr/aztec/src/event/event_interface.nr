@@ -1,5 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext},
+    event::event_selector::EventSelector,
     messages::{
         logs::{event::to_encrypted_private_event_message, utils::prefix_with_tag},
         offchain_messages::emit_offchain_message,
@@ -7,7 +8,6 @@ use crate::{
     utils::remove_constraints::{remove_constraints, remove_constraints_if},
 };
 use dep::protocol_types::{
-    abis::event_selector::EventSelector,
     address::AztecAddress,
     constants::GENERATOR_INDEX__EVENT_COMMITMENT,
     hash::poseidon2_hash_with_separator,

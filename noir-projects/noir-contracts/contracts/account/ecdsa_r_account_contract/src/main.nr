@@ -4,16 +4,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract EcdsaRAccount {
     use dep::aztec::{
+        authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
         macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
         messages::logs::note::encode_and_encrypt_note,
+        oracle::auth_witness::get_auth_witness,
     };
     use dep::aztec::prelude::{PrivateContext, PrivateImmutable};
-
-    use dep::authwit::{
-        account::AccountActions,
-        auth_witness::get_auth_witness,
-        entrypoint::{app::AppPayload, fee::FeePayload},
-    };
 
     use dep::ecdsa_public_key_note::EcdsaPublicKeyNote;
 

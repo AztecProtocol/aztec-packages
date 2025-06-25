@@ -13,6 +13,7 @@ import {
 } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { SimulationOverrides, TxSimulationResult } from '@aztec/stdlib/tx';
 
@@ -172,15 +173,15 @@ describe('Kernelless simulation', () => {
 
       const [token0AuthwitRequest, token1AuthwitRequest] = offchainEffects;
 
-      // The account contract that generates the authwit request
-      expect(token0AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
-      expect(token1AuthwitRequest.contractAddress).toEqual(liquidityProvider.getAddress());
+      // The contract that generates the authwit request
+      expect(token0AuthwitRequest.contractAddress).toEqual(token0.address);
+      expect(token1AuthwitRequest.contractAddress).toEqual(token1.address);
 
-      expect(token0AuthwitRequest.data).toHaveLength(1);
-      expect(token1AuthwitRequest.data).toHaveLength(1);
+      expect(token0AuthwitRequest.data).toHaveLength(2);
+      expect(token1AuthwitRequest.data).toHaveLength(2);
 
-      const [token0AuthwitHash] = token0AuthwitRequest.data;
-      const [token1AuthwitHash] = token1AuthwitRequest.data;
+      const [_selector0, token0AuthwitInnerHash] = token0AuthwitRequest.data;
+      const [_selector1, token1AuthwitInnerHash] = token1AuthwitRequest.data;
 
       // Compute the real authwitness
       const token0Authwit = await liquidityProvider.createAuthWit({
@@ -202,6 +203,22 @@ describe('Kernelless simulation', () => {
           nonceForAuthwits,
         ),
       });
+
+      const { l1ChainId: chainId, rollupVersion: version } = await pxe.getNodeInfo();
+
+      const token0AuthwitHash = await computeOuterAuthWitHash(
+        token0.address,
+        new Fr(chainId),
+        new Fr(version),
+        token0AuthwitInnerHash,
+      );
+
+      const token1AuthwitHash = await computeOuterAuthWitHash(
+        token1.address,
+        new Fr(chainId),
+        new Fr(version),
+        token1AuthwitInnerHash,
+      );
 
       expect(token0AuthwitHash).toEqual(token0Authwit.requestHash);
       expect(token1AuthwitHash).toEqual(token1Authwit.requestHash);

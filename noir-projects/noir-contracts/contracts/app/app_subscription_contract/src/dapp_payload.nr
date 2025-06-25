@@ -1,4 +1,5 @@
 use dep::aztec::{
+    authwit::entrypoint::function_call::FunctionCall,
     prelude::{AztecAddress, PrivateContext},
     protocol_types::{
         constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
@@ -7,8 +8,6 @@ use dep::aztec::{
     },
 };
 use std::meta::derive;
-
-use dep::authwit::entrypoint::function_call::FunctionCall;
 
 global DAPP_MAX_CALLS: u32 = 1;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32

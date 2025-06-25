@@ -8,10 +8,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract AuthRegistry {
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
-    };
     use dep::aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
+        },
         macros::{functions::{internal, private, public, utility, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicMutable},

@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{
+use dep::protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     traits::{Serialize, ToField},

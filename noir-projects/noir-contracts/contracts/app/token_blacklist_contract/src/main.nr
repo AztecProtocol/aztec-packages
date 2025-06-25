@@ -17,7 +17,10 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract TokenBlacklist {
     // Libs
-    use dep::aztec::{
+    use aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+        },
         hash::compute_secret_hash,
         macros::{
             functions::{initializer, internal, private, public, utility, view},
@@ -27,19 +30,13 @@ pub contract TokenBlacklist {
             discovery::private_notes::attempt_note_discovery,
             logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
+        note::note_interface::{NoteHash, NoteProperties, NoteType},
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        protocol_types::traits::ToField,
         utils::comparison::Comparator,
     };
 
-    use aztec::note::note_interface::NoteHash;
-    use aztec::note::note_interface::NoteProperties;
-    use aztec::note::note_interface::NoteType;
-    use aztec::protocol_types::traits::ToField;
     use std::ops::{Add, Sub};
-
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-    };
 
     use crate::types::{
         balances_map::BalancesMap, roles::UserFlags, token_note::TokenNote,

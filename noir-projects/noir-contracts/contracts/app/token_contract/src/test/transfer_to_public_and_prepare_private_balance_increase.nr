@@ -1,7 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 // Tests the typical scenario in which transfer_to_public_and_prepare_private_balance_increase is to be used:
 // 1. The liquidity provider calls private AMM::add_liquidity function,
@@ -27,7 +28,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
 
     // Add authwit such that the AMM can transfer the deposit amount of the liquidity provider to the public balance of
     // itself.
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
+    add_private_authwit_from_call_interface(
         liquidity_provider,
         amm_contract,
         transfer_call_interface,

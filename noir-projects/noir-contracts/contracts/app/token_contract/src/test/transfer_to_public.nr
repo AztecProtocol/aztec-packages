@@ -1,7 +1,8 @@
 use crate::test::utils;
 use crate::Token;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random, test::helpers::authwit::add_private_authwit_from_call_interface,
+};
 
 #[test]
 unconstrained fn transfer_to_public_on_behalf_of_self() {
@@ -33,11 +34,7 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
         transfer_to_public_amount,
         0,
     );
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        transfer_to_public_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public tokens
@@ -86,11 +83,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance
         transfer_to_public_amount,
         0,
     );
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        recipient,
-        transfer_to_public_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public tokens
@@ -109,11 +102,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
         transfer_to_public_amount,
         0,
     );
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        owner,
-        owner,
-        transfer_to_public_call_interface,
-    );
+    add_private_authwit_from_call_interface(owner, owner, transfer_to_public_call_interface);
     // Impersonate recipient
     env.impersonate(recipient);
     // transfer_to_public tokens

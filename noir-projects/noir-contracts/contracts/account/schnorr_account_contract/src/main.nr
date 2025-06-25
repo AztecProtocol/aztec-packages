@@ -6,20 +6,21 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract SchnorrAccount {
-    use dep::authwit::{
-        account::AccountActions,
-        auth::{compute_authwit_message_hash, compute_authwit_nullifier},
-        auth_witness::get_auth_witness,
-        entrypoint::{app::AppPayload, fee::FeePayload},
+    use dep::aztec::{
+        authwit::{
+            account::AccountActions,
+            auth::{compute_authwit_message_hash, compute_authwit_nullifier},
+            entrypoint::{app::AppPayload, fee::FeePayload},
+        },
+        hash::compute_siloed_nullifier,
+        macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
+        oracle::{
+            auth_witness::get_auth_witness,
+            get_nullifier_membership_witness::get_low_nullifier_membership_witness,
+        },
+        prelude::{AztecAddress, PrivateContext, PrivateImmutable},
     };
-    use dep::aztec::hash::compute_siloed_nullifier;
-    use dep::aztec::macros::{
-        functions::{initializer, noinitcheck, private, utility, view},
-        storage::storage,
-    };
-    use dep::aztec::messages::logs::note::encode_and_encrypt_note;
-    use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
-    use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
 
     use crate::public_key_note::PublicKeyNote;
 
