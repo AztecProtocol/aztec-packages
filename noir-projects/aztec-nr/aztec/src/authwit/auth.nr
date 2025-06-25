@@ -1,5 +1,10 @@
-use dep::aztec::{context::{gas::GasOpts, PrivateContext, PublicContext}, hash::hash_args_array};
-use dep::aztec::protocol_types::{
+use crate::{
+    authwit::authwit_interface::AuthwitInterface,
+    context::{gas::GasOpts, PrivateContext, PublicContext},
+    hash::hash_args_array,
+    macros::authwits::authwit,
+};
+use dep::protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{
@@ -193,6 +198,13 @@ use dep::aztec::protocol_types::{
 
 pub global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
+#[authwit]
+struct CallAuthwit {
+    msg_sender: AztecAddress,
+    selector: FunctionSelector,
+    args_hash: Field,
+}
+
 /**
  * Assert that `on_behalf_of` has authorized the current call with a valid authentication witness
  *
@@ -203,11 +215,12 @@ pub global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_h
  */
 // docs:start:assert_current_call_valid_authwit
 pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress) {
-    let inner_hash = compute_inner_authwit_hash([
-        context.msg_sender().to_field(),
-        context.selector().to_field(),
-        context.args_hash,
-    ]);
+    let authwit = CallAuthwit {
+        msg_sender: context.msg_sender(),
+        selector: context.selector(),
+        args_hash: context.get_args_hash(),
+    };
+    let inner_hash = authwit.emit_as_offchain_effect_and_get_hash();
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit

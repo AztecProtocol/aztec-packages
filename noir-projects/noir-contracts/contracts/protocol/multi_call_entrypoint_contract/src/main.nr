@@ -4,8 +4,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract MultiCallEntrypoint {
-    use dep::authwit::entrypoint::app::AppPayload;
-    use dep::aztec::macros::functions::private;
+    use aztec::{authwit::entrypoint::app::AppPayload, macros::functions::private};
 
     #[private]
     fn entrypoint(app_payload: AppPayload) {

@@ -3,7 +3,6 @@ pub mod avm_circuit_public_inputs;
 
 pub mod contract_class_function_leaf_preimage;
 
-pub mod event_selector;
 pub mod function_selector;
 pub mod function_data;
 

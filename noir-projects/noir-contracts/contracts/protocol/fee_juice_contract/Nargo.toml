@@ -6,7 +6,6 @@ type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
-authwit = { path = "../../../../aztec-nr/authwit" }
 deployer = { path = "../../protocol/contract_instance_deployer_contract" }
 registerer = { path = "../contract_class_registerer_contract" }
 keccak256 = { tag = "v0.1.0", git = "https://github.com/noir-lang/keccak256" }

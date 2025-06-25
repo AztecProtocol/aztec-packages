@@ -128,7 +128,6 @@ To add it to your project, add the `authwit` library to your `Nargo.toml` file.
 ```toml
 [dependencies]
 aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/authwit"}
 ```
 
 Then you will be able to import it into your contracts as follows.

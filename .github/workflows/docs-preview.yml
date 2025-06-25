@@ -52,7 +52,7 @@ jobs:
       - name: Build dependencies
         run: |
           export NOIR_HASH=$(./noir/bootstrap.sh hash)
-          for project in noir barretenberg noir-projects l1-contracts yarn-project; do
+          for project in noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project; do
             $project/bootstrap.sh
           done
 

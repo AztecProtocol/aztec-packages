@@ -34,7 +34,7 @@ pub contract Token {
     use aztec::protocol_types::traits::ToField;
 
     // docs:start:import_authwit
-    use dep::authwit::auth::{
+    use aztec::authwit::auth::{
         assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
         compute_authwit_nullifier,
     };

@@ -6,6 +6,5 @@ type = "contract"
 
 [dependencies]
 aztec = { path = "../../../../aztec-nr/aztec" }
-authwit = { path = "../../../../aztec-nr/authwit" }
 token = { path = "../../app/token_contract" }
 uint_note = { path = "../../../../aztec-nr/uint-note" }
