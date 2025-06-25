@@ -28,6 +28,7 @@ export type L2ChainConfig = {
   maxTxPoolSize: number;
   publicIncludeMetrics?: string[];
   publicMetricsCollectorUrl?: string;
+  publicMetricsCollectFrom?: string[];
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -74,6 +75,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   maxTxPoolSize: 2 * 1024 * 1024 * 1024, // 2GB
   publicIncludeMetrics: ['aztec.validator', 'aztec.tx_collector'],
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec.network',
+  publicMetricsCollectFrom: ['sequencer'],
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -155,6 +157,10 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
 
   if (config.publicMetricsCollectorUrl) {
     enrichVar('PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT', config.publicMetricsCollectorUrl);
+  }
+
+  if (config.publicMetricsCollectFrom) {
+    enrichVar('PUBLIC_OTEL_COLLECT_FROM', config.publicMetricsCollectFrom.join(','));
   }
 
   enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);

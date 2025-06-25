@@ -5,6 +5,7 @@ export interface TelemetryClientConfig {
   publicMetricsCollectorUrl?: URL;
   publicIncludeMetrics: string[];
   publicMetricsOptOut: boolean;
+  publicMetricsCollectFrom: string[];
   tracesCollectorUrl?: URL;
   logsCollectorUrl?: URL;
   otelCollectIntervalMs: number;
@@ -16,11 +17,6 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',
-    parseEnv: (val: string) => val && new URL(val),
-  },
-  publicMetricsCollectorUrl: {
-    env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
-    description: 'A URL to publish a subset of metrics for public consumption',
     parseEnv: (val: string) => val && new URL(val),
   },
   tracesCollectorUrl: {
@@ -48,6 +44,24 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',
     description: 'A list of metric prefixes to exclude from export',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
+  },
+
+  publicMetricsCollectorUrl: {
+    env: 'PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
+    description: 'A URL to publish a subset of metrics for public consumption',
+    parseEnv: (val: string) => val && new URL(val),
+  },
+  publicMetricsCollectFrom: {
+    env: 'PUBLIC_OTEL_COLLECT_FROM',
+    description: 'The role types to collect metrics from',
     parseEnv: (val: string) =>
       val
         ? val

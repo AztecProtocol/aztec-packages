@@ -306,6 +306,10 @@ export async function setupUpdateMonitor(
         if (Array.isArray(publicIncludeMetrics) && publicIncludeMetrics.every(m => typeof m === 'string')) {
           getTelemetryClient().setExportedPublicTelemetry(publicIncludeMetrics);
         }
+        const publicMetricsCollectFrom: unknown = (config as any).publicMetricsCollectFrom;
+        if (Array.isArray(publicMetricsCollectFrom) && publicMetricsCollectFrom.every(m => typeof m === 'string')) {
+          getTelemetryClient().setPublicTelemetryCollectFrom(publicMetricsCollectFrom);
+        }
       } catch (err) {
         logger.warn('Failed to update config', { err });
       }
