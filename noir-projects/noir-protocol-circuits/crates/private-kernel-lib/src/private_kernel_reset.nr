@@ -228,7 +228,7 @@ mod tests {
                 validation_requests_split_counter: 0,
                 dimensions,
                 padded_side_effects: PaddedSideEffects::empty(),
-                }
+            }
         }
 
         pub fn with_siloing(&mut self) -> Self {
