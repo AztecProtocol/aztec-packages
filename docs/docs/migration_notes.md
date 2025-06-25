@@ -7,6 +7,7 @@ tags: [migration, updating, sandbox]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+<<<<<<< 06-11-refactor_max_block_number_--_include_by_timestamp
 ## TBD
 
 ## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
@@ -20,6 +21,24 @@ If your contract uses `SharedMutable`, you'll need to:
 1. Update the `INITIAL_DELAY` numeric generic to use seconds instead of blocks
 2. Modify any related logic to account for timestamp-based timing
 3. Note that timestamps use `u64` values while block numbers use `u32`
+=======
+## 0.88.0
+
+## [Aztec.nr] Deprecation of the `authwit` library
+
+It is now included in `aztec-nr`, so imports must be updated:
+
+```diff
+-dep::authwit::...
++dep::aztec::authwit...
+```
+
+and stale dependencies removed from `Nargo.toml`
+
+```diff
+-authwit = { path = "../../../../aztec-nr/authwit" }
+```
+>>>>>>> next
 
 ## 0.87.0
 

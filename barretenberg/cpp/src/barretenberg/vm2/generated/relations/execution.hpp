@@ -13,8 +13,8 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3 };
+    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -197,11 +197,21 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // PC_NEXT_ROW_JUMPI
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            auto tmp =
+                execution_NOT_LAST_EXEC * in.get(C::execution_sel_jumpi) *
+                ((in.get(C::execution_register_0_) * (in.get(C::execution_rop_1_) - in.get(C::execution_next_pc)) +
+                  in.get(C::execution_next_pc)) -
+                 in.get(C::execution_pc_shift));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<23>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -223,6 +233,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "EXEC_OP_ID_DECOMPOSITION";
         case 21:
             return "PC_NEXT_ROW_INT_CALL_JUMP";
+        case 22:
+            return "PC_NEXT_ROW_JUMPI";
         }
         return std::to_string(index);
     }
@@ -233,6 +245,7 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
     static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 9;
     static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 21;
+    static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 22;
 };
 
 } // namespace bb::avm2
