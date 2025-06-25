@@ -17,31 +17,57 @@ template <typename Builder> class witness_t {
   public:
     witness_t() = default;
 
+    /**
+     * @brief Construct a new witness object
+     *
+     * @param parent_context circuit builder/context
+     * @param in bb:fr value to be used as a witness
+     */
     witness_t(Builder* parent_context, const bb::fr& in)
+        : witness(in)
+        , context(parent_context)
     {
-        context = parent_context;
-        witness = in;
         witness_index = context->add_variable(witness);
     }
 
+    /**
+     * @brief Construct a new witness object from a constant boolean value
+     *
+     * @param parent_context circuit builder/context
+     * @param in boolean value to be used as a witness
+     */
     witness_t(Builder* parent_context, const bool in)
+        : context(parent_context)
     {
-        context = parent_context;
-        if (in) {
-            bb::fr::__copy(bb::fr::one(), witness);
-        } else {
-            bb::fr::__copy(bb::fr::zero(), witness);
-        }
+        witness = in ? bb::fr::one() : bb::fr::zero();
         witness_index = context->add_variable(witness);
     }
 
+    /**
+     * @brief Construct a new witness object from an integral or enum type
+     *
+     * @param parent_context circuit builder/context
+     * @param in integral or enum value to be used as a witness
+     */
     witness_t(Builder* parent_context, IntegralOrEnum auto const in)
+        : context(parent_context)
     {
-        context = parent_context;
-        witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
+        // The field constructor should handle integral or enum types correctly.
+        witness = bb::fr(in);
         witness_index = context->add_variable(witness);
     }
 
+    /**
+     * @brief Create a constant witness object
+     *
+     * @param parent_context circuit builder/context
+     * @param in bb::fr value to be used as a constant witness
+     * @return witness_t<Builder> constant witness object
+     *
+     * @details This function creates a witness that is guaranteed to be constant, meaning it will not change during the
+     * execution of the circuit. We enforce this by adding a gate that constrains in + q_c = 0, where selector q_c =
+     * -in_value. Notice that the value `in` becomes public as selectors are public.
+     */
     static witness_t create_constant_witness(Builder* parent_context, const bb::fr& in)
     {
         witness_t out(parent_context, in);
@@ -64,25 +90,22 @@ template <typename Builder> class public_witness_t : public witness_t<Builder> {
     public_witness_t(Builder* parent_context, const bb::fr& in)
     {
         context = parent_context;
-        bb::fr::__copy(in, witness);
+        witness = in;
         witness_index = context->add_public_variable(witness);
     }
 
     public_witness_t(Builder* parent_context, const bool in)
     {
         context = parent_context;
-        if (in) {
-            bb::fr::__copy(bb::fr::one(), witness);
-        } else {
-            bb::fr::__copy(bb::fr::zero(), witness);
-        }
+        witness = in ? bb::fr::one() : bb::fr::zero();
         witness_index = context->add_public_variable(witness);
     }
 
     template <typename T> public_witness_t(Builder* parent_context, T const in)
     {
         context = parent_context;
-        witness = bb::fr{ static_cast<uint64_t>(in), 0, 0, 0 }.to_montgomery_form();
+        // The field constructor should handle integral or enum types correctly.
+        witness = bb::fr(in);
         witness_index = context->add_public_variable(witness);
     }
 };
