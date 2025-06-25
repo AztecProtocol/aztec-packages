@@ -10,7 +10,10 @@ import {Multicall3} from "./Multicall3.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib,
+  Signature,
+  CommitteeAttestation,
+  CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -375,7 +378,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
-            callData: abi.encodeCall(rollup.propose, (b.proposeArgs, b.attestations, b.blobInputs)),
+            callData: abi.encodeCall(
+              rollup.propose,
+              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
+            ),
             allowFailure: false
           });
           calls[1] = Multicall3.Call3({
@@ -386,7 +392,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           multicall.aggregate3(calls);
         } else {
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
+          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

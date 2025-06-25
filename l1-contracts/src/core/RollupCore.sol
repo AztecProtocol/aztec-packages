@@ -19,7 +19,7 @@ import {
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
 import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
@@ -226,7 +226,7 @@ contract RollupCore is
 
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
     ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);

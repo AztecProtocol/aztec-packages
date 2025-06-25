@@ -12,7 +12,7 @@ import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelec
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {
-  SignatureDomainSeparator, CommitteeAttestation
+  SignatureDomainSeparator, CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
@@ -56,7 +56,7 @@ struct InterimProposeValues {
  */
 struct ValidateHeaderArgs {
   ProposedHeader header;
-  CommitteeAttestation[] attestations;
+  CommitteeAttestations attestations;
   bytes32 digest;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
@@ -84,7 +84,7 @@ library ProposeLib {
    */
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {

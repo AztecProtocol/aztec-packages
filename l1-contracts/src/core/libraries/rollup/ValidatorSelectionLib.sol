@@ -9,8 +9,9 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib, Signature, CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
+import {ECDSA} from "@oz/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SlotDerivation} from "@oz/utils/SlotDerivation.sol";
@@ -30,6 +31,16 @@ library ValidatorSelectionLib {
   using TransientSlot for *;
   using SlotDerivation for string;
   using SlotDerivation for bytes32;
+  using SignatureLib for CommitteeAttestations;
+
+  struct VerifyStack {
+    uint256 proposerIndex;
+    uint256 index;
+    uint256 needed;
+    uint256 signaturesRecovered;
+    address[] reconstructedCommittee;
+    bool proposerVerified;
+  }
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
@@ -89,7 +100,7 @@ library ValidatorSelectionLib {
   function verify(
     Slot _slot,
     Epoch _epochNumber,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
   ) internal {
@@ -107,61 +118,74 @@ library ValidatorSelectionLib {
       return;
     }
 
-    require(
-      _attestations.length == targetCommitteeSize,
-      Errors.ValidatorSelection__InvalidAttestationsLength(
-        targetCommitteeSize, _attestations.length
-      )
-    );
-
-    // We determine who the proposer from indexing into the provided attestations array, we then recover their proposer
-    // address from storage
-    uint256 proposerIndex =
-      computeProposerIndex(_epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize);
-
-    // The user controls this value, however, if a false value is provided, the recalculated committee commitment will
-    // be incorrect, and we will revert.
-
-    // Validate the attestations
-    uint256 needed = targetCommitteeSize * 2 / 3 + 1;
-    uint256 validAttestations = 0;
-
-    address[] memory reconstructedCommittee = new address[](targetCommitteeSize);
-    bool proposerVerified = false;
+    VerifyStack memory stack = VerifyStack({
+      proposerIndex: computeProposerIndex(
+        _epochNumber, _slot, getSampleSeed(_epochNumber), targetCommitteeSize
+      ),
+      needed: (targetCommitteeSize << 1) / 3 + 1, // targetCommitteeSize * 2 / 3 + 1, but cheaper
+      index: 0,
+      signaturesRecovered: 0,
+      reconstructedCommittee: new address[](targetCommitteeSize),
+      proposerVerified: false
+    });
 
     bytes32 digest = _digest.toEthSignedMessageHash();
-    for (uint256 i = 0; i < _attestations.length; i++) {
-      // To avoid stack too deep errors
-      CommitteeAttestation memory attestation = _attestations[i];
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14283): as part of bitmap / storage optimisation, this check will change to whatever the bitmap includes
-      if (attestation.signature.v != 0) {
-        address recovered = ecrecover(
-          digest, attestation.signature.v, attestation.signature.r, attestation.signature.s
-        );
-        reconstructedCommittee[i] = recovered;
-        validAttestations++;
-        if (i == proposerIndex) {
-          proposerVerified = true;
+
+    bytes memory signaturesOrAddresses = _attestations.signaturesOrAddresses;
+    uint256 dataPtr;
+    assembly {
+      dataPtr := add(signaturesOrAddresses, 0x20) // Skip length, cache pointer
+    }
+
+    unchecked {
+      for (uint256 i = 0; i < targetCommitteeSize; ++i) {
+        bool isSignature = _attestations.isSignature(i);
+
+        if (isSignature) {
+          uint8 v;
+          bytes32 r;
+          bytes32 s;
+
+          assembly {
+            v := byte(0, mload(dataPtr))
+            dataPtr := add(dataPtr, 1)
+            r := mload(dataPtr)
+            dataPtr := add(dataPtr, 32)
+            s := mload(dataPtr)
+            dataPtr := add(dataPtr, 32)
+          }
+
+          ++stack.signaturesRecovered;
+          stack.reconstructedCommittee[i] = ECDSA.recover(digest, v, r, s);
+
+          if (i == stack.proposerIndex) {
+            stack.proposerVerified = true;
+          }
+        } else {
+          address addr;
+          assembly {
+            addr := shr(96, mload(dataPtr))
+            dataPtr := add(dataPtr, 20)
+          }
+          stack.reconstructedCommittee[i] = addr;
         }
-      } else {
-        reconstructedCommittee[i] = attestation.addr;
       }
     }
 
-    address proposer = reconstructedCommittee[proposerIndex];
+    address proposer = stack.reconstructedCommittee[stack.proposerIndex];
 
     require(
-      proposerVerified || proposer == msg.sender,
+      stack.proposerVerified || proposer == msg.sender,
       Errors.ValidatorSelection__InvalidProposer(proposer, msg.sender)
     );
 
     require(
-      validAttestations >= needed,
-      Errors.ValidatorSelection__InsufficientAttestations(needed, validAttestations)
+      stack.signaturesRecovered >= stack.needed,
+      Errors.ValidatorSelection__InsufficientAttestations(stack.needed, stack.signaturesRecovered)
     );
 
     // Check the committee commitment
-    bytes32 reconstructedCommitment = computeCommitteeCommitment(reconstructedCommittee);
+    bytes32 reconstructedCommitment = computeCommitteeCommitment(stack.reconstructedCommittee);
     if (reconstructedCommitment != committeeCommitment) {
       revert Errors.ValidatorSelection__InvalidCommitteeCommitment(
         reconstructedCommitment, committeeCommitment

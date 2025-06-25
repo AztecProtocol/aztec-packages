@@ -41,7 +41,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  CommitteeAttestation,
+  CommitteeAttestations,
   ExtRollupLib,
   ExtRollupLib2,
   EthValue,
@@ -99,7 +99,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     ProposedHeader calldata _header,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
