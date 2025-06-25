@@ -2,6 +2,7 @@ use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
+pub global MAX_U32_VALUE: u32 = 0xffffffff;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
 pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
@@ -104,7 +105,6 @@ pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
 pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
 pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
-pub comptime global TUBE_VK_INDEX: u32 = 4;
 pub comptime global AVM_VK_INDEX: u32 = 5;
 pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
 pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
@@ -116,23 +116,22 @@ pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
 pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
 pub comptime global BASE_PARITY_INDEX: u32 = 14;
 pub comptime global ROOT_PARITY_INDEX: u32 = 15;
+pub comptime global PRIVATE_TUBE_VK_INDEX: u32 = 16;
+pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 17;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
 // MISC CONSTANTS
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-// The following is used in immutable state variables to compute an initialization slot whose value is used to
-// determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
-// The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
-// to be large enough so that it's ensured that it doesn't collide with storage slots of other variables.
-pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The genesis value is taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+// The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HEADER_HASH: Field =
+    0x0e40440ea6abb9b58877d3aea6628cc6b14b6bc2148ce2be6f46db23360a6aba;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
+    0x1f9c798be7975bb34c3e605a4c92c75796eae7b9a08644bc9a6a55354ed470be;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -176,6 +175,7 @@ pub global REGISTERER_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
+pub global SIDE_EFFECT_MASKING_ADDRESS: AztecAddress = AztecAddress::from_field(7);
 
 // Randomly chosen slot for the bytecode capsule.
 pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
@@ -219,7 +219,7 @@ pub global GAS_SETTINGS_LENGTH: u32 = GAS_LENGTH /* gas_limits */
     + GAS_FEES_LENGTH /* max_fees_per_gas */
     + GAS_FEES_LENGTH /* max_priority_fees_per_gas */;
 pub global CALL_CONTEXT_LENGTH: u32 = 4;
-pub global CONTENT_COMMITMENT_LENGTH: u32 = 4;
+pub global CONTENT_COMMITMENT_LENGTH: u32 = 3;
 pub global CONTRACT_INSTANCE_LENGTH: u32 = 16;
 pub global CONTRACT_STORAGE_READ_LENGTH: u32 = 3;
 pub global CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH: u32 = 3;
@@ -230,11 +230,26 @@ pub global GLOBAL_VARIABLES_LENGTH: u32 = 7 + GAS_FEES_LENGTH;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH: u32 = 2;
 pub global APPEND_ONLY_TREE_SNAPSHOT_LENGTH_BYTES: u32 = 36;
 pub global SPONGE_BLOB_LENGTH: u32 = 11;
+pub global BLS12_FR_LIMBS: u32 = 3; // TODO(#14646): get this from bignum
+pub global BLS12_FQ_LIMBS: u32 = 4; // TODO(#14646): get this from bignum
+pub global BLS12_POINT: u32 = 2 * BLS12_FQ_LIMBS + 1; // TODO(#14646): reduce num fields needed here?
+pub global BLS12_POINT_COMPRESSED_BYTES: u32 = 48; // TODO(#14646): get this from bignum
+pub global BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 3 /* v_acc, z_acc, and gamma_acc */
+    + 2 * BLS12_FR_LIMBS /* y_acc and gamma^i */
+    + BLS12_POINT /* c_acc */;
+pub global FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS: u32 = 1 /* blob_commitments_hash */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* y */
+    + 2 /* c */;
+pub global BLOCK_BLOB_PUBLIC_INPUTS: u32 = 2 * BLOB_ACCUMULATOR_PUBLIC_INPUTS /* start and end accumulators */
+    + 1 /* z */
+    + BLS12_FR_LIMBS /* gamma */;
 pub global BLOB_PUBLIC_INPUTS: u32 = 6;
-pub global BLOB_PUBLIC_INPUTS_BYTES: u32 = 112; // = commitment (48) + z (32) + y (32)
 pub global L1_TO_L2_MESSAGE_LENGTH: u32 = 6;
-pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 3;
+pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
+pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
+pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global MAX_BLOCK_NUMBER_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
@@ -248,11 +263,20 @@ pub global PRIVATE_LOG_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS + 1 /* length */
 pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_LENGTH
     + 1 /* note_hash_counter */
     + 1 /* counter */;
+/// A private log's ciphertext is all fields except the first one, which is called 'tag'. We call this 'ciphertext'
+/// because, unlike public logs, it is expected that private logs are encrypted (though this is not
+/// mandatory).
+pub global PRIVATE_LOG_CIPHERTEXT_LEN: u32 = PRIVATE_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1 /* contract_address */;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_LENGTH: u32 = PUBLIC_LOG_SIZE_IN_FIELDS
     + 1 /* length */
     + 1 /* contract_address */;
+/// A public log's plaintext is all fields except the first one, which is called 'tag'. We call this 'plaintext' because,
+/// unlike public logs, it is expected that public logs are not encrypted (since the encryption would be public,
+/// revealing the plaintext).
+pub global PUBLIC_LOG_PLAINTEXT_LEN: u32 = PUBLIC_LOG_SIZE_IN_FIELDS - 1; // -1 for the tag
+
 // TODO(MW): add new constant for this - the below is just the largest combination atm
 pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
     + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
@@ -309,9 +333,11 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
     + TOTAL_MANA_USED_LENGTH;
-pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 2) * 32
+pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
-    + 20 /* coinbase */;
+    + 20 /* coinbase */
+    + 16 /* gas_fees.fee_per_da_gas */
+    + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
     + MAX_BLOCK_NUMBER_LENGTH
@@ -323,7 +349,7 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL)
     + (COUNTED_PUBLIC_CALL_REQUEST_LENGTH * MAX_ENQUEUED_CALLS_PER_CALL)
     + PUBLIC_CALL_REQUEST_LENGTH
-    + (L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
+    + (COUNTED_L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
     + 2
     + (PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_CALL)
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL)
@@ -358,7 +384,7 @@ pub global COMBINED_CONSTANT_DATA_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH + GLOBAL
 
 pub global PRIVATE_ACCUMULATED_DATA_LENGTH: u32 = (SCOPED_NOTE_HASH_LENGTH * MAX_NOTE_HASHES_PER_TX)
     + (SCOPED_NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_TX)
-    + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
+    + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH)
     + (SCOPED_PRIVATE_LOG_DATA_LENGTH * MAX_PRIVATE_LOGS_PER_TX)
     + (SCOPED_COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
     + (PRIVATE_CALL_REQUEST_LENGTH * MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX)
@@ -383,6 +409,8 @@ pub global PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH);
 pub global NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS: u32 = 3;
+pub global NUM_AVM_ACCUMULATED_DATA_ARRAYS: u32 = 5; // note_hashes, nullifiers, l2_to_l1_msgs, public_logs, public_data_writes
+pub global NUM_PUBLIC_CALL_REQUEST_ARRAYS: u32 = 3; // really 2 arrays and a single teardown req
 
 pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -408,7 +436,9 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + TREE_SNAPSHOTS_LENGTH /* start_tree_snapshots */
     + GAS_LENGTH /* start_gas_used */
     + GAS_SETTINGS_LENGTH
+    + GAS_FEES_LENGTH /* effective_gas_fees */
     + 1 /* fee_payer */
+    + NUM_PUBLIC_CALL_REQUEST_ARRAYS /* public_call_request_array_lengths */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_setup_call_requests */
     + (MAX_ENQUEUED_CALLS_PER_TX * PUBLIC_CALL_REQUEST_LENGTH) /* public_app_logic_call_requests */
     + PUBLIC_CALL_REQUEST_LENGTH /* public_teardown_call_request */
@@ -420,34 +450,38 @@ pub global AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = GLOBAL_VARIABLES_LENGTH
     + GAS_LENGTH /* end_gas_used */
     + AVM_ACCUMULATED_DATA_LENGTH
     + 1 /* transaction_fee */
+    + NUM_AVM_ACCUMULATED_DATA_ARRAYS /* accumulated_data_array_lengths */
     + 1 /* reverted */;
 
-pub global CONSTANT_ROLLUP_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BLOCK_CONSTANT_DATA_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_archive */
+    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* last_l1_to_l2_message_tree */
     + 1 /* vk_tree_root */
     + 1 /* protocol_contract_tree_root */
     + GLOBAL_VARIABLES_LENGTH;
+pub global EPOCH_CONSTANT_DATA_LENGTH: u32 = 1 /* vk_tree_root */
+    + 1 /* protocol_contract_tree_root */
+    + 1 /* prover_id */;
 
-// + 5 for rollup_type, num_txs, out_hash, accumulated_fees, accumulated_mana_used
-pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = CONSTANT_ROLLUP_DATA_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + PARTIAL_STATE_REFERENCE_LENGTH
-    + 2 * SPONGE_BLOB_LENGTH
-    + 5;
-pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = 2
-    * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
+pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
+    + PARTIAL_STATE_REFERENCE_LENGTH /* start_state_reference */
+    + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
+    + SPONGE_BLOB_LENGTH /* start_sponge_blob */
+    + SPONGE_BLOB_LENGTH /* end_sponge_blob */
+    + 1 /* rollup_type */
+    + 1 /* num_txs */
+    + 1 /* out_hash */
+    + 1 /* accumulated_fees */
+    + 1 /* accumulated_mana_used */
+;
+pub global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
+    + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH
     + 2 * GLOBAL_VARIABLES_LENGTH
     + 1 /* out_hash */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH
-    + 1 /* vk_tree_root */
-    + 1 /* protocol_contract_tree_root */
-    + 1 /* prover_id */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
-pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive */
-    + APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* end_archive */
-    + 1 /* end_timestamp */
-    + 1 /* end_block_number */
-    + 1 /* out_hash */
+    + BLOCK_BLOB_PUBLIC_INPUTS /* blob_public_inputs */;
+pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
+    + 1 /* end_archive_root */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */
@@ -455,7 +489,7 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LEN
     + 1 /* prover_id */
     + AZTEC_MAX_EPOCH_DURATION /* proposedBlockHeaderHashes */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
-    + AZTEC_MAX_EPOCH_DURATION * BLOB_PUBLIC_INPUTS * BLOBS_PER_BLOCK;
+    + FINAL_BLOB_ACCUMULATOR_PUBLIC_INPUTS /* blob_public_inputs */;
 pub global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
 pub global NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NULLIFIERS_PER_TX;
 pub global PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP: u32 =
@@ -549,6 +583,12 @@ pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
 pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
 pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
+pub global GENERATOR_INDEX__PARTIAL_NOTE_VALIDITY_COMMITMENT: u32 = 58;
+pub global GENERATOR_INDEX__EVENT_COMMITMENT: u32 = 59;
+// Misc generators
+// TODO(8974): this likely belongs in the middle of the list, but was placed
+// here to avoid changing all of the key generators.
+pub global GENERATOR_INDEX__PUBLIC_BYTECODE: u32 = 60;
 
 // AVM memory tags
 pub global MEM_TAG_FF: Field = 0;
@@ -559,10 +599,34 @@ pub global MEM_TAG_U32: Field = 4;
 pub global MEM_TAG_U64: Field = 5;
 pub global MEM_TAG_U128: Field = 6;
 
-// AvmCircuitPublicInputs - row indices
-// TODO(dbanks12): could we somehow use Noir macros to generate these?
-// TODO(dbanks12): could we somehow generate these from the actual struct? Or no, because codegen can't use that?
+// AVM memory related constants
+pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
+pub global AVM_MEMORY_NUM_BITS: u8 = 32;
 
+// AVM bitwise operation IDs
+pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
+pub global AVM_BITWISE_OR_OP_ID: u8 = 1;
+pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
+
+// AVM Keccakf1600 specific constants
+pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
+pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
+// Execution Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_SET: u32 = 1;
+pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
+pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
+pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
+pub global AVM_EXEC_OP_ID_CALL: u32 = 2 * AVM_EXEC_OP_ID_JUMPI;
+pub global AVM_EXEC_OP_ID_STATICCALL: u32 = 2 * AVM_EXEC_OP_ID_CALL;
+pub global AVM_EXEC_OP_ID_INTERNALCALL: u32 = 2 * AVM_EXEC_OP_ID_STATICCALL;
+pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
+pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
+pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
+pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
+
+// AvmCircuitPublicInputs - row indices
 // Global Variables
 // start alias
 pub global AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_ROW_IDX: u32 = 0;
@@ -618,15 +682,29 @@ pub global AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX: u32
     AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_FEES_PER_GAS_ROW_IDX + 1;
 // Note: each of these gas settings ^, despite being 2 entries each, are split across 2 columns. So we only bump by 1 for each.
 
+// Effective Gas Fees
+pub global AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+
 // Fee Payer
 pub global AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX + 1;
+
+// Public Call Request Array Lengths
+pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_ROW_IDX;
+pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX + 1;
 
 // Public Setup Call Requests
 // Note: PublicCallRequests are a few entries, but are split across multiple columns so that they consume 1 row each.
 // So we only bump by 1 (below) to progress.
 pub global AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX + 1;
 // Public App Logic Call Requests
 pub global AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX + MAX_ENQUEUED_CALLS_PER_TX;
@@ -635,17 +713,29 @@ pub global AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX + MAX_ENQUEUED_CALLS_PER_TX;
 
 // Previous Non-Revertible Accumulated Data Array Lengths
-// Note: accumulated data array lengths are a few entries, but are split across multiple columns so that they consume 1 row each.
 pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX
+    + 1;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX + 1;
+
 // Previous Revertible Accumulated Data Array Lengths
-pub global AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX
+    + 1;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX + 1;
 
 // Previous Non-Revertible Accumulated Data
 // start alias
 pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX + 1;
+    AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX + 1;
 // members
 pub global AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ROW_IDX;
@@ -685,27 +775,39 @@ pub global AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX: u32 =
 pub global AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_PUBLIC_DATA_TREE_ROW_IDX + 1;
 
-// End Accumulated Data
-// start alias
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_ROW_IDX: u32 =
+// AVM Accumulated Data Array Lengths
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX: u32 =
     AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX + 1;
-// members
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_ROW_IDX;
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + MAX_NOTE_HASHES_PER_TX;
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + MAX_NULLIFIERS_PER_TX;
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX: u32 =
-    AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + MAX_L2_TO_L1_MSGS_PER_TX;
-pub global AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX + 1;
+
+// AVM Accumulated Data
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX + 1;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ROW_IDX;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + MAX_NOTE_HASHES_PER_TX;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + MAX_NULLIFIERS_PER_TX;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + MAX_L2_TO_L1_MSGS_PER_TX;
+pub global AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX
     + (MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS);
 
-// End Transaction Fee
-pub global AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX
+// End transaction fee
+pub global AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX
     + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
-// End Reverted
+// End reverted
 pub global AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX + 1;
 
 // AVM's max public input column size (aka total number of rows)
@@ -755,38 +857,54 @@ pub global FIXED_AVM_STARTUP_L2_GAS: u32 = 20_000;
 // the new database entry to be stored by all network participants.
 pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
 
-// All AVM opcode gas costs are below except this one because it is needed for Merkle tree related constants.
-pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 36;
+// All AVM opcode gas costs are below. Here we compute the gas costs for operations shared between AVM and the tail kernel.
+pub global AVM_GAS_PER_ROW: u32 = 3;
+
+pub global AVM_MERKLE_CHECK_ROWS_PUBLIC_WRITE: u32 = PUBLIC_DATA_TREE_HEIGHT * 2;
+pub global AVM_MERKLE_CHECK_ROWS_PUBLIC_READ: u32 = PUBLIC_DATA_TREE_HEIGHT;
+// Two poseidon rows more for siloing the slot
+pub global AVM_POSEIDON2_ROWS_PER_PUBLIC_WRITE: u32 = (AVM_MERKLE_CHECK_ROWS_PUBLIC_WRITE + 1) * 2;
+pub global AVM_POSEIDON2_ROWS_PER_PUBLIC_READ: u32 = (AVM_MERKLE_CHECK_ROWS_PUBLIC_READ + 1) * 2;
+
+pub global AVM_MERKLE_CHECK_ROWS_NULLIFIER_WRITE: u32 = NULLIFIER_TREE_HEIGHT * 2;
+pub global AVM_MERKLE_CHECK_ROWS_NULLIFIER_READ: u32 = NULLIFIER_TREE_HEIGHT;
+// Two poseidon rows more for siloing the nullifier
+pub global AVM_POSEIDON2_ROWS_PER_NULLIFIER_WRITE: u32 =
+    (AVM_MERKLE_CHECK_ROWS_NULLIFIER_WRITE + 1) * 2;
+pub global AVM_POSEIDON2_ROWS_PER_NULLIFIER_READ: u32 =
+    (AVM_MERKLE_CHECK_ROWS_NULLIFIER_READ + 1) * 2;
+
+pub global AVM_MERKLE_CHECK_ROWS_NOTE_HASH_OPERATION: u32 = NOTE_HASH_TREE_HEIGHT;
+// Two poseidon rows more for siloing the note hash
+pub global AVM_POSEIDON2_ROWS_PER_NOTE_HASH_READ: u32 =
+    AVM_MERKLE_CHECK_ROWS_NOTE_HASH_OPERATION * 2;
+// Siloing, nonce computation and uniqueness hash are accounted for here.
+pub global AVM_POSEIDON2_ROWS_PER_NOTE_HASH_WRITE: u32 =
+    (AVM_MERKLE_CHECK_ROWS_NOTE_HASH_OPERATION + 1 + 1 + 1) * 2;
+
+pub global AVM_MERKLE_CHECK_ROWS_L1_TO_L2_MSG_OPERATION: u32 = L1_TO_L2_MSG_TREE_HEIGHT;
+// Unclear
+pub global AVM_POSEIDON2_ROWS_PER_L1_TO_L2_MSG_READ: u32 =
+    AVM_MERKLE_CHECK_ROWS_L1_TO_L2_MSG_OPERATION * 2;
 
 // Kernel and/or rollup circuits perform a hash per tree-level for insertions and reads.
 // All network participants need to perform tree insertions.
 // Not _all_ network participants need to perform membership checks, so they're cheaper.
-pub global L2_GAS_PER_READ_MERKLE_HASH: u32 = AVM_POSEIDON2_BASE_L2_GAS;
-pub global L2_GAS_PER_WRITE_MERKLE_HASH: u32 = AVM_POSEIDON2_BASE_L2_GAS;
+// Dominated by number of rows in the poseidon2 trace.
+pub global AVM_L2_GAS_PER_PUBLIC_WRITE: u32 =
+    AVM_POSEIDON2_ROWS_PER_PUBLIC_WRITE * AVM_GAS_PER_ROW + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
+pub global AVM_L2_GAS_PER_PUBLIC_READ: u32 = AVM_POSEIDON2_ROWS_PER_PUBLIC_READ * AVM_GAS_PER_ROW;
+pub global AVM_L2_GAS_PER_NULLIFIER_WRITE: u32 =
+    AVM_POSEIDON2_ROWS_PER_NULLIFIER_WRITE * AVM_GAS_PER_ROW + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
+pub global AVM_L2_GAS_PER_NULLIFIER_READ: u32 =
+    AVM_POSEIDON2_ROWS_PER_NULLIFIER_READ * AVM_GAS_PER_ROW;
+pub global AVM_L2_GAS_PER_NOTE_HASH_WRITE: u32 =
+    (AVM_POSEIDON2_ROWS_PER_NOTE_HASH_WRITE * AVM_GAS_PER_ROW) + L2_GAS_DISTRIBUTED_STORAGE_PREMIUM;
+pub global AVM_L2_GAS_PER_NOTE_HASH_READ: u32 =
+    AVM_POSEIDON2_ROWS_PER_NOTE_HASH_READ * AVM_GAS_PER_ROW;
+pub global AVM_L2_GAS_PER_L1_TO_L2_MSG_READ: u32 =
+    AVM_POSEIDON2_ROWS_PER_L1_TO_L2_MSG_READ * AVM_GAS_PER_ROW;
 
-// Gas for tree insertions and associated storage
-// For public data tree update, we account for the worst case scenario which is a new insertion
-// takes 4 Merkle path checks while an update would need 3 Merkle path checks.
-pub global L2_GAS_PER_PUBLIC_DATA_UPDATE: u32 = L2_GAS_DISTRIBUTED_STORAGE_PREMIUM
-    + (4 * PUBLIC_DATA_TREE_HEIGHT * L2_GAS_PER_WRITE_MERKLE_HASH);
-pub global L2_GAS_PER_NOTE_HASH: u32 =
-    L2_GAS_DISTRIBUTED_STORAGE_PREMIUM + (2 * NOTE_HASH_TREE_HEIGHT * L2_GAS_PER_WRITE_MERKLE_HASH);
-// 2x because insertion into indexed tree requires a low-leaf membership check and a standard insertion
-pub global L2_GAS_PER_NULLIFIER: u32 =
-    L2_GAS_DISTRIBUTED_STORAGE_PREMIUM + (3 * NULLIFIER_TREE_HEIGHT * L2_GAS_PER_WRITE_MERKLE_HASH);
-
-// Gas for tree read requests
-pub global L2_GAS_PER_PUBLIC_DATA_READ: u32 = PUBLIC_DATA_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
-pub global L2_GAS_PER_NOTE_HASH_READ_REQUEST: u32 =
-    NOTE_HASH_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
-// 2x because non-membership checks are really 2 membership checks
-pub global L2_GAS_PER_NULLIFIER_READ_REQUEST: u32 =
-    NULLIFIER_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
-pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
-    L1_TO_L2_MSG_TREE_HEIGHT * L2_GAS_PER_READ_MERKLE_HASH;
-
-// Gas for hashing and validating logs
-pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
 // Zero gas because we don't have to hash and validate the private logs
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
 pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
@@ -799,73 +917,67 @@ pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
  * They are used in TS and C++
  */
 
-// Exception for AVM_POSEIDON2_BASE_L2_GAS which needed to be defined above.
-
 // Base L2 GAS
 // Note: magic numbers here are derived from each op's AVM circuit trace area
-pub global AVM_ADD_BASE_L2_GAS: u32 = 27;
-pub global AVM_SUB_BASE_L2_GAS: u32 = 27;
+pub global AVM_ADD_BASE_L2_GAS: u32 = 9;
+pub global AVM_SUB_BASE_L2_GAS: u32 = 9;
 pub global AVM_MUL_BASE_L2_GAS: u32 = 27;
-pub global AVM_DIV_BASE_L2_GAS: u32 = 27;
-pub global AVM_FDIV_BASE_L2_GAS: u32 = 27;
-pub global AVM_EQ_BASE_L2_GAS: u32 = 27;
-pub global AVM_LT_BASE_L2_GAS: u32 = 30;
-pub global AVM_LTE_BASE_L2_GAS: u32 = 30;
-pub global AVM_AND_BASE_L2_GAS: u32 = 51;
-pub global AVM_OR_BASE_L2_GAS: u32 = 51;
-pub global AVM_XOR_BASE_L2_GAS: u32 = 51;
-pub global AVM_NOT_BASE_L2_GAS: u32 = 18;
-pub global AVM_SHL_BASE_L2_GAS: u32 = 27;
-pub global AVM_SHR_BASE_L2_GAS: u32 = 27;
-pub global AVM_CAST_BASE_L2_GAS: u32 = 18;
-pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 9;
-pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 24;
-pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 24;
-pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 9;
-pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 24;
-pub global AVM_JUMP_BASE_L2_GAS: u32 = 3;
-pub global AVM_JUMPI_BASE_L2_GAS: u32 = 9;
-pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 3;
-pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 3;
-pub global AVM_SET_BASE_L2_GAS: u32 = 9;
-pub global AVM_MOV_BASE_L2_GAS: u32 = 18;
-pub global AVM_SLOAD_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_READ;
-pub global AVM_SSTORE_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_PUBLIC_DATA_UPDATE;
-pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NOTE_HASH_READ_REQUEST;
-pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NOTE_HASH;
-pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ_REQUEST;
-pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = 9 + L2_GAS_PER_NULLIFIER;
-pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST;
-pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 27 + L2_GAS_PER_NULLIFIER_READ_REQUEST; // does a nullifier check
-pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 15;
-pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 18 + L2_GAS_PER_L2_TO_L1_MSG;
-// On CALL, AVM performs nullifier checks for contract address & contract class ID
-pub global AVM_CALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
-pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 45 + (2 * L2_GAS_PER_NULLIFIER_READ_REQUEST);
-pub global AVM_RETURN_BASE_L2_GAS: u32 = 15;
-pub global AVM_REVERT_BASE_L2_GAS: u32 = 15;
-pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 21;
-// For POSEIDON2 see above (constant needed to be set before L2_GAS_PER_READ_MERKLE_HASH)
-pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 114;
-pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 162;
-pub global AVM_ECADD_BASE_L2_GAS: u32 = 69;
-pub global AVM_MSM_BASE_L2_GAS: u32 = 36;
-pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
+pub global AVM_DIV_BASE_L2_GAS: u32 = 12;
+pub global AVM_FDIV_BASE_L2_GAS: u32 = 9;
+pub global AVM_EQ_BASE_L2_GAS: u32 = 9;
+pub global AVM_LT_BASE_L2_GAS: u32 = 36;
+pub global AVM_LTE_BASE_L2_GAS: u32 = 36;
+pub global AVM_AND_BASE_L2_GAS: u32 = 9;
+pub global AVM_OR_BASE_L2_GAS: u32 = 9;
+pub global AVM_XOR_BASE_L2_GAS: u32 = 9;
+pub global AVM_NOT_BASE_L2_GAS: u32 = 6;
+pub global AVM_SHL_BASE_L2_GAS: u32 = 12;
+pub global AVM_SHR_BASE_L2_GAS: u32 = 12;
+pub global AVM_CAST_BASE_L2_GAS: u32 = 9;
+pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 6;
+pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 6;
+pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 6;
+pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 6;
+pub global AVM_JUMP_BASE_L2_GAS: u32 = 6;
+pub global AVM_JUMPI_BASE_L2_GAS: u32 = 6;
+pub global AVM_INTERNALCALL_BASE_L2_GAS: u32 = 6;
+pub global AVM_INTERNALRETURN_BASE_L2_GAS: u32 = 6;
+pub global AVM_SET_BASE_L2_GAS: u32 = 6;
+pub global AVM_MOV_BASE_L2_GAS: u32 = 6;
+pub global AVM_SLOAD_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_PUBLIC_READ;
+pub global AVM_SSTORE_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_PUBLIC_WRITE;
+pub global AVM_NOTEHASHEXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_NOTE_HASH_READ;
+pub global AVM_EMITNOTEHASH_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_NOTE_HASH_WRITE;
+pub global AVM_NULLIFIEREXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_NULLIFIER_READ;
+pub global AVM_EMITNULLIFIER_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_NULLIFIER_WRITE;
+pub global AVM_L1TOL2MSGEXISTS_BASE_L2_GAS: u32 = AVM_L2_GAS_PER_L1_TO_L2_MSG_READ;
+pub global AVM_GETCONTRACTINSTANCE_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS: u32 = 42;
+pub global AVM_SENDL2TOL1MSG_BASE_L2_GAS: u32 = 6 + L2_GAS_PER_L2_TO_L1_MSG;
+pub global AVM_CALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_STATICCALL_BASE_L2_GAS: u32 = 1527; // does scalar mul
+pub global AVM_RETURN_BASE_L2_GAS: u32 = 6;
+pub global AVM_REVERT_BASE_L2_GAS: u32 = 6;
+pub global AVM_DEBUGLOG_BASE_L2_GAS: u32 = 6;
+pub global AVM_POSEIDON2_BASE_L2_GAS: u32 = 24;
+pub global AVM_SHA256COMPRESSION_BASE_L2_GAS: u32 = 96;
+pub global AVM_KECCAKF1600_BASE_L2_GAS: u32 = 150;
+pub global AVM_ECADD_BASE_L2_GAS: u32 = 27;
+pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 12;
+
+// Addressing gas
+pub global AVM_ADDRESSING_BASE_RESOLUTION_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_INDIRECT_L2_GAS: u32 = 3; // One mem access
+pub global AVM_ADDRESSING_RELATIVE_L2_GAS: u32 = 3; // One range check
 
 // Dynamic L2 GAS
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 3;
 pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 3;
-// a single increment here corresponds to an entire additional field (hence x32 bytes per field)
-pub global AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS: u32 = 3 + (DA_BYTES_PER_FIELD * L2_GAS_PER_LOG_BYTE);
-pub global AVM_CALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_STATICCALL_DYN_L2_GAS: u32 = 4;
-pub global AVM_RETURN_DYN_L2_GAS: u32 = 3;
-pub global AVM_REVERT_DYN_L2_GAS: u32 = 3;
-pub global AVM_MSM_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
+pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 
 // Base DA Gas
-pub global AVM_SSTORE_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_EMITNOTEHASH_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_EMITNULLIFIER_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
@@ -873,6 +985,8 @@ pub global AVM_SENDL2TOL1MSG_BASE_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_
 // Dynamic DA Gas
 // a single increment here corresponds to an entire additional field (hence x32 bytes per field)
 pub global AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS: u32 = DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
+// Gets multiplied by 1 if actually publishing, 0 if not. 2 because of it being (slot, value) pair
+pub global AVM_SSTORE_DYN_DA_GAS: u32 = 2 * DA_BYTES_PER_FIELD * DA_GAS_PER_BYTE;
 
 // BLOB PREFIXES
 // Used when decoding blobs of tightly packed effects
@@ -932,5 +1046,17 @@ mod test {
     #[test]
     unconstrained fn test_constants() {
         assert(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL <= MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    }
+
+    #[test]
+    unconstrained fn test_grumpkin_point() {
+        assert_eq(
+            super::GRUMPKIN_ONE_X,
+            std::embedded_curve_ops::EmbeddedCurvePoint::generator().x,
+        );
+        assert_eq(
+            super::GRUMPKIN_ONE_Y,
+            std::embedded_curve_ops::EmbeddedCurvePoint::generator().y,
+        );
     }
 }

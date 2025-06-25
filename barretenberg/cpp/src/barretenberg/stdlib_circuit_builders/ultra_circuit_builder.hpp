@@ -11,7 +11,6 @@
 #include "barretenberg/honk/types/merkle_hash_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
-#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 
 // TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
@@ -738,7 +737,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert equal constant")
     {
-        if (this->variables[a_idx] != b && !this->failed()) {
+        if (this->get_variable(a_idx) != b && !this->failed()) {
             this->failure(msg);
         }
         auto b_idx = put_constant_variable(b);

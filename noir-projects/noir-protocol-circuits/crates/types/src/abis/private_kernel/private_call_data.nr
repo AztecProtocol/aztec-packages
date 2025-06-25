@@ -21,6 +21,8 @@ pub struct PrivateCallData {
 }
 
 impl PrivateCallData {
+    /// Verifies the proof against the verification key and public inputs.
+    /// The vk hash is also checked in the backend to match the key.
     pub fn verify(self, is_first_app: bool) {
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
@@ -28,7 +30,7 @@ impl PrivateCallData {
             PROOF_TYPE_PG
         };
         // Client IVC public inputs are linked in the backend via the databus
-        std::verify_proof_with_type(self.vk.key, [], [], 0, proof_type);
+        std::verify_proof_with_type(self.vk.key, [], [], self.vk.hash, proof_type);
     }
 }
 

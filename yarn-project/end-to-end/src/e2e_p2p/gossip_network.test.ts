@@ -1,6 +1,6 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, sleep } from '@aztec/aztec.js';
+import { sleep } from '@aztec/aztec.js';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -52,10 +52,8 @@ describe('e2e_p2p_network', () => {
       },
     });
 
-    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -100,7 +98,12 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
@@ -125,15 +128,15 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getPublishedBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures
-      .filter(s => !s.isEmpty)
-      .map(sig => new BlockAttestation(new Fr(blockNumber), payload, sig));
-    const signers = attestations.map(att => att.getSender().toString());
+    const attestations = block.attestations
+      .filter(a => !a.signature.isEmpty())
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
+    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.map(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+    const validatorAddresses = nodes.flatMap(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
     );
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {

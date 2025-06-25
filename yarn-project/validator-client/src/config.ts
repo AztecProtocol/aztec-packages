@@ -1,17 +1,18 @@
-import { NULL_KEY } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
+  type SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  secretValueConfigHelper,
 } from '@aztec/foundation/config';
 
 /**
  * The Validator Configuration
  */
 export interface ValidatorClientConfig {
-  /** The private key of the validator participating in attestation duties */
-  validatorPrivateKey?: string;
+  /** The private keys of the validators participating in attestation duties */
+  validatorPrivateKeys: SecretValue<`0x${string}`[]>;
 
   /** Do not run the validator */
   disableValidator: boolean;
@@ -21,13 +22,18 @@ export interface ValidatorClientConfig {
 
   /** Re-execute transactions before attesting */
   validatorReexecute: boolean;
+
+  /** Will re-execute until this many milliseconds are left in the slot */
+  validatorReexecuteDeadlineMs: number;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
-  validatorPrivateKey: {
-    env: 'VALIDATOR_PRIVATE_KEY',
-    parseEnv: (val: string) => (val ? `0x${val.replace('0x', '')}` : NULL_KEY),
-    description: 'The private key of the validator participating in attestation duties',
+  validatorPrivateKeys: {
+    env: 'VALIDATOR_PRIVATE_KEYS',
+    description: 'List of private keys of the validators participating in attestation duties',
+    ...secretValueConfigHelper<`0x${string}`[]>(val =>
+      val ? val.split(',').map<`0x${string}`>(key => `0x${key.replace('0x', '')}`) : [],
+    ),
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
@@ -43,6 +49,11 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_REEXECUTE',
     description: 'Re-execute transactions before attesting',
     ...booleanConfigHelper(true),
+  },
+  validatorReexecuteDeadlineMs: {
+    env: 'VALIDATOR_REEXECUTE_DEADLINE_MS',
+    description: 'Will re-execute until this many milliseconds are left in the slot',
+    ...numberConfigHelper(6000),
   },
 };
 

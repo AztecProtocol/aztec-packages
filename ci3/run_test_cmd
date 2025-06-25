@@ -7,12 +7,11 @@ source $ci3/source_refname
 # We must enable job control to ensure our test runs in it's own process group.
 # Otherwise, when parallel sends a TERM to the group, it will also kill any child process of the test.
 # This can cause issues with proper cleanup (e.g. killing docker client processes as they run).
-# Slightly breaking the abstraction here, but if using strict scheduling we don't have the above problem,
-# but instead we want to avoid lots of "Terminated" messages.
-# [ "${STRICT_SCHEDULING:-0}" -eq 0 ] && set -m
 set -m
 
 cmd=$1
+is_merge_queue=0
+[[ "$REF_NAME" =~ ^gh-readonly-queue/ ]] && is_merge_queue=1
 
 # Extract the first token and export any variable assignments.
 hash_part="${cmd%% *}"
@@ -88,7 +87,7 @@ Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
 Date: $(date)
 System: ARCH=$(arch) CPUS=$(nproc) MEM=$(free -h | awk '/^Mem:/{print $2}') HOSTNAME=$(hostname)
 Resources: CPU_LIST=$CPU_LIST CPUS=$CPUS MEM=$MEM TIMEOUT=$TIMEOUT
-History: http://ci.aztec-labs.com/list/$test_hash
+History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARGET_BRANCH}
 
 EOF
 
@@ -169,46 +168,57 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
 fi
 
 function track_test {
-  local test_hash=$1
-  local line=$2
-
-  # We track tests in CI, and only on master or master merge queue.
-  if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
-    redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-    # Keeps only the last 1000 lines.
-    redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
+  # We track tests in merge queues only.
+  if [ "$is_merge_queue" -eq 0 ]; then
+    return
   fi
+
+  local key=$1
+  local line=$(pr_link "$2")
+
+  redis_cli LPUSH $key "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+  # Keeps only the last 1000 lines.
+  redis_cli RTRIM $key -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
 function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
-  track_test $test_hash "$line"
   echo -e "$line"
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   exit
 }
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
   echo -e "$line"
+
   if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
     cat $tmp_file
     echo -e "$line"
   fi
+
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+
   exit $code
 }
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
   local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  track_test $test_hash "$line"
-  track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
+  line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
+  track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
+
+  # Early out if no token or not in merge queue.
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$is_merge_queue" -eq 0 ]; then
     return
   fi
 
@@ -220,7 +230,7 @@ function flake {
   read -r -d '' data <<EOF
   {
     "channel": "#aztec3-ci",
-    "text": "${slack_uids% }: Test flaked on *$REF_NAME*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
+    "text": "${slack_uids% }: Test flaked on *${TARGET_BRANCH:-$REF_NAME}*: \`$test_cmd\` http://ci.aztec-labs.com/$log_key"
   }
 EOF
   curl -X POST https://slack.com/api/chat.postMessage \
@@ -230,34 +240,13 @@ EOF
   exit
 }
 
-# Prints a list of test owners based on matching test name pattern, and optional error regex.
-function get_owners {
-  entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
-
-  # Iterate over each matching entry.
-  while IFS= read -r entry; do
-    error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
-
-    # If error_regex is present, check the log content.
-    if [ -n "$error_regex" ]; then
-      # Strip color codes from the log file.
-      # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
-      if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$tmp_file"); then
-        echo "$entry" | jq -r '.owners[]'
-      fi
-    else
-      echo "$entry" | jq -r '.owners[]'
-    fi
-  done <<< "$entries" | sort -u
-}
-
 # Test passed.
 [ $code -eq 0 ] && pass
 
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-owners=$(get_owners)
+owners=$(get_test_owner "$test_cmd" "$tmp_file")
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

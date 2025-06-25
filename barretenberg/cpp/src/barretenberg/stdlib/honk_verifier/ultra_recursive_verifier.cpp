@@ -6,8 +6,10 @@
 
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -138,10 +140,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                sumcheck_output.claimed_libra_evaluation);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1352): Investigate if normalize() calls are needed.
-    pairing_points[0] = pairing_points[0].normalize();
-    pairing_points[1] = pairing_points[1].normalize();
     output.points_accumulator.aggregate(pairing_points);
 
     // Extract the IPA claim from the public inputs
@@ -161,4 +159,6 @@ template class UltraRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuild
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<bb::UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
 } // namespace bb::stdlib::recursion::honk

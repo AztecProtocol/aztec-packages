@@ -6,7 +6,7 @@ import {
   TX_ERROR_INCORRECT_PROTOCOL_CONTRACT_TREE_ROOT,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
   TX_ERROR_INCORRECT_VK_TREE_ROOT,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
   Tx,
   type TxValidationResult,
   type TxValidator,
@@ -16,7 +16,13 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');
 
   constructor(
-    private values: { l1ChainId: Fr; rollupVersion: Fr; blockNumber: Fr; vkTreeRoot: Fr; protocolContractTreeRoot: Fr },
+    private values: {
+      l1ChainId: Fr;
+      rollupVersion: Fr;
+      blockNumber: number;
+      vkTreeRoot: Fr;
+      protocolContractTreeRoot: Fr;
+    },
   ) {}
 
   async validateTx(tx: T): Promise<TxValidationResult> {
@@ -28,7 +34,7 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
       errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
     if (!(await this.#isValidForBlockNumber(tx))) {
-      errors.push(TX_ERROR_INVALID_BLOCK_NUMBER);
+      errors.push(TX_ERROR_INVALID_MAX_BLOCK_NUMBER);
     }
     if (!(await this.#hasCorrectVkTreeRoot(tx))) {
       errors.push(TX_ERROR_INCORRECT_VK_TREE_ROOT);

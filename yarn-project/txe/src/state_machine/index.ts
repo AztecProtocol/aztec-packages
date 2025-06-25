@@ -38,6 +38,8 @@ export class TXEStateMachine {
       synchronizer,
       undefined,
       undefined,
+      undefined,
+      undefined,
       // version and chainId should match the ones in txe oracle
       1,
       1,
@@ -58,11 +60,11 @@ export class TXEStateMachine {
         {
           block,
           l1: {
-            blockHash: block.header.globalVariables.blockNumber.toNumber().toString(),
-            blockNumber: block.header.globalVariables.blockNumber.toBigInt(),
-            timestamp: block.header.globalVariables.blockNumber.toBigInt(),
+            blockHash: block.header.globalVariables.blockNumber.toString(),
+            blockNumber: BigInt(block.header.globalVariables.blockNumber),
+            timestamp: block.header.globalVariables.timestamp,
           },
-          signatures: [],
+          attestations: [],
         },
       ]),
       this.syncDataProvider.setHeader(block.header),

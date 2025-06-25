@@ -4,7 +4,6 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 /* eslint-disable camelcase */
-import createDebug from 'debug';
 import { ungzip } from 'pako';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -36,8 +35,6 @@ import { proveClientIVC as proveClientIVCNative } from './prove_native.js';
 import { proveClientIVC as proveClientIVCWasm, proveThenVerifyAztecClient } from './prove_wasm.js';
 
 const logger = createLogger('ivc-integration:test:wasm');
-
-createDebug.enable('*');
 
 jest.setTimeout(120_000);
 
@@ -115,13 +112,13 @@ describe('Client IVC Integration', () => {
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
       tx,
-      app_vk: getVkAsFields(MockAppCreatorVk),
+      app_vk: await getVkAsFields(MockAppCreatorVk),
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
       app_inputs: readerAppWitnessGenResult.publicInputs,
-      app_vk: getVkAsFields(MockAppReaderVk),
-      kernel_vk: getVkAsFields(MockPrivateKernelInitVk),
+      app_vk: await getVkAsFields(MockAppReaderVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelInitVk),
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -132,12 +129,12 @@ describe('Client IVC Integration', () => {
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
         MOCK_MAX_COMMITMENTS_PER_TX.toString(),
       ],
-      kernel_vk: getVkAsFields(MockPrivateKernelInnerVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelInnerVk),
     });
 
     const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
       prev_kernel_public_inputs: resetWitnessGenResult.publicInputs,
-      kernel_vk: getVkAsFields(MockPrivateKernelResetVk),
+      kernel_vk: await getVkAsFields(MockPrivateKernelResetVk),
     });
 
     // Create client IVC proof

@@ -9,16 +9,26 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/context_provider.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/gas_tracker.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_alu.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_bitwise.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_bytecode_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_context_provider.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_data_copy.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_components.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_gas_tracker.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_internal_call_stack.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_keccakf1600.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -37,11 +47,23 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockMemory> memory;
     StrictMock<MockExecutionComponentsProvider> execution_components;
     StrictMock<MockContext> context;
+    StrictMock<MockDataCopy> data_copy;
+    StrictMock<MockInternalCallStackManager> internal_call_stack_manager;
+    StrictMock<MockKeccakF1600> keccakf1600;
     EventEmitter<ExecutionEvent> execution_event_emitter;
     EventEmitter<ContextStackEvent> context_stack_event_emitter;
     InstructionInfoDB instruction_info_db; // Using the real thing.
-    Execution execution =
-        Execution(alu, execution_components, instruction_info_db, execution_event_emitter, context_stack_event_emitter);
+    StrictMock<MockContextProvider> context_provider;
+    StrictMock<MockExecutionIdManager> execution_id_manager;
+    Execution execution = Execution(alu,
+                                    data_copy,
+                                    execution_components,
+                                    context_provider,
+                                    instruction_info_db,
+                                    execution_id_manager,
+                                    execution_event_emitter,
+                                    context_stack_event_emitter,
+                                    keccakf1600);
 };
 
 TEST_F(ExecutionSimulationTest, Add)
@@ -63,41 +85,85 @@ TEST_F(ExecutionSimulationTest, Call)
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
     MemoryValue l2_gas_allocated = MemoryValue::from<uint32_t>(6);
     MemoryValue da_gas_allocated = MemoryValue::from<uint32_t>(7);
+    MemoryValue cd_size = MemoryValue::from<uint32_t>(8);
+
+    auto gas_tracker = std::make_unique<StrictMock<MockGasTracker>>();
+    EXPECT_CALL(*gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
+
+    EXPECT_CALL(execution_components, make_gas_tracker(_)).WillOnce(Return(std::move(gas_tracker)));
+    execution.init_gas_tracker(context);
 
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
-    EXPECT_CALL(execution_components, get_next_context_id);
+    EXPECT_CALL(context_provider, get_next_context_id);
     EXPECT_CALL(context, get_parent_id);
     EXPECT_CALL(context, get_next_pc);
     EXPECT_CALL(context, get_is_static);
     EXPECT_CALL(context, get_msg_sender).WillOnce(ReturnRef(parent_address));
+    EXPECT_CALL(context, get_parent_gas_used);
+    EXPECT_CALL(context, get_parent_gas_limit);
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
     EXPECT_CALL(memory, get(1)).WillOnce(ReturnRef(l2_gas_allocated));     // l2_gas_offset
     EXPECT_CALL(memory, get(2)).WillOnce(ReturnRef(da_gas_allocated));     // da_gas_offset
     EXPECT_CALL(memory, get(3)).WillOnce(ReturnRef(nested_address_value)); // contract_address
+    EXPECT_CALL(memory, get(4)).WillOnce(ReturnRef(cd_size));              // cd_size
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
+    EXPECT_CALL(context_provider, make_nested_context(nested_address, parent_address, _, _, _, _, Gas{ 2, 3 }))
         .WillOnce(Return(std::move(nested_context)));
-
-    // Back in parent context
-    EXPECT_CALL(context, set_child_context(_));
-    EXPECT_CALL(context, set_last_rd_offset(_));
-    EXPECT_CALL(context, set_last_rd_size(_));
-    EXPECT_CALL(context, set_last_success(_));
 
     execution.call(context,
                    /*l2_gas_offset=*/1,
                    /*da_gas_offset=*/2,
                    /*addr=*/3,
-                   /*cd_offset=*/5,
-                   /*cd_size=*/4);
+                   /*cd_size=*/4,
+                   /*cd_offset=*/5);
+}
+
+TEST_F(ExecutionSimulationTest, InternalCall)
+{
+    uint32_t return_pc = 500; // This is next pc that we should return to after the internal call.
+    uint32_t pc_loc = 11;     // This is the pc of the internal call
+
+    NiceMock<MockInternalCallStackManager> internal_call_stack_manager;
+    ON_CALL(context, get_internal_call_stack_manager).WillByDefault(ReturnRef(internal_call_stack_manager));
+
+    // ==== Internal Call
+    // Get manager
+    EXPECT_CALL(context, get_internal_call_stack_manager());
+    // Store the return pc (i.e. context.get_next_pc())
+    EXPECT_CALL(context, get_next_pc()).WillOnce(Return(return_pc));
+    EXPECT_CALL(internal_call_stack_manager, push(return_pc));
+    // Set next pc to the parameter pc_loc
+    EXPECT_CALL(context, set_next_pc(pc_loc));
+
+    execution.internal_call(context, pc_loc);
+
+    // ==== Internal Return
+    // Get manager
+    EXPECT_CALL(context, get_internal_call_stack_manager());
+    // Pop the return pc from the stack
+    EXPECT_CALL(internal_call_stack_manager, pop()).WillOnce(Return(return_pc));
+    // Set the next pc to the return pc
+    EXPECT_CALL(context, set_next_pc(return_pc));
+
+    execution.internal_return(context);
+}
+
+// Trivial test at the moment.
+// TODO: Attempt to have infra to call execution.execute() with a JUMP and a second instruction
+// and check the pc value for the second instruction is correct.
+TEST_F(ExecutionSimulationTest, Jump)
+{
+    EXPECT_CALL(context, set_next_pc(120));
+    execution.jump(context, 120);
 }
 
 } // namespace
+
 } // namespace bb::avm2::simulation

@@ -24,7 +24,7 @@ import {
   TX_ERROR_DUPLICATE_NULLIFIER_IN_TX,
   TX_ERROR_INCORRECT_L1_CHAIN_ID,
   TX_ERROR_INCORRECT_ROLLUP_VERSION,
-  TX_ERROR_INVALID_BLOCK_NUMBER,
+  TX_ERROR_INVALID_MAX_BLOCK_NUMBER,
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
@@ -137,6 +137,8 @@ describe('aztec node', () => {
       worldState,
       undefined,
       undefined,
+      undefined,
+      undefined,
       12345,
       rollupVersion.toNumber(),
       globalVariablesBuilder,
@@ -210,11 +212,11 @@ describe('aztec node', () => {
       const validMaxBlockNumberMetadata = txs[2];
 
       invalidMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(1)),
+        new MaxBlockNumber(true, 1),
       );
 
       validMaxBlockNumberMetadata.data.rollupValidationRequests = new RollupValidationRequests(
-        new MaxBlockNumber(true, new Fr(5)),
+        new MaxBlockNumber(true, 5),
       );
 
       lastBlockNumber = 3;
@@ -224,7 +226,7 @@ describe('aztec node', () => {
       // Tx with max block number < current block number should be invalid
       expect(await node.isValidTx(invalidMaxBlockNumberMetadata)).toEqual({
         result: 'invalid',
-        reason: [TX_ERROR_INVALID_BLOCK_NUMBER],
+        reason: [TX_ERROR_INVALID_MAX_BLOCK_NUMBER],
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
@@ -250,9 +252,9 @@ describe('aztec node', () => {
       let header2: BlockHeader;
 
       beforeEach(() => {
-        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(0) }) });
-        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(1) }) });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(2) }) });
+        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 0 }) });
+        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 1 }) });
+        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: 2 }) });
 
         merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
         l2BlockSource.getBlockNumber.mockResolvedValue(2);

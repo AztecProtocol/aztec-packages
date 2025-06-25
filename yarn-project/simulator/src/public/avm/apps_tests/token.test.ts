@@ -30,7 +30,7 @@ describe('AVM simulator apps tests: TokenContract', () => {
   it('token mint, transfer, burn (and check balances)', async () => {
     const mintAmount = 100n;
     const transferAmount = 50n;
-    const nonce = new Fr(0);
+    const authwitNonce = new Fr(0);
 
     await checkBalance(sender, 0n);
 
@@ -47,7 +47,7 @@ describe('AVM simulator apps tests: TokenContract', () => {
       /*sender=*/ sender,
       token.address,
       'transfer_in_public',
-      /*args=*/ [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
+      /*args=*/ [/*from=*/ sender, /*to=*/ receiver, transferAmount, authwitNonce],
     );
     expect(transferResult.reverted).toBe(false);
     await checkBalance(sender, mintAmount - transferAmount);
@@ -57,7 +57,7 @@ describe('AVM simulator apps tests: TokenContract', () => {
       /*sender=*/ receiver,
       token.address,
       'burn_public',
-      /*args=*/ [/*from=*/ receiver, transferAmount, nonce],
+      /*args=*/ [/*from=*/ receiver, transferAmount, authwitNonce],
     );
     expect(burnResult.reverted).toBe(false);
     await checkBalance(receiver, 0n);

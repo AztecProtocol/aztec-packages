@@ -24,7 +24,7 @@ describe('BlockProposalValidator', () => {
     });
 
     // Mock epoch cache to return different slot numbers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 98n,
       nextSlot: 99n,
       currentProposer: Fr.random(),
@@ -47,7 +47,7 @@ describe('BlockProposalValidator', () => {
     });
 
     // Mock epoch cache to return valid slots but different proposers
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,
@@ -69,7 +69,7 @@ describe('BlockProposalValidator', () => {
     });
 
     // Mock epoch cache for valid case
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,
@@ -91,7 +91,7 @@ describe('BlockProposalValidator', () => {
     });
 
     // Mock epoch cache for valid case
-    (epochCache.getProposerInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
+    (epochCache.getProposerAttesterAddressInCurrentOrNextSlot as jest.Mock).mockResolvedValue({
       currentSlot: 100n,
       nextSlot: 101n,
       currentProposer: currentProposer.address,

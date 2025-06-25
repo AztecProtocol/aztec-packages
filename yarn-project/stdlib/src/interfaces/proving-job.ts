@@ -1,5 +1,5 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -179,7 +179,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: schemaForRecursiveProofAndVerificationKey(AVM_PROOF_LENGTH_IN_FIELDS),
+    result: schemaForRecursiveProofAndVerificationKey(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
   }),
   z.object({
     type: z.literal(ProvingRequestType.PRIVATE_BASE_ROLLUP),
@@ -249,7 +249,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>;
+  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
   [ProvingRequestType.PRIVATE_BASE_ROLLUP]: PublicInputsAndRecursiveProof<
     BaseOrMergeRollupPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH

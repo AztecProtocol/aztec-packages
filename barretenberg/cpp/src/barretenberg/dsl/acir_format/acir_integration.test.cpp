@@ -61,7 +61,9 @@ class AcirIntegrationTest : public ::testing::Test {
         using Verifier = UltraVerifier_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
 
-        Prover prover{ builder };
+        auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover{ proving_key, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
         info("num gates          = ", builder.get_estimated_num_finalized_gates());
@@ -72,7 +74,6 @@ class AcirIntegrationTest : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
@@ -136,16 +137,16 @@ TEST_P(AcirIntegrationSingleTest, DISABLED_ProveAndVerifyProgram)
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/994): Run all tests
 INSTANTIATE_TEST_SUITE_P(AcirTests,
                          AcirIntegrationSingleTest,
-                         testing::Values("1327_concrete_in_generic",
-                                         "1_mul",
-                                         "2_div",
-                                         "3_add",
-                                         "4_sub",
-                                         "5_over",
-                                         "6",
-                                         "6_array",
-                                         "7",
-                                         "7_function",
+                         testing::Values("a_1327_concrete_in_generic",
+                                         "a_1_mul",
+                                         "a_2_div",
+                                         "a_3_add",
+                                         "a_4_sub",
+                                         "a_5_over",
+                                         "a_6",
+                                         "a_6_array",
+                                         "a_7",
+                                         "a_7_function",
                                          "aes128_encrypt",
                                          "arithmetic_binary_operations",
                                          "array_dynamic",
@@ -498,7 +499,7 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
     //      export DOWNLOAD_ONLY=1
-    //      yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
     std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
                              "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
 
@@ -558,7 +559,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             computed_vk_hash = proving_key_inspector::compute_vk_hash<MegaFlavor>(circuit);
         }
 
+        // Check that the hashes computed from the dummy witness VK and the genuine witness VK are equal
         EXPECT_EQ(recomputed_vk_hash, computed_vk_hash);
+        // Check that the VK hashes match the hash of the precomputed VK contained in the msgpack inputs
+        EXPECT_EQ(computed_vk_hash, precomputed_vk->hash());
     }
 }
 #endif

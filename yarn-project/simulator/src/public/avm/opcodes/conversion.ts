@@ -35,6 +35,10 @@ export class ToRadixBE extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.srcOffset, this.radixOffset, this.numLimbsOffset, this.outputBitsOffset, this.dstOffset];
     const [srcOffset, radixOffset, numLimbsOffset, outputBitsOffset, dstOffset] = addressing.resolve(operands, memory);
 
@@ -45,11 +49,13 @@ export class ToRadixBE extends Instruction {
     memory.checkTag(TypeTag.UINT1, outputBitsOffset);
 
     const numLimbs = memory.get(numLimbsOffset).toNumber();
-    context.machineState.consumeGas(this.gasCost(numLimbs));
+    const radix: bigint = memory.get(radixOffset).toBigInt();
+    context.machineState.consumeGas(
+      this.dynamicGasCost(Math.max(numLimbs, radix > 256n ? 32 : MODULUS_LIMBS_PER_RADIX[Number(radix)])),
+    );
     const outputBits = memory.get(outputBitsOffset).toNumber();
 
     let value: bigint = memory.get(srcOffset).toBigInt();
-    const radix: bigint = memory.get(radixOffset).toBigInt();
 
     if (radix < 2 || radix > 256) {
       throw new InvalidToRadixInputsError(`ToRadixBE instruction's radix should be in range [2,256] (was ${radix}).`);
@@ -79,3 +85,16 @@ export class ToRadixBE extends Instruction {
     memory.setSlice(dstOffset, res);
   }
 }
+
+// First two are for radix = 0 and 1, which are invalid, so we have 0 limbs for those cases.
+export const MODULUS_LIMBS_PER_RADIX: number[] = [
+  0, 0, 254, 161, 127, 110, 99, 91, 85, 81, 77, 74, 71, 69, 67, 65, 64, 63, 61, 60, 59, 58, 57, 57, 56, 55, 54, 54, 53,
+  53, 52, 52, 51, 51, 50, 50, 50, 49, 49, 48, 48, 48, 48, 47, 47, 47, 46, 46, 46, 46, 45, 45, 45, 45, 45, 44, 44, 44,
+  44, 44, 43, 43, 43, 43, 43, 43, 42, 42, 42, 42, 42, 42, 42, 41, 41, 41, 41, 41, 41, 41, 41, 41, 40, 40, 40, 40, 40,
+  40, 40, 40, 40, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38, 38,
+  37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 37, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36,
+  36, 36, 36, 36, 36, 36, 36, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35, 35,
+  35, 35, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+  34, 34, 34, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33,
+  33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32,
+];

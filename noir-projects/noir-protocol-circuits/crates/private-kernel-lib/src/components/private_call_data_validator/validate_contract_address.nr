@@ -22,13 +22,11 @@ pub fn validate_contract_address(
     let contract_address = private_call_data.public_inputs.call_context.contract_address;
     assert(!contract_address.is_zero(), "contract address cannot be zero");
 
-    private_call_data.vk.check_hash();
-
     let hints = private_call_data.verification_key_hints;
 
     let private_functions_root = private_functions_root_from_siblings(
         private_call_data.public_inputs.call_context.function_selector,
-        private_call_data.vk.hash,
+        private_call_data.vk.hash, // vk.hash is verified in bb when verifying the proof.
         hints.function_leaf_membership_witness.leaf_index,
         hints.function_leaf_membership_witness.sibling_path,
     );
@@ -59,7 +57,7 @@ pub fn validate_contract_address(
     );
 
     let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.block_number as u32,
+        private_call_data.public_inputs.historical_header.global_variables.block_number,
     );
 
     let contract_address_field = contract_address.to_field();

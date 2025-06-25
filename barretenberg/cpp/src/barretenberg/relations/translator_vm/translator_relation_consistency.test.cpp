@@ -735,13 +735,14 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
 
         const InputElements input_elements = random_inputs ? get_random_input() : get_special_input();
         const auto& op = input_elements.op;
+        const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
 
         RelationValues expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
         // (Contribution 1)
-        auto contribution_1 = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8));
+        auto contribution_1 = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * (lagrange_mini_masking - FF(1));
         expected_values[0] = contribution_1;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
@@ -761,6 +762,7 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
         const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
         const auto& lagrange_result_row = input_elements.lagrange_result_row;
         const auto& lagrange_last_in_minicircuit = input_elements.lagrange_last_in_minicircuit;
+        const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
         const auto& accumulators_binary_limbs_0 = input_elements.accumulators_binary_limbs_0;
         const auto& accumulators_binary_limbs_0_shift = input_elements.accumulators_binary_limbs_0_shift;
         const auto& accumulators_binary_limbs_1 = input_elements.accumulators_binary_limbs_1;
@@ -778,26 +780,34 @@ TEST_F(TranslatorRelationConsistency, AccumulatorTransferRelation)
             parameters.accumulated_result;
 
         // Check transfer of accumulator at even indices
-        expected_values[0] =
-            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
-        expected_values[1] =
-            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
-        expected_values[2] =
-            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
-        expected_values[3] =
-            lagrange_odd_in_minicircuit * (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
+        expected_values[0] = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit - FF(1)) *
+                             (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);
+        expected_values[1] = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit - FF(1)) *
+                             (accumulators_binary_limbs_1 - accumulators_binary_limbs_1_shift);
+        expected_values[2] = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit - FF(1)) *
+                             (accumulators_binary_limbs_2 - accumulators_binary_limbs_2_shift);
+        expected_values[3] = lagrange_odd_in_minicircuit * (lagrange_last_in_minicircuit - FF(1)) *
+                             (accumulators_binary_limbs_3 - accumulators_binary_limbs_3_shift);
 
         // Check the accumulator starts as zero
-        expected_values[4] = accumulators_binary_limbs_0 * lagrange_last_in_minicircuit;
-        expected_values[5] = accumulators_binary_limbs_1 * lagrange_last_in_minicircuit;
-        expected_values[6] = accumulators_binary_limbs_2 * lagrange_last_in_minicircuit;
-        expected_values[7] = accumulators_binary_limbs_3 * lagrange_last_in_minicircuit;
+        expected_values[4] =
+            accumulators_binary_limbs_0 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
+        expected_values[5] =
+            accumulators_binary_limbs_1 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
+        expected_values[6] =
+            accumulators_binary_limbs_2 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
+        expected_values[7] =
+            accumulators_binary_limbs_3 * lagrange_last_in_minicircuit * (lagrange_mini_masking - FF(1));
 
         // Check the accumulator results in submitted value
-        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * lagrange_result_row;
-        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * lagrange_result_row;
-        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * lagrange_result_row;
-        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * lagrange_result_row;
+        expected_values[8] = (accumulators_binary_limbs_0 - accumulated_result_0) * (lagrange_mini_masking - FF(1)) *
+                             lagrange_result_row;
+        expected_values[9] = (accumulators_binary_limbs_1 - accumulated_result_1) * (lagrange_mini_masking - FF(1)) *
+                             lagrange_result_row;
+        expected_values[10] = (accumulators_binary_limbs_2 - accumulated_result_2) * (lagrange_mini_masking - FF(1)) *
+                              lagrange_result_row;
+        expected_values[11] = (accumulators_binary_limbs_3 - accumulated_result_3) * (lagrange_mini_masking - FF(1)) *
+                              lagrange_result_row;
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);
@@ -888,139 +898,140 @@ TEST_F(TranslatorRelationConsistency, ZeroConstraintsRelation)
 
         const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
         const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
+        const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
 
         RelationValues expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        expected_values[0] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_0;
-        expected_values[1] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_1;
-        expected_values[2] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_2;
-        expected_values[3] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_3;
-        expected_values[4] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_4;
-        expected_values[5] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_0;
-        expected_values[6] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_1;
-        expected_values[7] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_2;
-        expected_values[8] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_3;
-        expected_values[9] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_4;
-        expected_values[10] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_0;
-        expected_values[11] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_1;
-        expected_values[12] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_2;
-        expected_values[13] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_3;
-        expected_values[14] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_4;
-        expected_values[15] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_0;
-        expected_values[16] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_1;
-        expected_values[17] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_2;
-        expected_values[18] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_3;
-        expected_values[19] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_4;
-        expected_values[20] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_0;
-        expected_values[21] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_1;
-        expected_values[22] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_2;
-        expected_values[23] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_3;
-        expected_values[24] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_4;
-        expected_values[25] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_0;
-        expected_values[26] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_1;
-        expected_values[27] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_2;
-        expected_values[28] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_3;
-        expected_values[29] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_4;
-        expected_values[30] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * accumulator_low_limbs_range_constraint_0;
-        expected_values[31] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * accumulator_low_limbs_range_constraint_1;
-        expected_values[32] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * accumulator_low_limbs_range_constraint_2;
-        expected_values[33] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * accumulator_low_limbs_range_constraint_3;
-        expected_values[34] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * accumulator_low_limbs_range_constraint_4;
+        expected_values[0] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_0;
+        expected_values[1] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_1;
+        expected_values[2] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_2;
+        expected_values[3] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_3;
+        expected_values[4] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_4;
+        expected_values[5] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_0;
+        expected_values[6] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_1;
+        expected_values[7] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_2;
+        expected_values[8] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_3;
+        expected_values[9] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                             (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_4;
+        expected_values[10] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_0;
+        expected_values[11] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_1;
+        expected_values[12] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_2;
+        expected_values[13] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_3;
+        expected_values[14] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_4;
+        expected_values[15] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_0;
+        expected_values[16] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_1;
+        expected_values[17] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_2;
+        expected_values[18] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_3;
+        expected_values[19] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_4;
+        expected_values[20] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_0;
+        expected_values[21] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_1;
+        expected_values[22] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_2;
+        expected_values[23] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_3;
+        expected_values[24] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_4;
+        expected_values[25] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_0;
+        expected_values[26] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_1;
+        expected_values[27] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_2;
+        expected_values[28] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_3;
+        expected_values[29] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_4;
+        expected_values[30] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_0;
+        expected_values[31] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_1;
+        expected_values[32] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_2;
+        expected_values[33] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_3;
+        expected_values[34] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_4;
         expected_values[35] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_0;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_0;
         expected_values[36] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_1;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_1;
         expected_values[37] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_2;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_2;
         expected_values[38] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_3;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_3;
         expected_values[39] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_4;
-        expected_values[40] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_0;
-        expected_values[41] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_1;
-        expected_values[42] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_2;
-        expected_values[43] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_3;
-        expected_values[44] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_4;
-        expected_values[45] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_high_limbs_range_constraint_0;
-        expected_values[46] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_high_limbs_range_constraint_1;
-        expected_values[47] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_high_limbs_range_constraint_2;
-        expected_values[48] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_high_limbs_range_constraint_3;
-        expected_values[49] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_high_limbs_range_constraint_4;
-        expected_values[50] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * relation_wide_limbs_range_constraint_0;
-        expected_values[51] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * relation_wide_limbs_range_constraint_1;
-        expected_values[52] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * relation_wide_limbs_range_constraint_2;
-        expected_values[53] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * relation_wide_limbs_range_constraint_3;
-        expected_values[54] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_low_limbs_range_constraint_tail;
-        expected_values[55] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_x_high_limbs_range_constraint_tail;
-        expected_values[56] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_low_limbs_range_constraint_tail;
-        expected_values[57] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * p_y_high_limbs_range_constraint_tail;
-        expected_values[58] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_low_limbs_range_constraint_tail;
-        expected_values[59] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * z_high_limbs_range_constraint_tail;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_4;
+        expected_values[40] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_0;
+        expected_values[41] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_1;
+        expected_values[42] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_2;
+        expected_values[43] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_3;
+        expected_values[44] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_4;
+        expected_values[45] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_0;
+        expected_values[46] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_1;
+        expected_values[47] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_2;
+        expected_values[48] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_3;
+        expected_values[49] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_4;
+        expected_values[50] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * relation_wide_limbs_range_constraint_0;
+        expected_values[51] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * relation_wide_limbs_range_constraint_1;
+        expected_values[52] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * relation_wide_limbs_range_constraint_2;
+        expected_values[53] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * relation_wide_limbs_range_constraint_3;
+        expected_values[54] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_x_low_limbs_range_constraint_tail;
+        expected_values[55] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_x_high_limbs_range_constraint_tail;
+        expected_values[56] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_low_limbs_range_constraint_tail;
+        expected_values[57] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * p_y_high_limbs_range_constraint_tail;
+        expected_values[58] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_low_limbs_range_constraint_tail;
+        expected_values[59] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * z_high_limbs_range_constraint_tail;
         expected_values[60] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_low_limbs_range_constraint_tail;
+                              (lagrange_mini_masking - FF(1)) * accumulator_low_limbs_range_constraint_tail;
         expected_values[61] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              accumulator_high_limbs_range_constraint_tail;
-        expected_values[62] =
-            (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) * quotient_low_limbs_range_constraint_tail;
+                              (lagrange_mini_masking - FF(1)) * accumulator_high_limbs_range_constraint_tail;
+        expected_values[62] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
+                              (lagrange_mini_masking - FF(1)) * quotient_low_limbs_range_constraint_tail;
         expected_values[63] = (lagrange_even_in_minicircuit + lagrange_odd_in_minicircuit - 1) *
-                              quotient_high_limbs_range_constraint_tail;
+                              (lagrange_mini_masking - FF(1)) * quotient_high_limbs_range_constraint_tail;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
@@ -1031,14 +1042,14 @@ TEST_F(TranslatorRelationConsistency, ZeroConstraintsRelation)
 TEST_F(TranslatorRelationConsistency, NonNativeFieldRelation)
 {
     const auto run_test = [](bool random_inputs) {
-        constexpr size_t NUM_LIMB_BITS = 68;
-        constexpr FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
-        constexpr FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
-        constexpr FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
-        constexpr uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
-        constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
-        constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
-        constexpr std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+        const size_t NUM_LIMB_BITS = 68;
+        const FF shift = FF(uint256_t(1) << NUM_LIMB_BITS);
+        const FF shiftx2 = FF(uint256_t(1) << (NUM_LIMB_BITS * 2));
+        const FF shiftx3 = FF(uint256_t(1) << (NUM_LIMB_BITS * 3));
+        const uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
+        const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
+        const uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
+        const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
             FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
             FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
             FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),

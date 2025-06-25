@@ -88,7 +88,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     static uint512_t MODULUS_U512 = uint512_t(curve::BN254::BaseField::modulus);
     static uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
-    static std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
+    static const std::array<FF, 5> NEGATIVE_MODULUS_LIMBS = {
         FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
         FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),

@@ -12,6 +12,12 @@ interface AztecBaseMap<K extends Key, V extends Value> {
   set(key: K, val: V): Promise<void>;
 
   /**
+   * Sets the values at the given keys.
+   * @param entries - The entries to set
+   */
+  setMany(entries: { key: K; value: V }[]): Promise<void>;
+
+  /**
    * Sets the value at the given key if it does not already exist.
    * @param key - The key to set the value at
    * @param val - The value to set
@@ -30,6 +36,12 @@ export interface AztecMap<K extends Key, V extends Value> extends AztecBaseMap<K
    * @param key - The key to get the value from
    */
   get(key: K): V | undefined;
+
+  /**
+   * Gets the current size of the map.
+   * @returns The size of the map
+   */
+  size(): number;
 
   /**
    * Checks if a key exists in the map.
@@ -96,4 +108,10 @@ export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBase
    * @param range - The range of keys to iterate over
    */
   keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
+
+  /**
+   * Gets the current size of the map.
+   * @returns The size of the map
+   */
+  sizeAsync(): Promise<number>;
 }

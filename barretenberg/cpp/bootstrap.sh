@@ -8,13 +8,12 @@ export native_preset=${NATIVE_PRESET:-clang16-assert}
 export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-# Mostly arbitrary set that touches lots of the code.
-declare -A asan_tests=(
-  ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-  ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-  ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
-  ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-)
+if [[ $(arch) == "arm64" && "$CI" -eq 1 ]]; then
+  export DISABLE_AZTEC_VM=1
+  # Make sure the different envs don't read from each other's caches.
+  export hash="$hash-no-avm"
+fi
+
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -42,17 +41,18 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  cmake --fresh --preset "$preset"
+  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
+  cmake --fresh --preset "$preset" ${DISABLE_AZTEC_VM:+-DDISABLE_AZTEC_VM=$DISABLE_AZTEC_VM}
   cmake --build --preset "$preset" "$@"
 }
 
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-native-$hash.zst; then
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    cache_upload barretenberg-native-$hash.zst build/bin
+    cache_upload barretenberg-$native_preset-$hash.zst build/bin
   fi
 }
 
@@ -61,8 +61,10 @@ function build_asan_fast {
   set -eu
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
-    build_preset asan-fast --target "${!asan_tests[@]}"
-    cache_upload barretenberg-asan-fast-$hash.zst build-asan-fast/bin
+    local bins="commitment_schemes_recursion_tests client_ivc_tests ultra_honk_tests dsl_tests"
+    build_preset asan-fast --target $bins
+    # We upload only the binaries specified in --target in build-asan-fast/bin
+    cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
   fi
 }
 
@@ -106,7 +108,7 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads
+    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -119,7 +121,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  cmake --preset gcc -DSYNTAX_ONLY=1
+  cmake --preset gcc -DSYNTAX_ONLY=1 -DDISABLE_AZTEC_VM=ON
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
@@ -181,7 +183,8 @@ function build {
 # Paths are relative to repo root.
 # We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
-  cd build
+  # E.g. build, build-debug or build-coverage
+  cd $(scripts/native-preset-build-dir)
   for bin in ./bin/*_tests; do
     local bin_name=$(basename $bin)
 
@@ -198,7 +201,17 @@ function test_cmds {
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
+
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+    # We only want to sanity check that we haven't broken wasm ecc in merge queue.
+    echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+    # Mostly arbitrary set that touches lots of the code.
+    declare -A asan_tests=(
+      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
+      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+    )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
@@ -221,26 +234,22 @@ function build_bench {
     # Run builds in parallel with different targets per preset
     # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench"
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench" \
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb_cli_bench}
   fi
 }
 
 function bench_cmds {
-  prefix="$hash:CPUS=16"
-  # arch name bin filter
-  benches=(
-    "native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
-    "native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
-    "wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-    "wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
-  )
-  for args in "${benches[@]}"; do
-    echo "$prefix barretenberg/cpp/scripts/run_bench.sh $args"
-  done
+  prefix="$hash:CPUS=8"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_17_in_20 build/bin/client_ivc_bench ClientIVCBench/Ambient_17_in_20/6$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/6$"
+  prefix="$hash:CPUS=1"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.
@@ -275,28 +284,40 @@ case "$cmd" in
     ;;
   bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
-    # Download the inputs for the private flows.
-    # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
-    git fetch origin master
+    # Sample usage (CI=1 required for bench results to be visible; exclude NO_WASM=1 to run wasm benchmarks):
+    # CI=1 NO_WASM=1 NATIVE_PRESET=op-count-time ./barretenberg/cpp/bootstrap.sh bench_ivc transfer_0_recursions+sponsored_fpc
+    git fetch origin next
 
-    # build the benchmarked benches
+    flow_filter="${1:-}"               # optional string-match filter for flow names
+    commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
+
+    # Build both native and wasm benchmark binaries
     parallel --line-buffered --tag -v denoise ::: \
       "build_preset $native_preset --target bb_cli_bench" \
       "build_preset wasm-threads --target bb_cli_bench"
 
-    # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    if [ -n "${1:-}" ]; then
-      echo "Downloading inputs from commit $1."
-      export AZTEC_CACHE_COMMIT=$1
-      export DOWNLOAD_ONLY=1
-      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
-      # This generates the client IVC verification keys.
-      yarn --cwd ../../yarn-project/bb-prover generate
-    fi
+    # Download cached flow inputs from the specified commit
+    export AZTEC_CACHE_COMMIT=$commit_hash
+    export DOWNLOAD_ONLY=1
+    yarn --cwd ../../yarn-project/bb-prover generate
 
     # Recreation of logic from bench.
-    ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench
+
+    # Extract and filter benchmark commands by flow name and wasm/no-wasm
+    function ivc_bench_cmds {
+      local flow_filter="$1"  # select only flows containing this string
+
+      ../../yarn-project/end-to-end/bootstrap.sh bench_cmds |
+        grep barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh |
+        { [[ "${NO_WASM:-}" == "1" ]] && grep -v wasm || cat; } |
+        { [[ -n "$flow_filter" ]] && grep -F "$flow_filter" || cat; }
+    }
+
+    echo "Running commands:"
+    ivc_bench_cmds "$flow_filter"
+
+    ivc_bench_cmds "$flow_filter" | STRICT_SCHEDULING=1 parallelise
     ;;
   "hash")
     echo $hash

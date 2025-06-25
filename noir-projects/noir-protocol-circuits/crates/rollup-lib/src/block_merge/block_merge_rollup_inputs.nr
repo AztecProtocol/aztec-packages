@@ -8,6 +8,7 @@ use dep::types::{
     },
     traits::Empty,
 };
+use blob::blob_batching_public_inputs::BlockBlobPublicInputs;
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
     BLOCK_ROOT_ROLLUP_INDEX,
@@ -31,10 +32,10 @@ impl BlockMergeRollupInputs {
         // Verify the previous rollup proofs
         if !dep::std::runtime::is_unconstrained() {
             self.previous_rollup_data[0].verify(PROOF_TYPE_ROLLUP_HONK);
-            self.previous_rollup_data[0].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[0].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 
             self.previous_rollup_data[1].verify(PROOF_TYPE_ROLLUP_HONK);
-            self.previous_rollup_data[1].validate_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+            self.previous_rollup_data[1].validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
         let left = self.previous_rollup_data[0].block_root_or_block_merge_public_inputs;
@@ -49,30 +50,31 @@ impl BlockMergeRollupInputs {
         // ^ Where instead of num_txs, use num_blocks = (end_global_variables.block_number - start_global_variables.block_number) + 1
         components::assert_prev_block_rollups_follow_on_from_each_other(left, right);
 
-        let out_hash = components::compute_blocks_out_hash(self.previous_rollup_data);
-
         let proposed_block_header_hashes =
             components::accumulate_proposed_block_header_hashes(left, right);
 
         let fees = components::accumulate_blocks_fees(left, right);
 
-        // TODO: We need to eventually accumulate blob info to a single BlobPublicInputs instance which will verify multiple blobs in one call
-        // For now, we do them individually
-        // How we accumulate is being worked on by @Mike
-        // let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
-        let blob_public_inputs = components::accumulate_blob_public_inputs(left, right);
+        // Note: for blob batching, in assert_prev_block_rollups_follow_on_from_each_other we have checked:
+        // - left.end_blob_accumulator == right.start_blob_accumulator
+        // - left.challenge_z == right.challenge_z
+        // - left.challenge_gamma == right.challenge_gamma
+
+        let blob_public_inputs = BlockBlobPublicInputs {
+            start_blob_accumulator: left.blob_public_inputs.start_blob_accumulator,
+            end_blob_accumulator: right.blob_public_inputs.end_blob_accumulator,
+            final_blob_challenges: left.blob_public_inputs.final_blob_challenges,
+        };
 
         BlockRootOrBlockMergePublicInputs {
+            constants: left.constants,
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
             start_global_variables: left.start_global_variables,
             end_global_variables: right.end_global_variables,
-            out_hash,
+            out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
             proposed_block_header_hashes,
             fees,
-            vk_tree_root: left.vk_tree_root,
-            protocol_contract_tree_root: left.protocol_contract_tree_root,
-            prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
             blob_public_inputs,
         }
     }
@@ -83,7 +85,6 @@ mod tests {
     use dep::types::constants::{
         BLOCK_MERGE_ROLLUP_INDEX, BLOCK_ROOT_ROLLUP_INDEX, ROOT_PARITY_INDEX,
     };
-    use dep::types::hash::accumulate_sha256;
     use dep::types::tests::fixtures;
     use types::merkle_tree::merkle_tree::MerkleTree;
 
@@ -99,6 +100,14 @@ mod tests {
     fn constants_different_ver_fails() {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.end_global_variables.version =
+            1;
+        let _output = inputs.block_merge_rollup_circuit();
+    }
+
+    #[test(should_fail_with = "input blocks have different epoch blob challenges")]
+    fn blob_different_challenges_fails() {
+        let mut inputs = default_block_merge_rollup_inputs();
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.final_blob_challenges.z +=
             1;
         let _output = inputs.block_merge_rollup_circuit();
     }
@@ -122,13 +131,12 @@ mod tests {
         let _output = inputs.block_merge_rollup_circuit();
     }
 
-    #[test]
-    fn out_hash() {
+    #[test(should_fail_with = "input block blob accumulators do not follow on from each other")]
+    fn previous_rollups_dont_follow_blob_accumulator() {
         let mut inputs = default_block_merge_rollup_inputs();
-        let expected_hash = accumulate_sha256([1, 2]);
-        let outputs = inputs.block_merge_rollup_circuit();
-
-        assert_eq(outputs.out_hash, expected_hash);
+        inputs.previous_rollup_data[0].block_root_or_block_merge_public_inputs.blob_public_inputs.end_blob_accumulator.z_acc +=
+            1;
+        let _output = inputs.block_merge_rollup_circuit();
     }
 
     #[test]
@@ -161,55 +169,63 @@ mod tests {
         let outputs = inputs.block_merge_rollup_circuit();
 
         assert_eq(
-            outputs.blob_public_inputs[0],
+            outputs.blob_public_inputs.start_blob_accumulator,
             inputs.previous_rollup_data[0]
                 .block_root_or_block_merge_public_inputs
-                .blob_public_inputs[0],
+                .blob_public_inputs
+                .start_blob_accumulator,
         );
         assert_eq(
-            outputs.blob_public_inputs[1],
+            outputs.blob_public_inputs.end_blob_accumulator,
             inputs.previous_rollup_data[1]
                 .block_root_or_block_merge_public_inputs
-                .blob_public_inputs[0],
+                .blob_public_inputs
+                .end_blob_accumulator,
         );
     }
 
     #[test]
     fn valid_previous_circuit_block_root() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_ROOT_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_ROOT_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_ROOT_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test]
     fn valid_previous_circuit_block_merge() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = BLOCK_MERGE_ROLLUP_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(BLOCK_MERGE_ROLLUP_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = BLOCK_MERGE_ROLLUP_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(BLOCK_MERGE_ROLLUP_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_circuit() {
         let mut inputs = default_block_merge_rollup_inputs();
+
+        let vk_index = ROOT_PARITY_INDEX;
         let vk_tree: MerkleTree<fixtures::vk_tree::VK_TREE_WIDTH> =
             fixtures::vk_tree::VK_MERKLE_TREE;
-        inputs.previous_rollup_data[0].vk =
-            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(ROOT_PARITY_INDEX);
-        inputs.previous_rollup_data[0].vk_witness.leaf_index = ROOT_PARITY_INDEX as Field;
-        inputs.previous_rollup_data[0].vk_witness.sibling_path =
-            vk_tree.get_sibling_path(ROOT_PARITY_INDEX);
+        inputs.previous_rollup_data[0].vk_data.vk =
+            fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
+        inputs.previous_rollup_data[0].vk_data.leaf_index = vk_index;
+        inputs.previous_rollup_data[0].vk_data.sibling_path = vk_tree.get_sibling_path(vk_index);
+
         let _outputs = inputs.block_merge_rollup_circuit();
     }
 }

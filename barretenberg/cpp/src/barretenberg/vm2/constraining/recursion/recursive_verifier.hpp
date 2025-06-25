@@ -31,11 +31,13 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
         const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt);
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] PairingPoints verify_proof(
-        const StdlibProof<Builder>& stdlib_proof, const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
+        const StdlibProof<Builder>& stdlib_proof_with_pi_flag, // TODO(#14234)[Unconditional PIs validation]: rename
+                                                               // stdlib_proof_with_pi_flag to stdlib_proof
+        const std::vector<std::vector<typename Flavor::FF>>& public_inputs);
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
     FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);

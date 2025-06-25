@@ -50,15 +50,6 @@ void set_public_call_request_array_in_cols(const std::array<PublicCallRequest, M
     }
 }
 
-void set_previous_accumulated_data_lengths_in_cols(const PrivateToAvmAccumulatedDataArrayLengths& lengths,
-                                                   std::vector<std::vector<FF>>& cols,
-                                                   size_t row_idx)
-{
-    cols[0][row_idx] = lengths.noteHashes;
-    cols[1][row_idx] = lengths.nullifiers;
-    cols[2][row_idx] = lengths.l2ToL1Msgs;
-}
-
 template <size_t SIZE>
 void set_field_array_in_cols(const std::array<FF, SIZE>& arr,
                              std::vector<std::vector<FF>>& cols,
@@ -79,8 +70,7 @@ void set_l2_to_l1_msg_array_in_cols(const std::array<ScopedL2ToL1Message, SIZE>&
         size_t row = array_start_row_idx + i;
         cols[0][row] = arr[i].message.recipient;
         cols[1][row] = arr[i].message.content;
-        cols[2][row] = arr[i].message.counter;
-        cols[3][row] = arr[i].contractAddress;
+        cols[2][row] = arr[i].contractAddress;
     }
 }
 
@@ -175,8 +165,19 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     set_gas_fees_in_cols(
         gasSettings.maxPriorityFeesPerGas, cols, AVM_PUBLIC_INPUTS_GAS_SETTINGS_MAX_PRIORITY_FEES_PER_GAS_ROW_IDX);
 
+    // Effective gas fees
+    set_gas_fees_in_cols(effectiveGasFees, cols, AVM_PUBLIC_INPUTS_EFFECTIVE_GAS_FEES_ROW_IDX);
+
     // Fee payer
     cols[0][AVM_PUBLIC_INPUTS_FEE_PAYER_ROW_IDX] = feePayer;
+
+    // Public Call Request Array Lengths
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_SETUP_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.setupCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_APP_LOGIC_CALLS_ROW_IDX] =
+        publicCallRequestArrayLengths.appLogicCalls;
+    cols[0][AVM_PUBLIC_INPUTS_PUBLIC_CALL_REQUEST_ARRAY_LENGTHS_TEARDOWN_CALL_ROW_IDX] =
+        static_cast<uint8_t>(publicCallRequestArrayLengths.teardownCall);
 
     // Setup, app logic, and teardown call requests
     set_public_call_request_array_in_cols(
@@ -186,15 +187,21 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     set_public_call_request_in_cols(
         publicTeardownCallRequest, cols, AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX);
 
-    // Previous non-revertible & revertible accumulated data lengths
-    set_previous_accumulated_data_lengths_in_cols(
-        previousNonRevertibleAccumulatedDataArrayLengths,
-        cols,
-        AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX);
-    set_previous_accumulated_data_lengths_in_cols(
-        previousRevertibleAccumulatedDataArrayLengths,
-        cols,
-        AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_ROW_IDX);
+    // Previous non-revertible accumulated data array lengths
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        previousNonRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
+
+    // Previous revertible accumulated data array lengths
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        previousRevertibleAccumulatedDataArrayLengths.l2ToL1Msgs;
 
     // Previous non-revertible accumulated data
     set_field_array_in_cols(previousNonRevertibleAccumulatedData.noteHashes,
@@ -231,17 +238,29 @@ std::vector<std::vector<FF>> PublicInputs::to_columns() const
     // End gas used
     set_gas_in_cols(endGasUsed, cols, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX);
 
-    // End accumulated data
+    // Accumulated Data Array Lengths
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        accumulatedDataArrayLengths.noteHashes;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        accumulatedDataArrayLengths.nullifiers;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        accumulatedDataArrayLengths.l2ToL1Msgs;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX] =
+        accumulatedDataArrayLengths.publicLogs;
+    cols[0][AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_DATA_WRITES_ROW_IDX] =
+        accumulatedDataArrayLengths.publicDataWrites;
+
+    // Accumulated data
     set_field_array_in_cols(
-        accumulatedData.noteHashes, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
+        accumulatedData.noteHashes, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX);
     set_field_array_in_cols(
-        accumulatedData.nullifiers, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
+        accumulatedData.nullifiers, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX);
     set_l2_to_l1_msg_array_in_cols(
-        accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
+        accumulatedData.l2ToL1Msgs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX);
     set_public_logs_in_cols(
-        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
+        accumulatedData.publicLogs, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX);
     set_public_data_writes_in_cols(
-        accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_END_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
+        accumulatedData.publicDataWrites, cols, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_DATA_WRITES_ROW_IDX);
 
     // Transaction fee
     cols[0][AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX] = transactionFee;

@@ -1,3 +1,4 @@
+import { AVM_SSTORE_DYN_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -7,7 +8,7 @@ import type { PublicPersistableStateManager } from '../../state_manager/state_ma
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';
-import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/initializers.js';
 import { SLoad, SStore } from './storage.js';
 
 describe('Storage Instructions', () => {
@@ -64,6 +65,36 @@ describe('Storage Instructions', () => {
 
       const instruction = () => new SStore(/*indirect=*/ 0, /*srcOffset=*/ 0, /*slotOffset=*/ 1).execute(context);
       await expect(instruction()).rejects.toThrow(StaticCallAlterationError);
+    });
+
+    it('Should charge da gas for cold storage', async () => {
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      persistableState.isStorageCold.mockReturnValue(true);
+
+      const daGasBefore = context.machineState.daGasLeft;
+      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
+
+      expect(context.machineState.daGasLeft).toBe(daGasBefore - AVM_SSTORE_DYN_DA_GAS);
+    });
+
+    it('Should not charge da gas when storage is hot', async () => {
+      const a = new Field(1n);
+      const b = new Field(2n);
+
+      context.machineState.memory.set(0, a);
+      context.machineState.memory.set(1, b);
+
+      persistableState.isStorageCold.mockReturnValue(false);
+
+      const daGasBefore = context.machineState.daGasLeft;
+      await new SStore(/*indirect=*/ 0, /*srcOffset=*/ 1, /*slotOffset=*/ 0).execute(context);
+
+      expect(context.machineState.daGasLeft).toBe(daGasBefore);
     });
   });
 

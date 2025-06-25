@@ -13,11 +13,13 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 5> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3 };
+    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::execution_sel)).is_zero();
     }
 
@@ -28,6 +30,19 @@ template <typename FF_> class executionImpl {
                            [[maybe_unused]] const FF& scaling_factor)
     {
         using C = ColumnAndShifts;
+
+        const auto constants_AVM_EXEC_OP_ID_SET = FF(1);
+        const auto constants_AVM_EXEC_OP_ID_MOV = FF(2);
+        const auto constants_AVM_EXEC_OP_ID_JUMP = FF(4);
+        const auto constants_AVM_EXEC_OP_ID_JUMPI = FF(8);
+        const auto constants_AVM_EXEC_OP_ID_CALL = FF(16);
+        const auto constants_AVM_EXEC_OP_ID_STATICCALL = FF(32);
+        const auto constants_AVM_EXEC_OP_ID_INTERNALCALL = FF(64);
+        const auto constants_AVM_EXEC_OP_ID_INTERNALRETURN = FF(128);
+        const auto constants_AVM_EXEC_OP_ID_RETURN = FF(256);
+        const auto constants_AVM_EXEC_OP_ID_REVERT = FF(512);
+        const auto constants_AVM_EXEC_OP_ID_SUCCESSCOPY = FF(1024);
+        const auto execution_NOT_LAST_EXEC = in.get(C::execution_sel) * in.get(C::execution_sel_shift);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -41,25 +56,152 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRACE_CONTINUITY_1
+        { // TRACE_CONTINUITY
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_shift)) *
-                       (FF(1) - in.get(C::execution_last));
+            auto tmp = (FF(1) - in.get(C::execution_sel)) * (FF(1) - in.get(C::precomputed_first_row)) *
+                       in.get(C::execution_sel_shift);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // TRACE_CONTINUITY_2
+        { // LAST_IS_LAST
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - in.get(C::precomputed_first_row)) * (FF(1) - in.get(C::execution_sel)) *
-                       in.get(C::execution_sel_shift);
+            auto tmp =
+                (in.get(C::execution_last) - in.get(C::execution_sel) * (FF(1) - in.get(C::execution_sel_shift)));
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        { // LAST_IS_LAST
+        {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_last) * in.get(C::execution_sel_shift);
+            auto tmp = in.get(C::execution_sel) * (in.get(C::execution_sel_bytecode_retrieval_success) -
+                                                   (FF(1) - in.get(C::execution_sel_bytecode_retrieval_failure)));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel) * (in.get(C::execution_sel_instruction_fetching_success) -
+                                                   (FF(1) - in.get(C::execution_sel_instruction_fetching_failure)));
+            tmp *= scaling_factor;
+            std::get<5>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel) * (in.get(C::execution_sel_should_check_gas) -
+                                                   in.get(C::execution_sel_instruction_fetching_success));
+            tmp *= scaling_factor;
+            std::get<6>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel) * (in.get(C::execution_sel_should_resolve_address) -
+                                                   ((FF(1) - in.get(C::execution_out_of_gas_base)) -
+                                                    in.get(C::execution_sel_instruction_fetching_failure)));
+            tmp *= scaling_factor;
+            std::get<7>(evals) += typename Accumulator::View(tmp);
+        }
+        { // OPCODE_ERROR_BOOLEAN
+            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_opcode_error) * (FF(1) - in.get(C::execution_opcode_error));
+            tmp *= scaling_factor;
+            std::get<8>(evals) += typename Accumulator::View(tmp);
+        }
+        { // EXEC_OP_ID_DECOMPOSITION
+            using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_execution) *
+                       ((in.get(C::execution_sel_set) * constants_AVM_EXEC_OP_ID_SET +
+                         in.get(C::execution_sel_mov) * constants_AVM_EXEC_OP_ID_MOV +
+                         in.get(C::execution_sel_jump) * constants_AVM_EXEC_OP_ID_JUMP +
+                         in.get(C::execution_sel_jumpi) * constants_AVM_EXEC_OP_ID_JUMPI +
+                         in.get(C::execution_sel_call) * constants_AVM_EXEC_OP_ID_CALL +
+                         in.get(C::execution_sel_static_call) * constants_AVM_EXEC_OP_ID_STATICCALL +
+                         in.get(C::execution_sel_internal_call) * constants_AVM_EXEC_OP_ID_INTERNALCALL +
+                         in.get(C::execution_sel_internal_return) * constants_AVM_EXEC_OP_ID_INTERNALRETURN +
+                         in.get(C::execution_sel_return) * constants_AVM_EXEC_OP_ID_RETURN +
+                         in.get(C::execution_sel_revert) * constants_AVM_EXEC_OP_ID_REVERT +
+                         in.get(C::execution_sel_success_copy) * constants_AVM_EXEC_OP_ID_SUCCESSCOPY) -
+                        in.get(C::execution_subtrace_operation_id));
+            tmp *= scaling_factor;
+            std::get<9>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_set) * (FF(1) - in.get(C::execution_sel_set));
+            tmp *= scaling_factor;
+            std::get<10>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_mov) * (FF(1) - in.get(C::execution_sel_mov));
+            tmp *= scaling_factor;
+            std::get<11>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_jump) * (FF(1) - in.get(C::execution_sel_jump));
+            tmp *= scaling_factor;
+            std::get<12>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_jumpi) * (FF(1) - in.get(C::execution_sel_jumpi));
+            tmp *= scaling_factor;
+            std::get<13>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_call) * (FF(1) - in.get(C::execution_sel_call));
+            tmp *= scaling_factor;
+            std::get<14>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_static_call) * (FF(1) - in.get(C::execution_sel_static_call));
+            tmp *= scaling_factor;
+            std::get<15>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_call) * (FF(1) - in.get(C::execution_sel_internal_call));
+            tmp *= scaling_factor;
+            std::get<16>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_internal_return) * (FF(1) - in.get(C::execution_sel_internal_return));
+            tmp *= scaling_factor;
+            std::get<17>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_return) * (FF(1) - in.get(C::execution_sel_return));
+            tmp *= scaling_factor;
+            std::get<18>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_revert) * (FF(1) - in.get(C::execution_sel_revert));
+            tmp *= scaling_factor;
+            std::get<19>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_success_copy) * (FF(1) - in.get(C::execution_sel_success_copy));
+            tmp *= scaling_factor;
+            std::get<20>(evals) += typename Accumulator::View(tmp);
+        }
+        { // PC_NEXT_ROW_INT_CALL_JUMP
+            using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
+            auto tmp = execution_NOT_LAST_EXEC *
+                       (in.get(C::execution_sel_internal_call) + in.get(C::execution_sel_jump)) *
+                       (in.get(C::execution_pc_shift) - in.get(C::execution_rop_0_));
+            tmp *= scaling_factor;
+            std::get<21>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<22>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -72,19 +214,25 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     {
         switch (index) {
         case 2:
-            return "TRACE_CONTINUITY_1";
+            return "TRACE_CONTINUITY";
         case 3:
-            return "TRACE_CONTINUITY_2";
-        case 4:
             return "LAST_IS_LAST";
+        case 8:
+            return "OPCODE_ERROR_BOOLEAN";
+        case 9:
+            return "EXEC_OP_ID_DECOMPOSITION";
+        case 21:
+            return "PC_NEXT_ROW_INT_CALL_JUMP";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY_1 = 2;
-    static constexpr size_t SR_TRACE_CONTINUITY_2 = 3;
-    static constexpr size_t SR_LAST_IS_LAST = 4;
+    static constexpr size_t SR_TRACE_CONTINUITY = 2;
+    static constexpr size_t SR_LAST_IS_LAST = 3;
+    static constexpr size_t SR_OPCODE_ERROR_BOOLEAN = 8;
+    static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 9;
+    static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 21;
 };
 
 } // namespace bb::avm2

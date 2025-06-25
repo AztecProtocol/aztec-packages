@@ -239,7 +239,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr auto MAX_HIGH_WIDE_LIMB_SIZE = (uint256_t(1) << (NUM_LIMB_BITS + NUM_LAST_LIMB_BITS)) - 1;
 
     // Index at which the evaluation result is stored in the circuit
-    static constexpr const size_t RESULT_ROW = 2;
+    static constexpr size_t RESULT_ROW = 2;
 
     // How much you'd need to multiply a value by to perform a shift to a higher binary limb
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
@@ -404,8 +404,8 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     }
 
     /**
-     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials representing
-     * commitments to ECCOpQueue
+     * @brief Generate all the gates required to prove the correctness of batched evalution of polynomials
+     * representing commitments to ECCOpQueue
      *
      * @param ecc_op_queue The queue
      */

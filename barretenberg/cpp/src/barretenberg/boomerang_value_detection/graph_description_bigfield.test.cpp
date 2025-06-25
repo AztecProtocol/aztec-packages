@@ -41,7 +41,7 @@ using witness_ct = bn254::witness_ct;
  */
 void fix_bigfield_element(const fq_ct& element)
 {
-    for (int i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; i++) {
         element.binary_basis_limbs[i].element.fix_witness();
     }
     element.prime_basis_limb.fix_witness();
@@ -67,7 +67,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_constructors)
     [[maybe_unused]] fq_ct mixed = fq_ct(1).add_to_lower_limb(small_var, 1);
     [[maybe_unused]] fq_ct r;
 
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -98,7 +98,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_addition)
     r2 = r + var;
     fix_bigfield_element(r2);
 
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -130,7 +130,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_substraction)
     r = var - mixed;
     fix_bigfield_element(r);
 
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -161,7 +161,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_multiplication)
     r = mixed * var;
     r = mixed * constant;
     r = mixed * mixed;
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -195,7 +195,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division)
     fix_bigfield_element(r);
 
     CircuitChecker::check(builder);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -248,7 +248,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations)
     fix_bigfield_element(r);
     r = mixed * constant;
     fix_bigfield_element(r);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -276,7 +276,7 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits_and_op
              witness_ct(&builder, fr(uint256_t(d).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     c = c + d1;
     fix_bigfield_element(c);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -300,7 +300,7 @@ TEST(boomerang_bigfield, test_graph_description_mul_function)
             witness_ct(&builder, fr(uint256_t(inputs[1]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     fq_ct c = a * b;
     fix_bigfield_element(c);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -322,7 +322,7 @@ TEST(boomerang_bigfield, test_graph_description_sqr_function)
             witness_ct(&builder, fr(uint256_t(input).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     fq_ct c = a.sqr();
     fix_bigfield_element(c);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -348,7 +348,7 @@ TEST(boomerang_bigfield, test_graph_description_madd_function)
             witness_ct(&builder, fr(uint256_t(inputs[2]).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
     fq_ct d = a.madd(b, { c });
     fix_bigfield_element(d);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
@@ -388,7 +388,7 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function)
     fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
     fix_bigfield_element(f);
     builder.finalize_circuit(false);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
@@ -413,7 +413,7 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
     fq_ct product = mul_left * mul_right;
     fix_bigfield_element(product);
     builder.finalize_circuit(false);
-    auto graph = Graph(builder);
+    auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
     EXPECT_EQ(variables_in_one_gate.size(), 0);

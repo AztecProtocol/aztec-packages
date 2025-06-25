@@ -9,6 +9,7 @@ import {
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
 import {
   type Abi,
@@ -23,6 +24,7 @@ import {
   MethodNotSupportedRpcError,
   type StateOverride,
   type TransactionReceipt,
+  decodeErrorResult,
   formatGwei,
   getContractError,
   hexToBytes,
@@ -451,12 +453,13 @@ export class ReadOnlyL1TxUtils {
     }
   }
 
-  public async simulateGasUsed(
+  public async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
+    abi: Abi = RollupAbi,
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
 
     const call: any = {
@@ -465,7 +468,7 @@ export class ReadOnlyL1TxUtils {
       ...(request.from && { from: request.from }),
     };
 
-    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig);
+    return await this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   protected async _simulate(
@@ -473,6 +476,7 @@ export class ReadOnlyL1TxUtils {
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     gasConfig: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
+    abi: Abi,
   ) {
     try {
       const result = await this.client.simulateBlocks({
@@ -493,16 +497,21 @@ export class ReadOnlyL1TxUtils {
         this.logger?.error('L1 transaction Simulation failed', {
           error: result[0].calls[0].error,
         });
-        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+        const decodedError = decodeErrorResult({
+          abi,
+          data: result[0].calls[0].data,
+        });
+
+        throw new Error(`L1 transaction simulation failed with error: ${decodedError.errorName}`);
       }
-      return result[0].gasUsed;
+      return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data as `0x${string}` };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
           );
-          return gasConfig.fallbackGasEstimate;
+          return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' as `0x${string}` };
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
       }
@@ -512,7 +521,9 @@ export class ReadOnlyL1TxUtils {
 
   public bumpGasLimit(gasLimit: bigint, _gasConfig?: L1TxUtilsConfig): bigint {
     const gasConfig = { ...this.config, ..._gasConfig };
-    return gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    const bumpedGasLimit = gasLimit + (gasLimit * BigInt((gasConfig?.gasLimitBufferPercentage || 0) * 1_00)) / 100_00n;
+    this.logger?.debug('Bumping gas limit', { gasLimit, gasConfig, bumpedGasLimit });
+    return bumpedGasLimit;
   }
 }
 
@@ -560,8 +571,10 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       } else if (gasConfig.gasLimit) {
         gasLimit = gasConfig.gasLimit;
       } else {
-        gasLimit = await this.estimateGas(account, request);
+        gasLimit = await this.estimateGas(account, request, gasConfig);
       }
+
+      this.logger?.debug('Gas limit', { gasLimit });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
 
@@ -797,18 +810,18 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     return { receipt, gasPrice };
   }
 
-  public override async simulateGasUsed(
+  public override async simulate(
     request: L1TxRequest & { gas?: bigint; from?: Hex },
-    blockOverrides: BlockOverrides<bigint, number> = {},
+    _blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
-    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+    abi: Abi = RollupAbi,
+    _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint; ignoreBlockGasLimit?: boolean },
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
+    const blockOverrides = { ..._blockOverrides };
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
-    const nonce = await this.client.getTransactionCount({ address: this.client.account.address });
 
     const call: any = {
-      nonce,
       to: request.to!,
       data: request.data,
       from: request.from ?? this.client.account.address,
@@ -817,7 +830,12 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       gas: request.gas ?? LARGE_GAS_LIMIT,
     };
 
-    return this._simulate(call, blockOverrides, stateOverrides, gasConfig);
+    if (!request.gas && !gasConfig.ignoreBlockGasLimit) {
+      // LARGE_GAS_LIMIT is set as call.gas, increase block gasLimit
+      blockOverrides.gasLimit = LARGE_GAS_LIMIT * 2n;
+    }
+
+    return this._simulate(call, blockOverrides, stateOverrides, gasConfig, abi);
   }
 
   /**

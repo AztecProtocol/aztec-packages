@@ -28,6 +28,30 @@ class ClientIVCBench : public benchmark::Fixture {
 };
 
 /**
+ * @brief Benchmark only the verification work for the PG-Goblin IVC protocol
+ */
+BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
+{
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    auto circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    auto circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    auto proof = ivc.prove();
+
+    for (auto _ : state) {
+        benchmark::DoNotOptimize(ivc.verify(proof));
+    }
+}
+
+/**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
@@ -43,7 +67,6 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
         ivc.prove();
     }
 }
-
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  * @details Processes "dense" circuits of size 2^17 in a size 2^20 structured trace
@@ -67,6 +90,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Ambient_17_in_20)(benchmark::State& state)
 
 BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 BENCHMARK_REGISTER_F(ClientIVCBench, Ambient_17_in_20)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(ClientIVCBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

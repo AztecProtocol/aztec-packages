@@ -2,6 +2,8 @@
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/test_bench_shared.hpp"
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/test.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/protogalaxy/folding_test_utils.hpp"
@@ -28,7 +30,7 @@ class ClientIVCTests : public ::testing::Test {
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
@@ -378,7 +380,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -428,7 +430,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
         auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = VerifierCommitmentKey<curve::Grumpkin>();
 
         return ivc_vk;
     };
@@ -453,7 +455,7 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
  * prover. Before this test was added, we spend more than 50% of the benchmarking time running an entire IVC prover
  * protocol just to precompute valid verification keys.
  */
-TEST(ClientIVCBenchValidation, Full6)
+HEAVY_TEST(ClientIVCBenchValidation, Full6)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
@@ -470,7 +472,7 @@ TEST(ClientIVCBenchValidation, Full6)
 /**
  * @brief Test that running the benchmark suite with mocked verification keys will not error out.
  */
-TEST(ClientIVCBenchValidation, Full6MockedVKs)
+HEAVY_TEST(ClientIVCBenchValidation, Full6MockedVKs)
 {
     const auto run_test = []() {
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
@@ -486,7 +488,7 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
@@ -500,7 +502,7 @@ TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     EXPECT_TRUE(verified);
 }
 
-TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
@@ -540,61 +542,46 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
 };
 
 /**
- * @brief Test dynamic structured trace overflow block mechanism
- * @details Tests the case where the required overflow capacity is not known until runtime. Accumulates two circuits,
- * the second of which overflows the trace but not enough to change the dyadic circuit size and thus there is no need
- * for a virtual size increase of the first key.
+ * @brief Test the structured trace overflow mechanism in a variety of different scenarios
  *
  */
-TEST_F(ClientIVCTests, DynamicOverflow)
+TEST_F(ClientIVCTests, DynamicTraceOverflow)
 {
-    // Define trace settings with zero overflow capacity
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, /*overflow_capacity=*/0 } };
+    struct TestCase {
+        std::string name;
+        std::vector<size_t> log2_num_arith_gates;
+    };
 
-    ClientIVCMockCircuitProducer circuit_producer;
+    // Define some test cases that overflow the structured trace in different ways at different points in the
+    // accumulation. We distinguish between a simple overflow that exceeds one or more structured trace capacities but
+    // does not bump the dyadic circuit size and an overflow that does increase the dyadic circuit size.
+    std::vector<TestCase> test_cases = {
+        { "Case 1", { 18, 14 } },         /* first circuit overflows with dyadic size increase */
+        { "Case 2", { 14, 16 } },         /* simple overlow (no dyadic size increase)*/
+        { "Case 3", { 14, 18 } },         /* overflow with dyadic size increase*/
+        { "Case 4", { 14, 18, 14, 16 } }, /* dyadic size overflow then simple overflow */
+        { "Case 5", { 14, 16, 14, 18 } }, /* simple overflow then dyadic size overflow */
+    };
 
-    const size_t NUM_CIRCUITS = 2;
+    for (const auto& test : test_cases) {
+        SCOPED_TRACE(test.name); // improves test output readability
 
-    // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    const std::vector<size_t> log2_num_arith_gates = { 14, 16 };
-    // Accumulate
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
-        ivc.accumulate(circuit);
+        uint32_t overflow_capacity = 0;
+        ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
+        ClientIVCMockCircuitProducer circuit_producer;
+
+        const size_t NUM_CIRCUITS = test.log2_num_arith_gates.size();
+
+        // Accumulate
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto circuit = circuit_producer.create_next_circuit(ivc, test.log2_num_arith_gates[idx]);
+            ivc.accumulate(circuit);
+        }
+
+        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
+        EXPECT_TRUE(ivc.prove_and_verify());
     }
-
-    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
- * @brief Test dynamic trace overflow where the dyadic circuit size also increases
- * @details Accumulates two circuits, the second of which overflows the trace structure and leads to an increased dyadic
- * circuit size. This requires the virtual size of the polynomials in the first key to be increased accordingly which
- * should be handled automatically in PG/ClientIvc.
- *
- */
-TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
-{
-    uint32_t overflow_capacity = 0;
-    // uint32_t overflow_capacity = 1 << 1;
-    ClientIVC ivc{ { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS, overflow_capacity } };
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    const size_t NUM_CIRCUITS = 2;
-
-    // define parameters for two circuits; the first fits within the structured trace, the second overflows
-    const std::vector<size_t> log2_num_arith_gates = { 14, 18 };
-    // Accumulate
-    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto circuit = circuit_producer.create_next_circuit(ivc, log2_num_arith_gates[idx]);
-        ivc.accumulate(circuit);
-    }
-
-    EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
+}
 
 /**
  * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format

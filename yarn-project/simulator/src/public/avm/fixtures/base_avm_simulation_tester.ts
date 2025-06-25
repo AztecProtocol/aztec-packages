@@ -12,7 +12,7 @@ import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server'
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import type { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
-import { createContractClassAndInstance } from './index.js';
+import { createContractClassAndInstance } from './utils.js';
 
 /**
  * An abstract test class that enables tests of real apps in the AVM without requiring e2e tests.
@@ -99,5 +99,10 @@ export abstract class BaseAvmSimulationTester {
       contractAddress.toField(),
     );
     await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [contractAddressNullifier.toBuffer()]);
+  }
+
+  async insertNullifier(contractThatEmitted: AztecAddress, nullifier: Fr) {
+    const siloedNullifier = await siloNullifier(contractThatEmitted, nullifier);
+    await this.merkleTrees.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
   }
 }

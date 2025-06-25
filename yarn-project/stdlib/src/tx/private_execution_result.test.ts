@@ -22,6 +22,7 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
     [],
     [],
     [],
+    [],
   );
 }
 
@@ -39,7 +40,7 @@ describe('execution_result', () => {
   describe('serialization', () => {
     it('serializes and deserializes correctly', async () => {
       const instance = await PrivateExecutionResult.random();
-      expect(await jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
+      expect(jsonParseWithSchema(jsonStringify(instance), PrivateExecutionResult.schema)).toEqual(instance);
     });
   });
 

@@ -4,6 +4,7 @@ import { default as hash } from 'hash.js';
 import { Fr } from '../../fields/fields.js';
 import { truncateAndPad } from '../../serialize/free_funcs.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
+import type { Hasher } from '../../trees/hasher.js';
 
 export function sha256(data: Buffer) {
   return Buffer.from(hash.sha256().update(data).digest());
@@ -144,4 +145,50 @@ function g0_256(x: number) {
 
 function g1_256(x: number) {
   return rotr32(x, 17) ^ rotr32(x, 19) ^ (x >>> 10);
+}
+
+/**
+ * A helper class encapsulating SHA256 hash functionality.
+ * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
+ */
+export class SHA256 implements Hasher {
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hash(lhs: Uint8Array, rhs: Uint8Array) {
+    return sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)])) as Buffer<ArrayBuffer>;
+  }
+
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hashInputs(inputs: Buffer[]) {
+    return sha256(Buffer.concat(inputs)) as Buffer<ArrayBuffer>;
+  }
+}
+
+/**
+ * A helper class encapsulating truncated SHA256 hash functionality.
+ * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+ * purposes.
+ */
+export class SHA256Trunc implements Hasher {
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hash(lhs: Uint8Array, rhs: Uint8Array) {
+    return truncateAndPad(sha256(Buffer.concat([Buffer.from(lhs), Buffer.from(rhs)]))) as Buffer<ArrayBuffer>;
+  }
+
+  /*
+   * @deprecated Don't call SHA256 directly in production code. Instead, create suitably-named functions for specific
+   * purposes.
+   */
+  public hashInputs(inputs: Buffer[]) {
+    return truncateAndPad(sha256(Buffer.concat(inputs))) as Buffer<ArrayBuffer>;
+  }
 }

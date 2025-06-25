@@ -20,7 +20,7 @@ impl AppendOnlyTreeSnapshot {
         }
     }
 
-    pub fn zero() -> Self {
+    pub fn empty() -> Self {
         Self { root: 0, next_available_leaf_index: 0 }
     }
 }

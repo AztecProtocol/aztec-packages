@@ -18,9 +18,6 @@ namespace bb::mock_circuits {
  */
 template <typename Builder> void generate_basic_arithmetic_circuit(Builder& builder, size_t log2_num_gates)
 {
-    // Add default pairing points as its required, but this causes gates to be created...
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Get rid of gates when creating default
-    // pairing points.
     stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
 
     stdlib::field_t a(stdlib::witness_t(&builder, fr::random_element()));
@@ -59,7 +56,9 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
 
     PROFILE_THIS_NAME("creating prover");
 
-    return Prover(builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->proving_key);
+    return Prover(proving_key, verification_key);
 };
 
 /**

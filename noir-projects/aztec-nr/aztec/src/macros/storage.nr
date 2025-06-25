@@ -45,7 +45,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
     //let context_generic = s.add_generic("Context");
     for field in s.fields_as_written() {
         // FIXME: This doesn't handle field types with generics
-        let (name, typ) = field;
+        let (name, typ, _) = field;
         let (storage_field_constructor, storage_size) =
             generate_storage_field_constructor(typ, quote { $slot });
         storage_vars_constructors =

@@ -154,6 +154,7 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
+  keysPerNode: 1
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -360,6 +361,6 @@ faucet:
   service:
     nodePort: 8085
   apiServerPort: 8086
-  accountIndex: 0
+  addressIndex: 0
   l1Assets: ""
   logLevel: ""

@@ -53,7 +53,7 @@ type MetricFilter = {
 };
 
 // See https://github.com/benchmark-action/github-action-benchmark/blob/e3c661617bc6aa55f26ae4457c737a55545a86a4/src/extract.ts#L659-L670
-type GithubActionBenchmarkResult = {
+export type GithubActionBenchmarkResult = {
   name: string;
   value: number;
   range?: string;

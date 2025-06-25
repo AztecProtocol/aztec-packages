@@ -18,6 +18,7 @@ namespace bb::stdlib::recursion {
  * @details The points may represent the output of a single partial recursive verification or the linear combination of
  * multiple sets of pairing points.
  *
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
  * @tparam Builder_
  */
 template <typename Builder_> struct PairingPoints {
@@ -58,11 +59,17 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
+        ASSERT(other.has_data && "Cannot aggregate null pairing points.");
+
+        // If LHS is empty, simply set it equal to the incoming pairing points
+        if (!this->has_data && other.has_data) {
+            *this = other;
+            return;
+        }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-        ASSERT(this->has_data && "Cannot aggregate when accumulator is not set.");
-        ASSERT(other.has_data && "Cannot aggregate with null pairing points.");
+
         transcript.send_to_verifier("Accumulator_P0", P0);
         transcript.send_to_verifier("Accumulator_P1", P1);
         transcript.send_to_verifier("Aggregated_P0", other.P0);
@@ -119,13 +126,36 @@ template <typename Builder_> struct PairingPoints {
         Group P1 = Group::reconstruct_from_public(P1_limbs);
         return { P0, P1 };
     }
+
+    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
+    {
+        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
+        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
+        // them back to biggroup elements anyway to add them to the public inputs...
+        using BigGroup = element_default::
+            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
+        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
+        size_t idx = 0;
+        for (size_t i = 0; i < 2; i++) {
+            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
+            for (auto& val : element_vals) {
+                dummy_pairing_points_values[idx++] = val;
+            }
+        }
+
+        return dummy_pairing_points_values;
+    }
+
     /**
-     * @brief Constructs an arbitrary but valid aggregation state from a valid set of pairing inputs.
+     * @brief Adds default public inputs to the builder.
+     * @details This should cost exactly 20 gates because there's 4 bigfield elements and each have 5 total
+     * witnesses including the prime limb.
      *
      * @param builder
-     * @return PairingPoints<Builder>
      */
-    static PairingPoints<Builder> construct_default(typename Curve::Builder& builder)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
+    // necessary.
+    static void add_default_to_public_inputs(Builder& builder)
     {
         using BaseField = typename Curve::BaseField;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
@@ -138,15 +168,7 @@ template <typename Builder_> struct PairingPoints {
         BaseField y0 = BaseField::from_witness(&builder, y0_val);
         BaseField x1 = BaseField::from_witness(&builder, x1_val);
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        // PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
-        return { Group(x0, y0), Group(x1, y1) };
-    }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
-    // necessary.
-    static void add_default_to_public_inputs(Builder& builder)
-    {
-        PairingPoints<Builder> points_accumulator = construct_default(builder);
+        PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
         points_accumulator.set_public();
     }
 };

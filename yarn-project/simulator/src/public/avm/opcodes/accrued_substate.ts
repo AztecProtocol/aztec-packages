@@ -31,7 +31,9 @@ export class NoteHashExists extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
     const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
     const [noteHashOffset, leafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, noteHashOffset, leafIndexOffset);
@@ -62,7 +64,9 @@ export class EmitNoteHash extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.noteHashOffset];
     const [noteHashOffset] = addressing.resolve(operands, memory);
@@ -102,7 +106,9 @@ export class NullifierExists extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
     const [nullifierOffset, addressOffset, existsOffset] = addressing.resolve(operands, memory);
@@ -137,7 +143,9 @@ export class EmitNullifier extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.nullifierOffset];
     const [nullifierOffset] = addressing.resolve(operands, memory);
@@ -184,7 +192,9 @@ export class L1ToL2MessageExists extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
     const [msgHashOffset, msgLeafIndexOffset, existsOffset] = addressing.resolve(operands, memory);
@@ -220,6 +230,10 @@ export class EmitUnencryptedLog extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
+
     const operands = [this.logOffset, this.logSizeOffset];
     const [logOffset, logSizeOffset] = addressing.resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
@@ -228,7 +242,7 @@ export class EmitUnencryptedLog extends Instruction {
 
     const contractAddress = context.environment.address;
 
-    context.machineState.consumeGas(this.gasCost(logSize));
+    context.machineState.consumeGas(this.dynamicGasCost(logSize));
     const log = memory.getSlice(logOffset, logSize).map(f => f.toFr());
     context.persistableState.writePublicLog(contractAddress, log);
   }
@@ -256,7 +270,9 @@ export class SendL2ToL1Message extends Instruction {
     const memory = context.machineState.memory;
     const addressing = Addressing.fromWire(this.indirect);
 
-    context.machineState.consumeGas(this.gasCost());
+    context.machineState.consumeGas(
+      this.baseGasCost(addressing.indirectOperandsCount(), addressing.relativeOperandsCount()),
+    );
 
     const operands = [this.recipientOffset, this.contentOffset];
     const [recipientOffset, contentOffset] = addressing.resolve(operands, memory);

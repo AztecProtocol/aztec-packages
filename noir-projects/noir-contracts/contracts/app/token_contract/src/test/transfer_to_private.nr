@@ -42,7 +42,37 @@ unconstrained fn transfer_to_private_external_orchestration() {
     utils::check_private_balance(token_contract_address, recipient, amount);
 }
 
-#[test(should_fail_with = "Invalid partial note")]
+// TODO(#10289): Enable this test once TXE handles partial notes properly. Currently it fails on the recipient amount
+// check.
+// /// External orchestration means that the calls to prepare and finalize are not done by the Token contract. This flow
+// /// will typically be used by a DEX.
+// #[test]
+// unconstrained fn transfer_to_private_from_private_external_orchestration() {
+//     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+//     let (env, token_contract_address, owner, recipient, amount) =
+//         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
+
+//     // We prepare the transfer
+//     let partial_uint_note = Token::at(token_contract_address)
+//         .prepare_private_balance_increase(recipient, owner)
+//         .call(&mut env.private());
+
+//     // Finalize the transfer of the tokens (message sender owns the tokens in public)
+//     Token::at(token_contract_address).finalize_transfer_to_private_from_private(
+//         owner,
+//         partial_uint_note,
+//         amount,
+//         0,
+//     ).call(&mut env.private());
+
+//     env.advance_block_by(1);
+
+//     // Recipient's private balance should be equal to the amount
+//     utils::check_private_balance(token_contract_address, recipient, amount);
+//     utils::check_private_balance(token_contract_address, owner, 0);
+// }
+
+#[test(should_fail_with = "Invalid partial note or completer")]
 unconstrained fn transfer_to_private_transfer_not_prepared() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, token_contract_address, _, _, amount) =
@@ -72,6 +102,31 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
 
     // Try transferring someone else's token balance
     env.impersonate(not_owner);
+    Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
+        &mut env.public(),
+    );
+}
+
+#[test(should_fail_with = "Invalid partial note or completer")]
+unconstrained fn incorrect_completer_cannot_complete_partial_note() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough.
+    // We mint to the incorrect completer to avoid the test failing due to the NFT owner check (we want to fail on
+    // the partial note validity check).
+    let (env, token_contract_address, incorrect_completer, recipient, amount) =
+        utils::setup_and_mint_to_public(/* with_account_contracts */ false);
+
+    // We set up the completer
+    let completer = env.create_account(3);
+    let arbitrary_sender = env.create_account(4);
+
+    // We prepare the partial note as a completer
+    env.impersonate(completer);
+    let partial_uint_note = Token::at(token_contract_address)
+        .prepare_private_balance_increase(recipient, arbitrary_sender)
+        .call(&mut env.private());
+
+    // We impersonate the incorrect completer and try to finalize the transfer
+    env.impersonate(incorrect_completer);
     Token::at(token_contract_address).finalize_transfer_to_private(amount, partial_uint_note).call(
         &mut env.public(),
     );

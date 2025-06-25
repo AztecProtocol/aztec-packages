@@ -29,7 +29,7 @@ jobs:
       # Prepare Env
       #############
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -41,6 +41,24 @@ jobs:
       - name: Cache Override
         if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
         run: echo "NO_CACHE=1" >> $GITHUB_ENV
+
+      - name: Fail Fast Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
+        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
+
+      - name: Compute Target Branch
+        id: target_branch
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ]; then
+            target_branch=${{ github.event.merge_group.base_ref }}
+          elif [ "${{ github.event_name }}" == "pull_request" ]; then
+            target_branch=${{ github.event.pull_request.base.ref }}
+          else
+            target_branch=${{ github.ref_name }}
+          fi
+          target_branch=${target_branch#refs/heads/}
+          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
+          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -90,7 +108,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/master"
+          benchmark-data-dir-path: "bench/${{ steps.target_branch.outputs.target_branch }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -107,7 +125,7 @@ jobs:
       - ci
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Get Context
         id: get_context
@@ -124,7 +142,7 @@ jobs:
           cat $GITHUB_OUTPUT
 
       - name: Send Notification
-        uses: slackapi/slack-github-action@v1.25.0
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001
         with:
           payload: |
             {

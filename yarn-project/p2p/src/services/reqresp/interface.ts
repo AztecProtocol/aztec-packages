@@ -4,6 +4,7 @@ import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
+import { StatusMessage } from './protocols/status.js';
 import type { ReqRespStatus } from './status.js';
 
 /*
@@ -167,8 +168,8 @@ export const subProtocolMap: SubProtocolMap = {
     response: RequestableBuffer,
   },
   [ReqRespSubProtocol.STATUS]: {
-    request: RequestableBuffer,
-    response: RequestableBuffer,
+    request: StatusMessage,
+    response: StatusMessage,
   },
   [ReqRespSubProtocol.TX]: {
     request: TxHash,
@@ -183,3 +184,29 @@ export const subProtocolMap: SubProtocolMap = {
     response: L2Block,
   },
 };
+
+export interface ReqRespInterface {
+  start(
+    subProtocolHandlers: ReqRespSubProtocolHandlers,
+    subProtocolValidators: ReqRespSubProtocolValidators,
+  ): Promise<void>;
+  stop(): Promise<void>;
+  sendRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>;
+  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
+    pinnedPeer: PeerId | undefined,
+    timeoutMs?: number,
+    maxPeers?: number,
+    maxRetryAttempts?: number,
+  ): Promise<(InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined)[]>;
+  sendRequestToPeer(
+    peerId: PeerId,
+    subProtocol: ReqRespSubProtocol,
+    payload: Buffer,
+    dialTimeout?: number,
+  ): Promise<ReqRespResponse>;
+}

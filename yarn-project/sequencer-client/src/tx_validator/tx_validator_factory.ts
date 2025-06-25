@@ -18,6 +18,7 @@ import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
+  PublicProcessorValidator,
 } from '@aztec/stdlib/interfaces/server';
 import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
@@ -49,7 +50,7 @@ export function createValidatorForAcceptingTxs(
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
-      blockNumber: new Fr(blockNumber),
+      blockNumber,
       protocolContractTreeRoot,
       vkTreeRoot: getVKTreeRoot(),
     }),
@@ -74,10 +75,7 @@ export function createValidatorForBlockBuilding(
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
-): {
-  preprocessValidator: TxValidator<Tx>;
-  nullifierCache: NullifierCache;
-} {
+): PublicProcessorValidator {
   const nullifierCache = new NullifierCache(db);
   const archiveCache = new ArchiveCache(db);
   const publicStateSource = new DatabasePublicStateSource(db);
@@ -113,7 +111,7 @@ function preprocessValidator(
       vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),
-    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
+    new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );

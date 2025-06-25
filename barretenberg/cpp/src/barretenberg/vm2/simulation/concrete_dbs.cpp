@@ -1,4 +1,6 @@
 #include "barretenberg/vm2/simulation/concrete_dbs.hpp"
+#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/simulation/lib/merkle.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -36,6 +38,17 @@ const TreeSnapshots& MerkleDB::get_tree_roots() const
     return raw_merkle_db.get_tree_roots();
 }
 
+TreeStates MerkleDB::get_tree_state() const
+{
+    // No event generated.
+    TreeSnapshots tree_snapshots = raw_merkle_db.get_tree_roots();
+    return { .noteHashTree = { .tree = tree_snapshots.noteHashTree, .counter = note_hash_counter },
+             .nullifierTree = { .tree = tree_snapshots.nullifierTree, .counter = nullifier_counter },
+             .l1ToL2MessageTree = { .tree = tree_snapshots.l1ToL2MessageTree, .counter = l2_to_l1_msg_counter },
+             .publicDataTree = { .tree = tree_snapshots.publicDataTree,
+                                 .counter = static_cast<uint32_t>(storage_set.size()) } };
+}
+
 FF MerkleDB::storage_read(const FF& leaf_slot) const
 {
     auto [present, index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
@@ -69,6 +82,10 @@ void MerkleDB::storage_write(const FF& leaf_slot, const FF& value)
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
     assert(snapshot_after == get_tree_roots().publicDataTree);
+
+    if (!storage_set.contains(leaf_slot)) {
+        storage_set.insert(leaf_slot);
+    }
 }
 
 bool MerkleDB::nullifier_exists(const FF& nullifier) const
@@ -98,21 +115,94 @@ void MerkleDB::nullifier_write(const FF& nullifier)
     (void)snapshot_after; // Silence unused variable warning when assert is stripped out
     // Sanity check.
     assert(snapshot_after == get_tree_roots().nullifierTree);
+
+    nullifier_counter++;
+}
+
+FF MerkleDB::note_hash_read(index_t leaf_index) const
+{
+    auto note_hash = raw_merkle_db.get_leaf_value(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
+    auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::NOTE_HASH_TREE, leaf_index);
+    note_hash_tree_check.assert_read(note_hash, leaf_index, path, get_tree_roots().noteHashTree);
+
+    return note_hash;
+}
+
+void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
+    // We need to silo and make unique just to fetch the sibling path. Oof
+    FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
+    FF unique_note_hash =
+        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    auto append_result =
+        raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after = note_hash_tree_check.append_note_hash(
+        note_hash, contract_address, note_hash_counter, append_result.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().noteHashTree);
+
+    note_hash_counter++;
+}
+
+void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
+    // We need to make unique just to fetch the hint. Oof
+    FF unique_note_hash =
+        make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
+    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after =
+        note_hash_tree_check.append_siloed_note_hash(siloed_note_hash, note_hash_counter, hint.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().noteHashTree);
+
+    note_hash_counter++;
+}
+
+void MerkleDB::unique_note_hash_write(const FF& unique_note_hash)
+{
+    AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
+    auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];
+
+    AppendOnlyTreeSnapshot snapshot_after =
+        note_hash_tree_check.append_unique_note_hash(unique_note_hash, note_hash_counter, hint.path, snapshot_before);
+
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().noteHashTree);
+
+    note_hash_counter++;
 }
 
 void MerkleDB::create_checkpoint()
 {
     raw_merkle_db.create_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_created();
+    }
 }
 
 void MerkleDB::commit_checkpoint()
 {
     raw_merkle_db.commit_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_committed();
+    }
 }
 
 void MerkleDB::revert_checkpoint()
 {
     raw_merkle_db.revert_checkpoint();
+    for (auto& listener : checkpoint_listeners) {
+        listener->on_checkpoint_reverted();
+    }
 }
 
 } // namespace bb::avm2::simulation

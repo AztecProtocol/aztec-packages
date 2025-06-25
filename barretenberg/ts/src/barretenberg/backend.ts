@@ -1,6 +1,5 @@
 import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
-import { decompressSync as gunzip } from 'fflate';
 import {
   deflattenFields,
   flattenFieldsAsArray,
@@ -10,6 +9,7 @@ import {
   PAIRING_POINTS_SIZE,
 } from '../proof/index.js';
 import { Encoder } from 'msgpackr/pack';
+import { ungzip } from 'pako';
 
 export class AztecClientBackendError extends Error {
   constructor(message: string) {
@@ -48,11 +48,16 @@ export type UltraHonkBackendOptions = {
    * Use this when you want to verify the created proof on an EVM chain.
    */
   keccakZK?: boolean;
-  /**S electing this option will use the poseidon/stark252 hash function instead of poseidon
+  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
    * when generating challenges in the proof.
    * Use this when you want to verify the created proof on an Starknet chain with Garaga.
    */
   starknet?: boolean;
+  /** Selecting this option will use the poseidon/stark252 hash function instead of poseidon
+   * when generating challenges in the proof.
+   * Use this when you want to verify the created proof on an Starknet chain with Garaga.
+   */
+  starknetZK?: boolean;
 };
 
 export class UltraHonkBackend {
@@ -87,27 +92,35 @@ export class UltraHonkBackend {
   async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
 
-    const proveUltraHonk = options?.keccak
-      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
-      : options?.keccakZK
-        ? this.api.acirProveUltraKeccakZKHonk.bind(this.api)
-        : options?.starknet
-          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-          : this.api.acirProveUltraHonk.bind(this.api);
-
-    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
-
     // Write VK to get the number of public inputs
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
+        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
         : options?.starknet
           ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : this.api.acirWriteVkUltraHonk.bind(this.api);
+          : options?.starknetZK
+            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
+            : this.api.acirWriteVkUltraHonk.bind(this.api);
 
-    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
-    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
+    const vkBuf = await writeVKUltraHonk(this.acirUncompressedBytecode);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vkBuf));
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : options?.keccakZK
+        ? this.api.acirProveUltraKeccakZkHonk.bind(this.api)
+        : options?.starknet
+          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+          : options?.starknetZK
+            ? this.api.acirProveUltraStarknetZkHonk.bind(this.api)
+            : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(
+      this.acirUncompressedBytecode,
+      ungzip(compressedWitness),
+      new RawBuffer(vkBuf),
+    );
 
     // Item at index 1 in VK is the number of public inputs
     const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
@@ -127,17 +140,21 @@ export class UltraHonkBackend {
     const writeVkUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-        ? this.api.acirWriteVkUltraKeccakZKHonk.bind(this.api)
+        ? this.api.acirWriteVkUltraKeccakZkHonk.bind(this.api)
         : options?.starknet
           ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : this.api.acirWriteVkUltraHonk.bind(this.api);
+          : options?.starknetZK
+            ? this.api.acirWriteVkUltraStarknetZkHonk.bind(this.api)
+            : this.api.acirWriteVkUltraHonk.bind(this.api);
     const verifyUltraHonk = options?.keccak
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
       : options?.keccakZK
-        ? this.api.acirVerifyUltraKeccakZKHonk.bind(this.api)
+        ? this.api.acirVerifyUltraKeccakZkHonk.bind(this.api)
         : options?.starknet
           ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-          : this.api.acirVerifyUltraHonk.bind(this.api);
+          : options?.starknetZK
+            ? this.api.acirVerifyUltraStarknetZkHonk.bind(this.api)
+            : this.api.acirVerifyUltraHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
@@ -148,10 +165,12 @@ export class UltraHonkBackend {
     return options?.keccak
       ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
       : options?.keccakZK
-        ? await this.api.acirWriteVkUltraKeccakZKHonk(this.acirUncompressedBytecode)
+        ? await this.api.acirWriteVkUltraKeccakZkHonk(this.acirUncompressedBytecode)
         : options?.starknet
           ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-          : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+          : options?.starknetZK
+            ? await this.api.acirWriteVkUltraStarknetZkHonk(this.acirUncompressedBytecode)
+            : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
   }
 
   /** @description Returns a solidity verifier */
@@ -298,7 +317,7 @@ export class AztecClientBackend {
 // Converts bytecode from a base64 string to a Uint8Array
 function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
   const compressedByteCode = base64Decode(base64EncodedBytecode);
-  return gunzip(compressedByteCode);
+  return ungzip(compressedByteCode);
 }
 
 // Since this is a simple function, we can use feature detection to

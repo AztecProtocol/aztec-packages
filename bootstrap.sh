@@ -81,7 +81,7 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
+  local foundry_version="nightly-99634144b6c9371982dcfc551a7975c5dbf9fad8"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       encourage_dev_container
@@ -195,6 +195,7 @@ function test {
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
   tests=$(test_cmds $@)
+
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
@@ -229,7 +230,6 @@ function build {
     release-image/bootstrap.sh
     spartan/bootstrap.sh
     aztec-up/bootstrap.sh
-    build_bench
   )
 
   for project in "${serial_projects[@]}"; do
@@ -274,6 +274,7 @@ function bench {
     return
   fi
   echo_header "bench all"
+  build_bench
   find . -type d -iname bench-out | xargs rm -rf
   bench_cmds | STRICT_SCHEDULING=1 parallelise
   rm -rf bench-out
@@ -399,6 +400,7 @@ case "$cmd" in
     ;;
   "ci-nightly")
     export CI=1
+    export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
     test
@@ -407,6 +409,7 @@ case "$cmd" in
     ;;
   "ci-release")
     export CI=1
+    export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
       exit 1
     fi

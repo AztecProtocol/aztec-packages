@@ -1,0 +1,9 @@
+FlushEntryQueueTest
+├── given the queue has already been flushed this epoch
+│   └── it reverts
+└── given the queue has not been flushed this epoch
+    ├── it dequeues up to the configured flush size
+    ├── it calls deposit for each dequeued validator
+    ├── it emits a {Deposit} event for each successful deposit
+    ├── it emits a {FailedDeposit} event for each failed deposit
+    └── it refunds the withdrawer if the deposit fails

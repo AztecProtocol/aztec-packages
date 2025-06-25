@@ -1,5 +1,7 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Signature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
 import {
   BlockAttestation,
@@ -26,14 +28,22 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(
-    blockNumber: Fr,
+    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
     txs: Tx[],
+    proposerAttesterAddress: EthAddress | undefined,
     options: BlockProposalOptions,
   ): Promise<BlockProposal> {
-    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
+    let payloadSigner: (payload: Buffer32) => Promise<Signature>;
+    if (proposerAttesterAddress !== undefined) {
+      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(proposerAttesterAddress, payload);
+    } else {
+      // if there is no proposer attester address, just use the first signer
+      const signer = this.keyStore.getAddress(0);
+      payloadSigner = (payload: Buffer32) => this.keyStore.signMessageWithAddress(signer, payload);
+    }
     // TODO: check if this is calculated earlier / can not be recomputed
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
@@ -46,21 +56,23 @@ export class ValidationService {
   }
 
   /**
-   * Attest to the given block proposal constructed by the current sequencer
+   * Attest with selection of validators to the given block proposal, constructed by the current sequencer
    *
    * NOTE: This is just a blind signing.
    *       We assume that the proposal is valid and DA guarantees have been checked previously.
    *
    * @param proposal - The proposal to attest to
-   * @returns attestation
+   * @param attestors - The validators to attest with
+   * @returns attestations
    */
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
-
+  async attestToProposal(proposal: BlockProposal, attestors: EthAddress[]): Promise<BlockAttestation[]> {
     const buf = Buffer32.fromBuffer(
       keccak256(proposal.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation)),
     );
-    const sig = await this.keyStore.signMessage(buf);
-    return new BlockAttestation(proposal.blockNumber, proposal.payload, sig);
+    const signatures = await Promise.all(
+      attestors.map(attestor => this.keyStore.signMessageWithAddress(attestor, buf)),
+    );
+    //await this.keyStore.signMessage(buf);
+    return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
   }
 }

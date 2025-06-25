@@ -6,11 +6,11 @@
 
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -40,13 +40,15 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     DeciderVerificationKeys keys_to_fold;
 
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<DeciderVK>& accumulator,
-                                  const std::vector<std::shared_ptr<VerificationKey>>& decider_vks)
+                                  const std::vector<std::shared_ptr<VerificationKey>>& decider_vks,
+                                  const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
-        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks)){};
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks))
+        , transcript(transcript){};
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.

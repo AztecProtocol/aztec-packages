@@ -26,6 +26,8 @@ import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
+import type { PeerManager } from '../services/peer-manager/peer_manager.js';
+import type { ReqResp } from '../services/reqresp/reqresp.js';
 import type { PeerDiscoveryService } from '../services/service.js';
 import { AlwaysTrueCircuitVerifier } from '../test-helpers/reqresp-nodes.js';
 import type { PubSubLibp2p } from '../util.js';
@@ -35,7 +37,7 @@ function mockTxPool(): TxPool {
   // Mock all methods
   return {
     isEmpty: () => Promise.resolve(false),
-    addTxs: () => Promise.resolve(),
+    addTxs: () => Promise.resolve(1),
     getTxByHash: () => Promise.resolve(undefined),
     getArchivedTxByHash: () => Promise.resolve(undefined),
     markAsMined: () => Promise.resolve(),
@@ -49,7 +51,7 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
-    setMaxTxPoolSize: () => Promise.resolve(),
+    updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
   };
 }
@@ -73,7 +75,7 @@ function mockEpochCache(): EpochCacheInterface {
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: 0n, slot: 0n, ts: 0n }),
     computeProposerIndex: () => 0n,
-    getProposerInCurrentOrNextSlot: () =>
+    getProposerAttesterAddressInCurrentOrNextSlot: () =>
       Promise.resolve({
         currentProposer: EthAddress.ZERO,
         nextProposer: EthAddress.ZERO,
@@ -82,6 +84,21 @@ function mockEpochCache(): EpochCacheInterface {
       }),
     isInCommittee: () => Promise.resolve(false),
   };
+}
+
+function mockWorldStateSynchronizer(): WorldStateSynchronizer {
+  return {
+    status: () =>
+      Promise.resolve({
+        syncSummary: {
+          latestBlockNumber: 0,
+          latestBlockHash: '',
+          finalisedBlockNumber: 0,
+          treesAreSynched: false,
+          oldestHistoricBlockNumber: 0,
+        },
+      }),
+  } as WorldStateSynchronizer;
 }
 
 class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends LibP2PService<T> {
@@ -93,6 +110,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
     config: P2PConfig,
     node: PubSubLibp2p,
     peerDiscoveryService: PeerDiscoveryService,
+    reqresp: ReqResp,
+    peerManager: PeerManager,
     mempools: MemPools<T>,
     archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
@@ -107,6 +126,8 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
       config,
       node,
       peerDiscoveryService,
+      reqresp,
+      peerManager,
       mempools,
       archiver,
       epochCache,
@@ -154,13 +175,12 @@ class TestLibP2PService<T extends P2PClientType = P2PClientType.Full> extends Li
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const { type, config, clientIndex } = msg as { type: string; config: P2PConfig; clientIndex: number };
-
   try {
     if (type === 'START') {
       const txPool = mockTxPool();
       const attestationPool = mockAttestationPool();
       const epochCache = mockEpochCache();
-      const worldState = {} as WorldStateSynchronizer;
+      const worldState = mockWorldStateSynchronizer();
       const l2BlockSource = new MockL2BlockSource();
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
@@ -187,8 +207,6 @@ process.on('message', async msg => {
         deps,
       );
 
-      const _client = client as any;
-
       // Create test service with validation disabled
       const testService = new TestLibP2PService(
         P2PClientType.Full,
@@ -196,6 +214,8 @@ process.on('message', async msg => {
         (client as any).p2pService.node,
         (client as any).p2pService.peerDiscoveryService,
         (client as any).p2pService.mempools,
+        (client as any).p2pService.reqresp,
+        (client as any).p2pService.peerManager,
         (client as any).p2pService.archiver,
         epochCache,
         proofVerifier,

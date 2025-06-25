@@ -45,13 +45,13 @@ export class AmmBot extends BaseBot {
 
     // 1000 ± 200
     const amountIn = Math.floor(TRANSFER_BASE_AMOUNT + (Math.random() - 0.5) * TRANSFER_VARIANCE);
-    const nonce = Fr.random();
+    const authwitNonce = Fr.random();
 
     const [tokenIn, tokenOut] = Math.random() < 0.5 ? [token0, token1] : [token1, token0];
 
     const swapAuthwit = await wallet.createAuthWit({
       caller: amm.address,
-      action: tokenIn.methods.transfer_to_public(wallet.getAddress(), amm.address, amountIn, nonce),
+      action: tokenIn.methods.transfer_to_public(wallet.getAddress(), amm.address, amountIn, authwitNonce),
     });
 
     const amountOutMin = await amm.methods
@@ -67,7 +67,7 @@ export class AmmBot extends BaseBot {
       tokenOut.address,
       amountIn,
       amountOutMin,
-      nonce,
+      authwitNonce,
     );
 
     const opts = this.getSendMethodOpts(swapAuthwit);

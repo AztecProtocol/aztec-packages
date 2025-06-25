@@ -631,6 +631,46 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_prove_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_prove_ultra_starknet_zk_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "witness_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_verify_ultra_honk",
     "inArgs": [
       {
@@ -691,6 +731,46 @@
     "isAsync": false
   },
   {
+    "functionName": "acir_verify_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_verify_ultra_starknet_zk_honk",
+    "inArgs": [
+      {
+        "name": "proof_buf",
+        "type": "const uint8_t *"
+      },
+      {
+        "name": "vk_buf",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "result",
+        "type": "bool *"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "acir_write_vk_ultra_honk",
     "inArgs": [
       {
@@ -724,6 +804,38 @@
   },
   {
     "functionName": "acir_write_vk_ultra_keccak_zk_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_write_vk_ultra_starknet_honk",
+    "inArgs": [
+      {
+        "name": "acir_vec",
+        "type": "const uint8_t *"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "out",
+        "type": "uint8_t **"
+      }
+    ],
+    "isAsync": false
+  },
+  {
+    "functionName": "acir_write_vk_ultra_starknet_zk_honk",
     "inArgs": [
       {
         "name": "acir_vec",

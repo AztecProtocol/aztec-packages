@@ -28,7 +28,7 @@ export async function simulate(
     includeMetadata: true,
   });
   if (verbose) {
-    printProfileResult(simulationResult.meta.timings!, log);
+    printProfileResult(simulationResult.stats!, log);
   }
   log(format('\nSimulation result: ', simulationResult.result, '\n'));
 }

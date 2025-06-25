@@ -129,7 +129,7 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn shield(from: AztecAddress, amount: u128, secret_hash: Field, nonce: Field) {
+    fn shield(from: AztecAddress, amount: u128, secret_hash: Field, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
@@ -137,7 +137,7 @@ pub contract TokenBlacklist {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -155,7 +155,7 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -164,7 +164,7 @@ pub contract TokenBlacklist {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -175,14 +175,14 @@ pub contract TokenBlacklist {
     }
 
     #[public]
-    fn burn_public(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         let from_balance = storage.public_balances.at(from).read().sub(amount);
@@ -219,7 +219,7 @@ pub contract TokenBlacklist {
     }
 
     #[private]
-    fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -228,7 +228,7 @@ pub contract TokenBlacklist {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
@@ -240,7 +240,7 @@ pub contract TokenBlacklist {
 
     // docs:start:transfer_private
     #[private]
-    fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, nonce: Field) {
+    fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
         let to_roles = storage.roles.at(to).get_current_value();
@@ -249,7 +249,7 @@ pub contract TokenBlacklist {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(
@@ -265,14 +265,14 @@ pub contract TokenBlacklist {
     }
 
     #[private]
-    fn burn(from: AztecAddress, amount: u128, nonce: Field) {
+    fn burn(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit(&mut context, from);
         } else {
-            assert(nonce == 0, "invalid nonce");
+            assert(authwit_nonce == 0, "invalid authwit nonce");
         }
 
         storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
@@ -302,6 +302,10 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:deliver_note_contract_method
+    // We cannot replace this function with the standard `process_message` function because the transparent note
+    // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
+    // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
+    // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
     #[utility]
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,

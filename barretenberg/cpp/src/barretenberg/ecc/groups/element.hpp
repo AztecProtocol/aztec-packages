@@ -40,7 +40,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     constexpr element(const element& other) noexcept;
     constexpr element(element&& other) noexcept;
     constexpr element(const affine_element<Fq, Fr, Params>& other) noexcept;
-    constexpr ~element() noexcept = default;
+    ~element() noexcept = default;
 
     static constexpr element one() noexcept { return { Params::one_x, Params::one_y, Fq::one() }; };
     static constexpr element zero() noexcept
@@ -133,9 +133,9 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     //     }
     //     return { x, y, Fq::one() };
     // }
-    // for serialization: update with new fields
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/908) point at inifinty isn't handled
-    MSGPACK_FIELDS(x, y, z);
+    // To reenable this do NOT do use MSGPACK_FIELDS macro below, instead follow the logic in affine_element
+    // MSGPACK_FIELDS(x, y, z);
 
     static void conditional_negate_affine(const affine_element<Fq, Fr, Params>& in,
                                           affine_element<Fq, Fr, Params>& out,

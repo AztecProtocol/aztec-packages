@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <unordered_map>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 namespace bb::avm2::tracegen {
@@ -15,11 +16,12 @@ enum class SubtraceSel : uint8_t {
     ECC,
     DATACOPY,
     EXECUTION,
+    KECCAKF1600,
 };
 
 struct SubtraceInfo {
     SubtraceSel subtrace_selector;
-    uint8_t subtrace_operation_id;
+    uint128_t subtrace_operation_id;
 };
 
 // This builder is used to generate the register information based on the number of inputs and outputs.
@@ -30,8 +32,6 @@ struct SubtraceInfo {
 //
 // For example, if we have 2 inputs and 1 output:
 //   Encoded Value = 53 ==> (0b110101)
-// Limitations: There is currently an assumption that if the number of inputs is <= 2, then the output is written to the
-// 3rd register. This may change which will require an update of this class.
 class RegisterMemInfo {
   public:
     uint16_t encode() const { return encoded_register_info; }
@@ -39,9 +39,9 @@ class RegisterMemInfo {
     RegisterMemInfo& has_outputs(uint16_t num_outputs);
 
     // Given a register index, returns if the register is active for this instruction
-    bool is_active(uint8_t index) const;
+    bool is_active(size_t index) const;
     // Given a register index, returns if the register is used for writing to memory
-    bool is_write(uint8_t index) const;
+    bool is_write(size_t index) const;
 
   private:
     uint16_t encoded_register_info = 0;

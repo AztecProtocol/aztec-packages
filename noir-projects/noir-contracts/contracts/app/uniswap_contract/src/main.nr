@@ -197,7 +197,7 @@ pub contract Uniswap {
     ) {
         // Since we will authorize and instantly spend the funds, all in public, we can use the same nonce
         // every interaction. In practice, the authwit should be squashed, so this is also cheap!
-        let nonce = 0xdeadbeef;
+        let authwit_nonce = 0xdeadbeef;
 
         let selector = FunctionSelector::from_signature("burn_public((Field),u128,Field)");
         let message_hash = compute_authwit_message_hash_from_call(
@@ -206,7 +206,7 @@ pub contract Uniswap {
             context.chain_id(),
             context.version(),
             selector,
-            [context.this_address().to_field(), amount as Field, nonce],
+            [context.this_address().to_field(), amount as Field, authwit_nonce],
         );
 
         // We need to make a call to update it.
@@ -215,7 +215,7 @@ pub contract Uniswap {
         let this_portal_address = storage.portal_address.read();
         // Exit to L1 Uniswap Portal !
         TokenBridge::at(token_bridge)
-            .exit_to_l1_public(this_portal_address, amount, this_portal_address, nonce)
+            .exit_to_l1_public(this_portal_address, amount, this_portal_address, authwit_nonce)
             .call(&mut context)
     }
     // docs:end:authwit_uniswap_set
