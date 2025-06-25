@@ -19,7 +19,9 @@ namespace bb {
 
 /**
  * @brief Oink Verifier function that runs all the rounds of the verifier
- * @details Returns the witness commitments and relation_parameters
+ * @details Returns the witness commitments and relation_parameters. If used as a standalone function, the proof
+ * returned by the OinkProver must be loaded into the transcript of the OinkVerifier before calling
+ * OinkVerifier::verify()
  * @tparam Flavor
  * @return OinkOutput<Flavor>
  */

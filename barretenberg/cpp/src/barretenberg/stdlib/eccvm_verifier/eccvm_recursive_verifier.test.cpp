@@ -89,6 +89,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         std::shared_ptr<typename RecursiveFlavor::Transcript> stdlib_verifier_transcript =
             std::make_shared<typename RecursiveFlavor::Transcript>();
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
+        verifier.transcript->enable_manifest();
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
 
@@ -102,6 +103,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         std::shared_ptr<ECCVMFlavor::Transcript> verifier_transcript = std::make_shared<ECCVMFlavor::Transcript>();
         InnerVerifier native_verifier(verifier_transcript);
+        native_verifier.transcript->enable_manifest();
         bool native_result = native_verifier.verify_proof(proof);
         EXPECT_TRUE(native_result);
         auto recursive_manifest = verifier.transcript->get_manifest();
