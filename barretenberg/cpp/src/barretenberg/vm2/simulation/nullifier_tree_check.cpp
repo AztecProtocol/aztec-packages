@@ -5,12 +5,12 @@
 
 namespace bb::avm2::simulation {
 
-FF NullifierTreeCheck::silo_nullifier(FF nullifier, AztecAddress contract_address)
+FF NullifierTreeCheck::silo_nullifier(const FF& nullifier, AztecAddress contract_address)
 {
     return poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
 }
 
-void NullifierTreeCheck::validate_low_leaf(FF nullifier,
+void NullifierTreeCheck::validate_low_leaf(const FF& nullifier,
                                            const NullifierTreeLeafPreimage& low_leaf_preimage,
                                            bool exists)
 {

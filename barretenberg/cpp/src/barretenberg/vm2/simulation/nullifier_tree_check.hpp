@@ -62,8 +62,8 @@ class NullifierTreeCheck : public NullifierTreeCheckInterface, public Checkpoint
     void on_checkpoint_reverted() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
 
   private:
-    FF silo_nullifier(FF nullifier, AztecAddress contract_address);
-    void validate_low_leaf(FF nullifier, const NullifierTreeLeafPreimage& low_leaf_preimage, bool exists);
+    FF silo_nullifier(const FF& nullifier, AztecAddress contract_address);
+    void validate_low_leaf(const FF& nullifier, const NullifierTreeLeafPreimage& low_leaf_preimage, bool exists);
 
     EventEmitterInterface<NullifierTreeCheckEvent>& events;
     Poseidon2Interface& poseidon2;
