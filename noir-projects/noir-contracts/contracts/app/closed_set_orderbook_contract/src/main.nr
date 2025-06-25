@@ -43,7 +43,10 @@ pub contract ClosedSetOrderbook {
 
     use token::Token;
 
-    global CHANGE_CONFIG_DELAY_BLOCKS: u32 = 100;
+    // This is set low such that we don't have to wait too much for the delay to pass in tests upon init.
+    // See constructor comment for more details on how we could afford to set this to a higher value.
+    // Note that this value was copied over to e2e_closed_set_orderbook.test.ts. and needs to be kept in sync.
+    global CHANGE_CONFIG_DELAY_BLOCKS: u32 = 10;
 
     #[storage]
     struct Storage<Context> {
@@ -165,5 +168,10 @@ pub contract ClosedSetOrderbook {
         Token::at(bid_token)
             .transfer_in_private(context.this_address(), taker, order.bid_amount, authwit_nonce)
             .call(&mut context);
+    }
+
+    #[utility]
+    unconstrained fn get_config() -> pub Config {
+        storage.config.get_current_value()
     }
 }
