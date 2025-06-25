@@ -45,9 +45,9 @@ pol constant sha256_compression_round_constant;
 // u128 |  6  |      16     |    128   |   2^128 - 1 |
 // The enum values of MemoryTag are present in column clk.
 pol constant sel_tag_parameters; // Toggle row with clk == FF,U1,U8,U16,...,U128
-pol constant tag_byte_length; // Columns for the required byte length 32,1,1,2,...,16;
-pol constant tag_max_bits; // Columns for the maximum bit length 254,1,8,16,...,128;
-pol constant tag_max_value; // Columns for the maximum value p-1,1,2^8-1,2^16-1,...,2^128-1;
+pol constant tag_byte_length;
+pol constant tag_max_bits;
+pol constant tag_max_value;
 
 // Remark: A potential optimization may consist in using sel_bitwise instead of sel_integral_mem_tag.
 //         However, it would extend this lookup table with pairs such as (0,0), (7,0), (8,0) which is

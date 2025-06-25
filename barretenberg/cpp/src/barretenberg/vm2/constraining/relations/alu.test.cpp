@@ -3,16 +3,13 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/alu.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
-#include "barretenberg/vm2/testing/instruction_builder.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"

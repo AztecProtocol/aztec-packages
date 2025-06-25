@@ -20,6 +20,8 @@ struct AluEvent {
     // To be used with deduplicating event emitters.
     using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;
     Key get_key() const { return { operation, a, b }; }
+
+    bool operator==(const AluEvent& other) const = default;
 };
 
 } // namespace bb::avm2::simulation
