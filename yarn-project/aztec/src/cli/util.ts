@@ -50,14 +50,18 @@ export function isShuttingDown(): boolean {
 }
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGINT', () => shutdown(logFn, ExitCode.SIGINT, cb));
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGTERM', () => shutdown(logFn, ExitCode.SIGTERM, cb));
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGHUP', () => shutdown(logFn, ExitCode.SIGHUP, cb));
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  process.once('SIGQUIT', () => shutdown(logFn, ExitCode.SIGQUIT, cb));
+  const signals = [
+    ['SIGINT', ExitCode.SIGINT],
+    ['SIGTERM', ExitCode.SIGTERM],
+    ['SIGHUP', ExitCode.SIGHUP],
+    ['SIQUIT', ExitCode.SIGQUIT],
+  ] as const;
+
+  for (const [signal, exitCode] of signals) {
+    process.removeAllListeners(signal);
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    process.once(signal, () => shutdown(logFn, exitCode, cb));
+  }
 };
 
 /**
