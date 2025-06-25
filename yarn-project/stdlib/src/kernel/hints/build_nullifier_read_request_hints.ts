@@ -14,7 +14,7 @@ import { Nullifier, type ScopedNullifier } from '../nullifier.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/order_and_comparison.js';
 import { NullifierReadRequestHintsBuilder } from './nullifier_read_request_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestResetStates, ReadRequestState } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestActionsEnum, ReadRequestResetStates } from './read_request_hints.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function isValidNullifierReadRequest(readRequest: ScopedReadRequest, nullifier: ScopedNullifier) {
@@ -56,14 +56,14 @@ export function getNullifierReadRequestResetStates(
       ?.find(({ nullifier }) => isValidNullifierReadRequest(readRequest, nullifier));
 
     if (pendingNullifier !== undefined) {
-      resetStates.states[i] = ReadRequestState.PENDING;
+      resetStates.states[i] = ReadRequestActionsEnum.READ_AS_PENDING;
       resetStates.pendingReadHints.push(new PendingReadHint(i, pendingNullifier.index));
     } else if (
       !futureNullifiersMap
         .get(readRequest)
         .some(futureNullifier => isValidNullifierReadRequest(readRequest, futureNullifier))
     ) {
-      resetStates.states[i] = ReadRequestState.SETTLED;
+      resetStates.states[i] = ReadRequestActionsEnum.READ_AS_SETTLED;
     }
   }
 
@@ -87,7 +87,7 @@ export async function buildNullifierReadRequestHintsFromResetStates<PENDING exte
   });
 
   for (let i = 0; i < resetStates.states.length; i++) {
-    if (resetStates.states[i] === ReadRequestState.SETTLED) {
+    if (resetStates.states[i] === ReadRequestActionsEnum.READ_AS_SETTLED) {
       const readRequest = nullifierReadRequests[i];
       const siloedValue = siloed
         ? readRequest.value

@@ -8,7 +8,7 @@ import { NoteHash, type ScopedNoteHash } from '../note_hash.js';
 import { buildNoteHashReadRequestHints } from './build_note_hash_read_request_hints.js';
 import { type NoteHashReadRequestHints, NoteHashReadRequestHintsBuilder } from './note_hash_read_request_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestStatus, SettledReadHint } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestAction, SettledReadHint } from './read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {
   let contractAddress: AztecAddress;
@@ -41,7 +41,7 @@ describe('buildNoteHashReadRequestHints', () => {
     const readRequestIndex = numReadRequests;
     const hintIndex = numPendingReads;
     noteHashReadRequests[readRequestIndex] = makeReadRequest(getNoteHashValue(noteHashIndex));
-    expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.pending(hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.pending(hintIndex);
     expectedHints.pendingReadHints[hintIndex] = new PendingReadHint(readRequestIndex, noteHashIndex);
     numReadRequests++;
     numPendingReads++;
@@ -53,7 +53,7 @@ describe('buildNoteHashReadRequestHints', () => {
     const value = settledNoteHashes[noteHashIndex];
     noteHashLeafIndexMap.set(BigInt(value), settledLeafIndexes[noteHashIndex]);
     noteHashReadRequests[readRequestIndex] = makeReadRequest(settledNoteHashes[noteHashIndex]);
-    expectedHints.readRequestStatuses[readRequestIndex] = ReadRequestStatus.settled(hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = ReadRequestAction.settled(hintIndex);
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, new Fr(value));
     numReadRequests++;
     numSettledReads++;

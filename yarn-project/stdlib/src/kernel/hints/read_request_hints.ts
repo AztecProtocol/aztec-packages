@@ -2,37 +2,37 @@ import { makeTuple } from '@aztec/foundation/array';
 import { BufferReader, type Bufferable, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
-export enum ReadRequestState {
-  NADA = 0,
-  PENDING = 1,
-  SETTLED = 2,
+export enum ReadRequestActionsEnum {
+  SKIP = 0,
+  READ_AS_PENDING = 1,
+  READ_AS_SETTLED = 2,
 }
 
-export class ReadRequestStatus {
+export class ReadRequestAction {
   constructor(
-    public state: ReadRequestState,
+    public actionEnum: ReadRequestActionsEnum,
     public hintIndex: number,
   ) {}
 
-  static nada() {
-    return new ReadRequestStatus(ReadRequestState.NADA, 0);
+  static skip() {
+    return new ReadRequestAction(ReadRequestActionsEnum.SKIP, 0);
   }
 
   static pending(hintIndex: number) {
-    return new ReadRequestStatus(ReadRequestState.PENDING, hintIndex);
+    return new ReadRequestAction(ReadRequestActionsEnum.READ_AS_PENDING, hintIndex);
   }
 
   static settled(hintIndex: number) {
-    return new ReadRequestStatus(ReadRequestState.SETTLED, hintIndex);
+    return new ReadRequestAction(ReadRequestActionsEnum.READ_AS_SETTLED, hintIndex);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ReadRequestStatus(reader.readNumber(), reader.readNumber());
+    return new ReadRequestAction(reader.readNumber(), reader.readNumber());
   }
 
   toBuffer() {
-    return serializeToBuffer(this.state, this.hintIndex);
+    return serializeToBuffer(this.actionEnum, this.hintIndex);
   }
 }
 
@@ -42,7 +42,7 @@ export class PendingReadHint {
     public pendingValueIndex: number,
   ) {}
 
-  static nada(readRequestLen: number) {
+  static skip(readRequestLen: number) {
     return new PendingReadHint(readRequestLen, 0);
   }
 
@@ -63,7 +63,7 @@ export class SettledReadHint<TREE_HEIGHT extends number, LEAF_PREIMAGE extends B
     public leafPreimage: LEAF_PREIMAGE,
   ) {}
 
-  static nada<TREE_HEIGHT extends number, LEAF_PREIMAGE extends Bufferable>(
+  static skip<TREE_HEIGHT extends number, LEAF_PREIMAGE extends Bufferable>(
     readRequestLen: number,
     treeHeight: TREE_HEIGHT,
     emptyLeafPreimage: () => LEAF_PREIMAGE,
@@ -100,7 +100,7 @@ export class ReadRequestResetHints<
   LEAF_PREIMAGE extends Bufferable,
 > {
   constructor(
-    public readRequestStatuses: Tuple<ReadRequestStatus, READ_REQUEST_LEN>,
+    public readRequestActions: Tuple<ReadRequestAction, READ_REQUEST_LEN>,
     /**
      * The hints for read requests reading pending values.
      */
@@ -122,7 +122,7 @@ export class ReadRequestResetHints<
     LEAF_PREIMAGE
   > {
     return new ReadRequestResetHints(
-      this.readRequestStatuses,
+      this.readRequestActions,
       this.pendingReadHints.slice(0, numPendingReads) as Tuple<PendingReadHint, NEW_PENDING_READ_HINTS_LEN>,
       this.settledReadHints.slice(0, numSettledReads) as Tuple<
         SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>,
@@ -158,7 +158,7 @@ export class ReadRequestResetHints<
   > {
     const reader = BufferReader.asReader(buffer);
     return new ReadRequestResetHints(
-      reader.readArray(readRequestLen, ReadRequestStatus),
+      reader.readArray(readRequestLen, ReadRequestAction),
       reader.readArray(numPendingReads, PendingReadHint),
       reader.readArray(numSettledReads, {
         fromBuffer: r => SettledReadHint.fromBuffer(r, treeHeight, leafPreimageFromBuffer),
@@ -167,19 +167,19 @@ export class ReadRequestResetHints<
   }
 
   toBuffer() {
-    return serializeToBuffer(this.readRequestStatuses, this.pendingReadHints, this.settledReadHints);
+    return serializeToBuffer(this.readRequestActions, this.pendingReadHints, this.settledReadHints);
   }
 }
 
 export class ReadRequestResetStates<NUM_READS extends number> {
   constructor(
-    public states: Tuple<ReadRequestState, NUM_READS>,
+    public states: Tuple<ReadRequestActionsEnum, NUM_READS>,
     public pendingReadHints: PendingReadHint[],
   ) {}
 
   static empty<NUM_READS extends number>(numReads: NUM_READS) {
     return new ReadRequestResetStates(
-      makeTuple(numReads, () => ReadRequestState.NADA),
+      makeTuple(numReads, () => ReadRequestActionsEnum.SKIP),
       [],
     );
   }

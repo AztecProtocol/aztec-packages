@@ -8,7 +8,7 @@ import { Nullifier, type ScopedNullifier } from '../nullifier.js';
 import { buildNullifierReadRequestHints } from './build_nullifier_read_request_hints.js';
 import { type NullifierReadRequestHints, NullifierReadRequestHintsBuilder } from './nullifier_read_request_hints.js';
 import { ReadRequest, ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestState, ReadRequestStatus, SettledReadHint } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestAction, ReadRequestActionsEnum, SettledReadHint } from './read_request_hints.js';
 
 describe('buildNullifierReadRequestHints', () => {
   let contractAddress: AztecAddress;
@@ -45,7 +45,10 @@ describe('buildNullifierReadRequestHints', () => {
     hintIndex?: number;
   }) => {
     nullifierReadRequests[readRequestIndex] = makeReadRequest(innerNullifier(nullifierIndex));
-    expectedHints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(ReadRequestState.PENDING, hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = new ReadRequestAction(
+      ReadRequestActionsEnum.READ_AS_PENDING,
+      hintIndex,
+    );
     expectedHints.pendingReadHints[hintIndex] = new PendingReadHint(readRequestIndex, nullifierIndex);
     numReadRequests++;
     numPendingReads++;
@@ -59,7 +62,10 @@ describe('buildNullifierReadRequestHints', () => {
     hintIndex?: number;
   } = {}) => {
     nullifierReadRequests[readRequestIndex] = makeReadRequest(settledNullifierInnerValue);
-    expectedHints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(ReadRequestState.SETTLED, hintIndex);
+    expectedHints.readRequestActions[readRequestIndex] = new ReadRequestAction(
+      ReadRequestActionsEnum.READ_AS_SETTLED,
+      hintIndex,
+    );
     expectedHints.settledReadHints[hintIndex] = new SettledReadHint(readRequestIndex, {} as any, {} as any);
     numReadRequests++;
     numSettledReads++;

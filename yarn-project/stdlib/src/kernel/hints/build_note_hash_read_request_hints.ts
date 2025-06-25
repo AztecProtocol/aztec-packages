@@ -10,7 +10,7 @@ import type { ScopedNoteHash } from '../note_hash.js';
 import { countAccumulatedItems, getNonEmptyItems } from '../utils/order_and_comparison.js';
 import { NoteHashReadRequestHintsBuilder } from './note_hash_read_request_hints.js';
 import type { ScopedReadRequest } from './read_request.js';
-import { PendingReadHint, ReadRequestResetStates, ReadRequestState } from './read_request_hints.js';
+import { PendingReadHint, ReadRequestActionsEnum, ReadRequestResetStates } from './read_request_hints.js';
 import { ScopedValueCache } from './scoped_value_cache.js';
 
 export function isValidNoteHashReadRequest(readRequest: ScopedReadRequest, noteHash: ScopedNoteHash) {
@@ -47,14 +47,14 @@ export function getNoteHashReadRequestResetStates(
       ?.find(n => isValidNoteHashReadRequest(readRequest, n.noteHash));
 
     if (pendingNoteHash !== undefined) {
-      resetStates.states[i] = ReadRequestState.PENDING;
+      resetStates.states[i] = ReadRequestActionsEnum.READ_AS_PENDING;
       resetStates.pendingReadHints.push(new PendingReadHint(i, pendingNoteHash.index));
     } else if (
       !futureNoteHashMap
         .get(readRequest)
         .find(futureNoteHash => isValidNoteHashReadRequest(readRequest, futureNoteHash))
     ) {
-      resetStates.states[i] = ReadRequestState.SETTLED;
+      resetStates.states[i] = ReadRequestActionsEnum.READ_AS_SETTLED;
     }
   }
 
@@ -79,7 +79,7 @@ export async function buildNoteHashReadRequestHintsFromResetStates<PENDING exten
   });
 
   for (let i = 0; i < resetStates.states.length; i++) {
-    if (resetStates.states[i] === ReadRequestState.SETTLED) {
+    if (resetStates.states[i] === ReadRequestActionsEnum.READ_AS_SETTLED) {
       const readRequest = noteHashReadRequests[i];
       const leafIndex = noteHashLeafIndexMap.get(readRequest.value.toBigInt());
       if (leafIndex === undefined) {

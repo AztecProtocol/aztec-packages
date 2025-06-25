@@ -16,6 +16,7 @@ import type { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import {
+  ClaimedLengthArray,
   CountedLogHash,
   LogHash,
   OptionalNumber,
@@ -34,7 +35,7 @@ import {
 } from '@aztec/stdlib/messaging';
 import {
   AppendOnlyTreeSnapshot,
-  type NullifierLeafPreimage,
+  NullifierLeafPreimage,
   type ProtocolContractLeafPreimage,
   type PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
@@ -52,6 +53,7 @@ import type { VerificationKeyAsFields, VkData } from '@aztec/stdlib/vks';
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
   BlockHeader as BlockHeaderNoir,
+  ClaimedLengthArray as ClaimedLengthArrayNoir,
   ContentCommitment as ContentCommitmentNoir,
   Counted,
   FixedLengthArray,
@@ -304,6 +306,34 @@ export function mapPublicLogFromNoir(log: PublicLogNoir) {
     mapTupleFromNoir(log.log.fields, PUBLIC_LOG_SIZE_IN_FIELDS, mapFieldFromNoir),
     mapNumberFromNoir(log.log.length),
   );
+}
+
+/**
+ * Maps an array from noir types to a tuple of parsed types.
+ * @param noirArray - The noir array.
+ * @param length - The length of the tuple.
+ * @param mapper - The mapper function applied to each element.
+ * @returns The tuple.
+ */
+export function mapClaimedLengthArrayFromNoir<T, N extends number, U>(
+  noirArray: ClaimedLengthArrayNoir<N, T>,
+  length: N,
+  mapper: (item: T) => U,
+): ClaimedLengthArray<U, N> {
+  return new ClaimedLengthArray<U, N>(
+    mapTupleFromNoir(noirArray.array, length, mapper),
+    mapNumberFromNoir(noirArray.length),
+  );
+}
+
+export function mapClaimedLengthArrayToNoir<T, U, N extends number>(
+  array: ClaimedLengthArray<T, N>,
+  mapper: (item: T) => U,
+): ClaimedLengthArrayNoir<N, U> {
+  return {
+    array: mapTuple(array.array, mapper) as FixedLengthArray<U, N>,
+    length: mapNumberToNoir(array.length),
+  };
 }
 
 /**

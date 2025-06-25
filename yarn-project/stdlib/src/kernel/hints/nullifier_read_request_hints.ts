@@ -6,9 +6,9 @@ import type { MembershipWitness, TreeLeafPreimage } from '@aztec/foundation/tree
 import { NullifierLeafPreimage } from '../../trees/index.js';
 import {
   PendingReadHint,
+  ReadRequestAction,
+  ReadRequestActionsEnum,
   ReadRequestResetHints,
-  ReadRequestState,
-  ReadRequestStatus,
   SettledReadHint,
 } from './read_request_hints.js';
 
@@ -45,10 +45,10 @@ export class NullifierReadRequestHintsBuilder<PENDING extends number, SETTLED ex
     public readonly maxSettled: SETTLED,
   ) {
     this.hints = new ReadRequestResetHints(
-      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestStatus.nada),
-      makeTuple(maxPending, () => PendingReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX)),
+      makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, ReadRequestAction.skip),
+      makeTuple(maxPending, () => PendingReadHint.skip(MAX_NULLIFIER_READ_REQUESTS_PER_TX)),
       makeTuple(maxSettled, () =>
-        SettledReadHint.nada(MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.empty),
+        SettledReadHint.skip(MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage.empty),
       ),
     );
   }
@@ -62,8 +62,8 @@ export class NullifierReadRequestHintsBuilder<PENDING extends number, SETTLED ex
       throw new Error('Cannot add more pending read request.');
     }
 
-    this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
-      ReadRequestState.PENDING,
+    this.hints.readRequestActions[readRequestIndex] = new ReadRequestAction(
+      ReadRequestActionsEnum.READ_AS_PENDING,
       this.numPendingReadHints,
     );
     this.hints.pendingReadHints[this.numPendingReadHints] = new PendingReadHint(readRequestIndex, nullifierIndex);
@@ -78,8 +78,8 @@ export class NullifierReadRequestHintsBuilder<PENDING extends number, SETTLED ex
     if (this.numSettledReadHints === this.maxSettled) {
       throw new Error('Cannot add more settled read request.');
     }
-    this.hints.readRequestStatuses[readRequestIndex] = new ReadRequestStatus(
-      ReadRequestState.SETTLED,
+    this.hints.readRequestActions[readRequestIndex] = new ReadRequestAction(
+      ReadRequestActionsEnum.READ_AS_SETTLED,
       this.numSettledReadHints,
     );
     this.hints.settledReadHints[this.numSettledReadHints] = new SettledReadHint(

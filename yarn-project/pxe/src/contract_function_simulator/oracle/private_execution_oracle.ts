@@ -60,7 +60,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle {
   private noteHashNullifierCounterMap: Map<number, number> = new Map();
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
-  private nestedExecutionResultss: PrivateCallExecutionResult[] = [];
+  private nestedExecutionResults: PrivateCallExecutionResult[] = [];
 
   constructor(
     private readonly argsHash: Fr,

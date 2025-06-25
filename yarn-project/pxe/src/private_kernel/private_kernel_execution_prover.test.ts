@@ -6,6 +6,7 @@ import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
+  ClaimedLengthArray,
   NoteHash,
   PrivateCircuitPublicInputs,
   PrivateKernelCircuitPublicInputs,
@@ -73,11 +74,12 @@ describe('Private Kernel Sequencer', () => {
 
   const simulateProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = PrivateKernelCircuitPublicInputs.empty();
-    const noteHashes = makeTuple(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
+    const noteHashes = ClaimedLengthArray.make(MAX_NOTE_HASHES_PER_TX, ScopedNoteHash.empty);
     for (let i = 0; i < newNoteIndices.length; i++) {
-      noteHashes[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
+      noteHashes.array[i] = new NoteHash(generateFakeSiloedCommitment(notesAndSlots[newNoteIndices[i]]), 0).scope(
         contractAddress,
       );
+      noteHashes.length += 1;
     }
 
     publicInputs.end.noteHashes = noteHashes;

@@ -63,6 +63,27 @@ const main = async () => {
       length: u32;
     }
 
+    export type ReadRequest = {
+      value: Field;
+      counter: u32;
+    }
+
+    export type NoteHash = {
+      value: Field;
+      counter: u32;
+    }
+
+    export type Nullifier = {
+      value: Field;
+      counter: u32;
+      note_hash: Field;
+    }
+
+    export type KeyValidationRequestAndGenerator = {
+      request: KeyValidationRequest;
+      sk_app_generator: Field;
+    }
+
     export * from '../artifacts/types.js';
   `;
   await fs.writeFile('./src/types/index.ts', code);
