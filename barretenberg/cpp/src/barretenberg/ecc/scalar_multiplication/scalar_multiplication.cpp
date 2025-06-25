@@ -410,6 +410,8 @@ typename Curve::Element MSM<Curve>::pippenger_low_memory_with_transformed_scalar
     if (!use_affine_trick(msm_size, num_buckets)) {
         return small_pippenger_low_memory_with_transformed_scalars(msm_data);
     }
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1452): Consider allowing this memory to persist rather
+    // than allocating/deallocating on every execution.
     AffineAdditionData affine_data = AffineAdditionData();
     BucketAccumulators bucket_data = BucketAccumulators(num_buckets);
 
