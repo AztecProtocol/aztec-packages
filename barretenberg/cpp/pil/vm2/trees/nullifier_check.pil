@@ -26,20 +26,23 @@ include "../precomputed.pil";
  * sel { exists,
  *       nullifier,
  *       nullifier_tree_root,
- *       precomputed.zero,
+ *       should_silo,
+ *       address // Can be omitted if should_silo is precomputed.zero
  * } in nullifier_check.sel {
  *       nullifier_check.exists,
  *       nullifier_check.nullifier,
  *       nullifier_check.root,
- *       nullifier_check.should_silo
+ *       nullifier_check.should_silo,
+ *       nullifier_check.address
  * };
  *
  * Write usage:
  * pol commit error;
  *
- * sel { error,
+ * sel {
  *       nullifier,
  *       prev_nullifier_tree_root,
+ *       error,
  *       next_nullifier_tree_root,
  *       prev_nullifier_tree_size,
  *       discard,
@@ -99,7 +102,7 @@ namespace nullifier_check;
     // ========= SILOING =========
     pol commit siloed_nullifier;
     #[PASSTHROUGH_SILOING]
-    sel * (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
+    (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
 
     // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit siloing_separator;

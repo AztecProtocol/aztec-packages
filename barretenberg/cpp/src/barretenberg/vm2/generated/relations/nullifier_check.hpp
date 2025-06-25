@@ -13,7 +13,7 @@ template <typename FF_> class nullifier_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 4, 3, 3, 4,
+    static constexpr std::array<size_t, 18> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 4,
                                                                             3, 3, 3, 5, 3, 3, 5, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -71,7 +71,7 @@ template <typename FF_> class nullifier_checkImpl {
         }
         { // PASSTHROUGH_SILOING
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = in.get(C::nullifier_check_sel) * (FF(1) - in.get(C::nullifier_check_should_silo)) *
+            auto tmp = (FF(1) - in.get(C::nullifier_check_should_silo)) *
                        (in.get(C::nullifier_check_nullifier) - in.get(C::nullifier_check_siloed_nullifier));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
