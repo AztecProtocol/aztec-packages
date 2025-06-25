@@ -201,7 +201,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
-    // Shared transcript between Oink/PG and verifier
+    // Shared transcript between Oink/PG and Merge
     std::shared_ptr<Transcript> oink_pg_merge_transcript = std::make_shared<Transcript>();
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
@@ -299,6 +299,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     ClientCircuit builder{ goblin.op_queue };
 
     // Shared transcript between PG and Merge
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1453): Investigate whether Decider/PG/Merge need to
+    // share a transcript
     std::shared_ptr<RecursiveTranscript> pg_merge_transcript = std::make_shared<RecursiveTranscript>();
 
     // Add a no-op at the beginning of the hiding circuit to ensure the wires representing the op queue in translator
@@ -397,9 +399,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifer{ vk.mega,
-                            /*ipa_verification_key=*/{},
-                            civc_verifier_transcript };
+    MegaZKVerifier verifer{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
