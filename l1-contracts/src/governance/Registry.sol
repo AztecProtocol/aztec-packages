@@ -11,7 +11,6 @@ import {RewardDistributor, IRewardDistributor} from "./RewardDistributor.sol";
 struct RegistryStorage {
   mapping(uint256 version => IHaveVersion rollup) versionToRollup;
   uint256[] versions;
-  address governance;
   IRewardDistributor rewardDistributor;
 }
 
@@ -39,11 +38,6 @@ contract Registry is IRegistry, Ownable {
     $.versions.push(version);
 
     emit InstanceAdded(address(_rollup), version);
-  }
-
-  function updateGovernance(address _governance) external override(IRegistry) onlyOwner {
-    $.governance = _governance;
-    emit GovernanceUpdated(_governance);
   }
 
   function updateRewardDistributor(address _rewardDistributor)
@@ -83,7 +77,7 @@ contract Registry is IRegistry, Ownable {
    * @return The governance address
    */
   function getGovernance() external view override(IRegistry) returns (address) {
-    return $.governance;
+    return this.owner();
   }
 
   function getRewardDistributor() external view override(IRegistry) returns (IRewardDistributor) {
