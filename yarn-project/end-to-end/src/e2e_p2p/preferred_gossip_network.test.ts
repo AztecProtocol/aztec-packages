@@ -105,9 +105,15 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.ctx.aztecNodeConfig.validatorReexecute = true;
 
-    const nonValidatorConfig: AztecNodeConfig = {
+    const nodeConfig: AztecNodeConfig = {
       ...t.ctx.aztecNodeConfig,
       disableValidator: true,
+    };
+
+    const preferredNodeConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      disableValidator: true,
+      p2pAllowOnlyValidators: true,
     };
 
     const validatorConfig: AztecNodeConfig = {
@@ -141,7 +147,7 @@ describe('e2e_p2p_preferred_network', () => {
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      nonValidatorConfig,
+      nodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
@@ -158,7 +164,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating preferred nodes');
 
     preferredNodes = await createNodes(
-      nonValidatorConfig,
+      preferredNodeConfig,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_PREFERRED_NODES,
