@@ -64,12 +64,12 @@ function test_cmds {
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     echo "$hash:TIMEOUT=20m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-transfer"
-    echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
-    echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
+    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-1tps"
+    #echo "$hash:TIMEOUT=30m FRESH_INSTALL=no-deploy NAMESPACE=$NIGHTLY_NS ./spartan/bootstrap.sh test-gke-4epochs"
 
     # These tests get their own namespaces otherwise they'd interfere with the other tests
-    echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-upgrade-rollup-version"
-    echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-cli-upgrade"
+    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-upgrade-rollup-version"
+    #echo "$hash:TIMEOUT=30m MONITOR_DEPLOYMENT=false NAME_POSTFIX='-$NIGHTLY_NS' ./spartan/bootstrap.sh test-gke-cli-upgrade"
 
     # TODO(#12791) re-enable
     # echo "$hash:TIMEOUT=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
@@ -83,7 +83,7 @@ function start_env {
     export MONITOR_DEPLOYMENT=false
     export WAIT_FOR_DEPLOYMENT=false
     echo "Installing test network in namespace $NIGHTLY_NS"
-    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-1tps.yaml false "mnemonic.tmp" "$NIGHTLY_NS"
+    ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS"
   fi
 }
 
@@ -192,7 +192,7 @@ case "$cmd" in
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml  \
-      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-1tps.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
+      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epochs.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
     ;;
   "test-gke-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \

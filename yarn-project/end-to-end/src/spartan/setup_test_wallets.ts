@@ -76,7 +76,7 @@ export async function deploySponsoredTestWallets(
     fundedAccounts.map(async a => {
       const wallet = await a.getWallet();
       const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-      await a.deploy({ fee: { paymentMethod } }).wait();
+      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 2400 }); // increase timeout on purpose in order to account for two empty epochs
       logger.info(`Account deployed at ${a.getAddress()}`);
       return wallet;
     }),
