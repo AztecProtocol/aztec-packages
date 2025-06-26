@@ -13,7 +13,7 @@ template <typename FF_> class get_env_varImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 4, 4, 4, 4, 4, 4, 4, 4 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 4, 4, 4, 4, 4, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -30,13 +30,10 @@ template <typename FF_> class get_env_varImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto execution_DISPATCH_OPCODE =
-            in.get(C::execution_sel_should_resolve_address) * (FF(1) - in.get(C::execution_sel_addressing_error));
-
         { // SHOULD_GET_ENV_VAR
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_should_get_env_var) -
-                        in.get(C::execution_sel_get_env_var) * execution_DISPATCH_OPCODE);
+                        in.get(C::execution_sel_get_env_var) * in.get(C::execution_should_execute_opcode));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }

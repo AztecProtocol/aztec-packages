@@ -201,16 +201,16 @@ impl PublicContext {
             timestamp()
         }
     }
-    pub fn fee_per_l2_gas(_self: Self) -> u128 {
+    pub fn base_fee_per_l2_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            fee_per_l2_gas()
+            base_fee_per_l2_gas()
         }
     }
-    pub fn fee_per_da_gas(_self: Self) -> u128 {
+    pub fn base_fee_per_da_gas(_self: Self) -> u128 {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe {
-            fee_per_da_gas()
+            base_fee_per_da_gas()
         }
     }
 
@@ -284,11 +284,11 @@ unconstrained fn block_number() -> u32 {
 unconstrained fn timestamp() -> u64 {
     timestamp_opcode()
 }
-unconstrained fn fee_per_l2_gas() -> u128 {
-    fee_per_l2_gas_opcode()
+unconstrained fn base_fee_per_l2_gas() -> u128 {
+    base_fee_per_l2_gas_opcode()
 }
-unconstrained fn fee_per_da_gas() -> u128 {
-    fee_per_da_gas_opcode()
+unconstrained fn base_fee_per_da_gas() -> u128 {
+    base_fee_per_da_gas_opcode()
 }
 unconstrained fn l2_gas_left() -> u32 {
     l2_gas_left_opcode()
@@ -296,7 +296,7 @@ unconstrained fn l2_gas_left() -> u32 {
 unconstrained fn da_gas_left() -> u32 {
     da_gas_left_opcode()
 }
-unconstrained fn is_static_call() -> Field {
+unconstrained fn is_static_call() -> u1 {
     is_static_call_opcode()
 }
 unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u1 {
@@ -403,11 +403,11 @@ unconstrained fn block_number_opcode() -> u32 {}
 #[oracle(avmOpcodeTimestamp)]
 unconstrained fn timestamp_opcode() -> u64 {}
 
-#[oracle(avmOpcodeFeePerL2Gas)]
-unconstrained fn fee_per_l2_gas_opcode() -> u128 {}
+#[oracle(avmOpcodeBaseFeePerL2Gas)]
+unconstrained fn base_fee_per_l2_gas_opcode() -> u128 {}
 
-#[oracle(avmOpcodeFeePerDaGas)]
-unconstrained fn fee_per_da_gas_opcode() -> u128 {}
+#[oracle(avmOpcodeBaseFeePerDaGas)]
+unconstrained fn base_fee_per_da_gas_opcode() -> u128 {}
 
 #[oracle(avmOpcodeL2GasLeft)]
 unconstrained fn l2_gas_left_opcode() -> u32 {}
@@ -416,7 +416,7 @@ unconstrained fn l2_gas_left_opcode() -> u32 {}
 unconstrained fn da_gas_left_opcode() -> u32 {}
 
 #[oracle(avmOpcodeIsStaticCall)]
-unconstrained fn is_static_call_opcode() -> Field {}
+unconstrained fn is_static_call_opcode() -> u1 {}
 
 #[oracle(avmOpcodeNoteHashExists)]
 unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u1 {}
