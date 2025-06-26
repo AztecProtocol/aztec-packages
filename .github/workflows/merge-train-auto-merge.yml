@@ -2,8 +2,8 @@ name: Auto-merge Inactive Merge Train PRs
 
 on:
   schedule:
-    # Run every 4 hours
-    - cron: '0 */4 * * *'
+    # Run every hour
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
