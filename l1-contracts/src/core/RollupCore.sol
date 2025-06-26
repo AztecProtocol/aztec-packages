@@ -1,38 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
+// solhint-disable imports-order
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
   IRollupCore,
-  ITestRollup,
   RollupStore,
   SubmitEpochRootProofArgs,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
-import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
+import {ExtRollupLib2} from "@aztec/core/libraries/rollup/ExtRollupLib2.sol";
 import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
+import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 
 /**
  * @title Rollup
@@ -46,11 +47,8 @@ contract RollupCore is
   Ownable,
   IStakingCore,
   IValidatorSelectionCore,
-  IRollupCore,
-  ITestRollup
+  IRollupCore
 {
-  using ProposeLib for ProposeArgs;
-
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
@@ -63,30 +61,50 @@ contract RollupCore is
   // @note  Always true, exists to override to false for testing only
   bool public checkBlob = true;
 
+  // @note  This is only a temporary and should be too deeply ingrained into the rollup library
+  bool public isRewardsClaimable = false;
+
   constructor(
     IERC20 _feeAsset,
-    IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
+    GSE _gse,
+    IVerifier _epochProofVerifier,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
   ) Ownable(_governance) {
-    TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
+    TimeLib.initialize(
+      block.timestamp,
+      _config.aztecSlotDuration,
+      _config.aztecEpochDuration,
+      _config.aztecProofSubmissionEpochs
+    );
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
-    StakingLib.initialize(_stakingAsset, _config.minimumStake, exitDelay, address(slasher));
-    ExtRollupLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
+    );
+    ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
+
+    // If no booster specifically provided deploy one.
+    if (address(_config.rewardConfig.booster) == address(0)) {
+      _config.rewardConfig.booster = ExtRollupLib2.deployRewardBooster(_config.rewardBoostConfig);
+    }
+
+    // feeAssetPortal должен быть установлен в RewardConfig
+    _config.rewardConfig.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+
+    RewardLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
     STFLib.initialize(_genesisState);
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
     rollupStore.config.feeAsset = _feeAsset;
-    rollupStore.config.rewardDistributor = _rewardDistributor;
-    rollupStore.config.epochProofVerifier = new MockVerifier();
+    rollupStore.config.epochProofVerifier = _epochProofVerifier;
+
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
     uint256 version = uint32(
@@ -109,34 +127,30 @@ contract RollupCore is
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                          CHEAT CODES START HERE                            */
-  /* -------------------------------------------------------------------------- */
-
-  function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    CheatLib.setEpochVerifier(_verifier);
+  function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
+    require(address(_config.feeAssetPortal) != address(0), "feeAssetPortal must be set in RewardConfig");
+    RewardLib.setConfig(_config);
+    emit RewardConfigUpdated(_config);
   }
 
-  function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
-    CheatLib.setVkTreeRoot(_vkTreeRoot);
-  }
-
-  function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot)
-    external
-    override(ITestRollup)
-    onlyOwner
-  {
-    CheatLib.setProtocolContractTreeRoot(_protocolContractTreeRoot);
-  }
-
-  function updateManaTarget(uint256 _manaTarget) external override(ITestRollup) onlyOwner {
+  function updateManaTarget(uint256 _manaTarget) external override(IRollupCore) onlyOwner {
+    uint256 currentManaTarget = FeeLib.getStorage().manaTarget;
+    require(
+      _manaTarget >= currentManaTarget,
+      Errors.Rollup__InvalidManaTarget(currentManaTarget, _manaTarget)
+    );
     FeeLib.updateManaTarget(_manaTarget);
-    emit ITestRollup.ManaTargetUpdated(_manaTarget);
+    emit IRollupCore.ManaTargetUpdated(_manaTarget);
   }
 
-  /* -------------------------------------------------------------------------- */
-  /*                          CHEAT CODES END HERE                              */
-  /* -------------------------------------------------------------------------- */
+  function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
+    isRewardsClaimable = _isRewardsClaimable;
+    emit RewardsClaimableUpdated(_isRewardsClaimable);
+  }
+
+  function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
+    ExtRollupLib2.setSlasher(_slasher);
+  }
 
   function setProvingCostPerMana(EthValue _provingCostPerMana)
     external
@@ -146,11 +160,20 @@ contract RollupCore is
     FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
   }
 
+  function updateStakingQueueConfig(StakingQueueConfig memory _config)
+    external
+    override(IStakingCore)
+    onlyOwner
+  {
+    ExtRollupLib2.updateStakingQueueConfig(_config);
+  }
+
   function claimSequencerRewards(address _recipient)
     external
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimSequencerRewards(_recipient);
   }
 
@@ -159,14 +182,24 @@ contract RollupCore is
     override(IRollupCore)
     returns (uint256)
   {
+    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
     return RewardLib.claimProverRewards(_recipient, _epochs);
   }
 
-  function deposit(address _attester, address _proposer, address _withdrawer, uint256 _amount)
+  function vote(uint256 _proposalId) external override(IStakingCore) {
+    ExtRollupLib2.vote(_proposalId);
+  }
+
+  function deposit(address _attester, address _withdrawer, bool _onCanonical)
     external
     override(IStakingCore)
   {
-    StakingLib.deposit(_attester, _proposer, _withdrawer, _amount);
+    ExtRollupLib2.deposit(_attester, _withdrawer, _onCanonical);
+  }
+
+  function flushEntryQueue() external override(IStakingCore) {
+    uint256 maxAddableValidators = getEntryQueueFlushSize();
+    ExtRollupLib2.flushEntryQueue(maxAddableValidators);
   }
 
   function initiateWithdraw(address _attester, address _recipient)
@@ -174,15 +207,15 @@ contract RollupCore is
     override(IStakingCore)
     returns (bool)
   {
-    return StakingLib.initiateWithdraw(_attester, _recipient);
+    return ExtRollupLib2.initiateWithdraw(_attester, _recipient);
   }
 
   function finaliseWithdraw(address _attester) external override(IStakingCore) {
     StakingLib.finaliseWithdraw(_attester);
   }
 
-  function slash(address _attester, uint256 _amount) external override(IStakingCore) {
-    StakingLib.slash(_attester, _amount);
+  function slash(address _attester, uint256 _amount) external override(IStakingCore) returns (bool) {
+    return StakingLib.trySlash(_attester, _amount);
   }
 
   function prune() external override(IRollupCore) {
@@ -199,18 +232,18 @@ contract RollupCore is
 
   function propose(
     ProposeArgs calldata _args,
-    Signature[] memory _signatures,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    ExtRollupLib.propose(_args, _signatures, _blobInput, checkBlob);
+    ExtRollupLib.propose(_args, _attestations, _blobInput, checkBlob);
   }
 
   function setupEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib.setupEpoch();
+    ExtRollupLib2.setupEpoch();
   }
 
   function setupSeedSnapshotForNextEpoch() public override(IValidatorSelectionCore) {
-    ExtRollupLib.setupSeedSnapshotForNextEpoch();
+    ExtRollupLib2.setupSeedSnapshotForNextEpoch();
   }
 
   /**
@@ -219,5 +252,13 @@ contract RollupCore is
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
     FeeLib.updateL1GasFeeOracle();
+  }
+
+  function getEntryQueueFlushSize() public view override(IStakingCore) returns (uint256) {
+    return ExtRollupLib2.getEntryQueueFlushSize();
+  }
+
+  function getActiveAttesterCount() public view override(IStakingCore) returns (uint256) {
+    return StakingLib.getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
   }
 }
