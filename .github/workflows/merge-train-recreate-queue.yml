@@ -47,7 +47,7 @@ jobs:
           gh pr create \
             --base "$MERGE_TRAIN_BRANCH" \
             --head "$NEW_BRANCH" \
-            --title "🚂 Merge Queue for $MERGE_TRAIN_BRANCH" \
+            --title "feat: $MERGE_TRAIN_BRANCH" \
             --body "This is an automated merge queue PR. New commits from \`next\` will be added here.
             
             When ready, this PR will be merged into \`$MERGE_TRAIN_BRANCH\`.
