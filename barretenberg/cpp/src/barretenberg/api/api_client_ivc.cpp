@@ -47,6 +47,7 @@ static void write_vk_for_ivc(const std::string& output_format,
                              size_t num_public_inputs_in_final_circuit,
                              const std::filesystem::path& output_dir);
 
+static ClientIVC::Proof TEMP;
 /**
  * @brief Prove method implementation
  *
@@ -63,6 +64,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 
     std::shared_ptr<ClientIVC> ivc = steps.accumulate();
     ClientIVC::Proof proof = ivc->prove();
+    TEMP = proof;
 
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
@@ -152,6 +154,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     // since there's no CircuitVerify equivalent for IVC proofs yet
 
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    ASSERT(proof == TEMP)
     const auto vk = from_msgpack_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     const bool verified = ClientIVC::verify(proof, vk);
