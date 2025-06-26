@@ -37,6 +37,7 @@ jobs:
         id: commits
         run: |
           PR_NUMBER=${{ steps.pr.outputs.number }}
+          export GH_TOKEN="${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}"
           BASE_SHA=$(gh pr view $PR_NUMBER --json baseRef --jq .baseRef.target.oid)
           HEAD_SHA=$GITHUB_SHA
           echo "commit_list<<EOF" >> "$GITHUB_OUTPUT"
