@@ -84,7 +84,7 @@ TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRangesSplitsLargeRange)
     std::vector<Range> union_ranges = { { 0, 1 }, { 2, 101 } };
 
     std::vector<std::vector<Range>> expected_thread_ranges = { { { 0, 1 }, { 2, 34 } },
-                                                               { { 34, 66 } },
+                                                               { { 34, 67 } },
                                                                { { 67, 101 } } };
 
     const size_t num_threads = 3;
