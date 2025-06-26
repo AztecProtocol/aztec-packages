@@ -128,6 +128,13 @@
     </header>
     <div style="text-align: center; font-size: 0.9em; color: #666; margin: 10px 0;">
       Note: Navigation uses GitHub API (60 requests/hour limit for anonymous users)
+      <button id="auth-toggle" style="margin-left: 10px; font-size: 0.8em;">Add GitHub Token</button>
+      <div id="auth-input" style="display: none; margin-top: 10px;">
+        <input type="password" id="github-token" placeholder="GitHub Personal Access Token" style="width: 300px; margin-right: 5px;">
+        <button id="save-token">Save</button>
+        <button id="clear-token" style="display: none;">Clear</button>
+        <a href="https://github.com/settings/tokens/new?description=Benchmark%20Viewer&scopes=public_repo" target="_blank" style="margin-left: 10px; font-size: 0.8em;">Generate Token</a>
+      </div>
     </div>
     <div id="pagination-top" style="display: flex; justify-content: center; margin: 20px 0; gap: 20px;">
       <button id="prev-page-top" style="display: none;">← Previous 100 commits</button>
@@ -173,20 +180,63 @@
       let commitCache = new Map(); // Cache commits by sha
       window.chartsByBenchName = window.chartsByBenchName || new Map(); // Map benchmark names to their chart instances
       
+      // GitHub token management
+      let githubToken = localStorage.getItem('github-token');
+      
+      // Setup token UI
+      document.getElementById('auth-toggle').onclick = () => {
+        const authInput = document.getElementById('auth-input');
+        authInput.style.display = authInput.style.display === 'none' ? 'block' : 'none';
+      };
+      
+      document.getElementById('save-token').onclick = () => {
+        const token = document.getElementById('github-token').value.trim();
+        if (token) {
+          localStorage.setItem('github-token', token);
+          githubToken = token;
+          document.getElementById('auth-input').style.display = 'none';
+          document.getElementById('auth-toggle').textContent = 'Token Saved ✓';
+          document.getElementById('clear-token').style.display = 'inline';
+          document.getElementById('github-token').value = '';
+        }
+      };
+      
+      document.getElementById('clear-token').onclick = () => {
+        localStorage.removeItem('github-token');
+        githubToken = null;
+        document.getElementById('auth-toggle').textContent = 'Add GitHub Token';
+        document.getElementById('clear-token').style.display = 'none';
+      };
+      
+      // Check if token exists on load
+      if (githubToken) {
+        document.getElementById('auth-toggle').textContent = 'Token Saved ✓';
+        document.getElementById('clear-token').style.display = 'inline';
+      }
+      
       // Function to fetch commits starting from a specific SHA
       async function fetchCommitsFrom(sha, count = 100) {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=${sha}&per_page=${count}`;
         
+        const headers = {};
+        if (githubToken) {
+          headers['Authorization'] = `token ${githubToken}`;
+        }
+        
         try {
-          const response = await fetch(url);
+          const response = await fetch(url, { headers });
           if (!response.ok) {
             if (response.status === 403) {
               const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
               if (rateLimitRemaining === '0') {
                 const resetTime = response.headers.get('X-RateLimit-Reset');
                 const resetDate = new Date(parseInt(resetTime) * 1000);
-                throw new Error(`GitHub API rate limit exceeded. Resets at ${resetDate.toLocaleTimeString()}`);
+                const limitType = githubToken ? '5000 requests/hour for authenticated users' : '60 requests/hour for anonymous users';
+                throw new Error(`GitHub API rate limit exceeded (${limitType}). Resets at ${resetDate.toLocaleTimeString()}`);
               }
+            }
+            if (response.status === 401 && githubToken) {
+              throw new Error("Invalid GitHub token. Please check your token and try again.");
             }
             throw new Error("Failed to fetch commits");
           }
