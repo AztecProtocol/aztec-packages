@@ -80,8 +80,10 @@ export const DefaultRewardBoostConfig = {
 
 // Similar to the above, no need for environment variables for this.
 export const DefaultEntryQueueConfig = {
-  flushSizeMin: 48,
-  flushSizeQuotient: 2,
+  bootstrapValidatorSetSize: 0,
+  bootstrapFlushSize: 0,
+  normalFlushSizeMin: 48,
+  normalFlushSizeQuotient: 2,
 };
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
