@@ -602,40 +602,6 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     return builder;
 };
 
-/**
- * @brief Specialization for creating Ultra circuit from acir constraints and optionally a witness
- *
- * @tparam Builder
- * @param constraint_system
- * @param size_hint
- * @param witness
- * @return Builder
- */
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161): Delete this or refactor it.
-template <>
-UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                   bool recursive,
-                                   const size_t size_hint,
-                                   const WitnessVector& witness,
-                                   uint32_t honk_recursion,
-                                   [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
-                                   bool collect_gates_per_opcode)
-{
-    PROFILE_THIS();
-    Builder builder{ size_hint, witness, constraint_system.public_inputs, constraint_system.varnum, recursive };
-
-    AcirProgram program{ constraint_system, witness };
-    const ProgramMetadata metadata{ .recursive = recursive,
-                                    .honk_recursion = honk_recursion,
-                                    .collect_gates_per_opcode = collect_gates_per_opcode,
-                                    .size_hint = size_hint };
-    build_constraints(builder, program, metadata);
-
-    vinfo("created circuit");
-
-    return builder;
-};
-
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirProgram&, const ProgramMetadata&);
 
 } // namespace acir_format

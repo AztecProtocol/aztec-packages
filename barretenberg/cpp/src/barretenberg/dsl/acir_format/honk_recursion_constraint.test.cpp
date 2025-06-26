@@ -142,8 +142,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
         }
-        auto builder = create_circuit(
-            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
+        ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+        AcirProgram program{ constraint_system, witness };
+        auto builder = create_circuit(program, metadata);
         return builder;
     }
 

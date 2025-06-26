@@ -93,7 +93,7 @@ struct ExecutionTraceUsageTracker {
         previous_active_ranges = active_ranges; // store active ranges based on all but the present circuit
         active_ranges.clear();
         for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
-            size_t start_idx = fixed_block.trace_offset;
+            size_t start_idx = fixed_block.trace_offset();
             size_t end_idx = start_idx + max_size;
             active_ranges.push_back(Range{ start_idx, end_idx });
         }
@@ -107,7 +107,7 @@ struct ExecutionTraceUsageTracker {
         active_ranges.push_back(Range{ databus_start, databus_end }); // region where databus contains data
 
         // Note: start of table data is aligned with start of the lookup gates block
-        size_t tables_start = fixed_sizes.lookup.trace_offset;
+        size_t tables_start = fixed_sizes.lookup.trace_offset();
         size_t tables_end = tables_start + max_tables_size;
         active_ranges.emplace_back(Range{ tables_start, tables_end }); // region where table data is stored
     }

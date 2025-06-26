@@ -203,7 +203,8 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -266,7 +267,8 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     WitnessVector witness{
         0, 3, 6, 3, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -323,7 +325,8 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -378,7 +381,8 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -448,7 +452,8 @@ TEST_F(BigIntTests, TestBigIntDIV)
     WitnessVector witness{
         0, 6, 3, 2, 0,
     };
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

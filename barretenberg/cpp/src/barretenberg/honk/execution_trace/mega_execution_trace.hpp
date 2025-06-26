@@ -177,11 +177,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
 
     bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
 
-    MegaExecutionTraceBlocks()
-    {
-        this->aux.has_ram_rom = true;
-        this->pub_inputs.is_pub_inputs = true;
-    }
+    MegaExecutionTraceBlocks() = default;
 
     void set_fixed_block_sizes(const TraceSettings& settings)
     {
@@ -198,7 +194,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData<MegaTraceBlock> {
     {
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
-            block.trace_offset = offset;
+            block.trace_offset_ = offset;
             offset += block.get_fixed_size(is_structured);
         }
     }

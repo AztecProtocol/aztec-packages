@@ -104,7 +104,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     blocks.set_fixed_block_sizes(trace_settings);
     blocks.compute_offsets(/*is_structured=*/true);
     size_t dyadic_size = blocks.get_structured_dyadic_size();
-    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset;
+    size_t pub_inputs_offset = blocks.pub_inputs.trace_offset();
     // All circuits have pairing point public inputs; kernels have additional public inputs for two databus commitments
     size_t num_public_inputs = bb::PAIRING_POINTS_SIZE;
     if (is_kernel) {

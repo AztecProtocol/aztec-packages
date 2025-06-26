@@ -69,9 +69,13 @@ template <typename FF, size_t NUM_WIRES_, size_t NUM_SELECTORS_> class Execution
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
-    bool has_ram_rom = false;   // does the block contain RAM/ROM gates
-    bool is_pub_inputs = false; // is this the public inputs block
-    uint32_t trace_offset = 0;  // where this block starts in the trace
+    uint32_t trace_offset_ = std::numeric_limits<uint32_t>::max(); // where this block starts in the trace
+
+    uint32_t trace_offset() const
+    {
+        ASSERT(trace_offset_ != std::numeric_limits<uint32_t>::max());
+        return trace_offset_;
+    }
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 

@@ -55,7 +55,6 @@ using constraining::check_interaction;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
-using nullifier_check = bb::avm2::nullifier_check<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 
