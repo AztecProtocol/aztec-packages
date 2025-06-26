@@ -163,6 +163,12 @@ template <typename Builder_> struct PairingPoints {
         BaseField x1 = BaseField::from_witness(&builder, x1_val);
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
         PairingPoints<Builder> points_accumulator{ Group(x0, y0), Group(x1, y1) };
+        if constexpr (IsUltraBuilder<Builder>) {
+            builder.update_used_witnesses(points_accumulator.P0.x.prime_basis_limb.witness_index);
+            builder.update_used_witnesses(points_accumulator.P0.y.prime_basis_limb.witness_index);
+            builder.update_used_witnesses(points_accumulator.P1.x.prime_basis_limb.witness_index);
+            builder.update_used_witnesses(points_accumulator.P1.y.prime_basis_limb.witness_index);
+        }
         points_accumulator.set_public();
     }
 };
