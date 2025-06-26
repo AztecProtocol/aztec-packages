@@ -33,7 +33,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {Math} from "@oz/utils/math/Math.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 
 /**
  * @title Rollup
@@ -82,7 +82,9 @@ contract RollupCore is
 
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_config.slashingQuorum, _config.slashingRoundSize);
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher));
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig
+    );
     ExtRollupLib2.initializeValidatorSelection(_config.targetCommitteeSize);
 
     // If no booster specifically provided deploy one.
@@ -99,8 +101,6 @@ contract RollupCore is
 
     rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.epochProofVerifier = _epochProofVerifier;
-    rollupStore.config.entryQueueFlushSizeMin = _config.entryQueueFlushSizeMin;
-    rollupStore.config.entryQueueFlushSizeQuotient = _config.entryQueueFlushSizeQuotient;
 
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
@@ -154,6 +154,14 @@ contract RollupCore is
     onlyOwner
   {
     FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
+  }
+
+  function updateStakingQueueConfig(StakingQueueConfig memory _config)
+    external
+    override(IStakingCore)
+    onlyOwner
+  {
+    ExtRollupLib2.updateStakingQueueConfig(_config);
   }
 
   function claimSequencerRewards(address _recipient)
@@ -242,15 +250,8 @@ contract RollupCore is
     FeeLib.updateL1GasFeeOracle();
   }
 
-  // TODO: add test.
   function getEntryQueueFlushSize() public view override(IStakingCore) returns (uint256) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 activeAttesterCount = getActiveAttesterCount();
-    uint256 maxAddableValidators = Math.max(
-      activeAttesterCount / rollupStore.config.entryQueueFlushSizeQuotient,
-      rollupStore.config.entryQueueFlushSizeMin
-    );
-    return maxAddableValidators;
+    return ExtRollupLib2.getEntryQueueFlushSize();
   }
 
   function getActiveAttesterCount() public view override(IStakingCore) returns (uint256) {
