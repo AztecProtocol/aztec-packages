@@ -17,6 +17,7 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
 
 type Bps is uint32;
@@ -33,8 +34,8 @@ struct SubEpochRewards {
 }
 
 struct EpochRewards {
-  uint256 longestProvenLength;
-  uint256 rewards;
+  uint128 longestProvenLength;
+  uint128 rewards;
   mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
@@ -71,6 +72,7 @@ library RewardLib {
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
   using FeeHeaderLib for CompressedFeeHeader;
+  using SafeCast for uint256;
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
@@ -166,7 +168,7 @@ library RewardLib {
           BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare);
+        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
       FeeStore storage feeStore = FeeLib.getStorage();
@@ -184,7 +186,7 @@ library RewardLib {
 
         // Compute the proving fee in the fee asset
         v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee;
+        $er.rewards += v.proverFee.toUint128();
 
         v.sequencerFee = fee - burn - v.proverFee;
 
@@ -194,7 +196,7 @@ library RewardLib {
         }
       }
 
-      $er.longestProvenLength = length;
+      $er.longestProvenLength = length.toUint128();
 
       if (t.feesToClaim > 0) {
         rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
