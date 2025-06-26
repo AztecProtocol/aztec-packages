@@ -1,0 +1,86 @@
+name: Auto Merge to Train Branches
+
+on:
+  push:
+    branches:
+      - next
+
+jobs:
+  merge-to-train:
+    name: Merge next to ${{ matrix.train-branch }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        train-branch:
+          - merge-train/barretenberg
+          - merge-train/docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Create or checkout ${{ matrix.train-branch }}
+        run: |
+          if git ls-remote --exit-code --heads origin ${{ matrix.train-branch }}; then
+            echo "Branch ${{ matrix.train-branch }} exists, checking out"
+            git checkout -b ${{ matrix.train-branch }} origin/${{ matrix.train-branch }}
+          else
+            echo "Branch ${{ matrix.train-branch }} does not exist, creating from next"
+            git checkout -b ${{ matrix.train-branch }}
+          fi
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          if git merge origin/next --no-edit; then
+            echo "merge_success=true" >> $GITHUB_OUTPUT
+            git push origin ${{ matrix.train-branch }}
+          else
+            echo "merge_success=false" >> $GITHUB_OUTPUT
+            echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
+            git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on conflict
+        if: steps.merge.outputs.merge_success == 'false'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const conflictFiles = `${{ steps.merge.outputs.conflict_details }}`;
+            const trainBranch = '${{ matrix.train-branch }}';
+            const comment = `## ⚠️ Auto-merge to ${trainBranch} failed
+            
+            Merge conflicts detected when merging \`next\` into \`${trainBranch}\`.
+            
+            **Conflicted files:**
+            \`\`\`
+            ${conflictFiles}
+            \`\`\`
+            
+            Please resolve the conflicts manually.`;
+            
+            // Find the most recent commit on next
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: 'next',
+              per_page: 1
+            });
+            
+            if (commits.length > 0) {
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: commits[0].sha,
+                body: comment
+              });
+            }
