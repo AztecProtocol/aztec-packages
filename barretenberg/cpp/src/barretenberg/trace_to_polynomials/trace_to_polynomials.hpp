@@ -25,6 +25,7 @@ template <class Flavor> class TraceToPolynomials {
 
     static constexpr size_t NUM_SELECTORS = Builder::ExecutionTrace::NUM_SELECTORS;
 
+    // WORKTODO: get rid of this struct altogether
     struct TraceData {
         std::array<Polynomial, NUM_WIRES> wires;
         std::array<Polynomial, NUM_SELECTORS> selectors;
