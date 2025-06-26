@@ -3,18 +3,18 @@ name: Recreate Merge Train Queue
 on:
   pull_request:
     types: [closed]
-    branches:
-      - 'merge-train/**'
 
 jobs:
   recreate-queue:
     name: Recreate merge train PR
     runs-on: ubuntu-latest
-    # Only run when a merge queue PR is merged (not other PRs to merge-train branches)
-    if: github.event.pull_request.merged == true
+    # Only run when the PR was merged *and* its HEAD branch is merge-train/**
+    if: ${{ github.event.pull_request.merged &&
+            startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -24,35 +24,32 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Create new merge train PR
+      - name: Create new merge-queue PR
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # Get the merge train branch name
-          MERGE_TRAIN_BRANCH="${{ github.event.pull_request.base.ref }}"
-          
-          # Checkout the merge train branch
-          git checkout $MERGE_TRAIN_BRANCH
-          
-          # Create a new branch for the PR
+          # The merge-train branch is the PR’s *head* branch (e.g. merge-train/main)
+          MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          # Make sure we have it locally
+          git fetch origin "$MERGE_TRAIN_BRANCH":"$MERGE_TRAIN_BRANCH"
+          git checkout "$MERGE_TRAIN_BRANCH"
+
+          # Spin up a fresh queue branch
           TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          NEW_BRANCH="merge-queue/$MERGE_TRAIN_BRANCH/$TIMESTAMP"
-          git checkout -b $NEW_BRANCH
-          
-          # Create an empty commit
+          NEW_BRANCH="merge-queue/${MERGE_TRAIN_BRANCH}/${TIMESTAMP}"
+          git checkout -b "$NEW_BRANCH"
+
+          # Seed it with an empty commit
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
-          
-          # Push the new branch
-          git push origin $NEW_BRANCH
-          
-          # Create the PR using gh CLI
+
+          # Push & open the PR
+          git push origin "$NEW_BRANCH"
+
           gh pr create \
             --base "$MERGE_TRAIN_BRANCH" \
             --head "$NEW_BRANCH" \
             --title "feat: $MERGE_TRAIN_BRANCH" \
-            --body "This is an automated merge queue PR. New commits from \`next\` will be added here.
-            
-            When ready, this PR will be merged into \`$MERGE_TRAIN_BRANCH\`.
-            
-            ---
-            *Created by merge train automation.*"
-        env:
-          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+            --body "This is an automated merge-queue PR. New commits from \`next\` will be added here.
+
+            When ready, this PR will be merged automatically."
