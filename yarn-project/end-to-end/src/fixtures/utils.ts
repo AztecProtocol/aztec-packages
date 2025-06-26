@@ -68,7 +68,11 @@ import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
-import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import {
+  type ContractInstanceWithAddress,
+  getContractClassFromArtifact,
+  getContractInstanceFromDeployParams,
+} from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
@@ -815,10 +819,21 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * but by conventions its address is computed with a salt of 0.
  * @returns The address of the sponsored FPC contract
  */
+export function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
+  return Promise.resolve(
+    getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+    }),
+  );
+}
+
+/**
+ * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * but by conventions its address is computed with a salt of 0.
+ * @returns The address of the sponsored FPC contract
+ */
 export async function getSponsoredFPCAddress() {
-  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
-    salt: new Fr(SPONSORED_FPC_SALT),
-  });
+  const sponsoredFPCInstance = await getSponsoredFPCInstance();
   return sponsoredFPCInstance.address;
 }
 
@@ -833,6 +848,14 @@ export async function setupSponsoredFPC(pxe: PXE) {
   await pxe.registerContract({ instance, artifact: SponsoredFPCContract.artifact });
   getLogger().info(`SponsoredFPC: ${instance.address}`);
   return instance;
+}
+
+/**
+ * Registers the SponsoredFPC in this PXE instance
+ * @param pxe - The pxe client
+ */
+export async function registerSponsoredFPC(pxe: PXE): Promise<void> {
+  await pxe.registerContract({ instance: await getSponsoredFPCInstance(), artifact: SponsoredFPCContract.artifact });
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

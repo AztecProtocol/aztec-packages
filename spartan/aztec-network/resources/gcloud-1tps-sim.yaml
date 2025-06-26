@@ -1,0 +1,69 @@
+ethereum:
+  execution:
+    resources:
+      requests:
+        memory: "5Gi"
+    storageSize: "80Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "5Gi"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "5Gi"
+
+validator:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
+
+fullNode:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
+
+bootNode:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
+
+proverAgent:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
+
+proverNode:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1.5"
+    limits:
+      memory: "5Gi"
+      cpu: "1.5"
