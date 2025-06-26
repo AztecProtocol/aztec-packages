@@ -193,7 +193,7 @@ EOF
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
 function run {
-  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip << EOF
     # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
@@ -272,7 +272,7 @@ function run {
       # Returns exit code from docker run.
       wait \$build_pid
     fi
-  "
+EOF
 }
 
 set +e
