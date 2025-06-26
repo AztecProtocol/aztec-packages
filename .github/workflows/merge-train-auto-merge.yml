@@ -23,16 +23,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // Get all open PRs targeting merge-train branches
+            // Get all open PRs
             const { data: pulls } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open'
             });
             
-            // Filter for merge-train PRs
+            // Filter for PRs from merge-train branches
             const mergeTrainPRs = pulls.filter(pr => 
-              pr.base.ref.startsWith('merge-train/')
+              pr.head.ref.startsWith('merge-train/')
             );
             
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);

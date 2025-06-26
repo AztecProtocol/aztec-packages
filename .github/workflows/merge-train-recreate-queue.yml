@@ -1,7 +1,7 @@
 name: Recreate Merge Train Queue
 
 on:
-  pull_request:
+  pull_request_target:
     types: [closed]
     branches:
       - 'merge-train/**'
@@ -10,7 +10,8 @@ jobs:
   recreate-queue:
     name: Recreate merge train PR
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.base.ref, 'merge-train/')
+    # Only run when a merge queue PR is merged (not other PRs to merge-train branches)
+    if: github.event.pull_request.merged == true
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
