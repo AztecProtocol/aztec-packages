@@ -15,7 +15,6 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
@@ -25,6 +24,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
+import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
@@ -46,8 +46,6 @@ describe('e2e_block_building', () => {
   let sequencer: TestSequencerClient;
   let watcher: AnvilTestWatcher | undefined;
   let teardown: () => Promise<void>;
-
-  const { aztecProofSubmissionWindow } = getL1ContractsConfigEnvVars();
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -573,8 +571,11 @@ describe('e2e_block_building', () => {
       expect(await contract.methods.summed_values(ownerAddress).simulate()).toEqual(51n);
 
       logger.info('Advancing past the proof submission window');
-      await cheatCodes.rollup.advanceToNextEpoch();
-      await cheatCodes.rollup.advanceSlots(aztecProofSubmissionWindow + 1);
+      await cheatCodes.rollup.advanceToEpoch(
+        getProofSubmissionDeadlineEpoch(0n, {
+          proofSubmissionEpochs: 1,
+        }),
+      );
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);

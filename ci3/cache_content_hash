@@ -20,9 +20,19 @@ PLATFORM_TAG="${PLATFORM_TAG:-${OSTYPE:-unknown}-$(uname -m)}"
 rebuild_patterns=()
 for arg in "$@"; do
   if [[ -f "$arg" ]]; then
+    # If the file is a rebuild patterns file, read it and add its contents to the patterns.
     rebuild_patterns+=$(cat "$arg")
     rebuild_patterns+=$'\n'
+  elif [[ "$arg" == ^* ]]; then
+    # Add as pattern literally
+    rebuild_patterns+="$arg"$'\n'
   else
+    # Ensure the folder exists, and add folder as pattern relative to repo root
+    if [[ ! -d "$arg" ]]; then
+      echo_stderr "Error: Directory '$arg' does not exist."
+      exit 1
+    fi
+    arg=$(realpath --relative-to="$(git rev-parse --show-toplevel)" "$arg")
     rebuild_patterns+="$arg"$'\n'
   fi
 done

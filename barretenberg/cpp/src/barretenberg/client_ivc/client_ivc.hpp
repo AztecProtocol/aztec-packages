@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
@@ -15,7 +16,6 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
-#include "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
@@ -131,7 +131,7 @@ class ClientIVC {
         std::shared_ptr<MegaVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
-    using VerificationQueue = std::vector<VerifierInputs>;
+    using VerificationQueue = std::deque<VerifierInputs>;
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
@@ -139,8 +139,7 @@ class ClientIVC {
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
-
-    using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
+    using StdlibVerificationQueue = std::deque<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
     ExecutionTraceUsageTracker trace_usage_tracker;
@@ -158,7 +157,7 @@ class ClientIVC {
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<MegaVerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
-    // Set of tuples {proof, verification_key, type} to be recursively verified
+    // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
     VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;

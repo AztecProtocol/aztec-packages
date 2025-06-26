@@ -292,17 +292,20 @@ TEST(ExecutionTraceGenTest, Gas)
         .addressing_event = { .instruction = instr },
     };
 
+    const auto& exec_instruction_spec = EXEC_INSTRUCTION_SPEC.at(instr.get_exec_opcode());
+
+    const uint32_t addressing_gas = 50;
+    const uint32_t opcode_gas = exec_instruction_spec.gas_cost.opcode_gas;
+    const uint32_t dynamic_l2_gas = exec_instruction_spec.gas_cost.dyn_l2;
+    const uint32_t dynamic_da_gas = exec_instruction_spec.gas_cost.dyn_da;
+    const uint32_t base_da_gas = exec_instruction_spec.gas_cost.base_da;
+
     Gas gas_limit = { .l2Gas = 110149, .daGas = 100000 };
     Gas prev_gas_used = { .l2Gas = 100000, .daGas = 70000 };
-    Gas base_gas = { .l2Gas = 150, .daGas = 5000 };
-    Gas dynamic_gas = { .l2Gas = 5000, .daGas = 9000 };
 
     ex_event.after_context_event.gas_limit = gas_limit; // Will OOG on l2 after dynamic gas
     ex_event.before_context_event.gas_used = prev_gas_used;
-    ex_event.gas_event.opcode_gas = 100;
-    ex_event.gas_event.addressing_gas = 50;
-    ex_event.gas_event.base_gas = base_gas;
-    ex_event.gas_event.dynamic_gas = dynamic_gas;
+    ex_event.gas_event.addressing_gas = addressing_gas;
     ex_event.gas_event.dynamic_gas_factor = { .l2Gas = 2, .daGas = 1 };
     ex_event.gas_event.oog_base_l2 = false;
     ex_event.gas_event.oog_base_da = false;
@@ -310,7 +313,7 @@ TEST(ExecutionTraceGenTest, Gas)
     ex_event.gas_event.oog_dynamic_da = false;
     ex_event.gas_event.limit_used_l2_comparison_witness = 0;
     ex_event.gas_event.limit_used_da_comparison_witness =
-        gas_limit.daGas - prev_gas_used.daGas - base_gas.daGas - dynamic_gas.daGas * 1;
+        gas_limit.daGas - prev_gas_used.daGas - base_da_gas - dynamic_da_gas * 1;
 
     builder.process({ ex_event }, trace);
 
@@ -320,9 +323,9 @@ TEST(ExecutionTraceGenTest, Gas)
                     AllOf(ROW_FIELD_EQ(execution_sel, 0)),
                     // First real row
                     AllOf(ROW_FIELD_EQ(execution_sel, 1),
-                          ROW_FIELD_EQ(execution_opcode_gas, 100),
-                          ROW_FIELD_EQ(execution_addressing_gas, 50),
-                          ROW_FIELD_EQ(execution_base_da_gas, 5000),
+                          ROW_FIELD_EQ(execution_opcode_gas, opcode_gas),
+                          ROW_FIELD_EQ(execution_addressing_gas, addressing_gas),
+                          ROW_FIELD_EQ(execution_base_da_gas, base_da_gas),
                           ROW_FIELD_EQ(execution_out_of_gas_base_l2, false),
                           ROW_FIELD_EQ(execution_out_of_gas_base_da, false),
                           ROW_FIELD_EQ(execution_out_of_gas_base, false),
@@ -331,13 +334,14 @@ TEST(ExecutionTraceGenTest, Gas)
                           ROW_FIELD_EQ(execution_should_run_dyn_gas_check, true),
                           ROW_FIELD_EQ(execution_dynamic_l2_gas_factor, 2),
                           ROW_FIELD_EQ(execution_dynamic_da_gas_factor, 1),
-                          ROW_FIELD_EQ(execution_dynamic_l2_gas, 5000),
-                          ROW_FIELD_EQ(execution_dynamic_da_gas, 9000),
+                          ROW_FIELD_EQ(execution_dynamic_l2_gas, dynamic_l2_gas),
+                          ROW_FIELD_EQ(execution_dynamic_da_gas, dynamic_da_gas),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic_l2, true),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic_da, false),
                           ROW_FIELD_EQ(execution_out_of_gas_dynamic, true),
                           ROW_FIELD_EQ(execution_limit_used_l2_cmp_diff, 0),
-                          ROW_FIELD_EQ(execution_limit_used_da_cmp_diff, 16000))));
+                          ROW_FIELD_EQ(execution_limit_used_da_cmp_diff,
+                                       ex_event.gas_event.limit_used_da_comparison_witness))));
 }
 
 TEST(ExecutionTraceGenTest, DiscardNestedFailContext)
@@ -502,6 +506,76 @@ TEST(ExecutionTraceGenTest, DiscardAppLogicDueToSecondEnqueuedCallError)
     EXPECT_EQ(rows[4].execution_is_dying_context, 1);
     EXPECT_EQ(rows[4].execution_sel_error, 1);
     EXPECT_EQ(rows[4].execution_rollback_context, 0); // No parent, so no rollback
+}
+
+TEST(ExecutionTraceGenTest, InternalCallRet)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+    // Use the instruction builder - we can make the operands more complex
+    const auto instr = InstructionBuilder(WireOpCode::INTERNALCALL)
+                           // All operands are direct - for simplicity
+                           .operand<uint32_t>(10)
+                           .build();
+
+    simulation::ExecutionEvent ex_event = {
+        .wire_instruction = instr,
+        .addressing_event = {
+            .instruction = instr,
+            .resolution_info = {
+                {
+                  .resolved_operand = MemoryValue::from<uint32_t>(10) },
+            },
+        },
+        .before_context_event {
+        .internal_call_id = 1,
+        .internal_call_return_id = 0,
+        .next_internal_call_id = 2,
+        }
+    };
+
+    builder.process({ ex_event }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the internal call
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_internal_call, 1),
+                          ROW_FIELD_EQ(execution_next_internal_call_id, 2),
+                          ROW_FIELD_EQ(execution_internal_call_id, 1),
+                          ROW_FIELD_EQ(execution_internal_call_return_id, 0),
+                          ROW_FIELD_EQ(execution_rop_0_, 10))));
+}
+
+TEST(ExecutionTraceGenTest, Jump)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::JUMP_32)
+                           .operand<uint32_t>(120) // Immediate operand
+                           .build();
+
+    simulation::ExecutionEvent ex_event_jump = {
+        .wire_instruction = instr,
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                  .resolved_operand = MemoryValue::from<uint32_t>(120),
+                              } } },
+    };
+
+    builder.process({ ex_event_jump }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the jump
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_jump, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 120))));
 }
 
 } // namespace

@@ -8,6 +8,7 @@ import {
   L2BlockSourceEvents,
 } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, ITxCollector, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -35,6 +36,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   constructor(
     private l2BlockSource: L2BlockSourceEventEmitter,
+    private l1ToL2MessageSource: L1ToL2MessageSource,
     private epochCache: EpochCache,
     private txCollector: ITxCollector,
     private blockBuilder: IFullNodeBlockBuilder,
@@ -125,8 +127,10 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
     if (missing && missing.length > 0) {
       throw new TransactionsNotAvailableError(missing);
     }
+    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockFromL1.number);
     const { block, failedTxs, numTxs } = await this.blockBuilder.buildBlock(
       txs,
+      l1ToL2Messages,
       blockFromL1.header.globalVariables,
       {},
       fork,
@@ -139,7 +143,7 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
       throw new ReExFailedTxsError(failedTxs.length);
     }
     if (!block.archive.root.equals(blockFromL1.archive.root)) {
-      throw new ReExStateMismatchError();
+      throw new ReExStateMismatchError(blockFromL1.archive.root, block.archive.root);
     }
   }
 
@@ -155,6 +159,10 @@ export class EpochPruneWatcher extends (EventEmitter as new () => WatcherEmitter
 
   private async getValidatorsForEpoch(epochNumber: bigint): Promise<EthAddress[]> {
     const { committee } = await this.epochCache.getCommitteeForEpoch(epochNumber);
+    if (!committee) {
+      this.log.trace(`No committee found for epoch ${epochNumber}`);
+      return [];
+    }
     return committee;
   }
 

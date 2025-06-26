@@ -37,7 +37,7 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
 
     std::shared_ptr<VerificationKey> key;
     Builder& builder;
-    std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
   private:
     FF evaluate_public_input_column(const std::vector<FF>& points, const std::vector<FF>& challenges);

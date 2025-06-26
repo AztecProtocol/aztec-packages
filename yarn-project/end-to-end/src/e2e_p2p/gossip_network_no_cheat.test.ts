@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, sleep } from '@aztec/aztec.js';
-import { addL1ValidatorToQueue, dripQueue } from '@aztec/cli/l1';
+import { addL1Validator } from '@aztec/cli/l1';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
@@ -59,10 +59,8 @@ describe('e2e_p2p_network', () => {
       mockZkPassportVerifier: true,
     });
 
-    await t.setupAccount();
     await t.addBootstrapNode();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -116,12 +114,13 @@ describe('e2e_p2p_network', () => {
     for (let i = 0; i < validators.length; i++) {
       const validator = validators[i];
       const mockPassportProof = ZkPassportProofParams.random().toBuffer();
-      await addL1ValidatorToQueue({
+      await addL1Validator({
         rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
         chainId: t.ctx.aztecNodeConfig.l1ChainId,
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
+        merkleProof: [], // empty merkle proof - check is disabled in the test
         stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
         proofParams: mockPassportProof,
         log: t.logger.info,
@@ -135,15 +134,8 @@ describe('e2e_p2p_network', () => {
       });
     }
 
-    // Drip the deposit queue to add validators to the rollup
-    await dripQueue({
-      rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
-      chainId: t.ctx.aztecNodeConfig.l1ChainId,
-      privateKey: t.baseAccountPrivateKey,
-      mnemonic: undefined,
-      stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
-      log: t.logger.info,
-      debugLogger: t.logger,
+    await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+      hash: await rollup.write.flushEntryQueue(),
     });
 
     const attestersImmedatelyAfterAdding = await rollup.read.getAttesters();
@@ -196,7 +188,12 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(4000);
+    await sleep(8000);
+
+    // We need to `createNodes` before we setup account, because
+    // those nodes actually form the committee, and so we cannot build
+    // blocks without them (since targetCommitteeSize is set to the number of nodes)
+    await t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {

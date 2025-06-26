@@ -2,10 +2,10 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -128,7 +128,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
         outer_circuit.finalize_circuit(false);
-        auto graph = cdg::Graph(outer_circuit);
+        auto graph = cdg::StaticAnalyzer(outer_circuit);
         auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 4);
         info("Connected components: ", connected_components.size());

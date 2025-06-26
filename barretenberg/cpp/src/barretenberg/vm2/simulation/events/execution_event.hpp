@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/events/gas_event.hpp"
+#include "barretenberg/vm2/simulation/events/internal_call_stack_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2::simulation {
@@ -18,6 +19,7 @@ namespace bb::avm2::simulation {
 // Possible mutually exclusive execution errors.
 enum class ExecutionError {
     NONE,
+    BYTECODE_NOT_FOUND,
     INSTRUCTION_FETCHING,
     GAS_BASE,
     ADDRESSING,

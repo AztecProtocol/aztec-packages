@@ -352,10 +352,6 @@ class AvmFlavor {
 
         Transcript() = default;
 
-        Transcript(const std::vector<FF>& proof)
-            : NativeTranscript(proof)
-        {}
-
         void deserialize_full_transcript();
         void serialize_full_transcript();
     };

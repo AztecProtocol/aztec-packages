@@ -50,14 +50,4 @@ library Hash {
   function sha256ToField(bytes memory _data) internal pure returns (bytes32) {
     return bytes32(bytes.concat(new bytes(1), bytes31(sha256(_data))));
   }
-
-  /**
-   * @notice Computes the sha256 hash of the provided data and converts it to a field element
-   * @dev Truncating one byte to convert the hash to a field element.
-   * @param _data - A bytes32 value to hash
-   * @return The hash of the provided data as a field element
-   */
-  function sha256ToField(bytes32 _data) internal pure returns (bytes32) {
-    return sha256ToField(abi.encodePacked(_data));
-  }
 }

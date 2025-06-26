@@ -127,20 +127,30 @@ export async function awaitProposalExecution(
   );
 }
 
-export async function awaitCommitteeExists({ rollup, logger }: { rollup: RollupContract; logger: Logger }) {
+export async function awaitCommitteeExists({
+  rollup,
+  logger,
+}: {
+  rollup: RollupContract;
+  logger: Logger;
+}): Promise<readonly `0x${string}`[]> {
   logger.info(`Waiting for committee to be set`);
-  let committee: readonly `0x${string}`[] = [];
+  let committee: readonly `0x${string}`[] | undefined;
   await retryUntil(
     async () => {
       committee = await rollup.getCurrentEpochCommittee();
-      return committee.length > 0;
+      return committee && committee.length > 0;
     },
     'non-empty committee',
     60,
   );
-  return committee;
+  return committee!;
 }
 
+/**
+ * Await the committee to be slashed out of the validator set.
+ * Currently assumes that the committee is the same size as the validator set.
+ */
 export async function awaitCommitteeKicked({
   offense,
   rollup,
@@ -204,7 +214,7 @@ export async function awaitCommitteeKicked({
   // but they should be reduced to the "living" status
   await cheatCodes.debugRollup();
   const committeePostSlashing = await rollup.getCurrentEpochCommittee();
-  expect(committeePostSlashing.length).toBe(attestersPre.length);
+  expect(committeePostSlashing?.length).toBe(attestersPre.length);
 
   const attestersPostSlashing = await rollup.getAttesters();
   expect(attestersPostSlashing.length).toBe(0);
@@ -215,12 +225,17 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(2);
   }
 
+  await cheatCodes.debugRollup();
+  await cheatCodes.advanceToNextEpoch();
+  await sendDummyTx();
   await cheatCodes.advanceToNextEpoch();
   await sendDummyTx();
   await cheatCodes.debugRollup();
 
   const committeeNextEpoch = await rollup.getCurrentEpochCommittee();
-  expect(committeeNextEpoch.length).toBe(0);
+  // The committee should be undefined, since the validator set is empty
+  // and the tests currently using this helper always set a target committee size.
+  expect(committeeNextEpoch).toBeUndefined();
 
   const attestersNextEpoch = await rollup.getAttesters();
   expect(attestersNextEpoch.length).toBe(0);

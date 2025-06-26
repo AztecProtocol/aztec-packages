@@ -103,11 +103,10 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_pcs_rou
 
 template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::export_proof()
 {
-    proof = transcript->proof_data;
-    return proof;
+    return transcript->export_proof();
 }
 
-template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
 {
     PROFILE_THIS_NAME("Decider::construct_proof");
 
@@ -118,7 +117,6 @@ template <IsUltraOrMegaHonk Flavor> HonkProof DeciderProver_<Flavor>::construct_
     // Execute Shplemini PCS
     execute_pcs_rounds();
     vinfo("finished decider proving.");
-    return export_proof();
 }
 
 template class DeciderProver_<UltraFlavor>;

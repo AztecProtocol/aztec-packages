@@ -18,6 +18,7 @@ template <typename FF_> class class_id_derivationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
+
         return (in.get(C::class_id_derivation_sel)).is_zero();
     }
 

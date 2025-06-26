@@ -50,7 +50,9 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 
     size_t key_idx = 0;
-    for (auto& [proof, vkey, type] : verification_queue) {
+    while (!verification_queue.empty()) {
+        auto& [proof, vkey, type] = verification_queue.front();
+
         // Construct stdlib proof directly from the internal native queue data
         auto stdlib_proof = bb::convert_native_proof_to_stdlib(&circuit, proof);
 
@@ -59,8 +61,9 @@ void ClientIVC::instantiate_stdlib_verification_queue(
             vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
         stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
+
+        verification_queue.pop_front(); // the native data is not needed beyond this point
     }
-    verification_queue.clear(); // the native data is not needed beyond this point
 }
 
 /**
@@ -116,6 +119,15 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
     }
 
+    // Recursively verify the corresponding merge proof
+    PairingPoints pairing_points = goblin.recursively_verify_merge(circuit);
+
+    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
+    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
+        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
+
+    pairing_points.aggregate(nested_pairing_points);
+
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
@@ -126,11 +138,7 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
         decider_vk->public_inputs,
         decider_vk->verification_key->databus_propagation_data);
 
-    // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
-    PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
-        decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
-
-    return nested_pairing_points;
+    return pairing_points;
 }
 
 /**
@@ -150,22 +158,21 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Perform Oink/PG recursive verification and databus consistency checks for each entry in the verification queue
+    // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
     PairingPoints points_accumulator;
-    for (auto& verifier_input : stdlib_verification_queue) {
+    while (!stdlib_verification_queue.empty()) {
+        const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
         PairingPoints pairing_points =
             perform_recursive_verification_and_databus_consistency_checks(circuit, verifier_input);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Optimize recursion aggregation - seems we
         // can use `batch_mul` here to decrease the size of the `ECCOpQueue`, but must be cautious with FS security.
         points_accumulator.aggregate(pairing_points);
+
+        stdlib_verification_queue.pop_front();
     }
-    stdlib_verification_queue.clear();
 
-    // Perform recursive verification for each entry in the merge verification queue
-    PairingPoints merge_pairing_points = goblin.perform_merge_recursive_verification(circuit);
-
-    points_accumulator.aggregate(merge_pairing_points);
+    // Propagate the pairing points accumulator via the public inputs
     points_accumulator.set_public();
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
@@ -220,7 +227,8 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
         // proof
         MegaOinkProver oink_prover{ proving_key, honk_vk };
         vinfo("computing oink proof...");
-        HonkProof oink_proof = oink_prover.prove();
+        oink_prover.prove();
+        HonkProof oink_proof = oink_prover.export_proof();
         vinfo("oink proof constructed");
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -299,7 +307,7 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     }
 
     // Perform recursive verification of the last merge proof
-    PairingPoints points_accumulator = goblin.perform_merge_recursive_verification(builder);
+    PairingPoints points_accumulator = goblin.recursively_verify_merge(builder);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
@@ -405,7 +413,8 @@ HonkProof ClientIVC::decider_prove() const
     vinfo("prove decider...");
     fold_output.accumulator->proving_key.commitment_key = bn254_commitment_key;
     MegaDeciderProver decider_prover(fold_output.accumulator);
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+    return decider_prover.export_proof();
 }
 
 /**

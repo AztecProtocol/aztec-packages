@@ -15,7 +15,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
-import { elapsed } from '@aztec/foundation/timer';
+import { Timer, elapsed } from '@aztec/foundation/timer';
 import type { CustomRange } from '@aztec/kv-store';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -157,21 +157,17 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
+      rollup.getProofSubmissionEpochs(),
     ] as const);
 
     const l1StartBlockHash = await publicClient
       .getBlock({ blockNumber: l1StartBlock, includeTransactions: false })
       .then(block => Buffer32.fromString(block.hash));
 
-    const {
-      aztecEpochDuration: epochDuration,
-      aztecSlotDuration: slotDuration,
-      ethereumSlotDuration,
-      aztecProofSubmissionWindow: proofSubmissionWindow,
-    } = config;
+    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
 
     const l1Constants = {
       l1StartBlockHash,
@@ -180,7 +176,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       epochDuration,
       slotDuration,
       ethereumSlotDuration,
-      proofSubmissionWindow,
+      proofSubmissionEpochs: Number(proofSubmissionEpochs),
     };
 
     const opts = {
@@ -381,6 +377,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     const canPrune = localPendingBlockNumber > provenBlockNumber && rollupCanPrune;
 
     if (canPrune) {
+      const timer = new Timer();
       const pruneFrom = provenBlockNumber + 1;
 
       const header = await this.getBlockHeader(Number(pruneFrom));
@@ -411,7 +408,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
           `to ${provenBlockNumber} due to predicted reorg at L1 block ${currentL1BlockNumber}. ` +
           `Updated L2 latest block is ${await this.getBlockNumber()}.`,
       );
-      this.instrumentation.processPrune();
+      this.instrumentation.processPrune(timer.ms());
       // TODO(palla/reorg): Do we need to set the block synched L1 block number here?
       // Seems like the next iteration should handle this.
       // await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -433,7 +430,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private async handleL1ToL2Messages(
     messagesSyncPoint: L1BlockId,
     currentL1BlockNumber: bigint,
-    currentL1BlockHash: Buffer32,
+    _currentL1BlockHash: Buffer32,
   ) {
     this.log.trace(`Handling L1 to L2 messages from ${messagesSyncPoint.l1BlockNumber} to ${currentL1BlockNumber}.`);
     if (currentL1BlockNumber <= messagesSyncPoint.l1BlockNumber) {
@@ -459,10 +456,6 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.debug(
         `No L1 to L2 messages to query between L1 blocks ${messagesSyncPoint.l1BlockNumber} and ${currentL1BlockNumber}.`,
       );
-      await this.store.setMessageSynchedL1Block({
-        l1BlockHash: currentL1BlockHash,
-        l1BlockNumber: currentL1BlockNumber,
-      });
       return;
     }
 
@@ -500,7 +493,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       this.log.verbose(
         `Retrieved ${messages.length} new L1 to L2 messages between L1 blocks ${searchStartBlock} and ${searchEndBlock}.`,
       );
+      const timer = new Timer();
       await this.store.addL1ToL2Messages(messages);
+      const perMsg = timer.ms() / messages.length;
+      this.instrumentation.processNewMessages(messages.length, perMsg);
       for (const msg of messages) {
         this.log.debug(`Downloaded L1 to L2 message`, { ...msg, leaf: msg.leaf.toString() });
         lastMessage = msg;
