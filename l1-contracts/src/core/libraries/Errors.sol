@@ -100,7 +100,6 @@ library Errors {
   error ValidatorSelection__InvalidDeposit(address attester, address proposer); // 0x533169bd
   error ValidatorSelection__InsufficientAttestations(uint256 minimumNeeded, uint256 provided); // 0xaf47297f
   error ValidatorSelection__InvalidCommitteeCommitment(bytes32 reconstructed, bytes32 expected); // 0xca8d5954
-  error ValidatorSelection__InvalidAttestationsLength(uint256 expected, uint256 actual); // 0xe923198c
   error ValidatorSelection__InsufficientCommitteeSize(uint256 actual, uint256 expected); // 0x98673597
 
   // Staking
@@ -147,4 +146,7 @@ library Errors {
 
   // FeeLib
   error FeeLib__InvalidFeeAssetPriceModifier(); // 0xf2fb32ad
+
+  // RewardBooster
+  error RewardBooster__OnlyRollup(address caller);
 }

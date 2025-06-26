@@ -386,6 +386,9 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::ADD,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_ADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::GETENVVAR,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_GETENVVAR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
     { ExecutionOpCode::SET,
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_SET_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
@@ -422,6 +425,9 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::INTERNALRETURN,
       { .num_addresses = 0,
         .gas_cost = { .opcode_gas = AVM_INTERNALRETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::KECCAKF1600,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_KECCAKF1600_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
 };
 
 } // namespace bb::avm2

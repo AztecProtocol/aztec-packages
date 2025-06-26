@@ -7,6 +7,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -24,6 +25,57 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
     set_output(c);
+}
+
+void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
+{
+    auto& memory = context.get_memory();
+    TaggedValue result;
+
+    EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
+    switch (env_var) {
+    case EnvironmentVariable::ADDRESS:
+        result = TaggedValue::from<FF>(context.get_address());
+        break;
+    case EnvironmentVariable::SENDER:
+        result = TaggedValue::from<FF>(context.get_msg_sender());
+        break;
+    case EnvironmentVariable::TRANSACTIONFEE:
+        result = TaggedValue::from<FF>(context.get_transaction_fee());
+        break;
+    case EnvironmentVariable::CHAINID:
+        result = TaggedValue::from<FF>(context.get_globals().chainId);
+        break;
+    case EnvironmentVariable::VERSION:
+        result = TaggedValue::from<FF>(context.get_globals().version);
+        break;
+    case EnvironmentVariable::BLOCKNUMBER:
+        result = TaggedValue::from<uint32_t>(context.get_globals().blockNumber);
+        break;
+    case EnvironmentVariable::TIMESTAMP:
+        result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
+        break;
+    case EnvironmentVariable::FEEPERL2GAS:
+        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
+        break;
+    case EnvironmentVariable::FEEPERDAGAS:
+        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
+        break;
+    case EnvironmentVariable::ISSTATICCALL:
+        result = TaggedValue::from<FF>(context.get_is_static() ? 1 : 0);
+        break;
+    case EnvironmentVariable::L2GASLEFT:
+        result = TaggedValue::from<FF>(context.gas_left().l2Gas);
+        break;
+    case EnvironmentVariable::DAGASLEFT:
+        result = TaggedValue::from<FF>(context.gas_left().daGas);
+        break;
+    default:
+        throw std::runtime_error("Invalid environment variable enum value");
+    }
+
+    memory.set(dst_addr, result);
+    set_output(result);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -68,6 +120,7 @@ void Execution::call(ContextInterface& context,
 
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
+                                                               /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
                                                                /*cd_offset_addr=*/cd_offset,
                                                                /*cd_size_addr=*/cd_size.as<uint32_t>(),
@@ -140,13 +193,14 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
+// TODO(JEAMON): #15278 - Enforce U1 tag checking on conditional memory value.
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
     auto& memory = context.get_memory();
 
     auto resolved_cond = memory.get(cond_addr);
     set_inputs({ resolved_cond });
-    if (!resolved_cond.as_ff().is_zero()) {
+    if (resolved_cond.as<uint1_t>().value() == 1) {
         context.set_next_pc(loc);
     }
 }
@@ -172,6 +226,16 @@ void Execution::internal_return(ContextInterface& context)
     }
 }
 
+void Execution::keccak_permutation(ContextInterface& context, MemoryAddress dst_addr, MemoryAddress src_addr)
+{
+    try {
+        keccakf1600.permutation(context.get_memory(), dst_addr, src_addr);
+    } catch (const KeccakF1600Exception& e) {
+        // TODO: Possibly handle the error here.
+        throw e;
+    }
+}
+
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
 ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
@@ -193,12 +257,14 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             // State before doing anything.
             ex_event.before_context_event = context.serialize_context_event();
             ex_event.next_context_id = context_provider.get_next_context_id();
-
-            // Basic pc and bytecode setup.
             auto pc = context.get_pc();
-            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
 
             //// Temporality group 1 starts ////
+
+            // We try to get the bytecode id. This can throw if the contract is not deployed.
+            ex_event.bytecode_id = context.get_bytecode_manager().get_bytecode_id();
+
+            //// Temporality group 2 starts ////
 
             // We try to fetch an instruction.
             ex_event.error = ExecutionError::INSTRUCTION_FETCHING; // Set preemptively.
@@ -207,21 +273,21 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
 
-            //// Temporality group 2 starts ////
+            //// Temporality group 3 starts ////
 
             // Gas checking may throw OOG.
             ex_event.error = ExecutionError::GAS_BASE;      // Set preemptively.
             get_gas_tracker().set_instruction(instruction); // This accesses specs, consider changing.
             get_gas_tracker().consume_base_gas();
 
-            //// Temporality group 3 starts ////
+            //// Temporality group 4 starts ////
 
             // Resolve the operands.
             ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
-            //// Temporality group 4+ starts (to be defined) ////
+            //// Temporality group 5+ starts (to be defined) ////
 
             // Execute the opcode.
             ex_event.error = ExecutionError::DISPATCHING; // Set preemptively.
@@ -229,8 +295,16 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
 
             // If we made it this far, there was no error.
             ex_event.error = ExecutionError::NONE;
+        }
+        // TODO(fcarreiro): do this in a nicer way.
+        catch (const BytecodeNotFoundError& e) {
+            vinfo("Bytecode not found: ", e.what());
+            context.halt();
+            ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
+            ex_event.bytecode_id = e.bytecode_id;
+            set_execution_result({ .success = false });
         } catch (const std::exception& e) {
-            info("Exceptional halt: ", e.what());
+            vinfo("Exceptional halt: ", e.what());
             context.halt();
             set_execution_result({ .success = false });
         }
@@ -310,6 +384,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
         break;
+    case ExecutionOpCode::GETENVVAR:
+        call_with_operands(&Execution::get_env_var, context, resolved_operands);
+        break;
     case ExecutionOpCode::SET:
         call_with_operands(&Execution::set, context, resolved_operands);
         break;
@@ -339,6 +416,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
         break;
     case ExecutionOpCode::INTERNALRETURN:
         call_with_operands(&Execution::internal_return, context, resolved_operands);
+        break;
+    case ExecutionOpCode::KECCAKF1600:
+        call_with_operands(&Execution::keccak_permutation, context, resolved_operands);
         break;
     default:
         // TODO: Make this an assertion once all execution opcodes are supported.

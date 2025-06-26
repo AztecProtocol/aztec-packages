@@ -32,6 +32,7 @@ include "bytecode/instr_fetching.pil";
 include "bytecode/class_id_derivation.pil";
 include "bytecode/update_check.pil";
 
+include "opcodes/get_env_var.pil";
 include "opcodes/internal_call.pil";
 include "opcodes/external_call.pil";
 
@@ -46,37 +47,54 @@ pol commit last; // last row selector
 sel * (1 - sel) = 0;
 last * (1 - last) = 0;
 
-// This is a set of selectors for the tx trace, they are here for now
+// Selector indicating enqueued call boundaries.
+// Used by TX trace for lookups to dispatch and retrieve results/reverted.
 pol commit enqueued_call_start;
 pol commit enqueued_call_end;
+
+// (enqueued_call_start == 1) <==> (is first active execution row)
+//                               or (is first active row after an enqueued call ends)
+// In other words, if this is the very first (inactive) row, or an enqueued call end,
+// and the next row is active, that next row is an enqueued call start.
+#[ENQUEUED_CALL_START]
+enqueued_call_start' = (precomputed.first_row + enqueued_call_end) * sel';
+
+// (enqueued_call_end == 1) <==> (is exit from top-level context)
+#[ENQUEUED_CALL_END]
+enqueued_call_end = sel_exit_call * (1 - has_parent_ctx);
 
 
 /**************************************************************************************************
  *  Setup (some general constraints)
  **************************************************************************************************/
 
-// If the current row is an execution row, then either
-// the next row is an execution row, or the current row is marked as the last row.
-// sel => (sel' v last) = 1              iff
-// ¬sel v (sel' v last) = 1              iff
-// ¬(¬sel v (sel' v last)) = 0           iff
-// sel ^ (¬sel' ^ ¬last) = 0             iff
-// sel * (1 - sel') * (1 - last) = 0
-#[TRACE_CONTINUITY_1]
-sel * (1 - sel') * (1 - last) = 0;
-// If the current row is not an execution row, then there are no more execution rows after that.
-// (not enforced for the first row)
-#[TRACE_CONTINUITY_2]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
-// If the current row is the last row, then the next row is not an execution row.
+// If sel = 0, and it's not the first row, then all following rows should have sel = 0.
+#[TRACE_CONTINUITY]
+(1 - sel) * (1 - precomputed.first_row) * sel' = 0;
 #[LAST_IS_LAST]
-last * sel' = 0;
+last = sel * (1 - sel');
 
 /**************************************************************************************************
- *  Temporality group 1: Instruction fetching (unconditional)
+ *  Temporality group 1: Bytecode retrieval (unconditional)
  **************************************************************************************************/
 
 pol commit bytecode_id;
+pol commit sel_bytecode_retrieval_failure;
+
+#[BYTECODE_RETRIEVAL_RESULT]
+sel {
+    bytecode_id, contract_address, sel_bytecode_retrieval_failure
+} in bc_retrieval.sel {
+    bc_retrieval.bytecode_id, bc_retrieval.address, bc_retrieval.error
+};
+
+pol commit sel_bytecode_retrieval_success;
+sel * (sel_bytecode_retrieval_success - (1 - sel_bytecode_retrieval_failure)) = 0;
+
+/**************************************************************************************************
+ *  Temporality group 2: Instruction fetching
+ **************************************************************************************************/
+
 pol commit instr_length; // Need this for shift col on next_pc
 pol commit sel_instruction_fetching_failure;
 
@@ -91,7 +109,7 @@ pol commit op[7];  // operands
 // TODO: We can consider optimizing this later, but it is probably the cleanest right now.
 
 #[INSTRUCTION_FETCHING_RESULT]
-sel {
+sel_bytecode_retrieval_success {
     pc, bytecode_id, sel_instruction_fetching_failure
 } in instr_fetching.sel {
     instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.sel_parsing_err
@@ -139,7 +157,8 @@ sel_instruction_fetching_success {
     sel_op_is_address[0], sel_op_is_address[1], sel_op_is_address[2],  sel_op_is_address[3],
     sel_op_is_address[4], sel_op_is_address[5], sel_op_is_address[6],
     // subtraces, mem ops, etc (defined later in this file)
-    subtrace_operation_id, sel_alu, sel_bitwise, sel_to_radix, sel_ecc_add, sel_poseidon2_perm,
+    subtrace_operation_id, sel_execution, sel_alu, sel_bitwise, sel_poseidon2_perm,
+    sel_to_radix, sel_ecc_add, sel_keccakf1600,
     mem_op[0], mem_op[1], mem_op[2], mem_op[3], mem_op[4], mem_op[5], mem_op[6],
     rw[0], rw[1], rw[2], rw[3], rw[4], rw[5], rw[6]
 } in
@@ -161,11 +180,13 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[6],
     // subtraces
     precomputed.subtrace_operation_id,
+    precomputed.sel_dispatch_execution,
     precomputed.sel_dispatch_alu,
     precomputed.sel_dispatch_bitwise,
     precomputed.sel_dispatch_poseidon_perm,
     precomputed.sel_dispatch_to_radix,
     precomputed.sel_dispatch_ecc,
+    precomputed.sel_dispatch_keccakf1600,
     // memory operations per register
     precomputed.mem_op_reg[0],
     precomputed.mem_op_reg[1],
@@ -228,6 +249,9 @@ pol commit rw[7];
 
 // TODO: gate this group with some error flag from the previous group.
 
+pol commit opcode_error;
+opcode_error * (1 - opcode_error) = 0;
+
 // Subtrace operation id
 pol commit subtrace_operation_id;
 
@@ -236,15 +260,78 @@ pol commit subtrace_operation_id;
 pol commit sel_alu;
 pol commit sel_bitwise;
 pol commit sel_to_radix;
-pol commit sel_ecc_add;
 pol commit sel_poseidon2_perm;
-pol commit sel_internal_call;
-pol commit sel_internal_return;
+pol commit sel_ecc_add;
+pol commit sel_data_copy;
+pol commit sel_execution;
+
+// Embedded execution opcode selectors
+pol commit sel_get_env_var;
+pol commit sel_set;
+pol commit sel_mov;
 pol commit sel_jump;
 pol commit sel_jumpi;
+pol commit sel_call;
+pol commit sel_static_call;
+pol commit sel_internal_call;
+pol commit sel_internal_return;
+pol commit sel_return;
+pol commit sel_revert;
+pol commit sel_success_copy;
+
+#[EXEC_OP_ID_DECOMPOSITION]
+sel_execution * (
+   sel_get_env_var * constants.AVM_EXEC_OP_ID_GETENVVAR +
+   sel_set * constants.AVM_EXEC_OP_ID_SET +
+   sel_mov * constants.AVM_EXEC_OP_ID_MOV +
+   sel_jump * constants.AVM_EXEC_OP_ID_JUMP +
+   sel_jumpi * constants.AVM_EXEC_OP_ID_JUMPI +
+   sel_call * constants.AVM_EXEC_OP_ID_CALL +
+   sel_static_call * constants.AVM_EXEC_OP_ID_STATICCALL +
+   sel_internal_call * constants.AVM_EXEC_OP_ID_INTERNALCALL +
+   sel_internal_return * constants.AVM_EXEC_OP_ID_INTERNALRETURN +
+   sel_return * constants.AVM_EXEC_OP_ID_RETURN +
+   sel_revert * constants.AVM_EXEC_OP_ID_REVERT +
+   sel_success_copy * constants.AVM_EXEC_OP_ID_SUCCESSCOPY
+   - subtrace_operation_id
+) = 0;
+
+// Boolean relations for the embedded execution opcode selectors.
+sel_get_env_var * (1 - sel_get_env_var) = 0;
+sel_set * (1 - sel_set) = 0;
+sel_mov * (1 - sel_mov) = 0;
+sel_jump * (1 - sel_jump) = 0;
+sel_jumpi * (1 - sel_jumpi) = 0;
+sel_call * (1 - sel_call) = 0;
+sel_static_call * (1 - sel_static_call) = 0;
+sel_internal_call * (1 - sel_internal_call) = 0;
+sel_internal_return * (1 - sel_internal_return) = 0;
+sel_return * (1 - sel_return) = 0;
+sel_revert * (1 - sel_revert) = 0;
+sel_success_copy * (1 - sel_success_copy) = 0;
 
 // This is used in context.pil
 pol PC_JUMP = sel_internal_call + sel_internal_return + sel_jump + sel_jumpi;
+pol commit sel_keccakf1600;
+
+/**************************************************************************************************
+* Dispatch permutations to the gadget subtraces
+ **************************************************************************************************/
+
+#[DISPATCH_KECCAKF1600]
+sel_keccakf1600 { precomputed.clk, rop[0], rop[1], context_id, opcode_error }
+is
+keccakf1600.start { keccakf1600.clk, keccakf1600.dst_addr, keccakf1600.src_addr, keccakf1600.space_id, keccakf1600.error };
+
+/**************************************************************************************************
+ *  Opcode specific constraints
+ **************************************************************************************************/
+#[PC_NEXT_ROW_INT_CALL_JUMP]
+NOT_LAST_EXEC * (sel_internal_call + sel_jump) * (pc' - rop[0]) = 0;
+
+// For JUMPI opcode, the conditional value is U1 and stored in register[0].
+#[PC_NEXT_ROW_JUMPI]
+NOT_LAST_EXEC * sel_jumpi * (register[0] * (rop[1] - next_pc) + next_pc - pc') = 0;
 
 /**************************************************************************************************
  *  Temporality group N: Dynamic gas

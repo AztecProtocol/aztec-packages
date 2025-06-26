@@ -13,11 +13,9 @@ function resolveRelativePath(relativePath: string) {
   return fileURLToPath(new URL(relativePath, import.meta.url).href);
 }
 
-const main = async () => {
-  // TODO(#7410) tube VK should have been generated in noir-projects, but since we don't have a limited set of tubes
-  // we fake it here.
+async function generateFakeTubeVK(name: string) {
   const tubeVK = VerificationKeyData.makeFakeRollupHonk();
-  const tubeVKPath = resolveRelativePath('../../artifacts/keys/tube.vk.data.json');
+  const tubeVKPath = resolveRelativePath(`../../artifacts/keys/${name}.vk.data.json`);
   await fs.writeFile(
     tubeVKPath,
     JSON.stringify({
@@ -25,6 +23,13 @@ const main = async () => {
       keyAsFields: tubeVK.keyAsFields.key.map((field: Fr) => field.toString()),
     }),
   );
+}
+
+const main = async () => {
+  // TODO(#7410) tube VK should have been generated in noir-projects, but since we don't have a limited set of tubes
+  // we fake it here.
+  await generateFakeTubeVK('private_tube');
+  await generateFakeTubeVK('public_tube');
 
   const files = await fs.readdir(resolveRelativePath('../../artifacts/keys'));
   for (const fileName of files) {

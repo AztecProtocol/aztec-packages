@@ -1,22 +1,28 @@
 pub(crate) mod event_validation_request;
 pub mod message_context;
 pub(crate) mod note_validation_request;
+pub(crate) mod log_retrieval_request;
+pub(crate) mod log_retrieval_response;
 pub(crate) mod pending_tagged_log;
 
 use crate::{
     capsules::CapsuleArray,
+    event::event_selector::EventSelector,
     messages::{
-        discovery::{private_events::MAX_EVENT_SERIALIZED_LEN, private_notes::MAX_NOTE_PACKED_LEN},
+        discovery::{
+            partial_notes::DeliveredPendingPartialNote, private_events::MAX_EVENT_SERIALIZED_LEN,
+            private_notes::MAX_NOTE_PACKED_LEN,
+        },
         processing::{
+            log_retrieval_request::LogRetrievalRequest,
+            log_retrieval_response::LogRetrievalResponse,
             note_validation_request::NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
         },
     },
     oracle,
 };
 use event_validation_request::EventValidationRequest;
-use protocol_types::{
-    abis::event_selector::EventSelector, address::AztecAddress, hash::sha256_to_field,
-};
+use protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
 global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =
@@ -28,6 +34,14 @@ global NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 
 global EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
     "AZTEC_NR::EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
+);
+
+global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT".as_bytes(),
+);
+
+global LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT".as_bytes(),
 );
 
 /// Searches for private logs emitted by `contract_address` that might contain messages for one of the local accounts,
@@ -123,4 +137,44 @@ pub(crate) unconstrained fn validate_enqueued_notes_and_events(contract_address:
         NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
         EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT,
     );
+}
+
+/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
+/// a `CapsuleArray` by performing all node communication concurrently. Returns a second `CapsuleArray` with Options for
+/// the responses that correspond to the pending partial notes at the same index.
+///
+/// For example, given an array with pending partial notes `[ p1, p2, p3 ]`, where `p1` and `p3` have corresponding
+/// completion logs but `p2` does not, the returned `CapsuleArray` will have contents
+/// `[some(p1_log), none(), some(p3_log)]`.
+pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
+    contract_address: AztecAddress,
+    pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
+) -> CapsuleArray<Option<LogRetrievalResponse>> {
+    let log_retrieval_requests =
+        CapsuleArray::at(contract_address, LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
+
+    // We create a LogRetrievalRequest for each PendingPartialNote in the CapsuleArray. Because we need the indices in
+    // the request array to match the indices in the partial note array, we can't use CapsuleArray::for_each, as that
+    // function has arbitrary iteration order. Instead, we manually iterate the array from the beginning and push into
+    // the requests array, which we expect to be empty.
+    let mut i = 0;
+    let pending_partial_notes_count = pending_partial_notes.len();
+    while i < pending_partial_notes_count {
+        let pending_partial_note = pending_partial_notes.get(i);
+        log_retrieval_requests.push(
+            LogRetrievalRequest {
+                contract_address,
+                unsiloed_tag: pending_partial_note.note_completion_log_tag,
+            },
+        );
+        i += 1;
+    }
+
+    oracle::message_processing::bulk_retrieve_logs(
+        contract_address,
+        LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT,
+        LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT,
+    );
+
+    CapsuleArray::at(contract_address, LOG_RETRIEVAL_RESPONSES_ARRAY_BASE_SLOT)
 }

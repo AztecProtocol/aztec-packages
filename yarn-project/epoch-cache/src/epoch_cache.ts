@@ -17,7 +17,7 @@ import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } fr
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 
-type EpochAndSlot = {
+export type EpochAndSlot = {
   epoch: bigint;
   slot: bigint;
   ts: bigint;
@@ -32,6 +32,7 @@ export type EpochCommitteeInfo = {
 export interface EpochCacheInterface {
   getCommittee(slot: 'now' | 'next' | bigint | undefined): Promise<EpochCommitteeInfo>;
   getEpochAndSlotNow(): EpochAndSlot;
+  getEpochAndSlotInNextL1Slot(): EpochAndSlot & { now: bigint };
   getProposerIndexEncoding(epoch: bigint, slot: bigint, seed: bigint): `0x${string}`;
   computeProposerIndex(slot: bigint, epoch: bigint, seed: bigint, size: bigint): bigint;
   getProposerAttesterAddressInCurrentOrNextSlot(): Promise<{

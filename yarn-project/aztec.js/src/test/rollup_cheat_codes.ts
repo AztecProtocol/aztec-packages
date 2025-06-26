@@ -171,15 +171,13 @@ export class RollupCheatCodes {
 
     // Convert string to bytes and then compute keccak256
     const storageSlot = keccak256(Buffer.from('aztec.stf.storage', 'utf-8'));
-    const provenBlockNumberSlot = BigInt(storageSlot) + 1n;
+    const provenBlockNumberSlot = BigInt(storageSlot);
 
     const tipsBefore = await this.getTips();
 
-    await this.ethCheatCodes.store(
-      EthAddress.fromString(this.rollup.address),
-      provenBlockNumberSlot,
-      BigInt(blockNumber),
-    );
+    // Need to pack it as a single 32 byte word
+    const newValue = (BigInt(tipsBefore.pending) << 128n) | BigInt(blockNumber);
+    await this.ethCheatCodes.store(EthAddress.fromString(this.rollup.address), provenBlockNumberSlot, newValue);
 
     const tipsAfter = await this.getTips();
     this.logger.info(
@@ -198,6 +196,18 @@ export class RollupCheatCodes {
     await this.ethCheatCodes.startImpersonating(owner);
     await action(owner, this.rollup);
     await this.ethCheatCodes.stopImpersonating(owner);
+  }
+
+  /**
+   * Sets up the epoch.
+   */
+  public async setupEpoch() {
+    // Doesn't need to be done as owner, but the functionality is here...
+    await this.asOwner(async (account, rollup) => {
+      const hash = await rollup.write.setupEpoch({ account });
+      await this.client.waitForTransactionReceipt({ hash });
+      this.logger.warn(`Setup epoch`);
+    });
   }
 
   /** Directly calls the L1 gas fee oracle. */

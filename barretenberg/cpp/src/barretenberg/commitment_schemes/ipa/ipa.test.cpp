@@ -62,8 +62,8 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * p[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * p[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
@@ -216,8 +216,8 @@ TEST_F(IPATest, Commit)
     // The SRS stored in the commitment key is the result after applying the pippenger point table so the
     // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
     // G_vec_local should use only the original SRS thus we extract only the even indices.
-    for (size_t i = 2; i < 2 * n; i += 2) {
-        expected += srs_elements[i] * poly[i >> 1];
+    for (size_t i = 1; i < n; i += 1) {
+        expected += srs_elements[i] * poly[i];
     }
     EXPECT_EQ(expected.normalize(), commitment.normalize());
 }
