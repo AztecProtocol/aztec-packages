@@ -1,6 +1,4 @@
-use crate::abis::{
-    base_or_merge_rollup_public_inputs::BASE_ROLLUP_TYPE, previous_rollup_data::PreviousRollupData,
-};
+use crate::abis::previous_rollup_data::PreviousRollupData;
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, sponge_blob::SpongeBlob},
     constants::PUBLIC_BASE_ROLLUP_VK_INDEX,
@@ -68,9 +66,6 @@ pub fn default_previous_rollup_data<let N: u32, let M: u32>(
         AppendOnlyTreeSnapshot { root: 1, next_available_leaf_index: 2 };
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.end.public_data_tree =
         AppendOnlyTreeSnapshot { root: 2, next_available_leaf_index: 3 };
-
-    previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = BASE_ROLLUP_TYPE;
-    previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = BASE_ROLLUP_TYPE;
 
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 1;
