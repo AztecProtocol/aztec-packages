@@ -123,7 +123,6 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
     instance.current_class_id = class_id;
     bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
                                            .address = 1,
-                                           .siloed_address = 2,
                                            .contract_instance = instance,
                                            .contract_class = klass,
                                            .nullifier_root = 3 } },

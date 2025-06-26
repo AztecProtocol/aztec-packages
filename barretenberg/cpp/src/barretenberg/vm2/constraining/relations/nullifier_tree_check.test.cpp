@@ -49,10 +49,7 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::root_from_path;
 
-using tracegen::FieldGreaterThanTraceBuilder;
-using tracegen::MerkleCheckTraceBuilder;
 using tracegen::NullifierTreeCheckTraceBuilder;
-using tracegen::Poseidon2TraceBuilder;
 using tracegen::TestTraceContainer;
 
 using FF = AvmFlavorSettings::FF;
@@ -90,16 +87,16 @@ TEST_P(NullifierReadPositiveTests, Positive)
 {
     const auto& param = GetParam();
 
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
@@ -107,9 +104,6 @@ TEST_P(NullifierReadPositiveTests, Positive)
         poseidon2, merkle_check, field_gt, nullifier_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
-    Poseidon2TraceBuilder poseidon2_builder;
-    MerkleCheckTraceBuilder merkle_check_builder;
-    FieldGreaterThanTraceBuilder field_gt_builder;
     NullifierTreeCheckTraceBuilder nullifier_tree_check_builder;
 
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
@@ -122,16 +116,15 @@ TEST_P(NullifierReadPositiveTests, Positive)
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
+                                               /*contract_address*/ std::nullopt,
                                                param.exists,
                                                param.low_leaf,
                                                leaf_index,
                                                sibling_path,
                                                AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 });
 
-    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
-    field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), 1);
 
     check_relation<nullifier_check>(trace);
 }
@@ -140,18 +133,18 @@ INSTANTIATE_TEST_SUITE_P(NullifierTreeCheckConstrainingTest,
                          NullifierReadPositiveTests,
                          ::testing::ValuesIn(positive_read_tests));
 
-TEST_P(NullifierReadPositiveTests, PositiveWrite)
+TEST(NullifierTreeCheckConstrainingTest, PositiveWriteAppend)
 {
-    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
 
-    EventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
     MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
@@ -188,10 +181,114 @@ TEST_P(NullifierReadPositiveTests, PositiveWrite)
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
     nullifier_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
 
-    nullifier_tree_check_simulator.write(
-        nullifier, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    nullifier_tree_check_simulator.write(nullifier,
+                                         /*contract_address*/ std::nullopt,
+                                         0,
+                                         low_leaf,
+                                         low_leaf_index,
+                                         low_leaf_sibling_path,
+                                         prev_snapshot,
+                                         insertion_sibling_path);
 
     nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+
+    EXPECT_EQ(trace.get_num_rows(), 1);
+
+    check_relation<nullifier_check>(trace);
+}
+
+TEST(NullifierTreeCheckConstrainingTest, PositiveWriteMembership)
+{
+    FF nullifier = 42;
+    auto low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 0, 0);
+    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+
+    NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+
+    NiceMock<MockRangeCheck> range_check;
+
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+
+    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
+    NullifierTreeCheck nullifier_tree_check_simulator(
+        poseidon2, merkle_check, field_gt, nullifier_tree_check_event_emitter);
+
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    NullifierTreeCheckTraceBuilder nullifier_tree_check_builder;
+
+    FF low_leaf_hash = poseidon2.hash(low_leaf.get_hash_inputs());
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path;
+    sibling_path.reserve(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
+        sibling_path.emplace_back(i);
+    }
+    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+
+    nullifier_tree_check_simulator.write(nullifier,
+                                         std::nullopt,
+                                         10,
+                                         low_leaf,
+                                         leaf_index,
+                                         sibling_path,
+                                         AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 },
+                                         /* insertion_sibling_path */ std::nullopt);
+
+    nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), 1);
+
+    check_relation<nullifier_check>(trace);
+}
+
+TEST(NullifierTreeCheckConstrainingTest, Siloing)
+{
+    AztecAddress contract_address = 1;
+    FF nullifier = 42;
+    FF siloed_nullifier = simulation::silo_nullifier(contract_address, nullifier);
+    auto low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), 0, 0);
+    NoopEventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
+
+    NoopEventEmitter<MerkleCheckEvent> merkle_event_emitter;
+    MerkleCheck merkle_check(poseidon2, merkle_event_emitter);
+
+    NiceMock<MockRangeCheck> range_check;
+
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
+
+    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_event_emitter;
+    NullifierTreeCheck nullifier_tree_check_simulator(
+        poseidon2, merkle_check, field_gt, nullifier_tree_check_event_emitter);
+
+    TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
+    NullifierTreeCheckTraceBuilder nullifier_tree_check_builder;
+
+    FF low_leaf_hash = poseidon2.hash(low_leaf.get_hash_inputs());
+    uint64_t leaf_index = 30;
+    std::vector<FF> sibling_path;
+    sibling_path.reserve(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
+        sibling_path.emplace_back(i);
+    }
+    FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
+
+    nullifier_tree_check_simulator.write(nullifier,
+                                         contract_address,
+                                         10,
+                                         low_leaf,
+                                         leaf_index,
+                                         sibling_path,
+                                         AppendOnlyTreeSnapshot{ .root = root, .nextAvailableLeafIndex = 128 },
+                                         /* insertion_sibling_path */ std::nullopt);
+
+    nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
+    EXPECT_EQ(trace.get_num_rows(), 1);
 
     check_relation<nullifier_check>(trace);
 }
@@ -202,12 +299,12 @@ TEST(NullifierTreeCheckConstrainingTest, NegativeExistsFlagCheck)
     // + nullifier_low_leaf_nullifier_diff_inv) - 1 + exists) = 0
     TestTraceContainer trace({
         { { C::nullifier_check_sel, 1 },
-          { C::nullifier_check_nullifier, 27 },
+          { C::nullifier_check_siloed_nullifier, 27 },
           { C::nullifier_check_low_leaf_nullifier, 27 },
           { C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv, 0 },
           { C::nullifier_check_exists, 1 } },
         { { C::nullifier_check_sel, 1 },
-          { C::nullifier_check_nullifier, 28 },
+          { C::nullifier_check_siloed_nullifier, 28 },
           { C::nullifier_check_low_leaf_nullifier, 27 },
           { C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv, FF(1).invert() },
           { C::nullifier_check_exists, 0 } },
@@ -256,22 +353,30 @@ TEST(NullifierTreeCheckConstrainingTest, NegativeNextSlotIsZero)
                               "NEXT_NULLIFIER_IS_ZERO_CHECK");
 }
 
-TEST(NullifierTreeCheckConstrainingTest, NegativeWriteExistsNAND)
+TEST(NullifierTreeCheckConstrainingTest, NegativePassthrougSiloing)
 {
-    // Test constraint: write * exists = 0
+    // Test constraint: sel * (1 - should_silo) * (nullifier - siloed_nullifier) = 0;
     TestTraceContainer trace({
         {
-            { C::nullifier_check_write, 1 },
-            { C::nullifier_check_exists, 0 },
+            { C::nullifier_check_sel, 1 },
+            { C::nullifier_check_should_silo, 1 },
+            { C::nullifier_check_nullifier, 27 },
+            { C::nullifier_check_siloed_nullifier, 42 },
+        },
+        {
+            { C::nullifier_check_sel, 1 },
+            { C::nullifier_check_should_silo, 0 },
+            { C::nullifier_check_nullifier, 27 },
+            { C::nullifier_check_siloed_nullifier, 27 },
         },
     });
 
-    check_relation<nullifier_check>(trace, nullifier_check::SR_WRITE_EXISTS_NAND);
+    check_relation<nullifier_check>(trace, nullifier_check::SR_PASSTHROUGH_SILOING);
 
-    trace.set(C::nullifier_check_exists, 0, 1);
+    trace.set(C::nullifier_check_siloed_nullifier, 1, 28);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_check>(trace, nullifier_check::SR_WRITE_EXISTS_NAND),
-                              "WRITE_EXISTS_NAND");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_check>(trace, nullifier_check::SR_PASSTHROUGH_SILOING),
+                              "PASSTHROUGH_SILOING");
 }
 
 } // namespace

@@ -105,4 +105,19 @@ AppendOnlyTreeSnapshot NoteHashTreeCheck::append_note_hash_internal(FF note_hash
     return next_snapshot;
 }
 
+void NoteHashTreeCheck::on_checkpoint_created()
+{
+    events.emit(CheckPointEventType::CREATE_CHECKPOINT);
+}
+
+void NoteHashTreeCheck::on_checkpoint_committed()
+{
+    events.emit(CheckPointEventType::COMMIT_CHECKPOINT);
+}
+
+void NoteHashTreeCheck::on_checkpoint_reverted()
+{
+    events.emit(CheckPointEventType::REVERT_CHECKPOINT);
+}
+
 } // namespace bb::avm2::simulation

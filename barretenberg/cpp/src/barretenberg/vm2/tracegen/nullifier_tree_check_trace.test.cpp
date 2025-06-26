@@ -8,6 +8,7 @@
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_nullifier_check.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/nullifier_check.hpp"
@@ -50,20 +51,13 @@ using simulation::Poseidon2HashEvent;
 using simulation::Poseidon2PermutationEvent;
 using simulation::root_from_path;
 
+using constraining::check_interaction;
+
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using nullifier_check = bb::avm2::nullifier_check<FF>;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
-
-using lookup_low_leaf_poseidon2 = lookup_nullifier_check_low_leaf_poseidon2_relation<FF>;
-using lookup_updated_low_leaf_poseidon2 = lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF>;
-using lookup_low_leaf_merkle_check = lookup_nullifier_check_low_leaf_merkle_check_relation<FF>;
-using lookup_low_leaf_nullifier_validation = lookup_nullifier_check_low_leaf_nullifier_validation_relation<FF>;
-using lookup_low_leaf_next_nullifier_validation =
-    lookup_nullifier_check_low_leaf_next_nullifier_validation_relation<FF>;
-using lookup_new_leaf_poseidon2 = lookup_nullifier_check_new_leaf_poseidon2_relation<FF>;
-using lookup_new_leaf_merkle_check = lookup_nullifier_check_new_leaf_merkle_check_relation<FF>;
 
 struct TestParams {
     FF nullifier;
@@ -122,6 +116,7 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(param.nullifier,
+                                               /*contract_address*/ std::nullopt,
                                                param.exists,
                                                param.low_leaf,
                                                leaf_index,
@@ -133,13 +128,15 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_merkle_check::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_nullifier_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_next_nullifier_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_merkle_check::Settings>().process(trace);
+    check_interaction<NullifierTreeCheckTraceBuilder,
+                      lookup_nullifier_check_silo_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_merkle_check_settings,
+                      lookup_nullifier_check_low_leaf_nullifier_validation_settings,
+                      lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_settings,
+                      lookup_nullifier_check_new_leaf_merkle_check_settings>(trace);
 }
 
 INSTANTIATE_TEST_SUITE_P(NullifierTreeCheckTracegenTest,
@@ -170,12 +167,14 @@ TEST(NullifierTreeCheckTracegenTest, WriteWithInteractions)
     FieldGreaterThanTraceBuilder field_gt_builder;
     NullifierTreeCheckTraceBuilder nullifier_tree_check_builder;
 
+    AztecAddress contract_address = AztecAddress(1);
     FF nullifier = 100;
+    FF siloed_nullifier = simulation::silo_nullifier(contract_address, nullifier);
     FF low_nullifier = 40;
     TestMemoryTree<Poseidon2HashPolicy> nullifier_tree(8, NULLIFIER_TREE_HEIGHT);
 
     NullifierTreeLeafPreimage low_leaf =
-        NullifierTreeLeafPreimage(NullifierLeafValue(low_nullifier), 10, nullifier + 1);
+        NullifierTreeLeafPreimage(NullifierLeafValue(low_nullifier), 10, siloed_nullifier + 1);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
     uint64_t low_leaf_index = 0;
     nullifier_tree.update_element(low_leaf_index, low_leaf_hash);
@@ -186,32 +185,41 @@ TEST(NullifierTreeCheckTracegenTest, WriteWithInteractions)
 
     NullifierTreeLeafPreimage updated_low_leaf = low_leaf;
     updated_low_leaf.nextIndex = prev_snapshot.nextAvailableLeafIndex;
-    updated_low_leaf.nextKey = nullifier;
+    updated_low_leaf.nextKey = siloed_nullifier;
     FF updated_low_leaf_hash = RawPoseidon2::hash(updated_low_leaf.get_hash_inputs());
     nullifier_tree.update_element(low_leaf_index, updated_low_leaf_hash);
 
     std::vector<FF> insertion_sibling_path = nullifier_tree.get_sibling_path(prev_snapshot.nextAvailableLeafIndex);
 
     NullifierTreeLeafPreimage new_leaf =
-        NullifierTreeLeafPreimage(NullifierLeafValue(nullifier), low_leaf.nextIndex, low_leaf.nextKey);
+        NullifierTreeLeafPreimage(NullifierLeafValue(siloed_nullifier), low_leaf.nextIndex, low_leaf.nextKey);
     FF new_leaf_hash = RawPoseidon2::hash(new_leaf.get_hash_inputs());
     nullifier_tree.update_element(prev_snapshot.nextAvailableLeafIndex, new_leaf_hash);
 
-    nullifier_tree_check_simulator.write(
-        nullifier, low_leaf, low_leaf_index, low_leaf_sibling_path, prev_snapshot, insertion_sibling_path);
+    nullifier_tree_check_simulator.write(nullifier,
+                                         contract_address,
+                                         0,
+                                         low_leaf,
+                                         low_leaf_index,
+                                         low_leaf_sibling_path,
+                                         prev_snapshot,
+                                         insertion_sibling_path);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     nullifier_tree_check_builder.process(nullifier_tree_check_event_emitter.dump_events(), trace);
 
-    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_updated_low_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_merkle_check::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_nullifier_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_low_leaf_next_nullifier_validation::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_poseidon2::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<lookup_new_leaf_merkle_check::Settings>().process(trace);
+    // Not checking all interactions due to the public inputs interaction, which needs to be checked in an e2e test
+    check_interaction<NullifierTreeCheckTraceBuilder,
+                      lookup_nullifier_check_silo_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_updated_low_leaf_poseidon2_settings,
+                      lookup_nullifier_check_low_leaf_merkle_check_settings,
+                      lookup_nullifier_check_low_leaf_nullifier_validation_settings,
+                      lookup_nullifier_check_low_leaf_next_nullifier_validation_settings,
+                      lookup_nullifier_check_new_leaf_poseidon2_settings,
+                      lookup_nullifier_check_new_leaf_merkle_check_settings>(trace);
 }
 
 } // namespace
