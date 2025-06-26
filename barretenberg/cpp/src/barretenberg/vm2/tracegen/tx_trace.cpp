@@ -179,9 +179,10 @@ std::vector<std::pair<Column, FF>> handle_append_tree_event(const simulation::Pr
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
         { Column::tx_should_note_hash_append,
           phase == TransactionPhase::R_NOTE_INSERTION || phase == TransactionPhase::NR_NOTE_INSERTION },
+        { Column::tx_should_nullifier_append,
+          phase == TransactionPhase::R_NULLIFIER_INSERTION || phase == TransactionPhase::NR_NULLIFIER_INSERTION },
 
         // Revertible
-        { Column::tx_successful_tree_insert, reverted ? 0 : 1 },
         { Column::tx_reverted, reverted ? 1 : 0 },
     };
 }
@@ -437,7 +438,8 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_effective_fee_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_fee_payer_public_inputs_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_validation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>();
+        .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>();
 // Commented out for now, to make the bulk test pass before all opcodes are implemented.
 // .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupGeneric>()
 // .add<lookup_tx_write_end_gas_used_public_inputs_settings, InteractionType::LookupGeneric>()

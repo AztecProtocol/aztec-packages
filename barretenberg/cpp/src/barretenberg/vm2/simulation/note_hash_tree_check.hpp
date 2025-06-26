@@ -64,9 +64,9 @@ class NoteHashTreeCheck : public NoteHashTreeCheckInterface, public CheckpointNo
                                                    std::span<const FF> sibling_path,
                                                    const AppendOnlyTreeSnapshot& prev_snapshot) override;
 
-    void on_checkpoint_created() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
-    void on_checkpoint_committed() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
-    void on_checkpoint_reverted() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
+    void on_checkpoint_created() override;
+    void on_checkpoint_committed() override;
+    void on_checkpoint_reverted() override;
 
   private:
     FF make_siloed(AztecAddress contract_address, const FF& note_hash) const;

@@ -23,6 +23,11 @@ FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<con
     return curr_value;
 }
 
+FF silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });
+}
+
 FF silo_note_hash(const AztecAddress& contract_address, const FF& note_hash)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__SILOED_NOTE_HASH, contract_address, note_hash });
