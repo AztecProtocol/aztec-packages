@@ -26,59 +26,34 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Find active merge queue PR
-        id: find-pr
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-        with:
-          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          script: |
-            const trainBranch = '${{ matrix.train-branch }}';
-            
-            // Find open PRs targeting this merge-train branch
-            const { data: pulls } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              base: trainBranch,
-              state: 'open'
-            });
-            
-            // Find the merge queue PR
-            const queuePR = pulls.find(pr => 
-              pr.title.includes('🚂 Merge Queue for')
-            );
-            
-            if (queuePR) {
-              core.setOutput('pr_branch', queuePR.head.ref);
-              core.setOutput('pr_found', 'true');
-              console.log(`Found merge queue PR #${queuePR.number} with branch ${queuePR.head.ref}`);
-            } else {
-              core.setOutput('pr_found', 'false');
-              console.log(`No active merge queue PR found for ${trainBranch}`);
-            }
-
       - name: Checkout and merge
-        if: steps.find-pr.outputs.pr_found == 'true'
         id: merge
         run: |
-          PR_BRANCH="${{ steps.find-pr.outputs.pr_branch }}"
+          TRAIN_BRANCH="${{ matrix.train-branch }}"
           
-          # Checkout the PR branch
-          git fetch origin $PR_BRANCH
-          git checkout $PR_BRANCH
-          
-          # Attempt to merge next
-          if git merge origin/next --no-edit -m "Merge branch 'next' into $PR_BRANCH [skip ci]"; then
-            echo "merge_success=true" >> $GITHUB_OUTPUT
-            git push origin $PR_BRANCH
+          # Check if branch exists
+          if git ls-remote --exit-code --heads origin $TRAIN_BRANCH; then
+            # Checkout the merge-train branch
+            git fetch origin $TRAIN_BRANCH
+            git checkout $TRAIN_BRANCH
+            
+            # Attempt to merge next
+            if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH [skip ci]"; then
+              echo "merge_success=true" >> $GITHUB_OUTPUT
+              git push origin $TRAIN_BRANCH
+            else
+              echo "merge_success=false" >> $GITHUB_OUTPUT
+              echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
+              git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "merge_success=false" >> $GITHUB_OUTPUT
-            echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
-            git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Branch $TRAIN_BRANCH does not exist yet, skipping merge"
+            echo "merge_success=skip" >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on conflict
-        if: steps.find-pr.outputs.pr_found == 'true' && steps.merge.outputs.merge_success == 'false'
+        if: steps.merge.outputs.merge_success == 'false'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         with:
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
