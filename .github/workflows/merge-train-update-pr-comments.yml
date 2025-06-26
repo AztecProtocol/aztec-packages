@@ -1,0 +1,79 @@
+name: Update Merge Train PR Comments
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - 'merge-train/**'
+
+jobs:
+  update-pr-comment:
+    name: Update PR with commit list
+    runs-on: ubuntu-latest
+    if: startsWith(github.base_ref, 'merge-train/')
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Get commit list
+        id: commits
+        run: |
+          # Get the base branch and head branch
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          # Get all commits between base and head, excluding merge commits
+          echo "commit_list<<EOF" >> $GITHUB_OUTPUT
+          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"- %s" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update PR comment
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const commits = `${{ steps.commits.outputs.commit_list }}`;
+            const body = `## 🚂 Merge Train Commits
+            
+            This PR contains the following commits:
+            
+            ${commits}
+            
+            ---
+            *This comment is automatically updated when new commits are added.*`;
+            
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.login === 'AztecBot' && 
+              comment.body.includes('🚂 Merge Train Commits')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

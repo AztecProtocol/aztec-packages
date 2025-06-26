@@ -1,0 +1,112 @@
+name: Auto-merge Inactive Merge Train PRs
+
+on:
+  schedule:
+    # Run every 4 hours
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  auto-merge-inactive:
+    name: Auto-merge inactive PRs
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find and auto-merge inactive PRs
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get all open PRs targeting merge-train branches
+            const { data: pulls } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            // Filter for merge-train PRs
+            const mergeTrainPRs = pulls.filter(pr => 
+              pr.base.ref.startsWith('merge-train/') &&
+              pr.title.includes('🚂 Merge Queue for')
+            );
+            
+            const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
+            
+            for (const pr of mergeTrainPRs) {
+              // Get the latest commit
+              const { data: commits } = await github.rest.pulls.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                per_page: 1
+              });
+              
+              if (commits.length === 0) continue;
+              
+              const lastCommitDate = new Date(commits[0].commit.committer.date);
+              
+              // Check if the last commit is older than 4 hours
+              if (lastCommitDate < fourHoursAgo) {
+                console.log(`PR #${pr.number} has been inactive for more than 4 hours`);
+                
+                // Check if PR is already approved
+                const { data: reviews } = await github.rest.pulls.listReviews({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number
+                });
+                
+                const hasApproval = reviews.some(review => 
+                  review.state === 'APPROVED'
+                );
+                
+                if (!hasApproval) {
+                  // Approve the PR
+                  await github.rest.pulls.createReview({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr.number,
+                    event: 'APPROVE',
+                    body: '🤖 Auto-approved after 4 hours of inactivity'
+                  });
+                }
+                
+                // Enable auto-merge
+                try {
+                  await github.graphql(`
+                    mutation($pullRequestId: ID!) {
+                      enablePullRequestAutoMerge(input: {
+                        pullRequestId: $pullRequestId,
+                        mergeMethod: MERGE
+                      }) {
+                        pullRequest {
+                          autoMergeRequest {
+                            enabledAt
+                          }
+                        }
+                      }
+                    }
+                  `, {
+                    pullRequestId: pr.node_id
+                  });
+                  
+                  console.log(`Enabled auto-merge for PR #${pr.number}`);
+                  
+                  // Add a comment
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pr.number,
+                    body: '🤖 Auto-merge enabled after 4 hours of inactivity. This PR will be merged automatically once all checks pass.'
+                  });
+                } catch (error) {
+                  console.log(`Failed to enable auto-merge for PR #${pr.number}: ${error.message}`);
+                }
+              }
+            }
