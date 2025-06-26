@@ -614,7 +614,8 @@ pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
 
 // Execution Opcode IDs
 // Note: these are all powers of 2 to allow for binary decomposition.
-pub global AVM_EXEC_OP_ID_SET: u32 = 1;
+pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
+pub global AVM_EXEC_OP_ID_SET: u32 = 2 * AVM_EXEC_OP_ID_GETENVVAR;
 pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
 pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
 pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
