@@ -46,6 +46,9 @@ class UltraCircuitChecker {
     struct HashFunction;           // Custom hash function for lookup table hash table
     using LookupHashTable = std::unordered_set<Key, HashFunction>;
 
+    /**
+     * @brief Copy the builder and finalize it before checking its validity
+     */
     template <typename Builder> static Builder prepare_circuit(const Builder& builder_in);
 
     /**
