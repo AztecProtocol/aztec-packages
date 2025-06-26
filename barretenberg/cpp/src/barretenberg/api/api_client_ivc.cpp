@@ -15,6 +15,7 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
+#include "msgpack/v3/sbuffer_decl.hpp"
 #include <algorithm>
 #include <sstream>
 #include <stdexcept>
@@ -75,10 +76,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
-        const auto buf = to_buffer(proof);
         if (output_to_stdout) {
-            vinfo("writing ClientIVC proof to stdout");
-            write_bytes_to_stdout(buf);
+            proof.to_file_msgpack("/dev/stdout");
         } else {
             vinfo("writing ClientIVC proof in directory ", output_dir);
             proof.to_file_msgpack(output_dir / "proof");
@@ -119,9 +118,25 @@ static void write_vk_for_ivc(const std::string& output_format,
     // Construct the hiding circuit and its VK (stored internally in the IVC)
     ivc.construct_hiding_circuit_key();
 
-    auto vk = ivc.get_vk();
-    write_file(output_dir / "vk", to_buffer(vk));
+    // write with msgpack:
+    msgpack::sbuffer vk_buffer;
+    msgpack::pack(vk_buffer, ivc.get_vk());
+    std::vector<uint8_t> vk_buffer_vec(vk_buffer.data(), vk_buffer.data() + vk_buffer.size());
+    write_file(output_dir / "vk", vk_buffer_vec);
 }
+
+namespace {
+template <typename T> T from_msgpack_buffer(const std::vector<uint8_t>& buffer)
+{
+    msgpack::sbuffer sbuf;
+    sbuf.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+    msgpack::object_handle oh = msgpack::unpack(sbuf.data(), sbuf.size());
+    msgpack::object obj = oh.get();
+    T result;
+    obj.convert(result);
+    return result;
+}
+} // namespace
 
 /**
  * @brief Refactored verify method using BBRPC commands
@@ -135,7 +150,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     // since there's no CircuitVerify equivalent for IVC proofs yet
 
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
+    const auto vk = from_msgpack_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;

@@ -814,8 +814,12 @@ class ECCVMFlavor {
 
             return elements;
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK and the verification key.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+        // `log_circuit_size` from MSGPACK and the verification key. Don't statically check for object completion.
+
+        // Don't statically check for object completeness.
+        using MSGPACK_NO_STATIC_CHECK = std::true_type;
+
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
