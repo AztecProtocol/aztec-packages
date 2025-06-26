@@ -1,0 +1,63 @@
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: eval-group-5m
+    folder: GrafanaCloud
+    interval: 5m
+    rules:
+      - uid: deq0l9s3xwetcf
+        title: No new blocks (5m)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: grafanacloud-prom
+            model:
+              editorMode: code
+              expr: changes(rollup_pending_block_number[5m])
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: eq
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        dashboardUid: alpha-testnet-monitor
+        panelId: 3
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          __dashboardUid__: alpha-testnet-monitor
+          __panelId__: "3"
+          summary: Alpha Testnet pending block number hasn't increased in 5 minutes
+        labels: {}
+        isPaused: false
+        notification_settings:
+          receiver: Slack

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "alpha-testnet-monitor.fullname" . }}
+  labels:
+{{ include "alpha-testnet-monitor.labels" . | indent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+{{ include "alpha-testnet-monitor.selectorLabels" . | indent 4 }}
