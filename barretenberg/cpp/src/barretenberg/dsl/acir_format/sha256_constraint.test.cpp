@@ -100,7 +100,8 @@ TEST_F(Sha256Tests, TestSha256Compression)
                            557795688,
                            static_cast<uint32_t>(3481642555) };
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 } // namespace acir_format::tests

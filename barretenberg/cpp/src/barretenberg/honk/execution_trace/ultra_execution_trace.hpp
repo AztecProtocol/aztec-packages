@@ -104,11 +104,7 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
 
     bool has_overflow = false;
 
-    UltraExecutionTraceBlocks()
-    {
-        this->aux.has_ram_rom = true;
-        this->pub_inputs.is_pub_inputs = true;
-    }
+    UltraExecutionTraceBlocks() = default;
 
     void compute_offsets(bool is_structured)
     {
@@ -118,7 +114,7 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData<UltraTraceBlock> {
         }
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
-            block.trace_offset = offset;
+            block.trace_offset_ = offset;
             offset += block.get_fixed_size(is_structured);
         }
     }

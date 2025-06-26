@@ -161,7 +161,8 @@ TEST(ECDSASecp256r1, test_hardcoded)
         ecdsa_verify_signature<Sha256Hasher, secp256r1::fq, secp256r1::fr, secp256r1::g1>(message, pub_key, signature);
     EXPECT_EQ(we_ballin, true);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -206,7 +207,8 @@ TEST(ECDSASecp256r1, TestECDSAConstraintSucceed)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 1);
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -254,7 +256,8 @@ TEST(ECDSASecp256r1, TestECDSACompilesForVerifier)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false);
+    AcirProgram program{ constraint_system, /*witness=*/{} };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -305,7 +308,8 @@ TEST(ECDSASecp256r1, TestECDSAConstraintFail)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_EQ(builder.get_variable(ecdsa_r1_constraint.result), 0);
 

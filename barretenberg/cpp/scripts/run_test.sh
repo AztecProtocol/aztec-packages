@@ -12,5 +12,6 @@ cd $(scripts/native-preset-build-dir)
 
 export GTEST_COLOR=1
 export HARDWARE_CONCURRENCY=${CPUS:-8}
+export BB_VERBOSE=1
 
 exec ./bin/$1 --gtest_filter=$2
