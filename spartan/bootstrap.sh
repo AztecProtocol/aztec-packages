@@ -192,7 +192,7 @@ case "$cmd" in
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml  \
-      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epochs.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
+      ./scripts/test_k8s.sh gke src/spartan/transfer.test.ts ci-fast-epoch.yaml ${NAMESPACE:-"transfer${NAME_POSTFIX:-}"}
     ;;
   "test-gke-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \

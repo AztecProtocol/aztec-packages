@@ -1,5 +1,5 @@
 aztec:
-  slotDuration: 24
+  slotDuration: 36
   epochDuration: 4
   proofSubmissionWindow: 4
   realProofs: false
