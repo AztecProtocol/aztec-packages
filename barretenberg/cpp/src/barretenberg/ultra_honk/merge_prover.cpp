@@ -33,7 +33,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  *      T_j(\kappa) = t_j(\kappa) + \kappa^k * (T_{j,prev}(\kappa)).
  *
- * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance the folds the present
+ * @note: the prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
  * circuit, and therefore t_j has already been added to the transcript by PG.
  *
  * @return honk::proof

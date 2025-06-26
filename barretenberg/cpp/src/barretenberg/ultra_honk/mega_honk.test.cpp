@@ -80,13 +80,11 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     {
         std::array<typename Flavor::Polynomial, Flavor::NUM_WIRES> t_current =
             op_queue->construct_current_ultra_ops_subtable_columns();
-        std::array<typename Flavor::Commitment*, Flavor::NUM_WIRES> ptr_t_commitments;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
             t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
-            ptr_t_commitments[idx] = &t_commitments_val[idx];
         }
 
-        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments(ptr_t_commitments);
+        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments(t_commitments_val);
 
         return t_commitments;
     }
