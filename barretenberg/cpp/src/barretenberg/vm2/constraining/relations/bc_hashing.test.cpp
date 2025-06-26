@@ -91,7 +91,7 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
         { { .bytecode_id = 1, .bytecode_length = 62, .bytecode_fields = fields /* 62 bytes */ } }, trace);
 
     // TODO(dbanks12): re-enable once C++ and PIL use standard poseidon2 hashing for bytecode commitments.
-    // check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_relation>(trace);
+    // check_interaction<BytecodeTraceBuilder, lookup_bc_hashing_poseidon2_hash_settings>(trace);
 
     check_relation<bc_hashing>(trace);
 }
