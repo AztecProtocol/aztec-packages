@@ -9,7 +9,7 @@ template <> auto UltraCircuitChecker::init_empty_values<UltraCircuitBuilder_<Ult
 {
     return UltraFlavor::AllValues{};
 }
-
+//test pr
 template <> auto UltraCircuitChecker::init_empty_values<MegaCircuitBuilder_<bb::fr>>()
 {
     return MegaFlavor::AllValues{};
