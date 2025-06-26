@@ -370,7 +370,10 @@ TYPED_TEST(BoolTest, ImpliesBothWays)
                 a.set_origin_tag(submitted_value_origin_tag);
                 b.set_origin_tag(challenge_origin_tag);
             }
+            info("num before ", builder.get_estimated_num_finalized_gates());
             bool_ct c = a.implies_both_ways(b);
+            info("num after ", builder.get_estimated_num_finalized_gates());
+
             EXPECT_EQ(c.get_value(), !(a.get_value() ^ b.get_value()));
 
             if (!(lhs_constant || rhs_constant)) {
