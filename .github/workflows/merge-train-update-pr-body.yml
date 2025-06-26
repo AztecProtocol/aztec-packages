@@ -1,0 +1,63 @@
+name: Update Merge Train PR Body
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - 'merge-train/**'
+
+jobs:
+  update-pr-body:
+    name: Update PR with commit list
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Get commit list
+        id: commits
+        run: |
+          # Get the base branch and head branch
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          # Get all commits between base and head, excluding merge commits and empty commits
+          echo "commit_list<<EOF" >> $GITHUB_OUTPUT
+          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" | \
+            grep -v "^\[empty\]" | \
+            grep -v "^Start merge-train" | \
+            sed 's/^/- /' >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update PR body
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const commits = `${{ steps.commits.outputs.commit_list }}`;
+            
+            // Get current PR
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            // Build new body
+            const mergeTrainBranch = pr.base.ref;
+            const newBody = `Merge train with:
+            ${commits || '*No commits yet*'}`;
+            
+            // Update PR
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              body: newBody
+            });
