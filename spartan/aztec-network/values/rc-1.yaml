@@ -19,7 +19,8 @@ telemetry:
 
 validator:
   storageSize: "100Gi"
-  replicas: 48
+  replicas: 4
+  keysPerNode: 12
   validator:
     disabled: false
   sequencer:
