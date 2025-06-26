@@ -56,19 +56,15 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         std::array<Commitment, InnerFlavor::NUM_WIRES> t_commitments_val;
         std::array<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec_val;
-        std::array<Commitment*, InnerFlavor::NUM_WIRES> ptr_t_commitments;
-        std::array<typename RecursiveMergeVerifier::Commitment*, InnerFlavor::NUM_WIRES> ptr_t_commitments_rec;
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
             t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             t_commitments_rec_val[idx] =
                 RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, t_commitments_val[idx]);
-            ptr_t_commitments[idx] = &t_commitments_val[idx];
-            ptr_t_commitments_rec[idx] = &t_commitments_rec_val[idx];
         }
 
-        RefArray<Commitment, InnerFlavor::NUM_WIRES> t_commitments(ptr_t_commitments);
+        RefArray<Commitment, InnerFlavor::NUM_WIRES> t_commitments(t_commitments_val);
         RefArray<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec(
-            ptr_t_commitments_rec);
+            t_commitments_rec_val);
 
         // Construct Merge proof
         auto merge_proof = merge_prover.construct_proof();

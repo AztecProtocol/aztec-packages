@@ -38,15 +38,14 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      * @brief Construct and a verify a Honk proof
      *
      */
-    bool construct_and_verify_honk_proof(auto& proving_key, auto& verification_key)
+    bool construct_and_verify_honk_proof(auto& builder)
     {
-        Prover prover(proving_key, verification_key->verification_key);
-        Verifier verifier(verification_key->verification_key);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
+        Prover prover(proving_key, verification_key);
+        Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
-
-        // Update decider_vk
-        verification_key = verifier.verification_key;
 
         return verified;
     }
@@ -93,22 +92,15 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
      */
-    bool construct_and_verify_merge_proof(auto& op_queue,
-                                          const std::optional<std::shared_ptr<DeciderVerificationKey>> decider_vk)
+    bool construct_and_verify_merge_proof(auto& op_queue)
     {
         MergeProver merge_prover{ op_queue };
         MergeVerifier merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
         std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
-        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments;
 
-        if (decider_vk.has_value()) {
-            t_commitments = decider_vk.value()->witness_commitments.get_ecc_op_wires();
-        } else {
-            t_commitments =
-                this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover, t_commitments_val);
-        }
-        bool verified = merge_verifier.verify_proof(merge_proof, t_commitments);
+        bool verified = merge_verifier.verify_proof(
+            merge_proof, this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover, t_commitments_val));
 
         return verified;
     }
@@ -171,12 +163,8 @@ TYPED_TEST(MegaHonkTests, Basic)
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
-
     // Construct and verify Honk proof
-    bool honk_verified = this->construct_and_verify_honk_proof(proving_key, decider_vk);
+    bool honk_verified = this->construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 }
 
@@ -289,16 +277,12 @@ TYPED_TEST(MegaHonkTests, SingleCircuit)
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
-
     // Construct and verify Honk proof
-    bool honk_verified = this->construct_and_verify_honk_proof(proving_key, decider_vk);
+    bool honk_verified = this->construct_and_verify_honk_proof(builder);
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue, decider_vk);
+    auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -320,7 +304,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
         GoblinMockCircuits::construct_simple_circuit(builder);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(op_queue, std::nullopt);
+        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }
@@ -343,12 +327,8 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
-        auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
-
         // Construct and verify Honk proof
-        bool honk_verified = this->construct_and_verify_honk_proof(proving_key, decider_vk);
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
     }
 }
@@ -371,16 +351,12 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 
         GoblinMockCircuits::construct_simple_circuit(builder);
 
-        auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-        auto decider_vk = std::make_shared<typename TestFixture::DeciderVerificationKey>(verification_key);
-
         // Construct and verify Honk proof
-        bool honk_verified = this->construct_and_verify_honk_proof(proving_key, decider_vk);
+        bool honk_verified = this->construct_and_verify_honk_proof(builder);
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue, decider_vk);
+        auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }
