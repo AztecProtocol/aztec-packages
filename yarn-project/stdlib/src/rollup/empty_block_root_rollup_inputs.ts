@@ -13,7 +13,6 @@ export class EmptyBlockRootRollupInputs {
   constructor(
     public readonly data: BlockRootRollupData,
     public readonly constants: BlockConstantData,
-    public readonly isPadding: boolean,
   ) {}
 
   /**
@@ -47,7 +46,7 @@ export class EmptyBlockRootRollupInputs {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<EmptyBlockRootRollupInputs>) {
-    return [fields.data, fields.constants, fields.isPadding] as const;
+    return [fields.data, fields.constants] as const;
   }
 
   /**
@@ -57,11 +56,7 @@ export class EmptyBlockRootRollupInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader): EmptyBlockRootRollupInputs {
     const reader = BufferReader.asReader(buffer);
-    return new EmptyBlockRootRollupInputs(
-      reader.readObject(BlockRootRollupData),
-      reader.readObject(BlockConstantData),
-      reader.readBoolean(),
-    );
+    return new EmptyBlockRootRollupInputs(reader.readObject(BlockRootRollupData), reader.readObject(BlockConstantData));
   }
 
   /**

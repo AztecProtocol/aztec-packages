@@ -50,13 +50,10 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         }
     }
 
-    pub fn validate_without_previous_rollups(self, is_padding: bool, constants: BlockConstantData) {
+    pub fn validate_without_previous_rollups(self, constants: BlockConstantData) {
         assert(NUM_ROLLUPS == 0);
-
-        if !is_padding {
-            self.validate_root_parity_proof_and_vk();
-            self.validate_with_previous_block(constants);
-        }
+        self.validate_root_parity_proof_and_vk();
+        self.validate_with_previous_block(constants);
     }
 
     fn validate_root_parity_proof_and_vk(self) {

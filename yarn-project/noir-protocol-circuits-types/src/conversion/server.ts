@@ -53,6 +53,7 @@ import {
   EpochConstantData,
   FeeRecipient,
   type MergeRollupInputs,
+  PaddingBlockRootRollupInputs,
   type PreviousRollupBlockData,
   type PreviousRollupData,
   type PrivateBaseRollupInputs,
@@ -91,6 +92,7 @@ import type {
   FinalBlobBatchingChallenges as FinalBlobBatchingChallengesNoir,
   MergeRollupInputs as MergeRollupInputsNoir,
   Field as NoirField,
+  PaddingBlockRootRollupInputs as PaddingBlockRootRollupInputsNoir,
   ParityPublicInputs as ParityPublicInputsNoir,
   RootParityInput as ParityRootParityInputNoir,
   Poseidon2Sponge as Poseidon2SpongeNoir,
@@ -416,7 +418,6 @@ export function mapBaseOrMergeRollupPublicInputsToNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs,
 ): BaseOrMergeRollupPublicInputsNoir {
   return {
-    rollup_type: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.rollupType)),
     num_txs: mapFieldToNoir(new Fr(baseOrMergeRollupPublicInputs.numTxs)),
     constants: mapBlockConstantDataToNoir(baseOrMergeRollupPublicInputs.constants),
     start: mapPartialStateReferenceToNoir(baseOrMergeRollupPublicInputs.start),
@@ -792,7 +793,14 @@ export function mapEmptyBlockRootRollupInputsToNoir(
   return {
     data: mapBlockRootRollupDataToNoir(rootRollupInputs.data),
     constants: mapBlockConstantDataToNoir(rootRollupInputs.constants),
-    is_padding: rootRollupInputs.isPadding,
+  };
+}
+
+export function mapPaddingBlockRootRollupInputsToNoir(
+  inputs: PaddingBlockRootRollupInputs,
+): PaddingBlockRootRollupInputsNoir {
+  return {
+    constants: mapEpochConstantDataToNoir(inputs.constants),
   };
 }
 
@@ -816,7 +824,6 @@ export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    mapNumberFromNoir(baseOrMergeRollupPublicInputs.rollup_type),
     mapNumberFromNoir(baseOrMergeRollupPublicInputs.num_txs),
     mapBlockConstantDataFromNoir(baseOrMergeRollupPublicInputs.constants),
     mapPartialStateReferenceFromNoir(baseOrMergeRollupPublicInputs.start),

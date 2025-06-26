@@ -44,12 +44,3 @@ export enum CircuitType {
   STANDARD = 0,
   ULTRA = 1,
 }
-
-/**
- * Rollup types.
- */
-export enum RollupTypes {
-  Base = 0,
-  Merge = 1,
-  Root = 2,
-}

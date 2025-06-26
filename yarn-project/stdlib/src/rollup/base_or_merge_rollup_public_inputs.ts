@@ -5,7 +5,6 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { PartialStateReference } from '../tx/partial_state_reference.js';
-import { RollupTypes } from '../types/shared.js';
 import { BlockConstantData } from './block_constant_data.js';
 
 /**
@@ -13,10 +12,6 @@ import { BlockConstantData } from './block_constant_data.js';
  */
 export class BaseOrMergeRollupPublicInputs {
   constructor(
-    /**
-     * Specifies from which type of rollup circuit these inputs are from.
-     */
-    public rollupType: RollupTypes,
     /**
      * Number of txs in this rollup.
      */
@@ -59,7 +54,6 @@ export class BaseOrMergeRollupPublicInputs {
   /** Returns an empty instance. */
   static empty() {
     return new BaseOrMergeRollupPublicInputs(
-      RollupTypes.Base,
       0,
       BlockConstantData.empty(),
       PartialStateReference.empty(),
@@ -82,7 +76,6 @@ export class BaseOrMergeRollupPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new BaseOrMergeRollupPublicInputs(
       reader.readNumber(),
-      reader.readNumber(),
       reader.readObject(BlockConstantData),
       reader.readObject(PartialStateReference),
       reader.readObject(PartialStateReference),
@@ -100,7 +93,6 @@ export class BaseOrMergeRollupPublicInputs {
    */
   toBuffer() {
     return serializeToBuffer(
-      this.rollupType,
       this.numTxs,
       this.constants,
 
