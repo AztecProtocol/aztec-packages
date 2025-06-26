@@ -138,4 +138,19 @@ AppendOnlyTreeSnapshot NullifierTreeCheck::write(const FF& source_nullifier,
     return next_snapshot;
 }
 
+void NullifierTreeCheck::on_checkpoint_created()
+{
+    events.emit(CheckPointEventType::CREATE_CHECKPOINT);
+}
+
+void NullifierTreeCheck::on_checkpoint_committed()
+{
+    events.emit(CheckPointEventType::COMMIT_CHECKPOINT);
+}
+
+void NullifierTreeCheck::on_checkpoint_reverted()
+{
+    events.emit(CheckPointEventType::REVERT_CHECKPOINT);
+}
+
 } // namespace bb::avm2::simulation

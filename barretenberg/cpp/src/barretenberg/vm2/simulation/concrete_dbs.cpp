@@ -102,6 +102,8 @@ bool MerkleDB::nullifier_exists_internal(std::optional<AztecAddress> contract_ad
 {
     FF siloed_nullifier = nullifier;
     if (contract_address.has_value()) {
+        // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
+        // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = silo_nullifier(contract_address.value(), nullifier);
     }
 
@@ -134,6 +136,8 @@ bool MerkleDB::nullifier_write_internal(std::optional<AztecAddress> contract_add
 {
     FF siloed_nullifier = nullifier;
     if (contract_address.has_value()) {
+        // Unconstrained siloing to fetch the hint, since the hints are keyed by siloed data.
+        // The siloing will later be constrained in the nullifier tree check gadget.
         siloed_nullifier = silo_nullifier(contract_address.value(), nullifier);
     }
 
@@ -187,7 +191,8 @@ FF MerkleDB::note_hash_read(index_t leaf_index) const
 void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& note_hash)
 {
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
-    // We need to silo and make unique just to fetch the sibling path. Oof
+    // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
+    // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF siloed_note_hash = silo_note_hash(contract_address, note_hash);
     FF unique_note_hash =
         make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
@@ -207,7 +212,8 @@ void MerkleDB::note_hash_write(const AztecAddress& contract_address, const FF& n
 void MerkleDB::siloed_note_hash_write(const FF& siloed_note_hash)
 {
     AppendOnlyTreeSnapshot snapshot_before = get_tree_roots().noteHashTree;
-    // We need to make unique just to fetch the hint. Oof
+    // Unconstrained siloing and uniqueness to fetch the hint, since the hints are keyed by the unique note hash.
+    // The siloing and uniqueness will later be constrained in the note hash tree check gadget.
     FF unique_note_hash =
         make_unique_note_hash(siloed_note_hash, note_hash_tree_check.get_first_nullifier(), note_hash_counter);
     auto hint = raw_merkle_db.append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>{ unique_note_hash })[0];

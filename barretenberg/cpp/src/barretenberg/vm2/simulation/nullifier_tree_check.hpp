@@ -57,9 +57,9 @@ class NullifierTreeCheck : public NullifierTreeCheckInterface, public Checkpoint
                                  const AppendOnlyTreeSnapshot& prev_snapshot,
                                  std::optional<std::span<const FF>> insertion_sibling_path) override;
 
-    void on_checkpoint_created() override { events.emit(CheckPointEventType::CREATE_CHECKPOINT); }
-    void on_checkpoint_committed() override { events.emit(CheckPointEventType::COMMIT_CHECKPOINT); }
-    void on_checkpoint_reverted() override { events.emit(CheckPointEventType::REVERT_CHECKPOINT); }
+    void on_checkpoint_created() override;
+    void on_checkpoint_committed() override;
+    void on_checkpoint_reverted() override;
 
   private:
     FF silo_nullifier(const FF& nullifier, AztecAddress contract_address);
