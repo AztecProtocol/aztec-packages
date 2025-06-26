@@ -72,6 +72,7 @@ jobs:
           !contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
+      # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
       - name: Set Instance Postfix for merge-train
         if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
         run: echo "INSTANCE_POSTFIX=merge-train-${{ github.sha }}" >> $GITHUB_ENV
