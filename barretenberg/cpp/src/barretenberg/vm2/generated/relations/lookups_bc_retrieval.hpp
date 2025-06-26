@@ -75,7 +75,7 @@ struct lookup_bc_retrieval_address_derivation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_ADDRESS_DERIVATION";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_nullifier_exists;
     static constexpr Column DST_SELECTOR = Column::address_derivation_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_address_derivation_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_address_derivation_inv;
@@ -123,7 +123,7 @@ struct lookup_bc_retrieval_update_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_UPDATE_CHECK";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_nullifier_exists;
     static constexpr Column DST_SELECTOR = Column::update_check_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_update_check_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_update_check_inv;
@@ -132,14 +132,14 @@ struct lookup_bc_retrieval_update_check_settings_ {
         ColumnAndShifts::bc_retrieval_current_class_id,
         ColumnAndShifts::bc_retrieval_original_class_id,
         ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_block_number
+        ColumnAndShifts::bc_retrieval_timestamp
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::update_check_address,
         ColumnAndShifts::update_check_current_class_id,
         ColumnAndShifts::update_check_original_class_id,
         ColumnAndShifts::update_check_public_data_tree_root,
-        ColumnAndShifts::update_check_block_number
+        ColumnAndShifts::update_check_timestamp
     };
 };
 
@@ -153,7 +153,7 @@ struct lookup_bc_retrieval_class_id_derivation_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_CLASS_ID_DERIVATION";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_nullifier_exists;
     static constexpr Column DST_SELECTOR = Column::class_id_derivation_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_class_id_derivation_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_class_id_derivation_inv;

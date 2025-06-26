@@ -10,13 +10,7 @@ namespace execution;
     #[skippable_if]
     sel = 0;
 
-    // Useful to define some opcodes within this pil file
-    // Constrained to be boolean by execution instruction spec table
-    pol commit sel_revert;
-    pol commit sel_return;
-    pol commit sel_call;
-    pol commit sel_static_call;
-    // Guaranteed to be boolean becuase sel_call & sel_static_call are mutually exclusive
+    // Guaranteed to be boolean because sel_call & sel_static_call are mutually exclusive
     pol commit sel_enter_call;
     // Handle error separately since it takes priority and may occur during an sel_x_call
     sel_enter_call = (sel_call + sel_static_call) * (1 - sel_error);
@@ -35,6 +29,7 @@ namespace execution;
     pol commit next_pc;
     pol commit msg_sender;
     pol commit contract_address;
+    pol commit transaction_fee;
     // Constrained boolean by tx trace (for enqueued call) and #[NEXT_IS_STATIC] for nested
     pol commit is_static;
 
@@ -133,8 +128,6 @@ namespace execution;
     // otherwise        = 0 ==> pc' = next_pc
     #[PC_NEXT_ROW_DEFAULT]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (1 - PC_JUMP) * (pc' - next_pc) = 0;
-    #[PC_NEXT_ROW_INT_CALL]
-    NOT_LAST_EXEC * sel_internal_call * (pc' - rop[0]) = 0;
     #[PC_NEXT_ROW_EXT_CALL]
     NOT_LAST_EXEC * sel_enter_call  * pc' = 0;
 
@@ -151,6 +144,13 @@ namespace execution;
     #[CONTRACT_ADDR_NEXT_ROW]
     NOT_LAST_EXEC * DEFAULT_CTX_ROW * (contract_address' - contract_address) = 0;
     NOT_LAST_EXEC * sel_enter_call  * (contract_address' - register[2]) = 0;
+
+    // transaction fee gets set at the start of an enqueued call and remains the same throughout
+    // TODO(dbanks12): tracegen and test this
+    #[TRANSACTION_FEE_NEXT_ROW]
+    (1 - enqueued_call_end) * (transaction_fee' - transaction_fee) = 0;
+    // NOTE: don't need to say NOT_LAST_EXEC because last execution row must be an enqueued call end
+    // NOTE: on enqueued_call_start, transaction_fee is set via the DISPATCH lookup from tx trace to execution.
 
     // nested_exit_call = 1 ==> constraints come from lookup
     // sel_enter_call   = 1 && static_call = 1 ==> is_static' = 1

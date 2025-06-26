@@ -7,6 +7,7 @@ pub(crate) mod pending_tagged_log;
 
 use crate::{
     capsules::CapsuleArray,
+    event::event_selector::EventSelector,
     messages::{
         discovery::{
             partial_notes::DeliveredPendingPartialNote, private_events::MAX_EVENT_SERIALIZED_LEN,
@@ -21,9 +22,7 @@ use crate::{
     oracle,
 };
 use event_validation_request::EventValidationRequest;
-use protocol_types::{
-    abis::event_selector::EventSelector, address::AztecAddress, hash::sha256_to_field,
-};
+use protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
 // Base slot for the pending tagged log array to which the fetch_tagged_logs oracle inserts found private logs.
 global PENDING_TAGGED_LOG_ARRAY_BASE_SLOT: Field =

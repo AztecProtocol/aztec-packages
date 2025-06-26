@@ -25,7 +25,6 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     const std::vector<FF>& proof)
 {
     transcript->load_proof(proof);
-    transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
@@ -145,25 +144,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
          zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
-
-    // We need to add some commitments to the transcript to ensure the manifest matches with the recursive verifier
-    // manifest This is because the recursive verifier uses a trick to convert smaller MSMs into one large one, and so
-    // the number of commitments in the manifest is different
-    for (size_t i = 0;
-         i < keys_to_fold.get_precomputed_commitments().size() + keys_to_fold.get_witness_commitments().size();
-         i++) {
-
-        transcript->add_to_hash_buffer("new_accumulator_commitment_" + std::to_string(i), Commitment::one());
-    }
-
-    // generate recursive folding challenges to ensure manifest matches with recursive verifier
-    // (in recursive verifier we use random challenges to convert Flavor::NUM_FOLDED_ENTITIES muls
-    //  into one large multiscalar multiplication)
-    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
-    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
-        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
-    }
-    transcript->template get_challenges<FF>(args);
 
     return next_accumulator;
 }

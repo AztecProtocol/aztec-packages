@@ -83,6 +83,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_memory_tag_range(trace));
             AVM_TRACK_TIME("tracegen/precomputed/addressing_gas", precomputed_builder.process_addressing_gas(trace));
             AVM_TRACK_TIME("tracegen/precomputed/phase_table", precomputed_builder.process_phase_table(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/get_env_var_table",
+                           precomputed_builder.process_get_env_var_table(trace));
         },
     };
 }

@@ -137,8 +137,8 @@ import {
   mapGlobalVariablesToNoir,
   mapHeaderFromNoir,
   mapHeaderToNoir,
-  mapMaxBlockNumberFromNoir,
-  mapMaxBlockNumberToNoir,
+  mapIncludeByTimestampFromNoir,
+  mapIncludeByTimestampToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -964,14 +964,14 @@ export function mapRollupValidationRequestsToNoir(
   rollupValidationRequests: RollupValidationRequests,
 ): RollupValidationRequestsNoir {
   return {
-    max_block_number: mapMaxBlockNumberToNoir(rollupValidationRequests.maxBlockNumber),
+    include_by_timestamp: mapIncludeByTimestampToNoir(rollupValidationRequests.includeByTimestamp),
   };
 }
 
 export function mapRollupValidationRequestsFromNoir(
   rollupValidationRequests: RollupValidationRequestsNoir,
 ): RollupValidationRequests {
-  return new RollupValidationRequests(mapMaxBlockNumberFromNoir(rollupValidationRequests.max_block_number));
+  return new RollupValidationRequests(mapIncludeByTimestampFromNoir(rollupValidationRequests.include_by_timestamp));
 }
 
 export function mapRevertCodeFromNoir(revertCode: NoirField): RevertCode {
