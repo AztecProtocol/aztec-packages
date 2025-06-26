@@ -34,7 +34,7 @@ fn propagate_from_private_call_empty_data_succeeds() {
     );
     assert(is_empty(output.validation_requests.split_counter));
     assert_eq(
-        output.validation_requests.for_rollup.max_block_number.unwrap_unchecked(),
+        output.validation_requests.for_rollup.include_by_timestamp.unwrap_unchecked(),
         DEFAULT_UPDATE_DELAY,
     );
     assert(is_empty(output.public_teardown_call_request));
@@ -53,14 +53,14 @@ fn propagate_from_private_call_min_revertible_side_effect_counter_succeeds() {
 }
 
 #[test]
-fn propagate_from_private_call_max_block_number_succeeds() {
+fn propagate_from_private_call_include_by_timestamp_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.set_max_block_number(5);
+    builder.private_call.set_include_by_timestamp(5);
 
     let output = builder.compose_from_tx_request(false);
 
-    assert_eq(output.validation_requests.for_rollup.max_block_number.unwrap(), 5);
+    assert_eq(output.validation_requests.for_rollup.include_by_timestamp.unwrap(), 5);
 }
 
 #[test]

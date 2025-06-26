@@ -1,4 +1,7 @@
-use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
+use dep::protocol_types::{
+    hash::poseidon2_hash_bytes,
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
+};
 
 pub struct EventSelector {
     // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
@@ -50,7 +53,7 @@ impl EventSelector {
 
     pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
         let bytes = signature.as_bytes();
-        let hash = crate::hash::poseidon2_hash_bytes(bytes);
+        let hash = poseidon2_hash_bytes(bytes);
 
         // `hash` is automatically truncated to fit within 32 bits.
         EventSelector::from_field(hash)

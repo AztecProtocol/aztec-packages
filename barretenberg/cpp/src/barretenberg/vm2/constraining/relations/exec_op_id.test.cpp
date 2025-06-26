@@ -31,24 +31,23 @@ using C = Column;
 using execution = bb::avm2::execution<FF>;
 
 // STATICCALL, REVERT_8, SUCCESSCOPY are not defined yet in the EXEC_INSTRUCTION_SPEC.
-constexpr std::array<WireOpCode, 8> WIRE_OPCODES = {
-    WireOpCode::SET_8, WireOpCode::MOV_8,        WireOpCode::JUMP_32,        WireOpCode::JUMPI_32,
-    WireOpCode::CALL,  WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,
+constexpr std::array<WireOpCode, 9> WIRE_OPCODES = {
+    WireOpCode::GETENVVAR_16, WireOpCode::SET_8,          WireOpCode::MOV_8,
+    WireOpCode::JUMP_32,      WireOpCode::JUMPI_32,       WireOpCode::CALL,
+    WireOpCode::INTERNALCALL, WireOpCode::INTERNALRETURN, WireOpCode::RETURN,
 };
 
-constexpr std::array<uint32_t, 8> OPERATION_IDS = {
-    AVM_EXEC_OP_ID_SET,  AVM_EXEC_OP_ID_MOV,          AVM_EXEC_OP_ID_JUMP,           AVM_EXEC_OP_ID_JUMPI,
-    AVM_EXEC_OP_ID_CALL, AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN, AVM_EXEC_OP_ID_RETURN,
+constexpr std::array<uint32_t, 9> OPERATION_IDS = {
+    AVM_EXEC_OP_ID_GETENVVAR, AVM_EXEC_OP_ID_SET,  AVM_EXEC_OP_ID_MOV,          AVM_EXEC_OP_ID_JUMP,
+    AVM_EXEC_OP_ID_JUMPI,     AVM_EXEC_OP_ID_CALL, AVM_EXEC_OP_ID_INTERNALCALL, AVM_EXEC_OP_ID_INTERNALRETURN,
+    AVM_EXEC_OP_ID_RETURN,
 };
 
-constexpr std::array<C, 8> SELECTOR_COLUMNS = {
-    C::execution_sel_set,
-    C::execution_sel_mov,
-    C::execution_sel_jump,
-    C::execution_sel_jumpi,
-    C::execution_sel_call,
-    C::execution_sel_internal_call,
-    C::execution_sel_internal_return,
+constexpr std::array<C, 9> SELECTOR_COLUMNS = {
+    C::execution_sel_get_env_var,   C::execution_sel_set,
+    C::execution_sel_mov,           C::execution_sel_jump,
+    C::execution_sel_jumpi,         C::execution_sel_call,
+    C::execution_sel_internal_call, C::execution_sel_internal_return,
     C::execution_sel_return,
 };
 
