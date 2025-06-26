@@ -14,6 +14,7 @@ import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 import {ValidatorSelectionTestBase} from "./validator-selection/ValidatorSelectionBase.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
 /**
  * Testing the things that should be getters are not updating state!
@@ -139,7 +140,8 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     RewardConfig memory updated = RewardConfig({
       sequencerBps: Bps.wrap(1),
       rewardDistributor: IRewardDistributor(address(2)),
-      booster: IBoosterCore(address(3))
+      booster: IBoosterCore(address(3)),
+      feeAssetPortal: IFeeJuicePortal(address(0))
     });
 
     assertNotEq(
