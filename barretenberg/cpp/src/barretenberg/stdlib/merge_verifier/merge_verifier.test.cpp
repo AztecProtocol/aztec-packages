@@ -48,16 +48,32 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         InnerBuilder sample_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(sample_circuit);
 
-        // Generate a proof over the inner circuit
+        RecursiveBuilder outer_circuit;
+
         MergeProver merge_prover{ op_queue };
+
+        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+        std::array<Commitment, InnerFlavor::NUM_WIRES> t_commitments_val;
+        std::array<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec_val;
+        for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
+            t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+            t_commitments_rec_val[idx] =
+                RecursiveMergeVerifier::Commitment::from_witness(&outer_circuit, t_commitments_val[idx]);
+        }
+
+        RefArray<Commitment, InnerFlavor::NUM_WIRES> t_commitments(t_commitments_val);
+        RefArray<typename RecursiveMergeVerifier::Commitment, InnerFlavor::NUM_WIRES> t_commitments_rec(
+            t_commitments_rec_val);
+
+        // Construct Merge proof
         auto merge_proof = merge_prover.construct_proof();
 
         // Create a recursive merge verification circuit for the merge proof
-        RecursiveBuilder outer_circuit;
         RecursiveMergeVerifier verifier{ &outer_circuit };
         const StdlibProof<RecursiveBuilder> stdlib_merge_proof =
             bb::convert_native_proof_to_stdlib(&outer_circuit, merge_proof);
-        auto pairing_points = verifier.verify_proof(stdlib_merge_proof);
+        auto pairing_points = verifier.verify_proof(stdlib_merge_proof, t_commitments_rec);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -65,7 +81,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         // Check 1: Perform native merge verification then perform the pairing on the outputs of the recursive merge
         // verifier and check that the result agrees.
         MergeVerifier native_verifier;
-        bool verified_native = native_verifier.verify_proof(merge_proof);
+        bool verified_native = native_verifier.verify_proof(merge_proof, t_commitments);
         VerifierCommitmentKey pcs_verification_key;
         auto verified_recursive =
             pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
