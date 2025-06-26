@@ -1,5 +1,4 @@
 use crate::abis::{
-    base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, MERGE_ROLLUP_TYPE},
     block_root_rollup_data::{BlockRootRollupBlobData, BlockRootRollupData},
     previous_rollup_data::PreviousRollupData,
 };
@@ -17,7 +16,7 @@ use types::{
     block_header::BlockHeader,
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB, L1_TO_L2_MSG_SUBTREE_HEIGHT,
-        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT, MERGE_ROLLUP_INDEX,
+        L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, L1_TO_L2_MSG_TREE_HEIGHT,
         PUBLIC_BASE_ROLLUP_VK_INDEX, ROOT_PARITY_INDEX,
     },
     merkle_tree::MerkleTree,
@@ -88,20 +87,13 @@ impl RollupFixtureBuilder {
             .with_previous_base_rollups()
     }
 
-    pub fn with_previous_rollup_data(&mut self, rollup_type: u32) -> Self {
-        assert((rollup_type == BASE_ROLLUP_TYPE) | (rollup_type == MERGE_ROLLUP_TYPE));
-
+    pub fn with_previous_rollup_data(&mut self, vk_index: u32) -> Self {
         let mut rollup_0 = self.previous_rollup_data[0].base_or_merge_rollup_public_inputs;
         let mut rollup_1 = self.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
         rollup_0.constants = self.to_block_constant_data();
         rollup_1.constants = self.to_block_constant_data();
 
-        let vk_index = if rollup_type == BASE_ROLLUP_TYPE {
-            PUBLIC_BASE_ROLLUP_VK_INDEX
-        } else {
-            MERGE_ROLLUP_INDEX
-        };
         let vk = fixtures::vk_tree::generate_fake_rollup_honk_vk_for_index(vk_index);
         let vk_data = VkData {
             vk,
@@ -141,9 +133,6 @@ impl RollupFixtureBuilder {
         public_data_tree.next_available_leaf_index += 1;
         rollup_1.end.public_data_tree = public_data_tree;
 
-        rollup_0.rollup_type = rollup_type;
-        rollup_1.rollup_type = rollup_type;
-
         rollup_0.num_txs = 1;
         rollup_1.num_txs = 1;
 
@@ -160,7 +149,7 @@ impl RollupFixtureBuilder {
     }
 
     pub fn with_previous_base_rollups(&mut self) -> Self {
-        self.with_previous_rollup_data(BASE_ROLLUP_TYPE)
+        self.with_previous_rollup_data(PUBLIC_BASE_ROLLUP_VK_INDEX)
     }
 
     pub fn with_blobs_fields<let N: u32, let M: u32>(

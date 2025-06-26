@@ -29,5 +29,6 @@ members = [
     "crates/rollup-block-root-single-tx",
     "crates/rollup-block-root-single-tx-simulated",
     "crates/rollup-block-root-empty",
+    "crates/rollup-block-root-padding",
     "crates/rollup-root",
 ]

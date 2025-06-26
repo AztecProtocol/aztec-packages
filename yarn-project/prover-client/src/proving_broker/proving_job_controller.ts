@@ -144,6 +144,10 @@ export class ProvingJobController {
         return await this.circuitProver.getEmptyBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP: {
+        return await this.circuitProver.getPaddingBlockRootRollupProof(inputs, signal, this.epochNumber);
+      }
+
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
         return await this.circuitProver.getBlockRootRollupProof(inputs, signal, this.epochNumber);
       }

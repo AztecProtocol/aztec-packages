@@ -411,7 +411,6 @@ describe('LightBlockBuilder', () => {
       const inputs = EmptyBlockRootRollupInputs.from({
         data,
         constants,
-        isPadding: false,
       });
       return (await simulator.getEmptyBlockRootRollupProof(inputs)).inputs;
     } else if (previousRollupData.length === 1) {

@@ -1,8 +1,5 @@
 use crate::{
-    abis::{
-        base_or_merge_rollup_public_inputs::{BASE_ROLLUP_TYPE, BaseOrMergeRollupPublicInputs},
-        tx_effect::TxEffect,
-    },
+    abis::{base_or_merge_rollup_public_inputs::BaseOrMergeRollupPublicInputs, tx_effect::TxEffect},
     base::{
         components::{
             fees::{compute_fee_payer_fee_juice_balance_leaf_slot, compute_transaction_fee},
@@ -127,7 +124,6 @@ impl PrivateBaseRollupInputs {
         let end_sponge_blob = append_tx_effects_for_blob(tx_effect, self.start_sponge_blob);
 
         BaseOrMergeRollupPublicInputs {
-            rollup_type: BASE_ROLLUP_TYPE,
             num_txs: 1,
             constants: self.constants,
             start: self.start,
