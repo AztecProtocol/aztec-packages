@@ -288,9 +288,8 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);
@@ -814,9 +813,8 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("mixed_block_1").block;
 
     // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a different case
-    stdstore.target(address(rollup)).sig("getPendingBlockNumber()").checked_write(
-      Constants.AZTEC_MAX_EPOCH_DURATION + 2
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingBlockNumber()")
+      .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
 
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(

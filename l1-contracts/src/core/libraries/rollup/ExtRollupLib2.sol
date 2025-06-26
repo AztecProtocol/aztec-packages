@@ -6,9 +6,20 @@ pragma solidity >=0.8.27;
 import {Epoch, Slot, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "./StakingLib.sol";
 import {ValidatorSelectionLib} from "./ValidatorSelectionLib.sol";
+import {
+  RewardBooster,
+  RewardBoostConfig,
+  IBoosterCore,
+  IValidatorSelection
+} from "@aztec/core/reward-boost/RewardBooster.sol";
 
 library ExtRollupLib2 {
   using TimeLib for Timestamp;
+
+  function deployRewardBooster(RewardBoostConfig memory _config) external returns (IBoosterCore) {
+    RewardBooster booster = new RewardBooster(IValidatorSelection(address(this)), _config);
+    return IBoosterCore(address(booster));
+  }
 
   function setSlasher(address _slasher) external {
     StakingLib.setSlasher(_slasher);
