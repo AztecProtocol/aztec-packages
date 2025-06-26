@@ -8,6 +8,7 @@ import {
   IRollupCore,
   RollupStore
 } from "@aztec/core/interfaces/IRollup.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
@@ -16,12 +17,15 @@ import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 library EpochProofLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
   using FeeHeaderLib for CompressedFeeHeader;
+  using SafeCast for uint256;
+  using ChainTipsLib for CompressedChainTips;
 
   // This is a temporary struct to avoid stack too deep errors
   struct BlobVarsTemp {
@@ -64,7 +68,9 @@ library EpochProofLib {
     require(verifyEpochRootProof(_args), Errors.Rollup__InvalidProof());
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    rollupStore.tips.provenBlockNumber = Math.max(rollupStore.tips.provenBlockNumber, _args.end);
+    rollupStore.tips = rollupStore.tips.updateProvenBlockNumber(
+      Math.max(rollupStore.tips.getProvenBlockNumber(), _args.end)
+    );
 
     RewardLib.handleRewardsAndFees(_args, endEpoch);
 
@@ -226,7 +232,7 @@ library EpochProofLib {
     bool isStartOfEpoch = _start == 1 || parentEpoch <= startEpoch - Epoch.wrap(1);
     require(isStartOfEpoch, Errors.Rollup__StartIsNotFirstBlockOfEpoch());
 
-    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.provenBlockNumber;
+    bool isStartBuildingOnProven = _start - 1 <= rollupStore.tips.getProvenBlockNumber();
     require(isStartBuildingOnProven, Errors.Rollup__StartIsNotBuildingOnProven());
 
     bool claimedNumBlocksInEpoch = _end - _start + 1 <= Constants.AZTEC_MAX_EPOCH_DURATION;

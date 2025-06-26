@@ -7,6 +7,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {BlockLog, CompressedBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -34,11 +35,6 @@ struct SubmitEpochRootProofArgs {
   bytes32[] fees;
   bytes blobInputs;
   bytes proof;
-}
-
-struct ChainTips {
-  uint256 pendingBlockNumber;
-  uint256 provenBlockNumber;
 }
 
 /**
@@ -88,7 +84,7 @@ struct RollupConfig {
 }
 
 struct RollupStore {
-  ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
+  CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => CompressedBlockLog log) blocks;
   RollupConfig config;
 }

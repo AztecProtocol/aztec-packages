@@ -12,10 +12,7 @@ import {
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
-import {
-  IValidatorSelectionCore,
-  IValidatorSelection
-} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -37,7 +34,6 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
 import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-import {RewardBooster, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 
 /**
  * @title Rollup
@@ -91,9 +87,7 @@ contract RollupCore is
 
     // If no booster specifically provided deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      RewardBooster booster =
-        new RewardBooster(IValidatorSelection(address(this)), _config.rewardBoostConfig);
-      _config.rewardConfig.booster = IBoosterCore(address(booster));
+      _config.rewardConfig.booster = ExtRollupLib2.deployRewardBooster(_config.rewardBoostConfig);
     }
 
     RewardLib.setConfig(_config.rewardConfig);
