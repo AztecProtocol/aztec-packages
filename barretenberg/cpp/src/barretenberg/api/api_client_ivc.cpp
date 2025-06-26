@@ -85,6 +85,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     };
 
     write_proof();
+    ClientIVC::Proof proof2 = ClientIVC::Proof::from_file_msgpack(output_dir / "proof");
+    ASSERT(proof2 == proof, "Proof written to file does not match the original proof!");
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);

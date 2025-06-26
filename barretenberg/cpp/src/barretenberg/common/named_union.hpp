@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <concepts>
 #include <optional>
@@ -59,7 +60,7 @@ template <HasName... Types> class NamedUnion {
             }
             return construct_by_index<I + 1>(index, o);
         }
-        throw std::runtime_error("Invalid variant index");
+        throw_or_abort("Invalid variant index");
     }
 
   public:
@@ -115,16 +116,16 @@ template <HasName... Types> class NamedUnion {
     {
         // access object assuming it is an array of size 2
         if (!o.is_array() || o.via.array.size != 2) {
-            throw std::runtime_error("Expected an array of size 2 for NamedUnion deserialization");
+            throw_or_abort("Expected an array of size 2 for NamedUnion deserialization");
         }
         auto& arr = o.via.array;
         if (!arr.ptr[0].is_string()) {
-            throw std::runtime_error("Expected first element to be a string (type name) in NamedUnion deserialization");
+            throw_or_abort("Expected first element to be a string (type name) in NamedUnion deserialization");
         }
         std::string_view type_name = arr.ptr[0].template as<std::string_view>();
         auto index_opt = get_index_from_name(type_name);
         if (!index_opt.has_value()) {
-            throw std::runtime_error("Unknown type name in NamedUnion deserialization: " + std::string(type_name));
+            throw_or_abort("Unknown type name in NamedUnion deserialization: " + std::string(type_name));
         }
         size_t index = index_opt.value();
         // Now construct the variant using the index

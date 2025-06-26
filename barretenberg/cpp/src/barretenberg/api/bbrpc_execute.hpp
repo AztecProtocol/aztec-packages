@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/api/bbrpc_circuit_registry.hpp"
 #include "barretenberg/api/bbrpc_commands.hpp"
 #include "barretenberg/api/proving_helpers.hpp"
 #include "barretenberg/api/write_prover_output.hpp"

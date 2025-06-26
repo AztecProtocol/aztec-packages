@@ -23,6 +23,7 @@ struct ECCVMProof {
     HonkProof pre_ipa_proof;
     HonkProof ipa_proof;
 
+    bool operator==(const ECCVMProof& other) const = default;
     MSGPACK_FIELDS(pre_ipa_proof, ipa_proof);
 };
 template <typename Builder> using StdlibPublicInputsVector = std::vector<bb::stdlib::field_t<Builder>>;
