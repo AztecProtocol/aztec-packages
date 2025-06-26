@@ -75,6 +75,8 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
+ * @param accumulation_recursive_transcript The transcript shared among K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
+ * (app)
  */
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,

@@ -151,7 +151,7 @@ class ClientIVC {
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    // Transcript for shared among K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
+    // Transcript shared among K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
   public:
