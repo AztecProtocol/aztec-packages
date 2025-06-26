@@ -179,6 +179,12 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/a2b7e18ffffad5c4
+  - regex: "src/e2e_"
+    error_regex: "Error: Rollup__InvalidBlockNumber"
+    owners:
+      - *alex
+
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     error_regex: "Timeout: Failed to connect to"
