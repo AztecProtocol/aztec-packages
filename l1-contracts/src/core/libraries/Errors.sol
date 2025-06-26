@@ -133,6 +133,7 @@ library Errors {
   error Staking__NotOurProposal(uint256, address, address);
   error Staking__IncorrectGovProposer(uint256);
   error Staking__GovernanceAlreadySet();
+  error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe

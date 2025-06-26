@@ -735,4 +735,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   function getNextFlushableEpoch() public view override(IStaking) returns (Epoch) {
     return StakingLib.getNextFlushableEpoch();
   }
+
+  function getEntryQueueLength() public view override(IStaking) returns (uint256) {
+    return StakingLib.getEntryQueueLength();
+  }
 }
