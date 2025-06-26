@@ -154,41 +154,41 @@ class UltraZKFlavor : public UltraFlavor {
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
             for (const auto& input : this->public_inputs) {
-                Base::template serialize_to_buffer(input, proof_data);
+                Base::template serialize_to_buffer<FF>(input, proof_data);
             }
-            Base::template serialize_to_buffer(this->w_l_comm, proof_data);
-            Base::template serialize_to_buffer(this->w_r_comm, proof_data);
-            Base::template serialize_to_buffer(this->w_o_comm, proof_data);
-            Base::template serialize_to_buffer(this->lookup_read_counts_comm, proof_data);
-            Base::template serialize_to_buffer(this->lookup_read_tags_comm, proof_data);
-            Base::template serialize_to_buffer(this->w_4_comm, proof_data);
-            Base::template serialize_to_buffer(this->lookup_inverses_comm, proof_data);
-            Base::template serialize_to_buffer(this->z_perm_comm, proof_data);
-            Base::template serialize_to_buffer(libra_concatenation_commitment, proof_data);
-            Base::template serialize_to_buffer(libra_sum, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->w_l_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->w_r_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->w_o_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->lookup_read_counts_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->lookup_read_tags_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->w_4_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->lookup_inverses_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->z_perm_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(libra_concatenation_commitment, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_sum, proof_data);
 
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(zk_sumcheck_univariates[i], proof_data);
+                Base::template serialize_to_buffer<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>>(zk_sumcheck_univariates[i], proof_data);
             }
-            Base::template serialize_to_buffer(libra_claimed_evaluation, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_claimed_evaluation, proof_data);
 
-            Base::template serialize_to_buffer(this->sumcheck_evaluations, proof_data);
-            Base::template serialize_to_buffer(libra_grand_sum_commitment, proof_data);
-            Base::template serialize_to_buffer(libra_quotient_commitment, proof_data);
-            Base::template serialize_to_buffer(hiding_polynomial_commitment, proof_data);
-            Base::template serialize_to_buffer(hiding_polynomial_eval, proof_data);
+            Base::template serialize_to_buffer<std::array<FF, NUM_ALL_ENTITIES>>(this->sumcheck_evaluations, proof_data);
+            Base::template serialize_to_buffer<Commitment>(libra_grand_sum_commitment, proof_data);
+            Base::template serialize_to_buffer<Commitment>(libra_quotient_commitment, proof_data);
+            Base::template serialize_to_buffer<Commitment>(hiding_polynomial_commitment, proof_data);
+            Base::template serialize_to_buffer<FF>(hiding_polynomial_eval, proof_data);
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
-                Base::template serialize_to_buffer(this->gemini_fold_comms[i], proof_data);
+                Base::template serialize_to_buffer<Commitment>(this->gemini_fold_comms[i], proof_data);
             }
             for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
-                Base::template serialize_to_buffer(this->gemini_fold_evals[i], proof_data);
+                Base::template serialize_to_buffer<FF>(this->gemini_fold_evals[i], proof_data);
             }
-            Base::template serialize_to_buffer(libra_concatenation_eval, proof_data);
-            Base::template serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
-            Base::template serialize_to_buffer(libra_grand_sum_eval, proof_data);
-            Base::template serialize_to_buffer(libra_quotient_eval, proof_data);
-            Base::template serialize_to_buffer(this->shplonk_q_comm, proof_data);
-            Base::template serialize_to_buffer(this->kzg_w_comm, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_concatenation_eval, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_shifted_grand_sum_eval, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_grand_sum_eval, proof_data);
+            Base::template serialize_to_buffer<FF>(libra_quotient_eval, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->shplonk_q_comm, proof_data);
+            Base::template serialize_to_buffer<Commitment>(this->kzg_w_comm, proof_data);
 
             ASSERT(proof_data.size() == old_proof_length);
         }

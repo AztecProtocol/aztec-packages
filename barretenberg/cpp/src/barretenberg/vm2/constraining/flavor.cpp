@@ -80,7 +80,7 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
 {
     // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
     for (auto& poly : get_all()) {
-        poly = Polynomial(circuit_size / 2);
+        poly = AvmFlavor::Polynomial(circuit_size / 2);
     }
 }
 
@@ -90,7 +90,7 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
     for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
         // After the initial sumcheck round, the new size is CEIL(size/2).
         size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
-        poly = Polynomial(desired_size, circuit_size / 2);
+        poly = AvmFlavor::Polynomial(desired_size, circuit_size / 2);
     }
 }
 

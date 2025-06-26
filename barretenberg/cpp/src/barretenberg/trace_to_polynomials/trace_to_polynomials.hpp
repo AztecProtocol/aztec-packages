@@ -41,6 +41,12 @@ template <class Flavor> class TraceToPolynomials {
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
                 // Initialize and share the wire and selector polynomials
                 for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
+                    // Debug: Check if polynomial is empty before sharing
+                    if (other_wire.is_empty()) {
+                        throw std::runtime_error("ERROR: Attempting to share empty wire polynomial in TraceData");
+                    }
+                    info("DEBUG: Sharing wire polynomial - size=", other_wire.size(), 
+                         ", start=", other_wire.start_index(), ", end=", other_wire.end_index());
                     wire = other_wire.share();
                 }
                 for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {

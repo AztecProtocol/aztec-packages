@@ -18,6 +18,7 @@ namespace bb {
 class BN254Settings {
   public:
     using Curve = curve::BN254;
+    using Commitment = typename Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<curve::BN254>;
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;
@@ -27,6 +28,7 @@ class BN254Settings {
 class GrumpkinSettings {
   public:
     using Curve = curve::Grumpkin;
+    using Commitment = typename Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<curve::Grumpkin>;
     using Transcript = NativeTranscript;
     using FF = typename Curve::ScalarField;

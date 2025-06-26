@@ -38,7 +38,7 @@ void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_para
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
 
-    auto& inverse_polynomial = Relation::template get_inverse_polynomial(polynomials);
+    auto& inverse_polynomial = Relation::template get_inverse_polynomial<Polynomials>(polynomials);
     for (size_t i = 0; i < circuit_size; ++i) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
         auto row = polynomials.get_row(i);
@@ -104,7 +104,7 @@ void accumulate_logderivative_lookup_subrelation_contributions(ContainerOverSubr
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
-    auto lookup_inverses = View(Relation::template get_inverse_polynomial(in));
+    auto lookup_inverses = View(Relation::template get_inverse_polynomial<AllEntities>(in));
 
     constexpr size_t NUM_TOTAL_TERMS = READ_TERMS + WRITE_TERMS;
     std::array<Accumulator, NUM_TOTAL_TERMS> lookup_terms;
@@ -204,7 +204,7 @@ void accumulate_logderivative_permutation_subrelation_contributions(ContainerOve
     using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
     using View = typename Accumulator::View;
 
-    auto permutation_inverses = View(Relation::template get_inverse_polynomial(in));
+    auto permutation_inverses = View(Relation::template get_inverse_polynomial<AllEntities>(in));
 
     constexpr size_t NUM_TOTAL_TERMS = 2;
     std::array<Accumulator, NUM_TOTAL_TERMS> permutation_terms;

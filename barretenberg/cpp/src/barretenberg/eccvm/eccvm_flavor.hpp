@@ -984,14 +984,14 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
             NativeTranscript::proof_data.clear();
 
-            NativeTranscript::template serialize_to_buffer(ipa_poly_degree, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer<uint32_t>(ipa_poly_degree, NativeTranscript::proof_data);
             for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
-                NativeTranscript::template serialize_to_buffer(ipa_l_comms[i], NativeTranscript::proof_data);
-                NativeTranscript::template serialize_to_buffer(ipa_r_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer<Commitment>(ipa_l_comms[i], NativeTranscript::proof_data);
+                NativeTranscript::template serialize_to_buffer<Commitment>(ipa_r_comms[i], NativeTranscript::proof_data);
             }
 
-            serialize_to_buffer(ipa_G_0_eval, proof_data);
-            serialize_to_buffer(ipa_a_0_eval, proof_data);
+            NativeTranscript::template serialize_to_buffer<Commitment>(ipa_G_0_eval, NativeTranscript::proof_data);
+            NativeTranscript::template serialize_to_buffer<FF>(ipa_a_0_eval, NativeTranscript::proof_data);
 
             ASSERT(NativeTranscript::proof_data.size() == old_proof_length);
         }

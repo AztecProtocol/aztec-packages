@@ -107,6 +107,11 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
+                    // Debug check
+                    if (trace_data.wires[wire_idx].is_empty()) {
+                        info("ERROR: Wire ", wire_idx, " is empty at trace_row_idx=", trace_row_idx);
+                        throw std::runtime_error("Attempting to access empty wire polynomial");
+                    }
                     trace_data.wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
                     trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
