@@ -40,6 +40,10 @@ jobs:
           NEW_BRANCH="merge-queue/${MERGE_TRAIN_BRANCH}/${TIMESTAMP}"
           git checkout -b "$NEW_BRANCH"
 
+          # Merge the base branch (typically 'next') with theirs strategy
+          BASE_BRANCH="${MERGE_TRAIN_BRANCH#merge-train/}"
+          git merge -X theirs "origin/$BASE_BRANCH"
+
           # Seed it with an empty commit
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 
