@@ -17,6 +17,8 @@ export type TxCollectionConfig = {
   txCollectionFastNodeIntervalMs: number;
   /** A comma-separated list of Aztec node RPC URLs to use for tx collection */
   txCollectionNodeRpcUrls: string[];
+  /** Maximum number of parallel requests to make to a node during fast collection */
+  txCollectionFastMaxParallelRequestsPerNode: number;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -64,5 +66,10 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
         .map(url => url.trim().replace(/\/$/, ''))
         .filter(url => url.length > 0),
     defaultValue: [],
+  },
+  txCollectionFastMaxParallelRequestsPerNode: {
+    env: 'TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE',
+    description: 'Maximum number of parallel requests to make to a node during fast collection',
+    ...numberConfigHelper(4),
   },
 };

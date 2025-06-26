@@ -1,4 +1,4 @@
-import { chunk } from '@aztec/foundation/collection';
+import { chunk, times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bound } from '@aztec/foundation/number';
@@ -135,32 +135,77 @@ export class FastTxCollection {
     }
   }
 
+  /**
+   * Starts collecting txs from all configured nodes. We send `txCollectionFastMaxParallelRequestsPerNode` requests
+   * in parallel to each node. We keep track of the number of attempts made to collect each tx, so we can prioritize
+   * the txs that have been requested less often whenever we need to send a new batch of requests. We ensure that no
+   * tx is requested more than once at the same time to the same node.
+   */
   private async collectFastFromNodes(request: FastCollectionRequest, opts: { deadline: Date }): Promise<void> {
     if (this.nodes.length === 0) {
       return;
     }
 
+    // Keep a shared priority queue of all txs pending to be requested, sorted by the number of attempts made to collect them.
+    const attemptsPerTx = [...request.missingTxHashes].map(txHash => ({ txHash, attempts: 0, found: false }));
+
     // Returns once we have finished all node loops. Each loop finishes when the deadline is hit, or all txs have been collected.
-    await Promise.race(this.nodes.map((node, index) => this.collectFastFromNode(request, node, index, opts)));
+    await Promise.race(this.nodes.map(node => this.collectFastFromNode(request, node, attemptsPerTx, opts)));
   }
 
   private async collectFastFromNode(
     request: FastCollectionRequest,
     node: TxSource,
-    _index: number,
+    attemptsPerTx: { txHash: string; attempts: number; found: boolean }[],
     opts: { deadline: Date },
   ) {
-    // TODO(palla/txs): We should stagger requests across nodes, and report found txs as soon
-    // as we find them, rather than waiting for all batches to complete. And we should send
-    // more than one request to each node simultaneously.
     const notFinished = () => this.dateProvider.now() <= +opts.deadline && request.missingTxHashes.size > 0;
+    const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
+    const activeRequestsToThisNode = new Set<string>(); // Track the txs being actively requested to this node
+    const maxBatchSize = MAX_RPC_TXS_LEN;
 
-    while (notFinished()) {
-      const requestedTxs = Array.from(request.missingTxHashes);
-      try {
+    const processBatch = async () => {
+      while (notFinished()) {
+        // Pull tx hashes from the attemptsPerTx array, which is sorted by attempts,
+        // so we prioritize txs that have been requested less often.
+        const batch = [];
+        let index = 0;
+        while (batch.length < maxBatchSize) {
+          const txToRequest = attemptsPerTx[index++];
+          if (!txToRequest) {
+            // No more txs to process
+            break;
+          } else if (!request.missingTxHashes.has(txToRequest.txHash)) {
+            // Mark as found if it was found somewhere else, we'll then remove it from the array
+            // We don't delete it now since 'array.splice' is pretty expensive, so we do it after sorting
+            txToRequest.found = true;
+          } else if (!activeRequestsToThisNode.has(txToRequest.txHash)) {
+            // If the tx is not alredy being requested to this node, add it to the current batch
+            batch.push(txToRequest);
+            activeRequestsToThisNode.add(txToRequest.txHash);
+            txToRequest.attempts++;
+            index++;
+          }
+        }
+
+        // After modifying the array by removing txs or updating attempts, re-sort it and trim the found txs from the end
+        attemptsPerTx.sort((a, b) =>
+          a.found === b.found ? a.attempts - b.attempts : Number(a.found) - Number(b.found),
+        );
+        const firstFoundTxIndex = attemptsPerTx.findIndex(tx => tx.found);
+        if (firstFoundTxIndex !== -1) {
+          attemptsPerTx.length = firstFoundTxIndex;
+        }
+
+        // If we see no more txs to request, we can stop this "process" loop
+        if (batch.length === 0) {
+          return;
+        }
+
+        // Collect this batch from the node
         await this.collectionManager.collect(
-          txHashes => this.getTxsFromNode(node, txHashes),
-          requestedTxs.map(TxHash.fromString),
+          txHashes => node.getTxsByHash(txHashes),
+          batch.map(({ txHash }) => TxHash.fromString(txHash)),
           {
             description: `fast ${node.getInfo()}`,
             node: node.getInfo(),
@@ -168,33 +213,21 @@ export class FastTxCollection {
             ...request.blockInfo,
           },
         );
-      } catch (err) {
-        this.log.error(`Error collecting txs from node ${node.getInfo()}`, err, {
-          ...request.blockInfo,
-          txs: requestedTxs,
-        });
-      }
-      if (notFinished()) {
-        await sleep(this.config.txCollectionFastNodeIntervalMs);
-      }
-    }
-  }
 
-  /** Requests the given set of txs from a node via RPC */
-  private async getTxsFromNode(node: TxSource, txHashes: TxHash[]): Promise<Tx[]> {
-    // TODO(palla/txs): Duplicated from slow_tx_collection. To be removed once we start processing each request
-    // individually and not in batches for fast collection.
-    const txs = [];
-    for (const batch of chunk(txHashes, MAX_RPC_TXS_LEN)) {
-      try {
-        const response = await node.getTxsByHash(batch);
-        txs.push(...response.filter(tx => tx !== undefined));
-      } catch (err) {
-        this.log.warn(`Error sending request for txs to node ${node.getInfo()}: ${err}`, { batch });
-        return txs;
+        // Clear from the active requests the txs we just requested
+        for (const requestedTx of batch) {
+          activeRequestsToThisNode.delete(requestedTx.txHash);
+        }
+
+        // Sleep a bit until hitting the node again (or not, depending on config)
+        if (notFinished()) {
+          await sleep(this.config.txCollectionFastNodeIntervalMs);
+        }
       }
-    }
-    return txs;
+    };
+
+    // Kick off N parallel requests to the node, up to the maxParallelRequests limit
+    await Promise.all(times(maxParallelRequests, processBatch));
   }
 
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {

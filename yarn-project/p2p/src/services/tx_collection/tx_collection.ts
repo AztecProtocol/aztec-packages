@@ -209,8 +209,17 @@ export class TxCollection {
     // Mark txs as found in the slow missing txs set and all fast requests
     this.foundTxs(txs);
 
-    // Add txs to the tx pool
-    await this.txPool.addTxs(txs, { source: `tx-collection` });
+    // Add txs to the tx pool (should not fail, but we catch it just in case)
+    try {
+      await this.txPool.addTxs(txs, { source: `tx-collection` });
+    } catch (err) {
+      this.log.error(`Error adding txs to the pool via ${info.description}`, err, {
+        ...info,
+        requestedTxs: requested.map(hash => hash.toString()),
+      });
+      // Return no txs since none have been added
+      return { txs: [], requested, duration };
+    }
 
     return { txs, requested, duration };
   }
