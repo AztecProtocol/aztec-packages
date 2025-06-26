@@ -480,7 +480,7 @@ export class ReadOnlyL1TxUtils {
   ) {
     try {
       const result = await this.client.simulateBlocks({
-        validation: true,
+        validation: false,
         blocks: [
           {
             blockOverrides,
