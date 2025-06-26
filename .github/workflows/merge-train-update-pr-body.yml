@@ -38,8 +38,12 @@ jobs:
         run: |
           PR_NUMBER=${{ steps.pr.outputs.number }}
           export GH_TOKEN="${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}"
-          BASE_SHA=$(gh pr view "$PR_NUMBER" --json baseRefOid --jq '.baseRefOid)
-          HEAD_SHA=$GITHUB_SHA
+          # Obtain the base-branch and head-branch tip commits
+          read BASE_SHA HEAD_SHA < <(
+            gh pr view "$PR_NUMBER" \
+              --json baseRefOid,headRefOid \
+              --jq '.baseRefOid + " " + .headRefOid'
+          )
           echo "commit_list<<EOF" >> "$GITHUB_OUTPUT"
           git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
             grep -v "^\[empty\]" |
