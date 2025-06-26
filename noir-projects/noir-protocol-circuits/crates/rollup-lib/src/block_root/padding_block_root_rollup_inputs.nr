@@ -4,7 +4,7 @@ use types::{abis::epoch_constant_data::EpochConstantData, traits::Empty};
 // This circuit is used for situation where there's only 1 non-padding block in an epoch and we need another block root
 // as the right child of the root rollup.
 pub struct PaddingBlockRootRollupInputs {
-    constants: EpochConstantData,
+    pub(crate) constants: EpochConstantData,
 }
 
 impl PaddingBlockRootRollupInputs {

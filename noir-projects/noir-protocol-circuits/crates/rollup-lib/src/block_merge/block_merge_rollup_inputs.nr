@@ -99,8 +99,9 @@ mod tests {
         let mut inputs = default_block_merge_rollup_inputs();
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.start_global_variables.block_number =
             3;
-        // Need to change the end block number to match the start block number so that the number of blocks is 1.
-        // This is to form a balanced tree with previous_rollup_data[0], whose number of blocks is 1.
+        // Change the end block number to match the start block number so that the number of blocks is 1. This will
+        // form a sibling for previous_rollup_data[0], whose number of blocks is also 1, to pass the check for the
+        // rollup structure.
         inputs.previous_rollup_data[1].block_root_or_block_merge_public_inputs.end_global_variables.block_number =
             3;
         let _output = inputs.block_merge_rollup_circuit();

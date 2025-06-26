@@ -271,7 +271,7 @@ export class TestCircuitProver implements ServerCircuitProver {
   ): Promise<
     PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > {
-    return this.applyDelay(ProvingRequestType.EMPTY_BLOCK_ROOT_ROLLUP, () =>
+    return this.applyDelay(ProvingRequestType.PADDING_BLOCK_ROOT_ROLLUP, () =>
       this.simulate(
         input,
         'PaddingBlockRootRollupArtifact',

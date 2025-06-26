@@ -28,7 +28,7 @@ pub fn merge_block_rollups(
         new_archive: right.new_archive,
         start_global_variables: left.start_global_variables,
         end_global_variables: right.end_global_variables,
-        out_hash: 0, // Not needed for block merge. This is only required for block root since the value is inserted on L1 per block.
+        out_hash: 0, // Not needed for merged block. This is only required for block root since the value is inserted on L1 per block.
         proposed_block_header_hashes,
         fees,
         blob_public_inputs,
