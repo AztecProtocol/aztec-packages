@@ -70,8 +70,8 @@ function calculatePercentiles(values: number[]) {
 
   const sorted = [...values].sort((a, b) => a - b);
   const getPercentile = (p: number) => {
-    const index = Math.ceil((p / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    const index = Math.floor((p / 100) * (sorted.length - 1));
+    return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
   };
 
   return {
@@ -444,7 +444,7 @@ describe('Proving Broker: Benchmarks', () => {
     const timer = benchTimer;
 
     // Enqueue all jobs concurrently and measure individual latencies
-    const enqueuePromises: Promise<void>[] = [];
+    const enqueuePromises: Promise<number>[] = [];
     const enqueueStartTime = timer.ms();
     for (const { jobId, inputsUri, type, epochNumber } of preparedJobs) {
       const enqueueStart = timer.ms();
@@ -458,15 +458,16 @@ describe('Proving Broker: Benchmarks', () => {
         })
         .then(() => {
           const enqueueLatency = timer.ms() - enqueueStart;
-          enqueueLatencies.push(enqueueLatency);
+          return enqueueLatency;
         });
 
       enqueuePromises.push(p);
     }
 
-    // Wait for all enqueues to be persisted and measure total enqueue time duration
-    await Promise.all(enqueuePromises);
+    // Wait for all enqueues to be persisted and collect latencies
+    const resolvedLatencies = await Promise.all(enqueuePromises);
     const totalEnqueueTime = timer.ms() - enqueueStartTime;
+    enqueueLatencies.push(...resolvedLatencies);
 
     // Compute total enqueue duration and throughput
     const jobsPerSecond = enqueueLatencies.length > 0 ? enqueueLatencies.length / (totalEnqueueTime / 1000) : 0;
@@ -725,6 +726,10 @@ describe('Proving Broker: Benchmarks', () => {
       expect(results.initializationTime).toBeGreaterThan(0);
       expect(results.totalJobs).toBeGreaterThan(0);
       expect(results.jobsPerSecond).toBeGreaterThan(0);
+
+      // Verify total jobs dequeued matches expected count
+      const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
+      expect(results.jobsRemovedByCleanup).toBe(expectedJobs);
     },
   );
 });
