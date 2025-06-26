@@ -393,34 +393,32 @@ library StakingLib {
    *      3. Normal phase: When at target size, adds proportional amount based on current set size
    *
    *      All phases are subject to a hard cap of `MAX_QUEUE_FLUSH_SIZE`.
-   * @return maxAddableValidators The maximum number of validators that can be flushed from the entry queue
+   * @return - The maximum number of validators that can be flushed from the entry queue
    */
-  function getEntryQueueFlushSize() internal view returns (uint256 maxAddableValidators) {
+  function getEntryQueueFlushSize() internal view returns (uint256) {
     StakingStorage storage store = getStorage();
     StakingQueueConfig memory config = store.queueConfig;
 
     uint256 activeAttesterCount = getAttesterCountAtTime(Timestamp.wrap(block.timestamp));
     uint256 queueSize = store.entryQueue.length();
 
-    maxAddableValidators = 0;
+    // Only if there is bootstrap values configured will we look into boostrap or growth phases.
+    if (config.bootstrapValidatorSetSize > 0) {
+      // If bootstrap:
+      if (activeAttesterCount == 0 && queueSize < config.bootstrapValidatorSetSize) {
+        return 0;
+      }
 
-    bool bootstrapMode =
-      config.bootstrapValidatorSetSize > 0 && activeAttesterCount < config.bootstrapValidatorSetSize;
-
-    // if we're in bootstrap mode, and either have enough validators in the queue to satisfy the bootstrap validator set size,
-    // or we had enough in the past, then we flush the bootstrap size
-    // note: if we are in bootstrap mode but don't have enough validators in the queue to satisfy the bootstrap validator set size,
-    // we don't flush anything
-    if (bootstrapMode && (queueSize >= config.bootstrapValidatorSetSize || activeAttesterCount > 0))
-    {
-      maxAddableValidators = config.bootstrapFlushSize;
-    } else if (!bootstrapMode) {
-      maxAddableValidators =
-        Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin);
+      // If growth:
+      if (activeAttesterCount < config.bootstrapValidatorSetSize) {
+        return Math.min(config.bootstrapFlushSize, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+      }
     }
 
-    // We cap the number of validators that can be flushed to the hard cap
-    maxAddableValidators = Math.min(maxAddableValidators, StakingQueueLib.MAX_QUEUE_FLUSH_SIZE);
+    return Math.min(
+      Math.max(activeAttesterCount / config.normalFlushSizeQuotient, config.normalFlushSizeMin),
+      StakingQueueLib.MAX_QUEUE_FLUSH_SIZE
+    );
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {
