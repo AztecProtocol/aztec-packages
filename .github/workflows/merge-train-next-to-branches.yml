@@ -26,27 +26,30 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Create or checkout ${{ matrix.train-branch }}
-        run: |
-          if git ls-remote --exit-code --heads origin ${{ matrix.train-branch }}; then
-            echo "Branch ${{ matrix.train-branch }} exists, checking out"
-            git checkout -b ${{ matrix.train-branch }} origin/${{ matrix.train-branch }}
-          else
-            echo "Branch ${{ matrix.train-branch }} does not exist, creating from next"
-            git checkout -b ${{ matrix.train-branch }}
-          fi
-
-      - name: Attempt merge
+      - name: Checkout and merge
         id: merge
         run: |
-          if git merge origin/next --no-edit; then
-            echo "merge_success=true" >> $GITHUB_OUTPUT
-            git push origin ${{ matrix.train-branch }}
+          TRAIN_BRANCH="${{ matrix.train-branch }}"
+          
+          # Check if branch exists
+          if git ls-remote --exit-code --heads origin $TRAIN_BRANCH; then
+            # Checkout the merge-train branch
+            git fetch origin $TRAIN_BRANCH
+            git checkout $TRAIN_BRANCH
+            
+            # Attempt to merge next
+            if git merge origin/next --no-edit -m "Merge branch 'next' into $TRAIN_BRANCH [skip ci]"; then
+              echo "merge_success=true" >> $GITHUB_OUTPUT
+              git push origin $TRAIN_BRANCH
+            else
+              echo "merge_success=false" >> $GITHUB_OUTPUT
+              echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
+              git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "merge_success=false" >> $GITHUB_OUTPUT
-            echo "conflict_details<<EOF" >> $GITHUB_OUTPUT
-            git diff --name-only --diff-filter=U >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "Branch $TRAIN_BRANCH does not exist yet, skipping merge"
+            echo "merge_success=skip" >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on conflict
