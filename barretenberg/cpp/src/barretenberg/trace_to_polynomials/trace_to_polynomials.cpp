@@ -27,18 +27,15 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
 
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
-    }
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
+    proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
 
+    {
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
-
         PROFILE_THIS_NAME("add_ecc_op_wires_to_proving_key");
 
         add_ecc_op_wires_to_proving_key(builder, proving_key);
@@ -46,7 +43,6 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
-
         PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
 
         compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);

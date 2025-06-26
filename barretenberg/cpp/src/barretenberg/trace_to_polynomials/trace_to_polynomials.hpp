@@ -35,34 +35,14 @@ template <class Flavor> class TraceToPolynomials {
 
         TraceData(Builder& builder, ProvingKey& proving_key)
         {
-
             PROFILE_THIS_NAME("TraceData constructor");
 
-            if constexpr (IsUltraOrMegaHonk<Flavor>) {
-                // Initialize and share the wire and selector polynomials
-                for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
-                    wire = other_wire.share();
-                }
-                for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
-                    selector = other_selector.share();
-                }
-            } else {
-                // Initialize and share the wire and selector polynomials
-                for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-                    wires[idx] = Polynomial(proving_key.circuit_size);
-                    std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
-                    proving_key.polynomial_store.put(wire_tag, wires[idx].share());
-                }
-                {
-
-                    PROFILE_THIS_NAME("selector initialization");
-
-                    for (size_t idx = 0; idx < Builder::ExecutionTrace::NUM_SELECTORS; ++idx) {
-                        selectors[idx] = Polynomial(proving_key.circuit_size);
-                        std::string selector_tag = builder.selector_names[idx] + "_lagrange";
-                        proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
-                    }
-                }
+            // Initialize and share the wire and selector polynomials
+            for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
+                wire = other_wire.share();
+            }
+            for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
+                selector = other_selector.share();
             }
             {
                 PROFILE_THIS_NAME("copy cycle initialization");
