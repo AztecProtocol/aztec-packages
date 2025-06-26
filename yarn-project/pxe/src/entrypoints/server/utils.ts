@@ -17,6 +17,11 @@ import { PXEService } from '../../pxe_service/pxe_service.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 import type { PXECreationOptions } from '../pxe_creation_options.js';
 
+type PXEConfigWithoutDefaults = Omit<
+  PXEServiceConfig,
+  'l1Contracts' | 'l1ChainId' | 'l2BlockBatchSize' | 'rollupVersion'
+>;
+
 /**
  * Create and start an PXEService instance with the given AztecNode and config.
  *
@@ -27,7 +32,7 @@ import type { PXECreationOptions } from '../pxe_creation_options.js';
  */
 export function createPXEService(
   aztecNode: AztecNode,
-  config: PXEServiceConfig,
+  config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
 ) {
   const simulator = new WASMSimulator();
@@ -50,7 +55,7 @@ export function createPXEService(
 export async function createPXEServiceWithSimulator(
   aztecNode: AztecNode,
   simulator: CircuitSimulator,
-  config: PXEServiceConfig,
+  config: PXEConfigWithoutDefaults,
   options: PXECreationOptions = { loggers: {} },
 ) {
   const logSuffix =
@@ -61,12 +66,14 @@ export async function createPXEServiceWithSimulator(
       : options.useLogSuffix;
   const loggers = options.loggers ?? {};
 
-  const l1Contracts = await aztecNode.getL1ContractAddresses();
-  const configWithContracts = {
+  const { l1ChainId, l1ContractAddresses: l1Contracts, rollupVersion } = await aztecNode.getNodeInfo();
+  const configWithContracts: PXEServiceConfig = {
     ...config,
     l1Contracts,
+    l1ChainId,
+    rollupVersion,
     l2BlockBatchSize: 200,
-  } as PXEServiceConfig;
+  };
 
   if (!options.store) {
     // TODO once https://github.com/AztecProtocol/aztec-packages/issues/13656 is fixed, we can remove this and always
@@ -91,13 +98,17 @@ export async function createPXEServiceWithSimulator(
     prover,
     simulator,
     protocolContractsProvider,
-    config,
+    configWithContracts,
     pxeLogger,
   );
   return pxe;
 }
 
-function createProver(config: PXEServiceConfig, simulator: CircuitSimulator, logger?: Logger) {
+function createProver(
+  config: Pick<PXEServiceConfig, 'bbBinaryPath' | 'bbWorkingDirectory'>,
+  simulator: CircuitSimulator,
+  logger?: Logger,
+) {
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
     return new BBWASMBundlePrivateKernelProver(simulator, 16, logger);
   } else {

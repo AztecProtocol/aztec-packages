@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-# Usage: ./test_kind.sh <test> <values_file=default.yaml>
+# Usage: ./test_k8s.sh <target> <test> <values_file=default.yaml>
+# The <target> is the target environment (e.g., "kind", "gke").
 # The <test> file is located in yarn-project/end-to-end/src/spartan.
 # Optional environment variables:
 #   NAMESPACE (default: "test-kind")
@@ -22,10 +23,11 @@ source $(git rev-parse --show-toplevel)/ci3/source
 set -x
 
 # Main positional parameter
-test=$1
-values_file="${2:-default.yaml}"
-namespace="${3:-$(basename $test | tr '.' '-')}"
-mnemonic_file="${4:-$(mktemp)}"
+target=$1
+test=$2
+values_file="${3:-default.yaml}"
+namespace="${4:-$(basename $test | tr '.' '-')}"
+mnemonic_file="${5:-$(mktemp)}"
 
 # Default values for environment variables
 helm_instance=${HELM_INSTANCE:-$namespace}
@@ -33,7 +35,8 @@ chaos_values="${CHAOS_VALUES:-}"
 fresh_install="${FRESH_INSTALL:-false}"
 aztec_docker_tag=${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}
 cleanup_cluster=${CLEANUP_CLUSTER:-false}
-install_metrics=${INSTALL_METRICS:-true}
+install_metrics=${INSTALL_METRICS:-false}
+project_id=${PROJECT_ID:-}
 # NOTE: slated for removal along with e2e image!
 use_docker=${USE_DOCKER:-true}
 sepolia_run=${SEPOLIA_RUN:-false}
@@ -41,8 +44,32 @@ sepolia_run=${SEPOLIA_RUN:-false}
 resources_file="${RESOURCES_FILE:-default.yaml}"
 OVERRIDES="${OVERRIDES:-}"
 
-# Ensure we have kind context
-../bootstrap.sh kind
+if [ "$target" = "kind" ]; then
+  echo "Deploying to kind"
+  export K8S="local"
+elif [ "$target" = "local" ]; then
+  echo "Using local credentials"
+  export K8S="local"
+elif [ "$target" = "gke" ]; then
+  echo "Deploying to GKE"
+  export K8S="gcloud"
+  export CLUSTER_NAME=${CLUSTER_NAME:-aztec-gke-private}
+  export REGION=${REGION:-us-west1-a}
+  if [ -z "$project_id" ]; then
+    echo "Environment variable PROJECT_ID is required."
+    exit 1
+  fi
+  export PROJECT_ID=$project_id
+else
+  echo "Unknown target: $target"
+  exit 1
+fi
+
+if [ "$target" = "kind" ]; then
+  # Ensure we have kind context
+  ../bootstrap.sh kind
+fi
+
 
 # Check required environment variable
 if [ -z "$namespace" ]; then
@@ -51,6 +78,10 @@ if [ -z "$namespace" ]; then
 fi
 
 if [ "$install_metrics" = "true" ]; then
+  if [ "$target" != "kind" ]; then
+    echo "Metrics installation is only supported on kind."
+    exit 1
+  fi
   ../bootstrap.sh metrics-kind
 fi
 
@@ -68,7 +99,7 @@ function cleanup {
   # kill everything in our process group except our process
   trap - SIGTERM && kill $stern_pid $(jobs -p) &>/dev/null || true
 
-  if [ "$cleanup_cluster" = "true" ]; then
+  if [[ "$cleanup_cluster" = "true" && "$target" = "kind" ]]; then
     kind delete cluster || true
   elif [ "$fresh_install" = "true" ]; then
     # Run helm uninstall first to ensure post-delete hooks are run
@@ -90,7 +121,7 @@ copy_stern_to_log
 
 # uses VALUES_FILE, CHAOS_VALUES, AZTEC_DOCKER_TAG and INSTALL_TIMEOUT optional env vars
 if [ "$fresh_install" != "no-deploy" ]; then
-  deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_kind.sh $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
+  deploy_result=$(RESOURCES_FILE="$resources_file" OVERRIDES="$OVERRIDES" ./deploy_k8s.sh $target $namespace $values_file $sepolia_run $mnemonic_file $helm_instance)
 fi
 
 if [ "$install_metrics" = "true" ]; then
@@ -117,9 +148,11 @@ else
   l1_account_mnemonic=$(./read_value.sh "aztec.l1DeploymentMnemonic" $value_yamls)
 fi
 
-echo "RUNNING TEST: $test"
-# Run test locally.
-export K8S="local"
+echo "Waiting for env to be ready"
+kubectl wait pod -l app==validator --for=condition=Ready -n "$namespace" --timeout=10m
+
+echo "Running test: $test"
+
 export INSTANCE_NAME="$helm_instance"
 export SPARTAN_DIR="$(pwd)/.."
 export NAMESPACE="$namespace"
