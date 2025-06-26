@@ -15,8 +15,9 @@ struct TxStartupEvent {
 };
 
 struct EnqueuedCallEvent {
-    FF msg_sender;
+    FF msg_sender; // TODO(dbanks12): order sender and address to match other functions/types
     FF contract_address;
+    FF transaction_fee;
     bool is_static;
     FF calldata_hash;
     Gas prev_gas_used;

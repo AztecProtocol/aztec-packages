@@ -12,6 +12,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/addressing.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -19,12 +20,14 @@
 #include "barretenberg/vm2/generated/relations/lookups_execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_external_call.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_gas.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_get_env_var.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/generated/relations/perms_execution.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
+#include "barretenberg/vm2/tracegen/lib/get_env_var_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
@@ -158,6 +161,8 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
 Column get_execution_opcode_selector(ExecutionOpCode exec_opcode)
 {
     switch (exec_opcode) {
+    case ExecutionOpCode::GETENVVAR:
+        return C::execution_sel_get_env_var;
     case ExecutionOpCode::SET:
         return C::execution_sel_set;
     case ExecutionOpCode::MOV:
@@ -465,6 +470,10 @@ void ExecutionTraceBuilder::process(
         // Nested Context Control Flow and helper columns
         trace.set(row,
                   { {
+                      // Selectors that indicate "dispatch" from tx trace
+                      { C::execution_enqueued_call_start, is_first_event_in_enqueued_call ? 1 : 0 },
+                      { C::execution_enqueued_call_end, sel_exit_call && !has_parent ? 1 : 0 },
+                      // Context & control flow
                       { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                       { C::execution_is_parent_id_inv, cached_parent_id_inv },
                       { C::execution_nested_exit_call, nested_exit_call ? 1 : 0 },
@@ -510,6 +519,12 @@ void ExecutionTraceBuilder::process(
 
             if (is_opcode_error) {
                 trace.set(C::execution_opcode_error, row, 1);
+            } else if (exec_opcode == ExecutionOpCode::GETENVVAR) {
+                assert(ex_event.addressing_event.resolution_info.size() == 2 &&
+                       "GETENVVAR should have exactly two resolved operands (envvar enum and output)");
+                // rop[1] is the envvar enum
+                TaggedValue envvar_enum = ex_event.addressing_event.resolution_info[1].resolved_operand;
+                process_get_env_var_opcode(envvar_enum, ex_event.output, trace, row);
             }
         }
 
@@ -529,11 +544,10 @@ void ExecutionTraceBuilder::process(
             }
         }
 
-        bool end_of_enqueued_call = sel_exit_call && !has_parent;
+        bool enqueued_call_end = sel_exit_call && !has_parent;
         bool resolves_dying_context = is_failure && is_dying_context;
         bool nested_call_rom_undiscarded_context = sel_enter_call && discard == 0;
-        bool propagate_discard =
-            !end_of_enqueued_call && !resolves_dying_context && !nested_call_rom_undiscarded_context;
+        bool propagate_discard = !enqueued_call_end && !resolves_dying_context && !nested_call_rom_undiscarded_context;
 
         trace.set(
             row,
@@ -544,7 +558,7 @@ void ExecutionTraceBuilder::process(
                 { C::execution_dying_context_id_inv, dying_context_id_inv },
                 { C::execution_is_dying_context, is_dying_context ? 1 : 0 },
                 { C::execution_dying_context_diff_inv, dying_context_diff_inv },
-                { C::execution_end_of_enqueued_call, end_of_enqueued_call ? 1 : 0 },
+                { C::execution_enqueued_call_end, enqueued_call_end ? 1 : 0 },
                 { C::execution_resolves_dying_context, resolves_dying_context ? 1 : 0 },
                 { C::execution_nested_call_from_undiscarded_context, nested_call_rom_undiscarded_context ? 1 : 0 },
                 { C::execution_propagate_discard, propagate_discard ? 1 : 0 },
@@ -855,6 +869,30 @@ void ExecutionTraceBuilder::process_registers(ExecutionOpCode exec_opcode,
         trace.set(REGISTER_MEM_TAG_COLUMNS[i], row, static_cast<uint8_t>(registers[i].get_tag()));
     }
 }
+void ExecutionTraceBuilder::process_get_env_var_opcode(TaggedValue envvar_enum,
+                                                       TaggedValue output,
+                                                       TraceContainer& trace,
+                                                       uint32_t row)
+{
+    assert(envvar_enum.get_tag() == ValueTag::U8);
+    const auto& envvar_spec = GetEnvVarSpec::get_table(envvar_enum.as<uint8_t>());
+
+    trace.set(row,
+              { {
+                  { C::execution_sel_should_get_env_var, 1 },
+                  { C::execution_sel_envvar_pi_lookup_col0, envvar_spec.envvar_pi_lookup_col0 ? 1 : 0 },
+                  { C::execution_sel_envvar_pi_lookup_col1, envvar_spec.envvar_pi_lookup_col1 ? 1 : 0 },
+                  { C::execution_envvar_pi_row_idx, envvar_spec.envvar_pi_row_idx },
+                  { C::execution_is_address, envvar_spec.is_address ? 1 : 0 },
+                  { C::execution_is_sender, envvar_spec.is_sender ? 1 : 0 },
+                  { C::execution_is_transactionfee, envvar_spec.is_transactionfee ? 1 : 0 },
+                  { C::execution_is_isstaticcall, envvar_spec.is_isstaticcall ? 1 : 0 },
+                  { C::execution_is_l2gasleft, envvar_spec.is_l2gasleft ? 1 : 0 },
+                  { C::execution_is_dagasleft, envvar_spec.is_dagasleft ? 1 : 0 },
+                  { C::execution_value_from_pi,
+                    envvar_spec.envvar_pi_lookup_col0 || envvar_spec.envvar_pi_lookup_col1 ? output.as_ff() : 0 },
+              } });
+}
 
 const InteractionDefinition ExecutionTraceBuilder::interactions =
     InteractionDefinition()
@@ -892,6 +930,10 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<lookup_external_call_call_allocated_left_l2_range_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_external_call_call_allocated_left_da_range_settings, InteractionType::LookupIntoIndexedByClk>()
         // Dispatch to gadget sub-traces
-        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>();
+        .add<perm_execution_dispatch_keccakf1600_settings, InteractionType::Permutation>()
+        // GetEnvVar opcode
+        .add<lookup_get_env_var_precomputed_info_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_env_var_read_from_public_inputs_col0_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_get_env_var_read_from_public_inputs_col1_settings, InteractionType::LookupIntoIndexedByClk>();
 
 } // namespace bb::avm2::tracegen

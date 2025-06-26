@@ -30,6 +30,7 @@ class ExecutionTraceBuilder final {
                            std::span<TaggedValue> registers,
                            TraceContainer& trace,
                            uint32_t row);
+    void process_get_env_var_opcode(TaggedValue envvar_enum, TaggedValue output, TraceContainer& trace, uint32_t row);
     void process_dynamic_gas(const simulation::GasEvent& gas_event, TraceContainer& trace, uint32_t row);
 
     static const InteractionDefinition interactions;
