@@ -70,7 +70,7 @@ pol commit public_bytecode_commitment;
 
 // current state
 // These should be looked up and constrained by the caller.
-pol commit block_number;
+pol commit timestamp;
 pol commit public_data_tree_root;
 pol commit nullifier_tree_root;
 
@@ -115,8 +115,8 @@ nullifier_exists {
 
 // TODO: Probably some latch is also needed.
 #[UPDATE_CHECK]
-nullifier_exists { address, current_class_id, original_class_id, public_data_tree_root, block_number }
-in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
+nullifier_exists { address, current_class_id, original_class_id, public_data_tree_root, timestamp }
+in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.timestamp };
 
 // Observe the folowing also connects the current_class_id of the instance to the class members.
 // TODO: Probably some latch is also needed.

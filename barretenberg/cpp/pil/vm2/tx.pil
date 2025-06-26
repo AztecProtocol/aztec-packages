@@ -175,6 +175,7 @@ namespace tx;
     //     next_context_id,
     //     msg_sender,
     //     contract_addr,
+    //     fee,
     //     is_static,
     //     // Tree State
     //     prev_note_hash_tree_root,
@@ -196,6 +197,7 @@ namespace tx;
     //     execution.next_context_id,
     //     execution.msg_sender,
     //     execution.contract_address,
+    //     execution.transaction_fee,
     //     execution.is_static,
     //     // Tree State
     //     execution.prev_note_hash_tree_root,
@@ -414,7 +416,15 @@ namespace tx;
     pol commit fee;
 
     // Overflow safe since effective_fee_per_gas is 128 bits, and gas used is 32 bits, making fee at most 161 bits.
+    #[COMPUTE_FEE]
     is_collect_fee * (effective_fee_per_da_gas * prev_da_gas_used + effective_fee_per_l2_gas * prev_l2_gas_used - fee) = 0;
+    // During teardown, transaction fee must be the same as the one used in collect_fee (the following row/phase)
+    // (unless it is a padded row)
+    #[TEARDOWN_GETS_FEE]
+    is_teardown_phase * (1 - is_padded) * (fee' - fee) = 0;
+    // In all other phases, force fee to 0
+    #[FEE_ZERO_UNLESS_COLLECT_FEE_OR_TEARDOWN]
+    (1 - is_collect_fee) * (1 - is_teardown_phase) * fee = 0;
 
     pol commit fee_payer_balance;
     // TODO: Use gadget to read balance from the tree

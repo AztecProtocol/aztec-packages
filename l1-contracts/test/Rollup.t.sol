@@ -37,6 +37,7 @@ import {RollupBase, IInstance} from "./base/RollupBase.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RollupBuilder} from "./builder/RollupBuilder.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
+import {SignatureLib} from "@aztec/shared/libraries/SignatureLib.sol";
 // solhint-disable comprehensive-interface
 
 /**
@@ -250,7 +251,7 @@ contract RollupTest is RollupBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidBlobHash.selector, blobHashes[0], realBlobHash)
     );
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
@@ -287,9 +288,8 @@ contract RollupTest is RollupBase {
     warpToL2Slot(1);
     _proposeBlock("mixed_block_1", 1);
     // we prove epoch 0
-    stdstore.target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-      rollup.getPendingBlockNumber()
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+      .checked_write(rollup.getPendingBlockNumber());
 
     // jump to epoch 1
     warpToL2Slot(EPOCH_DURATION);
@@ -335,7 +335,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
   function testInvalidL2Fee() public setUpFor("mixed_block_1") {
@@ -365,7 +365,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, data.blobCommitments);
+    rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
@@ -477,7 +477,7 @@ contract RollupTest is RollupBase {
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
-      rollup.propose(args, attestations, data.blobCommitments);
+      rollup.propose(args, SignatureLib.packAttestations(attestations), data.blobCommitments);
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -735,7 +735,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }
 
   function testRevertInvalidCoinbase() public setUpFor("empty_block_1") {
@@ -760,7 +760,7 @@ contract RollupTest is RollupBase {
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
-    rollup.propose(args, attestations, new bytes(144));
+    rollup.propose(args, SignatureLib.packAttestations(attestations), new bytes(144));
   }
 
   function testSubmitProofNonExistentBlock() public setUpFor("empty_block_1") {
@@ -813,9 +813,8 @@ contract RollupTest is RollupBase {
     DecoderBase.Data memory data = load("mixed_block_1").block;
 
     // Set the pending block number to be Constants.AZTEC_MAX_EPOCH_DURATION + 2, so we don't revert early with a different case
-    stdstore.target(address(rollup)).sig("getPendingBlockNumber()").checked_write(
-      Constants.AZTEC_MAX_EPOCH_DURATION + 2
-    );
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getPendingBlockNumber()")
+      .checked_write(Constants.AZTEC_MAX_EPOCH_DURATION + 2);
 
     BlockLog memory blockLog = rollup.getBlock(0);
     vm.expectRevert(

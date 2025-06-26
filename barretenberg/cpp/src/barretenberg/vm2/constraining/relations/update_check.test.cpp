@@ -42,55 +42,55 @@ UpdateCheckEvent never_written = {
     .address = 0xdeadbeef,
     .current_class_id = 1,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
 };
 
 UpdateCheckEvent never_updated = {
     .address = 0xdeadbeef,
     .current_class_id = 1,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
     .update_hash = 27,
 };
 
-UpdateCheckEvent update_from_original_next_block = {
+UpdateCheckEvent update_from_original_next_timestamp = {
     .address = 0xdeadbeef,
     .current_class_id = 1,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 101,
     .update_preimage_pre_class_id = 0,
     .update_preimage_post_class_id = 2,
 };
 
-UpdateCheckEvent update_next_block = {
+UpdateCheckEvent update_next_timestamp = {
     .address = 0xdeadbeef,
     .current_class_id = 2,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 101,
     .update_preimage_pre_class_id = 2,
     .update_preimage_post_class_id = 3,
 };
 
-UpdateCheckEvent update_previous_block = {
+UpdateCheckEvent update_previous_timestamp = {
     .address = 0xdeadbeef,
     .current_class_id = 3,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 99,
     .update_preimage_pre_class_id = 2,
     .update_preimage_post_class_id = 3,
 };
 
-UpdateCheckEvent update_current_block = {
+UpdateCheckEvent update_timestamp = {
     .address = 0xdeadbeef,
     .current_class_id = 3,
     .original_class_id = 1,
-    .current_block_number = 100,
+    .current_timestamp = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 100,
     .update_preimage_pre_class_id = 2,
@@ -98,8 +98,12 @@ UpdateCheckEvent update_current_block = {
 };
 
 std::vector<UpdateCheckEvent> positive_tests = {
-    never_written,     never_updated,         update_from_original_next_block,
-    update_next_block, update_previous_block, update_current_block,
+    never_written,
+    never_updated,
+    update_from_original_next_timestamp,
+    update_next_timestamp,
+    update_previous_timestamp,
+    update_timestamp,
 };
 
 class UpdateCheckPositiveConstrainingTest : public TestWithParam<UpdateCheckEvent> {};
@@ -164,21 +168,21 @@ TEST(UpdateCheckConstrainingTest, NeverUpdatedCheck)
 
 TEST(UpdateCheckConstrainingTest, UpdateMetadataDecomposition)
 {
-    // update_hi_metadata * TWO_POW_32 + update_block_of_change - update_preimage_metadata
+    // update_hi_metadata * TWO_POW_32 + timestamp_of_change - update_preimage_metadata
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
             { C::update_check_update_hi_metadata, 1234 },
-            { C::update_check_update_block_of_change, 101 },
+            { C::update_check_timestamp_of_change, 101 },
             { C::update_check_update_preimage_metadata, FF(static_cast<uint64_t>(1234) << 32) + 101 },
         },
     });
 
     check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_METADATA_DECOMPOSITION);
 
-    // Negative test - manipulate block of change
-    trace.set(C::update_check_update_block_of_change, 0, 102);
+    // Negative test - manipulate timestamp of change
+    trace.set(C::update_check_timestamp_of_change, 0, 102);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_METADATA_DECOMPOSITION),
@@ -235,13 +239,13 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 {
-    // hash_not_zero * block_number_is_lt_block_of_change * (original_class_id * update_pre_class_id_is_zero +
+    // hash_not_zero * timestamp_is_lt_timestamp_of_change * (original_class_id * update_pre_class_id_is_zero +
     // update_preimage_pre_class_id - current_class_id)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_block_number_is_lt_block_of_change, 1 },
+            { C::update_check_timestamp_is_lt_timestamp_of_change, 1 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_pre_class_id, 27 },
             { C::update_check_update_pre_class_id_is_zero, 0 },
@@ -266,14 +270,14 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 
 TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
 {
-    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * (original_class_id * update_post_class_id_is_zero +
+    // hash_not_zero * (1 - timestamp_is_lt_timestamp_of_change) * (original_class_id * update_post_class_id_is_zero +
     // update_preimage_post_class_id - current_class_id)
 
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_block_number_is_lt_block_of_change, 0 },
+            { C::update_check_timestamp_is_lt_timestamp_of_change, 0 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_post_class_id, 27 },
             { C::update_check_update_post_class_id_is_zero, 0 },

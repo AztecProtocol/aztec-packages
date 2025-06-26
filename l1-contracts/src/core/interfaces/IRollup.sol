@@ -7,6 +7,7 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {BlockLog, CompressedBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedChainTips, ChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -17,7 +18,7 @@ import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {CommitteeAttestation} from "@aztec/shared/libraries/SignatureLib.sol";
+import {CommitteeAttestations} from "@aztec/shared/libraries/SignatureLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
@@ -34,11 +35,6 @@ struct SubmitEpochRootProofArgs {
   bytes32[] fees;
   bytes blobInputs;
   bytes proof;
-}
-
-struct ChainTips {
-  uint256 pendingBlockNumber;
-  uint256 provenBlockNumber;
 }
 
 /**
@@ -88,7 +84,7 @@ struct RollupConfig {
 }
 
 struct RollupStore {
-  ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
+  CompressedChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => CompressedBlockLog log) blocks;
   RollupConfig config;
 }
@@ -116,7 +112,7 @@ interface IRollupCore {
 
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobInput
   ) external;
 
@@ -132,7 +128,7 @@ interface IRollupCore {
 interface IRollup is IRollupCore, IHaveVersion {
   function validateHeader(
     ProposedHeader calldata _header,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags

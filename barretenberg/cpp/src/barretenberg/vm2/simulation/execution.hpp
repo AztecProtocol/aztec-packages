@@ -70,6 +70,7 @@ class Execution : public ExecutionInterface {
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
+    void get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum);
     void set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value);
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);

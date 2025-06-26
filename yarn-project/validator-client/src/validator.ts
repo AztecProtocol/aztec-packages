@@ -4,6 +4,7 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
@@ -257,7 +258,27 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // would not be rebroadcasted. But it also means that nodes that have not fully synced would
     // not rebroadcast the proposal.
     if (blockNumber > INITIAL_L2_BLOCK_NUM) {
-      const parentBlock = await this.blockSource.getBlock(blockNumber - 1);
+      const config = this.blockBuilder.getConfig();
+      const deadline = this.getReexecutionDeadline(proposal, config);
+      const currentTime = this.dateProvider.now();
+      const timeoutDurationMs = deadline.getTime() - currentTime;
+      const parentBlock =
+        timeoutDurationMs <= 0
+          ? undefined
+          : await retryUntil(
+              async () => {
+                const block = await this.blockSource.getBlock(blockNumber - 1);
+                if (block) {
+                  return block;
+                }
+                await this.blockSource.syncImmediate();
+                return await this.blockSource.getBlock(blockNumber - 1);
+              },
+              'Force Archiver Sync',
+              timeoutDurationMs / 1000, // Continue retrying until the deadline
+              0.5, // Retry every 500ms
+            );
+
       if (parentBlock === undefined) {
         this.log.warn(`Parent block for ${blockNumber} not found, skipping attestation`);
 

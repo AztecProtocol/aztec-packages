@@ -44,14 +44,14 @@ contract Updatable {
     }
 
     #[private]
-    fn set_update_delay(new_delay: u32) {
+    fn set_update_delay(new_delay: u64) {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).set_update_delay(new_delay).enqueue(
             &mut context,
         );
     }
 
     #[public]
-    fn get_update_delay() -> u32 {
+    fn get_update_delay() -> u64 {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
     }
 

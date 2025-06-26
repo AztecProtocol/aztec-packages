@@ -21,6 +21,7 @@
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
+#include "relations/get_env_var.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
@@ -55,6 +56,7 @@
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
+#include "relations/lookups_get_env_var.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_keccak_memory.hpp"
@@ -76,11 +78,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 99;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2104;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 240;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 110;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2122;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 243;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2443;
+    static constexpr size_t NUM_ALL_ENTITIES = 2475;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -105,6 +107,7 @@ struct AvmFlavorVariables {
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
+        avm2::get_env_var<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
@@ -185,6 +188,9 @@ struct AvmFlavorVariables {
         lookup_gas_addressing_gas_read_relation<FF_>,
         lookup_gas_limit_used_da_range_relation<FF_>,
         lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_get_env_var_precomputed_info_relation<FF_>,
+        lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
+        lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
@@ -381,9 +387,9 @@ struct AvmFlavorVariables {
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
-        lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
+        lookup_update_check_timestamp_of_change_cmp_range_relation<FF_>,
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
