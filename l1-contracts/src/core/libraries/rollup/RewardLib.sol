@@ -2,22 +2,19 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib,
-  FeeLib,
-  FeeStore
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
-import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
-import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {Math} from "@oz/utils/math/Math.sol";
 import {BitMaps} from "@oz/utils/structs/BitMaps.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {Math} from "@oz/utils/math/Math.sol";
+import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
+
+import {CompressedFeeHeader, FeeHeaderLib, FeeLib, FeeStore} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
+import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 
 type Bps is uint32;
 
@@ -42,6 +39,7 @@ struct RewardConfig {
   IRewardDistributor rewardDistributor;
   Bps sequencerBps;
   IBoosterCore booster;
+  IFeeJuicePortal feeAssetPortal;
 }
 
 struct RewardStorage {
@@ -197,7 +195,7 @@ library RewardLib {
       $er.longestProvenLength = length;
 
       if (t.feesToClaim > 0) {
-        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+        rewardStorage.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
       }
 
       if (t.totalBurn > 0) {
