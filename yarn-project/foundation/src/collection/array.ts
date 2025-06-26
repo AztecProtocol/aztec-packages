@@ -226,14 +226,3 @@ export function chunk<T>(items: T[], chunkSize: number): T[][] {
   }
   return chunks;
 }
-
-/**
- * Creates an array of pairs out of a pair of arrays
- * @note Can be extended to an arbitrary number of arrays.
- */
-export function transpose<T, U>(a: T[], b: U[]): [T, U][] {
-  if (a.length !== b.length) {
-    throw new Error('Arrays must have the same length');
-  }
-  return a.map((item, index) => [item, b[index]]);
-}

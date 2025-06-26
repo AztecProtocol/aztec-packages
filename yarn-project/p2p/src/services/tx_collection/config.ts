@@ -50,7 +50,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   txCollectionDisableSlowDuringFastRequests: {
     env: 'TX_COLLECTION_DISABLE_SLOW_DURING_FAST_REQUESTS',
     description: 'Whether to disable the slow collection loop if we are dealing with any immediate requests',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   txCollectionFastNodeIntervalMs: {
     env: 'TX_COLLECTION_FAST_NODE_INTERVAL_MS',

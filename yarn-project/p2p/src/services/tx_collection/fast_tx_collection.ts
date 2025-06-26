@@ -1,14 +1,14 @@
-import { chunk, times } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { bound } from '@aztec/foundation/number';
+import { boundInclusive } from '@aztec/foundation/number';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo } from '@aztec/stdlib/block';
 import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
-import { Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
+import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
@@ -231,9 +231,9 @@ export class FastTxCollection {
   }
 
   private async collectFastViaReqResp(request: FastCollectionRequest, opts: { pinnedPeer?: PeerId }) {
-    const timeoutMs = +request.deadline - Date.now();
+    const timeoutMs = +request.deadline - this.dateProvider.now();
     const pinnedPeer = opts.pinnedPeer;
-    const maxPeers = bound(Math.ceil(request.missingTxHashes.size / 2), 8, 32);
+    const maxPeers = boundInclusive(Math.ceil(request.missingTxHashes.size / 2), 8, 32);
     const maxRetryAttempts = 5;
     const blockInfo = request.blockInfo;
     const slotNumber = blockInfo.slotNumber;

@@ -1,6 +1,6 @@
 import { chunk } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { bound } from '@aztec/foundation/number';
+import { boundInclusive } from '@aztec/foundation/number';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
@@ -126,7 +126,7 @@ export class SlowTxCollection {
 
     const pinnedPeer = undefined;
     const timeoutMs = this.config.txCollectionSlowReqRespTimeoutMs;
-    const maxPeers = bound(Math.ceil(missingTxs.length / 3), 4, 16);
+    const maxPeers = boundInclusive(Math.ceil(missingTxs.length / 3), 4, 16);
     const maxRetryAttempts = 3;
 
     // Send a batch request via reqresp for the missing txs

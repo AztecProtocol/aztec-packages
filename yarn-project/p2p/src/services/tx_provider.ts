@@ -61,7 +61,7 @@ export class TxProvider implements ITxProvider {
       { type: 'proposal', blockProposal },
       blockProposal.toBlockInfo(),
       blockProposal.payload.txHashes,
-      { ...opts, pinnedPeer: opts.pinnedPeer ?? undefined },
+      { ...opts, pinnedPeer: opts.pinnedPeer },
     );
   }
 

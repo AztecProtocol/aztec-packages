@@ -1,5 +1,5 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
@@ -77,7 +77,11 @@ export async function createProverNode(
 
   const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config);
 
-  const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+  const proofVerifier = new QueuedIVCVerifier(
+    config,
+    config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier(),
+  );
+
   const p2pClient = await createP2PClient(
     P2PClientType.Prover,
     config,
