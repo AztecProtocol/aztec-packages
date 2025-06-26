@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, IRollupCore, GenesisState} from "@aztec/core/interfaces/IRollup.sol";
 import {BlockLogLib, BlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -14,6 +15,7 @@ library STFLib {
   using TimeLib for Timestamp;
   using BlockLogLib for BlockLog;
   using CompressedTimeMath for CompressedSlot;
+  using ChainTipsLib for CompressedChainTips;
 
   // @note  This is also used in the cheatcodes, so if updating, please also update the cheatcode.
   bytes32 private constant STF_STORAGE_POSITION = keccak256("aztec.stf.storage");
@@ -34,40 +36,41 @@ library STFLib {
 
   function prune() internal {
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 pending = rollupStore.tips.pendingBlockNumber;
+    uint256 pending = rollupStore.tips.getPendingBlockNumber();
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
     //        We can do because any new block proposed will overwrite a previous block in the block log,
     //        so no values should "survive".
     //        People must therefore read the chain using the pendingTip as a boundary.
-    rollupStore.tips.pendingBlockNumber = rollupStore.tips.provenBlockNumber;
+    uint256 proven = rollupStore.tips.getProvenBlockNumber();
+    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(proven);
 
-    emit IRollupCore.PrunedPending(rollupStore.tips.provenBlockNumber, pending);
+    emit IRollupCore.PrunedPending(proven, pending);
   }
 
   function getEffectivePendingBlockNumber(Timestamp _timestamp) internal view returns (uint256) {
     RollupStore storage rollupStore = STFLib.getStorage();
     return STFLib.canPruneAtTime(_timestamp)
-      ? rollupStore.tips.provenBlockNumber
-      : rollupStore.tips.pendingBlockNumber;
+      ? rollupStore.tips.getProvenBlockNumber()
+      : rollupStore.tips.getPendingBlockNumber();
   }
 
   function getEpochForBlock(uint256 _blockNumber) internal view returns (Epoch) {
     RollupStore storage rollupStore = STFLib.getStorage();
     require(
-      _blockNumber <= rollupStore.tips.pendingBlockNumber,
-      Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
+      _blockNumber <= rollupStore.tips.getPendingBlockNumber(),
+      Errors.Rollup__InvalidBlockNumber(rollupStore.tips.getPendingBlockNumber(), _blockNumber)
     );
     return rollupStore.blocks[_blockNumber].slotNumber.decompress().epochFromSlot();
   }
 
   function canPruneAtTime(Timestamp _ts) internal view returns (bool) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    if (rollupStore.tips.pendingBlockNumber == rollupStore.tips.provenBlockNumber) {
+    if (rollupStore.tips.getPendingBlockNumber() == rollupStore.tips.getProvenBlockNumber()) {
       return false;
     }
 
-    Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.provenBlockNumber + 1);
+    Epoch oldestPendingEpoch = getEpochForBlock(rollupStore.tips.getProvenBlockNumber() + 1);
     Epoch currentEpoch = _ts.epochFromTimestamp();
 
     return !oldestPendingEpoch.isAcceptingProofsAtEpoch(currentEpoch);

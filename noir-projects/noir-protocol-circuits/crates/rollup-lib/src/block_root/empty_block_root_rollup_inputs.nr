@@ -21,9 +21,6 @@ pub global EMPTY_EFFECT_BLOB_CHALLENGE_Z: Field =
 pub struct EmptyBlockRootRollupInputs {
     data: BlockRootRollupData,
     constants: BlockConstantData,
-    // This is set to true for situation where there's only 1 block in an epoch and we need another block root as the
-    // right child of the root rollup.
-    is_padding: bool,
 }
 
 impl EmptyBlockRootRollupInputs {
@@ -33,19 +30,14 @@ impl EmptyBlockRootRollupInputs {
             [], // allowed_vk_indices
             self.data,
         );
-        validator.validate_without_previous_rollups(self.is_padding, self.constants);
+        validator.validate_without_previous_rollups(self.constants);
 
         let mut blob_accumulation_input = BlobAccumulationInputs::empty();
         blob_accumulation_input.z_i = EMPTY_EFFECT_BLOB_CHALLENGE_Z;
-
         blob_accumulation_input.c_i = EMPTY_EFFECT_BLOB_COMMITMENT;
+
         let composer = BlockRootRollupOutputComposer::new_from_empty_rollup(self.data);
-        composer.finish_empty(
-            self.constants,
-            EMPTY_EFFECT_BLOBS_HASH,
-            blob_accumulation_input,
-            self.is_padding,
-        )
+        composer.finish_empty(self.constants, EMPTY_EFFECT_BLOBS_HASH, blob_accumulation_input)
     }
 }
 
@@ -61,27 +53,22 @@ mod tests {
         tests::rollup_fixture_builder::RollupFixtureBuilder,
     };
     use bigint::BigNum;
-    use types::{
-        abis::sponge_blob::SpongeBlob, address::EthAddress, hash::poseidon2_hash,
-        tests::utils::assert_array_eq,
-    };
+    use types::{abis::sponge_blob::SpongeBlob, hash::poseidon2_hash, tests::utils::assert_array_eq};
 
     pub struct TestBuilder {
         pub inputs: RollupFixtureBuilder,
-        pub is_padding: bool,
     }
 
     impl TestBuilder {
         pub fn new() -> Self {
             let inputs = RollupFixtureBuilder::new_for_block_root();
-            TestBuilder { inputs, is_padding: false }
+            TestBuilder { inputs }
         }
 
         pub fn execute(self) -> BlockRootOrBlockMergePublicInputs {
             EmptyBlockRootRollupInputs {
                 data: self.inputs.to_block_root_rollup_data(),
                 constants: self.inputs.to_block_constant_data(),
-                is_padding: self.is_padding,
             }
                 .execute()
         }
@@ -134,24 +121,6 @@ mod tests {
             EMPTY_EFFECT_BLOB_COMMITMENT.point,
         );
         assert_eq(output.blob_public_inputs.end_blob_accumulator.y_acc.get_limbs(), [0, 0, 0]);
-    }
-
-    #[test]
-    unconstrained fn correct_empty_block_root_rollup_output_for_padding() {
-        let mut builder = TestBuilder::new();
-        builder.is_padding = true;
-        builder.inputs.global_variables.coinbase = EthAddress::from_field(0);
-
-        let output = builder.execute();
-
-        assert_eq(output.previous_archive, output.new_archive);
-        assert_eq(output.start_global_variables, output.end_global_variables);
-        assert_eq(output.out_hash, 0);
-        assert_eq(
-            output.blob_public_inputs.start_blob_accumulator,
-            output.blob_public_inputs.end_blob_accumulator,
-        );
-        assert_array_eq(output.fees, []);
     }
 
     #[test(should_fail_with = "hash of the previous block header is not the last leaf in the archive tree")]
