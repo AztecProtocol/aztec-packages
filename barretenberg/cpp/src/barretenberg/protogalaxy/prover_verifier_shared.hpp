@@ -59,5 +59,4 @@ template <typename FF> static FF evaluate_perturbator(std::vector<FF> coeffs, FF
     }
     return result;
 };
-
 } // namespace bb

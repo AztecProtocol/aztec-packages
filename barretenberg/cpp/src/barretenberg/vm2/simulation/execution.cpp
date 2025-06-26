@@ -7,6 +7,7 @@
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
@@ -24,6 +25,57 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
     set_output(c);
+}
+
+void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
+{
+    auto& memory = context.get_memory();
+    TaggedValue result;
+
+    EnvironmentVariable env_var = static_cast<EnvironmentVariable>(var_enum);
+    switch (env_var) {
+    case EnvironmentVariable::ADDRESS:
+        result = TaggedValue::from<FF>(context.get_address());
+        break;
+    case EnvironmentVariable::SENDER:
+        result = TaggedValue::from<FF>(context.get_msg_sender());
+        break;
+    case EnvironmentVariable::TRANSACTIONFEE:
+        result = TaggedValue::from<FF>(context.get_transaction_fee());
+        break;
+    case EnvironmentVariable::CHAINID:
+        result = TaggedValue::from<FF>(context.get_globals().chainId);
+        break;
+    case EnvironmentVariable::VERSION:
+        result = TaggedValue::from<FF>(context.get_globals().version);
+        break;
+    case EnvironmentVariable::BLOCKNUMBER:
+        result = TaggedValue::from<uint32_t>(context.get_globals().blockNumber);
+        break;
+    case EnvironmentVariable::TIMESTAMP:
+        result = TaggedValue::from<uint64_t>(context.get_globals().timestamp);
+        break;
+    case EnvironmentVariable::FEEPERL2GAS:
+        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerL2Gas);
+        break;
+    case EnvironmentVariable::FEEPERDAGAS:
+        result = TaggedValue::from<uint128_t>(context.get_globals().gasFees.feePerDaGas);
+        break;
+    case EnvironmentVariable::ISSTATICCALL:
+        result = TaggedValue::from<FF>(context.get_is_static() ? 1 : 0);
+        break;
+    case EnvironmentVariable::L2GASLEFT:
+        result = TaggedValue::from<FF>(context.gas_left().l2Gas);
+        break;
+    case EnvironmentVariable::DAGASLEFT:
+        result = TaggedValue::from<FF>(context.gas_left().daGas);
+        break;
+    default:
+        throw std::runtime_error("Invalid environment variable enum value");
+    }
+
+    memory.set(dst_addr, result);
+    set_output(result);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -68,6 +120,7 @@ void Execution::call(ContextInterface& context,
 
     auto nested_context = context_provider.make_nested_context(contract_address,
                                                                /*msg_sender=*/context.get_address(),
+                                                               /*transaction_fee=*/context.get_transaction_fee(),
                                                                /*parent_context=*/context,
                                                                /*cd_offset_addr=*/cd_offset,
                                                                /*cd_size_addr=*/cd_size.as<uint32_t>(),
@@ -140,13 +193,14 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
     context.set_next_pc(loc);
 }
 
+// TODO(JEAMON): #15278 - Enforce U1 tag checking on conditional memory value.
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
     auto& memory = context.get_memory();
 
     auto resolved_cond = memory.get(cond_addr);
     set_inputs({ resolved_cond });
-    if (!resolved_cond.as_ff().is_zero()) {
+    if (resolved_cond.as<uint1_t>().value() == 1) {
         context.set_next_pc(loc);
     }
 }
@@ -329,6 +383,9 @@ void Execution::dispatch_opcode(ExecutionOpCode opcode,
     switch (opcode) {
     case ExecutionOpCode::ADD:
         call_with_operands(&Execution::add, context, resolved_operands);
+        break;
+    case ExecutionOpCode::GETENVVAR:
+        call_with_operands(&Execution::get_env_var, context, resolved_operands);
         break;
     case ExecutionOpCode::SET:
         call_with_operands(&Execution::set, context, resolved_operands);
