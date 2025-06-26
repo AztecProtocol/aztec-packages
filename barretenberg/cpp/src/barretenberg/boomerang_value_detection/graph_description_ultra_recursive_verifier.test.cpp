@@ -109,8 +109,8 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.key->num_public_inputs.fix_witness();
-        verifier.key->pub_inputs_offset.fix_witness();
+        verifier.key->verification_key->num_public_inputs.fix_witness();
+        verifier.key->verification_key->pub_inputs_offset.fix_witness();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;

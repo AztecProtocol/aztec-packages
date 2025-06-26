@@ -52,10 +52,13 @@ class GoblinRecursiveVerifier {
      * @brief Construct a Goblin recursive verifier circuit
      * @details Contains three recursive verifiers: Merge, ECCVM, and Translator
      *
+     * @param proof
+     * @param t_commitments The commitments to the subtable for the merge being verified
+     *
      * @todo(https://github.com/AztecProtocol/barretenberg/issues/991): The GoblinProof should aleady be a stdlib proof
      */
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] GoblinRecursiveVerifierOutput verify(
-        const GoblinProof&);
+        const GoblinProof&, const RefArray<typename MergeVerifier::Commitment, MegaFlavor::NUM_WIRES>& t_commitments);
 
   private:
     Builder* builder;

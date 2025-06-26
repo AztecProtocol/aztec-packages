@@ -1,5 +1,6 @@
 #include "ultra_circuit_checker.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
 
 namespace bb {
@@ -14,11 +15,36 @@ template <> auto UltraCircuitChecker::init_empty_values<MegaCircuitBuilder_<bb::
     return MegaFlavor::AllValues{};
 }
 
+template <>
+UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_circuit<
+    UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in)
+{
+    // Create a copy of the input circuit
+    UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
+
+    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+
+    return builder;
+}
+
+template <>
+MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuilder_<bb::fr>>(
+    const MegaCircuitBuilder_<bb::fr>& builder_in)
+{
+    // Create a copy of the input circuit
+    MegaCircuitBuilder_<bb::fr> builder{ builder_in };
+
+    // Deepcopy the opqueue to avoid modifying the original one
+    builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+
+    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+
+    return builder;
+}
+
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
 {
-    // Create a copy of the input circuit and finalize it
-    Builder builder{ builder_in };
-    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    Builder builder = UltraCircuitChecker::prepare_circuit(builder_in);
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
     LookupHashTable lookup_hash_table;

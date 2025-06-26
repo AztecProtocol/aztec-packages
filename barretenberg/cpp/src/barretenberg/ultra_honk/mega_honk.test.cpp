@@ -32,6 +32,7 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
 
     /**
      * @brief Construct and a verify a Honk proof
@@ -71,6 +72,22 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         return verified;
     }
 
+    RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> construct_subtable_commitments_from_op_queue(
+        auto& op_queue,
+        const MergeProver& merge_prover,
+        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES>& t_commitments_val)
+    {
+        std::array<typename Flavor::Polynomial, Flavor::NUM_WIRES> t_current =
+            op_queue->construct_current_ultra_ops_subtable_columns();
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; idx++) {
+            t_commitments_val[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
+        }
+
+        RefArray<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments(t_commitments_val);
+
+        return t_commitments;
+    }
+
     /**
      * @brief Construct and verify a Goblin ECC op queue merge proof
      *
@@ -80,7 +97,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
         MergeProver merge_prover{ op_queue };
         MergeVerifier merge_verifier;
         auto merge_proof = merge_prover.construct_proof();
-        bool verified = merge_verifier.verify_proof(merge_proof);
+        std::array<typename Flavor::Commitment, Flavor::NUM_WIRES> t_commitments_val;
+
+        bool verified = merge_verifier.verify_proof(
+            merge_proof, this->construct_subtable_commitments_from_op_queue(op_queue, merge_prover, t_commitments_val));
 
         return verified;
     }
@@ -336,7 +356,7 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
         EXPECT_TRUE(honk_verified);
 
         // Construct and verify Goblin ECC op queue Merge proof
-        auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+        auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
         EXPECT_TRUE(merge_verified);
     }
 }
