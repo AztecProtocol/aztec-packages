@@ -32,8 +32,7 @@ jobs:
             
             // Filter for merge-train PRs
             const mergeTrainPRs = pulls.filter(pr => 
-              pr.base.ref.startsWith('merge-train/') &&
-              pr.title.includes('🚂 Merge Queue for')
+              pr.base.ref.startsWith('merge-train/')
             );
             
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
