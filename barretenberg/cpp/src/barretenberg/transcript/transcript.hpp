@@ -268,7 +268,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::template convert_to_bn254_frs<T>(element);
+        auto element_frs = TranscriptParams::template convert_to_bn254_frs(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**

@@ -107,7 +107,6 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
-                info("DEBUG: Allocating ProverPolynomials with size ", dyadic_circuit_size);
                 proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
                 allocate_wires();

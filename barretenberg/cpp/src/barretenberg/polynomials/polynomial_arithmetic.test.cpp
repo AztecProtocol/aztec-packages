@@ -1091,6 +1091,147 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     }
 }
 
+// LegacyPolynomials MLE
+TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
+{
+    using FF = TypeParam;
+
+    auto test_case = [](size_t N) {
+        auto& engine = numeric::get_debug_randomness();
+        const size_t m = numeric::get_msb(N);
+        EXPECT_EQ(N, 1 << m);
+        LegacyPolynomial<FF> poly(N);
+        for (size_t i = 1; i < N - 1; ++i) {
+            poly[i] = FF::random_element(&engine);
+        }
+        poly[N - 1] = FF::zero();
+
+        EXPECT_TRUE(poly[0].is_zero());
+
+        // sample u = (u₀,…,uₘ₋₁)
+        std::vector<FF> u(m);
+        for (size_t l = 0; l < m; ++l) {
+            u[l] = FF::random_element(&engine);
+        }
+
+        std::vector<FF> lagrange_evals(N, FF(1));
+        for (size_t i = 0; i < N; ++i) {
+            auto& coef = lagrange_evals[i];
+            for (size_t l = 0; l < m; ++l) {
+                size_t mask = (1 << l);
+                if ((i & mask) == 0) {
+                    coef *= (FF(1) - u[l]);
+                } else {
+                    coef *= u[l];
+                }
+            }
+        }
+
+        // check eval by computing scalar product between
+        // lagrange evaluations and coefficients
+        FF real_eval(0);
+        for (size_t i = 0; i < N; ++i) {
+            real_eval += poly[i] * lagrange_evals[i];
+        }
+        FF computed_eval = poly.evaluate_mle(u);
+        EXPECT_EQ(real_eval, computed_eval);
+
+        // also check shifted eval
+        FF real_eval_shift(0);
+        for (size_t i = 1; i < N; ++i) {
+            real_eval_shift += poly[i] * lagrange_evals[i - 1];
+        }
+        FF computed_eval_shift = poly.evaluate_mle(u, true);
+        EXPECT_EQ(real_eval_shift, computed_eval_shift);
+    };
+    test_case(32);
+    test_case(4);
+    test_case(2);
+}
+
+/*
+ * @brief Compare that the mle evaluation over Polynomials match the mle evaluation of
+ *        LegacyPolynomials.
+ */
+TYPED_TEST(PolynomialTests, evaluate_mle)
+{
+    using FF = TypeParam;
+
+    auto test_case = [](size_t n, size_t dim) {
+        auto& engine = numeric::get_debug_randomness();
+        size_t k = 1 << dim;
+
+        std::vector<FF> evaluation_points;
+        evaluation_points.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            evaluation_points[i] = FF::random_element(&engine);
+        }
+
+        LegacyPolynomial<FF> legacy_poly(1 << n);
+        Polynomial<FF> poly(k, 1 << n);
+        for (size_t i = 0; i < k; ++i) {
+            auto const rnd = FF::random_element(&engine);
+            legacy_poly[i] = rnd;
+            poly.at(i) = rnd;
+        }
+
+        const FF legacy_res = legacy_poly.evaluate_mle(evaluation_points);
+        const FF res = poly.evaluate_mle(evaluation_points);
+
+        EXPECT_EQ(legacy_res, res);
+
+        // Same with shifted polynomials
+        legacy_poly[0] = FF(0);
+        poly.at(0) = FF(0);
+
+        const FF legacy_shift_res = legacy_poly.evaluate_mle(evaluation_points, true);
+        const FF shift_res = poly.evaluate_mle(evaluation_points, true);
+
+        EXPECT_EQ(legacy_shift_res, shift_res);
+    };
+
+    test_case(9, 3);
+    test_case(8, 8);
+    test_case(13, 1);
+}
+
+/**
+ * @brief Test the function for partially evaluating MLE polynomials
+ *
+ */
+TYPED_TEST(PolynomialTests, partial_evaluate_mle)
+{
+    // Initialize a random polynomial
+    using FF = TypeParam;
+    size_t N = 32;
+    LegacyPolynomial<FF> poly(N);
+    for (auto& coeff : poly) {
+        coeff = FF::random_element();
+    }
+
+    // Define a random multivariate evaluation point u = (u_0, u_1, u_2, u_3, u_4)
+    auto u_0 = FF::random_element();
+    auto u_1 = FF::random_element();
+    auto u_2 = FF::random_element();
+    auto u_3 = FF::random_element();
+    auto u_4 = FF::random_element();
+    std::vector<FF> u_challenge = { u_0, u_1, u_2, u_3, u_4 };
+
+    // Show that directly computing v = p(u_0,...,u_4) yields the same result as first computing the partial evaluation
+    // in the last 3 variables g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+
+    // Compute v = p(u_0,...,u_4)
+    auto v_expected = poly.evaluate_mle(u_challenge);
+
+    // Compute g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
+    std::vector<FF> u_part_1 = { u_0, u_1 };
+    std::vector<FF> u_part_2 = { u_2, u_3, u_4 };
+    auto partial_evaluated_poly = poly.partial_evaluate_mle(u_part_2);
+    auto v_result = partial_evaluated_poly.evaluate_mle(u_part_1);
+
+    EXPECT_EQ(v_result, v_expected);
+}
+
 TYPED_TEST(PolynomialTests, factor_roots)
 {
     using FF = TypeParam;
