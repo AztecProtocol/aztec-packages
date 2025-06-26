@@ -10,7 +10,10 @@ import {Multicall3} from "./Multicall3.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {
-  SignatureLib, Signature, CommitteeAttestation
+  SignatureLib,
+  Signature,
+  CommitteeAttestation,
+  CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -69,6 +72,7 @@ import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {Slasher} from "@aztec/core/slashing/Slasher.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -154,11 +158,14 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       initialValidators[i - 1] = CheatDepositArgs({attester: attester, withdrawer: address(this)});
     }
 
+    StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
+    stakingQueueConfig.normalFlushSizeMin = _validatorCount;
+
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION)
       .setMintFeeAmount(1e30).setValidators(initialValidators).setTargetCommitteeSize(
       _targetCommitteeSize
-    ).setEntryQueueFlushSizeMin(_validatorCount).setSlashingQuorum(VOTING_ROUND_SIZE)
+    ).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
       .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
@@ -375,7 +382,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
           calls[0] = Multicall3.Call3({
             target: address(rollup),
-            callData: abi.encodeCall(rollup.propose, (b.proposeArgs, b.attestations, b.blobInputs)),
+            callData: abi.encodeCall(
+              rollup.propose,
+              (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
+            ),
             allowFailure: false
           });
           calls[1] = Multicall3.Call3({
@@ -386,7 +396,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           multicall.aggregate3(calls);
         } else {
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, b.attestations, b.blobInputs);
+          rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

@@ -471,7 +471,7 @@ describe('L1Publisher integration', () => {
               },
               txHashes: [],
             },
-            [],
+            RollupContract.packAttestations([]),
             Blob.getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });

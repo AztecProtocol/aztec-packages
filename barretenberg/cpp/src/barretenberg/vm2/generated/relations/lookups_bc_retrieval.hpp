@@ -11,55 +11,29 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_bc_retrieval_silo_deployment_nullifier_poseidon2 ///////////////////
-
-struct lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_SILO_DEPLOYMENT_NULLIFIER_POSEIDON2";
-    static constexpr std::string_view RELATION_NAME = "bc_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
-    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
-    static constexpr Column COUNTS = Column::lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_counts;
-    static constexpr Column INVERSES = Column::lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::bc_retrieval_outer_nullifier_domain_separator,
-        ColumnAndShifts::bc_retrieval_deployer_protocol_contract_address,
-        ColumnAndShifts::bc_retrieval_address,
-        ColumnAndShifts::bc_retrieval_siloed_address
-    };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_hash_input_0,
-        ColumnAndShifts::poseidon2_hash_input_1,
-        ColumnAndShifts::poseidon2_hash_input_2,
-        ColumnAndShifts::poseidon2_hash_output
-    };
-};
-
-using lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings =
-    lookup_settings<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings_>;
-template <typename FF_>
-using lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_relation =
-    lookup_relation_base<FF_, lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings>;
-
 /////////////////// lookup_bc_retrieval_deployment_nullifier_read ///////////////////
 
 struct lookup_bc_retrieval_deployment_nullifier_read_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_DEPLOYMENT_NULLIFIER_READ";
     static constexpr std::string_view RELATION_NAME = "bc_retrieval";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
     static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
     static constexpr Column COUNTS = Column::lookup_bc_retrieval_deployment_nullifier_read_counts;
     static constexpr Column INVERSES = Column::lookup_bc_retrieval_deployment_nullifier_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_retrieval_nullifier_exists,
-        ColumnAndShifts::bc_retrieval_siloed_address,
-        ColumnAndShifts::bc_retrieval_nullifier_tree_root
+        ColumnAndShifts::bc_retrieval_address,
+        ColumnAndShifts::bc_retrieval_nullifier_tree_root,
+        ColumnAndShifts::bc_retrieval_deployer_protocol_contract_address,
+        ColumnAndShifts::bc_retrieval_sel
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::nullifier_check_exists,
         ColumnAndShifts::nullifier_check_nullifier,
-        ColumnAndShifts::nullifier_check_root
+        ColumnAndShifts::nullifier_check_root,
+        ColumnAndShifts::nullifier_check_address,
+        ColumnAndShifts::nullifier_check_should_silo
     };
 };
 
@@ -132,14 +106,14 @@ struct lookup_bc_retrieval_update_check_settings_ {
         ColumnAndShifts::bc_retrieval_current_class_id,
         ColumnAndShifts::bc_retrieval_original_class_id,
         ColumnAndShifts::bc_retrieval_public_data_tree_root,
-        ColumnAndShifts::bc_retrieval_block_number
+        ColumnAndShifts::bc_retrieval_timestamp
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::update_check_address,
         ColumnAndShifts::update_check_current_class_id,
         ColumnAndShifts::update_check_original_class_id,
         ColumnAndShifts::update_check_public_data_tree_root,
-        ColumnAndShifts::update_check_block_number
+        ColumnAndShifts::update_check_timestamp
     };
 };
 

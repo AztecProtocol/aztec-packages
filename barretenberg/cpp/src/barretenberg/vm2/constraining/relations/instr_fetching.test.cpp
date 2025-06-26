@@ -15,7 +15,6 @@
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_into_indexed_by_clk.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -24,9 +23,6 @@ namespace bb::avm2::constraining {
 namespace {
 
 using tracegen::BytecodeTraceBuilder;
-using tracegen::LookupIntoDynamicTableGeneric;
-using tracegen::LookupIntoDynamicTableSequential;
-using tracegen::LookupIntoIndexedByClk;
 using tracegen::PrecomputedTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
@@ -43,15 +39,6 @@ using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 using simulation::Operand;
 using simulation::RangeCheckEvent;
-
-using instr_abs_diff_positive_lookup = lookup_instr_fetching_instr_abs_diff_positive_relation<FF>;
-using pc_abs_diff_positive_lookup = lookup_instr_fetching_pc_abs_diff_positive_relation<FF>;
-using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
-using bc_decomposition_lookup = lookup_instr_fetching_bytes_from_bc_dec_relation<FF>;
-using bytecode_size_bc_decomposition_lookup = lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF>;
-using tag_validation_lookup = lookup_instr_fetching_tag_value_validation_relation<FF>;
-
-using testing::random_bytes;
 
 TEST(InstrFetchingConstrainingTest, EmptyRow)
 {
@@ -215,8 +202,6 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 // It works as long as the relations are not constraining the correct range for TAG nor indirect.
 TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
 {
-    using wire_instr_spec_lookup = lookup_instr_fetching_wire_instruction_info_relation<FF>;
-
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
     PrecomputedTraceBuilder precomputed_builder;
@@ -226,10 +211,9 @@ TEST(InstrFetchingConstrainingTest, WireInstructionSpecInteractions)
     bytecode_builder.process_instruction_fetching(gen_instr_events_each_opcode(), trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-
     EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for selector against wire_instruction_spec
 
+    check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(trace);
     check_relation<instr_fetching>(trace);
 }
 
@@ -266,8 +250,9 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
                                            trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(trace);
 
     // BC Decomposition trace is the longest here.
     EXPECT_EQ(trace.get_num_rows(), instr_fetch_events.at(0).bytecode->size() + 1);
@@ -293,12 +278,13 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     range_check_builder.process(range_check_events, trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-    LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
+                      lookup_instr_fetching_wire_instruction_info_settings,
+                      lookup_instr_fetching_tag_value_validation_settings,
+                      lookup_instr_fetching_pc_abs_diff_positive_settings,
+                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
 
@@ -319,11 +305,12 @@ void check_without_range_check(const std::vector<InstructionFetchingEvent>& inst
     bytecode_builder.process_decomposition(decomposition_events, trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-    LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_instr_fetching_bytes_from_bc_dec_settings,
+                      lookup_instr_fetching_bytecode_size_from_bc_dec_settings,
+                      lookup_instr_fetching_wire_instruction_info_settings,
+                      lookup_instr_fetching_tag_value_validation_settings,
+                      lookup_instr_fetching_instr_abs_diff_positive_settings>(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for range checks
 
@@ -554,9 +541,8 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
     check_without_range_check(instr_events, decomposition_events);
 }
 
-// TODO(jeanmon): Reconsider this test after #13140
 // Negative interaction test with some values not matching the instruction spec table.
-TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInteractions)
+TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions)
 {
     BytecodeTraceBuilder bytecode_builder;
     PrecomputedTraceBuilder precomputed_builder;
@@ -578,11 +564,11 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInt
         precomputed_builder.process_sel_range_8(trace);
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-        LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(trace);
 
         ASSERT_EQ(trace.get(C::lookup_instr_fetching_wire_instruction_info_counts, static_cast<uint32_t>(opcode)), 1);
 
-        constexpr std::array<C, 22> mutated_cols = {
+        constexpr std::array<C, 21> mutated_cols = {
             C::instr_fetching_exec_opcode,    C::instr_fetching_instr_size,   C::instr_fetching_sel_has_tag,
             C::instr_fetching_sel_tag_is_op2, C::instr_fetching_sel_op_dc_0,  C::instr_fetching_sel_op_dc_1,
             C::instr_fetching_sel_op_dc_2,    C::instr_fetching_sel_op_dc_3,  C::instr_fetching_sel_op_dc_4,
@@ -598,11 +584,10 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInt
             const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
             mutated_trace.set(col, 1, mutated_value);
 
-            // We do not need to re-run LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
-            // because we never mutate the indexing column for this lookup (clk) and for this lookup
-            // find_in_dst only uses column C::instr_fetching_bd0 mapped to (clk). So, the counts are still valid.
-            // EXPECT_THROW_WITH_MESSAGE(check_interaction<wire_instr_spec_lookup>(mutated_trace),
-            //                           "Relation.*WIRE_INSTRUCTION_INFO.* ACCUMULATION.* is non-zero");
+            EXPECT_THROW_WITH_MESSAGE(
+                (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(
+                    mutated_trace)),
+                "Failed.*LOOKUP_INSTR_FETCHING_WIRE_INSTRUCTION_INFO.*Could not find tuple in destination.");
         }
     }
 }
@@ -635,7 +620,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
                                                trace);
 
         auto valid_trace = trace; // Keep original trace before lookup processing
-        LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(valid_trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(valid_trace);
 
         constexpr std::array<C, 39> mutated_cols = {
             C::instr_fetching_pc,   C::instr_fetching_bytecode_id, C::instr_fetching_bd0,  C::instr_fetching_bd1,
@@ -659,7 +644,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
             // This sets the length of the inverse polynomial via SetDummyInverses, so we
             // still need to call this even though we know it will fail.
             EXPECT_THROW_WITH_MESSAGE(
-                LookupIntoDynamicTableSequential<bc_decomposition_lookup::Settings>().process(mutated_trace),
+                (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(
+                    mutated_trace)),
                 "Failed.*BYTES_FROM_BC_DEC. Could not find tuple in destination.");
         }
     }
@@ -705,7 +691,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
         auto valid_trace = trace; // Keep original trace before lookup processing
-        LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(valid_trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(valid_trace);
 
         auto mutated_trace = trace;
         const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 1) + 1; // Mutate to value + 1
@@ -714,14 +700,13 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         // This sets the length of the inverse polynomial via SetDummyInverses, so we still need to call this
         // even though we know it will fail.
         EXPECT_THROW_WITH_MESSAGE(
-            LookupIntoDynamicTableSequential<bytecode_size_bc_decomposition_lookup::Settings>().process(mutated_trace),
+            (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(
+                mutated_trace)),
             "Failed.*BYTECODE_SIZE_FROM_BC_DEC. Could not find tuple in destination.");
     }
 }
 
-// TODO(jeanmon): Reconsider this test after #13140
-// Negative interaction test for #[TAG_VALUE_VALIDATION] where tag_out_of_range is wrongly mutated
-TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongTagValidationInteractions)
+TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
 {
     TestTraceContainer trace;
     BytecodeTraceBuilder bytecode_builder;
@@ -744,7 +729,7 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongTagValidationInteracti
         precomputed_builder.process_sel_range_8(trace);
         precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-        LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
+        check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(trace);
 
         auto valid_trace = trace; // Keep original trace before lookup processing
 
@@ -753,11 +738,10 @@ TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongTagValidationInteracti
         ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 1), 0);
         mutated_trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
 
-        // We do not need to re-run LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
-        // because we never mutate the indexing column for this lookup (clk) and for this lookup
-        // find_in_dst only uses column C::instr_fetching_tag_value mapped to (clk). So, the counts are still valid.
-        // EXPECT_THROW_WITH_MESSAGE(check_interaction<tag_validation_lookup>(mutated_trace),
-        //                           "Relation.*TAG_VALUE_VALIDATION.* ACCUMULATION.* is non-zero");
+        EXPECT_THROW_WITH_MESSAGE(
+            (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(
+                mutated_trace)),
+            "Failed.*LOOKUP_INSTR_FETCHING_TAG_VALUE_VALIDATION.*Could not find tuple in destination.");
     }
 }
 
