@@ -67,7 +67,7 @@ jobs:
           git checkout $PR_BRANCH
           
           # Attempt to merge next
-          if git merge origin/next --no-edit -m "Merge branch 'next' into $PR_BRANCH"; then
+          if git merge origin/next --no-edit -m "Merge branch 'next' into $PR_BRANCH [skip ci]"; then
             echo "merge_success=true" >> $GITHUB_OUTPUT
             git push origin $PR_BRANCH
           else

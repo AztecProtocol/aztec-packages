@@ -14,8 +14,9 @@ on:
   merge_group: {}
 
 concurrency:
-  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  # Allow full concurrency for merge-train PRs, normal concurrency for others
+  group: ${{ startsWith(github.event.pull_request.base.ref, 'merge-train/') && format('ci3-merge-train-{0}', github.run_id) || format('ci3-{0}', github.event.merge_group.head_ref || github.ref_name) }}
+  cancel-in-progress: ${{ !startsWith(github.event.pull_request.base.ref, 'merge-train/') }}
 
 jobs:
   ci:
