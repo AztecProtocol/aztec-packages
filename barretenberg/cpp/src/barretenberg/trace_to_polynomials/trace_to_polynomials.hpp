@@ -25,32 +25,6 @@ template <class Flavor> class TraceToPolynomials {
 
     static constexpr size_t NUM_SELECTORS = Builder::ExecutionTrace::NUM_SELECTORS;
 
-    // WORKTODO: get rid of this struct altogether
-    struct TraceData {
-        std::array<Polynomial, NUM_WIRES> wires;
-        std::array<Polynomial, NUM_SELECTORS> selectors;
-        // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
-        std::vector<CyclicPermutation> copy_cycles;
-
-        TraceData(Builder& builder, ProvingKey& proving_key)
-        {
-            PROFILE_THIS_NAME("TraceData constructor");
-
-            // Initialize and share the wire and selector polynomials
-            for (auto [wire, other_wire] : zip_view(wires, proving_key.polynomials.get_wires())) {
-                wire = other_wire.share();
-            }
-            for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
-                selector = other_selector.share();
-            }
-            {
-                PROFILE_THIS_NAME("copy cycle initialization");
-
-                copy_cycles.resize(builder.get_num_variables());
-            }
-        }
-    };
-
     /**
      * @brief Given a circuit, populate a proving key with wire polys, selector polys, and sigma/id polys
      * @note By default, this method constructs an exectution trace that is sorted by gate type. Optionally, it
@@ -80,14 +54,14 @@ template <class Flavor> class TraceToPolynomials {
     static void add_memory_records_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
-     * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
+     * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
      *
      * @param builder
-     * @param dyadic_circuit_size
-     * @param is_structured whether or not the trace is to be structured with a fixed block size
-     * @return TraceData
+     * @param proving_key
+     * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
      */
-    static TraceData construct_trace_data(Builder& builder, typename Flavor::ProvingKey& proving_key);
+    static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(
+        Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

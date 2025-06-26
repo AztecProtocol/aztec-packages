@@ -21,9 +21,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 
     PROFILE_THIS_NAME("trace populate");
 
-    // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
-    // data
-    auto trace_data = construct_trace_data(builder, proving_key);
+    auto copy_cycles = populate_wires_and_selectors_and_compute_copy_cycles(builder, proving_key);
 
     proving_key.pub_inputs_offset = builder.blocks.pub_inputs.trace_offset();
 
@@ -43,7 +41,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
     {
         PROFILE_THIS_NAME("compute_permutation_argument_polynomials");
 
-        compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
+        compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, copy_cycles);
     }
 }
 
@@ -66,13 +64,17 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(Builder& buil
 }
 
 template <class Flavor>
-typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
+std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
     Builder& builder, typename Flavor::ProvingKey& proving_key)
 {
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    TraceData trace_data{ builder, proving_key };
+    std::vector<CyclicPermutation> copy_cycles;
+    copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
+
+    RefArray<Polynomial, NUM_WIRES> wires = proving_key.polynomials.get_wires();
+    RefArray<Polynomial, NUM_SELECTORS> selectors = proving_key.polynomials.get_selectors();
 
     // For each block in the trace, populate wire polys, copy cycles and selector polys
     for (auto& block : builder.blocks.get()) {
@@ -80,7 +82,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         const uint32_t block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-
         if (block.size() > 0) {
             proving_key.active_region_data.add_range(offset, offset + block.size());
         }
@@ -88,7 +89,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
-
             PROFILE_THIS_NAME("populating wires and copy_cycles");
 
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
@@ -97,9 +97,9 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
                     uint32_t real_var_idx = builder.real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    trace_data.wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
+                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
                     // Add the address of the witness value to its corresponding copy cycle
-                    trace_data.copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
+                    copy_cycles[real_var_idx].emplace_back(cycle_node{ wire_idx, trace_row_idx });
                 }
             }
         }
@@ -110,12 +110,12 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
             auto& selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
-                trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
     }
 
-    return trace_data;
+    return copy_cycles;
 }
 
 template <class Flavor>
