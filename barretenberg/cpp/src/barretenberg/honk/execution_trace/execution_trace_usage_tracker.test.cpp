@@ -74,3 +74,22 @@ TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRangesMoreThreadsThanWork)
 
     EXPECT_EQ(thread_ranges, expected_thread_ranges);
 }
+
+// Test that a large range is properly split across multiple threads
+TEST_F(ExecutionTraceUsageTrackerTest, ConstructThreadRangesSplitsLargeRange)
+{
+    using Range = ExecutionTraceUsageTracker::Range;
+
+    // Single range that is too large to fit in a single thread
+    std::vector<Range> union_ranges = { { 0, 1 }, { 2, 101 } };
+
+    std::vector<std::vector<Range>> expected_thread_ranges = { { { 0, 1 }, { 2, 34 } },
+                                                               { { 34, 66 } },
+                                                               { { 67, 101 } } };
+
+    const size_t num_threads = 3;
+    std::vector<std::vector<Range>> thread_ranges =
+        ExecutionTraceUsageTracker::construct_ranges_for_equal_content_distribution(union_ranges, num_threads);
+
+    EXPECT_EQ(thread_ranges, expected_thread_ranges);
+}
