@@ -53,16 +53,8 @@ jobs:
             
             // Build new body
             const mergeTrainBranch = pr.base.ref;
-            const newBody = `This is an automated merge queue PR. New commits from \`next\` will be added here.
-            
-            When ready, this PR will be merged into \`${mergeTrainBranch}\`.
-            
-            ## 🚂 Commits in this merge train
-            
-            ${commits || '*No commits yet*'}
-            
-            ---
-            *Created by merge train automation. This description is automatically updated when new commits are added.*`;
+            const newBody = `Merge train with:
+            ${commits || '*No commits yet*'}`;
             
             // Update PR
             await github.rest.pulls.update({
