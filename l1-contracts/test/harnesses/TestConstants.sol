@@ -3,17 +3,13 @@
 
 pragma solidity >=0.8.27;
 
-import {
-  RollupConfigInput,
-  GenesisState,
-  EthValue,
-  RewardConfig
-} from "@aztec/core/interfaces/IRollup.sol";
-import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
-import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
-import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {RewardBoostConfig, IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {RollupConfigInput, GenesisState, EthValue, RewardConfig} from "@aztec/core/interfaces/IRollup.sol";
+import {StakingQueueConfig} from "@aztec/core/libraries/StakingQueue.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 library TestConstants {
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
@@ -57,7 +53,8 @@ library TestConstants {
     return RewardConfig({
       rewardDistributor: IRewardDistributor(address(0)),
       sequencerBps: Bps.wrap(5000),
-      booster: IBoosterCore(address(0)) // Will cause a deployment
+      booster: IBoosterCore(address(0)), // Will cause a deployment
+      feeAssetPortal: IFeeJuicePortal(address(0))
     });
   }
 
