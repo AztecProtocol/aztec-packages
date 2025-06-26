@@ -52,10 +52,10 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     Polynomial read_counts{ circuit_size };
     Polynomial read_tags{ circuit_size };
 
+    builder.blocks.compute_offsets(/*is_structured=*/false);
     construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder, circuit_size);
 
-    // The table polys are constructed at the bottom of the trace, thus so to are the counts/tags
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
+    // The table polys are constructed at the start of the lookup gates block, thus so to are the counts/tags
     size_t offset = builder.blocks.lookup.trace_offset();
 
     // The uint32 XOR lookup table is constructed for 6 bit operands via double for loop that iterates through the left
