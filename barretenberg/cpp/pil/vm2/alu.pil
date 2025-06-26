@@ -16,6 +16,9 @@ pol commit ia_tag;
 pol commit ib_tag;
 pol commit ic_tag;
 
+#[skippable_if]
+sel = 0;
+
 // carry flag
 pol commit cf;
 
