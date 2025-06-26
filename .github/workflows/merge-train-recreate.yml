@@ -16,7 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Configure Git
@@ -24,7 +23,7 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Create new merge-queue PR
+      - name: Create new merge-train PR
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
@@ -32,18 +31,15 @@ jobs:
           MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
 
           # Make sure we have it locally
-          git fetch origin "$MERGE_TRAIN_BRANCH":"$MERGE_TRAIN_BRANCH"
-          git checkout "$MERGE_TRAIN_BRANCH"
-
-          # Spin up a fresh queue branch
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          NEW_BRANCH="merge-queue/${MERGE_TRAIN_BRANCH}/${TIMESTAMP}"
-          git checkout -b "$NEW_BRANCH"
+          git fetch origin ${{github.event.pull_request.base.ref}}
+          git fetch origin "$MERGE_TRAIN_BRANCH" || true
+          git checkout "$MERGE_TRAIN_BRANCH" || git checkout -b "$MERGE_TRAIN_BRANCH"
+          git reset --hard origin/${{github.event.pull_request.base.ref}}
 
           # Merge the base branch (typically 'next') with theirs strategy
-          git merge github.event.pull_request.base.ref
+          git merge -X ours ${{github.event.pull_request.base.ref}}
 
-          # Seed it with an empty commit
+          # Start with an empty commit
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 
           # Push & open the PR
@@ -53,6 +49,4 @@ jobs:
             --base "$MERGE_TRAIN_BRANCH" \
             --head "$NEW_BRANCH" \
             --title "feat: $MERGE_TRAIN_BRANCH" \
-            --body "This is an automated merge-queue PR. New commits from \`next\` will be added here.
-
-            When ready, this PR will be merged automatically."
+            --body "This is an automated merge-train PR with no commits."
