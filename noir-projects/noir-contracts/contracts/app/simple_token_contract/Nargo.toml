@@ -8,4 +8,3 @@ type = "contract"
 aztec = { path = "../../../../aztec-nr/aztec" }
 uint_note = { path = "../../../../aztec-nr/uint-note" }
 compressed_string = { path = "../../../../aztec-nr/compressed-string" }
-authwit = { path = "../../../../aztec-nr/authwit" }

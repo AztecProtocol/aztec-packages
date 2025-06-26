@@ -92,6 +92,7 @@ export type ServerCircuitName =
   | 'block-root-rollup'
   | 'single-tx-block-root-rollup'
   | 'empty-block-root-rollup'
+  | 'padding-block-root-rollup'
   | 'block-merge-rollup'
   | 'root-rollup'
   | 'avm-circuit'

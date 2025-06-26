@@ -3,17 +3,17 @@
 pragma solidity >=0.8.27;
 
 import {
-  RollupStore,
-  IRollupCore,
-  BlockLog,
-  BlockHeaderValidationFlags
+  RollupStore, IRollupCore, BlockHeaderValidationFlags
 } from "@aztec/core/interfaces/IRollup.sol";
+import {BlockLog, BlockLogLib} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {
-  SignatureDomainSeparator, CommitteeAttestation
+  SignatureDomainSeparator, CommitteeAttestations
 } from "@aztec/shared/libraries/SignatureLib.sol";
 import {BlobLib} from "./BlobLib.sol";
 import {ProposedHeader, ProposedHeaderLib, StateReference} from "./ProposedHeaderLib.sol";
@@ -57,7 +57,7 @@ struct InterimProposeValues {
  */
 struct ValidateHeaderArgs {
   ProposedHeader header;
-  CommitteeAttestation[] attestations;
+  CommitteeAttestations attestations;
   bytes32 digest;
   uint256 manaBaseFee;
   bytes32 blobsHashesCommitment;
@@ -68,6 +68,9 @@ library ProposeLib {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
+  using BlockLogLib for BlockLog;
+  using CompressedTimeMath for CompressedSlot;
+  using ChainTipsLib for CompressedChainTips;
 
   /**
    * @notice  Publishes the body and propose the block
@@ -83,7 +86,7 @@ library ProposeLib {
    */
   function propose(
     ProposeArgs calldata _args,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes calldata _blobsInput,
     bool _checkBlob
   ) internal {
@@ -128,7 +131,7 @@ library ProposeLib {
     );
 
     RollupStore storage rollupStore = STFLib.getStorage();
-    uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
+    uint256 blockNumber = rollupStore.tips.getPendingBlockNumber() + 1;
 
     // Blob commitments are collected and proven per root rollup proof (=> per epoch), so we need to know whether we are at the epoch start:
     bool isFirstBlockOfEpoch =
@@ -139,12 +142,13 @@ library ProposeLib {
       isFirstBlockOfEpoch
     );
 
+    rollupStore.tips = rollupStore.tips.updatePendingBlockNumber(blockNumber);
     rollupStore.blocks[blockNumber] = BlockLog({
       archive: _args.archive,
       headerHash: v.headerHash,
       blobCommitmentsHash: blobCommitmentsHash,
       slotNumber: header.slotNumber
-    });
+    }).compress();
 
     FeeLib.writeFeeHeader(
       blockNumber,
@@ -183,7 +187,7 @@ library ProposeLib {
     );
 
     Slot slot = _args.header.slotNumber;
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber.decompress();
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
     Slot currentSlot = currentTime.slotFromTimestamp();

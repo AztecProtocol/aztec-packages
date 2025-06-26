@@ -165,7 +165,7 @@ import { CallContext } from '../tx/call_context.js';
 import { ContentCommitment } from '../tx/content_commitment.js';
 import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
-import { MaxBlockNumber } from '../tx/max_block_number.js';
+import { IncludeByTimestamp } from '../tx/include_by_timestamp.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
@@ -174,7 +174,7 @@ import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
 import { TxRequest } from '../tx/tx_request.js';
-import { RollupTypes, Vector } from '../types/index.js';
+import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 import { mockTx } from './mocks.js';
@@ -308,7 +308,7 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 export function makeRollupValidationRequests(seed = 1) {
-  return new RollupValidationRequests(new MaxBlockNumber(true, seed + 0x31415));
+  return new RollupValidationRequests(new IncludeByTimestamp(true, BigInt(seed + 0x31415)));
 }
 
 function makeTxConstantData(seed = 1) {
@@ -567,7 +567,7 @@ export function makeTxRequest(seed = 1): TxRequest {
  */
 export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicInputs {
   return PrivateCircuitPublicInputs.from({
-    maxBlockNumber: new MaxBlockNumber(true, seed + 0x31415),
+    includeByTimestamp: new IncludeByTimestamp(true, BigInt(seed + 0x31415)),
     callContext: makeCallContext(seed, { isStaticCall: true }),
     argsHash: fr(seed + 0x100),
     returnsHash: fr(seed + 0x200),
@@ -684,7 +684,6 @@ export function makeBaseOrMergeRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    RollupTypes.Base,
     1,
     makeBlockConstantData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
@@ -833,7 +832,6 @@ export function makeEmptyBlockRootRollupInputs(
   return new EmptyBlockRootRollupInputs(
     makeBlockRootRollupData(seed + 0x1000),
     makeBlockConstantData(0x2500, globalVariables),
-    true,
   );
 }
 

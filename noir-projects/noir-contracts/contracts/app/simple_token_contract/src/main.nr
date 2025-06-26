@@ -13,6 +13,10 @@ pub contract SimpleToken {
     use dep::compressed_string::FieldCompressedString;
 
     use dep::aztec::{
+        authwit::auth::{
+            assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
+            compute_authwit_nullifier,
+        },
         context::{PrivateCallInterface, PrivateContext},
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
@@ -25,11 +29,6 @@ pub contract SimpleToken {
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};
-
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
-        compute_authwit_nullifier,
-    };
 
     use crate::types::balance_set::BalanceSet;
 
