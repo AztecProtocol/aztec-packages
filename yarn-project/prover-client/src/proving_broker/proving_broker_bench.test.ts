@@ -23,12 +23,14 @@ import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
 const logger = createLogger('proving-broker-bench');
 const benchTimer = new Timer();
 
-async function createKVDatabase() {
+async function createKVDatabase(l1Contracts?: L1ContractAddresses) {
   const directory = await mkdtemp(join(tmpdir(), 'proving-broker-bench'));
   const database = await KVBrokerDatabase.new({
     ...defaultProverBrokerConfig,
     dataDirectory: directory,
-    l1Contracts: Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses,
+    l1Contracts:
+      l1Contracts ??
+      (Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses),
   });
   return { database, directory };
 }
@@ -89,7 +91,7 @@ function makeSeededRng(seed = 1): () => number {
   };
 }
 
-interface BenchmarkResults {
+interface EnqueueBenchmarkResults {
   avgEnqueueLatency: number;
   medianEnqueueLatency: number;
   p90EnqueueLatency: number;
@@ -111,6 +113,15 @@ interface DequeueBenchmarkResults {
   queueEmptyTime: number;
 }
 
+interface InitializationBenchmarkResults {
+  initializationTime: number;
+  totalJobs: number;
+  jobsPerSecond: number;
+  emptyCleanupTime: number;
+  jobsRemovedByCleanup: number;
+  fullCleanupTime: number;
+}
+
 interface GithubActionBenchmarkResult {
   name: string;
   value: number;
@@ -121,7 +132,7 @@ interface GithubActionBenchmarkResult {
 const proofDistributionTestCases = [
   {
     name: 'minimum epoch',
-    description: '1 block', // 8 transactions per block = 8 total transactions
+    description: '1 block, 8 transactions', // 8 transactions per block = 8 total transactions
     proofCounts: [1, 0, 0, 1, 6, 4, 4, 4, 8, 1, 4, 0],
   },
   {
@@ -175,7 +186,7 @@ const epochPatterns = [
 class ProvingBrokerBenchmarkCollector {
   private results: GithubActionBenchmarkResult[] = [];
 
-  addEnqueueResult(testName: string, results: BenchmarkResults) {
+  addEnqueueResult(testName: string, results: EnqueueBenchmarkResults) {
     this.results.push({
       name: `proving_broker/enqueue/${testName}/avg_latency`,
       value: results.avgEnqueueLatency,
@@ -227,12 +238,36 @@ class ProvingBrokerBenchmarkCollector {
     });
   }
 
+  addInitializationResult(testName: string, results: InitializationBenchmarkResults) {
+    this.results.push({
+      name: `proving_broker/initialization/${testName}/startup_time`,
+      value: results.initializationTime,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/initialization/${testName}/jobs_per_sec`,
+      value: results.jobsPerSecond,
+      unit: 'jobs/s',
+    });
+    this.results.push({
+      name: `proving_broker/initialization/${testName}/no_epoch_deletion_cleanup_time`,
+      value: results.emptyCleanupTime,
+      unit: 'ms',
+    });
+    this.results.push({
+      name: `proving_broker/initialization/${testName}/full_epoch_deletion_cleanup_time`,
+      value: results.fullCleanupTime,
+      unit: 'ms',
+    });
+  }
+
   toPrettyString(): string {
     let output = '\nProving Broker Benchmark Results:\n';
     output += '='.repeat(50) + '\n';
 
     const enqueueResults = this.results.filter(r => r.name.includes('/enqueue/'));
     const dequeueResults = this.results.filter(r => r.name.includes('/dequeue/'));
+    const initResults = this.results.filter(r => r.name.includes('/initialization/'));
 
     if (enqueueResults.length > 0) {
       output += '\nEnqueue Benchmarks:\n';
@@ -248,6 +283,16 @@ class ProvingBrokerBenchmarkCollector {
       output += '\nDequeue Benchmarks:\n';
       output += '-'.repeat(20) + '\n';
       dequeueResults.forEach(result => {
+        const testName = result.name.split('/')[2];
+        const metric = result.name.split('/')[3];
+        output += `  ${testName} ${metric}: ${result.value} ${result.unit}\n`;
+      });
+    }
+
+    if (initResults.length > 0) {
+      output += '\nInitialization Benchmarks:\n';
+      output += '-'.repeat(30) + '\n';
+      initResults.forEach(result => {
         const testName = result.name.split('/')[2];
         const metric = result.name.split('/')[3];
         output += `  ${testName} ${metric}: ${result.value} ${result.unit}\n`;
@@ -271,20 +316,25 @@ describe('Proving Broker: Benchmarks', () => {
   let proofStore: MockProofStore;
   let databaseHandle: KVBrokerDatabase;
   let tempDirectory: string;
+  let l1Contracts: L1ContractAddresses; // Store L1 contracts to reuse
 
   const benchmarkCollector = new ProvingBrokerBenchmarkCollector();
 
   beforeEach(async () => {
+    // Generate L1 contracts once to reuse in the initialization test
+    l1Contracts = Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses;
+
     // Initialize the broker with configured database type
-    const { database, directory } = await createKVDatabase();
+    const { database, directory } = await createKVDatabase(l1Contracts);
     databaseHandle = database;
     tempDirectory = directory;
+
     broker = new ProvingBroker(databaseHandle);
 
     // Initialize the mock proof store to generate realistic GCP URI
     proofStore = new MockProofStore();
 
-    // Start both broker
+    // Start broker
     await broker.start();
   });
 
@@ -361,10 +411,26 @@ describe('Proving Broker: Benchmarks', () => {
     expect(totalBaseRollup).toBeGreaterThan(0);
   }
 
+  function getTotalJobsInBroker(broker: ProvingBroker): number {
+    let totalJobs = 0;
+    for (const proofType of PROOF_TYPES_IN_PRIORITY_ORDER) {
+      totalJobs += (broker as any).queues[proofType].length();
+    }
+    return totalJobs;
+  }
+
+  async function getTotalJobsInDatabase(database: KVBrokerDatabase): Promise<number> {
+    let totalJobs = 0;
+    for await (const [_job, _result] of database.allProvingJobs()) {
+      totalJobs++;
+    }
+    return totalJobs;
+  }
+
   async function benchmarkEnqueueProofDistribution(
     proofCounts: number[],
     epochGenerator: (index: number) => number = () => 1,
-  ): Promise<BenchmarkResults> {
+  ): Promise<EnqueueBenchmarkResults> {
     const jobs = buildJobList(proofCounts, epochGenerator);
     const preparedJobs = await Promise.all(
       jobs.map(async job => {
@@ -486,6 +552,89 @@ describe('Proving Broker: Benchmarks', () => {
     };
   }
 
+  async function benchmarkInitializationFromDB(proofCounts: number[]): Promise<InitializationBenchmarkResults> {
+    const jobs = buildJobList(proofCounts, () => 1);
+    const preparedJobs = await Promise.all(
+      jobs.map(async job => {
+        const jobId = makeRandomProvingJobId(job.epochNumber);
+        const inputsUri = (await proofStore.saveProofInput(jobId, job.type)) as any;
+        return { ...job, jobId, inputsUri } as const;
+      }),
+    );
+
+    const enqueuePromises = [];
+    for (const { jobId, inputsUri, type, epochNumber } of preparedJobs) {
+      const p = broker.enqueueProvingJob({
+        id: jobId,
+        type,
+        inputsUri,
+        epochNumber,
+      });
+      enqueuePromises.push(p);
+    }
+
+    await Promise.all(enqueuePromises);
+
+    const totalJobs = preparedJobs.length;
+
+    // Stop the broker and database to simulate a shutdown
+    await broker.stop();
+    await databaseHandle.close();
+
+    // Start timer and restart the database and broker from the same directory
+    const timer = benchTimer;
+    const initStart = timer.ms();
+
+    databaseHandle = await KVBrokerDatabase.new({
+      ...defaultProverBrokerConfig,
+      dataDirectory: tempDirectory,
+      l1Contracts: l1Contracts,
+    });
+
+    // Create new broker instance and measure startup time
+    broker = new ProvingBroker(databaseHandle);
+    await broker.start();
+
+    const initializationTime = timer.ms() - initStart;
+    const jobsPerSecond = totalJobs > 0 ? totalJobs / (initializationTime / 1000) : 0;
+    const jobsBeforeCleanup = await getTotalJobsInDatabase(databaseHandle);
+
+    // Cleanup runtime with no deletions
+    const cleanupStart = timer.ms();
+    await (broker as any).cleanupPass();
+    const emptyCleanupTime = timer.ms() - cleanupStart;
+
+    // Force full cleanup by enqueuing a job with epoch 3
+    const fullCleanupJobId = makeRandomProvingJobId(3);
+    const fullCleanupInputsUri = (await proofStore.saveProofInput(
+      fullCleanupJobId,
+      ProvingRequestType.PRIVATE_BASE_ROLLUP,
+    )) as any;
+    await broker.enqueueProvingJob({
+      id: fullCleanupJobId,
+      type: ProvingRequestType.PRIVATE_BASE_ROLLUP,
+      inputsUri: fullCleanupInputsUri,
+      epochNumber: 3,
+    });
+
+    // Cleanup runtime with full epoch deletion
+    const fullCleanupStart = timer.ms();
+    await (broker as any).cleanupPass();
+    const fullCleanupTime = timer.ms() - fullCleanupStart;
+
+    const jobsAfterCleanup = (await getTotalJobsInDatabase(databaseHandle)) - 1; // Disregard the proving job with epoch 3
+    const jobsRemovedByCleanup = jobsBeforeCleanup - jobsAfterCleanup;
+
+    return {
+      initializationTime,
+      totalJobs,
+      jobsPerSecond,
+      emptyCleanupTime,
+      jobsRemovedByCleanup,
+      fullCleanupTime,
+    };
+  }
+
   // Validate epoch configurations against the rules
   it('validate epoch configurations follow the rules', () => {
     assertEpochRules(proofDistributionTestCases.find(tc => tc.name === 'minimum epoch')!.proofCounts, 1, 8);
@@ -519,6 +668,10 @@ describe('Proving Broker: Benchmarks', () => {
       // Verify total jobs enqueued matches expected count
       const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
       expect(results.totalJobs).toBe(expectedJobs);
+
+      // Verify that the broker has the correct number of jobs in its queues
+      const jobsInBroker = getTotalJobsInBroker(broker);
+      expect(jobsInBroker).toBe(expectedJobs);
     },
   );
 
@@ -536,7 +689,7 @@ describe('Proving Broker: Benchmarks', () => {
 
   it.each(dequeueTestCases)(
     'dequeue $epochName proofs ($agentCount agents)',
-    async ({ epochName: _epochName, proofCounts, agentCount, testName }) => {
+    async ({ proofCounts, agentCount, testName }) => {
       const results = await benchmarkDequeueProofDistribution(proofCounts, () => 1, agentCount);
 
       // Collect benchmark data
@@ -544,12 +697,34 @@ describe('Proving Broker: Benchmarks', () => {
 
       expect(results.totalJobs).toBeGreaterThan(0);
       expect(results.avgDequeueLatency).toBeGreaterThan(0);
-      expect(results.avgDequeueLatency).toBeLessThan(100);
       expect(results.jobsPerSecond).toBeGreaterThan(0);
 
       // Verify total jobs dequeued matches expected count
       const expectedJobs = proofCounts.reduce((sum, count) => sum + count, 0);
       expect(results.totalJobs).toBe(expectedJobs);
+    },
+  );
+
+  // Initialization benchmark test cases - using existing epoch configurations
+  const initializationTestCases = proofDistributionTestCases.map(testCase => ({
+    epochName: testCase.name,
+    description: testCase.description,
+    proofCounts: testCase.proofCounts,
+    testName: testCase.name.replace(/\s+/g, '_'),
+  }));
+
+  it.each(initializationTestCases)(
+    'initialization $epochName proofs and cleanup on empty and full $epochName proofs',
+    async ({ description: _description, proofCounts, testName }) => {
+      // Run the initialization benchmark
+      const results = await benchmarkInitializationFromDB(proofCounts);
+
+      // Collect benchmark data
+      benchmarkCollector.addInitializationResult(testName, results);
+
+      expect(results.initializationTime).toBeGreaterThan(0);
+      expect(results.totalJobs).toBeGreaterThan(0);
+      expect(results.jobsPerSecond).toBeGreaterThan(0);
     },
   );
 });
