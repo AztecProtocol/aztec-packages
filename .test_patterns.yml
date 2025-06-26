@@ -178,6 +178,17 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/fbd46dc29335ec8c
+  - regex: "src/e2e_contract_updates.test.ts"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *jan
+
+  # http://ci.aztec-labs.com/a2b7e18ffffad5c4
+  - regex: "src/e2e_"
+    error_regex: "Error: Rollup__InvalidBlockNumber"
+    owners:
+      - *alex
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"

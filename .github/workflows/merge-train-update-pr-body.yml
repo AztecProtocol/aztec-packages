@@ -1,0 +1,66 @@
+name: Merge-Train PR Body
+
+on:
+  push:
+    branches:
+      - 'merge-train/**'
+
+jobs:
+  update-pr-body:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Find the open PR for this branch
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const branch = process.env.GITHUB_REF_NAME;   // e.g. merge-train/123
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branch}`,
+              state: 'open',
+            });
+            if (prs.length === 0) core.setFailed(`No open PR found for ${branch}`);
+            core.setOutput('number', prs[0].number);
+
+      - name: Get commit list (base..head)
+        id: commits
+        run: |
+          PR_NUMBER=${{ steps.pr.outputs.number }}
+          export GH_TOKEN="${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}"
+          # Obtain the base-branch and head-branch tip commits
+          read BASE_SHA HEAD_SHA < <(
+            gh pr view "$PR_NUMBER" \
+              --json baseRefOid,headRefOid \
+              --jq '.baseRefOid + " " + .headRefOid'
+          )
+          echo "commit_list<<EOF" >> "$GITHUB_OUTPUT"
+          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
+            grep -v "^\[empty\]" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Update PR body
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          script: |
+            const number = ${{ steps.pr.outputs.number }};
+            const commits = `${{ steps.commits.outputs.commit_list }}`.trim();
+            const newBody = `${commits || '*No commits yet*'}`;
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: number,
+              body: newBody,
+            });

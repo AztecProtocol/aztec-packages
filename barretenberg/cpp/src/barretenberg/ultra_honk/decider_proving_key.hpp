@@ -93,7 +93,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
             if (block.size() > 0) {
-                final_active_wire_idx = block.trace_offset + block.size() - 1;
+                final_active_wire_idx = block.trace_offset() + block.size() - 1;
             }
         }
 
@@ -133,7 +133,7 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, proving_key, is_structured);
+        Trace::populate(circuit, proving_key);
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
