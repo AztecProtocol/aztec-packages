@@ -30,8 +30,6 @@ template <class Flavor> class TraceToPolynomials {
         std::array<Polynomial, NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
-        uint32_t ram_rom_offset = 0;    // offset of the RAM/ROM block in the execution trace
-        uint32_t pub_inputs_offset = 0; // offset of the public inputs block in the execution trace
 
         TraceData(Builder& builder, ProvingKey& proving_key)
         {
@@ -63,7 +61,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
+    static void populate(Builder& builder, ProvingKey&);
 
   private:
     /**
@@ -78,10 +76,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param proving_key
      */
-    static void add_memory_records_to_proving_key(TraceData& trace_data,
-                                                  Builder& builder,
-                                                  typename Flavor::ProvingKey& proving_key)
-        requires IsUltraOrMegaHonk<Flavor>;
+    static void add_memory_records_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
      * @brief Construct wire polynomials, selector polynomials and copy cycles from raw circuit data
@@ -91,9 +86,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      * @return TraceData
      */
-    static TraceData construct_trace_data(Builder& builder,
-                                          typename Flavor::ProvingKey& proving_key,
-                                          bool is_structured = false);
+    static TraceData construct_trace_data(Builder& builder, typename Flavor::ProvingKey& proving_key);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

@@ -253,10 +253,11 @@ void UltraCircuitChecker::populate_values(
     values.w_o = builder.get_variable(block.w_o()[idx]);
     // Note: memory_data contains indices into the block to which RAM/ROM gates were added so we need to check that
     // we are indexing into the correct block before updating the w_4 value.
-    if (block.has_ram_rom && memory_data.read_record_gates.contains(idx)) {
+    const bool is_ram_rom_block = (&block == &builder.blocks.aux);
+    if (is_ram_rom_block && memory_data.read_record_gates.contains(idx)) {
         values.w_4 = compute_memory_record_term(
             values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three);
-    } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx)) {
+    } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx)) {
         values.w_4 =
             compute_memory_record_term(
                 values.w_l, values.w_r, values.w_o, memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
@@ -270,14 +271,14 @@ void UltraCircuitChecker::populate_values(
         values.w_l_shift = builder.get_variable(block.w_l()[idx + 1]);
         values.w_r_shift = builder.get_variable(block.w_r()[idx + 1]);
         values.w_o_shift = builder.get_variable(block.w_o()[idx + 1]);
-        if (block.has_ram_rom && memory_data.read_record_gates.contains(idx + 1)) {
+        if (is_ram_rom_block && memory_data.read_record_gates.contains(idx + 1)) {
             values.w_4_shift = compute_memory_record_term(values.w_l_shift,
                                                           values.w_r_shift,
                                                           values.w_o_shift,
                                                           memory_data.eta,
                                                           memory_data.eta_two,
                                                           memory_data.eta_three);
-        } else if (block.has_ram_rom && memory_data.write_record_gates.contains(idx + 1)) {
+        } else if (is_ram_rom_block && memory_data.write_record_gates.contains(idx + 1)) {
             values.w_4_shift = compute_memory_record_term(values.w_l_shift,
                                                           values.w_r_shift,
                                                           values.w_o_shift,

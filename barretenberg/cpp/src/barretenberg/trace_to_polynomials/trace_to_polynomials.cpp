@@ -16,23 +16,21 @@
 namespace bb {
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::populate(Builder& builder,
-                                          typename Flavor::ProvingKey& proving_key,
-                                          bool is_structured)
+void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key)
 {
 
     PROFILE_THIS_NAME("trace populate");
 
     // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
     // data
-    auto trace_data = construct_trace_data(builder, proving_key, is_structured);
+    auto trace_data = construct_trace_data(builder, proving_key);
 
-    proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
+    proving_key.pub_inputs_offset = builder.blocks.pub_inputs.trace_offset();
 
     {
         PROFILE_THIS_NAME("add_memory_records_to_proving_key");
 
-        add_memory_records_to_proving_key(trace_data, builder, proving_key);
+        add_memory_records_to_proving_key(builder, proving_key);
     }
 
     if constexpr (IsMegaFlavor<Flavor>) {
@@ -50,45 +48,41 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder,
 }
 
 template <class Flavor>
-void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& trace_data,
-                                                                   Builder& builder,
+void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(Builder& builder,
                                                                    typename Flavor::ProvingKey& proving_key)
-    requires IsUltraOrMegaHonk<Flavor>
 {
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    uint32_t ram_rom_offset = builder.blocks.aux.trace_offset();
     proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
-        proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
+        proving_key.memory_read_records.emplace_back(index + ram_rom_offset);
     }
     proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
-        proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
+        proving_key.memory_write_records.emplace_back(index + ram_rom_offset);
     }
 }
 
 template <class Flavor>
 typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::construct_trace_data(
-    Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
+    Builder& builder, typename Flavor::ProvingKey& proving_key)
 {
 
     PROFILE_THIS_NAME("construct_trace_data");
 
     TraceData trace_data{ builder, proving_key };
 
-    uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
-
     for (auto& block : builder.blocks.get()) {
-        auto block_size = static_cast<uint32_t>(block.size());
+        const uint32_t offset = block.trace_offset();
+        const uint32_t block_size = static_cast<uint32_t>(block.size());
 
         // Save ranges over which the blocks are "active" for use in structured commitments
-        if constexpr (IsUltraOrMegaHonk<Flavor>) { // Mega and Ultra
-            PROFILE_THIS_NAME("construct_active_indices");
-            if (block.size() > 0) {
-                proving_key.active_region_data.add_range(offset, offset + block.size());
-            }
+
+        if (block.size() > 0) {
+            proving_key.active_region_data.add_range(offset, offset + block.size());
         }
 
         // Update wire polynomials and copy cycles
@@ -119,19 +113,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
                 trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
-
-        // Store the offset of the block containing RAM/ROM read/write gates for use in updating memory records
-        if (block.has_ram_rom) {
-            trace_data.ram_rom_offset = offset;
-        }
-        // Store offset of public inputs block for use in the pub input mechanism of the permutation argument
-        if (block.is_pub_inputs) {
-            trace_data.pub_inputs_offset = offset;
-        }
-
-        // If the trace is structured, we populate the data from the next block at a fixed block size offset
-        // otherwise, the next block starts immediately following the previous one
-        offset += block.get_fixed_size(is_structured);
     }
 
     return trace_data;

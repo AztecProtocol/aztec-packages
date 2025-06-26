@@ -92,7 +92,7 @@ struct ExecutionTraceUsageTracker {
         previous_active_ranges = active_ranges; // store active ranges based on all but the present circuit
         active_ranges.clear();
         for (auto [max_size, fixed_block] : zip_view(max_sizes.get(), fixed_sizes.get())) {
-            size_t start_idx = fixed_block.trace_offset;
+            size_t start_idx = fixed_block.trace_offset();
             size_t end_idx = start_idx + max_size;
             active_ranges.push_back(Range{ start_idx, end_idx });
         }
@@ -105,9 +105,9 @@ struct ExecutionTraceUsageTracker {
         // max_databus_size } but this breaks for certain choices of num_threads. It should also be possible to have the
         // lookup table data be Range{lookup_start, max_tables_size} but that also breaks.
         size_t databus_end =
-            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset + max_sizes.busread));
+            std::max(max_databus_size, static_cast<size_t>(fixed_sizes.busread.trace_offset() + max_sizes.busread));
         active_ranges.push_back(Range{ 0, databus_end });
-        size_t lookups_start = fixed_sizes.lookup.trace_offset;
+        size_t lookups_start = fixed_sizes.lookup.trace_offset();
         size_t lookups_end = lookups_start + std::max(max_tables_size, static_cast<size_t>(max_sizes.lookup));
         active_ranges.emplace_back(Range{ lookups_start, lookups_end });
     }
