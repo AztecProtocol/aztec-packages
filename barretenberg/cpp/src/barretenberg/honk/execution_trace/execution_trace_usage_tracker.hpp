@@ -98,9 +98,9 @@ struct ExecutionTraceUsageTracker {
         }
 
         // The active range for lookup-style blocks consists of two components: (1) rows containing the lookup/read
-        // gates and (2) rows containing the table data itself. The Mega arithmetization contains two such blocks: 
-        // conventional lookups (lookup block) and the databus (busread block). Here we add the ranges corresponding 
-        // to the "table" data for these two blocks.
+        // gates and (2) rows containing the table data itself. The Mega arithmetization contains two such blocks:
+        // conventional lookups (lookup block) and the databus (busread block). Here we add the ranges corresponding
+        // to the "table" data for these two blocks. The corresponding gate ranges were added above.
         size_t databus_start = 0; // Databus column data starts at idx 0
         size_t databus_end = databus_start + max_databus_size;
         active_ranges.push_back(Range{ databus_start, databus_end }); // region where databus contains data
