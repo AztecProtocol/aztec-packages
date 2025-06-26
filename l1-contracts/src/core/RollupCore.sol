@@ -92,6 +92,9 @@ contract RollupCore is
       _config.rewardConfig.booster = ExtRollupLib2.deployRewardBooster(_config.rewardBoostConfig);
     }
 
+    // feeAssetPortal должен быть установлен в RewardConfig
+    _config.rewardConfig.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+
     RewardLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
@@ -125,6 +128,7 @@ contract RollupCore is
   }
 
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
+    require(address(_config.feeAssetPortal) != address(0), "feeAssetPortal must be set in RewardConfig");
     RewardLib.setConfig(_config);
     emit RewardConfigUpdated(_config);
   }
