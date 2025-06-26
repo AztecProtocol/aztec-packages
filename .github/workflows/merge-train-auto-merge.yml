@@ -38,17 +38,31 @@ jobs:
             const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
             
             for (const pr of mergeTrainPRs) {
-              // Get the latest commit
-              const { data: commits } = await github.rest.pulls.listCommits({
+              // Get all commits in the PR
+              const { data: allCommits } = await github.rest.pulls.listCommits({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 pull_number: pr.number,
-                per_page: 1
+                per_page: 100
               });
               
-              if (commits.length === 0) continue;
+              if (allCommits.length === 0) continue;
               
-              const lastCommitDate = new Date(commits[0].commit.committer.date);
+              // Filter out merge commits and empty commits
+              const meaningfulCommits = allCommits.filter(commit => {
+                const message = commit.commit.message;
+                const isMerge = commit.parents && commit.parents.length > 1;
+                const isEmpty = message.includes('[empty]') || message.includes('Start merge-train');
+                return !isMerge && !isEmpty;
+              });
+              
+              // Skip if PR has no meaningful commits
+              if (meaningfulCommits.length === 0) {
+                console.log(`PR #${pr.number} has no meaningful commits, skipping auto-merge`);
+                continue;
+              }
+              
+              const lastCommitDate = new Date(allCommits[0].commit.committer.date);
               
               // Check if the last commit is older than 4 hours
               if (lastCommitDate < fourHoursAgo) {

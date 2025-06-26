@@ -28,9 +28,12 @@ jobs:
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
           HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           
-          # Get all commits between base and head, excluding merge commits
+          # Get all commits between base and head, excluding merge commits and empty commits
           echo "commit_list<<EOF" >> $GITHUB_OUTPUT
-          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"- %s" >> $GITHUB_OUTPUT
+          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" | \
+            grep -v "^\[empty\]" | \
+            grep -v "^Start merge-train" | \
+            sed 's/^/- /' >> $GITHUB_OUTPUT
           echo "" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
