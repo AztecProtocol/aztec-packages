@@ -1,9 +1,9 @@
 use dep::types::{
     abis::{
+        include_by_timestamp::IncludeByTimestamp,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsBuilder,
         },
-        max_block_number::MaxBlockNumber,
         nullifier::{Nullifier, ScopedNullifier},
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_kernel::private_call_data::PrivateCallData,
@@ -14,7 +14,7 @@ use dep::types::{
     constants::DEFAULT_UPDATE_DELAY,
     contract_class_id::ContractClassId,
     debug::no_op,
-    shared_mutable::{compute_shared_mutable_block_horizon, SharedMutableValues},
+    shared_mutable::{compute_shared_mutable_timestamp_horizon, SharedMutableValues},
     traits::{Empty, Hash, Packable},
     transaction::tx_request::TxRequest,
     utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
@@ -100,8 +100,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
 
         let start = previous_kernel_public_inputs.validation_requests;
 
-        public_inputs_builder.validation_requests.max_block_number =
-            start.for_rollup.max_block_number;
+        public_inputs_builder.validation_requests.include_by_timestamp =
+            start.for_rollup.include_by_timestamp;
         public_inputs_builder.validation_requests.note_hash_read_requests =
             start.note_hash_read_requests;
         public_inputs_builder.validation_requests.nullifier_read_requests =
@@ -161,7 +161,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         &mut self,
         private_call: PrivateCallData,
     ) {
-        self.propagate_max_block_number(private_call);
+        self.propagate_include_by_timestamp(private_call);
         self.scope_and_propagate_note_hash_read_requests(private_call.public_inputs);
         self.scope_and_propagate_nullifier_read_requests(private_call.public_inputs);
         self.scope_and_propagate_key_validation_requests(private_call.public_inputs);
@@ -191,23 +191,24 @@ impl PrivateKernelCircuitPublicInputsComposer {
         };
     }
 
-    unconstrained fn propagate_max_block_number(&mut self, private_call: PrivateCallData) {
-        // Update the max block number if the private call requested a lower one.
-        self.public_inputs_builder.validation_requests.max_block_number = MaxBlockNumber::min(
-            self.public_inputs_builder.validation_requests.max_block_number,
-            private_call.public_inputs.max_block_number,
+    unconstrained fn propagate_include_by_timestamp(&mut self, private_call: PrivateCallData) {
+        // Update the expiration timestamp if the private call requested a lower one.
+        self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
+            self.public_inputs_builder.validation_requests.include_by_timestamp,
+            private_call.public_inputs.include_by_timestamp,
         );
-        // Update the max block number for the shared mutable read
+
+        // Update the expiration timestamp for the shared mutable read
         if !private_call.public_inputs.call_context.contract_address.is_protocol_contract() {
             let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> = Packable::unpack(
                 private_call.verification_key_hints.updated_class_id_shared_mutable_values,
             );
 
-            self.public_inputs_builder.validation_requests.max_block_number = MaxBlockNumber::min(
-                self.public_inputs_builder.validation_requests.max_block_number,
-                MaxBlockNumber::new(compute_shared_mutable_block_horizon(
+            self.public_inputs_builder.validation_requests.include_by_timestamp = IncludeByTimestamp::min(
+                self.public_inputs_builder.validation_requests.include_by_timestamp,
+                IncludeByTimestamp::new(compute_shared_mutable_timestamp_horizon(
                     shared_mutable_values,
-                    private_call.public_inputs.historical_header.global_variables.block_number,
+                    private_call.public_inputs.historical_header.global_variables.timestamp,
                 )),
             );
         }

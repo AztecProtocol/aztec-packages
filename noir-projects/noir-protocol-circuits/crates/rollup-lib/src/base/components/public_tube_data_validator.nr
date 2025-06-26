@@ -1,6 +1,6 @@
 use crate::base::components::{
     constants::validate_tx_constant_data, gas::clamp_gas_settings_for_avm,
-    validation_requests::validate_max_block_number,
+    validation_requests::validate_include_by_timestamp,
 };
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
@@ -58,9 +58,9 @@ impl PublicTubeDataValidator {
             archive_root_membership_witness,
         );
 
-        validate_max_block_number(
+        validate_include_by_timestamp(
             self.data.public_inputs.rollup_validation_requests,
-            constants.global_variables.block_number,
+            constants.global_variables,
         );
     }
 

@@ -39,6 +39,7 @@ import {
   merkleTreeIds,
 } from '@aztec/stdlib/trees';
 import { TreeSnapshots } from '@aztec/stdlib/tx';
+import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
@@ -58,9 +59,9 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
 
   public async getContractInstance(
     address: AztecAddress,
-    blockNumber: number,
+    timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.db.getContractInstance(address, blockNumber);
+    const instance = await this.db.getContractInstance(address, timestamp);
     if (instance) {
       // We don't need to hint the block number because it doesn't change.
       this.hints.contractInstances.push(

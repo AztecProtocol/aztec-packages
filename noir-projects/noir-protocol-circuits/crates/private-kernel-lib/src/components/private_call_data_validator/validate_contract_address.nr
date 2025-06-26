@@ -65,7 +65,7 @@ pub fn validate_contract_address(
     let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
         Packable::unpack(hints.updated_class_id_shared_mutable_values);
 
-    // A block horizon for this shared mutable should be set separately when generating/validating kernel output.
+    // A timestamp horizon for this shared mutable should be set separately when generating/validating kernel output.
     // This is a confusingly-named function.
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,
@@ -79,7 +79,7 @@ pub fn validate_contract_address(
     // Q: How is the private call's vk validated against this updated_contract_class_id?
     // A: below, we assert that the previously-computed contract_class_id == updated_contract_class_id.
     let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.block_number,
+        private_call_data.public_inputs.historical_header.global_variables.timestamp,
     );
 
     let contract_address_field = contract_address.to_field();

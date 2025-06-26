@@ -83,37 +83,26 @@ impl BlockRootRollupOutputComposer {
         constants: BlockConstantData,
         empty_effect_blobs_hash: Field,
         empty_effect_blob_accumulation_input: BlobAccumulationInputs,
-        is_padding: bool,
     ) -> BlockRootOrBlockMergePublicInputs {
-        let (new_archive, proposed_block_header_hash) = if is_padding {
-            (constants.last_archive, 0)
-        } else {
-            let new_block_header = self.create_new_block_header(
-                constants,
-                self.data.previous_block_header.state.partial,
-                empty_effect_blobs_hash,
-            );
-            let new_block_hash = new_block_header.hash();
-            (
-                self.update_archive(constants.last_archive, new_block_hash),
-                self.create_proposed_block_header(new_block_header).hash(),
-            )
-        };
+        let new_block_header = self.create_new_block_header(
+            constants,
+            self.data.previous_block_header.state.partial,
+            empty_effect_blobs_hash,
+        );
+        let new_block_hash = new_block_header.hash();
+        let new_archive = self.update_archive(constants.last_archive, new_block_hash);
+        let proposed_block_header_hash = self.create_proposed_block_header(new_block_header).hash();
 
-        let end_blob_accumulator = if is_padding {
-            self.data.start_blob_accumulator
+        let end_blob_accumulator = if self.data.start_blob_accumulator.is_empty() {
+            BlobAccumulatorPublicInputs::init(
+                empty_effect_blob_accumulation_input,
+                self.data.final_blob_challenges.gamma,
+            )
         } else {
-            if self.data.start_blob_accumulator.is_empty() {
-                BlobAccumulatorPublicInputs::init(
-                    empty_effect_blob_accumulation_input,
-                    self.data.final_blob_challenges.gamma,
-                )
-            } else {
-                self.data.start_blob_accumulator.accumulate(
-                    empty_effect_blob_accumulation_input,
-                    self.data.final_blob_challenges.gamma,
-                )
-            }
+            self.data.start_blob_accumulator.accumulate(
+                empty_effect_blob_accumulation_input,
+                self.data.final_blob_challenges.gamma,
+            )
         };
 
         self.finish_with_new_values(

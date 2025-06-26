@@ -19,13 +19,13 @@ use crate::{
         gas_fees::GasFees,
         gas_settings::GasSettings,
         global_variables::GlobalVariables,
+        include_by_timestamp::IncludeByTimestamp,
         kernel_circuit_public_inputs::{
             PrivateKernelCircuitPublicInputs, PrivateToPublicKernelCircuitPublicInputs,
             PrivateToRollupKernelCircuitPublicInputs,
         },
         log::Log,
         log_hash::LogHash,
-        max_block_number::MaxBlockNumber,
         note_hash::{NoteHash, ScopedNoteHash},
         nullifier::{Nullifier, ScopedNullifier},
         private_call_request::PrivateCallRequest,
@@ -165,7 +165,7 @@ pub struct FixtureBuilder {
     pub reverted: bool,
 
     // Validation requests.
-    pub max_block_number: MaxBlockNumber,
+    pub include_by_timestamp: IncludeByTimestamp,
     pub note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     pub nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     pub scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
@@ -235,6 +235,7 @@ impl FixtureBuilder {
 
         builder.global_variables.chain_id = fixtures::CHAIN_ID;
         builder.global_variables.version = fixtures::VERSION;
+        builder.global_variables.timestamp = fixtures::GENESIS_TIMESTAMP;
 
         builder.tx_context = TxContext {
             chain_id: fixtures::CHAIN_ID,
@@ -431,7 +432,7 @@ impl FixtureBuilder {
             returns_hash: self.returns_hash,
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
-            max_block_number: self.max_block_number,
+            include_by_timestamp: self.include_by_timestamp,
             note_hash_read_requests: ClaimedLengthArray {
                 array: subarray(self.note_hash_read_requests.storage().map(|r: ScopedReadRequest| {
                     r.read_request
@@ -730,7 +731,7 @@ impl FixtureBuilder {
     }
 
     pub fn to_rollup_validation_requests(self) -> RollupValidationRequests {
-        RollupValidationRequests { max_block_number: self.max_block_number }
+        RollupValidationRequests { include_by_timestamp: self.include_by_timestamp }
     }
 
     pub fn to_private_to_rollup_kernel_circuit_public_inputs(
@@ -1301,8 +1302,8 @@ impl FixtureBuilder {
         self.min_revertible_side_effect_counter = self.counter;
     }
 
-    pub fn set_max_block_number(&mut self, max_block_number: u32) {
-        self.max_block_number = MaxBlockNumber::new(max_block_number);
+    pub fn set_include_by_timestamp(&mut self, include_by_timestamp: u64) {
+        self.include_by_timestamp = IncludeByTimestamp::new(include_by_timestamp);
     }
 
     fn get_split_side_effects<T, let N: u32>(
@@ -1507,7 +1508,7 @@ impl Empty for FixtureBuilder {
             public_data_writes: BoundedVec::new(),
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            max_block_number: MaxBlockNumber::empty(),
+            include_by_timestamp: IncludeByTimestamp::empty(),
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),

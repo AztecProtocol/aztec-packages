@@ -1,8 +1,9 @@
 use crate::NFT;
 use crate::test::utils;
-use dep::authwit::cheatcodes as authwit_cheatcodes;
-use dep::aztec::test::helpers::cheatcodes;
-use aztec::oracle::random::random;
+use aztec::{
+    oracle::random::random,
+    test::helpers::{authwit::add_private_authwit_from_call_interface, cheatcodes},
+};
 
 #[test]
 unconstrained fn transfer_in_private() {
@@ -59,11 +60,7 @@ unconstrained fn transfer_in_private_on_behalf_of_other() {
     // Transfer the NFT to the recipient
     let transfer_in_private_call_interface =
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
-        sender,
-        recipient,
-        transfer_in_private_call_interface,
-    );
+    add_private_authwit_from_call_interface(sender, recipient, transfer_in_private_call_interface);
 
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
@@ -135,7 +132,7 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_wrong_caller() {
 
     let transfer_in_private_from_call_interface =
         NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
-    authwit_cheatcodes::add_private_authwit_from_call_interface(
+    add_private_authwit_from_call_interface(
         sender,
         sender,
         transfer_in_private_from_call_interface,

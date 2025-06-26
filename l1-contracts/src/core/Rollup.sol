@@ -20,6 +20,7 @@ import {
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {CompressedBlockLog, BlockLogLib} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -27,6 +28,7 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
@@ -39,7 +41,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  CommitteeAttestation,
+  CommitteeAttestations,
   ExtRollupLib,
   ExtRollupLib2,
   EthValue,
@@ -61,6 +63,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using PriceLib for EthValue;
+  using BlockLogLib for CompressedBlockLog;
+  using CompressedTimeMath for CompressedSlot;
 
   constructor(
     IERC20 _feeAsset,
@@ -95,7 +99,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     ProposedHeader calldata _header,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -186,7 +190,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
 
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber.decompress();
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
@@ -341,7 +345,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
     );
-    return rollupStore.blocks[_blockNumber];
+    return rollupStore.blocks[_blockNumber].decompress();
   }
 
   function getFeeHeader(uint256 _blockNumber)
