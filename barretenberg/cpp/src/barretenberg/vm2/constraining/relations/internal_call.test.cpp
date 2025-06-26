@@ -10,18 +10,18 @@
 #include "barretenberg/vm2/generated/relations/lookups_internal_call.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using internal_call = bb::avm2::internal_call<FF>;
-using stack_call_interaction = bb::avm2::lookup_internal_call_push_call_stack_relation<FF>;
-using stack_return_interaction = bb::avm2::lookup_internal_call_unwind_call_stack_relation<FF>;
 
 TEST(InternalCallStackConstrainingTest, EmptyRow)
 {
@@ -106,8 +106,9 @@ TEST(InternalCallStackConstrainingTest, SimpleInternalCallReturn)
 
     check_relation<internal_call>(trace);
 
-    tracegen::LookupIntoDynamicTableSequential<stack_call_interaction::Settings>().process(trace);
-    tracegen::LookupIntoDynamicTableSequential<stack_return_interaction::Settings>().process(trace);
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_internal_call_push_call_stack_settings,
+                      lookup_internal_call_unwind_call_stack_settings>(trace);
 }
 
 } // namespace
