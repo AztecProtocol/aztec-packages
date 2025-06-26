@@ -75,7 +75,7 @@ jobs:
       # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
       - name: Set Instance Postfix for merge-train
         if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
-        run: echo "INSTANCE_POSTFIX=merge-train-${{ github.sha }}" >> $GITHUB_ENV
+        run: echo "INSTANCE_POSTFIX=${{ github.event.pull_request.commits }}" >> $GITHUB_ENV
 
       - name: Setup
         run: |
