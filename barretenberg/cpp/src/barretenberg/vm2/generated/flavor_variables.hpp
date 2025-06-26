@@ -80,52 +80,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-<<<<<<< HEAD
-<<<<<<< HEAD
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 124;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2162;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 243;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2529;
-=======
-<<<<<<< HEAD
-=======
->>>>>>> ec23dbc4f6 (better error handling)
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 110;
-<<<<<<< HEAD
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2122;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 243;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-<<<<<<< HEAD
-    static constexpr size_t NUM_ALL_ENTITIES = 2475;
-=======
-    static constexpr size_t NUM_ALL_ENTITIES = 2465;
-=======
-<<<<<<< HEAD
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 99;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2094;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 240;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2433;
-=======
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 98;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2103;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 238;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2439;
->>>>>>> 91879cb3f8 (feat!: data copy err handling)
->>>>>>> aec2306dae (feat!: data copy err handling)
->>>>>>> 6cec3c6a82 (feat!: data copy err handling)
-<<<<<<< HEAD
->>>>>>> d037a48473 (feat!: data copy err handling)
-=======
-=======
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2133;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2184;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 242;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 2485;
->>>>>>> 48f96994f8 (better error handling)
->>>>>>> ec23dbc4f6 (better error handling)
+    static constexpr size_t NUM_ALL_ENTITIES = 2550;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -223,7 +182,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_mem_write_relation<FF_>,
         lookup_data_copy_range_max_read_size_diff_relation<FF_>,
         lookup_data_copy_range_read_relation<FF_>,
-        lookup_data_copy_range_read_count_relation<FF_>,
+        lookup_data_copy_range_reads_left_relation<FF_>,
         lookup_data_copy_range_write_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,

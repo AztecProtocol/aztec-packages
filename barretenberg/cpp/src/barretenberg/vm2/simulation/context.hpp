@@ -152,7 +152,7 @@ class BaseContext : public ContextInterface {
     void set_gas_used(Gas gas_used) override { this->gas_used = gas_used; }
 
     // Input / Output
-    std::vector<FF> get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size) override;
+    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   private:
     // Environment.

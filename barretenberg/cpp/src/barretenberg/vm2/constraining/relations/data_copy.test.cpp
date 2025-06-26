@@ -87,7 +87,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings>(trace);
 }
 
@@ -115,7 +115,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings>(trace);
 }
 
@@ -145,7 +145,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings>(trace);
 }
 
@@ -175,7 +175,7 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings>(trace);
 }
 
@@ -219,7 +219,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings,
                       lookup_data_copy_col_read_settings>(trace);
 }
@@ -247,7 +247,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings,
                       lookup_data_copy_col_read_settings>(trace);
 }
@@ -278,7 +278,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
     check_interaction<DataCopyTraceBuilder,
                       lookup_data_copy_range_read_settings,
                       lookup_data_copy_range_write_settings,
-                      lookup_data_copy_range_read_count_settings,
+                      lookup_data_copy_range_reads_left_settings,
                       lookup_data_copy_range_max_read_size_diff_settings,
                       lookup_data_copy_col_read_settings>(trace);
 }

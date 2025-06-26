@@ -12,25 +12,25 @@ namespace bb::avm2::simulation {
 /////////////////////////////
 // Base Context
 /////////////////////////////
-std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset_addr, uint32_t rd_copy_size)
+std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy_size)
 {
     MemoryInterface& child_memory = get_child_context().get_memory();
-    // The amount to rd to copy is the minimum of the requested size (with the offset) and the size of the returndata
-    // We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to be a u32
-    // since last_child_rd_size would have previously been constrained to be u32.
-    uint32_t max_read = static_cast<uint32_t>(
-        std::min(static_cast<uint64_t>(rd_offset_addr) + rd_copy_size, static_cast<uint64_t>(last_child_rd_size)));
+    // The amount to rd copy is the minimum of the requested size (with the offset into rd) and the size of the
+    // returndata We need to do it over a wider integer type to avoid overflow issues, but the result is guaranteed to
+    // be a u32 since last_child_rd_size would have previously been constrained to be u32.
+    uint32_t max_read_index = static_cast<uint32_t>(
+        std::min(static_cast<uint64_t>(rd_offset) + rd_copy_size, static_cast<uint64_t>(last_child_rd_size)));
 
-    std::vector<FF> retrieved_returndata;
-    retrieved_returndata.reserve(max_read - rd_offset_addr);
+    std::vector<FF> padded_returndata;
+    padded_returndata.reserve(max_read_index - rd_offset);
 
-    for (uint32_t i = rd_offset_addr; i < max_read; i++) {
-        retrieved_returndata.push_back(child_memory.get(get_last_rd_addr() + i));
+    for (uint32_t i = rd_offset; i < max_read_index; i++) {
+        padded_returndata.push_back(child_memory.get(get_last_rd_addr() + i));
     }
     // Resize because relying on default initialization of FF (in reserve) is a potential footgun
-    retrieved_returndata.resize(rd_copy_size);
+    padded_returndata.resize(rd_copy_size, 0);
 
-    return retrieved_returndata;
+    return padded_returndata;
 };
 
 /////////////////////////////
@@ -40,12 +40,12 @@ std::vector<FF> EnqueuedCallContext::get_calldata(uint32_t cd_offset, uint32_t c
 {
     uint64_t calldata_size = static_cast<uint64_t>(calldata.size());
     // We first take a slice of the data, the most we can slice is the actual size of the data
-    uint64_t max_read = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, calldata_size);
+    uint64_t max_read_index = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, calldata_size);
 
     std::vector<FF> padded_calldata;
-    padded_calldata.reserve(max_read - cd_offset);
+    padded_calldata.reserve(max_read_index - cd_offset);
 
-    for (size_t i = cd_offset; i < max_read; i++) {
+    for (size_t i = cd_offset; i < max_read_index; i++) {
         padded_calldata.push_back(calldata[i]);
     }
     // Resize because relying on default initialization of FF (in reserve) is a potential footgun
@@ -90,18 +90,18 @@ std::vector<FF> NestedContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy
     // Explicit for clarity
     uint64_t parent_cd_size_u64 = static_cast<uint64_t>(parent_cd_size);
 
-    uint64_t max_read = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, parent_cd_size_u64);
+    uint64_t max_read_index = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, parent_cd_size_u64);
 
-    std::vector<FF> retrieved_calldata;
-    retrieved_calldata.reserve(max_read - cd_offset);
+    std::vector<FF> padded_calldata;
+    padded_calldata.reserve(max_read_index - cd_offset);
 
-    for (uint32_t i = cd_offset; i < max_read; i++) {
-        retrieved_calldata.push_back(parent_context.get_memory().get(parent_cd_addr + i));
+    for (uint32_t i = cd_offset; i < max_read_index; i++) {
+        padded_calldata.push_back(parent_context.get_memory().get(parent_cd_addr + i));
     }
     // Resize because relying on default initialization of FF (in reserve) is a potential footgun
-    retrieved_calldata.resize(cd_copy_size, 0);
+    padded_calldata.resize(cd_copy_size, 0);
 
-    return retrieved_calldata;
+    return padded_calldata;
 };
 
 ContextEvent NestedContext::serialize_context_event()

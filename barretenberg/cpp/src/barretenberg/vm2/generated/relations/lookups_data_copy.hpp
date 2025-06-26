@@ -79,16 +79,16 @@ using lookup_data_copy_range_write_settings = lookup_settings<lookup_data_copy_r
 template <typename FF_>
 using lookup_data_copy_range_write_relation = lookup_relation_base<FF_, lookup_data_copy_range_write_settings>;
 
-/////////////////// lookup_data_copy_range_read_count ///////////////////
+/////////////////// lookup_data_copy_range_reads_left ///////////////////
 
-struct lookup_data_copy_range_read_count_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_READ_COUNT";
+struct lookup_data_copy_range_reads_left_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_RANGE_READS_LEFT";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start_no_err;
     static constexpr Column DST_SELECTOR = Column::range_check_sel;
-    static constexpr Column COUNTS = Column::lookup_data_copy_range_read_count_counts;
-    static constexpr Column INVERSES = Column::lookup_data_copy_range_read_count_inv;
+    static constexpr Column COUNTS = Column::lookup_data_copy_range_reads_left_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_range_reads_left_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::data_copy_abs_max_read_offset, ColumnAndShifts::data_copy_thirty_two
     };
@@ -97,10 +97,10 @@ struct lookup_data_copy_range_read_count_settings_ {
     };
 };
 
-using lookup_data_copy_range_read_count_settings = lookup_settings<lookup_data_copy_range_read_count_settings_>;
+using lookup_data_copy_range_reads_left_settings = lookup_settings<lookup_data_copy_range_reads_left_settings_>;
 template <typename FF_>
-using lookup_data_copy_range_read_count_relation =
-    lookup_relation_base<FF_, lookup_data_copy_range_read_count_settings>;
+using lookup_data_copy_range_reads_left_relation =
+    lookup_relation_base<FF_, lookup_data_copy_range_reads_left_settings>;
 
 /////////////////// lookup_data_copy_mem_write ///////////////////
 

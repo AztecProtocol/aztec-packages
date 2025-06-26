@@ -12,15 +12,15 @@
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 
+namespace bb::avm2::simulation {
+namespace {
+
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
-
-namespace bb::avm2::simulation {
-namespace {
 
 class DataCopySimulationTest : public ::testing::Test {
   protected:
@@ -34,7 +34,7 @@ class DataCopySimulationTest : public ::testing::Test {
         EXPECT_CALL(context, get_context_id());
 
         // Range check calls
-        EXPECT_CALL(range_check, assert_range(_, 32)).Times(4);
+        EXPECT_CALL(range_check, assert_range(_, 32)).Times(4); // we expect to do 4 range checks during a data copy
     }
 
     MemoryStore mem;

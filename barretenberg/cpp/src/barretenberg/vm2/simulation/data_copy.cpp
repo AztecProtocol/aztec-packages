@@ -44,7 +44,8 @@ DataCopyEvent create_rd_event(ContextInterface& context,
                           .operation = DataCopyOperation::RD_COPY,
                           .calldata = returndata,
                           .write_context_id = context.get_context_id(),
-                          .read_context_id = context.get_child_context().get_context_id(),
+                          .read_context_id =
+                              context.get_child_context().get_context_id(), /* last returned child context */
                           .data_copy_size = rd_copy_size,
                           .data_offset = rd_offset,
                           .data_addr = context.get_last_rd_addr(),
@@ -105,6 +106,7 @@ void DataCopy::cd_copy(ContextInterface& context,
 
     try {
         // Tag check that cd copy size and cd offset are both u32.
+        // todo(ilyas): remove this once register read tag checking is enabled
         if (cd_copy_size.get_tag() != ValueTag::U32 || cd_offset.get_tag() != ValueTag::U32) {
             throw std::runtime_error("Execution Tag check error");
         }
