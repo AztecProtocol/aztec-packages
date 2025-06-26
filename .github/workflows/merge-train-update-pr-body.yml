@@ -10,8 +10,6 @@ jobs:
   update-pr-body:
     name: Update PR with commit list
     runs-on: ubuntu-latest
-    # Only run for PRs that have the merge queue title pattern
-    if: startsWith(github.event.pull_request.base.ref, 'merge-train/')
     permissions:
       pull-requests: write
     steps:
