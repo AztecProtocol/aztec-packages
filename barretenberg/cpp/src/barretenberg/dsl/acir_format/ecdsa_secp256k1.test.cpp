@@ -122,7 +122,8 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintSucceed)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
 
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 1);
 
@@ -170,7 +171,8 @@ TEST_F(ECDSASecp256k1, TestECDSACompilesForVerifier)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false);
+    AcirProgram program{ constraint_system, /*witness=*/{} };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
@@ -220,7 +222,8 @@ TEST_F(ECDSASecp256k1, TestECDSAConstraintFail)
     };
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness_values);
+    AcirProgram program{ constraint_system, witness_values };
+    auto builder = create_circuit(program);
     EXPECT_EQ(builder.get_variable(ecdsa_k1_constraint.result), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));

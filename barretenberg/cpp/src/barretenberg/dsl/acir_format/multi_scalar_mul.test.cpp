@@ -96,7 +96,8 @@ TEST_F(MSMTests, TestMSM)
         fr(0),
     };
 
-    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint=*/0, witness);
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
