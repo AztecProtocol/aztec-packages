@@ -126,26 +126,53 @@
         </label>
       </div>
     </header>
-    <div style="text-align: center; font-size: 0.9em; color: #666; margin: 10px 0;">
-      Note: Navigation uses GitHub API (60 requests/hour limit for anonymous users)
-      <button id="auth-toggle" style="margin-left: 10px; font-size: 0.8em;">Add GitHub Token</button>
-      <div id="auth-input" style="display: none; margin-top: 10px;">
-        <input type="password" id="github-token" placeholder="GitHub Personal Access Token" style="width: 300px; margin-right: 5px;">
+    <div
+      style="text-align: center; font-size: 0.9em; color: #666; margin: 10px 0"
+    >
+      Note: Navigation uses GitHub API (60 requests/hour limit for anonymous
+      users)
+      <button id="auth-toggle" style="margin-left: 10px; font-size: 0.8em">
+        Add GitHub Token
+      </button>
+      <div id="auth-input" style="display: none; margin-top: 10px">
+        <input
+          type="password"
+          id="github-token"
+          placeholder="GitHub Personal Access Token"
+          style="width: 300px; margin-right: 5px"
+        />
         <button id="save-token">Save</button>
-        <button id="clear-token" style="display: none;">Clear</button>
-        <a href="https://github.com/settings/tokens/new?description=Benchmark%20Viewer&scopes=public_repo" target="_blank" style="margin-left: 10px; font-size: 0.8em;">Generate Token</a>
+        <button id="clear-token" style="display: none">Clear</button>
+        <a
+          href="https://github.com/settings/tokens/new?description=Benchmark%20Viewer&scopes=public_repo"
+          target="_blank"
+          style="margin-left: 10px; font-size: 0.8em"
+          >Generate Token</a
+        >
       </div>
     </div>
-    <div id="pagination-top" style="display: flex; justify-content: center; margin: 20px 0; gap: 20px;">
-      <button id="prev-page-top" style="display: none;">← Previous 100 commits</button>
-      <span id="page-info-top" style="display: none;"></span>
-      <button id="next-page-top" style="display: none;">Next 100 commits →</button>
+    <div
+      id="pagination-top"
+      style="display: flex; justify-content: center; margin: 20px 0; gap: 20px"
+    >
+      <button id="prev-page-top" style="display: none">
+        ← Previous 100 commits
+      </button>
+      <span id="page-info-top" style="display: none"></span>
+      <button id="next-page-top" style="display: none">
+        Next 100 commits →
+      </button>
     </div>
     <main id="main"></main>
-    <div id="pagination" style="display: flex; justify-content: center; margin: 20px 0; gap: 20px;">
-      <button id="prev-page" style="display: none;">← Previous 100 commits</button>
-      <span id="page-info" style="display: none;"></span>
-      <button id="next-page" style="display: none;">Next 100 commits →</button>
+    <div
+      id="pagination"
+      style="display: flex; justify-content: center; margin: 20px 0; gap: 20px"
+    >
+      <button id="prev-page" style="display: none">
+        ← Previous 100 commits
+      </button>
+      <span id="page-info" style="display: none"></span>
+      <button id="next-page" style="display: none">Next 100 commits →</button>
     </div>
     <footer>
       <button id="dl-button">Download data as JSON</button>
@@ -170,7 +197,7 @@
       const branch = getBranch();
       // Set page title
       document.title = `Benchmarks - ${branch}`;
-      
+
       // GitHub API configuration
       const GITHUB_OWNER = "AztecProtocol";
       const GITHUB_REPO = "aztec-packages";
@@ -179,121 +206,130 @@
       let currentPosition = 0; // Current position in visitedCommits array
       let commitCache = new Map(); // Cache commits by sha
       window.chartsByBenchName = window.chartsByBenchName || new Map(); // Map benchmark names to their chart instances
-      
+
       // GitHub token management
-      let githubToken = localStorage.getItem('github-token');
-      
+      let githubToken = localStorage.getItem("github-token");
+
       // Setup token UI
-      document.getElementById('auth-toggle').onclick = () => {
-        const authInput = document.getElementById('auth-input');
-        authInput.style.display = authInput.style.display === 'none' ? 'block' : 'none';
+      document.getElementById("auth-toggle").onclick = () => {
+        const authInput = document.getElementById("auth-input");
+        authInput.style.display =
+          authInput.style.display === "none" ? "block" : "none";
       };
-      
-      document.getElementById('save-token').onclick = () => {
-        const token = document.getElementById('github-token').value.trim();
+
+      document.getElementById("save-token").onclick = () => {
+        const token = document.getElementById("github-token").value.trim();
         if (token) {
-          localStorage.setItem('github-token', token);
+          localStorage.setItem("github-token", token);
           githubToken = token;
-          document.getElementById('auth-input').style.display = 'none';
-          document.getElementById('auth-toggle').textContent = 'Token Saved ✓';
-          document.getElementById('clear-token').style.display = 'inline';
-          document.getElementById('github-token').value = '';
+          document.getElementById("auth-input").style.display = "none";
+          document.getElementById("auth-toggle").textContent = "Token Saved ✓";
+          document.getElementById("clear-token").style.display = "inline";
+          document.getElementById("github-token").value = "";
         }
       };
-      
-      document.getElementById('clear-token').onclick = () => {
-        localStorage.removeItem('github-token');
+
+      document.getElementById("clear-token").onclick = () => {
+        localStorage.removeItem("github-token");
         githubToken = null;
-        document.getElementById('auth-toggle').textContent = 'Add GitHub Token';
-        document.getElementById('clear-token').style.display = 'none';
+        document.getElementById("auth-toggle").textContent = "Add GitHub Token";
+        document.getElementById("clear-token").style.display = "none";
       };
-      
+
       // Check if token exists on load
       if (githubToken) {
-        document.getElementById('auth-toggle').textContent = 'Token Saved ✓';
-        document.getElementById('clear-token').style.display = 'inline';
+        document.getElementById("auth-toggle").textContent = "Token Saved ✓";
+        document.getElementById("clear-token").style.display = "inline";
       }
-      
+
       // Function to fetch commits starting from a specific SHA
       async function fetchCommitsFrom(sha, count = 100) {
         const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=${sha}&per_page=${count}`;
-        
+
         const headers = {};
         if (githubToken) {
-          headers['Authorization'] = `token ${githubToken}`;
+          headers["Authorization"] = `token ${githubToken}`;
         }
-        
+
         try {
           const response = await fetch(url, { headers });
           if (!response.ok) {
             if (response.status === 403) {
-              const rateLimitRemaining = response.headers.get('X-RateLimit-Remaining');
-              if (rateLimitRemaining === '0') {
-                const resetTime = response.headers.get('X-RateLimit-Reset');
+              const rateLimitRemaining = response.headers.get(
+                "X-RateLimit-Remaining"
+              );
+              if (rateLimitRemaining === "0") {
+                const resetTime = response.headers.get("X-RateLimit-Reset");
                 const resetDate = new Date(parseInt(resetTime) * 1000);
-                const limitType = githubToken ? '5000 requests/hour for authenticated users' : '60 requests/hour for anonymous users';
-                throw new Error(`GitHub API rate limit exceeded (${limitType}). Resets at ${resetDate.toLocaleTimeString()}`);
+                const limitType = githubToken
+                  ? "5000 requests/hour for authenticated users"
+                  : "60 requests/hour for anonymous users";
+                throw new Error(
+                  `GitHub API rate limit exceeded (${limitType}). Resets at ${resetDate.toLocaleTimeString()}`
+                );
               }
             }
             if (response.status === 401 && githubToken) {
-              throw new Error("Invalid GitHub token. Please check your token and try again.");
+              throw new Error(
+                "Invalid GitHub token. Please check your token and try again."
+              );
             }
             throw new Error("Failed to fetch commits");
           }
           const commits = await response.json();
-          
+
           // Cache the commits
           commits.forEach((commit, index) => {
             commitCache.set(commit.sha, { commit, index });
           });
-          
+
           return commits;
         } catch (error) {
           return [];
         }
       }
-      
+
       // Function to find the Nth commit from a starting point
       async function findNthCommit(startSha, n) {
-        let currentSha = startSha || 'gh-pages';
+        let currentSha = startSha || "gh-pages";
         let foundCommits = [];
         let totalFetched = 0;
-        
+
         while (foundCommits.length <= n) {
           // Fetch a batch of commits
           const batch = await fetchCommitsFrom(currentSha, 100);
           if (batch.length === 0) break;
-          
+
           // Add to our list (skip first if not first batch - it's duplicate)
           if (totalFetched > 0) {
             foundCommits = foundCommits.concat(batch.slice(1));
           } else {
             foundCommits = foundCommits.concat(batch);
           }
-          
+
           totalFetched += batch.length;
-          
+
           // If we have enough commits, return the nth one
           if (foundCommits.length > n) {
             return foundCommits[n];
           }
-          
+
           // Set up for next batch - use the last commit's SHA
           currentSha = batch[batch.length - 1].sha;
-          
+
           // Prevent infinite loops
           if (totalFetched > 1000) {
             break;
           }
         }
-        
+
         return foundCommits[n] || null;
       }
-      
+
       // Function to create chart options and data
       function createChartConfig(label, dataset, textColor) {
         const color = "#4a90e2";
-        
+
         const data = {
           labels: dataset.map((d) => d.commit.id.slice(0, 7)),
           datasets: [
@@ -305,7 +341,7 @@
             },
           ],
         };
-        
+
         const options = {
           responsive: true,
           scales: {
@@ -374,19 +410,19 @@
             window.open(url, "_blank");
           },
         };
-        
+
         return { data, options };
       }
-      
+
       // Expose createChartConfig globally for use in main script
       window.createChartConfig = createChartConfig;
-      
+
       // Function to recreate all charts with new data
       function recreateChartsWithNewData() {
         // Get the new datasets
-        if (typeof window.init !== 'function') return;
+        if (typeof window.init !== "function") return;
         const dataSets = window.init();
-        
+
         // Create a map of all available benchmarks
         const allBenchmarks = new Map();
         dataSets.forEach(({ name, dataSet }) => {
@@ -394,36 +430,38 @@
             allBenchmarks.set(benchKey, benches);
           }
         });
-        
-        
+
         // For each existing chart
         const chartsToUpdate = [];
         window.chartsByBenchName.forEach((chart, benchKey) => {
           chartsToUpdate.push({ chart, benchKey });
         });
-        
+
         chartsToUpdate.forEach(({ chart, benchKey }) => {
           const canvas = chart.canvas;
           const benches = allBenchmarks.get(benchKey);
-          
+
           if (benches && benches.length > 0) {
-            
             // Get the old chart index
             const oldIndex = window.chartInstances.indexOf(chart);
-            
+
             // Destroy the old chart
             chart.destroy();
-            
+
             // Create new chart with the shared config
             const isDark = document.body.classList.contains("dark-theme");
             const textColor = isDark ? "#e0e0e0" : "#4a4a4a";
-            const { data, options } = createChartConfig(benchKey.split('/').pop(), benches, textColor);
+            const { data, options } = createChartConfig(
+              benchKey.split("/").pop(),
+              benches,
+              textColor
+            );
             const newChart = new Chart(canvas, {
               type: "line",
               data,
               options,
             });
-            
+
             // Update references
             if (oldIndex !== -1) {
               window.chartInstances[oldIndex] = newChart;
@@ -435,8 +473,7 @@
           }
         });
       }
-      
-      
+
       // Function to load data.js from a specific commit
       async function loadDataFromCommit(branch, commit, isInitialLoad = false) {
         try {
@@ -448,27 +485,31 @@
             // Load latest from gh-pages
             dataUrl = `${branch}/data.js`;
           }
-          
+
           // Show loading indicator
           if (!isInitialLoad) {
             // Just show a small loading indicator without clearing charts
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = 'loading-overlay';
-            const isDark = document.body.classList.contains('dark-theme');
-            loadingDiv.style = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: ${isDark ? 'rgba(36,37,50,0.95)' : 'rgba(255,255,255,0.95)'}; color: ${isDark ? '#e0e0e0' : '#4a4a4a'}; padding: 20px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 1000;`;
-            loadingDiv.innerHTML = 'Loading benchmark data...';
+            const loadingDiv = document.createElement("div");
+            loadingDiv.id = "loading-overlay";
+            const isDark = document.body.classList.contains("dark-theme");
+            loadingDiv.style = `position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: ${
+              isDark ? "rgba(36,37,50,0.95)" : "rgba(255,255,255,0.95)"
+            }; color: ${
+              isDark ? "#e0e0e0" : "#4a4a4a"
+            }; padding: 20px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 1000;`;
+            loadingDiv.innerHTML = "Loading benchmark data...";
             document.body.appendChild(loadingDiv);
           }
-          
+
           // Fetch as text to avoid ORB blocking
           const response = await fetch(dataUrl);
           if (!response.ok) throw new Error("Failed to load data");
-          
+
           const scriptText = await response.text();
-          
+
           // Execute the script
           eval(scriptText);
-          
+
           // Update current position tracking
           if (!isInitialLoad) {
             // Find or update position in visited commits
@@ -477,12 +518,12 @@
               currentPosition = existingIndex;
             }
           }
-          
+
           if (isInitialLoad) {
             // Only run main script after data is loaded
             document.getElementById("main-script").removeAttribute("type");
             eval(document.getElementById("main-script").textContent);
-            
+
             // Setup pagination after data loads
             setupPagination();
           } else {
@@ -490,7 +531,7 @@
             recreateChartsWithNewData();
             updatePaginationControls();
             // Remove loading overlay
-            const loadingOverlay = document.getElementById('loading-overlay');
+            const loadingOverlay = document.getElementById("loading-overlay");
             if (loadingOverlay) {
               loadingOverlay.remove();
             }
@@ -503,51 +544,54 @@
           }</div>`;
         }
       }
-      
+
       // Function to update pagination controls
       async function updatePaginationControls() {
         // Update both sets of controls
-        ['', '-top'].forEach(suffix => {
+        ["", "-top"].forEach((suffix) => {
           const prevButton = document.getElementById(`prev-page${suffix}`);
           const nextButton = document.getElementById(`next-page${suffix}`);
           const pageInfo = document.getElementById(`page-info${suffix}`);
-          
+
           // Update page info
           const currentCommit = visitedCommits[currentPosition];
           pageInfo.textContent = currentCommit
             ? `Showing data from commit ${currentCommit.substring(0, 7)}`
             : "Showing latest data";
           pageInfo.style.display = "block";
-          
+
           // Always show previous button (we can always go back in history)
           prevButton.style.display = "block";
           prevButton.disabled = false;
           prevButton.onclick = async () => {
             prevButton.disabled = true;
             prevButton.textContent = "Loading...";
-            
+
             try {
               // Find the 100th commit from current position
               const currentCommit = visitedCommits[currentPosition];
-              const targetCommit = await findNthCommit(currentCommit || 'gh-pages', COMMITS_PER_PAGE);
-              
+              const targetCommit = await findNthCommit(
+                currentCommit || "gh-pages",
+                COMMITS_PER_PAGE
+              );
+
               if (targetCommit) {
                 // Add to visited commits
                 visitedCommits.push(targetCommit.sha);
                 currentPosition = visitedCommits.length - 1;
-                
+
                 await loadDataFromCommit(branch, targetCommit.sha);
               } else {
                 prevButton.disabled = true;
               }
             } catch (error) {
-              alert(error.message || 'Failed to load commits');
+              alert(error.message || "Failed to load commits");
             } finally {
               prevButton.textContent = "← Previous 100 commits";
               prevButton.disabled = false;
             }
           };
-          
+
           // Setup next button - only visible if we can go forward
           if (currentPosition > 0) {
             nextButton.style.display = "block";
@@ -555,7 +599,7 @@
             nextButton.onclick = async () => {
               nextButton.disabled = true;
               nextButton.textContent = "Loading...";
-              
+
               try {
                 // Move forward in our visited commits
                 currentPosition--;
@@ -572,12 +616,12 @@
           }
         });
       }
-      
+
       // Function to setup pagination controls
       async function setupPagination() {
         await updatePaginationControls();
       }
-      
+
       // Load the data (always start at latest)
       loadDataFromCommit(branch, null, true);
     </script>
@@ -638,11 +682,18 @@
 
           // Render footer
           document.getElementById("dl-button").onclick = () => {
-            const dataUrl = "data:," + JSON.stringify(data, null, 2);
+            // Use Blob and URL.createObjectURL for reliable downloads
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
-            a.href = dataUrl;
+            a.href = url;
             a.download = "benchmark_data.json";
+            document.body.appendChild(a); // Required for Firefox
             a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }, 0);
           };
 
           // Prepare data points for charts
@@ -674,7 +725,7 @@
             canvas.className = "benchmark-chart";
             container.appendChild(canvas);
 
-            // Use the shared chart config function
+            // Use the shared chart config
             const { data, options } = window.createChartConfig(name, dataset, textColor);
             const chart = new Chart(canvas, {
               type: "line",
@@ -901,7 +952,7 @@
         // Expose functions globally for dynamic updates
         window.init = init;
         window.renderAllChars = renderAllChars;
-        
+
         renderAllChars(init()); // Start
 
         // Update chart colors on page load if dark theme is already enabled.
