@@ -379,26 +379,26 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
         if (_slashing) {
           Signature memory sig = createVoteSignature(proposer, slashPayload);
-          Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
-          calls[0] = Multicall3.Call3({
+          Multicall3.Call3[] memory calls = new Multicall3.Call3[](1);
+          /*calls[0] = Multicall3.Call3({
             target: address(rollup),
             callData: abi.encodeCall(
               rollup.propose,
               (b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs)
             ),
             allowFailure: false
-          });
-          calls[1] = Multicall3.Call3({
+          });*/
+          calls[0] = Multicall3.Call3({
             target: address(slashingProposer),
             callData: abi.encodeCall(slashingProposer.voteWithSig, (slashPayload, sig)),
             allowFailure: false
           });
           multicall.aggregate3(calls);
+          return;
         } else {
           vm.prank(proposer);
           rollup.propose(b.proposeArgs, SignatureLib.packAttestations(b.attestations), b.blobInputs);
         }
-
         nextSlot = nextSlot + Slot.wrap(1);
       }
 

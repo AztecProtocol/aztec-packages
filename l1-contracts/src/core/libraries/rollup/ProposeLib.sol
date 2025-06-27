@@ -215,7 +215,7 @@ library ProposeLib {
       Errors.Rollup__InvalidManaBaseFee(_args.manaBaseFee, _args.header.gasFees.feePerL2Gas)
     );
 
-    ValidatorSelectionLib.verify(
+    ValidatorSelectionLib.verifyPropose(
       slot, slot.epochFromSlot(), _args.attestations, _args.digest, _args.flags
     );
   }
