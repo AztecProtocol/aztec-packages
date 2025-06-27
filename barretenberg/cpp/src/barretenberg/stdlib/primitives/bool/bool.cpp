@@ -14,9 +14,7 @@ namespace bb::stdlib {
 
 template <typename Builder>
 bool_t<Builder>::bool_t(const bool value)
-    : context(nullptr)
-    , witness_bool(value)
-    , witness_index(IS_CONSTANT)
+    : witness_bool(value)
 {}
 
 template <typename Builder>
@@ -462,7 +460,7 @@ void bool_t<Builder>::must_imply(const std::vector<std::pair<bool_t, std::string
     }
 
     bool_t acc = witness_t(ctx, true); // will accumulate the conjunctions of each condition (i.e. `&&` of each)
-    const bool this_val = this->get_value();
+    const bool this_val = get_value();
     bool error_found = false;
     std::string error_msg;
 
@@ -472,7 +470,7 @@ void bool_t<Builder>::must_imply(const std::vector<std::pair<bool_t, std::string
         const bool cond_val = cond.get_value();
 
         // If this does NOT imply that, throw the error msg of that condition.
-        if (!(!this_val || cond_val) && !error_found) {
+        if (this_val && !cond_val && !error_found) {
             error_found = true;
             error_msg = msg;
         }
@@ -480,7 +478,7 @@ void bool_t<Builder>::must_imply(const std::vector<std::pair<bool_t, std::string
         acc &= cond;
     }
 
-    (this->implies(acc)).assert_equal(true, format("multi implication fail: ", error_msg));
+    implies(acc).assert_equal(true, format("multi implication fail: ", error_msg));
 }
 
 // A "double-implication" (<=>),
@@ -491,7 +489,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(c
 }
 
 /**
- * @brief A bool_t element is normalized if witness_inverted == false. For a given *this, output its normalized version.
+ * @brief A bool_t element is **normalized** if `witness_inverted == false`. For a given `*this`, output its normalized
+ * version.
  *
  */
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
