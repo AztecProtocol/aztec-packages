@@ -34,7 +34,6 @@ export async function createPXEService(
   const l1Contracts = await aztecNode.getL1ContractAddresses();
   const configWithContracts = {
     ...config,
-    l2BlockBatchSize: 50,
     l1Contracts,
   } as PXEServiceConfig;
 
