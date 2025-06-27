@@ -46,6 +46,6 @@ export class P2PInstrumentation {
 
   public recordMessageLatency(timerOrMs: Timer | number, topicName: TopicType) {
     const ms = typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms();
-    this.messageValidationDuration.record(Math.ceil(ms), { [Attributes.TOPIC_NAME]: topicName });
+    this.messageLatency.record(Math.ceil(ms), { [Attributes.TOPIC_NAME]: topicName });
   }
 }
