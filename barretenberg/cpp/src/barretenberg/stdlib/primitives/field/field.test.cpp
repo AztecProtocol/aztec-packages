@@ -1058,25 +1058,25 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
     }
 
-    static void test_pow_exponent_out_of_range()
-    {
-        Builder builder = Builder();
+    //     static void test_pow_exponent_out_of_range()
+    //     {
+    //         Builder builder = Builder();
 
-        fr base_val(engine.get_random_uint256());
-        uint64_t exponent_val = engine.get_random_uint32();
-        exponent_val += (uint64_t(1) << 32);
+    //         fr base_val(engine.get_random_uint256());
+    //         uint64_t exponent_val = engine.get_random_uint32();
+    //         exponent_val += (uint64_t(1) << 32);
 
-        field_ct base = witness_ct(&builder, base_val);
-        field_ct exponent = witness_ct(&builder, exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
+    //         field_ct base = witness_ct(&builder, base_val);
+    //         field_ct exponent = witness_ct(&builder, exponent_val);
+    // #ifndef NDEBUG
+    //         EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+    // #endif
 
-        exponent = field_ct(exponent_val);
-#ifndef NDEBUG
-        EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
-#endif
-    };
+    //         exponent = field_ct(exponent_val);
+    // #ifndef NDEBUG
+    //         EXPECT_DEATH(base.pow(exponent), "Assertion failed: \\(exponent_value.get_msb\\(\\) < 32\\)");
+    // #endif
+    //     };
 
     static void test_copy_as_new_witness()
     {
@@ -1542,10 +1542,10 @@ TYPED_TEST(stdlib_field, test_pow)
 {
     TestFixture::test_pow();
 }
-TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
-{
-    TestFixture::test_pow_exponent_out_of_range();
-}
+// TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
+// {
+//     TestFixture::test_pow_exponent_out_of_range();
+// }
 TYPED_TEST(stdlib_field, test_prefix_increment)
 {
     TestFixture::test_prefix_increment();

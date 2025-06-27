@@ -49,6 +49,24 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
 
     ProvingKey proving_key;
 
+    /*************** PK *****************/
+    size_t circuit_size;
+    PublicComponentKey pairing_inputs_public_input_key;
+    CommitmentKey commitment_key;
+    size_t num_public_inputs;
+    size_t log_circuit_size;
+    size_t pub_inputs_offset = 0;
+    std::vector<FF> public_inputs;
+    ActiveRegionData active_region_data; // specifies active regions of execution trace
+
+    std::vector<uint32_t> memory_read_records;
+    std::vector<uint32_t> memory_write_records;
+
+    DatabusPropagationData databus_propagation_data;
+
+    ProverPolynomials polynomials; // the multilinear polynomials used by the prover
+    /****************** *****************/
+
     bool is_accumulator = false;
     RelationSeparator alphas; // a challenge for each subrelation
     bb::RelationParameters<FF> relation_parameters;
@@ -102,12 +120,30 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("allocating proving key");
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+            /************ INIT PK DATA ***************/
+            circuit_size = dyadic_circuit_size;
+            log_circuit_size = numeric::get_msb(dyadic_circuit_size);
+            num_public_inputs = circuit.public_inputs.size();
+            pub_inputs_offset = 0;
+            pub_inputs_offset = circuit.blocks.pub_inputs.trace_offset();
+
+            uint32_t ram_rom_offset = circuit.blocks.aux.trace_offset();
+            memory_read_records.reserve(circuit.memory_read_records.size());
+            for (auto& index : circuit.memory_read_records) {
+                memory_read_records.emplace_back(index + ram_rom_offset);
+            }
+            memory_write_records.reserve(circuit.memory_write_records.size());
+            for (auto& index : circuit.memory_write_records) {
+                memory_write_records.emplace_back(index + ram_rom_offset);
+            }
+
+            /********************       **************/
             // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
             // use), allocate full size polys
             // is_structured = false;
             if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
-                proving_key.polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
+                polynomials = typename Flavor::ProverPolynomials(dyadic_circuit_size);
             } else { // Allocate only a correct amount of memory for each polynomial
                 allocate_wires();
 
@@ -128,12 +164,12 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
-            proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
+            polynomials.set_shifted(); // Ensure shifted wires are set correctly
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         vinfo("populating trace...");
-        Trace::populate(circuit, proving_key);
+        Trace::populate(circuit, polynomials, active_region_data);
 
         {
             PROFILE_THIS_NAME("constructing prover instance after trace populate");
@@ -146,29 +182,27 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProvingKey_ {
             }
         }
         // Set the lagrange polynomials
-        proving_key.polynomials.lagrange_first.at(0) = 1;
-        proving_key.polynomials.lagrange_last.at(final_active_wire_idx) = 1;
+        polynomials.lagrange_first.at(0) = 1;
+        polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
         {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
+                polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {
             PROFILE_THIS_NAME("constructing lookup read counts");
 
-            construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
-                                                 proving_key.polynomials.lookup_read_tags,
-                                                 circuit,
-                                                 dyadic_circuit_size);
+            construct_lookup_read_counts<Flavor>(
+                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_circuit_size);
         }
         { // Public inputs handling
             // Construct the public inputs array
             for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
                 size_t idx = i + proving_key.pub_inputs_offset;
-                proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
+                proving_key.public_inputs.emplace_back(polynomials.w_r[idx]);
             }
 
             // Set the pairing point accumulator indices. This should exist for all flavors.

@@ -19,6 +19,7 @@ template <class Flavor> class TraceToPolynomials {
     using ExecutionTrace = typename Builder::ExecutionTrace;
     using Wires = std::array<SlabVector<uint32_t>, Builder::NUM_WIRES>;
     using ProvingKey = typename Flavor::ProvingKey;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
   public:
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
@@ -36,22 +37,23 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
-    static void populate(Builder& builder, ProvingKey&);
+    static void populate(Builder& builder, ProverPolynomials&, ActiveRegionData&);
 
   private:
-    /**
-     * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
-     * @details The 4th wire of RAM/ROM read/write gates is generated at proving time as a linear combination of the
-     * first three wires scaled by powers of a challenge. To know on which rows to perform this calculation, we must
-     * store the indices of read/write gates in the proving key. In the builder, we store the row index of these gates
-     * within the block containing them. To obtain the row index in the trace at large, we simply increment these
-     * indices by the offset at which that block is placed into the trace.
-     *
-     * @param trace_data
-     * @param builder
-     * @param proving_key
-     */
-    static void add_memory_records_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key);
+    // /**
+    //  * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
+    //  * @details The 4th wire of RAM/ROM read/write gates is generated at proving time as a linear combination of the
+    //  * first three wires scaled by powers of a challenge. To know on which rows to perform this calculation, we must
+    //  * store the indices of read/write gates in the proving key. In the builder, we store the row index of these
+    //  gates
+    //  * within the block containing them. To obtain the row index in the trace at large, we simply increment these
+    //  * indices by the offset at which that block is placed into the trace.
+    //  *
+    //  * @param trace_data
+    //  * @param builder
+    //  * @param proving_key
+    //  */
+    // static void add_memory_records_to_proving_key(Builder& builder, ProverPolynomials&);
 
     /**
      * @brief Populate wire polynomials, selector polynomials and copy cycles from raw circuit data
@@ -60,8 +62,9 @@ template <class Flavor> class TraceToPolynomials {
      * @param proving_key
      * @return std::vector<CyclicPermutation> copy cycles describing the copy constraints in the circuit
      */
-    static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(
-        Builder& builder, typename Flavor::ProvingKey& proving_key);
+    static std::vector<CyclicPermutation> populate_wires_and_selectors_and_compute_copy_cycles(Builder& builder,
+                                                                                               ProverPolynomials&,
+                                                                                               ActiveRegionData&);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key
@@ -71,7 +74,7 @@ template <class Flavor> class TraceToPolynomials {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key)
+    static void add_ecc_op_wires_to_proving_key(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
 };
 
