@@ -84,29 +84,6 @@ TEST_F(ClientIVCTests, Basic)
 };
 
 /**
- * @brief A simple-as-possible test demonstrating IVC for two mock circuits
- * @details When accumulating only two circuits, only a single round of folding is performed thus no recursive
- * verification occurs.
- *
- */
-TEST_F(ClientIVCTests, WriteVK)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    EXPECT_TRUE(ivc.prove_and_verify());
-};
-
-/**
  * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
  * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
  *

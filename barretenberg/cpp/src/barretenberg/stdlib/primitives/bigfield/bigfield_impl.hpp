@@ -10,6 +10,7 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
+#include <cstdint>
 #include <tuple>
 
 #include "../circuit_builders/circuit_builders.hpp"
@@ -40,7 +41,6 @@ bigfield<Builder, T>::bigfield(Builder* parent_context, const uint256_t& value)
     ASSERT(value < modulus);
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/850): audit the evaluate_linear_identity function
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
                                const field_t<Builder>& high_bits_in,
@@ -170,8 +170,9 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                -1,
                                0 },
                              true);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add
-    // gate
+    // NOTE(https://github.com/AztecProtocol/barretenberg/issues/879): Optimisation opportunity to use a single gate
+    // (and remove dummy gate). Currently, dummy gate is necessary for preceeding big add gate as these gates fall in
+    // the arithmetic block. More details on the linked Github issue.
     ctx->create_dummy_gate(
         ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
 
@@ -574,11 +575,9 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      *
      * Start by setting constant_to_add = p
      **/
-    uint512_t constant_to_add = modulus_u512;
-    // add a large enough multiple of p to not get negative result in subtraction
-    while (constant_to_add.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo <= limb_3_maximum_value) {
-        constant_to_add += modulus_u512;
-    }
+    uint1024_t constant_to_add_factor =
+        (uint1024_t(limb_3_maximum_value) << (NUM_LIMB_BITS * 3)) / uint1024_t(modulus_u512) + uint1024_t(1);
+    uint512_t constant_to_add = constant_to_add_factor.lo * modulus_u512;
 
     /**
      * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
@@ -586,6 +585,16 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      * t3 represents the value we are BORROWING from constant_to_add.limb[3]
      * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1],
      *constant_to_add.limb[0]
+     *
+     * Borrow propagation table:
+     * ┌───────┬─────────────────────────────────┬──────────────────────────────────┐
+     * │ Limb  │ Value received FROM next limb   │ Value given TO previous limb     │
+     * ├───────┼─────────────────────────────────┼──────────────────────────────────┤
+     * │   0   │ 2^limb_0_borrow_shift           │ 0                                │
+     * │   1   │ 2^limb_1_borrow_shift           │ 2^(limb_0_borrow_shift - L)      │
+     * │   2   │ 2^limb_2_borrow_shift           │ 2^(limb_1_borrow_shift - L)      │
+     * │   3   │ 0                               │ 2^(limb_2_borrow_shift - L)      │
+     * └───────┴─────────────────────────────────┴──────────────────────────────────┘
      *
      * i.e. The net value we add to `constant_to_add` is 0. We must ensure that:
      * t3 = t0 + (t1 << NUM_LIMB_BITS) + (t2 << NUM_LIMB_BITS * 2)
@@ -792,6 +801,7 @@ bigfield<Builder, T> bigfield<Builder, T>::internal_div(const std::vector<bigfie
                                                         const bigfield& denominator,
                                                         bool check_for_zero)
 {
+    ASSERT(numerators.size() < MAXIMUM_SUMMAND_COUNT);
     if (numerators.size() == 0) {
         return bigfield<Builder, T>(denominator.get_context(), uint256_t(0));
     }
@@ -886,8 +896,6 @@ bigfield<Builder, T> bigfield<Builder, T>::div_without_denominator_check(const b
  * Div method with constraints for denominator!=0.
  *
  * Similar to operator/ but numerator can be linear sum of multiple elements
- *
- * TODO: After we create a mechanism for easy updating of witnesses, create a test with proof check
  **/
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::div_check_denominator_nonzero(const std::vector<bigfield>& numerators,
@@ -998,18 +1006,35 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
     return remainder;
 }
 
-template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
+template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const uint32_t exponent) const
 {
     // Just return one immediately
-
     if (exponent == 0) {
         return bigfield(uint256_t(1));
+    }
+
+    // If this is a constant, compute result directly
+    if (is_constant()) {
+        auto base_val = get_value();
+        uint512_t result_val = 1;
+        uint512_t base = base_val % modulus_u512;
+        uint32_t shifted_exponent = exponent;
+
+        // Fast modular exponentiation
+        while (shifted_exponent > 0) {
+            if (shifted_exponent & 1) {
+                result_val = (uint1024_t(result_val) * uint1024_t(base) % uint1024_t(modulus_u512)).lo;
+            }
+            base = (uint1024_t(base) * uint1024_t(base) % uint1024_t(modulus_u512)).lo;
+            shifted_exponent >>= 1;
+        }
+        return bigfield(this->context, uint256_t(result_val.lo));
     }
 
     bool accumulator_initialized = false;
     bigfield accumulator;
     bigfield running_power = *this;
-    auto shifted_exponent = exponent;
+    uint32_t shifted_exponent = exponent;
 
     // Square and multiply
     while (shifted_exponent != 0) {
@@ -1021,10 +1046,14 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
                 accumulator *= running_power;
             }
         }
-        if (shifted_exponent >= 2) {
+        shifted_exponent >>= 1;
+
+        // Only square if there are more bits to process.
+        // It is important to avoid squaring in the final iteration as it otherwise results in
+        // unwanted gates and variables in the circuit.
+        if (shifted_exponent != 0) {
             running_power = running_power.sqr();
         }
-        shifted_exponent >>= 1;
     }
     return accumulator;
 }
@@ -1343,8 +1372,8 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
         }
     }
 
-    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions,
-    // etc
+    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions.
+    ASSERT(ctx != nullptr);
 
     // Compute the constant term we're adding
     const auto [_, constant_part_remainder_1024] = (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
@@ -1751,9 +1780,6 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
     is_equal.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
 
     bigfield diff = (*this) - other;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512
-    // value fits in a u256, subtract off modulus until u256 fits into finite field)
     native diff_native = native((diff.get_value() % modulus_u512).lo);
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
@@ -1761,8 +1787,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     // We need to manually propagate the origin tag
     inverse.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14723): investigate whether conditional_assign is
-    // needed when defining `multiplicand`
+
     bigfield multiplicand = bigfield::conditional_assign(is_equal, one(), inverse);
 
     bigfield product = diff * multiplicand;
@@ -1780,10 +1805,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
 template <typename Builder, typename T> void bigfield<Builder, T>::reduction_check() const
 {
-
-    if (is_constant()) { // this seems not a reduction check, but actually computing the reduction
-                         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14658) THIS IS UGLY WHY CAN'T WE
-                         // JUST DO (*THIS) = REDUCED?
+    if (is_constant()) {
         uint256_t reduced_value = (get_value() % modulus_u512).lo;
         bigfield reduced(context, uint256_t(reduced_value));
         // Save tags
@@ -1792,11 +1814,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::reduction_che
                                                binary_basis_limbs[2].element.get_origin_tag(),
                                                binary_basis_limbs[3].element.get_origin_tag(),
                                                prime_basis_limb.get_origin_tag() });
+
+        // Directly assign to mutable members (avoiding assignment operator)
         binary_basis_limbs[0] = reduced.binary_basis_limbs[0];
         binary_basis_limbs[1] = reduced.binary_basis_limbs[1];
         binary_basis_limbs[2] = reduced.binary_basis_limbs[2];
         binary_basis_limbs[3] = reduced.binary_basis_limbs[3];
         prime_basis_limb = reduced.prime_basis_limb;
+
         // Preserve origin tags (useful in simulator)
         binary_basis_limbs[0].element.set_origin_tag(origin_tags[0]);
         binary_basis_limbs[1].element.set_origin_tag(origin_tags[1]);
@@ -1846,8 +1871,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t upper_limit) const
 {
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
-    // constants are allowed via ASSERT
-
+    // constants are NOT allowed via ASSERT
     if (is_constant()) {
         ASSERT(get_value() < static_cast<uint512_t>(upper_limit));
         return;
@@ -1865,11 +1889,13 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     const uint256_t upper_limit_value_2 = strict_upper_limit.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
     const uint256_t upper_limit_value_3 = strict_upper_limit.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
 
-    bool borrow_0_value = value.slice(0, NUM_LIMB_BITS) > upper_limit_value_0;
-    bool borrow_1_value =
-        (value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2) + uint256_t(borrow_0_value)) > (upper_limit_value_1);
-    bool borrow_2_value =
-        (value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3) + uint256_t(borrow_1_value)) > (upper_limit_value_2);
+    const uint256_t val_0 = value.slice(0, NUM_LIMB_BITS);
+    const uint256_t val_1 = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
+    const uint256_t val_2 = value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
+
+    bool borrow_0_value = val_0 > upper_limit_value_0;
+    bool borrow_1_value = (val_1 + uint256_t(borrow_0_value)) > (upper_limit_value_1);
+    bool borrow_2_value = (val_2 + uint256_t(borrow_1_value)) > (upper_limit_value_2);
 
     field_t<Builder> upper_limit_0(context, upper_limit_value_0);
     field_t<Builder> upper_limit_1(context, upper_limit_value_1);
@@ -1878,6 +1904,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     bool_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
     bool_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
     bool_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
+
     // The way we use borrows here ensures that we are checking that upper_limit - binary_basis > 0.
     // We check that the result in each limb is > 0.
     // If the modulus part in this limb is smaller, we simply borrow the value from the higher limb.
@@ -1914,9 +1941,14 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
         ASSERT(get_value() == other.get_value()); // We expect constants to be less than the target modulus
         return;
     } else if (other.is_constant()) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Something is fishy here
-        // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-        // might not be able to satisfy these constraints.
+        // NOTE(https://github.com/AztecProtocol/barretenberg/issues/998): This can lead to a situation where
+        // an honest prover cannot satisfy the constraints, because `this` is not reduced, but `other` is, i.e.,
+        // `this` = kp + r  and  `other` = r
+        // where k is a positive integer. In such a case, the prover cannot satisfy the constraints
+        // because the limb-differences would not be 0 mod r. Therefore, an honest prover needs to make sure that
+        // `this` is reduced before calling this method. Also `other` should never be greater than the modulus by
+        // design. As a precaution, we assert that the circuit-constant `other` is less than the modulus.
+        ASSERT(other.get_value() < modulus_u512);
         field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
         field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
         field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
@@ -2010,8 +2042,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         return;
     }
     OriginTag new_tag = get_origin_tag();
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/14660): handle situation where some limbs are
-    // constant and others are not constant
     const auto [quotient_value, remainder_value] = get_value().divmod(target_basis.modulus);
 
     bigfield quotient(context);
@@ -2244,25 +2274,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-    bb::non_native_field_witnesses<bb::fr> witnesses{
-        {
-            left.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            left.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            to_mul.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            to_mul.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
+    bb::non_native_multiplication_witnesses<bb::fr> witnesses{
+        left.get_binary_basis_limb_witness_indices(),
+        to_mul.get_binary_basis_limb_witness_indices(),
+        quotient.get_binary_basis_limb_witness_indices(),
         {
             remainder_limbs[0].get_normalized_witness_index(),
             remainder_limbs[1].get_normalized_witness_index(),
@@ -2270,7 +2285,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
             remainder_limbs[3].get_normalized_witness_index(),
         },
         { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-        modulus,
     };
 
     // N.B. this method DOES NOT evaluate the prime field component of the non-native field mul
@@ -2310,11 +2324,15 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
 
     ASSERT(input_left.size() == input_right.size() && input_left.size() < 1024);
     // Sanity checks
+    bool is_left_constant = true;
     for (auto& el : input_left) {
         el.sanity_check();
+        is_left_constant &= el.is_constant();
     }
+    bool is_right_constant = true;
     for (auto& el : input_right) {
         el.sanity_check();
+        is_right_constant &= el.is_constant();
     }
     for (auto& el : to_add) {
         el.sanity_check();
@@ -2323,13 +2341,33 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     for (auto& el : input_remainders) {
         el.sanity_check();
     }
+
+    // We must have at least one left or right multiplicand as witnesses.
+    ASSERT(!is_left_constant || !is_right_constant);
+
     std::vector<bigfield> remainders(input_remainders);
     std::vector<bigfield> left(input_left);
     std::vector<bigfield> right(input_right);
     bigfield quotient = input_quotient;
     const size_t num_multiplications = input_left.size();
 
-    Builder* ctx = input_left[0].context ? input_left[0].context : input_right[0].context;
+    // Fetch the context
+    Builder* ctx = nullptr;
+    for (const auto& el : input_left) {
+        if (el.context) {
+            ctx = el.context;
+            break;
+        }
+    }
+    if (ctx == nullptr) {
+        for (const auto& el : input_right) {
+            if (el.context) {
+                ctx = el.context;
+                break;
+            }
+        }
+    }
+    ASSERT(ctx != nullptr);
 
     const auto get_product_maximum = [](const bigfield& left, const bigfield& right) {
         uint512_t max_b0_inner = (left.binary_basis_limbs[1].maximum_value * right.binary_basis_limbs[0].maximum_value);
@@ -2461,6 +2499,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     // expense of 1 extra gate per constant).
     //
     const auto convert_constant_to_fixed_witness = [ctx](const bigfield& input) {
+        ASSERT(input.is_constant());
         bigfield output(input);
         output.prime_basis_limb =
             field_t<Builder>::from_witness_index(ctx, ctx->put_constant_variable(input.prime_basis_limb.get_value()));
@@ -2491,47 +2530,17 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     std::vector<field_t<Builder>> prime_limb_accumulator;
 
     for (size_t i = 0; i < num_multiplications; ++i) {
-        if (i == 0 && left[0].is_constant()) {
-            left[0] = convert_constant_to_fixed_witness(left[0]);
-        }
-        if (i == 0 && right[0].is_constant()) {
-            right[0] = convert_constant_to_fixed_witness(right[0]);
-        }
-        if (i > 0 && left[i].is_constant()) {
+        if (left[i].is_constant()) {
             left[i] = convert_constant_to_fixed_witness(left[i]);
         }
-        if (i > 0 && right[i].is_constant()) {
+        if (right[i].is_constant()) {
             right[i] = convert_constant_to_fixed_witness(right[i]);
         }
 
         if (i > 0) {
-            bb::non_native_field_witnesses<bb::fr> mul_witnesses = {
-                {
-                    left[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                    left[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                },
-                {
-                    right[i].binary_basis_limbs[0].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[1].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[2].element.get_normalized_witness_index(),
-                    right[i].binary_basis_limbs[3].element.get_normalized_witness_index(),
-                },
-                {
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                },
-                {
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                    ctx->zero_idx,
-                },
-                { 0, 0, 0, 0 },
-                modulus,
+            bb::non_native_partial_multiplication_witnesses<bb::fr> mul_witnesses = {
+                left[i].get_binary_basis_limb_witness_indices(),
+                right[i].get_binary_basis_limb_witness_indices(),
             };
 
             const auto [lo_2_idx, hi_2_idx] = ctx->queue_partial_non_native_field_multiplication(mul_witnesses);
@@ -2597,25 +2606,10 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     };
     field_t<Builder> remainder_prime_limb = field_t<Builder>::accumulate(prime_limb_accumulator);
 
-    bb::non_native_field_witnesses<bb::fr> witnesses{
-        {
-            left[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-            left[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            right[0].binary_basis_limbs[0].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[1].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[2].element.get_normalized_witness_index(),
-            right[0].binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
-        {
-            quotient.binary_basis_limbs[0].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[1].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[2].element.get_normalized_witness_index(),
-            quotient.binary_basis_limbs[3].element.get_normalized_witness_index(),
-        },
+    bb::non_native_multiplication_witnesses<bb::fr> witnesses{
+        left[0].get_binary_basis_limb_witness_indices(),
+        right[0].get_binary_basis_limb_witness_indices(),
+        quotient.get_binary_basis_limb_witness_indices(),
         {
             remainder_limbs[0].get_normalized_witness_index(),
             remainder_limbs[1].get_normalized_witness_index(),
@@ -2623,7 +2617,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
             remainder_limbs[3].get_normalized_witness_index(),
         },
         { neg_modulus_limbs[0], neg_modulus_limbs[1], neg_modulus_limbs[2], neg_modulus_limbs[3] },
-        modulus,
     };
 
     const auto [lo_1_idx, hi_1_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);

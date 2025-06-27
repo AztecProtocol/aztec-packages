@@ -149,6 +149,9 @@ class ClientIVC {
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
+    // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
+    std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
+
   public:
     ProverFoldOutput fold_output; // prover accumulator and fold proof
     HonkProof mega_proof;
@@ -179,8 +182,10 @@ class ClientIVC {
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] PairingPoints
-    perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
-                                                                  const StdlibVerifierInputs& verifier_inputs);
+    perform_recursive_verification_and_databus_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
