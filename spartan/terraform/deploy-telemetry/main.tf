@@ -91,6 +91,11 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
   }
 }
 
+locals {
+  prefixes       = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
+  otel_allowlist = join(" or ", formatlist("HasPrefix(name, \"%s\")", local.prefixes))
+}
+
 resource "helm_release" "otel_collector" {
   provider          = helm.gke-cluster
   name              = "otel"
@@ -122,6 +127,11 @@ resource "helm_release" "otel_collector" {
   set {
     name  = "ingress.hosts[0].host"
     value = var.HOSTNAME
+  }
+
+  set {
+    name  = "config.processors.filter.metrics.metric[0]"
+    value = "not (${local.otel_allowlist})" # flip the condition around 
   }
 
   timeout         = 300
