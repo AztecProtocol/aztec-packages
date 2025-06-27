@@ -1,0 +1,158 @@
+mode: statefulset
+replicaCount: 1
+
+nodeSelector:
+  node-type: infra
+
+image:
+  repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
+  tag: "0.128.0"
+
+resources:
+  requests:
+    memory: 12Gi
+    cpu: "2"
+  limits:
+    memory: 60Gi
+    cpu: "7"
+
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+    containerPort: 4318
+    servicePort: 4318
+    hostPort: 4318
+    protocol: TCP
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+
+config:
+  extensions:
+    health_check:
+      endpoint: ${env:MY_POD_IP}:13133
+
+  receivers:
+    jaeger: {}
+    prometheus: {}
+    zipkin: {}
+    otlp:
+      protocols:
+        grpc: {}
+        http:
+          endpoint: ${env:MY_POD_IP}:4318
+
+  processors:
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 12000
+      spike_limit_mib: 2000
+
+    filter:
+      metrics:
+        metric:
+          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector") or HasPrefix(name, "aztec.mempool"))'
+          - 'resource.attributes["aztec.node_role"] != "sequencer"'
+          - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
+        datapoint:
+          - 'metric.type == METRIC_DATA_TYPE_HISTOGRAM and Len(explicit_bounds) > 20'
+
+    transform:
+      metric_statements:
+        - context: datapoint
+          statements:
+          - set(attributes["service.instance.id"], resource.attributes["service.instance.id"])
+          - set(attributes["aztec.node_role"], resource.attributes["aztec.node_role"])
+
+    batch: {}
+
+  exporters:
+    prometheus:
+      endpoint: ${env:MY_POD_IP}:8889
+      namespace: external
+      metric_expiration: 5m
+      resource_to_telemetry_conversion:
+        enabled: false
+
+  service:
+    telemetry:
+      metrics:
+        address: ${env:MY_POD_IP}:8888
+
+    pipelines:
+      logs: null
+      traces: null
+
+      metrics:
+        receivers:
+          - otlp
+        processors:
+          - memory_limiter
+          - filter
+          - transform
+          - batch
+        exporters:
+          - prometheus
+
+ports:
+  otlp:
+    enabled: false
+  otlp-http:
+    enabled: true
+  jaeger-compact:
+    enabled: false
+  jaeger-thrift:
+    enabled: false
+  jaeger-grpc:
+    enabled: false
+  zipkin:
+    enabled: false
+  metrics:
+    enabled: false
+  healthcheck:
+    enabled: true
+    containerPort: 13133
+    servicePort: 13133
+    hostPort: 13133
+    protocol: TCP
+  prom-otel:
+    enabled: true
+    containerPort: 8888
+    servicePort: 8888
+    hostPort: 8888
+    protocol: TCP
+  prom-aztec:
+    enabled: true
+    containerPort: 8889
+    servicePort: 8889
+    hostPort: 8889
+    protocol: TCP
+service:
+  enabled: true
+  type: LoadBalancer
+  annotations:
+    cloud.google.com/backend-config: "{\"default\":\"otel-ingress-backend\"}"
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.allow-http: "true"
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: ""
+    cloud.google.com/health-check-port: "13133"
+    cloud.google.com/healthcheck-path: "/"
+
+    # networking.gke.io/managed-certificates: null
+  hosts:
+    - host: null
+      paths:
+        - path: /
+          pathType: Prefix
+          port: 4318

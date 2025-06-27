@@ -130,6 +130,9 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
                     found = true;
+                    // We don't want to increment dst_row if we found a match.
+                    // It could be that the next "query" will find the same tuple.
+                    break;
                 }
                 ++dst_row;
             }

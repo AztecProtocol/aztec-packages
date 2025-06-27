@@ -26,7 +26,7 @@ import {
   FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
-
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Timestamp, TimeLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 
 // The data types are slightly messed up here, the reason is that
@@ -38,6 +38,8 @@ contract MinimalFeeModel {
   using PriceLib for EthValue;
   using TimeLib for Timestamp;
   using FeeHeaderLib for CompressedFeeHeader;
+  using CompressedTimeMath for CompressedSlot;
+  using CompressedTimeMath for Slot;
 
   // This is to allow us to use the cheatcodes for blobbasefee as foundry does not play nice
   // with the block.blobbasefee value if using cheatcodes to alter it.
@@ -63,7 +65,7 @@ contract MinimalFeeModel {
     return L1GasOracleValuesModel({
       pre: L1FeesModel({base_fee: values.pre.baseFee, blob_fee: values.pre.blobFee}),
       post: L1FeesModel({base_fee: values.post.baseFee, blob_fee: values.post.blobFee}),
-      slot_of_change: Slot.unwrap(values.slotOfChange)
+      slot_of_change: Slot.unwrap(values.slotOfChange.decompress())
     });
   }
 
@@ -86,7 +88,7 @@ contract MinimalFeeModel {
   }
 
   function getFeeHeader(uint256 _slotNumber) public view returns (FeeHeaderModel memory) {
-    FeeHeader memory feeHeader = FeeLib.getStorage().feeHeaders[_slotNumber].decompress();
+    FeeHeader memory feeHeader = FeeLib.getFeeHeader(_slotNumber).decompress();
     return FeeHeaderModel({
       fee_asset_price_numerator: feeHeader.feeAssetPriceNumerator,
       excess_mana: feeHeader.excessMana,

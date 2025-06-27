@@ -45,10 +45,6 @@ library TimeLib {
     return Slot.wrap((Timestamp.unwrap(_a) - store.genesisTime) / store.slotDuration);
   }
 
-  function positionInEpoch(Slot _a) internal view returns (uint256) {
-    return Slot.unwrap(_a) % getStorage().epochDuration;
-  }
-
   function toSlots(Epoch _a) internal view returns (Slot) {
     return Slot.wrap(Epoch.unwrap(_a) * getStorage().epochDuration);
   }
@@ -73,6 +69,11 @@ library TimeLib {
     // This is because toSlots will return the first slot of the epoch, and in the event
     // that proofSubmissionEpochs is 0, we would wait until the end of the current epoch.
     return _a + Epoch.wrap(store.proofSubmissionEpochs + 1);
+  }
+
+  function maxPrunableBlocks() internal view returns (uint256) {
+    TimeStorage storage store = getStorage();
+    return uint256(store.epochDuration) * (uint256(store.proofSubmissionEpochs) + 1);
   }
 
   /**

@@ -94,6 +94,8 @@ spec:
               value: "{{ .Values.aztec.slotDuration }}"
             - name: AZTEC_EPOCH_DURATION
               value: "{{ .Values.aztec.epochDuration }}"
+            - name: AZTEC_TARGET_COMMITTEE_SIZE
+              value: "{{ (mul .Values.validator.keysPerNode .Values.validator.replicas) | toString }}"
             - name: AZTEC_PROOF_SUBMISSION_WINDOW
               value: "{{ .Values.aztec.proofSubmissionWindow }}"
             - name: L1_GAS_PRICE_MAX

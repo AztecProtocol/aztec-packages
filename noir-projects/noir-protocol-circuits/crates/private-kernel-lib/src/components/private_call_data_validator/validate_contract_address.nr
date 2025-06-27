@@ -26,7 +26,7 @@ pub fn validate_contract_address(
 
     let private_functions_root = private_functions_root_from_siblings(
         private_call_data.public_inputs.call_context.function_selector,
-        private_call_data.vk.hash, // vk.hash is verified in `PrivateCallData.verify()`
+        private_call_data.vk.hash, // vk.hash is verified in bb when verifying the proof.
         hints.function_leaf_membership_witness.leaf_index,
         hints.function_leaf_membership_witness.sibling_path,
     );
@@ -46,7 +46,7 @@ pub fn validate_contract_address(
     let shared_mutable_values: SharedMutableValues<ContractClassId, DEFAULT_UPDATE_DELAY> =
         Packable::unpack(hints.updated_class_id_shared_mutable_values);
 
-    // A block horizon for this shared mutable should be set separately when generating/validating kernel output
+    // A timestamp horizon for this shared mutable should be set separately when generating/validating kernel output
     validate_with_hash_hints(
         private_call_data.public_inputs.historical_header,
         derive_storage_slot_in_map(UPDATED_CLASS_IDS_SLOT as Field, contract_address),
@@ -57,7 +57,7 @@ pub fn validate_contract_address(
     );
 
     let updated_contract_class_id = shared_mutable_values.svc.get_current_at(
-        private_call_data.public_inputs.historical_header.global_variables.block_number,
+        private_call_data.public_inputs.historical_header.global_variables.timestamp,
     );
 
     let contract_address_field = contract_address.to_field();

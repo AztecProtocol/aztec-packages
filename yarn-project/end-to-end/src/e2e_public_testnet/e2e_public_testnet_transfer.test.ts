@@ -1,5 +1,4 @@
-import { type InitialAccountData, deployFundedSchnorrAccounts } from '@aztec/accounts/testing';
-import type { Logger, PXE } from '@aztec/aztec.js';
+import type { AccountWalletWithSecretKey, Logger } from '@aztec/aztec.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';
@@ -12,16 +11,17 @@ import { setup } from '../fixtures/utils.js';
 // process.env.L1_CHAIN_ID = '11155111';
 
 describe(`deploys and transfers a private only token`, () => {
-  let initialFundedAccounts: InitialAccountData[];
-  let pxe: PXE;
+  let deployerWallet: AccountWalletWithSecretKey;
+  let recipientWallet: AccountWalletWithSecretKey;
   let logger: Logger;
   let teardown: () => Promise<void>;
 
   beforeEach(async () => {
     const chainId = !process.env.L1_CHAIN_ID ? foundry.id : +process.env.L1_CHAIN_ID;
     const chain = chainId == sepolia.id ? sepolia : foundry; // Not the best way of doing this.
-    ({ initialFundedAccounts, logger, pxe, teardown } = await setup(
-      0, // Deploy 0 accounts.
+    let wallets: AccountWalletWithSecretKey[];
+    ({ logger, teardown, wallets } = await setup(
+      2, // Deploy 2 accounts.
       {
         numberOfInitialFundedAccounts: 2, // Fund 2 accounts.
         skipProtocolContracts: true,
@@ -30,6 +30,8 @@ describe(`deploys and transfers a private only token`, () => {
       {},
       chain,
     ));
+
+    [deployerWallet, recipientWallet] = wallets;
   }, 600_000);
 
   afterEach(async () => {
@@ -39,17 +41,6 @@ describe(`deploys and transfers a private only token`, () => {
   it('calls a private function', async () => {
     const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
-
-    logger.info(`Deploying accounts.`);
-
-    const accounts = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, 2), {
-      interval: 0.1,
-      timeout: 300,
-    });
-
-    logger.info(`Accounts deployed, deploying token.`);
-
-    const [deployerWallet, recipientWallet] = await Promise.all(accounts.map(a => a.getWallet()));
 
     const token = await EasyPrivateTokenContract.deploy(deployerWallet, initialBalance, deployerWallet.getAddress())
       .send({

@@ -105,18 +105,20 @@ pub comptime global PRIVATE_KERNEL_INIT_INDEX: u32 = 0;
 pub comptime global PRIVATE_KERNEL_INNER_INDEX: u32 = 1;
 pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
-pub comptime global TUBE_VK_INDEX: u32 = 4;
-pub comptime global AVM_VK_INDEX: u32 = 5;
-pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 6;
-pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 7;
-pub comptime global MERGE_ROLLUP_INDEX: u32 = 8;
-pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 9;
-pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 10;
-pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 11;
-pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 12;
-pub comptime global ROOT_ROLLUP_INDEX: u32 = 13;
-pub comptime global BASE_PARITY_INDEX: u32 = 14;
-pub comptime global ROOT_PARITY_INDEX: u32 = 15;
+pub comptime global PRIVATE_TUBE_VK_INDEX: u32 = 4;
+pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 5;
+pub comptime global AVM_VK_INDEX: u32 = 6;
+pub comptime global PRIVATE_BASE_ROLLUP_VK_INDEX: u32 = 7;
+pub comptime global PUBLIC_BASE_ROLLUP_VK_INDEX: u32 = 8;
+pub comptime global MERGE_ROLLUP_INDEX: u32 = 9;
+pub comptime global BLOCK_ROOT_ROLLUP_INDEX: u32 = 10;
+pub comptime global BLOCK_ROOT_ROLLUP_SINGLE_TX_INDEX: u32 = 11;
+pub comptime global BLOCK_ROOT_ROLLUP_EMPTY_INDEX: u32 = 12;
+pub comptime global BLOCK_ROOT_ROLLUP_PADDING_INDEX: u32 = 13;
+pub comptime global BLOCK_MERGE_ROLLUP_INDEX: u32 = 14;
+pub comptime global ROOT_ROLLUP_INDEX: u32 = 15;
+pub comptime global BASE_PARITY_INDEX: u32 = 16;
+pub comptime global ROOT_PARITY_INDEX: u32 = 17;
 pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 20;
 // Important: Do not define indexes after the PRIVATE_KERNEL_RESET_INDEX. They are allocated for the variants of private kernel reset.
 
@@ -249,7 +251,7 @@ pub global L2_TO_L1_MESSAGE_LENGTH: u32 = 1 /* recipient */ + 1 /* content */;
 pub global COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_L2_TO_L1_MESSAGE_LENGTH: u32 = L2_TO_L1_MESSAGE_LENGTH + 1;
 pub global SCOPED_COUNTED_L2_TO_L1_MESSAGE_LENGTH: u32 = COUNTED_L2_TO_L1_MESSAGE_LENGTH + 1;
-pub global MAX_BLOCK_NUMBER_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
+pub global INCLUDE_BY_TIMESTAMP_LENGTH: u32 = 2; // 1 for the option flag, 1 for the value
 pub global KEY_VALIDATION_REQUEST_LENGTH: u32 = 4;
 pub global KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 = KEY_VALIDATION_REQUEST_LENGTH + 1;
 pub global SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH: u32 =
@@ -301,7 +303,7 @@ pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender 
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
-pub global ROLLUP_VALIDATION_REQUESTS_LENGTH: u32 = MAX_BLOCK_NUMBER_LENGTH;
+pub global ROLLUP_VALIDATION_REQUESTS_LENGTH: u32 = INCLUDE_BY_TIMESTAMP_LENGTH;
 pub global STATE_REFERENCE_LENGTH: u32 =
     APPEND_ONLY_TREE_SNAPSHOT_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH;
 pub global TREE_SNAPSHOTS_LENGTH: u32 = APPEND_ONLY_TREE_SNAPSHOT_LENGTH * 4;
@@ -339,7 +341,7 @@ pub global PROPOSED_BLOCK_HEADER_LENGTH_BYTES: u32 = (PROPOSED_BLOCK_HEADER_LENG
     + 16 /* gas_fees.fee_per_l2_gas */;
 pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + 4
-    + MAX_BLOCK_NUMBER_LENGTH
+    + INCLUDE_BY_TIMESTAMP_LENGTH
     + (READ_REQUEST_LENGTH * MAX_NOTE_HASH_READ_REQUESTS_PER_CALL)
     + (READ_REQUEST_LENGTH * MAX_NULLIFIER_READ_REQUESTS_PER_CALL)
     + (KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH * MAX_KEY_VALIDATION_REQUESTS_PER_CALL)
@@ -466,7 +468,6 @@ pub global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH: u32 = BLOCK_CONSTANT_DATA_LENGTH
     + PARTIAL_STATE_REFERENCE_LENGTH /* end_state_reference */
     + SPONGE_BLOB_LENGTH /* start_sponge_blob */
     + SPONGE_BLOB_LENGTH /* end_sponge_blob */
-    + 1 /* rollup_type */
     + 1 /* num_txs */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
@@ -610,6 +611,21 @@ pub global AVM_BITWISE_XOR_OP_ID: u8 = 2;
 // AVM Keccakf1600 specific constants
 pub global AVM_KECCAKF1600_NUM_ROUNDS: u8 = 24;
 pub global AVM_KECCAKF1600_STATE_SIZE: u8 = 25;
+
+// Execution Opcode IDs
+// Note: these are all powers of 2 to allow for binary decomposition.
+pub global AVM_EXEC_OP_ID_GETENVVAR: u32 = 1;
+pub global AVM_EXEC_OP_ID_SET: u32 = 2 * AVM_EXEC_OP_ID_GETENVVAR;
+pub global AVM_EXEC_OP_ID_MOV: u32 = 2 * AVM_EXEC_OP_ID_SET;
+pub global AVM_EXEC_OP_ID_JUMP: u32 = 2 * AVM_EXEC_OP_ID_MOV;
+pub global AVM_EXEC_OP_ID_JUMPI: u32 = 2 * AVM_EXEC_OP_ID_JUMP;
+pub global AVM_EXEC_OP_ID_CALL: u32 = 2 * AVM_EXEC_OP_ID_JUMPI;
+pub global AVM_EXEC_OP_ID_STATICCALL: u32 = 2 * AVM_EXEC_OP_ID_CALL;
+pub global AVM_EXEC_OP_ID_INTERNALCALL: u32 = 2 * AVM_EXEC_OP_ID_STATICCALL;
+pub global AVM_EXEC_OP_ID_INTERNALRETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALCALL;
+pub global AVM_EXEC_OP_ID_RETURN: u32 = 2 * AVM_EXEC_OP_ID_INTERNALRETURN;
+pub global AVM_EXEC_OP_ID_REVERT: u32 = 2 * AVM_EXEC_OP_ID_RETURN;
+pub global AVM_EXEC_OP_ID_SUCCESSCOPY: u32 = 2 * AVM_EXEC_OP_ID_REVERT;
 
 // AvmCircuitPublicInputs - row indices
 // Global Variables
@@ -1001,12 +1017,13 @@ pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
 pub global AVM_MAX_OPERANDS: u8 = 8;
 
-pub global BLOCK_NUMBER_BIT_SIZE: u32 = 32;
+// Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.
+pub global TIMESTAMP_OF_CHANGE_BIT_SIZE: u32 = 32;
 
-// 24 hours with a slot duration of 24 seconds
-pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
-// 10 minutes with a slot duration of 24 seconds
-pub global MINIMUM_UPDATE_DELAY: u32 = 25;
+// 24 hours
+pub global DEFAULT_UPDATE_DELAY: u64 = 86400;
+// 10 minutes
+pub global MINIMUM_UPDATE_DELAY: u64 = 600;
 
 // Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
@@ -1018,7 +1035,7 @@ pub global UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE: u32 = 8;
 pub global UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE: u32 =
     UPDATES_SHARED_MUTABLE_SDC_DELAY_BIT_SIZE + UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE;
 pub global UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE: u32 =
-    UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE * 2 + BLOCK_NUMBER_BIT_SIZE * 2;
+    UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE * 2 + TIMESTAMP_OF_CHANGE_BIT_SIZE * 2;
 
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;

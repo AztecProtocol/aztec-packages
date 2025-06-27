@@ -4,14 +4,10 @@ pragma solidity >=0.8.27;
 
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  CompressedFeeHeader,
-  FeeHeaderLib,
-  FeeLib,
-  FeeStore
-} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {CompressedFeeHeader, FeeHeaderLib, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
@@ -33,77 +29,15 @@ struct SubEpochRewards {
 }
 
 struct EpochRewards {
-  uint256 longestProvenLength;
-  uint256 rewards;
+  uint128 longestProvenLength;
+  uint128 rewards;
   mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
 struct RewardConfig {
   IRewardDistributor rewardDistributor;
   Bps sequencerBps;
-  uint32 increment;
-  uint32 maxScore;
-  uint32 a; // a
-  uint32 minimum; // m
-  uint32 k; // k
-}
-
-struct ActivityScore {
-  Epoch time;
-  uint32 value;
-}
-
-library ActivityScoreLib {
-  using SafeCast for uint256;
-
-  function markActive(ActivityScore storage _score, RewardConfig storage _config)
-    internal
-    returns (uint256)
-  {
-    ActivityScore memory curr = current(_score);
-
-    // If the score was alrady marked active in this epoch, ignore the addition.
-    if (curr.time == _score.time) {
-      return _score.value;
-    }
-
-    _score.value = Math.min(curr.value + _config.increment, _config.maxScore).toUint32();
-    _score.time = curr.time;
-    return _score.value;
-  }
-
-  function current(ActivityScore storage _score) internal view returns (ActivityScore memory) {
-    Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    uint256 decrease = (Epoch.unwrap(currentEpoch) - Epoch.unwrap(_score.time)) * 1e5;
-    return ActivityScore({
-      value: decrease > uint256(_score.value) ? 0 : _score.value - decrease.toUint32(),
-      time: currentEpoch
-    });
-  }
-
-  function toShares(ActivityScore storage _score, RewardConfig storage _config)
-    internal
-    view
-    returns (uint256)
-  {
-    ActivityScore memory curr = current(_score);
-    return toShares(curr.value, _config);
-  }
-
-  function toShares(uint256 _value, RewardConfig storage _config) internal view returns (uint256) {
-    if (_value > _config.maxScore) {
-      return _config.k;
-    }
-    uint256 t = (_config.maxScore - _value);
-    uint256 rhs = _config.a * t * t / 1e10;
-
-    // Sub would move us below 0
-    if (_config.k < rhs) {
-      return _config.minimum;
-    }
-
-    return Math.max(_config.k - rhs, _config.minimum);
-  }
+  IBoosterCore booster;
 }
 
 struct RewardStorage {
@@ -111,7 +45,6 @@ struct RewardStorage {
   mapping(Epoch => EpochRewards) epochRewards;
   mapping(address prover => BitMaps.BitMap claimed) proverClaimed;
   RewardConfig config;
-  mapping(address prover => ActivityScore) activityScores;
 }
 
 struct Values {
@@ -134,7 +67,7 @@ library RewardLib {
   using TimeLib for Timestamp;
   using TimeLib for Epoch;
   using FeeHeaderLib for CompressedFeeHeader;
-  using ActivityScoreLib for ActivityScore;
+  using SafeCast for uint256;
 
   bytes32 private constant REWARD_STORAGE_POSITION = keccak256("aztec.reward.storage");
 
@@ -211,9 +144,7 @@ library RewardLib {
       // Beware that it is possible to get marked active in an epoch even if you did not provide the longest
       // proof. This is acceptable, as they were actually active. And boosting this way is not the most
       // efficient way to do it, so this is fine.
-      uint256 shares = ActivityScoreLib.toShares(
-        rewardStorage.activityScores[prover].markActive(rewardStorage.config), rewardStorage.config
-      );
+      uint256 shares = rewardStorage.config.booster.updateAndGetShares(prover);
 
       $sr.shares[prover] = shares;
       $sr.summedShares += shares;
@@ -232,13 +163,11 @@ library RewardLib {
           BpsLib.mul(blockRewardsAvailable, rewardStorage.config.sequencerBps);
         v.sequencerBlockReward = sequencerShare / added;
 
-        $er.rewards += (blockRewardsAvailable - sequencerShare);
+        $er.rewards += (blockRewardsAvailable - sequencerShare).toUint128();
       }
 
-      FeeStore storage feeStore = FeeLib.getStorage();
-
       for (uint256 i = $er.longestProvenLength; i < length; i++) {
-        CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
+        CompressedFeeHeader feeHeader = FeeLib.getFeeHeader(_args.start + i);
 
         v.manaUsed = feeHeader.getManaUsed();
 
@@ -250,7 +179,7 @@ library RewardLib {
 
         // Compute the proving fee in the fee asset
         v.proverFee = Math.min(v.manaUsed * feeHeader.getProverCost(), fee - burn);
-        $er.rewards += v.proverFee;
+        $er.rewards += v.proverFee.toUint128();
 
         v.sequencerFee = fee - burn - v.proverFee;
 
@@ -260,7 +189,7 @@ library RewardLib {
         }
       }
 
-      $er.longestProvenLength = length;
+      $er.longestProvenLength = length.toUint128();
 
       if (t.feesToClaim > 0) {
         rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
@@ -272,12 +201,8 @@ library RewardLib {
     }
   }
 
-  function getActivityScore(address _prover) internal view returns (ActivityScore memory) {
-    return getStorage().activityScores[_prover].current();
-  }
-
-  function toShares(address _prover) internal view returns (uint256) {
-    return getStorage().activityScores[_prover].toShares(getStorage().config);
+  function getSharesFor(address _prover) internal view returns (uint256) {
+    return getStorage().config.booster.getSharesFor(_prover);
   }
 
   function getSequencerRewards(address _sequencer) internal view returns (uint256) {

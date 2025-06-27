@@ -16,7 +16,7 @@ import {
   RollupContract,
   type SlashingProposerContract,
   type TransactionStats,
-  type ViemCommitteeAttestation,
+  type ViemCommitteeAttestations,
   type ViemHeader,
   type ViemStateReference,
   formatViemError,
@@ -257,13 +257,19 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice },
+    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
   ) {
-    const success = result?.receipt.status === 'success';
+    const isError = result instanceof FormattedViemError;
+    const success = isError ? false : result?.receipt.status === 'success';
     const logger = success ? this.log.info : this.log.error;
     for (const request of requests) {
       logger(`Bundled [${request.action}] transaction [${success ? 'succeeded' : 'failed'}]`);
-      request.onResult?.(request.request, result);
+      if (!isError) {
+        request.onResult?.(request.request, result);
+      }
+    }
+    if (isError) {
+      this.log.error('Failed to publish bundled transactions', result);
     }
   }
 
@@ -300,7 +306,7 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      [] as ViemCommitteeAttestation[],
+      RollupContract.packAttestations([]),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -377,7 +383,7 @@ export class SequencerPublisher {
           feeAssetPriceModifier: 0n,
         },
       },
-      formattedAttestations,
+      RollupContract.packAttestations(formattedAttestations),
       blobInput,
     ] as const;
 
@@ -587,7 +593,7 @@ export class SequencerPublisher {
         },
         txHashes,
       },
-      attestations,
+      RollupContract.packAttestations(attestations),
       blobInput,
     ] as const;
 
@@ -613,7 +619,7 @@ export class SequencerPublisher {
           readonly feeAssetPriceModifier: 0n;
         };
       },
-      ViemCommitteeAttestation[],
+      ViemCommitteeAttestations,
       `0x${string}`,
     ],
     timestamp: bigint,

@@ -68,7 +68,12 @@ import { foundry } from 'viem/chains';
 
 import { isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import { DefaultEntryQueueConfig, DefaultRewardConfig, type L1ContractsConfig } from './config.js';
+import {
+  DefaultEntryQueueConfig,
+  DefaultRewardBoostConfig,
+  DefaultRewardConfig,
+  type L1ContractsConfig,
+} from './config.js';
 import { RegistryContract } from './contracts/registry.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -640,10 +645,10 @@ export const deployRollup = async (
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
     manaTarget: args.manaTarget,
-    entryQueueFlushSizeMin: DefaultEntryQueueConfig.flushSizeMin,
-    entryQueueFlushSizeQuotient: DefaultEntryQueueConfig.flushSizeQuotient,
     provingCostPerMana: args.provingCostPerMana,
     rewardConfig: rewardConfig,
+    rewardBoostConfig: DefaultRewardBoostConfig,
+    stakingQueueConfig: DefaultEntryQueueConfig,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
