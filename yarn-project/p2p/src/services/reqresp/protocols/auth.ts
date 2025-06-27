@@ -1,9 +1,5 @@
-import type { Logger } from '@aztec/foundation/log';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { bufferToHex } from '@aztec/foundation/string';
-import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-
-import type { PeerId } from '@libp2p/interface';
 
 import { StatusMessage } from './status.js';
 
@@ -14,7 +10,7 @@ import { StatusMessage } from './status.js';
 export class AuthRequest {
   constructor(
     readonly status: StatusMessage,
-    readonly challenge: Buffer,
+    readonly challenge: Fr,
   ) {}
 
   /**
@@ -26,7 +22,7 @@ export class AuthRequest {
     const reader = BufferReader.asReader(buffer);
     return new AuthRequest(
       StatusMessage.fromBuffer(reader), // Deserialize StatusMessage
-      reader.readBuffer(), // challenge
+      Fr.fromBuffer(reader), // challenge
     );
   }
 
@@ -42,7 +38,7 @@ export class AuthRequest {
 export class AuthResponse {
   constructor(
     readonly status: StatusMessage,
-    readonly signature: Buffer,
+    readonly signature: Fr,
   ) {}
   /**
    * Deserializes the AuthResponse object from a Buffer.
@@ -53,7 +49,7 @@ export class AuthResponse {
     const reader = BufferReader.asReader(buffer);
     return new AuthResponse(
       StatusMessage.fromBuffer(reader), // Deserialize StatusMessage
-      reader.readBuffer(), // response
+      Fr.fromBuffer(reader), // response
     );
   }
 
@@ -73,22 +69,22 @@ export class AuthResponse {
  * Note the WorldStateSynchronizer must be injected to fetch the fresh sync status, we cannot pass in pre-built StatusMessage.
  * @returns Status message handler
  */
-export function reqRespAuthHandler(
-  signer: (challenge: Buffer) => Promise<Buffer>,
-  compressedComponentsVersion: string,
-  worldStateSynchronizer: WorldStateSynchronizer,
-  logger?: Logger,
-) {
-  return async (peerId: PeerId, msg: Buffer) => {
-    logger?.trace(`Received auth handshake request from ${peerId}`);
-    const status = StatusMessage.fromWorldStateSyncStatus(
-      compressedComponentsVersion,
-      (await worldStateSynchronizer.status()).syncSummary,
-    );
-    const authRequest = AuthRequest.fromBuffer(msg);
-    const challenge = await signer(authRequest.challenge);
-    const response = new AuthResponse(status, challenge).toBuffer();
-    logger?.trace(`Responding auth handshake from ${peerId}`, { data: bufferToHex(response) });
-    return response;
-  };
-}
+// export function reqRespAuthHandler(
+//   signer: (challenge: Buffer) => Promise<Buffer>,
+//   compressedComponentsVersion: string,
+//   worldStateSynchronizer: WorldStateSynchronizer,
+//   logger?: Logger,
+// ) {
+//   return async (peerId: PeerId, msg: Buffer) => {
+//     logger?.trace(`Received auth handshake request from ${peerId}`);
+//     const status = StatusMessage.fromWorldStateSyncStatus(
+//       compressedComponentsVersion,
+//       (await worldStateSynchronizer.status()).syncSummary,
+//     );
+//     const authRequest = AuthRequest.fromBuffer(msg);
+//     const challenge = await signer(authRequest.challenge);
+//     const response = new AuthResponse(status, challenge).toBuffer();
+//     logger?.trace(`Responding auth handshake from ${peerId}`, { data: bufferToHex(response) });
+//     return response;
+//   };
+// }

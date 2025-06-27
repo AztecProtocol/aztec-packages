@@ -91,7 +91,10 @@ export class P2PNetworkTest {
     // Set up the base account and node private keys for the initial network deployment
     this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}`;
     this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
-    this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfValidators);
+    this.attesterPrivateKeys = generatePrivateKeys(
+      ATTESTER_PRIVATE_KEYS_START_INDEX + numberOfNodes + numberOfPreferredNodes,
+      numberOfValidators,
+    );
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
 
     this.snapshotManager = createSnapshotManager(
@@ -196,7 +199,8 @@ export class P2PNetworkTest {
     const validators: Operator[] = [];
 
     for (let i = 0; i < this.numberOfValidators; i++) {
-      const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
+      const keyIndex = i;
+      const attester = privateKeyToAccount(this.attesterPrivateKeys[keyIndex]!);
 
       validators.push({
         attester: EthAddress.fromString(attester.address),

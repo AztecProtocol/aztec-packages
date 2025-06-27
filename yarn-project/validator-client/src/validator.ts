@@ -8,8 +8,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
-import type { AuthResponse, P2P, PeerId } from '@aztec/p2p';
-import { ReqRespSubProtocol, TxCollector, TxProvider } from '@aztec/p2p';
+import type { P2P, PeerId } from '@aztec/p2p';
+import { AuthRequest, AuthResponse, ReqRespSubProtocol, TxCollector } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
 import {
@@ -564,12 +564,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return attestations;
   }
 
-  private handleAuthRequest(_peer: PeerId, _msg: Buffer): Promise<Buffer> {
-    if (this.p2pClient.shouldTrustWithIdentity(_peer)) {
-      this.log.info(`Received auth request from trusted peer ${_peer.toString()}`);
-      return Promise.resolve(Buffer.from('trusted'));
-    }
-    return Promise.reject();
+  private async handleAuthRequest(peer: PeerId, msg: Buffer): Promise<Buffer> {
+    const authRequest = AuthRequest.fromBuffer(msg);
+    const statusMessage = await this.p2pClient.handleAuthFromPeer(authRequest, peer);
+
+    const authResponse = new AuthResponse(statusMessage, authRequest.challenge);
+    return Promise.resolve(authResponse.toBuffer());
   }
 }
 

@@ -55,7 +55,7 @@ describe('e2e_p2p_preferred_network', () => {
       async () => {
         const p2pClient = (node as any).p2pClient as P2PClient;
         const peers = await p2pClient.getPeers();
-        console.log(`${identifier} node has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
+        console.log(`${identifier} has ${peers.length} peers, waiting for ${numRequiredPeers}\n\n\n\n\n`);
         return peers.length >= numRequiredPeers;
       },
       'Wait for peers',
@@ -116,34 +116,12 @@ describe('e2e_p2p_preferred_network', () => {
       p2pAllowOnlyValidators: true,
     };
 
-    const validatorConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
-      disableValidator: false,
-    };
-
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
     // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     let indexOffset = 0;
-
-    t.logger.info('Creating validators');
-
-    validators = await createNodes(
-      validatorConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
-      DATA_DIR,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-      shouldCollectMetrics(),
-      indexOffset,
-    );
-
-    indexOffset += NUM_VALIDATORS;
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
@@ -176,14 +154,44 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
+    indexOffset += NUM_PREFERRED_NODES;
+
+    t.logger.info('Creating validators');
+
+    const preferredNodeEnrs = await Promise.all(preferredNodes.map(node => node.getEncodedEnr()));
+
+    const validatorConfig: AztecNodeConfig = {
+      ...t.ctx.aztecNodeConfig,
+      disableValidator: false,
+      preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
+    };
+
+    validators = await createNodes(
+      validatorConfig,
+      t.ctx.dateProvider,
+      t.bootstrapNodeEnr,
+      NUM_VALIDATORS,
+      BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
+      DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
+      indexOffset,
+    );
+
     const allNodes = [...nodes, ...preferredNodes, ...validators, t.ctx.aztecNode];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
-      .concat(preferredNodes.map((_, i) => `Preferred node ${i + 1}`))
+      .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
       .concat(validators.map((_, i) => `Validator ${i + 1}`))
-      .concat(['Aztec Node']);
+      .concat(['Default Node']);
+    const expectedPeerCounts = nodes
+      .map(() => nodes.length - 1 + validators.length + 1) // +1 for the Aztec Node
+      .concat(preferredNodes.map(() => validators.length)) // Only connect to validators
+      .concat(validators.map(() => nodes.length + preferredNodes.length + validators.length - 1 + 1)) // +1 for the Aztec Node
+      .concat([nodes.length + validators.length]);
     for (let i = 0; i < allNodes.length; i++) {
-      const peerResult = await waitForNodeToAcquirePeers(allNodes[i], allNodes.length - 1, 60, identifiers[i]);
+      const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 600, identifiers[i]);
       expect(peerResult).toBeTruthy();
     }
 

@@ -32,6 +32,7 @@ import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPool } from '../mem_pools/tx_pool/index.js';
+import type { AuthRequest, StatusMessage } from '../services/index.js';
 import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandler,
@@ -876,5 +877,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   public shouldTrustWithIdentity(peerId: PeerId): boolean {
     return this.p2pService.shouldTrustWithIdentity(peerId);
+  }
+
+  public handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.p2pService.handleAuthFromPeer(authRequest, peerId);
   }
 }
