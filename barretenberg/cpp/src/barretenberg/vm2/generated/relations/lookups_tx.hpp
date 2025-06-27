@@ -182,6 +182,42 @@ using lookup_tx_note_hash_append_settings = lookup_settings<lookup_tx_note_hash_
 template <typename FF_>
 using lookup_tx_note_hash_append_relation = lookup_relation_base<FF_, lookup_tx_note_hash_append_settings>;
 
+/////////////////// lookup_tx_nullifier_append ///////////////////
+
+struct lookup_tx_nullifier_append_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_NULLIFIER_APPEND";
+    static constexpr std::string_view RELATION_NAME = "tx";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
+    static constexpr Column SRC_SELECTOR = Column::tx_should_nullifier_append;
+    static constexpr Column DST_SELECTOR = Column::nullifier_check_write;
+    static constexpr Column COUNTS = Column::lookup_tx_nullifier_append_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_nullifier_append_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_reverted,
+        ColumnAndShifts::tx_leaf_value,
+        ColumnAndShifts::tx_prev_nullifier_tree_root,
+        ColumnAndShifts::tx_next_nullifier_tree_root,
+        ColumnAndShifts::tx_prev_nullifier_tree_size,
+        ColumnAndShifts::tx_discard,
+        ColumnAndShifts::tx_prev_num_nullifiers_emitted,
+        ColumnAndShifts::precomputed_zero
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::nullifier_check_exists,
+        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_root,
+        ColumnAndShifts::nullifier_check_write_root,
+        ColumnAndShifts::nullifier_check_tree_size_before_write,
+        ColumnAndShifts::nullifier_check_discard,
+        ColumnAndShifts::nullifier_check_nullifier_index,
+        ColumnAndShifts::nullifier_check_should_silo
+    };
+};
+
+using lookup_tx_nullifier_append_settings = lookup_settings<lookup_tx_nullifier_append_settings_>;
+template <typename FF_>
+using lookup_tx_nullifier_append_relation = lookup_relation_base<FF_, lookup_tx_nullifier_append_settings>;
+
 /////////////////// lookup_tx_read_l2_l1_msg ///////////////////
 
 struct lookup_tx_read_l2_l1_msg_settings_ {

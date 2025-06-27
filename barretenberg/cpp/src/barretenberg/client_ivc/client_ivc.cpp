@@ -127,14 +127,14 @@ ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_c
     }
 
     // Recursively verify the corresponding merge proof
-    PairingPoints pairing_points = goblin.recursively_verify_merge(circuit, accumulation_recursive_transcript);
+    PairingPoints pairing_points = goblin.recursively_verify_merge(
+        circuit, decider_vk->witness_commitments.get_ecc_op_wires(), accumulation_recursive_transcript);
 
     // Extract and aggregate the pairing points carried in the public inputs of the proof just recursively verified
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
         decider_vk->public_inputs, decider_vk->verification_key->pairing_inputs_public_input_key);
 
     pairing_points.aggregate(nested_pairing_points);
-
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
     // inputs
@@ -343,7 +343,8 @@ std::shared_ptr<ClientIVC::DeciderZKProvingKey> ClientIVC::construct_hiding_circ
     verification_queue.clear();
 
     // Perform recursive verification of the last merge proof
-    PairingPoints points_accumulator = goblin.recursively_verify_merge(builder, pg_merge_transcript);
+    PairingPoints points_accumulator = goblin.recursively_verify_merge(
+        builder, folding_verifier.keys_to_fold[1]->witness_commitments.get_ecc_op_wires(), pg_merge_transcript);
 
     // Extract and aggregate the pairing points from the pub inputs of the final accumulated circuit
     PairingPoints nested_pairing_points = PublicPairingPoints::reconstruct(
@@ -408,7 +409,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    bool goblin_verified = Goblin::verify(proof.goblin_proof, civc_verifier_transcript);
+    bool goblin_verified = Goblin::verify(
+        proof.goblin_proof, verifer.verification_key->witness_commitments.get_ecc_op_wires(), civc_verifier_transcript);
     vinfo("Goblin verified: ", goblin_verified);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
     return goblin_verified && mega_verified;
