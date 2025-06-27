@@ -58,7 +58,7 @@ config:
     filter:
       metrics:
         metric:
-          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector") or HasPrefix(name, "aztec.mempool") or HasPrefix(name, "aztec.ivc_verifier") or HasPrefix(name, "aztec.p2p.gossip.message_latency"))'
+          - 'not (HasPrefix(name, "aztec.validator") or HasPrefix(name, "aztec.tx_collector") or HasPrefix(name, "aztec.mempool"))'
           - 'resource.attributes["aztec.node_role"] != "sequencer"'
           - 'resource.attributes["aztec.registry_address"] != "0x4d2cc1d5fb6be65240e0bfc8154243e69c0fb19e"'
         datapoint:
