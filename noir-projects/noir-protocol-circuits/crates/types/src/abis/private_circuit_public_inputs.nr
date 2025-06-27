@@ -18,7 +18,7 @@ use crate::{
     messaging::l2_to_l1_message::L2ToL1Message,
     traits::{Deserialize, Empty, Serialize},
     transaction::tx_context::TxContext,
-    utils::{arrays::{ClaimedLengthArray, EmptyRHSArray}, reader::Reader},
+    utils::{arrays::ClaimedLengthArray, reader::Reader},
 };
 
 // Public inputs to private app circuit.
