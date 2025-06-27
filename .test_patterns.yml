@@ -32,6 +32,13 @@ names:
   - lucas: &lucas "U05MW7WQ8LQ"
 
 tests:
+  # The testnet compatibility test fails on ARM..
+  - regex: "testnet_compatibility.test.ts"
+    # the VK tree root is different an ARM
+    error_regex: "0x19e3d93ad6369e960f28fdda0da5110129c2db67f49445d8406001eab1a1ae6a"
+    owners:
+      - *alex
+
   # barretenberg
   #
   # Rare. But I saw it happen twice in 10 CI runs. Then twice in 10000 mainframe runs. Today I can't reproduce.
@@ -178,6 +185,12 @@ tests:
     error_regex: "Failed events from sequencers"
     owners:
       - *palla
+
+  # http://ci.aztec-labs.com/a2b7e18ffffad5c4
+  - regex: "src/e2e_"
+    error_regex: "Error: Rollup__InvalidBlockNumber"
+    owners:
+      - *alex
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
