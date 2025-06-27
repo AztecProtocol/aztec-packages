@@ -21,10 +21,11 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - env:
+      - name: Recreate branch
+        env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
+          set -xeuo pipefail
 
           # --- config --------------------------------------------------------
           git config --global user.name  AztecBot
@@ -34,6 +35,7 @@ jobs:
           SHA=$(git rev-parse "$MT")                       # save old head
 
           # --- rebuild merge-train branch ------------------------------------
+          git fetch origin "$MT"
           git switch "$MT"
           git reset --hard "origin/$BASE"
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
