@@ -224,3 +224,9 @@ export const TX_COLLECTOR_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_co
 export const IVC_VERIFIER_TIME = 'aztec.ivc_verifier.time';
 export const IVC_VERIFIER_TOTAL_TIME = 'aztec.ivc_verifier.total_time';
 export const IVC_VERIFIER_FAILURE_COUNT = 'aztec.ivc_verifier.failure_count';
+
+export const IVC_VERIFIER_AGG_DURATION_MIN = 'aztec.ivc_verifier.agg_duration_min';
+export const IVC_VERIFIER_AGG_DURATION_MAX = 'aztec.ivc_verifier.agg_duration_max';
+export const IVC_VERIFIER_AGG_DURATION_P50 = 'aztec.ivc_verifier.agg_duration_p50';
+export const IVC_VERIFIER_AGG_DURATION_P90 = 'aztec.ivc_verifier.agg_duration_p90';
+export const IVC_VERIFIER_AGG_DURATION_AVG = 'aztec.ivc_verifier.agg_duration_avg';
