@@ -43,7 +43,6 @@ jobs:
           git reset --hard "$BASE_BRANCH"
 
           # Start with an empty commit
-          git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 
           # Push & open the PR
           git push origin "$MERGE_TRAIN_BRANCH"
@@ -53,3 +52,56 @@ jobs:
             --head "$MERGE_TRAIN_BRANCH" \
             --title "feat: $MERGE_TRAIN_BRANCH" \
             --body "This is an automated merge-train PR with no commits."
+
+name: Recreate Merge-Train Queue
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  recreate:
+    if: ${{ github.event.pull_request.merged &&
+            startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # --- config --------------------------------------------------------
+          git config --global user.name  AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
+          BASE="${{ github.event.pull_request.base.ref }}" # usually main
+          SHA=$(git rev-parse "$MT")                       # save old head
+
+          # --- rebuild merge-train branch ------------------------------------
+          git switch "$MT"
+          git reset --hard "origin/$BASE"
+          git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
+          git push -f origin "$MT"
+          gh pr create --base "$BASE" --head "$MT" \
+                       --title "feat: $MT" \
+                       --body  "This is a merge-train with no commits."
+
+          # --- fast-forward every other open PR that still merges cleanly ----
+          for BR in $(gh pr list --state open --base "$BASE" \
+                      --json headRefName --jq '.[].headRefName' \
+                      | grep -v "^${MT}$"); do
+            git fetch origin "$BR"
+            git switch "$BR"
+            if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
+              git push origin "$BR"
+            else
+              git merge --abort || true
+            fi
+          done
+
