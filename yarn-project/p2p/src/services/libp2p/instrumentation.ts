@@ -107,8 +107,8 @@ export class P2PInstrumentation {
   }
 
   public recordMessageValidation(topicName: TopicType, timerOrMs: Timer | number) {
-    const ms = typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms();
-    this.messageValidationDuration.record(Math.ceil(ms), { [Attributes.TOPIC_NAME]: topicName });
+    const ms = Math.ceil(typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms());
+    this.messageValidationDuration.record(ms, { [Attributes.TOPIC_NAME]: topicName });
 
     let validationHistogram = this.aggValidationHisto.get(topicName);
     if (!validationHistogram) {
@@ -124,8 +124,8 @@ export class P2PInstrumentation {
   }
 
   public recordMessageLatency(topicName: TopicType, timerOrMs: Timer | number) {
-    const ms = typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms();
-    this.messageLatency.record(Math.ceil(ms), { [Attributes.TOPIC_NAME]: topicName });
+    const ms = Math.ceil(typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms());
+    this.messageLatency.record(ms, { [Attributes.TOPIC_NAME]: topicName });
 
     let latencyHistogram = this.aggLatencyHisto.get(topicName);
     if (!latencyHistogram) {

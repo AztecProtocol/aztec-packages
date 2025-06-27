@@ -89,9 +89,9 @@ class IVCVerifierMetrics {
     this.ivcTotalVerificationHistogram.record(Math.ceil(result.totalDurationMs), { [Attributes.OK]: result.valid });
     if (!result.valid) {
       this.ivcFailureCount.add(1);
-      this.localHistogramFails.record(Math.max(result.durationMs, 1));
+      this.localHistogramFails.record(Math.max(Math.ceil(result.durationMs), 1));
     } else {
-      this.localHistogramOk.record(Math.max(result.durationMs, 1));
+      this.localHistogramOk.record(Math.max(Math.ceil(result.durationMs), 1));
     }
   }
 
