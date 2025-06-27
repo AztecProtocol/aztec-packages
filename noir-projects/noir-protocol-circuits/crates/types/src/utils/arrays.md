@@ -6,16 +6,16 @@ We don't validate that the LHS is non-empty,
 to save constraints. We'll validate it in a later circuit.
 (although it's only 600 constraints saved in the Kernel Inner)
                         |
-                        |                    We validate that the RHS (length onwards) is empty,
-                        |                    to ensure _all_ data from an app is captured.
-                    ____|____    ___________ As a further optimisation, we could have the app
-                   |  |  |  |   |  |  |  |   tell the kernel the lengths of its side-effect arrays.
-                   v  v  v  v   v  v  v  v   An audited app would not lie about its lengths.
-app:             [ a, b, c, d | 0, 0, 0, 0]
+                        |
+                        |
+                    ____|____    ___________ We don't validate that the RHS is empty,
+                   |  |  |  |   |  |  |  |   we accept what the app tells us.
+                   v  v  v  v   v  v  v  v
+app:             [ a, b, c, d | ?, ?, ?, ?]
                    ^  ^  ^  ^ ^
-                   |  |  |  | |____length - this is not a "dense, trimmed" length, since the LHS
-   assert_equal----|  |  |  | |             might contain 0s, because we didn't check.
-                   |  |  |  | |             It is just a "rhs empty" length.
+                   |  |  |  | |____length - unvalidated until the tail, but propagated as though correct.
+   assert_equal----|  |  |  | |
+                   |  |  |  | |
                    v  v  v  v v
 out hint:        [ a, b, c, d | ?, ?, ?, ?]
                                 ^  ^  ^  ^
@@ -35,12 +35,12 @@ The RHS values of the out array are not validated. The prover could have snuck a
 
                                                 LHS _any_ values
                                                 (incl 0s)
-                                                   |_    _________________Validate RHS empty
+                                                   |_    _________________ Not validated to be empty yet.
                                                   |  |  |  |  |  |  |  |
                                                   v  v  v  v  v  v  v  v
-prev kernel: [ a, b, c, d| ?, ?, ?, ?]     app: [ e, f| 0, 0, 0, 0, 0, 0]
+prev kernel: [ a, b, c, d| ?, ?, ?, ?]     app: [ e, f| ?, ?, ?, ?, ?, ?]
                ^  ^  ^  ^^                        ^  ^^
-               |  |  |  ||___________             |  ||____"rhs empty" length
+               |  |  |  ||___________             |  ||
                |  |  |  |   ________ |____________|  ||
                |  |  |  |  |   _____ | ______________||
                |  |  |  |  |  | _____|________________|
@@ -56,7 +56,7 @@ Assertions:
 The RHS values of the out array are not validated. The prover could have snuck anything in there. We'll catch them in a later circuit.
 
 
-
+RESET CIRCUIT:
 
 prev kernel: [ a, b, c, d, e, f| ?, ?]
                ^  ^  ^  ^  ^  ^
@@ -68,7 +68,14 @@ prev kernel: [ a, b, c, d, e, f| ?, ?]
                v  v  v  v
 "kept" hint: [ a, b, d, f| ?, ?, ?, ?]
 
-sorted:      [ b, f, a, d| ?, ?, ?, ?] (sorted by counter; not shown here)
+Before sorting, we need to ensure there are no rogue nonempty values on the RHS,
+so that they don't get sneakily sorted into the LHS.
+
+             [ a, b, d, f| 0, 0, 0, 0] <--- assert RHS zero
+
+
+sorted:      [ b, f, a, d| 0, 0, 0, 0] (sorted by counter; not shown here)
+
 
 (siloed & made unique - neither steps are shown here)
 

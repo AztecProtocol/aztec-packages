@@ -296,17 +296,10 @@ impl PrivateCallDataValidator {
 
     fn validate_public_call_requests(self) {
         let public_inputs = self.data.public_inputs;
-
         let call_requests = public_inputs.public_call_requests;
-        let num_requests = call_requests.length;
-        let mut should_check = true;
-        // TODO: use call_requests.for_each_i()
-        for i in 0..call_requests.array.len() {
-            should_check &= i != num_requests;
-            if should_check {
-                self.validate_public_call_request(call_requests.array[i].inner);
-            }
-        }
+        call_requests.for_each_i(|call_request, i| {
+            self.validate_public_call_request(call_request.inner);
+        });
 
         // We also process the enqueued teardown call request:
         if !public_inputs.public_teardown_call_request.contract_address.is_zero() {
