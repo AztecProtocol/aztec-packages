@@ -12,6 +12,7 @@ import {
 export class P2PInstrumentation {
   private messageValidationDuration: Histogram;
   private messagePrevalidationCount: UpDownCounter;
+  private messageLatency: Histogram;
 
   constructor(client: TelemetryClient, name: string) {
     const meter = client.getMeter(name);
@@ -26,6 +27,12 @@ export class P2PInstrumentation {
       description: 'How many message pass/fail prevalidation',
       valueType: ValueType.INT,
     });
+
+    this.messageLatency = meter.createHistogram(Metrics.P2P_GOSSIP_MESSAGE_LATENCY, {
+      unit: 'ms',
+      description: 'P2P message latency',
+      valueType: ValueType.INT,
+    });
   }
 
   public recordMessageValidation(topicName: TopicType, timerOrMs: Timer | number) {
@@ -35,5 +42,10 @@ export class P2PInstrumentation {
 
   public incMessagePrevalidationStatus(passed: boolean, topicName: TopicType | undefined) {
     this.messagePrevalidationCount.add(1, { [Attributes.TOPIC_NAME]: topicName, [Attributes.OK]: passed });
+  }
+
+  public recordMessageLatency(timerOrMs: Timer | number, topicName: TopicType) {
+    const ms = typeof timerOrMs === 'number' ? timerOrMs : timerOrMs.ms();
+    this.messageValidationDuration.record(Math.ceil(ms), { [Attributes.TOPIC_NAME]: topicName });
   }
 }

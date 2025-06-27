@@ -537,7 +537,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
-  protected preValidateReceivedMessage(msg: Message, msgId: string, source: PeerId) {
+  protected preValidateReceivedMessage(
+    msg: Message,
+    msgId: string,
+    source: PeerId,
+  ): { result: boolean; topicType?: TopicType } {
     let topicType: TopicType | undefined;
 
     switch (msg.topic) {
@@ -560,12 +564,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!validator || !validator.addMessage(msgId)) {
       this.instrumentation.incMessagePrevalidationStatus(false, topicType);
       this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
-      return false;
+      return { result: false, topicType };
     }
 
     this.instrumentation.incMessagePrevalidationStatus(true, topicType);
 
-    return true;
+    return { result: true, topicType };
   }
 
   /**
@@ -583,8 +587,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       messageLatency,
     });
 
-    if (!this.preValidateReceivedMessage(msg, msgId, source)) {
+    const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
+
+    if (preValidationResult.result === false) {
       return;
+    } else if (preValidationResult.topicType !== undefined) {
+      this.instrumentation.recordMessageLatency(messageLatency, preValidationResult.topicType);
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {
