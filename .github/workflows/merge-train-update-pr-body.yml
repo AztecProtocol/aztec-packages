@@ -3,7 +3,7 @@ name: Merge-Train PR Body
 on:
   push:
     branches:
-      - 'merge-train/**'   # this time it *is* the branch that was pushed
+      - 'merge-train/**'
 
 jobs:
   update-pr-body:
@@ -30,31 +30,41 @@ jobs:
               head: `${context.repo.owner}:${branch}`,
               state: 'open',
             });
-            if (prs.length === 0) core.setFailed(`No open PR found for ${branch}`);
+            if (prs.length === 0) {
+              console.log(`No open PR found for ${branch}, skipping update`);
+              core.setOutput('found', 'false');
+              return;
+            }
+            core.setOutput('found', 'true');
             core.setOutput('number', prs[0].number);
 
       - name: Get commit list (base..head)
+        if: steps.pr.outputs.found == 'true'
         id: commits
         run: |
           PR_NUMBER=${{ steps.pr.outputs.number }}
-          BASE_SHA=$(gh pr view $PR_NUMBER --json baseRef --jq .baseRef.target.oid)
-          HEAD_SHA=$GITHUB_SHA
+          export GH_TOKEN="${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}"
+          # Obtain the base-branch and head-branch tip commits
+          read BASE_SHA HEAD_SHA < <(
+            gh pr view "$PR_NUMBER" \
+              --json baseRefOid,headRefOid \
+              --jq '.baseRefOid + " " + .headRefOid'
+          )
           echo "commit_list<<EOF" >> "$GITHUB_OUTPUT"
-          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
-            grep -v "^\[empty\]" |
-            grep -v "^Start merge-train" |
-            sed 's/^/- /' >> "$GITHUB_OUTPUT"
+          git log --oneline --no-merges --reverse "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
+            grep -v "^\[empty\]" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Update PR body
+        if: steps.pr.outputs.found == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           script: |
             const number = ${{ steps.pr.outputs.number }};
             const commits = `${{ steps.commits.outputs.commit_list }}`.trim();
-            const newBody = `Merge train with:\n${commits || '*No commits yet*'}`;
+            const newBody = `See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\n\n${commits || '*No commits yet*'}`;
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
