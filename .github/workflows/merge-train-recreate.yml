@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          depth: 0
+          fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Configure Git
@@ -28,6 +28,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
+          set -x # print bash commands
           MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
           BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
 
