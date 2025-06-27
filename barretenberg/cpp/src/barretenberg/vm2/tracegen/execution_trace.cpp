@@ -162,11 +162,11 @@ Column get_subtrace_selector(SubtraceSel subtrace_sel)
         return C::execution_sel_execution;
     case SubtraceSel::KECCAKF1600:
         return C::execution_sel_keccakf1600;
-
-        // clangd will complain if we miss a case.
-        // This is just to please gcc.
-        __builtin_unreachable();
     }
+
+    // clangd will complain if we miss a case.
+    // This is just to please gcc.
+    __builtin_unreachable();
 }
 
 /**
