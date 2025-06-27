@@ -213,7 +213,7 @@ export class TxCollection {
         ...info,
         requestedTxs: requested.map(t => t.toString()),
       });
-      return;
+      return { txs, requested, duration };
     }
 
     this.log.verbose(

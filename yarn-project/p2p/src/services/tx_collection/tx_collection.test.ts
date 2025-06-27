@@ -88,7 +88,6 @@ describe('TxCollection', () => {
     reqResp.sendBatchRequest.mockResolvedValue([]);
 
     nodes = [makeNode('node1'), makeNode('node2')];
-    rpcRequests = [];
 
     txPool = mock<TxPool>();
     txPool.getTxsByHash.mockResolvedValue([]);
