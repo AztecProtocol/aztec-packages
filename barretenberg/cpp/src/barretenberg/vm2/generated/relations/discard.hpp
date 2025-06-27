@@ -9,7 +9,7 @@
 
 namespace bb::avm2 {
 
-template <typename FF_> class execution_discardImpl {
+template <typename FF_> class discardImpl {
   public:
     using FF = FF_;
 
@@ -144,9 +144,9 @@ template <typename FF_> class execution_discardImpl {
     }
 };
 
-template <typename FF> class execution_discard : public Relation<execution_discardImpl<FF>> {
+template <typename FF> class discard : public Relation<discardImpl<FF>> {
   public:
-    static constexpr const std::string_view NAME = "execution_discard";
+    static constexpr const std::string_view NAME = "discard";
 
     static std::string get_subrelation_label(size_t index)
     {

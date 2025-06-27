@@ -27,8 +27,8 @@ TEST(MovConstrainingTest, MovFF)
             { C::execution_sel_mov, 1 },
             { C::execution_register_0_, FF::modulus_minus_two },
             { C::execution_register_1_, FF::modulus_minus_two },
-            { C::execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::FF) },
-            { C::execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::FF) },
+            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
+            { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::FF) },
         },
     });
 
@@ -47,8 +47,8 @@ TEST_P(MovAnyTagTest, MovAnyTag)
             { C::execution_sel_mov, 1 },
             { C::execution_register_0_, 1 },
             { C::execution_register_1_, 1 },
-            { C::execution_mem_tag_0_, static_cast<uint8_t>(tag) },
-            { C::execution_mem_tag_1_, static_cast<uint8_t>(tag) },
+            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(tag) },
+            { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(tag) },
         },
     });
 
@@ -70,8 +70,8 @@ TEST(MovConstrainingTest, NegativeMovDifferentTag)
             { C::execution_sel_mov, 1 },
             { C::execution_register_0_, 17 },
             { C::execution_register_1_, 17 },
-            { C::execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U8) },
-            { C::execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U16) },
+            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8) },
+            { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U16) },
         },
     });
 
@@ -87,8 +87,8 @@ TEST(MovConstrainingTest, NegativeMovDifferentValue)
             { C::execution_sel_mov, 1 },
             { C::execution_register_0_, 17 },
             { C::execution_register_1_, 18 },
-            { C::execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U32) },
-            { C::execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U32) },
+            { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U32) },
+            { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U32) },
         },
     });
 

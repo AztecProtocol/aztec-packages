@@ -233,6 +233,10 @@ tests:
       - *lucas
   - regex: "e2e_prover/full"
     error_regex: "ProvingError: Failed to verify proof from key!"
+  - regex: "yarn-project/slasher/src/slasher_client.test.ts"
+    error_regex: 'ContractFunctionExecutionError: The contract function "getCurrentRound" returned no data ("0x").'
+    owners:
+      - *mitch
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"

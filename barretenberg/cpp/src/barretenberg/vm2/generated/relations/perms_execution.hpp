@@ -25,7 +25,7 @@ struct perm_execution_dispatch_keccakf1600_settings_ {
         ColumnAndShifts::execution_rop_0_,
         ColumnAndShifts::execution_rop_1_,
         ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_opcode_error
+        ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = { ColumnAndShifts::keccakf1600_clk,
                                                                                   ColumnAndShifts::keccakf1600_dst_addr,

@@ -11,24 +11,37 @@
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/events/gas_event.hpp"
 #include "barretenberg/vm2/simulation/gas_tracker.hpp"
 
 namespace bb::avm2::simulation {
+namespace {
+
+class RegisterValidationException : public std::runtime_error {
+  public:
+    RegisterValidationException(const std::string& message)
+        : std::runtime_error(message)
+    {}
+};
+
+} // namespace
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
+    constexpr auto opcode = ExecutionOpCode::ADD;
     auto& memory = context.get_memory();
     MemoryValue a = memory.get(a_addr);
     MemoryValue b = memory.get(b_addr);
-    set_inputs({ a, b });
+    set_and_validate_inputs(opcode, { a, b });
 
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
-    set_output(c);
+    set_output(opcode, c);
 }
 
 void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, uint8_t var_enum)
 {
+    constexpr auto opcode = ExecutionOpCode::GETENVVAR;
     auto& memory = context.get_memory();
     TaggedValue result;
 
@@ -75,25 +88,27 @@ void Execution::get_env_var(ContextInterface& context, MemoryAddress dst_addr, u
     }
 
     memory.set(dst_addr, result);
-    set_output(result);
+    set_output(opcode, result);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
 void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, FF value)
 {
+    constexpr auto opcode = ExecutionOpCode::SET;
     TaggedValue tagged_value = TaggedValue::from_tag(static_cast<ValueTag>(tag), value);
     context.get_memory().set(dst_addr, tagged_value);
-    set_output(tagged_value);
+    set_output(opcode, tagged_value);
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
+    constexpr auto opcode = ExecutionOpCode::MOV;
     auto& memory = context.get_memory();
     auto v = memory.get(src_addr);
     memory.set(dst_addr, v);
 
-    set_inputs({ v });
-    set_output(v);
+    set_and_validate_inputs(opcode, { v });
+    set_output(opcode, v);
 }
 
 void Execution::call(ContextInterface& context,
@@ -103,6 +118,7 @@ void Execution::call(ContextInterface& context,
                      MemoryAddress cd_size_offset,
                      MemoryAddress cd_offset)
 {
+    constexpr auto opcode = ExecutionOpCode::CALL;
     auto& memory = context.get_memory();
 
     // TODO(ilyas): Consider temporality groups.
@@ -113,7 +129,7 @@ void Execution::call(ContextInterface& context,
     // Cd offset loads are deferred to calldatacopy
     const auto& cd_size = memory.get(cd_size_offset); // Tag check u32
 
-    set_inputs({ allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
+    set_and_validate_inputs(opcode, { allocated_l2_gas_read, allocated_da_gas_read, contract_address, cd_size });
 
     Gas gas_limit = get_gas_tracker().compute_gas_limit_for_call(
         Gas{ allocated_l2_gas_read.as<uint32_t>(), allocated_da_gas_read.as<uint32_t>() });
@@ -136,10 +152,11 @@ void Execution::cd_copy(ContextInterface& context,
                         MemoryAddress cd_offset,
                         MemoryAddress dst_addr)
 {
+    constexpr auto opcode = ExecutionOpCode::CALLDATACOPY;
     auto& memory = context.get_memory();
     auto cd_copy_size = memory.get(cd_size_offset); // Tag check u32
     auto cd_offset_read = memory.get(cd_offset);    // Tag check u32
-    set_inputs({ cd_copy_size, cd_offset_read });
+    set_and_validate_inputs(opcode, { cd_copy_size, cd_offset_read });
 
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = cd_copy_size.as<uint32_t>(), .daGas = 0 });
 
@@ -151,10 +168,11 @@ void Execution::rd_copy(ContextInterface& context,
                         MemoryAddress rd_offset,
                         MemoryAddress dst_addr)
 {
+    constexpr auto opcode = ExecutionOpCode::RETURNDATACOPY;
     auto& memory = context.get_memory();
     auto rd_copy_size = memory.get(rd_size_offset); // Tag check u32
     auto rd_offset_read = memory.get(rd_offset);    // Tag check u32
-    set_inputs({ rd_copy_size, rd_offset_read });
+    set_and_validate_inputs(opcode, { rd_copy_size, rd_offset_read });
 
     get_gas_tracker().consume_dynamic_gas({ .l2Gas = rd_copy_size.as<uint32_t>(), .daGas = 0 });
 
@@ -163,9 +181,10 @@ void Execution::rd_copy(ContextInterface& context,
 
 void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, MemoryAddress ret_offset)
 {
+    constexpr auto opcode = ExecutionOpCode::RETURN;
     auto& memory = context.get_memory();
     auto rd_size = memory.get(ret_size_offset); // Tag check u32
-    set_inputs({ rd_size });
+    set_and_validate_inputs(opcode, { rd_size });
 
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
@@ -177,9 +196,11 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
 
 void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset, MemoryAddress rev_offset)
 {
+    constexpr auto opcode = ExecutionOpCode::REVERT;
     auto& memory = context.get_memory();
     auto rev_size = memory.get(rev_size_offset); // Tag check u32
-    set_inputs({ rev_size });
+    set_and_validate_inputs(opcode, { rev_size });
+
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
@@ -196,10 +217,12 @@ void Execution::jump(ContextInterface& context, uint32_t loc)
 // TODO(JEAMON): #15278 - Enforce U1 tag checking on conditional memory value.
 void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc)
 {
+    constexpr auto opcode = ExecutionOpCode::JUMPI;
     auto& memory = context.get_memory();
 
     auto resolved_cond = memory.get(cond_addr);
-    set_inputs({ resolved_cond });
+    set_and_validate_inputs(opcode, { resolved_cond });
+
     if (resolved_cond.as<uint1_t>().value() == 1) {
         context.set_next_pc(loc);
     }
@@ -207,7 +230,6 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
 
 void Execution::internal_call(ContextInterface& context, uint32_t loc)
 {
-
     auto& internal_call_stack_manager = context.get_internal_call_stack_manager();
     // The next pc is pushed onto the internal call stack. This will become return_pc later.
     internal_call_stack_manager.push(context.get_next_pc());
@@ -267,8 +289,8 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             //// Temporality group 2 starts ////
 
             // We try to fetch an instruction.
-            ex_event.error = ExecutionError::INSTRUCTION_FETCHING; // Set preemptively.
             Instruction instruction = context.get_bytecode_manager().read_instruction(pc);
+
             ex_event.wire_instruction = instruction;
             debug("@", pc, " ", instruction.to_string());
             context.set_next_pc(pc + static_cast<uint32_t>(instruction.size_in_bytes()));
@@ -283,7 +305,6 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             //// Temporality group 4 starts ////
 
             // Resolve the operands.
-            ex_event.error = ExecutionError::ADDRESSING; // Set preemptively.
             auto addressing = execution_components.make_addressing(ex_event.addressing_event);
             std::vector<Operand> resolved_operands = addressing->resolve(instruction, context.get_memory());
 
@@ -296,12 +317,27 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
             // If we made it this far, there was no error.
             ex_event.error = ExecutionError::NONE;
         }
-        // TODO(fcarreiro): do this in a nicer way.
+        // TODO(fcarreiro): handle this in a better way.
         catch (const BytecodeNotFoundError& e) {
             vinfo("Bytecode not found: ", e.what());
             context.halt();
             ex_event.error = ExecutionError::BYTECODE_NOT_FOUND;
             ex_event.bytecode_id = e.bytecode_id;
+            set_execution_result({ .success = false });
+        } catch (const InstructionFetchingError& e) {
+            vinfo("Instruction fetching error: ", e.what());
+            ex_event.error = ExecutionError::INSTRUCTION_FETCHING;
+            context.halt();
+            set_execution_result({ .success = false });
+        } catch (const AddressingException& e) {
+            vinfo("Addressing exception: ", e.what());
+            ex_event.error = ExecutionError::ADDRESSING;
+            context.halt();
+            set_execution_result({ .success = false });
+        } catch (const RegisterValidationException& e) {
+            vinfo("Register validation exception: ", e.what());
+            ex_event.error = ExecutionError::REGISTER_READ;
+            context.halt();
             set_execution_result({ .success = false });
         } catch (const std::exception& e) {
             vinfo("Exceptional halt: ", e.what());
@@ -460,6 +496,33 @@ GasEvent Execution::finish_gas_tracker()
     GasEvent event = gas_tracker->finish();
     gas_tracker = nullptr;
     return event;
+}
+
+// Sets the register inputs and validates the tags.
+// The tag information is taken from the instruction info database (exec spec).
+void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<TaggedValue> inputs)
+{
+    const auto& register_info = instruction_info_db.get(opcode).register_info;
+    assert(inputs.size() == register_info.num_inputs());
+    this->inputs = std::move(inputs);
+    for (size_t i = 0; i < register_info.num_inputs(); i++) {
+        if (register_info.expected_tag(i) && register_info.expected_tag(i) != this->inputs.at(i).get_tag()) {
+            throw RegisterValidationException(format("Input ",
+                                                     i,
+                                                     " tag ",
+                                                     std::to_string(this->inputs.at(i).get_tag()),
+                                                     " does not match expected tag ",
+                                                     std::to_string(*register_info.expected_tag(i))));
+        }
+    }
+}
+
+void Execution::set_output(ExecutionOpCode opcode, TaggedValue output)
+{
+    const auto& register_info = instruction_info_db.get(opcode).register_info;
+    (void)register_info; // To please GCC.
+    assert(register_info.num_outputs() == 1);
+    this->output = std::move(output);
 }
 
 } // namespace bb::avm2::simulation

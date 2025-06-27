@@ -44,7 +44,7 @@ TEST(GetEnvVarConstrainingTest, DoNotGetEnvVarOnEarlierError)
           { C::execution_sel_should_resolve_address, 1 },
           { C::execution_sel_addressing_error, 0 },
           { C::execution_sel_should_get_env_var, 1 },
-          { C::execution_opcode_error, 0 },
+          { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 0 } }, // ADDRESS enum
         // Earlier error, should not get env var
         { { C::execution_sel, 1 },
@@ -52,7 +52,7 @@ TEST(GetEnvVarConstrainingTest, DoNotGetEnvVarOnEarlierError)
           { C::execution_sel_should_resolve_address, 1 },
           { C::execution_sel_addressing_error, 1 },
           { C::execution_sel_should_get_env_var, 0 },
-          { C::execution_opcode_error, 0 },
+          { C::execution_sel_opcode_error, 0 },
           { C::execution_rop_1_, 1 } }, // SENDER enum
         { { C::execution_sel, 1 }, { C::execution_last, 1 } },
         { { C::execution_sel, 0 } },
@@ -321,7 +321,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -345,7 +345,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -369,7 +369,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -392,7 +392,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX },
@@ -415,7 +415,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_VERSION_ROW_IDX },
@@ -438,7 +438,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_BLOCK_NUMBER_ROW_IDX },
@@ -461,7 +461,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_TIMESTAMP_ROW_IDX },
@@ -484,7 +484,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 1 }, // USES PI COL1
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
@@ -507,7 +507,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },
@@ -531,7 +531,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -556,7 +556,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -581,7 +581,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -604,7 +604,7 @@ TEST(GetEnvVarConstrainingTest, ComplexTraceWithAllEnumsAndInteractions)
           // Do it! No prior error, although enum will later prove to be invalid.
           { C::execution_sel_should_get_env_var, 1 },
           // from precomputed table
-          { C::execution_opcode_error, 1 }, // invalid enum!
+          { C::execution_sel_opcode_error, 1 }, // invalid enum!
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, 0 }, // none
@@ -653,7 +653,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTests)
           { C::execution_sel_should_resolve_address, 1 },
           { C::execution_sel_addressing_error, 0 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 1 },
           { C::execution_sel_envvar_pi_lookup_col1, 0 },
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_CHAIN_ID_ROW_IDX },
@@ -712,7 +712,7 @@ TEST(GetEnvVarConstrainingTest, NegativeInteractionTestsPICol1)
           { C::execution_sel_should_resolve_address, 1 },
           { C::execution_sel_addressing_error, 0 },
           // from precomputed table
-          { C::execution_opcode_error, 0 }, // valid enum
+          { C::execution_sel_opcode_error, 0 }, // valid enum
           { C::execution_sel_envvar_pi_lookup_col0, 0 },
           { C::execution_sel_envvar_pi_lookup_col1, 1 }, // USES PI COL1
           { C::execution_envvar_pi_row_idx, AVM_PUBLIC_INPUTS_GLOBAL_VARIABLES_GAS_FEES_ROW_IDX },

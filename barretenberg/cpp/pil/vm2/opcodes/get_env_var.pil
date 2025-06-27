@@ -10,7 +10,7 @@ include "../public_inputs.pil";
  * This opcode uses:
  * - register[0] as the output register.
  * - rop[1] as the enum value.
- * - opcode_error to indicate if the enum value is invalid.
+ * - sel_opcode_error to indicate if the enum value is invalid.
  *  (which matches the instruction spec (PIL & Cpp))
  *
  * For some env vars, the value will be available for access in the current execution/context/gas row:
@@ -94,7 +94,7 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
     #[PRECOMPUTED_INFO]
     sel_should_get_env_var {
         rop[1], // enum_value from opcode input operand
-        opcode_error, // invalid envvar enum - trigger an "opcode error"
+        sel_opcode_error, // invalid envvar enum - trigger an "opcode error"
         sel_envvar_pi_lookup_col0, sel_envvar_pi_lookup_col1, envvar_pi_row_idx,
         is_address, is_sender, is_transactionfee,
         is_isstaticcall,
@@ -126,11 +126,11 @@ namespace execution; // this is a virtual gadget that shares rows with the execu
         precomputed.clk, public_inputs.cols[1]
     };
 
-    // NOTE: we do not need to gate on `1 - opcode_error` for these register-setting relations below
-    // because if `sel_should_get_env_var` is 1 and `opcode_error` is 0, then there is an invalid enum
+    // NOTE: we do not need to gate on `1 - sel_opcode_error` for these register-setting relations below
+    // because if `sel_should_get_env_var` is 1 and `sel_opcode_error` is 0, then there is an invalid enum
     // the precomputed table will provide 0 for the selectors like `sel_envvar_pi_lookup_col0/1`,
     // `is_address`, `is_sender`,.. so the relations will be disabled anyway.
-    // In other words, `(sel_should_get_env_var == 1 && is_address == 1)` implies `opcode_error == 0`,
+    // In other words, `(sel_should_get_env_var == 1 && is_address == 1)` implies `sel_opcode_error == 0`,
     // and likewise for those other selectors.
 
     // Set output register to the value from public inputs
