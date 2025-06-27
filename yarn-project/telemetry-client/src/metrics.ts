@@ -112,6 +112,19 @@ export const P2P_REQ_RESP_FAILED_INBOUND_REQUESTS = 'aztec.p2p.req_resp.failed_i
 
 export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_validation_duration';
 export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';
+export const P2P_GOSSIP_MESSAGE_LATENCY = 'aztec.p2p.gossip.message_latency';
+
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MIN = 'aztec.p2p.gossip.agg_message_latency_min';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MAX = 'aztec.p2p.gossip.agg_message_latency_max';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_P50 = 'aztec.p2p.gossip.agg_message_latency_p50';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_P90 = 'aztec.p2p.gossip.agg_message_latency_p90';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_AVG = 'aztec.p2p.gossip.agg_message_latency_avg';
+
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MIN = 'aztec.p2p.gossip.agg_message_validation_duration_min';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MAX = 'aztec.p2p.gossip.agg_message_validation_duration_max';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P50 = 'aztec.p2p.gossip.agg_message_validation_duration_p50';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P90 = 'aztec.p2p.gossip.agg_message_validation_duration_p90';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG = 'aztec.p2p.gossip.agg_message_validation_duration_avg';
 
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
@@ -207,3 +220,13 @@ export const TX_COLLECTOR_TXS_FROM_PROPOSALS_COUNT = 'aztec.tx_collector.txs_fro
 export const TX_COLLECTOR_TXS_FROM_MEMPOOL_COUNT = 'aztec.tx_collector.txs_from_mempool_count';
 export const TX_COLLECTOR_TXS_FROM_P2P_COUNT = 'aztec.tx_collector.txs_from_p2p_count';
 export const TX_COLLECTOR_MISSING_TXS_COUNT = 'aztec.tx_collector.missing_txs_count';
+
+export const IVC_VERIFIER_TIME = 'aztec.ivc_verifier.time';
+export const IVC_VERIFIER_TOTAL_TIME = 'aztec.ivc_verifier.total_time';
+export const IVC_VERIFIER_FAILURE_COUNT = 'aztec.ivc_verifier.failure_count';
+
+export const IVC_VERIFIER_AGG_DURATION_MIN = 'aztec.ivc_verifier.agg_duration_min';
+export const IVC_VERIFIER_AGG_DURATION_MAX = 'aztec.ivc_verifier.agg_duration_max';
+export const IVC_VERIFIER_AGG_DURATION_P50 = 'aztec.ivc_verifier.agg_duration_p50';
+export const IVC_VERIFIER_AGG_DURATION_P90 = 'aztec.ivc_verifier.agg_duration_p90';
+export const IVC_VERIFIER_AGG_DURATION_AVG = 'aztec.ivc_verifier.agg_duration_avg';
