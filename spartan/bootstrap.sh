@@ -82,6 +82,8 @@ function start_env {
     NIGHTLY_NS=nightly-$(date -u +%Y%m%d)
     export MONITOR_DEPLOYMENT=false
     export WAIT_FOR_DEPLOYMENT=false
+    export CLUSTER_NAME=aztec-gke-private
+    export ZONE=us-west1-a
     echo "Installing test network in namespace $NIGHTLY_NS"
     ./scripts/deploy_k8s.sh gke "$NIGHTLY_NS" ci-fast-epoch.yaml false "mnemonic.tmp" "$NIGHTLY_NS"
   fi
