@@ -109,8 +109,8 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
-        verifier.key->num_public_inputs.fix_witness();
-        verifier.key->pub_inputs_offset.fix_witness();
+        verifier.key->verification_key->num_public_inputs.fix_witness();
+        verifier.key->verification_key->pub_inputs_offset.fix_witness();
 
         VerifierOutput output = verifier.verify_proof(inner_proof);
         PairingObject pairing_points = output.points_accumulator;
@@ -128,7 +128,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
         outer_circuit.finalize_circuit(false);
-        auto graph = cdg::Graph(outer_circuit);
+        auto graph = cdg::StaticAnalyzer(outer_circuit);
         auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 4);
         info("Connected components: ", connected_components.size());

@@ -73,8 +73,10 @@ void fold_k(State& state) noexcept
         decider_pks.emplace_back(decider_pk);
         decider_vks.emplace_back(decider_vk);
     }
+    std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
+        std::make_shared<typename ProtogalaxyProver::Transcript>();
 
-    ProtogalaxyProver folding_prover(decider_pks, decider_vks);
+    ProtogalaxyProver folding_prover(decider_pks, decider_vks, transcript);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);

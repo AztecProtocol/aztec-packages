@@ -1,0 +1,12 @@
+dc8cda19d2 forget to remove constructor
+deae720e8a useless constructor for standard circuit builder
+a582c39457 remove useless includes from ecc_lookup_relation
+3e2624be40 preparings to PR for ECCVM
+37baac11e4 eccvm lookup optimization
+809d2b15ad removing false-cases for finalizing method
+1002a144db quick and dirty fixes
+410d798175 small fixes to remove unnecessary gates
+7877a7d3bb test redesign after rebase
+5aeb0d685f another boring routine
+076cd60d41 some experiments with graph acceleration
+444794b7ac stuff for tests

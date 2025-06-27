@@ -20,6 +20,7 @@ export type ServerProtocolArtifact =
   | 'BlockRootRollupArtifact'
   | 'SingleTxBlockRootRollupArtifact'
   | 'EmptyBlockRootRollupArtifact'
+  | 'PaddingBlockRootRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';
 

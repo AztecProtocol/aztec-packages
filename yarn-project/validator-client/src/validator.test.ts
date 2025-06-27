@@ -192,6 +192,10 @@ describe('ValidatorClient', () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       proposal = makeBlockProposal({ header: makeHeader(1, 100, 100, { contentCommitment }) });
+      // Set the current time to the start of the slot of the proposal
+      const genesisTime = 1n;
+      const slotTime = genesisTime + proposal.slotNumber.toBigInt() * BigInt(blockBuilder.getConfig().slotDuration);
+      dateProvider.setTime(Number(slotTime * 1000n));
       sender = { toString: () => 'proposal-sender-peer-id' } as PeerId;
 
       p2pClient.getTxStatus.mockResolvedValue('pending');
@@ -211,6 +215,7 @@ describe('ValidatorClient', () => {
       blockSource.getBlock.mockResolvedValue({
         archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
       } as L2Block);
+      blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
       blockBuildResult = {
         publicProcessorDuration: 0,
@@ -231,6 +236,17 @@ describe('ValidatorClient', () => {
     it('should attest to proposal', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(attestations).toBeDefined();
+      expect(attestations?.length).toBe(1);
+    });
+
+    it('should wait for previous block to sync', async () => {
+      epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      const attestations = await validatorClient.attestToProposal(proposal, sender);
+      expect(blockSource.getBlock).toHaveBeenCalledTimes(4);
       expect(attestations).toBeDefined();
       expect(attestations?.length).toBe(1);
     });

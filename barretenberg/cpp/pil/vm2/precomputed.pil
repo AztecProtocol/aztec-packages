@@ -124,7 +124,9 @@ pol constant sel_dispatch_bitwise;
 pol constant sel_dispatch_poseidon_perm;
 pol constant sel_dispatch_to_radix;
 pol constant sel_dispatch_ecc;
+pol constant sel_dispatch_data_copy;
 pol constant sel_dispatch_keccakf1600;
+pol constant sel_dispatch_execution;
 // Whether an operand is an address
 // NOTE: this could be encoded in bits in 1 column and reconstructed.
 pol constant sel_op_is_address[7];
@@ -155,3 +157,17 @@ pol constant sel_collect_fee;
 // Warning: Not a standard 0-based array!
 pol constant sel_keccak;
 pol constant keccak_round_constant;
+
+// GETENVVAR opcode precomputed columns
+// see opcodes/get_env_var.pil for ascii table
+pol constant invalid_envvar_enum;
+pol constant sel_envvar_pi_lookup_col0;
+pol constant sel_envvar_pi_lookup_col1;
+pol constant envvar_pi_row_idx;
+pol constant is_address;
+pol constant is_sender;
+pol constant is_transactionfee;
+pol constant is_feeperl2gas;
+pol constant is_isstaticcall;
+pol constant is_l2gasleft;
+pol constant is_dagasleft;

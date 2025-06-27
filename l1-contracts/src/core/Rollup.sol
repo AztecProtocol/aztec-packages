@@ -20,6 +20,7 @@ import {
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection, IEmperor} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
+import {CompressedBlockLog, BlockLogLib} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
@@ -27,8 +28,10 @@ import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol
 import {StakingLib} from "@aztec/core/libraries/rollup/StakingLib.sol";
 import {GSE} from "@aztec/governance/GSE.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {ChainTipsLib, CompressedChainTips} from "./libraries/compressed-data/Tips.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
-import {RewardLib, ActivityScore, RewardConfig} from "./libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig} from "./libraries/rollup/RewardLib.sol";
 import {
   RollupCore,
   GenesisState,
@@ -39,7 +42,7 @@ import {
   Epoch,
   Timestamp,
   Errors,
-  CommitteeAttestation,
+  CommitteeAttestations,
   ExtRollupLib,
   ExtRollupLib2,
   EthValue,
@@ -61,6 +64,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using PriceLib for EthValue;
+  using BlockLogLib for CompressedBlockLog;
+  using CompressedTimeMath for CompressedSlot;
+  using ChainTipsLib for CompressedChainTips;
 
   constructor(
     IERC20 _feeAsset,
@@ -95,7 +101,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function validateHeader(
     ProposedHeader calldata _header,
-    CommitteeAttestation[] memory _attestations,
+    CommitteeAttestations memory _attestations,
     bytes32 _digest,
     bytes32 _blobsHash,
     BlockHeaderValidationFlags memory _flags
@@ -186,7 +192,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
     uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
 
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber.decompress();
 
     require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
 
@@ -255,7 +261,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getTips() external view override(IRollup) returns (ChainTips memory) {
-    return STFLib.getStorage().tips;
+    return ChainTipsLib.decompress(STFLib.getStorage().tips);
   }
 
   function status(uint256 _myHeaderBlockNumber)
@@ -272,13 +278,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     )
   {
     RollupStore storage rollupStore = STFLib.getStorage();
+    ChainTips memory tips = ChainTipsLib.decompress(rollupStore.tips);
+
     return (
-      rollupStore.tips.provenBlockNumber,
-      rollupStore.blocks[rollupStore.tips.provenBlockNumber].archive,
-      rollupStore.tips.pendingBlockNumber,
-      rollupStore.blocks[rollupStore.tips.pendingBlockNumber].archive,
+      tips.provenBlockNumber,
+      rollupStore.blocks[tips.provenBlockNumber].archive,
+      tips.pendingBlockNumber,
+      rollupStore.blocks[tips.pendingBlockNumber].archive,
       archiveAt(_myHeaderBlockNumber),
-      getEpochForBlock(rollupStore.tips.provenBlockNumber)
+      getEpochForBlock(tips.provenBlockNumber)
     );
   }
 
@@ -324,24 +332,25 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function archive() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].archive;
+    return rollupStore.blocks[rollupStore.tips.getPendingBlockNumber()].archive;
   }
 
   function getProvenBlockNumber() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().tips.provenBlockNumber;
+    return STFLib.getStorage().tips.getProvenBlockNumber();
   }
 
   function getPendingBlockNumber() external view override(IRollup) returns (uint256) {
-    return STFLib.getStorage().tips.pendingBlockNumber;
+    return STFLib.getStorage().tips.getPendingBlockNumber();
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
+    uint256 pendingBlockNumber = rollupStore.tips.getPendingBlockNumber();
     require(
-      _blockNumber <= rollupStore.tips.pendingBlockNumber,
-      Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
+      _blockNumber <= pendingBlockNumber,
+      Errors.Rollup__InvalidBlockNumber(pendingBlockNumber, _blockNumber)
     );
-    return rollupStore.blocks[_blockNumber];
+    return rollupStore.blocks[_blockNumber].decompress();
   }
 
   function getFeeHeader(uint256 _blockNumber)
@@ -350,7 +359,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeHeader memory)
   {
-    return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
+    return FeeHeaderLib.decompress(FeeLib.getFeeHeader(_blockNumber));
   }
 
   function getBlobCommitmentsHash(uint256 _blockNumber)
@@ -364,7 +373,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getCurrentBlobCommitmentsHash() external view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].blobCommitmentsHash;
+    return rollupStore.blocks[rollupStore.tips.getPendingBlockNumber()].blobCommitmentsHash;
   }
 
   function getConfig(address _attester)
@@ -393,17 +402,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getAttesterView(_attester);
   }
 
-  function getActivityScore(address _prover)
-    external
-    view
-    override(IRollup)
-    returns (ActivityScore memory)
-  {
-    return RewardLib.getActivityScore(_prover);
-  }
-
   function getSharesFor(address _prover) external view override(IRollup) returns (uint256) {
-    return RewardLib.toShares(_prover);
+    return RewardLib.getSharesFor(_prover);
   }
 
   /**
@@ -691,7 +691,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The fee asset price
    */
   function getFeeAssetPerEth() public view override(IRollup) returns (FeeAssetPerEthE9) {
-    return FeeLib.getFeeAssetPerEthAtBlock(STFLib.getStorage().tips.pendingBlockNumber);
+    return FeeLib.getFeeAssetPerEthAtBlock(STFLib.getStorage().tips.getPendingBlockNumber());
   }
 
   function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
@@ -707,7 +707,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    */
   function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
     RollupStore storage rollupStore = STFLib.getStorage();
-    return _blockNumber <= rollupStore.tips.pendingBlockNumber
+    return _blockNumber <= rollupStore.tips.getPendingBlockNumber()
       ? rollupStore.blocks[_blockNumber].archive
       : bytes32(0);
   }
@@ -734,5 +734,9 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
 
   function getNextFlushableEpoch() public view override(IStaking) returns (Epoch) {
     return StakingLib.getNextFlushableEpoch();
+  }
+
+  function getEntryQueueLength() public view override(IStaking) returns (uint256) {
+    return StakingLib.getEntryQueueLength();
   }
 }

@@ -21,6 +21,7 @@
 #include "relations/external_call.hpp"
 #include "relations/ff_gt.hpp"
 #include "relations/gas.hpp"
+#include "relations/get_env_var.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/internal_call.hpp"
 #include "relations/internal_call_stack.hpp"
@@ -56,6 +57,7 @@
 #include "relations/lookups_external_call.hpp"
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_gas.hpp"
+#include "relations/lookups_get_env_var.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_internal_call.hpp"
 #include "relations/lookups_keccak_memory.hpp"
@@ -106,6 +108,7 @@ struct AvmFlavorVariables {
         avm2::external_call<FF_>,
         avm2::ff_gt<FF_>,
         avm2::gas<FF_>,
+        avm2::get_env_var<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::internal_call<FF_>,
         avm2::internal_call_stack<FF_>,
@@ -164,7 +167,6 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_address_derivation_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
         lookup_bc_retrieval_deployment_nullifier_read_relation<FF_>,
-        lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_relation<FF_>,
         lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
@@ -178,6 +180,7 @@ struct AvmFlavorVariables {
         lookup_data_copy_col_read_relation<FF_>,
         lookup_data_copy_mem_read_relation<FF_>,
         lookup_data_copy_mem_write_relation<FF_>,
+        lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_instruction_fetching_body_relation<FF_>,
         lookup_execution_instruction_fetching_result_relation<FF_>,
@@ -188,6 +191,9 @@ struct AvmFlavorVariables {
         lookup_gas_addressing_gas_read_relation<FF_>,
         lookup_gas_limit_used_da_range_relation<FF_>,
         lookup_gas_limit_used_l2_range_relation<FF_>,
+        lookup_get_env_var_precomputed_info_relation<FF_>,
+        lookup_get_env_var_read_from_public_inputs_col0_relation<FF_>,
+        lookup_get_env_var_read_from_public_inputs_col1_relation<FF_>,
         lookup_instr_fetching_bytecode_size_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
@@ -339,7 +345,9 @@ struct AvmFlavorVariables {
         lookup_nullifier_check_low_leaf_poseidon2_relation<FF_>,
         lookup_nullifier_check_new_leaf_merkle_check_relation<FF_>,
         lookup_nullifier_check_new_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_silo_poseidon2_relation<FF_>,
         lookup_nullifier_check_updated_low_leaf_poseidon2_relation<FF_>,
+        lookup_nullifier_check_write_nullifier_to_public_inputs_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_public_data_check_low_leaf_merkle_check_relation<FF_>,
         lookup_public_data_check_low_leaf_next_slot_validation_relation<FF_>,
@@ -372,6 +380,7 @@ struct AvmFlavorVariables {
         lookup_to_radix_limb_range_relation<FF_>,
         lookup_tx_balance_validation_relation<FF_>,
         lookup_tx_note_hash_append_relation<FF_>,
+        lookup_tx_nullifier_append_relation<FF_>,
         lookup_tx_phase_jump_on_revert_relation<FF_>,
         lookup_tx_read_effective_fee_public_inputs_relation<FF_>,
         lookup_tx_read_fee_payer_public_inputs_relation<FF_>,
@@ -381,9 +390,9 @@ struct AvmFlavorVariables {
         lookup_tx_read_public_call_request_phase_relation<FF_>,
         lookup_tx_read_tree_insert_value_relation<FF_>,
         lookup_tx_write_l2_l1_msg_relation<FF_>,
-        lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
+        lookup_update_check_timestamp_of_change_cmp_range_relation<FF_>,
         lookup_update_check_update_hash_poseidon2_relation<FF_>,
         lookup_update_check_update_hash_public_data_read_relation<FF_>,
         lookup_update_check_update_hi_metadata_range_relation<FF_>,
