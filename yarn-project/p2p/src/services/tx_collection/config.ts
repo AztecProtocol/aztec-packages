@@ -1,4 +1,5 @@
 import { type ConfigMappingsType, booleanConfigHelper, numberConfigHelper } from '@aztec/foundation/config';
+import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/server';
 
 export type TxCollectionConfig = {
   /** How long to wait before starting reqresp for fast collection  */
@@ -19,6 +20,8 @@ export type TxCollectionConfig = {
   txCollectionNodeRpcUrls: string[];
   /** Maximum number of parallel requests to make to a node during fast collection */
   txCollectionFastMaxParallelRequestsPerNode: number;
+  /** Maximum number of transactions to request from a node in a single batch */
+  txCollectionNodeRpcMaxBatchSize: number;
 };
 
 export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> = {
@@ -71,5 +74,10 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
     env: 'TX_COLLECTION_FAST_MAX_PARALLEL_REQUESTS_PER_NODE',
     description: 'Maximum number of parallel requests to make to a node during fast collection',
     ...numberConfigHelper(4),
+  },
+  txCollectionNodeRpcMaxBatchSize: {
+    env: 'TX_COLLECTION_NODE_RPC_MAX_BATCH_SIZE',
+    description: 'Maximum number of transactions to request from a node in a single batch',
+    ...numberConfigHelper(MAX_RPC_TXS_LEN),
   },
 };

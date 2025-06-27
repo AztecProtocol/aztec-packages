@@ -1,5 +1,5 @@
 import type { TypedEventEmitter } from '@aztec/foundation/types';
-import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx, TxHash, TxWithHash } from '@aztec/stdlib/tx';
 
 export type TxPoolOptions = {
   maxTxPoolSize?: number;
@@ -8,7 +8,7 @@ export type TxPoolOptions = {
 };
 
 export type TxPoolEvents = {
-  ['txs-added']: (args: { txs: Tx[]; source?: string }) => void | Promise<void>;
+  ['txs-added']: (args: { txs: TxWithHash[]; source?: string }) => void | Promise<void>;
 };
 
 /**

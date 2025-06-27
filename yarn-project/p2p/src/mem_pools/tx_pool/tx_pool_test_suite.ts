@@ -41,7 +41,7 @@ export function describeTxPool(getTxPool: () => TxPool) {
     const tx3 = await mockTx(); // brand new
 
     await pool.addTxs([tx1]);
-    await pool.markAsMined([await tx2.getTxHash()], 1);
+    await pool.markAsMined([await tx2.getTxHash()], minedBlockHeader);
 
     let txsFromEvent: Tx[] | undefined = undefined;
     pool.once('txs-added', ({ txs }) => {

@@ -1,7 +1,7 @@
 import { createLogger } from '@aztec/foundation/log';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
-import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import EventEmitter from 'node:events';
@@ -134,7 +134,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
    * @returns Empty promise.
    */
   public async addTxs(txs: Tx[], opts: { source?: string } = {}): Promise<number> {
-    const added: Tx[] = [];
+    const added: TxWithHash[] = [];
     for (const tx of txs) {
       const txHash = await tx.getTxHash();
       this.log.verbose(`Adding tx ${txHash.toString()} to pool`, {
@@ -144,7 +144,7 @@ export class InMemoryTxPool extends (EventEmitter as new () => TypedEventEmitter
 
       const key = txHash.toBigInt();
       if (!this.txs.has(key)) {
-        added.push(tx);
+        added.push(tx as TxWithHash);
         this.txs.set(key, tx);
       }
 

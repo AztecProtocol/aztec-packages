@@ -5,7 +5,6 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { L2Block } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/server';
 import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
 import { type ReqRespInterface, ReqRespSubProtocol } from '../reqresp/interface.js';
@@ -59,13 +58,32 @@ export class SlowTxCollection {
 
   public async stop() {
     await Promise.all([
-      ...this.nodesSlowCollectionLoops.map(loop => loop.stop()),
       this.reqrespSlowCollectionLoop.stop(),
+      ...this.nodesSlowCollectionLoops.map(loop => loop.stop()),
+    ]);
+  }
+
+  public async trigger() {
+    await Promise.all([
+      this.reqrespSlowCollectionLoop.trigger(),
+      ...this.nodesSlowCollectionLoops.map(loop => loop.trigger()),
     ]);
   }
 
   /** Starts collecting the given tx hashes for the given L2Block in the slow loop */
   public startCollecting(block: L2Block, txHashes: TxHash[]) {
+    const slot = block.header.getSlot();
+    const deadline = this.getDeadlineForSlot(slot);
+    if (+deadline < this.dateProvider.now()) {
+      this.log.debug(`Skipping collection of txs for block ${block.number} at slot ${slot} as it is already expired`, {
+        blockNumber: block.number,
+        slot: slot.toString(),
+        txHashes: txHashes.map(txHash => txHash.toString()),
+        deadline: +deadline,
+        now: this.dateProvider.now(),
+      });
+    }
+
     for (const txHash of txHashes) {
       this.missingTxs.set(txHash.toString(), {
         blockNumber: block.number,
@@ -92,7 +110,7 @@ export class SlowTxCollection {
     }
 
     // Request in chunks to avoid hitting RPC limits
-    for (const batch of chunk(missingTxHashes, MAX_RPC_TXS_LEN)) {
+    for (const batch of chunk(missingTxHashes, this.config.txCollectionNodeRpcMaxBatchSize)) {
       await this.collectionManager.collect(txHashes => node.getTxsByHash(txHashes), batch, {
         description: `node ${node.getInfo()}`,
         node: node.getInfo(),

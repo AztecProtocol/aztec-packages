@@ -9,7 +9,7 @@ import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/st
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { TxAddedToPoolStats } from '@aztec/stdlib/stats';
 import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
-import { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, Tx, TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert';
@@ -281,7 +281,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
    * @returns Empty promise.
    */
   public async addTxs(txs: Tx[], opts: { source?: string } = {}): Promise<number> {
-    const addedTxs: Tx[] = [];
+    const addedTxs: TxWithHash[] = [];
     const hashesAndStats = await Promise.all(
       txs.map(async tx => ({ txHash: await tx.getTxHash(), txStats: await tx.getStats() })),
     );
@@ -302,7 +302,7 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
           } satisfies TxAddedToPoolStats);
 
           await this.#txs.set(key, tx.toBuffer());
-          addedTxs.push(tx);
+          addedTxs.push(tx as TxWithHash);
 
           if (!(await this.#minedTxHashToBlock.hasAsync(key))) {
             pendingTxSize += tx.getSize();

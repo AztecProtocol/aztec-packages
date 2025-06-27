@@ -54,10 +54,10 @@ export type FastCollectionRequest = FastCollectionRequestInput & {
  */
 export class TxCollection {
   /** Slow collection background loops */
-  private readonly slowCollection: SlowTxCollection;
+  protected readonly slowCollection: SlowTxCollection;
 
   /** Fast collection methods */
-  private readonly fastCollection: FastTxCollection;
+  protected readonly fastCollection: FastTxCollection;
 
   /** Loop for periodically reconciling found transactions from the tx pool in case we missed some */
   private readonly reconcileFoundTxsLoop: RunningPromise;
@@ -66,7 +66,7 @@ export class TxCollection {
   private readonly instrumentation: TxCollectionInstrumentation;
 
   /** Handler for the txs-added event from the tx pool */
-  private handleTxsAddedToPool: TxPoolEvents['txs-added'] | undefined;
+  protected readonly handleTxsAddedToPool: TxPoolEvents['txs-added'];
 
   constructor(
     private readonly reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
@@ -109,20 +109,21 @@ export class TxCollection {
       this.log,
       this.config.txCollectionReconcileIntervalMs,
     );
+
+    this.handleTxsAddedToPool = (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
+      const { txs, source } = args;
+      if (source !== 'tx-collection') {
+        this.foundTxs(txs);
+      }
+    };
+
+    this.txPool.on('txs-added', this.handleTxsAddedToPool);
   }
 
   /** Starts all collection loops. */
   public start(): Promise<void> {
     this.slowCollection.start();
     this.reconcileFoundTxsLoop.start();
-
-    this.handleTxsAddedToPool = async (args: Parameters<TxPoolEvents['txs-added']>[0]) => {
-      const { txs, source } = args;
-      if (source !== 'tx-collection') {
-        this.foundTxs(await Tx.toTxsWithHashes(txs));
-      }
-    };
-    this.txPool.on('txs-added', this.handleTxsAddedToPool);
 
     // TODO(palla/txs): Collect mined unproven tx hashes for txs we dont have in the pool and populate missingTxs on startup
     return Promise.resolve();
@@ -134,6 +135,11 @@ export class TxCollection {
     if (this.handleTxsAddedToPool) {
       this.txPool.removeListener('txs-added', this.handleTxsAddedToPool);
     }
+  }
+
+  /** Force trigger the slow collection and reconciliation loops */
+  public async trigger() {
+    await Promise.all([this.reconcileFoundTxsLoop.trigger(), this.slowCollection.trigger()]);
   }
 
   /** Returns L1 rollup constants. */
@@ -183,33 +189,45 @@ export class TxCollection {
     requested: TxHash[],
     info: Record<string, any> & { description: string; method: CollectionMethod },
   ) {
+    this.log.trace(`Requesting ${requested.length} txs via ${info.description}`, {
+      ...info,
+      requestedTxs: requested.map(t => t.toString()),
+    });
+
     // Execute collection function and measure the time taken, catching any errors.
-    const [duration, response] = await elapsed(async () => {
+    const [duration, txs] = await elapsed(async () => {
       try {
-        return await collectFn(requested);
+        const response = await collectFn(requested);
+        return await Tx.toTxsWithHashes(response.filter(tx => tx !== undefined));
       } catch (err) {
         this.log.error(`Error collecting txs via ${info.description}`, err, {
           ...info,
           requestedTxs: requested.map(hash => hash.toString()),
         });
-        return [] as (Tx | undefined)[];
+        return [] as TxWithHash[];
       }
     });
 
-    // Report metrics for the collection
-    const txs = await Tx.toTxsWithHashes(response.filter(tx => tx !== undefined));
-    if (txs.length > 0) {
-      this.log.verbose(
-        `Collected ${txs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
-        { ...info, duration, txs: txs.map(t => t.txHash.toString()), requestedTxs: requested.map(t => t.toString()) },
-      );
-      this.instrumentation.increaseTxsFor(info.method, txs.length, duration);
+    if (txs.length === 0) {
+      this.log.trace(`No txs found via ${info.description}`, {
+        ...info,
+        requestedTxs: requested.map(t => t.toString()),
+      });
+      return;
     }
+
+    this.log.verbose(
+      `Collected ${txs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
+      { ...info, duration, txs: txs.map(t => t.txHash.toString()), requestedTxs: requested.map(t => t.toString()) },
+    );
+
+    // Report metrics for the collection
+    this.instrumentation.increaseTxsFor(info.method, txs.length, duration);
 
     // Mark txs as found in the slow missing txs set and all fast requests
     this.foundTxs(txs);
 
-    // Add txs to the tx pool (should not fail, but we catch it just in case)
+    // Add the txs to the tx pool (should not fail, but we catch it just in case)
     try {
       await this.txPool.addTxs(txs, { source: `tx-collection` });
     } catch (err) {

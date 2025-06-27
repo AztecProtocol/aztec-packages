@@ -6,7 +6,6 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import type { BlockInfo } from '@aztec/stdlib/block';
-import { MAX_RPC_TXS_LEN } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { TxHash, type TxWithHash } from '@aztec/stdlib/tx';
 
@@ -19,7 +18,7 @@ import type { TxSource } from './tx_source.js';
 
 export class FastTxCollection {
   /** Fast collection requests */
-  private requests: Set<FastCollectionRequest> = new Set();
+  protected requests: Set<FastCollectionRequest> = new Set();
 
   constructor(
     private reqResp: Pick<ReqRespInterface, 'sendBatchRequest'>,
@@ -84,7 +83,7 @@ export class FastTxCollection {
     return [...request.foundTxs.values()];
   }
 
-  private async collectFast(
+  protected async collectFast(
     request: FastCollectionRequest,
     opts: { proposal?: BlockProposal; deadline: Date; pinnedPeer?: PeerId },
   ) {
@@ -162,7 +161,7 @@ export class FastTxCollection {
     const notFinished = () => this.dateProvider.now() <= +opts.deadline && request.missingTxHashes.size > 0;
     const maxParallelRequests = this.config.txCollectionFastMaxParallelRequestsPerNode;
     const activeRequestsToThisNode = new Set<string>(); // Track the txs being actively requested to this node
-    const maxBatchSize = MAX_RPC_TXS_LEN;
+    const maxBatchSize = this.config.txCollectionNodeRpcMaxBatchSize;
 
     const processBatch = async () => {
       while (notFinished()) {
@@ -184,7 +183,6 @@ export class FastTxCollection {
             batch.push(txToRequest);
             activeRequestsToThisNode.add(txToRequest.txHash);
             txToRequest.attempts++;
-            index++;
           }
         }
 
