@@ -73,6 +73,8 @@ import {
 } from '../reqresp/interface.js';
 import { reqGoodbyeHandler } from '../reqresp/protocols/goodbye.js';
 import {
+  AuthRequest,
+  StatusMessage,
   pingHandler,
   reqRespBlockHandler,
   reqRespStatusHandler,
@@ -242,6 +244,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         } as AddrInfo;
       }),
     );
+
+    console.log(`Configuring with direct peers: `, directPeers);
 
     const node = await createLibp2p({
       start: false,
@@ -660,7 +664,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     }
     const txHash = await tx.getTxHash();
     const txHashString = txHash.toString();
-    this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
+    this.logger.info(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
       source: source.toString(),
       txHash: txHashString,
     });
@@ -1041,6 +1045,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   public shouldTrustWithIdentity(peerId: PeerId): boolean {
     return this.peerManager.shouldTrustWithIdentity(peerId);
+  }
+
+  public handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    return this.peerManager.handleAuthFromPeer(authRequest, peerId);
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {

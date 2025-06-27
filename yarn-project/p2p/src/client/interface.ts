@@ -7,6 +7,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
+import type { AuthRequest, StatusMessage } from '../services/index.js';
 import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
@@ -201,4 +202,5 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApiFull<T> & 
   ): Promise<void>;
 
   shouldTrustWithIdentity(peerId: PeerId): boolean;
+  handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 };

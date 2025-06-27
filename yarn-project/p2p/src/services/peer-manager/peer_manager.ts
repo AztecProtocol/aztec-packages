@@ -7,6 +7,7 @@ import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
+import { peerIdFromString } from '@libp2p/peer-id';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import type { Libp2p } from 'libp2p';
 import { inspect } from 'util';
@@ -317,6 +318,10 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public getPeerScore(peerId: string): number {
+    if (this.config.p2pAllowOnlyValidators && !this.isAuthenticatedPeer(peerIdFromString(peerId))) {
+      this.logger.error(`Peer ${peerId} is not authenticated, returning -Infinity score`);
+      return -Infinity;
+    }
     return this.peerScoring.getScore(peerId);
   }
 
@@ -684,6 +689,11 @@ export class PeerManager implements PeerManagerInterface {
     }
   }
 
+  private async createStatusMessage() {
+    const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
+    return StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
+  }
+
   /**
    * Performs status Handshake with the Peer
    * The way the protocol is designed is that each peer will call this method on newly established p2p connection.
@@ -696,9 +706,7 @@ export class PeerManager implements PeerManagerInterface {
    * */
   private async exchangeStatusHandshake(peerId: PeerId) {
     try {
-      const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
-      const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
-
+      const ourStatus = await this.createStatusMessage();
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
       this.logger.info(`Initiating status handshake with peer ${peerId}`);
@@ -740,9 +748,8 @@ export class PeerManager implements PeerManagerInterface {
    * */
   private async exchangeAuthHandshake(peerId: PeerId) {
     try {
-      const syncSummary = (await this.worldStateSynchronizer.status()).syncSummary;
-      const ourStatus = StatusMessage.fromWorldStateSyncStatus(this.protocolVersion, syncSummary);
-      const authRequest = new AuthRequest(ourStatus, Fr.random().toBuffer());
+      const ourStatus = await this.createStatusMessage();
+      const authRequest = new AuthRequest(ourStatus, Fr.random());
 
       //Note: Technically we don't have to send our status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
@@ -757,19 +764,28 @@ export class PeerManager implements PeerManagerInterface {
         //TODO: maybe hard ban these peers in the future.
         //We could allow this to happen up to N times, and then hard ban?
         //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond status handshake`, logData);
+        this.logger.warn(`Disconnecting peer ${peerId} who failed to respond auth handshake`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
 
       const peerAuthResponse = AuthResponse.fromBuffer(data);
+      if (!peerAuthResponse.signature.equals(authRequest.challenge)) {
+        this.logger.warn(`Disconnecting peer ${peerId} due to failed auth handshake, signature mismatch.`, {
+          peerId,
+          expected: authRequest.challenge.toString(),
+          received: peerAuthResponse.signature.toString(),
+        });
+        await this.disconnectPeer(peerId);
+        return;
+      }
       const peerStatusMessage = peerAuthResponse.status;
       if (!ourStatus.validate(peerStatusMessage)) {
         this.logger.warn(`Disconnecting peer ${peerId} due to failed status handshake as part of auth.`, logData);
         await this.disconnectPeer(peerId);
         return;
       }
-      this.logger.debug(`Successfully completed auth handshake with peer ${peerId}`, logData);
+      this.logger.error(`Successfully completed auth handshake with peer ${peerId}`, logData);
     } catch (err: any) {
       //TODO: maybe hard ban these peers in the future
       this.logger.warn(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message ?? err}`, {
@@ -798,6 +814,15 @@ export class PeerManager implements PeerManagerInterface {
 
   public shouldTrustWithIdentity(peerId: PeerId): boolean {
     return this.isPreferredPeer(peerId) || this.isTrustedPeer(peerId) || this.isPrivatePeer(peerId);
+  }
+
+  public async handleAuthFromPeer(_authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
+    if (this.shouldTrustWithIdentity(peerId)) {
+      this.logger.info(`Received auth request from trusted peer ${peerId.toString()}`);
+      return Promise.resolve(await this.createStatusMessage());
+    }
+    this.logger.warn(`Received auth request from untrusted peer ${peerId.toString()}`);
+    return Promise.reject();
   }
 }
 

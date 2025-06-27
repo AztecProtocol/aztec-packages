@@ -6,6 +6,7 @@ import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
+import type { StatusMessage } from './reqresp/index.js';
 import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
@@ -92,6 +93,7 @@ export interface P2PService {
   ): Promise<void>;
 
   shouldTrustWithIdentity(peerId: PeerId): boolean;
+  handleAuthFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage>;
 }
 
 /**
