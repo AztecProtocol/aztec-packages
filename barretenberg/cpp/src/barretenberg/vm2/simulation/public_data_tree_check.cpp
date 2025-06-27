@@ -4,6 +4,11 @@
 
 namespace bb::avm2::simulation {
 
+FF PublicDataTreeCheck::compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
+{
+    return poseidon2.hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+}
+
 void PublicDataTreeCheck::validate_low_leaf_jumps_over_slot(const PublicDataTreeLeafPreimage& low_leaf_preimage,
                                                             const FF& leaf_slot)
 {
@@ -16,13 +21,15 @@ void PublicDataTreeCheck::validate_low_leaf_jumps_over_slot(const PublicDataTree
     }
 }
 
-void PublicDataTreeCheck::assert_read(const FF& leaf_slot,
+void PublicDataTreeCheck::assert_read(const FF& slot,
+                                      const AztecAddress& contract_address,
                                       const FF& value,
                                       const PublicDataTreeLeafPreimage& low_leaf_preimage,
                                       uint64_t low_leaf_index,
                                       std::span<const FF> sibling_path,
                                       const AppendOnlyTreeSnapshot& snapshot)
 {
+    FF leaf_slot = compute_leaf_slot(contract_address, slot);
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
     merkle_check.assert_membership(low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
@@ -41,24 +48,30 @@ void PublicDataTreeCheck::assert_read(const FF& leaf_slot,
         }
     }
 
-    read_events.emit({
+    events.emit(PublicDataTreeReadWriteEvent{
+        .contract_address = contract_address,
+        .slot = slot,
         .value = value,
-        .slot = leaf_slot,
+        .leaf_slot = leaf_slot,
         .prev_snapshot = snapshot,
         .low_leaf_preimage = low_leaf_preimage,
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
+        .clk = execution_id_manager.get_execution_id(),
     });
 }
 
-AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& leaf_slot,
+AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
+                                                  const AztecAddress& contract_address,
                                                   const FF& value,
                                                   const PublicDataTreeLeafPreimage& low_leaf_preimage,
                                                   uint64_t low_leaf_index,
                                                   std::span<const FF> low_leaf_sibling_path,
                                                   const AppendOnlyTreeSnapshot& prev_snapshot,
-                                                  std::span<const FF> insertion_sibling_path)
+                                                  std::span<const FF> insertion_sibling_path,
+                                                  bool is_protocol_write)
 {
+    FF leaf_slot = compute_leaf_slot(contract_address, slot);
     // Validate low leaf
     bool exists = low_leaf_preimage.leaf.slot == leaf_slot;
     if (!exists) {
@@ -100,21 +113,39 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& leaf_slot,
         next_snapshot.nextAvailableLeafIndex++;
     }
 
-    read_events.emit({ .value = value,
-                       .slot = leaf_slot,
-                       .prev_snapshot = prev_snapshot,
-                       .low_leaf_preimage = low_leaf_preimage,
-                       .low_leaf_hash = low_leaf_hash,
-                       .low_leaf_index = low_leaf_index,
-                       .write_data = PublicDataWriteData{
-                           .updated_low_leaf_preimage = updated_low_leaf_preimage,
-                           .updated_low_leaf_hash = updated_low_leaf_hash,
-                           .new_leaf_hash = new_leaf_hash,
-                           .intermediate_root = intermediate_root,
-                           .next_snapshot = next_snapshot,
-                       } });
+    events.emit(PublicDataTreeReadWriteEvent{
+        .contract_address = contract_address,
+        .slot = slot,
+        .value = value,
+        .leaf_slot = leaf_slot,
+        .prev_snapshot = prev_snapshot,
+        .low_leaf_preimage = low_leaf_preimage,
+        .low_leaf_hash = low_leaf_hash,
+        .low_leaf_index = low_leaf_index,
+        .write_data = PublicDataWriteData{ .updated_low_leaf_preimage = updated_low_leaf_preimage,
+                                           .updated_low_leaf_hash = updated_low_leaf_hash,
+                                           .new_leaf_hash = new_leaf_hash,
+                                           .intermediate_root = intermediate_root,
+                                           .next_snapshot = next_snapshot },
+        .clk = is_protocol_write ? std::numeric_limits<uint32_t>::max() : execution_id_manager.get_execution_id(),
+    });
 
     return next_snapshot;
+}
+
+void PublicDataTreeCheck::on_checkpoint_created()
+{
+    events.emit(CheckPointEventType::CREATE_CHECKPOINT);
+}
+
+void PublicDataTreeCheck::on_checkpoint_committed()
+{
+    events.emit(CheckPointEventType::COMMIT_CHECKPOINT);
+}
+
+void PublicDataTreeCheck::on_checkpoint_reverted()
+{
+    events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
 
 } // namespace bb::avm2::simulation

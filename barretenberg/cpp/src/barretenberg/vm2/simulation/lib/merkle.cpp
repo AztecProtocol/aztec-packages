@@ -23,6 +23,11 @@ FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<con
     return curr_value;
 }
 
+FF compute_leaf_slot(const AztecAddress& contract_address, const FF& slot)
+{
+    return Poseidon2::hash({ GENERATOR_INDEX__PUBLIC_LEAF_INDEX, contract_address, slot });
+}
+
 FF silo_nullifier(const AztecAddress& contract_address, const FF& nullifier)
 {
     return Poseidon2::hash({ GENERATOR_INDEX__OUTER_NULLIFIER, contract_address, nullifier });

@@ -114,7 +114,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
+    PublicDataTreeCheck public_data_tree_check(
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
     NoteHashTreeCheck note_hash_tree_check(
         hints.tx.nonRevertibleAccumulatedData.nullifiers[0], poseidon2, merkle_check, note_hash_tree_check_emitter);
@@ -131,6 +132,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check, note_hash_tree_check);
     merkle_db.add_checkpoint_listener(note_hash_tree_check);
     merkle_db.add_checkpoint_listener(nullifier_tree_check);
+    merkle_db.add_checkpoint_listener(public_data_tree_check);
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_timestamp, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);

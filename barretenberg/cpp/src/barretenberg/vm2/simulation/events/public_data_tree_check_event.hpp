@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
@@ -20,9 +21,11 @@ struct PublicDataWriteData {
     bool operator==(const PublicDataWriteData& other) const = default;
 };
 
-struct PublicDataTreeCheckEvent {
-    FF value;
+struct PublicDataTreeReadWriteEvent {
+    AztecAddress contract_address;
     FF slot;
+    FF value;
+    FF leaf_slot;
     AppendOnlyTreeSnapshot prev_snapshot;
 
     PublicDataTreeLeafPreimage low_leaf_preimage;
@@ -31,7 +34,11 @@ struct PublicDataTreeCheckEvent {
 
     std::optional<PublicDataWriteData> write_data;
 
-    bool operator==(const PublicDataTreeCheckEvent& other) const = default;
+    uint32_t clk;
+
+    bool operator==(const PublicDataTreeReadWriteEvent& other) const = default;
 };
+
+using PublicDataTreeCheckEvent = std::variant<PublicDataTreeReadWriteEvent, CheckPointEventType>;
 
 } // namespace bb::avm2::simulation

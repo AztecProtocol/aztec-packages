@@ -11,6 +11,62 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_public_data_check_clk_diff_range ///////////////////
+
+struct lookup_public_data_check_clk_diff_range_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_CLK_DIFF_RANGE";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_not_end;
+    static constexpr Column DST_SELECTOR = Column::range_check_sel;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_clk_diff_range_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_clk_diff_range_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_clk_diff, ColumnAndShifts::public_data_check_constant_32
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
+    };
+};
+
+using lookup_public_data_check_clk_diff_range_settings =
+    lookup_settings<lookup_public_data_check_clk_diff_range_settings_>;
+template <typename FF_>
+using lookup_public_data_check_clk_diff_range_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_clk_diff_range_settings>;
+
+/////////////////// lookup_public_data_check_silo_poseidon2 ///////////////////
+
+struct lookup_public_data_check_silo_poseidon2_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_SILO_POSEIDON2";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_silo_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_silo_poseidon2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_sel,
+        ColumnAndShifts::public_data_check_siloing_separator,
+        ColumnAndShifts::public_data_check_address,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_leaf_slot
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_start,
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+};
+
+using lookup_public_data_check_silo_poseidon2_settings =
+    lookup_settings<lookup_public_data_check_silo_poseidon2_settings_>;
+template <typename FF_>
+using lookup_public_data_check_silo_poseidon2_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_silo_poseidon2_settings>;
+
 /////////////////// lookup_public_data_check_low_leaf_slot_validation ///////////////////
 
 struct lookup_public_data_check_low_leaf_slot_validation_settings_ {
@@ -22,9 +78,9 @@ struct lookup_public_data_check_low_leaf_slot_validation_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_low_leaf_slot_validation_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_low_leaf_slot_validation_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_low_leaf_slot,
-        ColumnAndShifts::public_data_check_one
+        ColumnAndShifts::public_data_check_sel
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -49,8 +105,8 @@ struct lookup_public_data_check_low_leaf_next_slot_validation_settings_ {
     static constexpr Column INVERSES = Column::lookup_public_data_check_low_leaf_next_slot_validation_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_low_leaf_next_slot,
-        ColumnAndShifts::public_data_check_slot,
-        ColumnAndShifts::public_data_check_one
+        ColumnAndShifts::public_data_check_leaf_slot,
+        ColumnAndShifts::public_data_check_sel
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
@@ -227,7 +283,7 @@ struct lookup_public_data_check_new_leaf_poseidon2_0_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_new_leaf_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_leaf_slot,
         ColumnAndShifts::public_data_check_value,
         ColumnAndShifts::public_data_check_low_leaf_next_index,
         ColumnAndShifts::public_data_check_new_leaf_hash
@@ -287,7 +343,7 @@ struct lookup_public_data_check_new_leaf_merkle_check_settings_ {
     static constexpr Column COUNTS = Column::lookup_public_data_check_new_leaf_merkle_check_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_new_leaf_merkle_check_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::public_data_check_one,           ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::public_data_check_sel,           ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_new_leaf_hash, ColumnAndShifts::public_data_check_tree_size_before_write,
         ColumnAndShifts::public_data_check_tree_height,   ColumnAndShifts::public_data_check_intermediate_root,
         ColumnAndShifts::public_data_check_write_root
@@ -305,5 +361,31 @@ using lookup_public_data_check_new_leaf_merkle_check_settings =
 template <typename FF_>
 using lookup_public_data_check_new_leaf_merkle_check_relation =
     lookup_relation_base<FF_, lookup_public_data_check_new_leaf_merkle_check_settings>;
+
+/////////////////// lookup_public_data_check_write_public_data_to_public_inputs ///////////////////
+
+struct lookup_public_data_check_write_public_data_to_public_inputs_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_PUBLIC_DATA_CHECK_WRITE_PUBLIC_DATA_TO_PUBLIC_INPUTS";
+    static constexpr std::string_view RELATION_NAME = "public_data_check";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_should_write_to_public_inputs;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_public_data_check_write_public_data_to_public_inputs_counts;
+    static constexpr Column INVERSES = Column::lookup_public_data_check_write_public_data_to_public_inputs_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::public_data_check_write_idx,
+        ColumnAndShifts::public_data_check_leaf_slot,
+        ColumnAndShifts::public_data_check_value
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_, ColumnAndShifts::public_inputs_cols_1_
+    };
+};
+
+using lookup_public_data_check_write_public_data_to_public_inputs_settings =
+    lookup_settings<lookup_public_data_check_write_public_data_to_public_inputs_settings_>;
+template <typename FF_>
+using lookup_public_data_check_write_public_data_to_public_inputs_relation =
+    lookup_relation_base<FF_, lookup_public_data_check_write_public_data_to_public_inputs_settings>;
 
 } // namespace bb::avm2

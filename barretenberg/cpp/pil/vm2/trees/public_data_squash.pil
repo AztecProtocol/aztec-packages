@@ -1,0 +1,63 @@
+include "../ff_gt.pil";
+include "../precomputed.pil";
+
+// Utility trace to perform squashing of public data writes.
+// Sorted by leaf_slot, and then by clk.
+// Write to public inputs is true if the leaf slot is increasing or if it's the last row.
+// +-----+-----------+-----+-------------+----------------------+----------------------+----------+---------+
+// | sel | leaf_slot | clk | write_to_pi | should_increase_leaf |  check_clock         | clk_diff | NOT_END |
+// +-----+-----------+-----+-------------+----------------------+----------------------+----------+---------+
+// |   0 |         0 |   0 |           0 |                    0 |                    0 |        0 |       0 |
+// |   1 |        27 |   5 |           0 |                    0 |                    1 |        7 |       1 |
+// |   1 |        27 |  12 |           1 |                    1 |                    0 |        0 |       1 |
+// |   1 |        50 |   7 |           1 |                    0 |                    0 |        0 |       0 |
+// |   0 |         0 |   0 |           0 |                    0 |                    0 |        0 |       0 |
+// +-----+-----------+-----+-------------+----------------------+----------------------+----------+---------+
+//
+namespace public_data_squash;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // We can only activate next sel if the current row is on or is the first row
+    sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
+    pol END = sel * (1 - sel');
+    pol NOT_END = sel * sel';
+
+    pol commit leaf_slot;
+    pol commit clk;
+    pol commit write_to_public_inputs;
+    write_to_public_inputs * (1 - write_to_public_inputs) = 0;
+
+    // ====== SORTING ======
+    // Leaf slot must not decrease
+    // If leaf slot is the same, we constrain the clock to not decrease.
+    pol commit leaf_slot_increase;
+    leaf_slot_increase * (1 - leaf_slot_increase) = 0;
+    // !end && !leaf_slot_increase ==> next leaf_slot is the same
+    NOT_END * (1 - leaf_slot_increase) * (leaf_slot - leaf_slot') = 0;
+
+    #[LEAF_SLOT_INCREASE_FF_GT]
+    leaf_slot_increase { leaf_slot', leaf_slot, sel }
+    in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
+
+    // Our 32 bit clock must not decrease for the same leaf slot
+    pol commit check_clock;
+    check_clock = NOT_END * (1 - leaf_slot_increase);
+
+    pol commit clk_diff;
+    clk_diff = check_clock * (clk' - clk);
+
+    // TODO: Commited because lookups don't support constants
+    pol commit constant_32;
+    sel * (32 - constant_32) = 0;
+
+    #[CLK_DIFF_RANGE]
+    check_clock { clk_diff, constant_32 }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    // ====== SQUASHING ======
+    write_to_public_inputs = leaf_slot_increase + END;
+

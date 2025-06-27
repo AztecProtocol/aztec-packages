@@ -22,7 +22,7 @@
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -34,6 +34,7 @@ using ::testing::TestWithParam;
 using testing::TestMemoryTree;
 
 using simulation::EventEmitter;
+using simulation::ExecutionIdManager;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
 using simulation::MerkleCheck;
@@ -90,6 +91,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
 {
     const auto& param = GetParam();
 
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -104,7 +106,7 @@ TEST_P(PublicDataReadPositiveTests, Positive)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -242,6 +244,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeValueIsCorrect)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 {
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -256,7 +259,7 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;
@@ -304,6 +307,7 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteExists)
 
 TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
 {
+    ExecutionIdManager execution_id_manager(0);
     EventEmitter<Poseidon2HashEvent> hash_event_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
     Poseidon2 poseidon2(hash_event_emitter, perm_event_emitter);
@@ -318,7 +322,7 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
 
     EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_event_emitter;
     PublicDataTreeCheck public_data_tree_check_simulator(
-        poseidon2, merkle_check, field_gt, public_data_tree_check_event_emitter);
+        poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_event_emitter);
 
     TestTraceContainer trace({ { { C::precomputed_first_row, 1 } } });
     Poseidon2TraceBuilder poseidon2_builder;

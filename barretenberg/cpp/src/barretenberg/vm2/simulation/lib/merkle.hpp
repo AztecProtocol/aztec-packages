@@ -9,6 +9,8 @@ namespace bb::avm2::simulation {
 
 FF root_from_path(const FF& leaf_value, const uint64_t leaf_index, std::span<const FF> path);
 
+FF compute_leaf_slot(const AztecAddress& contract_address, const FF& slot);
+
 FF silo_nullifier(const AztecAddress& contract_address, const FF& nullifier);
 
 FF silo_note_hash(const AztecAddress& contract_address, const FF& note_hash);
