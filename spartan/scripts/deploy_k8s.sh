@@ -35,6 +35,8 @@ resources_file="${RESOURCES_FILE:-default.yaml}"
 repository="${REPOSITORY:-aztecprotocol/aztec}"
 monitor_deployment="${MONITOR_DEPLOYMENT:-true}"
 wait="${WAIT_FOR_DEPLOYMENT:-true}"
+cluster_name=${CLUSTER_NAME:-aztec-gke-private}
+zone=${ZONE:-us-west1-a}
 
 if [ "$target" = "kind" ] ; then
   if ! docker_has_image "$repository:$aztec_docker_tag"; then
@@ -50,11 +52,15 @@ if [ "$target" = "kind" ] ; then
 elif [ "$target" = "gke" ]; then
   TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/$repository/tags/$aztec_docker_tag)
   if [[ "$TAGS" != *"not found"* ]]; then
-      echo "TAG $aztec_docker_tag available in docker hub"
+    echo "TAG $aztec_docker_tag available in docker hub"
   else
     echo "Tag $aztec_docker_tag not found, please ensure it is published to docker hub"
     exit 1
   fi
+
+  # Get GKE cluster credentials & connect to it
+  echo "Getting credentials for GKE cluster: $CLUSTER_NAME in zone: $ZONE"
+  gcloud container clusters get-credentials "$CLUSTER_NAME" --zone "$ZONE"
 else
   echo "Unknown target: $target"
   exit 1
