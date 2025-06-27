@@ -83,18 +83,7 @@ template <typename Builder> class bool_t {
     mutable uint32_t witness_index = IS_CONSTANT;
     mutable OriginTag tag{};
 
-    /**
-     * Create a witness from a constant. This way the value of the witness is fixed and public (public, because the
-     * value becomes hard-coded as an element of the q_c selector vector).
-     */
-    void convert_constant_to_fixed_witness(Builder* ctx)
-    {
-        ASSERT(is_constant() && ctx);
-        context = ctx;
-        (*this) = bool_t<Builder>(witness_t<Builder>(context, get_value()));
-        context->fix_witness(witness_index, get_value());
-        unset_free_witness_tag();
-    }
+    void convert_constant_to_fixed_witness(Builder* ctx);
 };
 
 template <typename T> inline std::ostream& operator<<(std::ostream& os, bool_t<T> const& v)

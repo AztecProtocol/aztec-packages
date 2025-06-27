@@ -55,13 +55,21 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         // If the is_infinity is a witness, we can simply set it to 1
         // Or, if the coordinates are witness, we can simply set them to a valid point on the curve (G1)
         if (!input.input1_infinite.is_constant || (!input.input1_x.is_constant && !input.input1_y.is_constant)) {
-            input1_point = to_grumpkin_point(
-                input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, true, builder);
+            input1_point = to_grumpkin_point(input.input1_x,
+                                             input.input1_y,
+                                             input.input1_infinite,
+                                             has_valid_witness_assignments,
+                                             /*use_g1=*/true,
+                                             builder);
         } else {
             // If not, the coordinates are mixed constant/witness, and we generate witness so that the point is using
             // only witnesses.
-            input1_point = to_witness_grumpkin_point(
-                input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, true, builder);
+            input1_point = to_witness_grumpkin_point(input.input1_x,
+                                                     input.input1_y,
+                                                     input.input1_infinite,
+                                                     has_valid_witness_assignments,
+                                                     /*use_g1=*/true,
+                                                     builder);
         }
         result = input1_point.dbl();
     } else {
@@ -74,7 +82,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                                            input.input2_y,
                                            input.input2_infinite,
                                            has_valid_witness_assignments,
-                                           false,
+                                           /*use_g1=*/false,
                                            builder);
 
             } else if (get_value(input.input2_infinite, builder) == 1) {
@@ -83,7 +91,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                                            input.input1_y,
                                            input.input1_infinite,
                                            has_valid_witness_assignments,
-                                           true,
+                                           /*use_g1=*/true,
                                            builder);
             } else {
 
@@ -98,13 +106,13 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                                                              input.input1_y,
                                                              input.input1_infinite,
                                                              has_valid_witness_assignments,
-                                                             true,
+                                                             /*use_g1=*/true,
                                                              builder);
                     input2_point = to_witness_grumpkin_point(input.input2_x,
                                                              input.input2_y,
                                                              input.input2_infinite,
                                                              has_valid_witness_assignments,
-                                                             false,
+                                                             /*use_g1=*/false,
                                                              builder);
 
                 } else {
@@ -112,13 +120,13 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
                                                      input.input1_y,
                                                      input.input1_infinite,
                                                      has_valid_witness_assignments,
-                                                     true,
+                                                     /*use_g1=*/true,
                                                      builder);
                     input2_point = to_grumpkin_point(input.input2_x,
                                                      input.input2_y,
                                                      input.input2_infinite,
                                                      has_valid_witness_assignments,
-                                                     false,
+                                                     /*use_g1=*/false,
                                                      builder);
                 }
                 // both points are not infinity, so we can use unconditional_add

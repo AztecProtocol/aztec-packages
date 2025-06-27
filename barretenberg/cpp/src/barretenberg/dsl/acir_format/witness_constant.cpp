@@ -12,6 +12,14 @@ namespace acir_format {
 
 using namespace bb;
 using namespace bb::stdlib;
+
+// Generates a cycle_group point from the inputs, taking care of their witness/constant nature
+// if has_valid_witness_assignments is false, then it will assign dummy values representing
+// a point on the curve:
+// - the infinite point if input_infinite is a witness
+// - else, if input_infinite is a constant and false, and input_x and input_y are witnesses:
+// it will assign G1 if use_g1 is true, else 2*G1
+// It will not assign anything otherwise.
 template <typename Builder, typename FF>
 bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& input_x,
                                                    const WitnessOrConstant<FF>& input_y,
@@ -69,6 +77,11 @@ template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(const Wit
                                                                        bool use_g1,
                                                                        MegaCircuitBuilder& builder);
 
+// This function also generates a cycle_group point from the inputs, like to_grumpkin_point(),
+// but it creates and use a witness for each constant input.
+// The assignment of dummy values is the same as in to_grumpkin_point(), except that
+// here the point will always use witness, so the second case (x and y are witness)
+// will always be true.
 template <typename Builder, typename FF>
 bb::stdlib::cycle_group<Builder> to_witness_grumpkin_point(const WitnessOrConstant<FF>& input_x,
                                                            const WitnessOrConstant<FF>& input_y,
