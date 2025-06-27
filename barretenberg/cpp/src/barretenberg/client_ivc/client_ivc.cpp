@@ -75,13 +75,13 @@ void ClientIVC::instantiate_stdlib_verification_queue(
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/PG)} A set of inputs for recursive verification
- * @param accumulation_recursive_transcript The transcript shared among K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
- * (app)
+ * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
+ * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
 ClientIVC::PairingPoints ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
-    std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     // Store the decider vk for the incoming circuit; its data is used in the databus consistency checks below
     std::shared_ptr<RecursiveDeciderVerificationKey> decider_vk;
@@ -160,8 +160,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.databus_propagation_data.is_kernel = true;
 
-    // Transcript for shared among recursive verification of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
-    std::shared_ptr<RecursiveTranscript> accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
+    // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
+    // .., A_{i, n} (app)
+    auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
@@ -187,9 +188,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Propagate return data commitments via the public inputs for use in databus consistency checks
     bus_depot.propagate_return_data_commitments(circuit);
-
-    // Transcript for shared among K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
-    accumulation_transcript = std::make_shared<Transcript>();
 }
 
 /**
@@ -206,6 +204,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1454): Investigate whether is_kernel should be part of
+    // the circuit VK
+    if (circuit.databus_propagation_data.is_kernel) {
+        // Transcript to be shared across folding of K_{i} (kernel), A_{i+1,1} (app), .., A_{i+1, n} (app)
+        accumulation_transcript = std::make_shared<Transcript>();
+    }
+
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 

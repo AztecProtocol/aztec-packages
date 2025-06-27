@@ -151,7 +151,7 @@ class ClientIVC {
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    // Transcript shared among K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
+    // The transcript shared across the folding of K_{i-1} (kernel), A_{i,1} (app), ..,
     std::shared_ptr<Transcript> accumulation_transcript = std::make_shared<Transcript>();
 
   public:
@@ -187,7 +187,7 @@ class ClientIVC {
     perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
