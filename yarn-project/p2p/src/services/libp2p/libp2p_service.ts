@@ -592,7 +592,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     if (!preValidationResult.result) {
       return;
     } else if (preValidationResult.topicType !== undefined) {
-      this.instrumentation.recordMessageLatency(messageLatency, preValidationResult.topicType);
+      // guard against clock skew & DST
+      if (messageLatency > 0) {
+        this.instrumentation.recordMessageLatency(preValidationResult.topicType, messageLatency);
+      }
     }
 
     if (msg.topic === this.topicStrings[TopicType.tx]) {

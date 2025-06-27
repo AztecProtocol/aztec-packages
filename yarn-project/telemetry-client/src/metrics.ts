@@ -114,6 +114,18 @@ export const P2P_GOSSIP_MESSAGE_VALIDATION_DURATION = 'aztec.p2p.gossip.message_
 export const P2P_GOSSIP_MESSAGE_PREVALIDATION_COUNT = 'aztec.p2p.gossip.message_validation_count';
 export const P2P_GOSSIP_MESSAGE_LATENCY = 'aztec.p2p.gossip.message_latency';
 
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MIN = 'aztec.p2p.gossip.agg_message_latency_min';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_MAX = 'aztec.p2p.gossip.agg_message_latency_max';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_P50 = 'aztec.p2p.gossip.agg_message_latency_p50';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_P90 = 'aztec.p2p.gossip.agg_message_latency_p90';
+export const P2P_GOSSIP_AGG_MESSAGE_LATENCY_AVG = 'aztec.p2p.gossip.agg_message_latency_avg';
+
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MIN = 'aztec.p2p.gossip.agg_message_validation_duration_min';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_MAX = 'aztec.p2p.gossip.agg_message_validation_duration_max';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P50 = 'aztec.p2p.gossip.agg_message_validation_duration_p50';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_P90 = 'aztec.p2p.gossip.agg_message_validation_duration_p90';
+export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG = 'aztec.p2p.gossip.agg_message_validation_duration_avg';
+
 export const PUBLIC_PROCESSOR_TX_DURATION = 'aztec.public_processor.tx_duration';
 export const PUBLIC_PROCESSOR_TX_COUNT = 'aztec.public_processor.tx_count';
 export const PUBLIC_PROCESSOR_TX_PHASE_COUNT = 'aztec.public_processor.tx_phase_count';
