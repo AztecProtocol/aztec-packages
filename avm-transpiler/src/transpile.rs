@@ -1197,7 +1197,6 @@ fn handle_black_box_function(
         BlackBoxOp::Poseidon2Permutation {
             message,
             output,
-            len: _, // we don't use this.
         } => {
             // We'd love to validate the input size, but it's not known at compile time.
             assert_eq!(output.size, 4, "Poseidon2Permutation output size must be 4!");
