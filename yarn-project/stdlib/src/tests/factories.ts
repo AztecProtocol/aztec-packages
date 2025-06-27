@@ -174,7 +174,7 @@ import { TreeSnapshots } from '../tx/tree_snapshots.js';
 import { TxConstantData } from '../tx/tx_constant_data.js';
 import { TxContext } from '../tx/tx_context.js';
 import { TxRequest } from '../tx/tx_request.js';
-import { RollupTypes, Vector } from '../types/index.js';
+import { Vector } from '../types/index.js';
 import { VkData } from '../vks/index.js';
 import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 import { mockTx } from './mocks.js';
@@ -684,7 +684,6 @@ export function makeBaseOrMergeRollupPublicInputs(
   globalVariables: GlobalVariables | undefined = undefined,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
-    RollupTypes.Base,
     1,
     makeBlockConstantData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
@@ -833,7 +832,6 @@ export function makeEmptyBlockRootRollupInputs(
   return new EmptyBlockRootRollupInputs(
     makeBlockRootRollupData(seed + 0x1000),
     makeBlockConstantData(0x2500, globalVariables),
-    true,
   );
 }
 

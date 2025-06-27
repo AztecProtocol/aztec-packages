@@ -2,6 +2,8 @@ aztec:
   slotDuration: 24
   epochDuration: 4
   proofSubmissionWindow: 8
+  testAccounts: true
+  sponsoredFPC: true
 
 ethereum:
   acceleratedTestDeployments: true
@@ -10,23 +12,17 @@ ethereum:
     resources:
       requests:
         cpu: "200m"
-      limits:
-        cpu: "200m"
   beacon:
     resources:
       requests:
-        cpu: "200m"
-      limits:
         cpu: "200m"
   validator:
     resources:
       requests:
         cpu: "200m"
-      limits:
-        cpu: "200m"
 
 telemetry:
-  enabled: true
+  enabled: false
 
 validator:
   replicas: 4

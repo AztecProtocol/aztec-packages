@@ -325,7 +325,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposerInNextSlot = await this.publisher.epochCache.getProposerAttesterAddressInNextSlot();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
-        this.log.warn(`Cannot propose block ${newBlockNumber} since the committee does not exist on L1`);
+        this.log.warn(
+          `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} since the committee does not exist on L1`,
+        );
         return;
       }
     }
