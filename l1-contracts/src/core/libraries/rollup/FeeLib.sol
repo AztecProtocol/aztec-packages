@@ -2,6 +2,15 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {
+  L1FeeData,
+  CompressedL1FeeData,
+  L1GasOracleValues,
+  FeeStructsLib,
+  FeeHeader,
+  CompressedFeeHeader,
+  FeeHeaderLib
+} from "@aztec/core/libraries/compressed-data/FeeStructs.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
@@ -39,25 +48,6 @@ struct ManaBaseFeeComponents {
   uint256 congestionMultiplier;
   uint256 sequencerCost;
   uint256 proverCost;
-}
-
-struct FeeHeader {
-  uint256 excessMana;
-  uint256 manaUsed;
-  uint256 feeAssetPriceNumerator;
-  uint256 congestionCost;
-  uint256 proverCost;
-}
-
-struct L1FeeData {
-  uint256 baseFee;
-  uint256 blobFee;
-}
-
-struct L1GasOracleValues {
-  L1FeeData pre;
-  L1FeeData post;
-  CompressedSlot slotOfChange;
 }
 
 type EthValue is uint256;
@@ -109,66 +99,6 @@ library PriceLib {
   }
 }
 
-struct CompressedFeeHeader {
-  uint64 congestionCost;
-  uint64 proverCost;
-  uint48 feeAssetPriceNumerator;
-  uint48 excessMana;
-  uint32 manaUsed;
-}
-
-library FeeHeaderLib {
-  using SafeCast for uint256;
-
-  function getManaUsed(CompressedFeeHeader storage _compressedFeeHeader)
-    internal
-    view
-    returns (uint256)
-  {
-    return _compressedFeeHeader.manaUsed;
-  }
-
-  function getCongestionCost(CompressedFeeHeader storage _compressedFeeHeader)
-    internal
-    view
-    returns (uint256)
-  {
-    return _compressedFeeHeader.congestionCost;
-  }
-
-  function getProverCost(CompressedFeeHeader storage _compressedFeeHeader)
-    internal
-    view
-    returns (uint256)
-  {
-    return _compressedFeeHeader.proverCost;
-  }
-
-  function compress(FeeHeader memory _feeHeader) internal pure returns (CompressedFeeHeader memory) {
-    return CompressedFeeHeader({
-      excessMana: _feeHeader.excessMana.toUint48(),
-      manaUsed: _feeHeader.manaUsed.toUint32(),
-      feeAssetPriceNumerator: _feeHeader.feeAssetPriceNumerator.toUint48(),
-      congestionCost: _feeHeader.congestionCost.toUint64(),
-      proverCost: _feeHeader.proverCost.toUint64()
-    });
-  }
-
-  function decompress(CompressedFeeHeader memory _compressedFeeHeader)
-    internal
-    pure
-    returns (FeeHeader memory)
-  {
-    return FeeHeader({
-      excessMana: _compressedFeeHeader.excessMana,
-      manaUsed: _compressedFeeHeader.manaUsed,
-      feeAssetPriceNumerator: _compressedFeeHeader.feeAssetPriceNumerator,
-      congestionCost: _compressedFeeHeader.congestionCost,
-      proverCost: _compressedFeeHeader.proverCost
-    });
-  }
-}
-
 struct FeeStore {
   uint256 manaTarget;
   uint256 congestionUpdateFraction;
@@ -191,6 +121,9 @@ library FeeLib {
   using CompressedTimeMath for CompressedSlot;
   using CompressedTimeMath for Slot;
 
+  using FeeStructsLib for L1FeeData;
+  using FeeStructsLib for CompressedL1FeeData;
+
   Slot internal constant LIFETIME = Slot.wrap(5);
   Slot internal constant LAG = Slot.wrap(2);
 
@@ -204,17 +137,9 @@ library FeeLib {
       _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR;
     feeStore.provingCostPerMana = _provingCostPerMana;
 
-    feeStore.feeHeaders[0] = FeeHeader({
-      excessMana: 0,
-      feeAssetPriceNumerator: 0,
-      manaUsed: 0,
-      congestionCost: 0,
-      proverCost: 0
-    }).compress();
-
     feeStore.l1GasOracleValues = L1GasOracleValues({
-      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}),
+      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}).compress(),
+      post: L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress(),
       slotOfChange: LIFETIME.compress()
     });
   }
@@ -237,17 +162,19 @@ library FeeLib {
       SignedMath.abs(_feeAssetPriceModifier) <= MAX_FEE_ASSET_PRICE_MODIFIER,
       Errors.FeeLib__InvalidFeeAssetPriceModifier()
     );
-    FeeStore storage feeStore = getStorage();
-    CompressedFeeHeader storage parentFeeHeader = feeStore.feeHeaders[_blockNumber - 1];
-    feeStore.feeHeaders[_blockNumber] = FeeHeader({
-      excessMana: FeeLib.computeExcessMana(parentFeeHeader),
-      feeAssetPriceNumerator: FeeLib.clampedAdd(
-        parentFeeHeader.feeAssetPriceNumerator, _feeAssetPriceModifier
-      ),
-      manaUsed: _manaUsed,
-      congestionCost: _congestionCost,
-      proverCost: _proverCost
-    }).compress();
+    CompressedFeeHeader parentFeeHeader = getFeeHeader(_blockNumber - 1);
+    setFeeHeader(
+      _blockNumber,
+      FeeHeader({
+        excessMana: FeeLib.computeExcessMana(parentFeeHeader),
+        feeAssetPriceNumerator: FeeLib.clampedAdd(
+          parentFeeHeader.getFeeAssetPriceNumerator(), _feeAssetPriceModifier
+        ),
+        manaUsed: _manaUsed,
+        congestionCost: _congestionCost,
+        proverCost: _proverCost
+      }).compress()
+    );
   }
 
   function updateL1GasFeeOracle() internal {
@@ -263,15 +190,36 @@ library FeeLib {
 
     feeStore.l1GasOracleValues.pre = feeStore.l1GasOracleValues.post;
     feeStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()});
+      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()}).compress();
     feeStore.l1GasOracleValues.slotOfChange = (slot + LAG).compress();
+  }
+
+  function setFeeHeader(uint256 _blockNumber, CompressedFeeHeader _feeHeader) internal {
+    // We only ever need the parent. However, because of the pruning, we cannot just drop it all.
+    // We can however keep just enought to handle prunes, e.g., prunable + 1 so we have the parent
+    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
+    getStorage().feeHeaders[_blockNumber % roundabout] = _feeHeader;
+  }
+
+  function preheatHeaders() internal {
+    require(!getStorage().feeHeaders[0].isPreheated(), Errors.FeeLib__AlreadyPreheated());
+
+    uint256 count = TimeLib.maxPrunableBlocks() + 1;
+    for (uint256 i = 0; i < count; i++) {
+      setFeeHeader(i, FeeHeaderLib.preheat(getFeeHeader(i)));
+    }
+  }
+
+  function getFeeHeader(uint256 _blockNumber) internal view returns (CompressedFeeHeader) {
+    uint256 roundabout = TimeLib.maxPrunableBlocks() + 1;
+    return getStorage().feeHeaders[_blockNumber % roundabout];
   }
 
   function getL1FeesAt(Timestamp _timestamp) internal view returns (L1FeeData memory) {
     FeeStore storage feeStore = getStorage();
     return _timestamp.slotFromTimestamp() < feeStore.l1GasOracleValues.slotOfChange.decompress()
-      ? feeStore.l1GasOracleValues.pre
-      : feeStore.l1GasOracleValues.post;
+      ? feeStore.l1GasOracleValues.pre.decompress()
+      : feeStore.l1GasOracleValues.post.decompress();
   }
 
   function getManaBaseFeeComponentsAt(
@@ -330,9 +278,10 @@ library FeeLib {
       total = sequencerCostPerMana + proverCostPerMana;
     }
 
-    CompressedFeeHeader storage parentFeeHeader = feeStore.feeHeaders[_blockOfInterest];
-    uint256 excessMana =
-      FeeLib.clampedAdd(parentFeeHeader.excessMana + parentFeeHeader.manaUsed, -int256(manaTarget));
+    CompressedFeeHeader parentFeeHeader = getFeeHeader(_blockOfInterest);
+    uint256 excessMana = FeeLib.clampedAdd(
+      parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget)
+    );
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
 
     EthValue congestionCost = EthValue.wrap(
@@ -361,17 +310,14 @@ library FeeLib {
   }
 
   function getFeeAssetPerEthAtBlock(uint256 _blockNumber) internal view returns (FeeAssetPerEthE9) {
-    FeeStore storage feeStore = getStorage();
-    return getFeeAssetPerEth(feeStore.feeHeaders[_blockNumber].feeAssetPriceNumerator);
+    return getFeeAssetPerEth(getFeeHeader(_blockNumber).getFeeAssetPriceNumerator());
   }
 
-  function computeExcessMana(CompressedFeeHeader storage _feeHeader)
-    internal
-    view
-    returns (uint256)
-  {
+  function computeExcessMana(CompressedFeeHeader _feeHeader) internal view returns (uint256) {
     FeeStore storage feeStore = getStorage();
-    return clampedAdd(_feeHeader.excessMana + _feeHeader.manaUsed, -int256(feeStore.manaTarget));
+    return clampedAdd(
+      _feeHeader.getExcessMana() + _feeHeader.getManaUsed(), -int256(feeStore.manaTarget)
+    );
   }
 
   function congestionMultiplier(uint256 _numerator) internal view returns (uint256) {

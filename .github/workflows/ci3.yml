@@ -14,7 +14,8 @@ on:
   merge_group: {}
 
 concurrency:
-  group: ci3-${{ github.event.merge_group.head_ref || github.ref_name }}
+  # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
+  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.run_id) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -67,9 +68,14 @@ jobs:
       - name: Barretenberg CI Override
         if: |
           (contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') ||
-           steps.target_branch.outputs.target_branch == 'merge-train/barretenberg') &&
+           github.event.pull_request.base.ref == 'merge-train/barretenberg') &&
           !contains(github.event.pull_request.labels.*.name, 'ci-full')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
+
+      # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
+      - name: Set Instance Postfix for merge-train
+        if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
+        run: echo "INSTANCE_POSTFIX=${{ github.event.pull_request.commits }}" >> $GITHUB_ENV
 
       - name: Setup
         run: |

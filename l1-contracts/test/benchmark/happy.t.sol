@@ -173,6 +173,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     rollup = builder.getConfig().rollup;
     slashingProposer = Slasher(rollup.getSlasher()).PROPOSER();
 
+    rollup.preheatHeaders();
+
     SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
     address[] memory toSlash = new address[](0);
     uint96[] memory amounts = new uint96[](0);

@@ -72,7 +72,7 @@ export async function createPXEServiceWithSimulator(
     l1Contracts,
     l1ChainId,
     rollupVersion,
-    l2BlockBatchSize: 200,
+    l2BlockBatchSize: 50,
   };
 
   if (!options.store) {
