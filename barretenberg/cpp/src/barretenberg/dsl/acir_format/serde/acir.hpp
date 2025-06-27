@@ -1323,7 +1323,6 @@ struct BlackBoxOp {
     struct Poseidon2Permutation {
         Acir::HeapVector message;
         Acir::HeapArray output;
-        Acir::MemoryAddress len;
 
         friend bool operator==(const Poseidon2Permutation&, const Poseidon2Permutation&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -1331,10 +1330,9 @@ struct BlackBoxOp {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(3);
+            packer.pack_map(2);
             packer.pack(std::make_pair("message", message));
             packer.pack(std::make_pair("output", output));
-            packer.pack(std::make_pair("len", len));
         }
 
         void msgpack_unpack(msgpack::object const& o)
@@ -1343,7 +1341,6 @@ struct BlackBoxOp {
             auto kvmap = Helpers::make_kvmap(o, name);
             Helpers::conv_fld_from_kvmap(kvmap, name, "message", message, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "output", output, false);
-            Helpers::conv_fld_from_kvmap(kvmap, name, "len", len, false);
         }
     };
 
@@ -3001,8 +2998,8 @@ struct BlackBoxFuncCall {
 
     struct AES128Encrypt {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::FunctionInput, 16> iv;
-        std::array<Acir::FunctionInput, 16> key;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> iv;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> key;
         std::vector<Acir::Witness> outputs;
 
         friend bool operator==(const AES128Encrypt&, const AES128Encrypt&);
@@ -3115,7 +3112,7 @@ struct BlackBoxFuncCall {
 
     struct Blake2s {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::Witness, 32> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
 
         friend bool operator==(const Blake2s&, const Blake2s&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3139,7 +3136,7 @@ struct BlackBoxFuncCall {
 
     struct Blake3 {
         std::vector<Acir::FunctionInput> inputs;
-        std::array<Acir::Witness, 32> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 32>> outputs;
 
         friend bool operator==(const Blake3&, const Blake3&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3162,10 +3159,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256k1 {
-        std::array<Acir::FunctionInput, 32> public_key_x;
-        std::array<Acir::FunctionInput, 32> public_key_y;
-        std::array<Acir::FunctionInput, 64> signature;
-        std::array<Acir::FunctionInput, 32> hashed_message;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_x;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
+        std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256k1&, const EcdsaSecp256k1&);
@@ -3195,10 +3192,10 @@ struct BlackBoxFuncCall {
     };
 
     struct EcdsaSecp256r1 {
-        std::array<Acir::FunctionInput, 32> public_key_x;
-        std::array<Acir::FunctionInput, 32> public_key_y;
-        std::array<Acir::FunctionInput, 64> signature;
-        std::array<Acir::FunctionInput, 32> hashed_message;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_x;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> public_key_y;
+        std::shared_ptr<std::array<Acir::FunctionInput, 64>> signature;
+        std::shared_ptr<std::array<Acir::FunctionInput, 32>> hashed_message;
         Acir::Witness output;
 
         friend bool operator==(const EcdsaSecp256r1&, const EcdsaSecp256r1&);
@@ -3230,7 +3227,7 @@ struct BlackBoxFuncCall {
     struct MultiScalarMul {
         std::vector<Acir::FunctionInput> points;
         std::vector<Acir::FunctionInput> scalars;
-        std::array<Acir::Witness, 3> outputs;
+        std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const MultiScalarMul&, const MultiScalarMul&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3255,9 +3252,9 @@ struct BlackBoxFuncCall {
     };
 
     struct EmbeddedCurveAdd {
-        std::array<Acir::FunctionInput, 3> input1;
-        std::array<Acir::FunctionInput, 3> input2;
-        std::array<Acir::Witness, 3> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 3>> input1;
+        std::shared_ptr<std::array<Acir::FunctionInput, 3>> input2;
+        std::shared_ptr<std::array<Acir::Witness, 3>> outputs;
 
         friend bool operator==(const EmbeddedCurveAdd&, const EmbeddedCurveAdd&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3282,8 +3279,8 @@ struct BlackBoxFuncCall {
     };
 
     struct Keccakf1600 {
-        std::array<Acir::FunctionInput, 25> inputs;
-        std::array<Acir::Witness, 25> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 25>> inputs;
+        std::shared_ptr<std::array<Acir::Witness, 25>> outputs;
 
         friend bool operator==(const Keccakf1600&, const Keccakf1600&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3500,7 +3497,6 @@ struct BlackBoxFuncCall {
     struct Poseidon2Permutation {
         std::vector<Acir::FunctionInput> inputs;
         std::vector<Acir::Witness> outputs;
-        uint32_t len;
 
         friend bool operator==(const Poseidon2Permutation&, const Poseidon2Permutation&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -3508,10 +3504,9 @@ struct BlackBoxFuncCall {
 
         void msgpack_pack(auto& packer) const
         {
-            packer.pack_map(3);
+            packer.pack_map(2);
             packer.pack(std::make_pair("inputs", inputs));
             packer.pack(std::make_pair("outputs", outputs));
-            packer.pack(std::make_pair("len", len));
         }
 
         void msgpack_unpack(msgpack::object const& o)
@@ -3520,14 +3515,13 @@ struct BlackBoxFuncCall {
             auto kvmap = Helpers::make_kvmap(o, name);
             Helpers::conv_fld_from_kvmap(kvmap, name, "inputs", inputs, false);
             Helpers::conv_fld_from_kvmap(kvmap, name, "outputs", outputs, false);
-            Helpers::conv_fld_from_kvmap(kvmap, name, "len", len, false);
         }
     };
 
     struct Sha256Compression {
-        std::array<Acir::FunctionInput, 16> inputs;
-        std::array<Acir::FunctionInput, 8> hash_values;
-        std::array<Acir::Witness, 8> outputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 16>> inputs;
+        std::shared_ptr<std::array<Acir::FunctionInput, 8>> hash_values;
+        std::shared_ptr<std::array<Acir::Witness, 8>> outputs;
 
         friend bool operator==(const Sha256Compression&, const Sha256Compression&);
         std::vector<uint8_t> bincodeSerialize() const;
@@ -7389,9 +7383,6 @@ inline bool operator==(const BlackBoxFuncCall::Poseidon2Permutation& lhs,
     if (!(lhs.outputs == rhs.outputs)) {
         return false;
     }
-    if (!(lhs.len == rhs.len)) {
-        return false;
-    }
     return true;
 }
 
@@ -7422,7 +7413,6 @@ void serde::Serializable<Acir::BlackBoxFuncCall::Poseidon2Permutation>::serializ
 {
     serde::Serializable<decltype(obj.inputs)>::serialize(obj.inputs, serializer);
     serde::Serializable<decltype(obj.outputs)>::serialize(obj.outputs, serializer);
-    serde::Serializable<decltype(obj.len)>::serialize(obj.len, serializer);
 }
 
 template <>
@@ -7433,7 +7423,6 @@ Acir::BlackBoxFuncCall::Poseidon2Permutation serde::Deserializable<
     Acir::BlackBoxFuncCall::Poseidon2Permutation obj;
     obj.inputs = serde::Deserializable<decltype(obj.inputs)>::deserialize(deserializer);
     obj.outputs = serde::Deserializable<decltype(obj.outputs)>::deserialize(deserializer);
-    obj.len = serde::Deserializable<decltype(obj.len)>::deserialize(deserializer);
     return obj;
 }
 
@@ -8371,9 +8360,6 @@ inline bool operator==(const BlackBoxOp::Poseidon2Permutation& lhs, const BlackB
     if (!(lhs.output == rhs.output)) {
         return false;
     }
-    if (!(lhs.len == rhs.len)) {
-        return false;
-    }
     return true;
 }
 
@@ -8403,7 +8389,6 @@ void serde::Serializable<Acir::BlackBoxOp::Poseidon2Permutation>::serialize(
 {
     serde::Serializable<decltype(obj.message)>::serialize(obj.message, serializer);
     serde::Serializable<decltype(obj.output)>::serialize(obj.output, serializer);
-    serde::Serializable<decltype(obj.len)>::serialize(obj.len, serializer);
 }
 
 template <>
@@ -8414,7 +8399,6 @@ Acir::BlackBoxOp::Poseidon2Permutation serde::Deserializable<Acir::BlackBoxOp::P
     Acir::BlackBoxOp::Poseidon2Permutation obj;
     obj.message = serde::Deserializable<decltype(obj.message)>::deserialize(deserializer);
     obj.output = serde::Deserializable<decltype(obj.output)>::deserialize(deserializer);
-    obj.len = serde::Deserializable<decltype(obj.len)>::deserialize(deserializer);
     return obj;
 }
 
