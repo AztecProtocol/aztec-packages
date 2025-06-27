@@ -29,26 +29,26 @@ jobs:
         run: |
           # The merge-train branch is the PR’s *head* branch (e.g. merge-train/main)
           MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
-	  BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
 
           # Make sure a merge commit gets into master.
           git fetch origin "$BASE_BRANCH"
-	  git checkout "$BASE_BRANCH"
-          git merge -X ours "$MERGE_TRAIN_BRANCH" -m "Merge $MERGE_TRAIN_BRANCH history."
-	  git push origin "$BASE_BRANCH"
+          git fetch origin "$MERGE_TRAIN_BRANCH"
+          git checkout "$BASE_BRANCH"
+          git merge -X ours origin/"$MERGE_TRAIN_BRANCH" -m "Merge $MERGE_TRAIN_BRANCH history."
+          git push origin "$BASE_BRANCH"
 
-          git fetch origin "$MERGE_TRAIN_BRANCH" || true
-          git checkout "$MERGE_TRAIN_BRANCH" || git checkout -b "$MERGE_TRAIN_BRANCH"
+          git checkout "$MERGE_TRAIN_BRANCH"
           git reset --hard "$BASE_BRANCH"
 
-	  # Start with an empty commit
+          # Start with an empty commit
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
 
           # Push & open the PR
-          git push origin "$NEW_BRANCH"
+          git push origin "$MERGE_TRAIN_BRANCH"
 
           gh pr create \
-            --base "$MERGE_TRAIN_BRANCH" \
-            --head "$NEW_BRANCH" \
+            --base "$BASE_BRANCH" \
+            --head "$MERGE_TRAIN_BRANCH" \
             --title "feat: $MERGE_TRAIN_BRANCH" \
             --body "This is an automated merge-train PR with no commits."
