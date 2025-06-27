@@ -1,5 +1,5 @@
 use crate::config::Config;
-use aztec::{prelude::AztecAddress, protocol_types::traits::{Deserialize, Packable, Serialize}};
+use aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}};
 
 // TODO: We do not necessarily need full 128 bits for the amounts so we could try to pack the whole order into 1 Field
 // and save on public storage costs.
@@ -33,7 +33,7 @@ impl Order {
 
 mod test {
     use crate::{config::Config, order::Order};
-    use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
 
     #[test]
     unconstrained fn new_order_valid_inputs() {

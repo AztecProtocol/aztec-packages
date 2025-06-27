@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract EasyPrivateToken {
     use dep::aztec::macros::{functions::{initializer, private, utility}, storage::storage};
-    use dep::aztec::prelude::{AztecAddress, Map};
+    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::Map};
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
 

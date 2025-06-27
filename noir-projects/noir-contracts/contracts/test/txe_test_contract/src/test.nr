@@ -1,13 +1,13 @@
 use crate::TXETest;
 
-use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use dep::aztec::test::helpers::test_environment::TestEnvironment;
 
 use aztec::macros::functions::initializer;
 use value_note::{balance_utils, value_note::ValueNote};
 
 use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
 use dep::aztec::note::note_viewer_options::NoteViewerOptions;
-use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+use dep::aztec::protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map};
 
 pub unconstrained fn setup(
     initial_value: Field,

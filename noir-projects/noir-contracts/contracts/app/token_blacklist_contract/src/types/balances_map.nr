@@ -1,13 +1,16 @@
 use crate::types::token_note::OwnedNote;
 use dep::aztec::{
     context::{PrivateContext, UtilityContext},
-    note::note_emission::OuterNoteEmission,
-    protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
-    state_vars::storage::Storage,
+    note::{note_emission::OuterNoteEmission, note_getter_options::NoteGetterOptions},
+    protocol_types::{
+        address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
+    },
+    state_vars::{Map, PrivateSet, storage::HasStorageSlot},
 };
-use dep::aztec::prelude::{
-    AztecAddress, Map, NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet,
-    RetrievedNote,
+use dep::aztec::note::{
+    note_interface::{NoteHash, NoteType},
+    note_viewer_options::NoteViewerOptions,
+    retrieved_note::RetrievedNote,
 };
 
 use std::ops::Add;
@@ -17,7 +20,7 @@ pub struct BalancesMap<Note, Context> {
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Note, Context> Storage<1> for BalancesMap<Note, Context> {
+impl<Note, Context> HasStorageSlot<1> for BalancesMap<Note, Context> {
     fn get_storage_slot(self) -> Field {
         self.map.get_storage_slot()
     }

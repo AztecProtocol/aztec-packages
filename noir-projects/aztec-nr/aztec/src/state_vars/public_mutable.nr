@@ -1,5 +1,5 @@
 use crate::context::{PublicContext, UtilityContext};
-use crate::state_vars::storage::Storage;
+use crate::state_vars::storage::HasStorageSlot;
 use dep::protocol_types::traits::Packable;
 
 // docs:start:public_mutable_struct
@@ -9,7 +9,7 @@ pub struct PublicMutable<T, Context> {
 }
 // docs:end:public_mutable_struct
 
-impl<T, Context, let N: u32> Storage<N> for PublicMutable<T, Context>
+impl<T, Context, let N: u32> HasStorageSlot<N> for PublicMutable<T, Context>
 where
     T: Packable<N>,
 {
