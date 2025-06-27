@@ -65,8 +65,8 @@ export async function createPXEServiceWithSimulator(
   const configWithContracts = {
     ...config,
     l1Contracts,
-    l2BlockBatchSize: 200,
-  } as PXEServiceConfig;
+    l2BlockBatchSize: 50,
+  };
 
   if (!options.store) {
     // TODO once https://github.com/AztecProtocol/aztec-packages/issues/13656 is fixed, we can remove this and always

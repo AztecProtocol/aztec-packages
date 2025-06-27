@@ -51,7 +51,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...chainConfigMappings,
   l2BlockBatchSize: {
     env: 'PXE_L2_BLOCK_BATCH_SIZE',
-    ...numberConfigHelper(200),
+    ...numberConfigHelper(50),
     description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
   bbBinaryPath: {
