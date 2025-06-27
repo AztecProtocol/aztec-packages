@@ -520,6 +520,7 @@ void Execution::set_and_validate_inputs(ExecutionOpCode opcode, std::vector<Tagg
 void Execution::set_output(ExecutionOpCode opcode, TaggedValue output)
 {
     const auto& register_info = instruction_info_db.get(opcode).register_info;
+    (void)register_info; // To please GCC.
     assert(register_info.num_outputs() == 1);
     this->output = std::move(output);
 }
