@@ -115,6 +115,9 @@ const std::unordered_map<ExecutionOpCode, RegisterMemInfo> REGISTER_INFO_MAP = {
     { ExecutionOpCode::INTERNALCALL, RegisterMemInfo() },
     { ExecutionOpCode::INTERNALRETURN, RegisterMemInfo() },
     { ExecutionOpCode::KECCAKF1600, RegisterMemInfo() },
+    { ExecutionOpCode::STATICCALL, RegisterMemInfo().has_inputs(4) },
+    { ExecutionOpCode::SUCCESSCOPY, RegisterMemInfo().has_inputs(1) },
+    { ExecutionOpCode::REVERT, RegisterMemInfo().has_outputs(1) },
 } };
 
 } // namespace bb::avm2::tracegen

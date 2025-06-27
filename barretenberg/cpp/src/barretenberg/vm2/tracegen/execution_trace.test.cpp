@@ -618,5 +618,95 @@ TEST(ExecutionTraceGenTest, JumpI)
                           ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_JUMPI))));
 }
 
+TEST(ExecutionTraceGenTest, Mov16)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_16)
+                           .operand<uint32_t>(1000) // srcOffset
+                           .operand<uint32_t>(1001) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint128_t>(100) }, // src value
+        .output = MemoryValue::from<uint128_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1000),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(1001),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 1000),
+                          ROW_FIELD_EQ(execution_rop_1_, 1001),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U128)),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
+TEST(ExecutionTraceGenTest, Mov8)
+{
+    TestTraceContainer trace;
+    ExecutionTraceBuilder builder;
+
+    const auto instr = InstructionBuilder(WireOpCode::MOV_8)
+                           .operand<uint32_t>(10) // srcOffset
+                           .operand<uint32_t>(11) // dstOffset
+                           .build();
+
+    ExecutionEvent ex_event_mov = {
+        .wire_instruction = instr,
+        .inputs = { MemoryValue::from<uint64_t>(100) }, // src value
+        .output = MemoryValue::from<uint64_t>(100),     // dst value
+        .addressing_event = { .instruction = instr,
+                              .resolution_info = { {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(10),
+                                                   },
+                                                   {
+                                                       .resolved_operand = MemoryValue::from<uint32_t>(11),
+                                                   } } },
+    };
+
+    builder.process({ ex_event_mov }, trace);
+
+    EXPECT_THAT(trace.as_rows(),
+                ElementsAre(
+                    // First row is empty
+                    AllOf(ROW_FIELD_EQ(execution_sel, 0)),
+                    // Second row is the mov
+                    AllOf(ROW_FIELD_EQ(execution_sel, 1),
+                          ROW_FIELD_EQ(execution_sel_mov, 1),
+                          ROW_FIELD_EQ(execution_rop_0_, 10),
+                          ROW_FIELD_EQ(execution_rop_1_, 11),
+                          ROW_FIELD_EQ(execution_register_0_, 100),
+                          ROW_FIELD_EQ(execution_register_1_, 100),
+                          ROW_FIELD_EQ(execution_mem_op_0_, 1),
+                          ROW_FIELD_EQ(execution_mem_op_1_, 1),
+                          ROW_FIELD_EQ(execution_mem_tag_0_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_mem_tag_1_, static_cast<uint8_t>(MemoryTag::U64)),
+                          ROW_FIELD_EQ(execution_rw_0_, 0),
+                          ROW_FIELD_EQ(execution_rw_1_, 1),
+                          ROW_FIELD_EQ(execution_subtrace_operation_id, AVM_EXEC_OP_ID_MOV))));
+}
+
 } // namespace
 } // namespace bb::avm2::tracegen

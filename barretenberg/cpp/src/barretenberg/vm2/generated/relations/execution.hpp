@@ -13,8 +13,8 @@ template <typename FF_> class executionImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 27> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3 };
+    static constexpr std::array<size_t, 29> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 6, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -230,11 +230,25 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // MOV_SAME_VALUE
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            auto tmp =
+                in.get(C::execution_sel_mov) * (in.get(C::execution_register_0_) - in.get(C::execution_register_1_));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
+        }
+        { // MOV_SAME_TAG
+            using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
+            auto tmp =
+                in.get(C::execution_sel_mov) * (in.get(C::execution_mem_tag_0_) - in.get(C::execution_mem_tag_1_));
+            tmp *= scaling_factor;
+            std::get<27>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
+            auto tmp = in.get(C::execution_sel_error) * (FF(1) - in.get(C::execution_sel_error));
+            tmp *= scaling_factor;
+            std::get<28>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -260,6 +274,10 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
             return "PC_NEXT_ROW_INT_CALL_JUMP";
         case 25:
             return "PC_NEXT_ROW_JUMPI";
+        case 26:
+            return "MOV_SAME_VALUE";
+        case 27:
+            return "MOV_SAME_TAG";
         }
         return std::to_string(index);
     }
@@ -272,6 +290,8 @@ template <typename FF> class execution : public Relation<executionImpl<FF>> {
     static constexpr size_t SR_EXEC_OP_ID_DECOMPOSITION = 11;
     static constexpr size_t SR_PC_NEXT_ROW_INT_CALL_JUMP = 24;
     static constexpr size_t SR_PC_NEXT_ROW_JUMPI = 25;
+    static constexpr size_t SR_MOV_SAME_VALUE = 26;
+    static constexpr size_t SR_MOV_SAME_TAG = 27;
 };
 
 } // namespace bb::avm2
