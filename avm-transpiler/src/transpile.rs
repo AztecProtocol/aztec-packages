@@ -1194,10 +1194,7 @@ fn handle_black_box_function(
                 ..Default::default()
             });
         }
-        BlackBoxOp::Poseidon2Permutation {
-            message,
-            output,
-        } => {
+        BlackBoxOp::Poseidon2Permutation { message, output } => {
             // We'd love to validate the input size, but it's not known at compile time.
             assert_eq!(output.size, 4, "Poseidon2Permutation output size must be 4!");
             let input_state_offset = message.pointer.to_usize();
