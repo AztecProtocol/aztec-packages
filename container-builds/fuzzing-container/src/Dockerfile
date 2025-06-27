@@ -9,11 +9,9 @@ RUN apt-get update && \
 RUN userdel -r ubuntu && useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 
-# Check whether the version of barretenberg is fresh
-ADD https://api.github.com/repos/AztecProtocol/aztec-packages/commits?path=barretenberg version.json
-
 RUN git clone https://github.com/AztecProtocol/aztec-packages.git
 WORKDIR /home/fuzzer/aztec-packages/barretenberg/cpp
+RUN git checkout next
 
 # Build all fuzzers
 RUN cmake --preset fuzzing
