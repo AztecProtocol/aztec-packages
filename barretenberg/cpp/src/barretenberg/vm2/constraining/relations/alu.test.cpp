@@ -194,21 +194,27 @@ TEST(AluConstrainingTest, NegativeAddWrongOpId)
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_OP_ID_CHECK), "OP_ID_CHECK");
 }
 
-TEST(AluConstrainingTest, NegativeAdd)
+TEST(AluConstrainingTest, NegativeBasicAdd)
 {
-    // TODO(MW): rework/remove
+    // Using u8s here => alu_ix_tag = ValueTag::U8 = 2
     auto trace = TestTraceContainer::from_rows({
         {
-            // Wrong ADD.
             .alu_ia = 1,
-            .alu_ib = 1,
-            .alu_ic = 0,
-            // Observe that I'm making subrelation SEL_ADD_BINARY fail too, but we'll only check subrelation ALU_ADD!
+            .alu_ia_tag = 2,
+            .alu_ib = 2,
+            .alu_ib_tag = 2,
+            .alu_ic = 3,
+            .alu_ic_tag = 2,
+            .alu_op_id = 1,
+            .alu_sel = 1,
             .alu_sel_op_add = 1,
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_ALU_ADD), "ALU_ADD");
+    check_relation<alu>(trace);
+    trace.set(Column::alu_ic, 0, 0);
+    // If we are overflowing, we need to set the carry flag...
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ALU_ADD");
 }
 
 TEST(AluConstrainingTest, NegativeAddCarryU1)

@@ -53,10 +53,6 @@ pol BATCHED_TAGS_DIFF_IS_ZERO = 1 - tag_err;
 #[BATCHED_TAGS_DIFF_CHECK]
 BATCHED_TAGS_DIFF * ( BATCHED_TAGS_DIFF_IS_ZERO * (1 - batched_tags_diff_inv) + batched_tags_diff_inv) - 1 + BATCHED_TAGS_DIFF_IS_ZERO = 0;
 
-// TODO(MW): Could replace 'sel { ia_tag, max_value } ...' with 'cf { ia_tag, max_value } ...' and have a relation
-// which constrains that if we are using fields, then cf = 0 (i.e. tag = 0 => cf = 0), since for fields we never need
-// to carry. Though since precomputed.tag_max_value = p - 1, this may not be needed?
-
 // TODO(MW): Add max_bits -> precomputed.max_bits when required by other ops:
 #[TAG_MAX_VALUE]
 sel { ia_tag, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_value };

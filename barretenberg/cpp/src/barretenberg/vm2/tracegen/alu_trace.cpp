@@ -27,7 +27,7 @@ Column get_operation_selector(simulation::AluOperation operation)
     }
 }
 
-// MW Note: could prob combine this and get_operation_selector, might be bad cpp (sorry)
+// TODO(MW): could probably combine this and get_operation_selector?
 uint8_t get_operation_id(simulation::AluOperation operation)
 {
     switch (operation) {
@@ -39,7 +39,7 @@ uint8_t get_operation_id(simulation::AluOperation operation)
     }
 }
 
-// MW Note - will reuse this for other ops (hopefully can use the same column to deal w/ e.g. underflowed sub and
+// TODO(MW) - will reuse this for other ops (hopefully can use the same column to deal w/ e.g. underflowed sub and
 // overflowed add)
 bool get_carry_flag(const simulation::AluEvent& event)
 {
