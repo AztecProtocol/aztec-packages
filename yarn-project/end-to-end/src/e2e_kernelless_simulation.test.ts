@@ -3,6 +3,7 @@ import {
   type AccountInterface,
   AccountWallet,
   AuthWitness,
+  CallAuthwitWithPreimage,
   type ContractArtifact,
   Fr,
   type Logger,
@@ -33,7 +34,6 @@ export class CopyCatWallet extends AccountWallet {
     pxe: PXE,
     account: AccountInterface,
     private originalAddress: CompleteAddress,
-    private originalContractClassId: Fr,
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
   ) {
@@ -52,18 +52,10 @@ export class CopyCatWallet extends AccountWallet {
     if (!contractInstance) {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
-    const { currentContractClassId: originalContractClassId } = contractInstance;
     const accountInterface = new DefaultAccountInterface(simulatedAuthWitnessProvider, originalAddress, nodeInfo);
     const { SimulatedAccountContractArtifact } = await import('@aztec/noir-contracts.js/SimulatedAccount');
     const instance = await getContractInstanceFromDeployParams(SimulatedAccountContractArtifact, {});
-    return new CopyCatWallet(
-      pxe,
-      accountInterface,
-      originalAddress,
-      originalContractClassId,
-      SimulatedAccountContractArtifact,
-      instance,
-    );
+    return new CopyCatWallet(pxe, accountInterface, originalAddress, SimulatedAccountContractArtifact, instance);
   }
 
   override getCompleteAddress(): CompleteAddress {
@@ -180,8 +172,8 @@ describe('Kernelless simulation', () => {
       expect(token0AuthwitRequest.data).toHaveLength(2);
       expect(token1AuthwitRequest.data).toHaveLength(2);
 
-      const [_selector0, token0AuthwitInnerHash] = token0AuthwitRequest.data;
-      const [_selector1, token1AuthwitInnerHash] = token1AuthwitRequest.data;
+      const token0AuthwitPreimage = await CallAuthwitWithPreimage.fromFields(token0AuthwitRequest.data);
+      const token1AuthwitPreimage = await CallAuthwitWithPreimage.fromFields(token0AuthwitRequest.data);
 
       // Compute the real authwitness
       const token0Authwit = await liquidityProvider.createAuthWit({
@@ -210,14 +202,14 @@ describe('Kernelless simulation', () => {
         token0.address,
         new Fr(chainId),
         new Fr(version),
-        token0AuthwitInnerHash,
+        token0AuthwitPreimage.innerHash,
       );
 
       const token1AuthwitHash = await computeOuterAuthWitHash(
         token1.address,
         new Fr(chainId),
         new Fr(version),
-        token1AuthwitInnerHash,
+        token1AuthwitPreimage.innerHash,
       );
 
       expect(token0AuthwitHash).toEqual(token0Authwit.requestHash);
