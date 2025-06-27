@@ -113,7 +113,7 @@ export class P2PInstrumentation {
     let validationHistogram = this.aggValidationHisto.get(topicName);
     if (!validationHistogram) {
       validationHistogram = createHistogram({ min: 1, max: 5 * 60 * 1000 }); // 5 mins
-      this.aggLatencyHisto.set(topicName, validationHistogram);
+      this.aggValidationHisto.set(topicName, validationHistogram);
     }
 
     validationHistogram.record(ms);
