@@ -124,6 +124,10 @@ contract RollupCore is
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
+  function preheatHeaders() external override(IRollupCore) {
+    FeeLib.preheatHeaders();
+  }
+
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
     RewardLib.setConfig(_config);
     emit RewardConfigUpdated(_config);
