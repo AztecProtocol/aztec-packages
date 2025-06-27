@@ -143,7 +143,6 @@ regress() {
     log "Entering $src...";
     if compgen -G "$src/*" &> /dev/null; then
         for x in "$src"/*; do
-            log "Testing $x"
             "$main_fuzzer" "$x" &> /dev/null;
             status=$?;
             if [[ "$status" -ne 0 ]]; then
@@ -192,7 +191,7 @@ fuzz() {
 
             MINDIR=$(mktemp -d)
             mv "$TMPOUT/$crash_name" "$MINDIR";
-            "$main_fuzzer" -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
+            "$main_fuzzer" -verbosity=0 -minimize_crash=1 -runs=10000 -artifact_prefix="$MINDIR/" "$MINDIR/$crash_name" &>> "$TMPOUT/minimize.log"
 
             smallest_crash=$(ls -S "$MINDIR/" | tail -n 1);
             log "Minimized  $smallest_crash: $(wc -c < $MINDIR/$smallest_crash)B"
