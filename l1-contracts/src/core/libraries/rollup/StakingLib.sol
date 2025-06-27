@@ -16,6 +16,9 @@ import {GSE, AttesterConfig} from "@aztec/governance/GSE.sol";
 import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
+import {
+  CompressedTimeMath, CompressedTimestamp
+} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -53,7 +56,7 @@ struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
   GSE gse;
-  Timestamp exitDelay;
+  CompressedTimestamp exitDelay;
   mapping(address attester => Exit) exits;
   CompressedStakingQueueConfig queueConfig;
   StakingQueue entryQueue;
@@ -67,6 +70,8 @@ library StakingLib {
   using ProposalLib for Proposal;
   using StakingQueueConfigLib for CompressedStakingQueueConfig;
   using StakingQueueConfigLib for StakingQueueConfig;
+  using CompressedTimeMath for CompressedTimestamp;
+  using CompressedTimeMath for Timestamp;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -80,7 +85,7 @@ library StakingLib {
     StakingStorage storage store = getStorage();
     store.stakingAsset = _stakingAsset;
     store.gse = _gse;
-    store.exitDelay = _exitDelay;
+    store.exitDelay = _exitDelay.compress();
     store.slasher = _slasher;
     store.queueConfig = _config.compress();
     store.entryQueue.init();
@@ -201,7 +206,7 @@ library StakingLib {
         store.exits[_attester] = Exit({
           withdrawalId: withdrawalId,
           amount: toUser,
-          exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+          exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
           recipientOrWithdrawer: withdrawer,
           isRecipient: false,
           exists: true
@@ -298,7 +303,7 @@ library StakingLib {
       store.exits[_attester] = Exit({
         withdrawalId: withdrawalId,
         amount: actualAmount,
-        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay,
+        exitableAt: Timestamp.wrap(block.timestamp) + store.exitDelay.decompress(),
         recipientOrWithdrawer: _recipient,
         isRecipient: true,
         exists: true
