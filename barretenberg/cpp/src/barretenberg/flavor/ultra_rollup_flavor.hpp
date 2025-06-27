@@ -119,6 +119,20 @@ class UltraRollupFlavor : public bb::UltraFlavor {
                 commitment = proving_key.commitment_key.commit(polynomial);
             }
         }
+        VerificationKey(PrecomputedEntities<Polynomial>& precomputed_polynomials, auto& metadata)
+        {
+            this->circuit_size = metadata.circuit_size;
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = metadata.num_public_inputs;
+            this->pub_inputs_offset = metadata.pub_inputs_offset;
+            this->pairing_inputs_public_input_key = metadata.pairing_inputs_public_input_key;
+            this->ipa_claim_public_input_key = metadata.ipa_claim_public_input_key;
+
+            auto commitment_key = CommitmentKey(metadata.circuit_size);
+            for (auto [polynomial, commitment] : zip_view(precomputed_polynomials.get_all(), this->get_all())) {
+                commitment = commitment_key.commit(polynomial);
+            }
+        }
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate
         // up.
