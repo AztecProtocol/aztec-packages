@@ -2483,7 +2483,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-#include_code prelude /noir-projects/aztec-nr/aztec/src/prelude.nr rust
+\[Edit: removed because the prelude no-longer exists\]
 
 ### `internal` is now a macro
 
