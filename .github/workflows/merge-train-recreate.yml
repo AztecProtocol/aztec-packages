@@ -6,8 +6,7 @@ on:
 
 jobs:
   recreate:
-    if: ${{ github.event.pull_request.merged &&
-            startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    if: ${{ github.event.pull_request.merged && startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -41,9 +40,7 @@ jobs:
           git push -f origin "$MT"
           gh pr create --base "$BASE" --head "$MT" \
                        --title "feat: $MT" \
-                       --body  "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).
-
-This is a merge-train with no commits."
+                       --body  "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\nThis is a merge-train with no commits."
 
           # --- fast-forward every other open PR that still merges cleanly ----
           for BR in $(gh pr list --state open --base "$BASE" \
