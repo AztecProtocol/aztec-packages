@@ -3,6 +3,7 @@ use crate::{
     context::{gas::GasOpts, PrivateContext, PublicContext},
     hash::hash_args_array,
     macros::authwits::authwit,
+    oracle::{execution_cache::load, offchain_effect::emit_offchain_effect},
 };
 use dep::protocol_types::{
     abis::function_selector::FunctionSelector,
@@ -12,7 +13,8 @@ use dep::protocol_types::{
         GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
     },
     hash::poseidon2_hash_with_separator,
-    traits::ToField,
+    traits::{Serialize, ToField},
+    utils::arrays::array_concat,
 };
 
 /**
@@ -197,7 +199,6 @@ use dep::protocol_types::{
  */
 
 pub global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
-
 #[authwit]
 struct CallAuthwit {
     msg_sender: AztecAddress,
@@ -214,13 +215,28 @@ struct CallAuthwit {
  * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit
-pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress) {
-    let authwit = CallAuthwit {
-        msg_sender: context.msg_sender(),
-        selector: context.selector(),
-        args_hash: context.get_args_hash(),
-    };
-    let inner_hash = authwit.emit_as_offchain_effect_and_get_hash();
+pub fn assert_current_call_valid_authwit<let N: u32>(
+    context: &mut PrivateContext,
+    on_behalf_of: AztecAddress,
+) {
+    let args_hash: Field = context.get_args_hash();
+
+    let authwit =
+        CallAuthwit { msg_sender: context.msg_sender(), selector: context.selector(), args_hash };
+    let inner_hash = compute_inner_authwit_hash(authwit.serialize());
+    // Safety: args are loaded to be emitted as unconstrained effects. The real verification will happen once
+    // the authwit is validated (which uses the args_hash), so they can always be checked to be consistent
+    let args: [Field; N] = unsafe { load(args_hash) };
+    emit_offchain_effect(array_concat(
+        [
+            authwit.get_authwit_selector().to_field(),
+            inner_hash,
+            authwit.msg_sender.to_field(),
+            authwit.selector.to_field(),
+            authwit.args_hash,
+        ],
+        args,
+    ));
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit

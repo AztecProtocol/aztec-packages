@@ -38,15 +38,8 @@ pub comptime fn generate_auhtwit_interface_and_get_selector(s: TypeDefinition) -
     (
         quote {
         impl $authwit_interface for $name {
-
-            fn get_authwit_selector() -> $authwit_selector_type {
+            fn get_authwit_selector(self) -> $authwit_selector_type {
                 $from_field($authwit_selector)
-            }
-
-            fn emit_as_offchain_effect_and_get_hash(self) -> Field {
-                let inner_hash = compute_inner_authwit_hash(protocol_types::traits::Serialize::serialize(self));
-                crate::oracle::offchain_effect::emit_offchain_effect([$authwit_selector, inner_hash]);
-                inner_hash
             }
         }
     },

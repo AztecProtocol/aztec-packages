@@ -32,7 +32,7 @@ pub contract AppSubscription {
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
-        assert_current_call_valid_authwit(&mut context, user_address);
+        assert_current_call_valid_authwit::<2>(&mut context, user_address);
 
         let mut note = storage.subscriptions.at(user_address).get_note().note;
         assert(note.remaining_txs > 0, "you're out of txs");

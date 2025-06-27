@@ -1,14 +1,18 @@
 use crate::macros::{
-    functions::{abi_export::create_fn_abi_export, call_interface_stubs::stub_fn, stub_registry},
+    functions::{
+        abi_export::create_fn_abi_export, auth_registry::AUTHORIZE_ONCE_REGISTRY,
+        call_interface_stubs::stub_fn, stub_registry,
+    },
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
-        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
-        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        add_to_hasher, fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility,
+        is_fn_contract_library_method, is_fn_initializer, is_fn_internal, is_fn_private,
+        is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body, module_has_initializer,
+        module_has_storage,
     },
 };
 use protocol_types::meta::generate_serialize_to_fields;
-use std::meta::type_of;
+use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
@@ -108,6 +112,12 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     // Finally, we need to change the return type to be `PrivateCircuitPublicInputs`, which is what the Private Kernel
     // circuit expects.
     let return_value_var_name = quote { macro__returned__values };
@@ -160,6 +170,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) -> Quoted {
         $view_check
         $storage_init
         $message_discovery_call
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -248,6 +259,12 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
+    let authorize_once_check = if fn_has_authorize_once(f) {
+        create_authorize_once_check(f)
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
         $context_creation
         $assert_initializer
@@ -255,6 +272,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
         $internal_check
         $view_check
         $storage_init
+        $authorize_once_check
     };
 
     let to_append = quote {
@@ -373,6 +391,63 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
                 _compute_note_hash_and_nullifier,
             );
         };
+    }
+}
+
+pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quoted {
+    let name = f.name();
+    let maybe_authorize_once_args = AUTHORIZE_ONCE_REGISTRY.get(f);
+    if maybe_authorize_once_args.is_none() {
+        panic(
+            f"Functions marked with #[authorize_once] must have the #[private] attribute placed last",
+        );
+    }
+    let mut from_arg_name = if maybe_authorize_once_args.unwrap().len() > 0 {
+        maybe_authorize_once_args.unwrap().pop_front().0
+    } else {
+        "from".as_ctstring()
+    };
+    let nonce_arg_name = if maybe_authorize_once_args.unwrap().len() > 1 {
+        maybe_authorize_once_args.unwrap().pop_back().1
+    } else {
+        "authwit_nonce".as_ctstring()
+    };
+    let from_arg_candidates = f.parameters().filter(|(name, typ)| {
+        (name == f"{from_arg_name}".quoted_contents())
+            & (typ == quote { dep::protocol_types::address::aztec_address::AztecAddress }.as_type())
+    });
+    let from_arg = if from_arg_candidates.len() == 1 {
+        from_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {from_arg_name}: AztecAddress parameter. Please provide it or specify which one to use in #[authorize_once(from = \"...\")]",
+        )
+    };
+    let nonce_arg_candidates = f.parameters().filter(|(name, typ)| {
+        (name == f"{nonce_arg_name}".quoted_contents()) & (typ == quote { Field }.as_type())
+    });
+    let nonce_arg = if nonce_arg_candidates.len() == 1 {
+        nonce_arg_candidates[0]
+    } else {
+        panic(
+            f"Function {name} does not have a {nonce_arg_name}: Field parameter. Please provide it or specify which one to use in #[authorize_once(from = \"...\")]",
+        )
+    };
+    let args_len = f.parameters().len();
+    let (from_arg_name_quoted, _) = from_arg;
+    let (nonce_arg_name_quoted, _) = nonce_arg;
+
+    let fn_call = if is_fn_private(f) {
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
+    } else {
+        quote { dep::aztec::authwit::auth::assert_current_call_valid_authwit_public }
+    };
+    quote {         
+        if (!$from_arg_name_quoted.eq(context.msg_sender())) {
+            $fn_call(&mut context, $from_arg_name_quoted);
+        } else {
+            assert($nonce_arg_name_quoted == 0, "invalid authwit nonce");
+        }
     }
 }
 

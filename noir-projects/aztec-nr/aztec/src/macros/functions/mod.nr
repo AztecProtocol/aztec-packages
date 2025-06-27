@@ -2,8 +2,10 @@ pub(crate) mod abi_export;
 pub(crate) mod call_interface_stubs;
 pub(crate) mod initialization_utils;
 pub(crate) mod stub_registry;
+pub(crate) mod auth_registry;
 pub(crate) mod utils;
 
+use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 use utils::{transform_private, transform_public, transform_utility};
 
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[public], #[view] and
@@ -39,6 +41,15 @@ pub comptime fn internal(_f: FunctionDefinition) {
 /// View functions can only be called in a static execution context.
 pub comptime fn view(_f: FunctionDefinition) {
     // Marker attribute
+}
+
+#[varargs]
+pub comptime fn authorize_once(f: FunctionDefinition, args: [CtString]) {
+    assert(
+        args.len() <= 2,
+        "authorize_once can only take up to two arguments: the name of the argument to compare against msg_sender and the name of the argument used as nonce",
+    );
+    AUTHORIZE_ONCE_REGISTRY.insert(f, args);
 }
 
 /// Private functions are executed client-side and preserve privacy.

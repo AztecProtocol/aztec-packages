@@ -65,7 +65,7 @@ export async function createPXEServiceWithSimulator(
   const configWithContracts = {
     ...config,
     l1Contracts,
-    l2BlockBatchSize: 200,
+    l2BlockBatchSize: 50,
   } as PXEServiceConfig;
 
   if (!options.store) {
