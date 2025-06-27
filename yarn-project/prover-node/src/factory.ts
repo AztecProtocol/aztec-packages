@@ -8,10 +8,10 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
-import { createP2PClient } from '@aztec/p2p';
+import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import type { AztecNode, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
@@ -20,7 +20,6 @@ import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
-import type { TxSource } from './prover-coordination/combined-prover-coordination.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode } from './prover-node.js';
 
@@ -30,7 +29,7 @@ export async function createProverNode(
   deps: {
     telemetry?: TelemetryClient;
     log?: Logger;
-    aztecNodeTxProvider?: TxSource;
+    aztecNodeTxProvider?: Pick<AztecNode, 'getTxsByHash'>;
     archiver?: Archiver;
     publisher?: ProverNodePublisher;
     blobSinkClient?: BlobSinkClientInterface;
@@ -92,6 +91,11 @@ export async function createProverNode(
     getPackageVersion() ?? '',
     dateProvider,
     telemetry,
+    {
+      txCollectionNodeSources: deps.aztecNodeTxProvider
+        ? [new NodeRpcTxSource(deps.aztecNodeTxProvider, 'TestNode')]
+        : [],
+    },
   );
 
   await p2pClient.start();

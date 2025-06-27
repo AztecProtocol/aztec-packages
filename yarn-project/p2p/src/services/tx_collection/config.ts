@@ -62,6 +62,7 @@ export const txCollectionConfigMappings: ConfigMappingsType<TxCollectionConfig> 
   },
   txCollectionNodeRpcUrls: {
     env: 'TX_COLLECTION_NODE_RPC_URLS',
+    fallback: ['PROVER_COORDINATION_NODE_URLS'],
     description: 'A comma-separated list of Aztec node RPC URLs to use for tx collection',
     parseEnv: (val: string) =>
       val

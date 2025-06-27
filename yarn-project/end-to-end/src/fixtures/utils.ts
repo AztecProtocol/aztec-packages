@@ -894,7 +894,7 @@ export function createAndSyncProverNode(
     // Prover node config is for simulated proofs
     const proverConfig: ProverNodeConfig = {
       ...aztecNodeConfig,
-      proverCoordinationNodeUrls: [],
+      txCollectionNodeRpcUrls: [],
       realProofs: false,
       proverAgentCount: 2,
       publisherPrivateKey: new SecretValue(proverNodePrivateKey),

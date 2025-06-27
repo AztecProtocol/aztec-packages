@@ -26,8 +26,6 @@ import {
 } from '@aztec/sequencer-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 
-import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
-
 export type ProverNodeConfig = ArchiverConfig &
   ProverClientUserConfig &
   P2PConfig &
@@ -35,7 +33,6 @@ export type ProverNodeConfig = ArchiverConfig &
   PublisherConfig &
   TxSenderConfig &
   DataStoreConfig &
-  ProverCoordinationConfig &
   SharedNodeConfig &
   SpecificProverNodeConfig &
   GenesisStateConfig;
@@ -102,7 +99,6 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...worldStateConfigMappings,
   ...getPublisherConfigMappings('PROVER'),
   ...getTxSenderConfigMappings('PROVER'),
-  ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
   ...genesisStateConfigMappings,
   ...sharedNodeConfigMappings,

@@ -12,17 +12,18 @@ export interface TxSource {
 }
 
 export class NodeRpcTxSource implements TxSource {
-  private client: AztecNode;
-
   constructor(
-    private readonly nodeUrl: string,
-    versions: ComponentsVersions,
-  ) {
-    this.client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false));
+    private readonly client: Pick<AztecNode, 'getTxsByHash'>,
+    private readonly info: string,
+  ) {}
+
+  public static fromUrl(nodeUrl: string, versions: ComponentsVersions): NodeRpcTxSource {
+    const client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false));
+    return new NodeRpcTxSource(client, nodeUrl);
   }
 
   public getInfo() {
-    return this.nodeUrl;
+    return this.info;
   }
 
   public getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -32,5 +33,5 @@ export class NodeRpcTxSource implements TxSource {
 
 export function createNodeRpcTxSources(urls: string[], chainConfig: ChainConfig) {
   const versions = getComponentsVersionsFromConfig(chainConfig, protocolContractTreeRoot, getVKTreeRoot());
-  return urls.map(url => new NodeRpcTxSource(url, versions));
+  return urls.map(url => NodeRpcTxSource.fromUrl(url, versions));
 }

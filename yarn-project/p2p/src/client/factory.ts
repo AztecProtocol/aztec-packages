@@ -20,7 +20,7 @@ import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
 import { LibP2PService } from '../services/index.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
-import { createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
+import { type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps<T extends P2PClientType> = {
@@ -28,6 +28,7 @@ export type P2PClientDeps<T extends P2PClientType> = {
   store?: AztecAsyncKVStore;
   attestationPool?: T extends P2PClientType.Full ? AttestationPool : undefined;
   logger?: Logger;
+  txCollectionNodeSources?: TxSource[];
   p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService<T>>;
 };
 
@@ -89,7 +90,10 @@ export async function createP2PClient<T extends P2PClientType>(
     telemetry,
   );
 
-  const nodeSources = createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config);
+  const nodeSources = [
+    ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, config),
+    ...(deps.txCollectionNodeSources ?? []),
+  ];
   if (nodeSources.length > 0) {
     logger.info(`Using ${nodeSources.length} node RPC sources for tx collection.`, {
       nodes: nodeSources.map(n => n.getInfo()),
