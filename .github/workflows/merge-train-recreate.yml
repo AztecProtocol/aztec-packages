@@ -1,59 +1,60 @@
-name: Recreate Merge Train Queue
+name: Recreate Merge-Train Queue
 
 on:
   pull_request:
     types: [closed]
 
 jobs:
-  recreate-queue:
-    name: Recreate merge train PR
-    runs-on: ubuntu-latest
-    # Only run when the PR was merged *and* its HEAD branch is merge-train/**
+  recreate:
     if: ${{ github.event.pull_request.merged &&
             startsWith(github.event.pull_request.head.ref, 'merge-train/') }}
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
 
       - name: Configure Git
         run: |
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Create new merge-queue PR
-        env:
+      - env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          # The merge-train branch is the PR’s *head* branch (e.g. merge-train/main)
-          MERGE_TRAIN_BRANCH="${{ github.event.pull_request.head.ref }}"
+          set -euo pipefail
 
-          # Make sure we have it locally
-          git fetch origin "$MERGE_TRAIN_BRANCH":"$MERGE_TRAIN_BRANCH"
-          git checkout "$MERGE_TRAIN_BRANCH"
+          # --- config --------------------------------------------------------
+          git config --global user.name  AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
+          BASE="${{ github.event.pull_request.base.ref }}" # usually main
+          SHA=$(git rev-parse "$MT")                       # save old head
 
-          # Spin up a fresh queue branch
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          NEW_BRANCH="merge-queue/${MERGE_TRAIN_BRANCH}/${TIMESTAMP}"
-          git checkout -b "$NEW_BRANCH"
-
-          # Merge the base branch (typically 'next') with theirs strategy
-          BASE_BRANCH="${MERGE_TRAIN_BRANCH#merge-train/}"
-          git merge -X theirs "origin/$BASE_BRANCH"
-
-          # Seed it with an empty commit
+          # --- rebuild merge-train branch ------------------------------------
+          git switch "$MT"
+          git reset --hard "origin/$BASE"
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
+          git push -f origin "$MT"
+          gh pr create --base "$BASE" --head "$MT" \
+                       --title "feat: $MT" \
+                       --body  "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).
 
-          # Push & open the PR
-          git push origin "$NEW_BRANCH"
+This is a merge-train with no commits."
 
-          gh pr create \
-            --base "$MERGE_TRAIN_BRANCH" \
-            --head "$NEW_BRANCH" \
-            --title "feat: $MERGE_TRAIN_BRANCH" \
-            --body "This is an automated merge-queue PR. New commits from \`next\` will be added here.
+          # --- fast-forward every other open PR that still merges cleanly ----
+          for BR in $(gh pr list --state open --base "$BASE" \
+                      --json headRefName --jq '.[].headRefName' \
+                      | grep -v "^${MT}$"); do
+            git fetch origin "$BR"
+            git switch "$BR"
+            if git merge -q "$SHA" && git merge -q -X ours "origin/$BASE"; then
+              git push origin "$BR"
+            else
+              git merge --abort || true
+            fi
+          done
 
-            When ready, this PR will be merged automatically."
