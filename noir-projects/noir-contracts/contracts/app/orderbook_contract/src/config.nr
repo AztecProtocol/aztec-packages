@@ -39,7 +39,7 @@ impl Config {
 
 mod test {
     use crate::config::Config;
-    use aztec::{prelude::AztecAddress, protocol_types::traits::FromField};
+    use aztec::protocol_types::{address::AztecAddress, traits::FromField};
 
     global token0: AztecAddress = AztecAddress::from_field(1);
     global token1: AztecAddress = AztecAddress::from_field(2);

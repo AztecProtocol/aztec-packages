@@ -1,6 +1,6 @@
 use crate::{
     context::{PrivateContext, PublicContext, UtilityContext},
-    state_vars::storage::Storage,
+    state_vars::storage::HasStorageSlot,
     utils::with_hash::WithHash,
 };
 use protocol_types::{
@@ -45,7 +45,7 @@ pub struct PublicImmutable<T, Context> {
 
 /// `WithHash<T>` stores both the packed value (using N fields) and its hash (1 field), requiring N = M + 1 total
 /// fields.
-impl<T, Context, let M: u32, let N: u32> Storage<N> for PublicImmutable<T, Context>
+impl<T, Context, let M: u32, let N: u32> HasStorageSlot<N> for PublicImmutable<T, Context>
 where
     WithHash<T, M>: Packable<N>,
 {

@@ -1,7 +1,5 @@
-use crate::{
-    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
-    prelude::AztecAddress,
-};
+use crate::oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender};
+use dep::protocol_types::address::AztecAddress;
 
 pub(crate) fn prefix_with_tag<let L: u32>(
     log_without_tag: [Field; L],

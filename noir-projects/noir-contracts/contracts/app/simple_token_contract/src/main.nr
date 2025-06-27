@@ -17,7 +17,7 @@ pub contract SimpleToken {
             assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
             compute_authwit_nullifier,
         },
-        context::{PrivateCallInterface, PrivateContext},
+        context::{PrivateCallInterface, PrivateContext, PublicContext},
         event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         macros::{
             events::event,
@@ -25,7 +25,8 @@ pub contract SimpleToken {
             storage::storage,
         },
         messages::logs::note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
+        protocol_types::address::AztecAddress,
+        state_vars::{Map, PublicImmutable, PublicMutable},
     };
 
     use dep::uint_note::uint_note::{PartialUintNote, UintNote};

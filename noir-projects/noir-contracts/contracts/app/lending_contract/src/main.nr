@@ -14,7 +14,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Lending {
-    use dep::aztec::prelude::{AztecAddress, Map, PublicMutable};
+    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::{Map, PublicMutable}};
 
     use crate::asset::Asset;
     use crate::helpers::{compute_identifier, covered_by_collateral, debt_updates, debt_value};

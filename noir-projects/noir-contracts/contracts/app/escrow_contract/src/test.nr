@@ -5,8 +5,7 @@
 
 // use aztec::{
 //     oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
-//     prelude::AztecAddress,
-//     protocol_types::storage::map::derive_storage_slot_in_map,
+//     protocol_types::{address::AztecAddress, storage::map::derive_storage_slot_in_map},
 //     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 // };
 

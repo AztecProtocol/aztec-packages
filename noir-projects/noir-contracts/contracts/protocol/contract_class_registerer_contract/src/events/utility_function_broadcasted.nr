@@ -1,5 +1,5 @@
-use dep::aztec::prelude::FunctionSelector;
 use dep::aztec::protocol_types::{
+    abis::function_selector::FunctionSelector,
     constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
         REGISTERER_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS,

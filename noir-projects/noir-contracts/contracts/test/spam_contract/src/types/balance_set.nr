@@ -6,10 +6,16 @@ use dep::aztec::{
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
     },
-    state_vars::storage::Storage,
+    state_vars::storage::HasStorageSlot,
 };
-use dep::aztec::prelude::{
-    NoteGetterOptions, NoteHash, NoteType, NoteViewerOptions, PrivateSet, RetrievedNote,
+use dep::aztec::{
+    note::{
+        note_getter_options::NoteGetterOptions,
+        note_interface::{NoteHash, NoteType},
+        note_viewer_options::NoteViewerOptions,
+        retrieved_note::RetrievedNote,
+    },
+    state_vars::PrivateSet,
 };
 use std::ops::Add;
 
@@ -18,7 +24,7 @@ pub struct BalanceSet<Note, Context> {
 }
 
 // TODO(#13824): remove this impl once we allow structs to hold state variables.
-impl<Note, Context> Storage<1> for BalanceSet<Note, Context> {
+impl<Note, Context> HasStorageSlot<1> for BalanceSet<Note, Context> {
     fn get_storage_slot(self) -> Field {
         self.set.get_storage_slot()
     }

@@ -6,9 +6,9 @@ use dep::aztec::macros::aztec;
 pub contract SchnorrHardcodedAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::{app::AppPayload, fee::FeePayload}},
+        context::PrivateContext,
         macros::functions::{private, view},
         oracle::auth_witness::get_auth_witness,
-        prelude::PrivateContext,
     };
     use std::embedded_curve_ops::EmbeddedCurvePoint;
 

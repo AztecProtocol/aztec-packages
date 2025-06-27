@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 contract Updatable {
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
     use aztec::messages::logs::note::encode_and_encrypt_note;
-    use aztec::prelude::{PrivateMutable, PublicMutable};
+    use aztec::state_vars::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
         constants::DEPLOYER_CONTRACT_ADDRESS, contract_class_id::ContractClassId,

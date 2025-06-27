@@ -1,4 +1,5 @@
 use dep::protocol_types::{
+    address::AztecAddress,
     constants::{
         GENERATOR_INDEX__SYMMETRIC_KEY, GENERATOR_INDEX__SYMMETRIC_KEY_2,
         PRIVATE_LOG_CIPHERTEXT_LEN,
@@ -22,7 +23,6 @@ use crate::{
         },
     },
     oracle::{aes128_decrypt::aes128_decrypt_oracle, shared_secret::get_shared_secret},
-    prelude::AztecAddress,
     utils::{
         array,
         conversion::{

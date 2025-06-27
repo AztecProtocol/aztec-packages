@@ -14,18 +14,19 @@ pub contract NFT {
             assert_current_call_valid_authwit, assert_current_call_valid_authwit_public,
             compute_authwit_nullifier,
         },
+        context::{PrivateContext, PublicContext},
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
         messages::logs::note::encode_and_encrypt_note,
-        note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
-        prelude::{
-            AztecAddress, Map, NoteGetterOptions, NoteViewerOptions, PrivateContext, PrivateSet,
-            PublicContext, PublicImmutable, PublicMutable,
+        note::{
+            constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
+            note_interface::NoteProperties, note_viewer_options::NoteViewerOptions,
         },
-        protocol_types::traits::ToField,
+        protocol_types::{address::AztecAddress, traits::ToField},
+        state_vars::{Map, PrivateSet, PublicImmutable, PublicMutable},
         utils::comparison::Comparator,
     };
     use compressed_string::FieldCompressedString;

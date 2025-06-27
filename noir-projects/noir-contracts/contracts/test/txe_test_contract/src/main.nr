@@ -4,11 +4,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract TXETest {
     use aztec::macros::{functions::{initializer, private, public, utility, view}, storage::storage};
-    use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector,
+        address::AztecAddress,
         traits::{FromField, ToField},
     };
+    use aztec::state_vars::Map;
     use easy_private_state::EasyPrivateUint;
     use value_note::{balance_utils, value_note::ValueNote};
 

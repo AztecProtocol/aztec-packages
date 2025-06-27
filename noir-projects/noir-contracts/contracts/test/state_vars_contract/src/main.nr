@@ -6,8 +6,8 @@ pub contract StateVars {
     use aztec::{
         macros::{functions::{private, public, utility, view}, storage::{storage, storage_no_init}},
         messages::logs::note::encode_and_encrypt_note,
-        prelude::{AztecAddress, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
-        protocol_types::traits::{Deserialize, Packable, Serialize},
+        protocol_types::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
+        state_vars::{PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable},
     };
 
     use value_note::value_note::ValueNote;

@@ -1,5 +1,7 @@
 use crate::Counter;
-use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use dep::aztec::{
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+};
 
 pub unconstrained fn setup(
     initial_value: Field,

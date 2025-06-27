@@ -14,8 +14,12 @@ pub contract Uniswap {
             set_authorized,
         },
         macros::{functions::{initializer, internal, private, public}, storage::storage},
-        prelude::{AztecAddress, EthAddress, FunctionSelector, PublicImmutable},
-        protocol_types::traits::ToField,
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            traits::ToField,
+        },
+        state_vars::PublicImmutable,
     };
 
     use crate::util::{compute_swap_private_content_hash, compute_swap_public_content_hash};

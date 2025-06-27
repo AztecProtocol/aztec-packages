@@ -9,14 +9,15 @@ pub contract Spam {
     use dep::aztec::{
         macros::{functions::{internal, private, public}, storage::storage},
         messages::logs::note::encode_and_encrypt_note_unconstrained,
-        prelude::{AztecAddress, Map, PublicMutable},
         protocol_types::{
+            address::AztecAddress,
             constants::{
                 GENERATOR_INDEX__NOTE_NULLIFIER, MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL,
                 MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
             },
             hash::poseidon2_hash_with_separator,
         },
+        state_vars::{Map, PublicMutable},
     };
 
     use crate::types::{balance_set::BalanceSet, token_note::TokenNote};

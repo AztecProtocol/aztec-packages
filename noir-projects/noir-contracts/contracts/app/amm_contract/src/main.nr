@@ -40,7 +40,8 @@ pub contract AMM {
     };
     use dep::aztec::{
         macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
-        prelude::{AztecAddress, PublicImmutable},
+        protocol_types::address::AztecAddress,
+        state_vars::PublicImmutable,
     };
 
     use dep::token::Token;

@@ -94,7 +94,7 @@ comptime fn generate_note_hash_trait_impl(s: TypeDefinition) -> Quoted {
 
             fn compute_nullifier(
                 self,
-                context: &mut aztec::prelude::PrivateContext,
+                context: &mut aztec::context::PrivateContext,
                 note_hash_for_nullify: Field,
             ) -> Field {
                 let owner_npk_m = aztec::keys::getters::get_public_keys(self.owner).npk_m;
