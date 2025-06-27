@@ -589,7 +589,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const preValidationResult = this.preValidateReceivedMessage(msg, msgId, source);
 
-    if (preValidationResult.result === false) {
+    if (!preValidationResult.result) {
       return;
     } else if (preValidationResult.topicType !== undefined) {
       this.instrumentation.recordMessageLatency(messageLatency, preValidationResult.topicType);
