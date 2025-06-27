@@ -26,7 +26,7 @@ impl PreviousKernelValidator {
         }
     }
 
-    pub fn validate_for_private_tail(&mut self) {
+    pub fn validate_for_private_tail(self) {
         assert(
             self.previous_kernel.public_inputs.is_private_only,
             "Must be private only to be processed in tail",
@@ -36,7 +36,7 @@ impl PreviousKernelValidator {
         self.validate_first_nullifier(false);
     }
 
-    pub fn validate_for_private_tail_to_public(&mut self) {
+    pub fn validate_for_private_tail_to_public(self) {
         assert(
             !self.previous_kernel.public_inputs.is_private_only,
             "Must not be private only to be processed in tail to public",
@@ -89,7 +89,7 @@ impl PreviousKernelValidator {
         // - DenseTrimmed if tail to public.
     }
 
-    fn validate_dense_trimmed_public_calls(&mut self) {
+    fn validate_dense_trimmed_public_calls(self) {
         self.previous_kernel.public_inputs.end.public_call_requests.assert_dense_trimmed();
     }
 
@@ -109,7 +109,7 @@ impl PreviousKernelValidator {
         );
     }
 
-    fn validate_empty_data(&mut self) {
+    fn validate_empty_data(self) {
         self.previous_kernel.public_inputs.end.public_call_requests.assert_empty(
             "Public call stack must be empty when executing the tail circuit",
         );

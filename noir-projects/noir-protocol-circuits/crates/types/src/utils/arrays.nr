@@ -331,25 +331,6 @@ where
  * 
  */
 
-/// A EmptyRHSArray is a wrapped array whose `length` hint has been validated
-/// (constrained) to be correct, insofar as all elements _after_ the claimed length are empty.
-/// The `length` is defined as the length of the array ignoring some number of trailing `0`s.
-/// We don't validate that it's necessarily _fully_ trimmed, because that costs more constraints:
-/// see `TrimmedArray` for a guaranteed-to-be-fully-trimmed array.
-///
-/// Importantly, the "left part" of a EmptyRHSArray _can_ contain interspersed `0` elements.
-/// [3, 3, 3, 3, 3, 0, 0, 0] <-- length = 5 or 6 or 7 or 8
-/// [3, 0, 0, 3, 3, 0, 0, 0] <-- length = 5 or 6 or 7 or 8
-/// [3, 3, 3, 3, 3, 3, 3, 3] <-- length = 8
-/// [0, 0, 0, 0, 0, 0, 0, 0] <-- length = 0 or 1 or 2 or 3 or 4 or 5 or 6 or 7 or 8
-///
-/// Notice: any array can be converted into a valid EmptyRHSArray. There are no restrictions.
-#[derive(Eq)]
-pub struct EmptyRHSArray<T, let N: u32> {
-    pub array: [T; N],
-    pub length: u32,
-}
-
 /// ClaimedLengthArray - An array interpreted by Kernel circuits.
 /// Its `length` is merely a claim that must eventually be validated.
 /// Validation must include:
@@ -358,39 +339,6 @@ pub struct EmptyRHSArray<T, let N: u32> {
 pub struct ClaimedLengthArray<T, let N: u32> {
     pub array: [T; N],
     pub length: u32,
-}
-
-impl<T, let N: u32> EmptyRHSArray<T, N>
-where
-    T: Empty,
-{
-    pub fn new(array: [T; N]) -> Self {
-        let length = Self::empty_rhs_array_length(array);
-        // The the array has been validated to be empty beyond its length. Return a type which makes this validation evident:
-        EmptyRHSArray { array, length }
-    }
-
-    fn empty_rhs_array_length(array: [T; N]) -> u32 {
-        // Safety: the hint is validated immediately below.
-        let trimmed_array_length_hint = unsafe { trimmed_array_length_hint(array) };
-        Self::validate_empty_rhs(array, trimmed_array_length_hint);
-        let validated_trimmed_array_length = trimmed_array_length_hint;
-        validated_trimmed_array_length
-    }
-
-    fn validate_empty_rhs(array: [T; N], length_hint: u32) {
-        for_i_in_(
-            length_hint,
-            N,
-            0,
-            N,
-            for_loop_no_op,
-            |i| { array[i].assert_empty("Array should be all zeros after its 'length'"); },
-            for_loop_no_op,
-            true,
-            false,
-        );
-    }
 }
 
 impl<T, let N: u32> ClaimedLengthArray<T, N>
@@ -546,30 +494,6 @@ where
 
         fields
     }
-}
-
-#[test]
-fn smoke_rhs_empty_array() {
-    let valid_array: [Field; 0] = [];
-    assert(EmptyRHSArray::new(valid_array).length == 0);
-
-    let valid_array = [0];
-    assert(EmptyRHSArray::new(valid_array).length == 0);
-
-    let valid_array = [3];
-    assert(EmptyRHSArray::new(valid_array).length == 1);
-
-    let valid_array = [1, 0, 3];
-    assert(EmptyRHSArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 0, 3, 0];
-    assert(EmptyRHSArray::new(valid_array).length == 3);
-
-    let valid_array = [1, 2, 3, 0, 0];
-    assert(EmptyRHSArray::new(valid_array).length == 3);
-
-    let valid_array = [0, 0, 3, 0, 0];
-    assert(EmptyRHSArray::new(valid_array).length == 3);
 }
 
 #[test]
