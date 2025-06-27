@@ -30,10 +30,16 @@ jobs:
               head: `${context.repo.owner}:${branch}`,
               state: 'open',
             });
-            if (prs.length === 0) core.setFailed(`No open PR found for ${branch}`);
+            if (prs.length === 0) {
+              console.log(`No open PR found for ${branch}, skipping update`);
+              core.setOutput('found', 'false');
+              return;
+            }
+            core.setOutput('found', 'true');
             core.setOutput('number', prs[0].number);
 
       - name: Get commit list (base..head)
+        if: steps.pr.outputs.found == 'true'
         id: commits
         run: |
           PR_NUMBER=${{ steps.pr.outputs.number }}
@@ -45,19 +51,20 @@ jobs:
               --jq '.baseRefOid + " " + .headRefOid'
           )
           echo "commit_list<<EOF" >> "$GITHUB_OUTPUT"
-          git log --oneline --no-merges "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
+          git log --oneline --no-merges --reverse "$BASE_SHA..$HEAD_SHA" --pretty=format:"%s" |
             grep -v "^\[empty\]" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Update PR body
+        if: steps.pr.outputs.found == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           script: |
             const number = ${{ steps.pr.outputs.number }};
             const commits = `${{ steps.commits.outputs.commit_list }}`.trim();
-            const newBody = `${commits || '*No commits yet*'}`;
+            const newBody = `See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).\n\n${commits || '*No commits yet*'}`;
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
