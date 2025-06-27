@@ -19,8 +19,7 @@ template <typename FF_> class registersImpl {
     {
         using C = ColumnAndShifts;
 
-        return ((FF(1) - in.get(C::execution_sel_should_read_registers)) *
-                (FF(1) - in.get(C::execution_sel_should_write_registers)))
+        return ((in.get(C::execution_sel_should_read_registers) + in.get(C::execution_sel_should_write_registers)))
             .is_zero();
     }
 
@@ -48,7 +47,7 @@ template <typename FF_> class registersImpl {
             in.get(C::execution_sel_tag_check_reg_6_) * FF(262144) *
                 (in.get(C::execution_mem_tag_reg_6_) - in.get(C::execution_expected_tag_reg_6_));
         const auto execution_BATCHED_TAGS_DIFF_X_REG =
-            (FF(1) - in.get(C::execution_sel_should_read_registers)) * execution_BATCHED_TAGS_DIFF_REG;
+            in.get(C::execution_sel_should_read_registers) * execution_BATCHED_TAGS_DIFF_REG;
         const auto execution_BATCHED_TAGS_DIFF_Y_REG = in.get(C::execution_batched_tags_diff_inv_reg);
         const auto execution_BATCHED_TAGS_DIFF_E_REG = (FF(1) - in.get(C::execution_sel_register_read_error));
         const auto execution_BATCHED_TAGS_DIFF_EQ_REG =
@@ -58,7 +57,7 @@ template <typename FF_> class registersImpl {
              FF(1)) +
             execution_BATCHED_TAGS_DIFF_E_REG;
 
-        {
+        { // SEL_OP_REG_EFFECTIVE_0
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_0_) -
                         in.get(C::execution_sel_mem_op_reg_0_) *
@@ -67,7 +66,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_1
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_1_) -
                         in.get(C::execution_sel_mem_op_reg_1_) *
@@ -76,7 +75,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_2
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_2_) -
                         in.get(C::execution_sel_mem_op_reg_2_) *
@@ -85,7 +84,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_3
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_3_) -
                         in.get(C::execution_sel_mem_op_reg_3_) *
@@ -94,7 +93,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_4
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_4_) -
                         in.get(C::execution_sel_mem_op_reg_4_) *
@@ -103,7 +102,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_5
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_5_) -
                         in.get(C::execution_sel_mem_op_reg_5_) *
@@ -112,7 +111,7 @@ template <typename FF_> class registersImpl {
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SEL_OP_REG_EFFECTIVE_6
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = (in.get(C::execution_sel_op_reg_effective_6_) -
                         in.get(C::execution_sel_mem_op_reg_6_) *
@@ -137,6 +136,20 @@ template <typename FF> class registers : public Relation<registersImpl<FF>> {
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
+        case 0:
+            return "SEL_OP_REG_EFFECTIVE_0";
+        case 1:
+            return "SEL_OP_REG_EFFECTIVE_1";
+        case 2:
+            return "SEL_OP_REG_EFFECTIVE_2";
+        case 3:
+            return "SEL_OP_REG_EFFECTIVE_3";
+        case 4:
+            return "SEL_OP_REG_EFFECTIVE_4";
+        case 5:
+            return "SEL_OP_REG_EFFECTIVE_5";
+        case 6:
+            return "SEL_OP_REG_EFFECTIVE_6";
         case 7:
             return "REGISTER_READ_TAG_CHECK";
         }
@@ -144,6 +157,13 @@ template <typename FF> class registers : public Relation<registersImpl<FF>> {
     }
 
     // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_0 = 0;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_1 = 1;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_2 = 2;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_3 = 3;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_4 = 4;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_5 = 5;
+    static constexpr size_t SR_SEL_OP_REG_EFFECTIVE_6 = 6;
     static constexpr size_t SR_REGISTER_READ_TAG_CHECK = 7;
 };
 
