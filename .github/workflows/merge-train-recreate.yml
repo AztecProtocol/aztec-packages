@@ -33,10 +33,10 @@ jobs:
           MT="${{ github.event.pull_request.head.ref }}"   # merge-train/*
           BASE="${{ github.event.pull_request.base.ref }}" # usually main
           git fetch origin "$MT"
-          SHA=$(git rev-parse "$MT")                       # save old head
+          SHA=$(git rev-parse "origin/$MT")                       # save old head
 
           # --- rebuild merge-train branch ------------------------------------
-          git switch "$MT"
+          git checkout "$MT" || git checkout -b "$MT"
           git reset --hard "origin/$BASE"
           git commit --allow-empty -m "[empty] Start merge-train. Choo choo."
           git push -f origin "$MT"
