@@ -3,6 +3,7 @@
 ## Overview
 
 The merge train is an automated system for managing pull requests in a coordinated queue. It helps prevent merge conflicts and ensures smooth integration of multiple PRs targeting the same base branch.
+Inspired by [rust rollups](https://forge.rust-lang.org/release/rollups.html), but that's a non-ideal name for our domain.
 
 ## How It Works
 
