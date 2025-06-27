@@ -60,10 +60,30 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                               TraceContainer& trace)
 {
     using C = Column;
+    using simulation::AluError;
 
     uint32_t row = 0;
     for (const auto& event : events) {
+        // Operation:
         C opcode_selector = get_operation_selector(event.operation);
+
+        // Tag checking:
+        FF a_tag = static_cast<uint8_t>(event.a.get_tag());
+        FF b_tag = static_cast<uint8_t>(event.b.get_tag());
+        FF c_tag = static_cast<uint8_t>(event.c.get_tag());
+        bool tag_check_failed = event.error.has_value() && event.error == AluError::TAG_ERROR;
+        FF alu_batched_tags_diff_inv = 0;
+        if (tag_check_failed) {
+            // TODO(MW): For some non-ADD ops, we don't want to have an err when tag_c is different, so add a
+            // CHECK_C_TAG/switch operation for those. See alu.pil -> CHECK_C_TAG_EQUAL. This is useless but exists
+            // to remind me/others we should conditionally check c tag equality there:
+            FF CHECK_C_TAG_EQUAL = 1;
+            FF alu_batched_tags_diff = FF(1 << 0) * (a_tag - b_tag) + FF(1 << 3) * CHECK_C_TAG_EQUAL * (a_tag - c_tag);
+            // We shouldn't have emitted an event with a tag error when one doesn't exist, currently (ADD) the
+            // definition of a tag error is when there is a disallowed diff between tags:
+            assert(alu_batched_tags_diff != 0);
+            alu_batched_tags_diff_inv = alu_batched_tags_diff.invert();
+        }
 
         trace.set(row,
                   { {
@@ -73,15 +93,15 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ia, event.a },
                       { C::alu_ib, event.b },
                       { C::alu_ic, event.c },
-                      { C::alu_ia_tag, static_cast<uint8_t>(event.a.get_tag()) },
-                      { C::alu_ib_tag, static_cast<uint8_t>(event.b.get_tag()) },
-                      { C::alu_ic_tag, static_cast<uint8_t>(event.c.get_tag()) },
+                      { C::alu_ia_tag, a_tag },
+                      { C::alu_ib_tag, b_tag },
+                      { C::alu_ic_tag, c_tag },
                       { C::alu_cf, get_carry_flag(event) },
                       // TODO(MW): Not required for add, reinstate when needed:
                       // { C::alu_max_bits, get_tag_bits(event.a.get_tag()) },
                       { C::alu_max_value, get_tag_max_value(event.a.get_tag()) },
-                      { C::alu_tag_err, 0 },               // TODO(MW): Where to get this from?
-                      { C::alu_batched_tags_diff_inv, 0 }, // TODO(MW): Edit this when we propagate the tag_err
+                      { C::alu_tag_err, tag_check_failed ? 1 : 0 },
+                      { C::alu_batched_tags_diff_inv, alu_batched_tags_diff_inv },
                   } });
 
         row++;

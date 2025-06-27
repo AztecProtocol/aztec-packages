@@ -29,7 +29,7 @@ TEST(AvmSimulationAluTest, Add)
     EXPECT_EQ(c, MemoryValue::from<uint32_t>(3));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, {} }));
 }
 
 TEST(AvmSimulationAluTest, AddOverflow)
@@ -45,22 +45,22 @@ TEST(AvmSimulationAluTest, AddOverflow)
     EXPECT_EQ(c, MemoryValue::from<uint32_t>(1));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, {} }));
 }
 
-// TODO(MW): Use the below test when we emit a tag error
-// TEST(AvmSimulationAluTest, NegativeAddTag)
-// {
-//     EventEmitter<AluEvent> alu_event_emitter;
-//     Alu alu(alu_event_emitter);
+TEST(AvmSimulationAluTest, NegativeAddTag)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    Alu alu(alu_event_emitter);
 
-//     auto a = MemoryValue::from<uint32_t>(1);
-//     auto b = MemoryValue::from<uint64_t>(2);
+    auto a = MemoryValue::from<uint32_t>(1);
+    auto b = MemoryValue::from<uint64_t>(2);
 
-//     auto c = alu.add(a, b);
+    auto c = alu.add(a, b);
 
-//     EXPECT_EQ(c, MemoryValue::from<uint32_t>(3));
-// }
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ AluOperation::ADD, a, b, c, AluError::TAG_ERROR }));
+}
 
 } // namespace
 } // namespace bb::avm2::simulation
