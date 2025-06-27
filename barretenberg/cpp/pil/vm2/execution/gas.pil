@@ -1,5 +1,5 @@
-include "precomputed.pil";
-include "range_check.pil";
+include "../precomputed.pil";
+include "../range_check.pil";
 
 // This is a virtual gadget, which is part of the execution trace.
 // https://excalidraw.com/#json=-fkwtFjYVOq2Z69Q351AE,O3SbjwK5eHX7-Oz2OH8RqQ

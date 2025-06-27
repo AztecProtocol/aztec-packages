@@ -23,7 +23,7 @@ struct lookup_get_env_var_precomputed_info_settings_ {
     static constexpr Column INVERSES = Column::lookup_get_env_var_precomputed_info_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_opcode_error,
+        ColumnAndShifts::execution_sel_opcode_error,
         ColumnAndShifts::execution_sel_envvar_pi_lookup_col0,
         ColumnAndShifts::execution_sel_envvar_pi_lookup_col1,
         ColumnAndShifts::execution_envvar_pi_row_idx,

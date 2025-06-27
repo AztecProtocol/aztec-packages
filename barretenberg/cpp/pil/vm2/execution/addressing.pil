@@ -1,7 +1,7 @@
-include "memory.pil";
-include "precomputed.pil";
-include "range_check.pil";
-include "constants_gen.pil";
+include "../memory.pil";
+include "../precomputed.pil";
+include "../range_check.pil";
+include "../constants_gen.pil";
 
 // This gadget constrains the resolution of the operands from instruction fetching.
 // The input operands are op[0], ..., op[6] (from execution.pil).
@@ -312,6 +312,7 @@ in memory.sel { memory.clk, memory.space_id, memory.address, memory.value, memor
 // We use this fact to "batch" the checks and do only 1 comparison against 0 (inverse check).
 pol commit sel_some_final_check_failed;
 // Each tag takes at most 3 bits (guaranteed by mem lookup!), we can encode all of them in a field.
+// See https://hackmd.io/moq6viBpRJeLpWrHAogCZw?both#Batching-comparison-of-n-bit-numbers.
 // This diff will be 0 iff all tags are U32.
 pol BATCHED_TAGS_DIFF = sel_should_apply_indirection[0] * 2**0  * (rop_tag[0] - constants.MEM_TAG_U32)
                       + sel_should_apply_indirection[1] * 2**3  * (rop_tag[1] - constants.MEM_TAG_U32)

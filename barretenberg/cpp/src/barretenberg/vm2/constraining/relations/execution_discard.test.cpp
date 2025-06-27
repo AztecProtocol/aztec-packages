@@ -5,7 +5,7 @@
 
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/relations/execution_discard.hpp"
+#include "barretenberg/vm2/generated/relations/discard.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
@@ -17,7 +17,7 @@ namespace {
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
-using execution_discard = bb::avm2::execution_discard<FF>;
+using execution_discard = bb::avm2::discard<FF>;
 
 TEST(ExecutionDiscardConstrainingTest, EmptyRow)
 {
