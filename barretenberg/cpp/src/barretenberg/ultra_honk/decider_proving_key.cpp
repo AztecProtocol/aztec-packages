@@ -39,7 +39,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_wi
     PROFILE_THIS_NAME("allocate_wires");
 
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(circuit_size);
+        wire = Polynomial::shiftable(dyadic_circuit_size);
     }
 }
 
@@ -48,12 +48,12 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_pe
     PROFILE_THIS_NAME("allocate_permutation_argument_polynomials");
 
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial(circuit_size);
+        sigma = Polynomial(dyadic_circuit_size);
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial(circuit_size);
+        id = Polynomial(dyadic_circuit_size);
     }
-    polynomials.z_perm = Polynomial::shiftable(circuit_size);
+    polynomials.z_perm = Polynomial::shiftable(dyadic_circuit_size);
 }
 
 template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_lagrange_polynomials()
@@ -83,15 +83,15 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProvingKey_<Flavor>::allocate_se
         if (&block == &circuit.blocks.arithmetic) {
             size_t arith_size = circuit.blocks.aux.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
                                 circuit.blocks.aux.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, circuit_size, circuit.blocks.arithmetic.trace_offset());
+            selector = Polynomial(arith_size, dyadic_circuit_size, circuit.blocks.arithmetic.trace_offset());
         } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), circuit_size, block.trace_offset());
+            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_circuit_size, block.trace_offset());
         }
     }
 
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
     for (auto& selector : polynomials.get_non_gate_selectors()) {
-        selector = Polynomial(circuit_size);
+        selector = Polynomial(dyadic_circuit_size);
     }
 }
 
@@ -138,9 +138,9 @@ void DeciderProvingKey_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circ
     // Allocate the ecc op wires and selector
     const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
     for (auto& wire : polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_block_size, circuit_size);
+        wire = Polynomial(ecc_op_block_size, dyadic_circuit_size);
     }
-    polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, circuit_size);
+    polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_circuit_size);
 }
 
 template <IsUltraOrMegaHonk Flavor>
@@ -148,17 +148,17 @@ void DeciderProvingKey_<Flavor>::allocate_databus_polynomials(const Circuit& cir
     requires HasDataBus<Flavor>
 {
     PROFILE_THIS_NAME("allocate_databus_and_lookup_inverse_polynomials");
-    polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.secondary_calldata = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.secondary_calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.secondary_calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.return_data = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, circuit_size);
-    polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, circuit_size);
+    polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.secondary_calldata = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.secondary_calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.secondary_calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.return_data = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
+    polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
 
-    polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, circuit_size);
+    polynomials.databus_id = Polynomial(MAX_DATABUS_SIZE, dyadic_circuit_size);
 
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
