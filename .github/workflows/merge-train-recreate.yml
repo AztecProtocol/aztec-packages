@@ -41,7 +41,7 @@ jobs:
           git push -f origin "$MT"
           gh pr create --base "$BASE" --head "$MT" \
                        --title "feat: $MT" \
-                       --body  "See [Merge Train Documentation](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md) for usage instructions.
+                       --body  "See [merge-train-readme.md](https://github.com/${{ github.repository }}/blob/next/.github/workflows/merge-train-readme.md).
 
 This is a merge-train with no commits."
 
