@@ -1,6 +1,8 @@
 use crate::Test;
 use crate::test_note::TestNote;
-use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
+use dep::aztec::{
+    protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+};
 use address_note::address_note::AddressNote;
 use aztec::history::contract_inclusion::{
     ProveContractDeployment, ProveContractInitialization, ProveContractNonDeployment,
